@@ -111,6 +111,12 @@
     :reader agent-worker
     :type t
     :documentation "The disposable Lisp worker supplied to lisp.* calls.")
+   (session-id
+    :initarg :session-id
+    :initform nil
+    :accessor agent-session-id
+    :type (option string)
+    :documentation "The localgroup session identity associated with this agent.")
    (hurry-up-p
     :initarg :hurry-up-p
     :initform nil
@@ -413,7 +419,8 @@
      (:provider (option model-provider))
      (:conversation (option conversation))
      (:tool-registry (option tool-registry))
-     (:worker t))
+     (:worker t)
+     (:session-id (option string)))
     agent)
 (defun agent-create
     (&key
@@ -421,7 +428,8 @@
        provider
        conversation
        tool-registry
-       worker)
+       worker
+       session-id)
   "Create an agent, filling unspecified provider, conversation, registry, and worker roles."
   (unless (typep configuration 'configuration)
     (error 'configuration-error
@@ -432,8 +440,9 @@
                  :conversation (or conversation
                                    (conversation-create configuration))
                  :tool-registry (or tool-registry
-                                    (make-default-tool-registry))
-                 :worker (or worker (lisp-worker-pool-create configuration))))
+                                     (make-default-tool-registry))
+                 :worker (or worker (lisp-worker-pool-create configuration))
+                 :session-id session-id))
 
 (-> agent-run-user-turn
     (agent (or string user-message-input)
@@ -472,6 +481,30 @@
   (declare (ignore agent))
   nil)
 
+(-> agent--relay-turn-metadata
+    (agent &key (:automatic-p boolean))
+    json-object)
+(defun agent--relay-turn-metadata (agent &key automatic-p)
+  "Return the Relay metadata for AGENT's user turn."
+  (json-object
+   "agent" "autolith"
+   "agent_name" (nemo-relay--agent-name agent)
+   "parent_agent" (nemo-relay--agent-parent-name agent)
+   "child" (if (nemo-relay--agent-child-p agent) t false)
+   "session_id" (agent-session-id agent)
+   "conversation_id"
+   (conversation-identifier (agent-conversation agent))
+   "turn"
+   (1+ (conversation-user-turn-count (agent-conversation agent)))
+   "model"
+   (configuration-model (agent-configuration agent))
+   "reasoning_effort"
+   (configuration-reasoning-effort (agent-configuration agent))
+   "workspace"
+   (namestring
+    (configuration-working-directory (agent-configuration agent)))
+   "automatic" (if automatic-p t false)))
+
 (defmethod agent-run-user-turn
     ((agent agent) (content string)
      &key (observer (make-instance 'agent-observer)) goal-context (tools-p t)
@@ -500,42 +533,55 @@
            :message "A user turn requires text or an image."
            :conversation-id (conversation-identifier (agent-conversation agent))
            :request-number nil))
-  (call-with-skill-logical-turn
-   content
-   (lambda ()
-     (with-lock-held ((agent-turn-lock agent))
-       (let ((conversation (agent-conversation agent)))
-         ;; Compact before appending CONTENT so the fresh question survives
-         ;; verbatim instead of being folded into the summary.
-         (when (agent-should-compact-p agent)
-           (agent-compact-conversation
-            agent observer
-            :tool-allowlist tool-allowlist
-            :tool-restriction-p tool-restriction-p))
-         (multiple-value-bind (item record)
-             (conversation-append-user-message
-              conversation
-              content
-              :pending-input-identifier pending-input-identifier
-              :automatic-p automatic-p)
-           (declare (ignore item))
-           (agent-observer-status
-            observer
-            :user-message-persisted
-            (append
-             (list :sequence (getf (rest record) :seq)
-                   :time (getf (rest record) :time))
-             (when pending-input-identifier
-               (list :pending-input-identifier pending-input-identifier)))))
-         (unwind-protect
-              (agent--run-provider-loop
-               agent observer
-               :goal-context goal-context
-               :tools-p tools-p
-               :tool-allowlist tool-allowlist
-               :tool-restriction-p tool-restriction-p)
-           (conversation-clear-ephemeral-input-items conversation)
-           (setf (conversation-turn-state conversation) nil)))))))
+  (with-nemo-relay-agent
+      ("autolith.turn"
+       :input (nemo-relay--agent-input content)
+       :metadata
+       (agent--relay-turn-metadata agent :automatic-p automatic-p))
+    (nemo-relay-mark
+     "autolith.turn.started"
+     :data
+     (json-object
+      "conversation_id"
+      (conversation-identifier (agent-conversation agent))
+      "turn"
+      (1+ (conversation-user-turn-count (agent-conversation agent)))))
+    (call-with-skill-logical-turn
+     content
+     (lambda ()
+       (with-lock-held ((agent-turn-lock agent))
+         (let ((conversation (agent-conversation agent)))
+           ;; Compact before appending CONTENT so the fresh question survives
+           ;; verbatim instead of being folded into the summary.
+           (when (agent-should-compact-p agent)
+             (agent-compact-conversation
+              agent observer
+              :tool-allowlist tool-allowlist
+              :tool-restriction-p tool-restriction-p))
+           (multiple-value-bind (item record)
+               (conversation-append-user-message
+                conversation
+                content
+                :pending-input-identifier pending-input-identifier
+                :automatic-p automatic-p)
+             (declare (ignore item))
+             (agent-observer-status
+              observer
+              :user-message-persisted
+              (append
+               (list :sequence (getf (rest record) :seq)
+                     :time (getf (rest record) :time))
+               (when pending-input-identifier
+                 (list :pending-input-identifier pending-input-identifier)))))
+           (unwind-protect
+                (agent--run-provider-loop
+                 agent observer
+                 :goal-context goal-context
+                 :tools-p tools-p
+                 :tool-allowlist tool-allowlist
+                 :tool-restriction-p tool-restriction-p)
+             (conversation-clear-ephemeral-input-items conversation)
+             (setf (conversation-turn-state conversation) nil))))))))
 
 
 ;;;; -- Provider and Persistence Flow --
@@ -565,13 +611,21 @@
   (lambda (event)
     (typecase event
       (provider-retry-event
-       (agent-observer-status
-        observer
-        :provider-retrying
-        (list :attempt (provider-retry-event-attempt event)
-              :maximum-attempts
-              (provider-retry-event-maximum-attempts event)
-              :delay (provider-retry-event-delay event))))
+       (let ((attempt (provider-retry-event-attempt event))
+             (maximum-attempts (provider-retry-event-maximum-attempts event))
+             (delay (provider-retry-event-delay event)))
+         (agent-observer-status
+          observer
+          :provider-retrying
+          (list :attempt attempt
+                :maximum-attempts maximum-attempts
+                :delay delay))
+         (nemo-relay-mark
+          "autolith.provider.retry"
+          :data (json-object
+                 "attempt" attempt
+                 "maximum_attempts" maximum-attempts
+                 "delay_seconds" delay))))
       (assistant-delta-event
        (agent-observer-status observer :provider-progress nil)
        (agent-observer-text observer (assistant-delta-event-text event)))
@@ -779,10 +833,12 @@
   nil)
 
 (-> agent--execute-tool-plan
-    (agent list agent-observer boolean boolean)
+    (agent list agent-observer boolean boolean
+     &key (:nemo-relay-propagation-context (option string)))
     list)
 (defun agent--execute-tool-plan
-    (agent plan observer tool-restriction-p record-timings-p)
+    (agent plan observer tool-restriction-p record-timings-p
+     &key nemo-relay-propagation-context)
   "Execute one PLAN body and return its result, timings, or fatal condition."
   (let* ((call      (getf plan :call))
          (call-id   (json-get call "call_id"))
@@ -798,10 +854,35 @@
             :call-id call-id
             :command-authorization-function
             (lambda (command directory)
-              (agent-observer-authorize-command observer command directory))
+              (nemo-relay-mark
+               "autolith.tool.authorization.requested"
+               :data (json-object "kind" "command"))
+              (let ((decision
+                      (agent-observer-authorize-command
+                       observer command directory)))
+                (when (eq decision ':deny)
+                  (nemo-relay-mark
+                   "autolith.tool.authorization.denied"
+                   :data (json-object "kind" "command")))
+                decision))
             :tool-authorization-function
             (lambda (tool arguments)
-              (agent-observer-authorize-tool observer tool arguments))))
+              (nemo-relay-mark
+               "autolith.tool.authorization.requested"
+               :data
+               (json-object
+                "kind" "tool"
+                "tool" (tool-canonical-name tool)))
+              (let ((decision
+                      (agent-observer-authorize-tool observer tool arguments)))
+                (when (eq decision ':deny)
+                  (nemo-relay-mark
+                   "autolith.tool.authorization.denied"
+                   :data
+                   (json-object
+                    "kind" "tool"
+                    "tool" (tool-canonical-name tool))))
+                decision))))
          (*workspace-tool-readable-roots*
            (and tool-restriction-p
                 (list
@@ -811,16 +892,21 @@
                   (agent-configuration agent)))))
          (*resource-readable-schemes*
            (and tool-restriction-p '("workspace")))
+         (*nemo-relay-propagation-context-json* nemo-relay-propagation-context)
          (real-start (get-internal-real-time))
-         (cpu-start  (get-internal-run-time))
+         (cpu-start (get-internal-run-time))
          (result nil)
          (condition nil))
     (handler-case
         (setf result
-              (tool-registry-execute-call
-               (agent-tool-registry agent)
-               call
-               context))
+              (with-nemo-relay-tool
+                  ((function-call-canonical-name call)
+                   call-id
+                   (or (json-get call "arguments") "{}"))
+                (tool-registry-execute-call
+                 (agent-tool-registry agent)
+                 call
+                 context)))
       (serious-condition (failure)
         (setf condition failure)))
     (list
@@ -893,12 +979,14 @@
              :call-id (json-get call "call_id")
              :tool (function-call-canonical-name call)))))
   (let* ((count (length plans))
+         (propagation-context (nemo-relay-current-propagation-context))
          (executions (make-array count))
          (record-timings-p (= count 1)))
     (if (= count 1)
         (setf (aref executions 0)
               (agent--execute-tool-plan
-               agent (first plans) observer tool-restriction-p t))
+               agent (first plans) observer tool-restriction-p t
+               :nemo-relay-propagation-context propagation-context))
         (let ((next-index 0)
               (claim-lock (make-lock "Autolith tool wave claims"))
               (threads nil)
@@ -918,7 +1006,9 @@
                               (nth index plans)
                               observer
                               tool-restriction-p
-                              record-timings-p))))))
+                              record-timings-p
+                              :nemo-relay-propagation-context
+                              propagation-context))))))
             (unwind-protect
                  (progn
                    (loop repeat
@@ -1095,6 +1185,12 @@ checkpoint preserves the current model's opaque reasoning state."
      observer
      :compaction-started
      (list :total-tokens (conversation-last-total-tokens conversation)))
+    (nemo-relay-mark
+     "autolith.compaction.started"
+     :data
+     (json-object
+      "total_tokens"
+      (conversation-last-total-tokens conversation)))
     (let* ((*provider-hosted-tools-enabled-p* (not tool-restriction-p))
            (provider (agent-provider agent))
            (native-item
@@ -1137,8 +1233,14 @@ checkpoint preserves the current model's opaque reasoning state."
        observer
        :compaction-completed
        (list :summary-characters (length summary)
-             :native-p (not (null native-item))))))
-  nil)
+             :native-p (not (null native-item))))
+      (nemo-relay-mark
+       "autolith.compaction.completed"
+       :data
+       (json-object
+        "summary_characters" (length summary)
+        "native" (if (not (null native-item)) t false))))
+  nil))
 
 (-> agent--run-provider-loop
     (agent agent-observer &key (:goal-context (option string))

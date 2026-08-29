@@ -714,6 +714,10 @@ Optional identity values preserve one session across quiescence or process hando
                        (localgroup-registry-pathname configuration identifier)
                        :created-at created-at)
                       (application-localgroup-session application) session)
+                (let ((agent (and (slot-boundp application 'agent)
+                                  (application-agent application))))
+                  (when (typep agent 'agent)
+                    (setf (agent-session-id agent) identifier)))
                (let ((terminal
                        (terminal-ui-terminal (application-ui application)))
                      (controller (application-input-controller application)))

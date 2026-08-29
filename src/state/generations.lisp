@@ -409,6 +409,7 @@ dropped and inherited worker descriptors detached before the image is saved."
         *active-secret-use-count* 0
         *secret-use-depth* 0
         *secret-use-quiescence-owner* nil)
+  (nemo-relay--detach-for-checkpoint)
   (checkpoint--detach-worker worker)
   (when (boundp '*active-application*)
     (checkpoint-detach-state (symbol-value '*active-application*)))
@@ -511,6 +512,12 @@ dropped and inherited worker descriptors detached before the image is saved."
             (tool-context-configuration context)
             (tool-context-worker context)
             :tool-registry (tool-context-registry context)))))
+    (nemo-relay-mark
+     "autolith.checkpoint.created"
+     :data
+     (json-object
+      "generation" (generation-identifier generation)
+      "coordinator_pid" (generation-coordinator-pid generation)))
     (tool-success
      (format nil "Checkpoint ~A is being published by coordinator process ~D."
              (generation-identifier generation)

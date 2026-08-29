@@ -219,6 +219,7 @@ that a body returned. An artifact that cannot be written downgrades the state to
           (task-job-definition-summary job) definition-summary
           (task-job-definition job) nil
           (task-job-parent-agent job) nil
+          (task-job-nemo-relay-propagation-context job) nil
           (task-job-inherited-reference-p job) nil
           (task-job-inherited-reference-items job) nil
           (task-job-command-authorization-function job) nil
@@ -314,6 +315,8 @@ start under a cancelled ancestor, and hands over to the child."
   (setf (tool-execution-job-operation-function job) nil)
   (let* ((tool-result-p (typep result 'tool-result))
          (successful-p (and tool-result-p (tool-result-success-p result)))
+         (error-code (and tool-result-p (tool-result-error-code result)))
+         (details (and tool-result-p (tool-result-details result)))
          (final-state
            (cond
              ((eq state :aborted) :aborted)
@@ -343,7 +346,9 @@ start under a cancelled ancestor, and hands over to the child."
                  (get-internal-real-time)))))
     (values (list :status status
                   :content content
-                  :duration-ms duration)
+                  :duration-ms duration
+                  :error-code error-code
+                  :details details)
             (and final-report
                  (bounded-string final-report
                                  :limit *tool-execution-result-limit*))
@@ -355,13 +360,17 @@ start under a cancelled ancestor, and hands over to the child."
 (defun tool-execution-job-result->tool-result (job)
   "Rebuild the ordinary tool outcome retained by terminal execution JOB."
   (let* ((record (job-result job))
+         (successful-p
+           (and (listp record) (eq (getf record :status) :success)))
+         (error-code (and (listp record) (getf record :error-code)))
+         (details (and (listp record) (getf record :details)))
          (content
            (or (and (listp record) (getf record :content))
                (job-condition-report job)
                "The tool execution has no retained result.")))
-    (if (and (listp record) (eq (getf record :status) :success))
-        (tool-success content)
-        (tool-failure content))))
+    (if successful-p
+        (tool-success content :details details)
+        (tool-failure content :code error-code :details details))))
 
 (-> task-orchestrator-start-execution-job
     (task-orchestrator agent
@@ -509,6 +518,8 @@ guarantee."
          (root-conversation-identifier
            (task-parent-root-conversation-identifier parent-agent))
          (owner-identifiers (task-parent-owner-identifiers parent-agent))
+         (nemo-relay-propagation-context
+           (nemo-relay-current-propagation-context))
          (reference-enabled-entries (make-hash-table :test #'eq))
          (reference-byte-limit nil)
          (inherited-reference-items nil))
@@ -555,6 +566,8 @@ guarantee."
                               :execution-identifier (make-identifier)
                               :session-order session-order
                               :definition (getf entry :definition)
+                              :nemo-relay-propagation-context
+                              nemo-relay-propagation-context
                               :item item
                               :parent-agent parent-agent
                               :inherited-reference-p inherited-p

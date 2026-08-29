@@ -4,7 +4,9 @@
   :license "ISC"
   :version "0.42.0"
   :serial t
-  :depends-on (#:cl-base64
+  :depends-on (#:cffi
+               #:cl-base64
+               #:cl-toml
                #:cl+ssl
                #:cl-colorist
                #:cl-exec-sandbox
@@ -49,6 +51,13 @@
                              (:file "core/conditions")
                              (:file "localgroup/protocol")
                              (:file "core/json")
+                             (:file "observability/nemo-relay-ffi")
+                             (:file "observability/nemo-relay-support")
+                             (:file "observability/nemo-relay-api")
+                             (:file "observability/nemo-relay-observability")
+                             (:file "observability/nemo-relay-toml")
+                             (:file "observability/nemo-relay-configuration")
+                             (:file "observability/nemo-relay-events")
                              (:file "core/time")
                              (:file "core/source-files")
                              (:file "core/streams")
@@ -198,6 +207,7 @@
   :components ((:module "tests"
                 :serial t
                 :components ((:file "test-support")
+                             (:file "relay-tests")
                              (:file "stream-tests")
                              (:file "memory-tests")
                              (:file "papercut-tests")
