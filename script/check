@@ -37,6 +37,7 @@ constant_matches=$(
     "$constant_pattern" \
     "$source_root/autolith.asd" \
     "$source_root/src" \
+    "$source_root/nooa-autolith-extension" \
     "$source_root/recovery" \
     "$source_root/server" \
     "$source_root/script" \

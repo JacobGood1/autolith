@@ -35,11 +35,10 @@
 (-> active-image-source-paths (pathname) list)
 (defun active-image-source-paths (source-root)
   "Return sorted repository-relative inputs compiled into an active image."
-  (let* ((source-directory (merge-pathnames "src/" source-root))
-         (lisp-paths
+  (let* ((lisp-paths
            (mapcar (lambda (pathname)
                      (enough-namestring pathname source-root))
-                   (source-lisp-pathnames source-directory))))
+                   (project-lisp-pathnames source-root))))
     (sort (append '("bin/autolith"
                     "bin/autolith-active"
                     "bin/autolith-search-worker"

@@ -7077,6 +7077,8 @@
             :cache-root (configuration-cache-root base)
             :config-root (configuration-config-root base)
             :codex-auth-path (configuration-codex-auth-path base)
+            :grok-bootstrap-auth-path
+            (configuration-grok-bootstrap-auth-path base)
             :model (configuration-model base)
             :reasoning-effort (configuration-reasoning-effort base)
             :web-search-mode "live"

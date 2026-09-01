@@ -1001,10 +1001,9 @@ protocol."
 (-> self-tracked-definitions (configuration symbol) list)
 (defun self-tracked-definitions (configuration symbol)
   "Return complete tracked top-level definitions whose name is SYMBOL."
-  (let* ((source-root (configuration-source-root configuration))
-         (editable-root (merge-pathnames "src/" source-root)))
+  (let ((source-root (configuration-source-root configuration)))
     (self-source--definitions
-     (source-lisp-pathnames editable-root)
+     (project-lisp-pathnames source-root)
      :root source-root
      :package (find-package '#:autolith)
      :symbol symbol)))

@@ -381,6 +381,7 @@
     (test-rlm-designator-confinement)
     (test-rlm-permission-classifier)
     (run-run-job-tests)
+    (test-domain-agent-extension)
     (test-task-orchestration)
     (test-task-child-shared-agent-loop)
     (test-task-default-detachment)

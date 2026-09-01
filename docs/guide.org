@@ -540,6 +540,38 @@ independently.
 - =:static-options= replaces =:argument= for one finite positional parameter.
   It derives the help hint and both slash and parenthesized completions.
 
+** Domain agents
+
+A domain agent is a CLOS object whose registered methods are its
+capabilities. Deterministic methods use =define-domain-capability=.
+Methods whose implementation is an LLM loop use =define-agentic-method=
+and return a value that already satisfies a native task/RLM contract.
+
+#+BEGIN_SRC lisp
+(defclass support-agent (domain-agent)
+  ((order-db :initarg :order-db :accessor support-agent-order-db))
+  (:documentation "You are a support agent."))
+
+(define-domain-capability refund-eligible-p
+    ((agent support-agent) (order order))
+  "Return true when ORDER was delivered within 30 days."
+  (and (order-delivered-p order)
+       (<= (order-days-since-delivery order) 30)))
+
+(define-agentic-method triage ((agent support-agent) message order)
+  (:documentation "Create a typed support ticket.")
+  (:contract (:type :object
+              :properties (("eligible" (:type :boolean)))
+              :required ("eligible")))
+  (:strategy :predict))
+#+END_SRC
+
+=:predict= runs one contracted =infer= frame over bounded previews of
+the live arguments. =:code-act= interprets =(preview NAME)=,
+=(call CAPABILITY ARG*)=, and =(finish VALUE)= against those live
+objects; generated forms are not evaluated in the Autolith image.
+See [[file:../nooa-autolith-extension/README.org][domain agents]].
+
 ** Child roles
 
 Roles load from these directories. First match wins:

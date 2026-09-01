@@ -693,6 +693,13 @@
            #:application-command-terminal-owner-p
            #:application-command-tip
            #:define-application-command
+           #:define-agentic-method
+           #:define-domain-capability
+           #:domain-agent
+           #:domain-agent-capabilities
+           #:domain-agent-document
+           #:domain-agent-error
+           #:domain-agent-invoke
            #:main
            #:context-contributor-registrations
            #:context-status
@@ -709,6 +716,8 @@
            #:release-server-main
            #:run-tests
            #:unregister-application-command
+           #:value-preview
+           #:with-domain-agent-environment
            #:unregister-context-contributor
            #:worker-main))
 

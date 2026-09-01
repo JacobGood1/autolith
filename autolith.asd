@@ -179,7 +179,13 @@
                              (:file "localgroup/checkpoint")
                              (:file "localgroup/client")
                              (:file "startup/main")
-                             (:file "startup/active-image"))))
+                             (:file "startup/active-image")))
+               (:module "nooa-autolith-extension"
+                :serial t
+                :components ((:file "preview")
+                             (:file "protocol")
+                             (:file "predict")
+                             (:file "code-act"))))
   :in-order-to ((asdf:test-op (asdf:test-op #:autolith/tests))))
 
 (asdf:defsystem #:autolith/release-server
@@ -257,6 +263,7 @@
                              (:file "nous-device-authentication-tests")
                              (:file "agent-tests")
                              (:file "inference-tests")
+                             (:file "nooa-autolith-extension-tests")
                              (:file "task-test-support")
                              (:file "task-agent-tests")
                              (:file "task-execution-tests")
