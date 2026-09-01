@@ -1339,6 +1339,13 @@
            #:application-command-terminal-owner-p
            #:application-command-tip
            #:define-application-command
+           #:define-agentic-method
+           #:define-domain-capability
+           #:domain-agent
+           #:domain-agent-capabilities
+           #:domain-agent-document
+           #:domain-agent-error
+           #:domain-agent-invoke
            #:main
            #:context-contributor-registrations
            #:context-status
@@ -1357,7 +1364,9 @@
            #:run-tests
            #:unregister-application-command
            #:unregister-context-contributor
+           #:value-preview
            #:vault-contents
+           #:with-domain-agent-environment
            #:*structural-program*
            #:structural-register-tools
            #:structural-register-default-tools

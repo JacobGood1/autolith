@@ -42,6 +42,7 @@ Autolith questions and issues can be discussed on the
 - [[file:docs/skills.org][Skills]]
 - [[file:docs/mcp.org][MCP]]
 - [[file:docs/rlm.org][RLM]]
+- [[file:nooa-autolith-extension/README.org][Domain agents]]
 - [[file:AGENTS.md][Contributor rules]]
 - [[https://github.com/chakanysystems/autolith-remote][Autolith Remote]]
 

@@ -1,0 +1,63 @@
+#+TITLE: Domain agents
+#+STARTUP: content
+
+This directory is a Lisp-native slice of the object-oriented agent idea,
+not a port of NVIDIA-labs OO Agents. All files live in the single
+=#:autolith= package.
+
+A domain agent is a CLOS object you call from Lisp. Ordinary methods stay
+Lisp. Methods defined with =define-agentic-method= run an LLM strategy and
+return a value that has already passed a native task/RLM contract.
+
+* What this is for
+
+Use it for specialists you invoke as functions, such as a classifier or a
+support triage object. The primary terminal agent, =self.*= mutation, and
+=lisp.*= workers stay as they are.
+
+* Authoring
+
+#+BEGIN_SRC lisp
+(defclass support-agent (domain-agent)
+  ((order-db :initarg :order-db :accessor support-agent-order-db))
+  (:documentation "You are a support agent."))
+
+(define-domain-capability refund-eligible-p
+    ((agent support-agent) (order order))
+  "Return true when ORDER was delivered within 30 days."
+  (and (order-delivered-p order)
+       (<= (order-days-since-delivery order) 30)))
+
+(define-agentic-method triage ((agent support-agent) message order)
+  (:documentation "Create a typed support ticket.")
+  (:contract (:type :object
+              :properties (("eligible" (:type :boolean)))
+              :required ("eligible")))
+  (:strategy :predict))
+#+END_SRC
+
+=(triage agent "this never arrived" order)= is an ordinary call. Pass a
+provider through =with-domain-agent-environment=, or rely on the active
+application.
+
+* Strategies
+
+- =:predict= runs one contracted =infer= frame. Live arguments appear as
+  bounded previews, not serialized dumps.
+- =:code-act= is a host-side interpreter. The model may write =(preview
+  NAME)=, =(call CAPABILITY ARG*)=, or =(finish VALUE)=. Those forms are
+  not =eval='d in the Autolith image. =call= runs registered methods on
+  the live object; =finish= must satisfy the contract or the loop
+  continues.
+
+Internal slots whose names start with a double hyphen are omitted from
+previews and catalogs.
+
+* Files
+
+| File           | Responsibility                                      |
+|----------------+-----------------------------------------------------|
+| preview.lisp   | Bounded live-value previews                         |
+| protocol.lisp  | Domain-agent class, macros, catalog, invocation     |
+| predict.lisp   | Predict strategy over =infer=                       |
+| code-act.lisp  | Interpreted CodeAct loop with validated termination |

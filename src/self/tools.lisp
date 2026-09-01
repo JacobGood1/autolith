@@ -1168,15 +1168,16 @@ Inside WITH-TRACKED-DEFINITION-SNAPSHOT the source is read once for all lookups.
 
 (-> self--tracked-source-pathnames (configuration) list)
 (defun self--tracked-source-pathnames (configuration)
-  "Return CONFIGURATION's tracked src/ files this image loads.
+  "Return CONFIGURATION's tracked project Lisp files this image loads.
 
-Files belonging only to unloaded optional systems or withheld features are left out."
+The files are those below *PROJECT-LISP-SOURCE-DIRECTORIES*. Files belonging
+only to unloaded optional systems or withheld features are left out."
   (let* ((source-root (config :source-root configuration))
          (withheld    (self-source--withheld-files :root source-root)))
     (remove-if (lambda (pathname)
                  (member (enough-namestring pathname source-root) withheld
                          :test #'string=))
-               (source-lisp-pathnames (merge-pathnames "src/" source-root)))))
+               (project-lisp-pathnames source-root))))
 
 (-> self-tracked-definition (configuration list) (option tracked-definition))
 (defun self-tracked-definition (configuration definition)

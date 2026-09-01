@@ -1057,6 +1057,13 @@
   test-rlm-whole-resource-views
   test-rlm-permission-classifier)
 
+(define-test-suite domain-agents
+  test-value-preview
+  test-domain-agent-catalog
+  test-domain-agent-predict
+  test-domain-agent-code-act
+  test-domain-agent-source-membership)
+
 (define-test-suite run-job
   test-run-job-relative-paths
   test-run-job-runtime-usage

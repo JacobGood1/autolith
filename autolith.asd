@@ -372,7 +372,13 @@
                                           (:file "acp/completions")
                                           (:file "telemetry/hooks")
                                           (:file "startup/main")
-                                          (:file "startup/active-image"))))
+                                          (:file "startup/active-image")))
+                            (:module     "nooa-autolith-extension"
+                             :serial     t
+                             :components ((:file "preview")
+                                          (:file "protocol")
+                                          (:file "predict")
+                                          (:file "code-act"))))
   :in-order-to             ((asdf:test-op (asdf:test-op #:autolith/tests))))
 
 #-win32
@@ -491,6 +497,7 @@
                                           (:file "nous-device-authentication-tests")
                                           (:file "agent-tests")
                                           (:file "inference-tests")
+                                          (:file "nooa-autolith-extension-tests")
                                           (:file "task-test-support")
                                           (:file "job-completion-policy-tests")
                                           (:file "job-completion-delivery-tests")
