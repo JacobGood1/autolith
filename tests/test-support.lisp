@@ -113,9 +113,9 @@
                    :codex-auth-path (merge-pathnames "missing-auth.json" root)
                    :grok-bootstrap-auth-path
                    (merge-pathnames "missing-grok-auth.json" root)
-                   :model *default-model*
+                   :model "gpt-5.6-sol"
                    :context-window (configuration--context-window-for
-                                    *default-model*)
+                                    "gpt-5.6-sol")
                    :reasoning-effort *default-reasoning-effort*
                    :provider-endpoint *codex-responses-endpoint*)))
 (-> test-configuration-root (configuration) pathname)
@@ -139,6 +139,6 @@
                    :codex-auth-path (merge-pathnames "missing-auth.json" state-root)
                    :grok-bootstrap-auth-path
                    (merge-pathnames "missing-grok-auth.json" state-root)
-                   :model *default-model*
+                   :model "gpt-5.6-sol"
                    :reasoning-effort *default-reasoning-effort*
                    :provider-endpoint *codex-responses-endpoint*)))

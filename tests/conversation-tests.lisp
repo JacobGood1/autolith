@@ -1287,9 +1287,10 @@
        :grok-bootstrap-auth-path
        (pathname
         ,(namestring (configuration-grok-bootstrap-auth-path configuration)))
-       :model ,*default-model*
-       :reasoning-effort ,*default-reasoning-effort*
-       :provider-endpoint ,*codex-responses-endpoint*))))
+       :model ,(configuration-model configuration)
+       :reasoning-effort ,(configuration-reasoning-effort configuration)
+       :provider-endpoint
+       ,(configuration-provider-endpoint configuration)))))
 
 (-> test-conversation--child-project-setup () pathname)
 (defun test-conversation--child-project-setup ()

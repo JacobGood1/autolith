@@ -133,8 +133,8 @@
   (let ((configuration (configuration-create
                         :source-root (asdf:system-source-directory :autolith)
                         :working-directory (asdf:system-source-directory :autolith))))
-    (test-assert (string= (configuration-model configuration) "gpt-5.6-sol")
-                 "the default model is gpt-5.6-sol")
+    (test-assert (string= (configuration-model configuration) "grok-4.6")
+                 "the default model is grok-4.6")
     (let ((*default-model* "gpt-5.6-luna"))
       (test-assert
        (string= (configuration-model

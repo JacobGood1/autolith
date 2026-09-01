@@ -5,7 +5,7 @@
 (defparameter *autolith-version* "0.46.1"
   "The user-visible Autolith version.")
 
-(defparameter *default-model* "gpt-5.6-sol"
+(defparameter *default-model* "grok-4.6"
   "The default model requested from the subscription provider.")
 
 (defparameter *default-reasoning-effort* "ultra"
@@ -261,7 +261,7 @@
 ;; ql:quickload must not reset it to the built-in list and invalidate
 ;; the very model the image is running on.
 (defvar *supported-models*
-  '("gpt-5.6-sol" "gpt-5.6-luna" "gpt-5.6-terra" "grok-4.5"
+  '("gpt-5.6-sol" "gpt-5.6-luna" "gpt-5.6-terra" "grok-4.6" "grok-4.5"
     "accounts/fireworks/models/kimi-k3")
   "The model identifiers offered by the interactive model picker.")
 
@@ -282,6 +282,7 @@
   '(("gpt-5.6-sol"   . 272000)
     ("gpt-5.6-luna"  . 272000)
     ("gpt-5.6-terra" . 272000)
+    ("grok-4.6"      . 500000)
     ("grok-4.5"      . 500000)
     ("accounts/fireworks/models/kimi-k3" . 1048576))
   "Provider context window sizes in tokens for known models.")
