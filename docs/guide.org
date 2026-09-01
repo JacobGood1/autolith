@@ -570,7 +570,10 @@ and return a value that already satisfies a native task/RLM contract.
 the live arguments. =:code-act= interprets =(preview NAME)=,
 =(call CAPABILITY ARG*)=, and =(finish VALUE)= against those live
 objects; generated forms are not evaluated in the Autolith image.
-See [[file:../nooa-autolith-extension/README.org][domain agents]].
+
+Call a domain agent from the Autolith REPL as ordinary Lisp. It uses
+the active provider, which defaults to =grok-4.6=. See
+[[file:../nooa-autolith-extension/README.org][domain agents]].
 
 ** Child roles
 

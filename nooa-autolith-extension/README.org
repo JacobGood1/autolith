@@ -40,6 +40,36 @@ support triage object. The primary terminal agent, =self.*= mutation, and
 provider through =with-domain-agent-environment=, or rely on the active
 application.
 
+* Using it from Autolith
+
+The domain agent lives in the same image as the terminal agent. Define
+the class in a loaded file or at the REPL, then call it like any other
+Lisp function. The conversational Autolith agent does not become a
+NOOA class; it stays the primary REPL and can invoke domain agents as
+helpers.
+
+#+BEGIN_SRC lisp
+(defparameter *support*
+  (make-instance 'support-agent :order-db *orders*))
+
+;; Uses the active application's provider, currently grok-4.6 by default.
+(triage *support* "this never arrived" order)
+
+;; Pin a provider, configuration, or budget for one call tree.
+(with-domain-agent-environment
+    (:provider provider :configuration configuration :budget budget)
+  (triage *support* "this never arrived" order))
+#+END_SRC
+
+=:predict= is one contracted =infer= frame, so it shares Autolith's
+provider, budget, and trace machinery. =:code-act= can =call= your
+deterministic capabilities on the live object, then =finish= a value
+that must match the contract.
+
+NVIDIA-labs OO Agents stays a Python library. If a workspace is a NOOA
+project, Autolith authors and tests that Python like any other
+project. Do not run NOOA's CodeAct loop inside the Autolith image.
+
 * Strategies
 
 - =:predict= runs one contracted =infer= frame. Live arguments appear as
