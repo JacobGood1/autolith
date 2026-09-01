@@ -27,6 +27,7 @@ Reloading a suite replaces its registration without duplicating cases."
        ,@(loop for name in cases
                collect `(fiveam:test (,name :suite ,suite :compile-at :definition-time)
                           (let ((*tests-running-p* t)
+                                (*default-model*   *test-codex-model*)
                                 (*telemetry-process-function*
                                   (lambda (run request) (declare (ignore run request)) nil))
                                 (*model-catalog-fetch-function*

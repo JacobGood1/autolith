@@ -5,7 +5,7 @@
 (defparameter *autolith-version* (asdf:component-version (asdf:find-system "autolith"))
   "The user-visible version from the Autolith system definition.")
 
-(defparameter *default-model* "gpt-6.1-sol"
+(defparameter *default-model* "grok-4.6"
   "The default model requested from the subscription provider.")
 
 (defparameter *default-reasoning-effort* "high"
@@ -263,7 +263,7 @@
 ;; the very model the image is running on.
 (defvar *supported-models*
   '("gpt-6.1-sol" "gpt-6.1-terra" "gpt-6-sol" "gpt-6-luna" "gpt-6-astra"
-    "gpt-5.6-sol" "gpt-5.6-luna" "gpt-5.6-terra" "grok-4.5"
+    "gpt-5.6-sol" "gpt-5.6-luna" "gpt-5.6-terra" "grok-4.6" "grok-4.5"
     "accounts/fireworks/models/kimi-k3")
   "The model identifiers offered by the interactive model picker.")
 
@@ -305,6 +305,7 @@ gpt-6.1-terra is assumed to, like gpt-5.6-terra, until upstream lists it.")
     ("gpt-5.6-sol"   . 272000)
     ("gpt-5.6-luna"  . 272000)
     ("gpt-5.6-terra" . 272000)
+    ("grok-4.6"      . 500000)
     ("grok-4.5"      . 500000)
     ("accounts/fireworks/models/kimi-k3" . 1048576))
   "Provider context window sizes in tokens for known models.")

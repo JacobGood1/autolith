@@ -124,6 +124,9 @@ process-global fixture parent on exit; parallel runs need separate processes."
       (setf (sb-ext:symbol-global-value '*test-temporary-root*) previous)
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore))))
 
+(defparameter *test-codex-model* "gpt-6.1-sol"
+  "The Codex model registered test cases see as *DEFAULT-MODEL*, whatever the shipped default.")
+
 (-> test-configuration (&key (:site-config-root (option pathname))
                            (:telemetry-defaults-p boolean)) configuration)
 (defun test-configuration (&key site-config-root telemetry-defaults-p)
