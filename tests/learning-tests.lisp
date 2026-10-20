@@ -480,3 +480,87 @@
                                  :key #'tool-canonical-name :test #'string=))
                      "procedure.run is offered only while knowledge is active"))))
   nil)
+
+(-> test-procedure-commands () null)
+(defun test-procedure-commands ()
+  "Test listing, running, admitting, and retiring procedures with commands."
+  (with-test-configuration (base root)
+    (let* ((configuration (configuration-copy base :working-directory root))
+           (conversation (conversation-create configuration))
+           (application (make-instance 'application :configuration configuration
+                                                    :conversation conversation))
+           (registry (make-instance 'tool-registry))
+           (context (make-instance 'tool-context :configuration configuration :worker nil
+                                                 :registry registry :conversation conversation)))
+      (learning-tests--tool registry "sales.load"
+                            (lambda (arguments)
+                              (json-object "rows" 3 "table"
+                                           (format nil "t-~A"
+                                                   (subseq (json-get arguments "file") 5 7)))))
+      (learning-tests--tool registry "sales.report"
+                            (lambda (arguments)
+                              (json-object "report" (json-get arguments "table"))))
+      (learning-tests--tool registry "notify.send" (lambda (arguments)
+                                                     (declare (ignore arguments))
+                                                     (json-object "sent" t)))
+      (flet ((text (entry)
+               (memory-source-tests--text entry)))
+        (test-assert (search "No procedures are learned yet"
+                             (text (application-procedures-entry application)))
+                     "(procedures) explains when procedures are learned")
+        (dolist (quarter '("q1" "q2" "q3"))
+          (learning-tests--report-turn conversation quarter))
+        (procedure-learn configuration)
+        (let ((listing (text (application-procedures-entry application))))
+          (test-assert (and (search "? make-sales-report v1  candidate · 0 runs, 0 failed · (admit-procedure \"make-sales-report\")"
+                                    listing)
+                            (search "sales.load → sales.report → notify.send" listing)
+                            (search "request: Make the sales report for {file}." listing)
+                            (search "learned from 3 turns averaging 4 requests, 6000 tokens" listing))
+                       "(procedures) lists a learned procedure awaiting admission"))
+        (test-call-with-function-replacements
+         (list (list 'application-tool-context (lambda (application)
+                                                 (declare (ignore application))
+                                                 context)))
+         (lambda ()
+           (let ((ran (text (application-procedure-run-entry application "make-sales-report"
+                                                             '(:file "q5")))))
+             (test-assert (and (search "ran  Procedure make-sales-report v1 made 3 calls" ran)
+                               (search "sales.report {\"table\":\"t-q5\",\"title\":\"Sales q5\"}" ran))
+                          "(run-procedure) admits the procedure and makes its calls"))
+           (test-assert (search "needs parameter file"
+                                (text (application-procedure-run-entry application
+                                                                       "make-sales-report" nil)))
+                        "(run-procedure) names a missing parameter")))
+        (conversation-append-user-message conversation "Make the sales report for q6.")
+        (learning-tests--call conversation
+                              :call-id "run-1" :tool "procedure.run"
+                              :arguments (json-object "id" "make-sales-report"
+                                                      "parameters" (json-object "file" "q6"))
+                              :output (json-object "made" 3))
+        (learning-tests--request conversation "run-1-r1" 1200)
+        (learning-tests--request conversation "run-1-r2" 1300)
+        (let ((listing (text (application-procedures-entry application))))
+          (test-assert (and (search "✓ make-sales-report v1  admitted · 1 run, 0 failed" listing)
+                            (search "turns running it: 2 requests, 2500 tokens (1 turn)" listing))
+                       "(procedures) compares turns running it with the turns it was learned from"))
+        (test-assert (search "retired  make-sales-report"
+                             (text (application-procedure-transition-entry
+                                    application "make-sales-report" ':retire)))
+                     "(retire-procedure) retires it")
+        (test-assert (search "× make-sales-report v1  retired"
+                             (text (application-procedures-entry application)))
+                     "a retired procedure stays listed as retired")
+        (test-assert (search "admitted  make-sales-report v1"
+                             (text (application-procedure-transition-entry
+                                    application "make-sales-report" ':admit)))
+                     "(admit-procedure) admits it again")
+        (test-assert (search "No procedure is named missing"
+                             (text (application-procedure-transition-entry
+                                    application "missing" ':admit)))
+                     "an unknown procedure points to (procedures)")
+        (test-assert (equal (application--procedures-learned-notice
+                             '(("make-sales-report" 1 3) ("archive" 2 4)))
+                            "@ learned procedure make-sales-report from 3 turns · procedure archive v2 learned from 4 turns · (procedures)")
+                     "the person is told which procedures were learned"))))
+  nil)

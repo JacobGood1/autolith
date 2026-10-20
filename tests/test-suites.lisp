@@ -374,7 +374,8 @@
   test-procedure-lifecycle
   test-procedure-mining
   test-procedure-learning
-  test-procedure-running)
+  test-procedure-running
+  test-procedure-commands)
 
 (define-test-suite papercut
   test-papercuts)

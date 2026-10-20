@@ -86,16 +86,19 @@ none. Unreadable storage yields none instead of failing the caller."
     (error ()
       nil)))
 
-(-> action-traces (configuration &key (:limit integer)) list)
-(defun action-traces (configuration &key (limit *action-trace-limit*))
-  "Return up to LIMIT recent accepted traces of CONFIGURATION's workspace, newest first."
+(-> action-traces (configuration &key (:limit integer) (:predicate function)) list)
+(defun action-traces (configuration &key (limit *action-trace-limit*)
+                                         (predicate #'action-trace-accepted-p))
+  "Return up to LIMIT recent traces of CONFIGURATION's workspace satisfying PREDICATE, newest first.
+
+By default only traces accepted for learning are returned."
   (let ((workspace (knowledge--workspace configuration))
         (collected nil))
     (loop for pathname in (conversation-list configuration)
           repeat *action-trace-conversation-limit*
           do (setf collected
                    (append collected
-                           (reverse (remove-if-not #'action-trace-accepted-p
+                           (reverse (remove-if-not predicate
                                                    (action-traces-in-conversation
                                                     pathname :workspace workspace)))))
           until (>= (length collected) limit))

@@ -137,6 +137,22 @@ ones are not."
                                     :procedure procedure
                                     :bindings (reverse bindings)))))))
 
+(-> procedure-savings (configuration string) (option list))
+(defun procedure-savings (configuration identifier)
+  "Return what recent turns that ran procedure IDENTIFIER cost, or NIL when none did.
+
+The plist holds :TURNS and the average :REQUESTS and :TOKENS of the turns in
+which the model ran it successfully, to compare with the procedure's baseline."
+  (let ((traces (action-traces configuration
+                               :predicate (lambda (trace)
+                                            (procedure--ran-p trace identifier)))))
+    (and traces
+         (list :turns (length traces)
+               :requests (round (reduce #'+ traces :key #'action-trace-requests)
+                                (length traces))
+               :tokens (round (reduce #'+ traces :key #'action-trace-tokens)
+                              (length traces))))))
+
 (-> procedure-admission-command (string list) string)
 (defun procedure-admission-command (identifier version)
   "Return the command text a person approves to admit VERSION of procedure IDENTIFIER."
@@ -241,6 +257,17 @@ Numbers and booleans given as text are read as such first."
                       "name" (tool-name tool)
                       "arguments" (json-encode arguments))
          context))))
+
+(-> procedure--ran-p (action-trace string) boolean)
+(defun procedure--ran-p (trace identifier)
+  "Return true when TRACE ran procedure IDENTIFIER successfully."
+  (and (find-if (lambda (call)
+                  (and (equal (getf call :tool) "procedure.run")
+                       (eq (getf call :status) ':ok)
+                       (json-object-p (getf call :arguments))
+                       (equal (json-get (getf call :arguments) "id") identifier)))
+                (action-trace-calls trace))
+       t))
 
 (-> procedure--coerce (list t) t)
 (defun procedure--coerce (parameter value)
