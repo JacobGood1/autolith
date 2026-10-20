@@ -150,7 +150,7 @@ holds the same file lock as source invalidation and writes.
 | State         | Components                                               |
 |---------------+----------------------------------------------------------|
 | Conversations | headers, messages, provider items, model choices         |
-| Memories      | workspace and global facts, replacement and recall tombs |
+| Memories      | workspace and global facts, sources and premises, tombs  |
 | Agendas       | versioned workspace plans and memory identifiers         |
 | Papercuts     | user-visible defect reports and closure tombstones       |
 | Input vault   | queued follow-ups and steering after a crash             |

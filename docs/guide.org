@@ -428,7 +428,8 @@ than the terminal emulator's native scrollback.
 
 For input with matching saved memories, a dim =@ N relevant memories exist= line
 appears below your message. Its count is the number offered to the model for that
-request. Each input gets one notice across tool calls and provider retries.
+request, followed by how many of them are stale or unverified (see the Memories section).
+Each input gets one notice across tool calls and provider retries.
 
 Input recall includes every user message, command, and Lisp submission in the
 conversation. Automatic messages and assistant output are excluded. On first use,
@@ -849,6 +850,50 @@ title matching word for word, or a title and body whose words largely overlap
 a report from the last day, answers with that existing report instead. A
 conversation re-filing within an hour of its own report is matched more
 loosely, since rewritten repeats share fewer words.
+
+** Memories
+
+Autolith remembers durable facts, preferences, and decisions per workspace or
+globally, and offers the related ones with each request. A memory can record
+where it came from:
+
+- a quoted passage of a file, or the whole file;
+- your own words in the conversation;
+- a web page;
+- other memories it was derived from, its premises.
+
+When a cited file no longer contains its quoted passage, or a premise changes
+or is forgotten, the memory becomes /stale/, and so does every memory derived
+from it. Restoring the passage makes them current again. Quotes are compared
+ignoring whitespace, so reformatting a file leaves its memories alone. Your
+words and web pages are provenance: they are never refetched, and once a
+memory cites files, those files decide whether it is current. A memory whose
+only cited files cannot be read is /unverified/. Status is worked out when a
+memory is listed or recalled, from the files as they are then; checking makes
+no model requests.
+
+#+BEGIN_SRC lisp
+(memories)            ; relevant memories, stale ones first
+(memories "deploy")   ; only those matching a query
+(memory "3afbfa1a")   ; one memory, its evidence, and what relies on it
+(forget "3afbfa1a")   ; stop recalling it
+#+END_SRC
+
+Any unique prefix of a memory ID selects it. =(forget)= names the memories
+that relied on the forgotten one, which are now stale. Recall marks stale
+memories for the model, which rechecks them before relying on them and
+replaces or forgets them, and the recall notice counts them:
+=@ 3 relevant memories exist · 1 stale=.
+
+The model records evidence through the =memory:= resources. =memory-remember=
+and =memory-replace= accept =sources=, objects naming one =file=, =url=, or
+=user= with an optional =quote=, and =premises=, memory IDs. A file quote must
+occur in the file and a =user= quote in your messages in this conversation
+when the memory is written. Replacing a memory without =sources= rechecks the
+existing ones, and without =premises= reaffirms them against their current
+text. Workspace memories record files inside the workspace relatively, so they
+survive moving or importing the workspace, and a workspace export includes the
+global memories its memories rely on.
 
 ** Exporting and importing data
 
