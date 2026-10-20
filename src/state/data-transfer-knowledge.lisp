@@ -35,7 +35,7 @@
         (let* ((owned (lambda (record)
                         (and (member (first record)
                                      '(:schema-defined :claim-asserted :rule-defined
-                                       :rule-admitted :rule-retired))
+                                       :rule-admitted :rule-retired :method-defined))
                              (eq (getf (rest record) :scope) ':workspace)
                              (equal (data-transfer--knowledge-owner record) workspace))))
                (claims (remove-if-not (lambda (record)

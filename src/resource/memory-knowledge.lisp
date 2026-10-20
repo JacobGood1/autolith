@@ -19,7 +19,7 @@
     :initarg :view-kind
     :reader memory-knowledge-resource-view-kind
     :type keyword
-    :documentation "Which knowledge view: :FACTS, :CLAIM, :PREDICATES, :RULES, or :CHANGES.")
+    :documentation "Which knowledge view: :FACTS, :CLAIM, :PREDICATES, :RULES, :METHODS, or :CHANGES.")
    (claim
     :initarg :claim
     :initform nil
@@ -45,6 +45,7 @@
       ((string= identifier "predicates") (make ':predicates))
       ((string= identifier "rules") (make ':rules))
       ((string= identifier "changes") (make ':changes))
+      ((string= identifier "methods") (make ':methods))
       ((and (uiop:string-prefix-p "claim/" identifier)
             (> (length identifier) (length "claim/")))
        (make ':claim (subseq identifier (length "claim/"))))
@@ -160,6 +161,34 @@ Conflicted facts come first, then the rest by predicate and text."
        (format stream "~vTconflicts with ~{~A~^, ~}~%" (+ indent 2) (getf tree :conflicts)))))
   nil)
 
+(-> memory-knowledge--render-methods (knowledge-base (option string)) string)
+(defun memory-knowledge--render-methods (base workspace)
+  "Return the task methods visible from WORKSPACE with their conditions and steps."
+  (let ((entries (sort (loop for entry being the hash-values of (knowledge-base-methods-table base)
+                             when (knowledge-visible-p (getf entry :scope) (getf entry :workspace)
+                                                       workspace)
+                               collect entry)
+                       #'string< :key (lambda (entry) (getf (rest (getf entry :method)) :id)))))
+    (with-output-to-string (stream)
+      (format stream "collection: methods~%count: ~D~%" (length entries))
+      (dolist (entry entries)
+        (let ((method (rest (getf entry :method))))
+          (format stream "~%~A ~(~A~): ~A~@[ when ~{~A~^ and ~}~]~%~{  ~A~%~}~@[  ~A~%~]"
+                  (getf method :id) (getf entry :scope)
+                  (knowledge-pattern-text (getf method :task))
+                  (mapcar #'knowledge-pattern-text (getf method :when))
+                  (mapcar (lambda (step)
+                            (if (eq (first step) :task)
+                                (format nil "task ~A" (knowledge-pattern-text (second step)))
+                                (format nil "step ~S~@[ requires ~{~A~^ and ~}~]"
+                                        (second step)
+                                        (mapcar #'knowledge-pattern-text
+                                                (getf (rest (rest step)) :requires)))))
+                          (getf method :steps))
+                  (getf method :description))))
+      (unless entries
+        (format stream "~%No methods are defined.")))))
+
 (-> memory-knowledge--render-changes (configuration string knowledge-view) string)
 (defun memory-knowledge--render-changes (configuration viewer view)
   "Return what changed for VIEWER since it last read memory:changes, and record this read."
@@ -271,6 +300,8 @@ Conflicted facts come first, then the rest by predicate and text."
               (memory-knowledge--render-predicates base workspace))
              (:rules
               (memory-knowledge--render-rules base workspace))
+             (:methods
+              (memory-knowledge--render-methods base workspace))
              (:changes
               (memory-knowledge--render-changes
                configuration
@@ -594,6 +625,24 @@ Conflicted facts come first, then the rest by predicate and text."
     (t
      (knowledge-term-display expression))))
 
+(-> memory-knowledge--define-method (tool-context hash-table) string)
+(defun memory-knowledge--define-method (context operation)
+  "Apply one method-define OPERATION and describe the result."
+  (memory-knowledge--fields operation "method-define"
+                            '("op" "id" "task" "when" "steps" "description" "scope")
+                            '("id" "task" "steps"))
+  (multiple-value-bind (identifier changed-p)
+      (knowledge-define-method (tool-context-configuration context)
+                               :id (gethash "id" operation)
+                               :task (gethash "task" operation)
+                               :when (gethash "when" operation #())
+                               :steps (gethash "steps" operation)
+                               :description (gethash "description" operation)
+                               :scope (memory-knowledge--scope operation)
+                               :source-conversation (conversation-identifier
+                                                     (tool-context-conversation context)))
+    (format nil "~:[Method ~A is unchanged~;Defined method ~A~]." changed-p identifier)))
+
 (-> memory-knowledge--apply (tool-context t) string)
 (defun memory-knowledge--apply (context operation)
   "Apply one memory:facts OPERATION and return its one-line result."
@@ -609,8 +658,10 @@ Conflicted facts come first, then the rest by predicate and text."
        (memory-knowledge--retract context operation))
       ((equal name "rule-propose")
        (memory-knowledge--propose context operation))
+      ((equal name "method-define")
+       (memory-knowledge--define-method context operation))
       (t
-       (memory-resource--fail "memory:facts accepts predicate-define, fact-assert, fact-retract, and rule-propose.")))))
+       (memory-resource--fail "memory:facts accepts predicate-define, fact-assert, fact-retract, rule-propose, and method-define.")))))
 
 (defmethod resource-tool-edit
     ((resource memory-knowledge-resource) (tool resource-edit-tool)

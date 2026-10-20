@@ -14,6 +14,15 @@
   ()
   (:documentation "A tool replacing the current workspace plan."))
 
+(defclass plan-expand-tool (plan-tool)
+  ()
+  (:documentation "A tool replacing the plan with a task expanded by its methods."))
+
+(defmethod tool-execution-policy ((tool plan-expand-tool))
+  "Serialize plan replacement against the rest of one provider batch."
+  (declare (ignore tool))
+  ':exclusive)
+
 (defmethod tool-storm-guard-exempt-p ((tool plan-list-tool))
   "Exempt current-plan inspection from the mutating-call storm guard."
   t)
@@ -149,3 +158,45 @@ change to those facts can be reported without repeating the step."
       (error 'tool-error
              :message (autolith-error-message condition)
              :tool-name "plan.update"))))
+
+(defmethod tool-execute ((tool plan-expand-tool)
+                         (context tool-context)
+                         (arguments hash-table))
+  "Expand a task with its methods into a checked plan, without a model."
+  (declare (ignore tool))
+  (handler-case
+      (let* ((configuration (tool-context-configuration context))
+             (task (knowledge--task-from-input (tool-argument arguments "task" :required t)))
+             (view (knowledge-view-current configuration)))
+        (when (some #'knowledge-variable-p (rest task))
+          (error 'tool-error :message "Give the task's arguments as values, not variables."
+                             :tool-name "plan.expand"))
+        (multiple-value-bind (steps outcome details) (knowledge-expand-task view task)
+          (ecase outcome
+            (:planned
+             (let ((plan (plan-update configuration steps
+                                      :explanation (format nil "Expanded ~A by its methods."
+                                                           (knowledge-pattern-text task)))))
+               (plan-context-note-delivered configuration (tool-context-conversation context)
+                                            plan view)
+               (tool-success (plan-render plan :view view))))
+            (:unknown-task
+             (tool-success
+              (format nil "No method describes ~{~A~^, ~}; the plan is unchanged. Define one with method-define on memory:facts, or write the plan with plan.update."
+                      (getf details :tasks))))
+            (:no-plan
+             (tool-success
+              (format nil "No method for ~A applies to the current facts; the plan is unchanged.~{~%~A~}"
+                      (knowledge-pattern-text task)
+                      (mapcar (lambda (entry)
+                                (format nil "method ~A needs ~{~A~^ and ~}"
+                                        (getf entry :method) (getf entry :conditions)))
+                              (getf details :unmet)))))
+            (:exhausted
+             (tool-success
+              (format nil "Expanding ~A tried ~D tasks without finishing; the plan is unchanged. The methods may recurse or branch too widely."
+                      (knowledge-pattern-text task) (getf details :nodes)))))))
+    (knowledge-error (condition)
+      (error 'tool-error :message (autolith-error-message condition) :tool-name "plan.expand"))
+    (plan-error (condition)
+      (error 'tool-error :message (format nil "~A" condition) :tool-name "plan.expand"))))

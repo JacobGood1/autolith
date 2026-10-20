@@ -206,6 +206,22 @@ retracting facts, and proposing rules."
         "scope" (memory-scope-property))
        '("predicate" "arguments"))
       (operation-schema
+       "method-define"
+       (json-object
+        "id" (tool-string-property "Lowercase method name; defining it again replaces it.")
+        "task" (json-object "type" "array"
+                            "items" (json-object "description" "A task name, then variables or values.")
+                            "description" "The task this method does, such as [\"prepare\", \"?event\"].")
+        "when" (json-object "type" "array"
+                            "items" (json-object "description" "One fact pattern.")
+                            "description" "Fact patterns that must hold for this method to apply.")
+        "steps" (json-object "type" "array"
+                             "items" (json-object "description" "{\"task\": [NAME, ARGS...]} or {\"step\": TEXT, \"requires\": [...], \"verify\": PATTERN}.")
+                             "description" "Ordered subtasks and plain steps; {?var} in step text is filled from facts.")
+        "description" (tool-string-property "What the method achieves.")
+        "scope" (memory-scope-property))
+       '("id" "task" "steps"))
+      (operation-schema
        "fact-retract"
        (json-object
         "id" (tool-string-property "A claim or support identifier.")
@@ -690,6 +706,18 @@ them."
               "Optional short explanation of the plan."))
              '("steps")))))
       (default-tools--register registry specification)))
+  (when knowledge-p
+    (default-tools--register
+     registry
+     (list 'plan-expand-tool
+           "plan" "expand"
+           "Replace the current workspace plan with a task expanded locally by its methods (see memory:methods), checked against current facts. Reports a task no method describes, methods that do not apply, or a search that ran out of budget, without changing the plan."
+           (tool-object-schema
+            (json-object
+             "task" (json-object "type" "array"
+                                 "items" (json-object "description" "The task name, then its argument values.")
+                                 "description" "The task to plan, such as [\"prepare\", \"review\"]."))
+            '("task")))))
   registry)
 
 (-> default-tools--register-lisp (tool-registry) tool-registry)

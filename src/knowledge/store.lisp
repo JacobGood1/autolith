@@ -76,7 +76,12 @@ stopped, and INCOMPLETE-P whether an incomplete final record follows it.")
     :initform (make-hash-table :test #'equal)
     :reader knowledge-base-rules
     :type hash-table
-    :documentation "Rule entries by (SCOPE WORKSPACE IDENTIFIER): versions and the active one."))
+    :documentation "Rule entries by (SCOPE WORKSPACE IDENTIFIER): versions and the active one.")
+   (methods
+    :initform (make-hash-table :test #'equal)
+    :reader knowledge-base-methods-table
+    :type hash-table
+    :documentation "Task method entries by (SCOPE WORKSPACE IDENTIFIER): the latest definition."))
   (:documentation "The folded state of the knowledge log, with lookup indexes."))
 
 
@@ -228,6 +233,12 @@ Without a configuration, as in standalone tool registries, knowledge is active."
                  (or (eq (first record) :rule-retired)
                      (typep (getf properties :rule-version) '(integer 1)))
                  (typep (getf properties :time) 'timestamp))))
+         (:method-defined
+          (let ((properties (rest record)))
+            (and (knowledge--scope-valid-p (getf properties :scope)
+                                           (getf properties :workspace))
+                 (knowledge-method-p (getf properties :method))
+                 (typep (getf properties :time) 'timestamp))))
          (:transaction
           (let ((records (getf (rest record) :records)))
             (and (proper-list-p records)
@@ -347,6 +358,15 @@ by a newer generation stays readable after a rollback."
            (setf (getf entry :active) (and (eq (first record) :rule-admitted)
                                            (getf properties :rule-version))
                  (gethash key (knowledge-base-rules base)) entry)))
+        (:method-defined
+         (let ((method (getf properties :method)))
+           (setf (gethash (list (getf properties :scope) (getf properties :workspace)
+                                (getf (rest method) :id))
+                          (knowledge-base-methods-table base))
+                 (list :method method
+                       :scope (getf properties :scope)
+                       :workspace (getf properties :workspace)
+                       :time (getf properties :time)))))
         (:transaction
          ;; One atomically appended batch; its records are the revisions.
          (dolist (inner (getf properties :records))
@@ -375,7 +395,9 @@ into the copy leaves BASE, which readers may still be using, unchanged."
                                        (list #'knowledge-base-term-index #'knowledge-base-term-index)
                                        (list #'knowledge-base-evidence-index
                                              #'knowledge-base-evidence-index)
-                                       (list #'knowledge-base-rules #'knowledge-base-rules))
+                                       (list #'knowledge-base-rules #'knowledge-base-rules)
+                                       (list #'knowledge-base-methods-table
+                                             #'knowledge-base-methods-table))
           do (let ((into (funcall target copy)))
                (maphash (lambda (key value) (setf (gethash key into) value))
                         (funcall source base))))

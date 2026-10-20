@@ -1473,3 +1473,84 @@
         (test-assert (null (knowledge-tests--plan-advice configuration conversation))
                      "each plan change is explained once"))))
   nil)
+
+(-> test-knowledge-task-methods () null)
+(defun test-knowledge-task-methods ()
+  "Test task methods: local expansion into a checked plan and each failure outcome."
+  (with-test-configuration (base root)
+    (multiple-value-bind (configuration workspace)
+        (memory-source-tests--workspace base root)
+      (knowledge-tests--define-appointments configuration)
+      (knowledge-tests--admit-departure configuration)
+      (knowledge-tests--schedule-review configuration workspace "13:00")
+      (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
+                             "be there ten minutes early")
+      (let* ((registry (make-default-tool-registry :configuration configuration))
+             (context (make-instance 'tool-context :configuration configuration :worker nil
+                                                   :conversation (conversation-create configuration)))
+             (travel (nth-value 0 (knowledge-tests--said configuration "event.travel"
+                                                         '("review" "PT30M")
+                                                         "half an hour to get there"))))
+        (flet ((define (&rest operations)
+                 (tool-result-content
+                  (memory-resource-tests--call
+                   registry context "resource" "edit"
+                   "uri" "memory:facts"
+                   "base-revision" (memory-resource-tests--field
+                                    (tool-result-content
+                                     (memory-resource-tests--call registry context "resource" "read"
+                                                                  "uri" "memory:facts"))
+                                    "Revision: ")
+                   "operations" (coerce operations 'vector))))
+
+               (expand (&rest task)
+                 (tool-result-content
+                  (memory-resource-tests--call registry context "plan" "expand"
+                                               "task" (coerce task 'vector)))))
+          (test-assert
+           (search "Defined method prepare-appointment."
+                   (define (json-object "op" "method-define" "id" "prepare-appointment"
+                                        "task" #("prepare" "?event")
+                                        "when" #(#("event.start" "?event" "?start"))
+                                        "steps" (vector (json-object "task" #("check-route" "?event"))
+                                                        (json-object "step" "Leave for {?event} at {?leave}"
+                                                                     "requires" #(#("event.departure" "?event" "?leave")))))
+                           (json-object "op" "method-define" "id" "check-route-known"
+                                        "task" #("check-route" "?event")
+                                        "when" #(#("event.travel" "?event" "?travel"))
+                                        "steps" (vector (json-object "step" "Travel takes {?travel}")))
+                           (json-object "op" "method-define" "id" "check-route-unknown"
+                                        "task" #("check-route" "?event")
+                                        "steps" (vector (json-object "step" "Look up the route to {?event}")))
+                           (json-object "op" "method-define" "id" "spin"
+                                        "task" #("spin" "?x")
+                                        "steps" (vector (json-object "task" #("spin" "?x"))))))
+           "methods are defined through memory:facts")
+          (let ((plan (expand "prepare" "review")))
+            (test-assert (and (search "1. [pending] Travel takes 30m" plan)
+                              (search "2. [pending] Leave for review at 2026-10-22 12:20 UTC" plan))
+                         "a task expands locally into steps filled from facts"))
+          (knowledge-retract configuration travel)
+          (let ((plan (expand "prepare" "review")))
+            (test-assert (and (search "1. [pending] Look up the route to review" plan)
+                              (search "(blocked: nothing satisfies event.departure(review, ?leave))"
+                                      plan))
+                         "without the travel fact the alternative method applies and the departure is blocked"))
+          (test-assert (search "No method describes celebrate" (expand "celebrate" "review"))
+                       "a task without methods is reported as unmodeled")
+          (test-assert (search "method prepare-appointment needs event.start(standup, ?start)"
+                               (expand "prepare" "standup"))
+                       "methods that do not apply report their unmet conditions")
+          (test-assert (search "without finishing" (expand "spin" "top"))
+                       "a recursive method exhausts its budget instead of looping")
+          (test-assert (search "is not a task parameter or bound by a condition"
+                               (define (json-object "op" "method-define" "id" "broken"
+                                                    "task" #("broken")
+                                                    "steps" (vector (json-object "task" #("spin" "?free"))))))
+                       "a subtask passing an unbound variable is refused")
+          (test-assert (search "prepare-appointment workspace: prepare(?event) when event.start(?event, ?start)"
+                               (tool-result-content
+                                (memory-resource-tests--call registry context "resource" "read"
+                                                             "uri" "memory:methods")))
+                       "memory:methods lists the methods")))))
+  nil)
