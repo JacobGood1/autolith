@@ -975,6 +975,45 @@ measured:
 Facts, rules, and predicates travel with memories in data exports; a relocated
 workspace keeps its facts.
 
+*** Plans, methods, gates, and contracts
+
+A plan step can name the facts it requires. Its text takes their values, so
+=Leave at {?leave}= requiring =event.departure review ?leave= reads =Leave at
+12:20= and follows the departure when the meeting moves, without replanning.
+A step whose requirements nothing satisfies is shown /blocked/ with the missing
+pattern. A step marked done records the facts it was done with; if they later
+stop holding, the plan says so instead of repeating the step. When such a
+change happens between turns, the model is told once at its next turn and
+=@ 1 plan step changed with its facts= appears.
+
+A /method/ says how to do a task when facts allow it: its conditions, then
+subtasks and plain steps in order. =plan.expand= turns a task such as
+=prepare review= into a checked plan locally, trying methods in order and
+expanding subtasks within a depth of 8 and 1,000 tasks. It reports a task no
+method describes, methods whose conditions do not hold (naming them), and a
+search that ran out of budget, separately, and leaves the plan unchanged then.
+
+A mission gate of kind =:fact= passes when a fact matching its pattern holds
+on accepted evidence, observations and your statements unless it says
+otherwise:
+
+#+BEGIN_SRC lisp
+(:id "departure-known" :kind :fact :pattern ("event.departure" "review" "?t"))
+#+END_SRC
+
+A model's predictions never satisfy it, and a gate passed on facts that stop
+holding before acceptance is checked again.
+
+An action /contract/ describes a tool call: argument values it applies to,
+facts it requires, facts it is expected to cause, and facts to read from its
+arguments and JSON result, such as =$arg.to= and =$result.id=. A call whose
+requirements do not hold is refused before it runs, with the reason. A
+successful call records its expected effects as predictions and its observed
+values as observations of that call, which is how structured tool output,
+MCP results included, becomes facts. The model defines methods with
+=method-define= and contracts with =contract-define=, and reads them from
+=memory:methods= and =memory:contracts=.
+
 ** Exporting and importing data
 
 Use the same portable archive from the command line or an active session:
