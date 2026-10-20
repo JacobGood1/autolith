@@ -217,6 +217,7 @@
                 (getf gate :evidence) (mission--bounded-text evidence))
           (mission--evidence context ':gate (list (getf gate :id) (getf gate :status) evidence))
           (mission--record context)
+          (mission-knowledge-record-gate context (getf gate :id) (getf gate :status))
           (when (and (not passed-p) (>= (getf gate :attempts) (getf gate :attempt-limit)))
             (mission--transition context ':exhausted (format nil "Gate ~A exhausted its attempt budget." (getf gate :id))))
           (and passed-p t)))

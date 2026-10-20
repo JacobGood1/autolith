@@ -351,7 +351,8 @@
   test-knowledge-memory-premises
   test-knowledge-recall
   test-knowledge-commands
-  test-knowledge-activation)
+  test-knowledge-activation
+  test-knowledge-mission-observations)
 
 (define-test-suite papercut
   test-papercuts)

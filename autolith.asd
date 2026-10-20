@@ -259,6 +259,7 @@
                              (:file "application/mission")
                              (:file "application/mission-inference")
                              (:file "application/mission-gates")
+                             (:file "application/mission-knowledge")
                              (:file "application/mission-tools")
                              (:file "application/mission-review")
                              (:file "application/mission-review-tools")

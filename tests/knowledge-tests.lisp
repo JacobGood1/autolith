@@ -1176,3 +1176,46 @@
                           (not (knowledge-active-p passive)))
                      "passive mode records observations without offering them"))))
   nil)
+
+(-> knowledge-tests--mission-facts (configuration) list)
+(defun knowledge-tests--mission-facts (configuration)
+  "Return the sentences of mission facts holding under CONFIGURATION, sorted."
+  (sort (mapcar #'knowledge-node-text
+                (append (knowledge-view-holds (knowledge-tests--view configuration)
+                                              '("autolith.mission.status" "?m" "?s"))
+                        (knowledge-view-holds (knowledge-tests--view configuration)
+                                              '("autolith.mission.gate" "?m" "?g" "?s"))))
+        #'string<))
+
+
+(-> test-knowledge-mission-observations () null)
+(defun test-knowledge-mission-observations ()
+  "Test that mission status and gate results become facts, each report replacing the last."
+  (dolist (mode '("active" "off"))
+    (with-test-configuration (base root)
+      (let* ((configuration (configuration-copy base :working-directory root :knowledge-mode mode))
+             (application (mission-test--application configuration))
+             (gates '((:id "first" :kind :artifact :path "first")
+                      (:id "second" :kind :artifact :path "second" :attempt-limit 1))))
+        (application-mission-start application (mission-test--specification :gates gates))
+        (test-call-with-function-replacements
+         (list (list 'mission--tool-context (lambda (app) (mission-test--context app)))
+               (list 'mission-gate-execute
+                     (lambda (gate context)
+                       (declare (ignore context))
+                       (values (equal (getf gate :id) "first") "bounded test evidence"))))
+         (lambda ()
+           (application-mission-verify application)))
+        (let ((facts (knowledge-tests--mission-facts configuration))
+              (mission (format nil "mission/~A/~D"
+                               (conversation-identifier (application-conversation application))
+                               (getf (application-goal application) :created-at))))
+          (if (string= mode "off")
+              (test-assert (null facts) "off mode records no mission facts")
+              (test-assert (equal facts
+                                  (sort (list (format nil "gate first of mission ~A passed" mission)
+                                              (format nil "gate second of mission ~A failed" mission)
+                                              (format nil "mission ~A is exhausted" mission))
+                                        #'string<))
+                           "each gate result and only the latest mission status hold"))))))
+  nil)

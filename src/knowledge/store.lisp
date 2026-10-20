@@ -412,18 +412,42 @@ SEXP-STORE:STORE-TRANSACT. Return RESULT."
 
 ;;;; -- Lookup --
 
+(defparameter *knowledge-builtin-schemas*
+  (list (knowledge-make-schema
+         :predicate "autolith.mission.status"
+         :arguments '((:name "mission" :type :entity) (:name "status" :type :string))
+         :key '("mission")
+         :template "mission {mission} is {status}"
+         :description "The latest status of an Autolith mission.")
+        (knowledge-make-schema
+         :predicate "autolith.mission.gate"
+         :arguments '((:name "mission" :type :entity) (:name "gate" :type :string)
+                      (:name "status" :type :string))
+         :key '("mission" "gate")
+         :template "gate {gate} of mission {mission} {status}"
+         :description "The latest result of one mission acceptance gate."))
+  "Global predicates Autolith's own observations use, defined by Autolith itself.
+
+Their names start with autolith. so they never collide with a vocabulary a
+person or model defines.")
+
 (-> knowledge-base-schema (knowledge-base string &key (:workspace (option string)))
     (values (option list) (option integer)))
 (defun knowledge-base-schema (base predicate &key workspace)
   "Return PREDICATE's schema visible from WORKSPACE and its version, or NIL.
 
-A workspace definition shadows a global one."
+A workspace definition shadows a global one, and Autolith's built-in
+predicates, version 0, are visible everywhere."
   (let ((entry (or (and workspace
                         (gethash (list ':workspace workspace predicate)
                                  (knowledge-base-schemas base)))
                    (gethash (list ':global nil predicate)
                             (knowledge-base-schemas base)))))
-    (values (first entry) (second entry))))
+    (if entry
+        (values (first entry) (second entry))
+        (let ((builtin (find predicate *knowledge-builtin-schemas*
+                             :key #'knowledge-schema-predicate :test #'string=)))
+          (values builtin (and builtin 0))))))
 
 (-> knowledge-visible-p (memory-scope (option string) (option string)) boolean)
 (defun knowledge-visible-p (scope workspace viewer)
@@ -655,3 +679,87 @@ Return the retracted support identifiers. Retracted supports stay inspectable."
                        targets)
                targets
                (and targets t))))))
+
+(-> knowledge-replace-observation
+    (configuration list list &key (:scope memory-scope) (:source-conversation (option string)))
+    string)
+(defun knowledge-replace-observation (configuration proposition evidence
+                                      &key (scope ':workspace) source-conversation)
+  "Record that EVIDENCE observed PROPOSITION, replacing that source's earlier report.
+
+Supports of claims with the same schema key whose evidence came from the same
+source are retracted in the same transaction, so an adapter reporting a
+mission's new status does not leave its old status standing. Return the claim."
+  (let* ((workspace (knowledge--owner configuration scope))
+         (claim (knowledge-claim-identifier proposition :scope scope :workspace workspace))
+         (source (getf (rest evidence) :source)))
+    (knowledge-transact
+     configuration
+     (lambda (base)
+       (let* ((schema (or (knowledge-base-schema base (knowledge-proposition-predicate proposition)
+                                                 :workspace (knowledge--workspace configuration))
+                          (knowledge--fail ':unknown-predicate
+                                           (knowledge-proposition-predicate proposition)
+                                           "Predicate ~A is not defined."
+                                           (knowledge-proposition-predicate proposition))))
+              (key (knowledge-proposition-key proposition schema))
+              (time (get-universal-time))
+              (superseded
+                (loop for other in (knowledge-base-claims-with-predicate
+                                    base (knowledge-proposition-predicate proposition))
+                      for entry = (knowledge-base-claim base other)
+                      when (and (string/= other claim)
+                                (eq (getf entry :scope) scope)
+                                (equal (getf entry :workspace) workspace)
+                                key
+                                (equal (knowledge-proposition-key (getf entry :proposition) schema)
+                                       key))
+                        append (loop for support-identifier in (getf entry :supports)
+                                     for support = (knowledge-base-support base support-identifier)
+                                     for cited = (and (getf support :evidence)
+                                                      (knowledge-base-evidence-record
+                                                       base (getf support :evidence)))
+                                     when (and (null (getf support :retracted-at))
+                                               cited
+                                               (eq (first (getf cited :source)) (first source))
+                                               (equal (getf (rest (getf cited :source)) :id)
+                                                      (getf (rest source) :id)))
+                                       collect support-identifier)))
+              (active-p
+                (some (lambda (support-identifier)
+                        (let ((support (knowledge-base-support base support-identifier)))
+                          (and (null (getf support :retracted-at))
+                               (equal (getf support :evidence) (getf (rest evidence) :id)))))
+                      (getf (knowledge-base-claim base claim) :supports))))
+         (unless (knowledge-proposition-valid-p proposition schema)
+           (knowledge--fail ':invalid-claim (knowledge-proposition-predicate proposition)
+                            "The observation does not fit the schema of ~A."
+                            (knowledge-proposition-predicate proposition)))
+         (values
+          (append
+           (mapcar (lambda (support)
+                     (list :support-retracted
+                           :version *knowledge-format-version*
+                           :support support
+                           :reason "superseded by a newer observation from the same source"
+                           :time time
+                           :source-conversation source-conversation))
+                   superseded)
+           (unless (knowledge-base-evidence-record base (getf (rest evidence) :id))
+             (list evidence))
+           (unless active-p
+             (list (list :claim-asserted
+                         :version *knowledge-format-version*
+                         :support (make-identifier)
+                         :claim claim
+                         :scope scope
+                         :workspace workspace
+                         :proposition proposition
+                         :evidence (getf (rest evidence) :id)
+                         :basis ':observation
+                         :valid-from nil
+                         :valid-until nil
+                         :time time
+                         :source-conversation source-conversation))))
+          claim
+          (or superseded (not active-p))))))))
