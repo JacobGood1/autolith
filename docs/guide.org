@@ -896,6 +896,85 @@ memories record files inside the workspace relatively, so they survive moving
 or importing the workspace, and a workspace export includes the global memories
 its memories rely on.
 
+*** Facts and rules
+
+Besides prose memories, Autolith keeps structured facts: a predicate applied to
+typed values, such as =event.start review 2026-10-22T13:00:00Z=. Each fact
+cites its evidence, like a memory, and says why it is believed: an
+/observation/ of a file, page, tool, or mission, a /user assertion/, an
+/assumption/, or the model's own /proposal/. A fact stated by two sources has
+two supports and holds while either does. Web pages and tool output expire
+after their lifetime (a week and a day) and support nothing until observed
+again; your statements and recorded runs do not expire.
+
+Rules derive facts from facts, with dates, durations, numbers, and quantities
+in units:
+
+#+BEGIN_SRC lisp
+;; departure = start - (travel + buffer)
+(:premises (("event.start" "?event" "?start")
+            ("event.travel" "?event" "?travel")
+            ("event.buffer" "?event" "?buffer"))
+ :bindings (("?leave" ("-" "?start" ("+" "?travel" "?buffer"))))
+ :conclusion ("event.departure" "?event" "?leave"))
+#+END_SRC
+
+When a premise changes, Autolith recomputes the conclusion locally, without a
+model request: move the meeting and the departure moves with it. A derived
+fact keeps the basis of its premises, so deriving from an assumption never
+yields an observation. A negated premise matches only a fact explicitly stated
+not to hold; a missing fact never satisfies it. Two facts that disagree about
+one keyed value, or a fact and its negation, are /conflicted/: both are kept
+and shown, and nothing picks a winner. Rules cannot depend on their own
+conclusions, and an evaluation that reaches its work limit reports the
+remaining conclusions as unknown rather than false.
+
+A rule the model proposes derives nothing until it is admitted. Admission
+uses the ordinary command approval: with full access it is admitted at once,
+otherwise you are asked to allow =rule.admit -- departure v1: ...=.
+
+#+BEGIN_SRC lisp
+(memories)            ; memories, then facts: conflicted and no longer holding first
+(why "c4dfffae")      ; why a fact holds: its sources, rule, and premises
+(what-changed)        ; facts that changed since you last asked, with the cause
+(rules)               ; rules, their versions, and whether they are admitted
+(admit-rule "departure")
+(retire-rule "departure")
+(forget "c4dfffae")   ; retract a fact; derived facts that relied on it go too
+#+END_SRC
+
+=(why "ID")= is =(memory "ID")=, and accepts a memory or a fact. Recall offers
+current facts related to your message to the model complete, so it can use
+them without rereading, and counts them in the notice:
+=@ 2 relevant memories exist · 3 facts=. When a fact the model was given earlier
+in a conversation changes, the next turn explains the change to it once, and
+=@ 1 fact given earlier changed= appears. A memory can name a fact as a
+premise and goes stale when the fact stops holding; a fact can cite a memory
+as evidence.
+
+The model reads =memory:facts=, =memory:claim/ID=, =memory:predicates=,
+=memory:rules=, and =memory:changes=, and edits =memory:facts= with
+=predicate-define=, =fact-assert=, =fact-retract=, and =rule-propose=, up to 16
+per edit. Mission status and gate results are recorded as =autolith.mission.*=
+facts.
+
+The =knowledge-mode= setting is =active= by default. =passive= keeps recording
+observations such as mission results but offers nothing to the model, and =off=
+records nothing; in both, model requests are exactly as without structured
+knowledge. Change it in =(settings)= or with =AUTOLITH_KNOWLEDGE=.
+
+Knowledge is evaluated locally when it is listed or recalled, and evaluated
+again only after a cited file, the knowledge, or a validity period changes.
+Each request where knowledge took part records its share, so its cost can be
+measured:
+
+#+BEGIN_SRC lisp
+(knowledge-usage-report (application-conversation *active-application*))
+#+END_SRC
+
+Facts, rules, and predicates travel with memories in data exports; a relocated
+workspace keeps its facts.
+
 ** Exporting and importing data
 
 Use the same portable archive from the command line or an active session:
