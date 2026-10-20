@@ -591,3 +591,132 @@
     (dotimes (variant 2)
       (knowledge-fixture--sales index variant)))
   nil)
+
+
+;;;; -- Scale --
+
+(-> knowledge-benchmark--populate (configuration integer integer) null)
+(defun knowledge-benchmark--populate (configuration events supports)
+  "Write EVENTS appointments of three claims each, SUPPORTS user statements per claim.
+
+Records are appended in transactions of twenty, as interactive writes would."
+  (let* ((workspace (knowledge--workspace configuration))
+         (time (get-universal-time))
+         (records nil))
+    (dotimes (index events)
+      (let ((event (format nil "event-~D" index)))
+        (dolist (proposition
+                 (list (list "event.start" event (knowledge-make-instant (+ time (* 60 index))))
+                       (list "event.travel" event (list :duration (* 60 (mod index 50))))
+                       (list "event.buffer" event (list :duration 600))))
+          (let ((claim (knowledge-claim-identifier proposition :scope ':workspace
+                                                               :workspace workspace)))
+            (dotimes (k supports)
+              (let ((evidence (knowledge-observe
+                               :source (list :user :quote (format nil "statement ~D about ~A"
+                                                                  k event))
+                               :adapter "user/1" :time time)))
+                (push evidence records)
+                (push (list :claim-asserted :version *knowledge-format-version*
+                            :support (make-identifier) :claim claim
+                            :scope ':workspace :workspace workspace :proposition proposition
+                            :evidence (getf (rest evidence) :id) :basis ':user-assertion
+                            :valid-from nil :valid-until nil :time time
+                            :source-conversation nil)
+                      records)))))))
+    (let* ((pathname (configuration-knowledge-path configuration))
+           (ordered (nreverse records)))
+      (sexp-store:log-write
+       pathname
+       (append (or (sexp-store:log-read pathname) (list (knowledge--header)))
+               (loop while ordered
+                     collect (list :transaction :version *knowledge-format-version*
+                                   :records (loop repeat 20 while ordered
+                                                  collect (pop ordered))))))))
+  nil)
+
+(-> knowledge-benchmark (&key (:events integer) (:supports integer)) list)
+(defun knowledge-benchmark (&key (events 3334) (supports 5))
+  "Measure knowledge at scale: by default 10,002 claims with 50,010 supports.
+
+Return seconds for a cold read, an evaluation, a reused evaluation, ranking
+facts for recall, one more assertion, and the evaluation after it, with log
+bytes, heap bytes, and the machine measured on."
+  (let ((result nil))
+    (with-test-configuration (base root)
+      (multiple-value-bind (configuration workspace)
+          (memory-source-tests--workspace base root)
+        (declare (ignore workspace))
+        (knowledge-tests--define-appointments configuration)
+        (knowledge-tests--admit-departure configuration)
+        (knowledge-benchmark--populate configuration events supports)
+        (flet ((seconds (function)
+                 (let ((start (get-internal-real-time)))
+                   (funcall function)
+                   (/ (- (get-internal-real-time) start)
+                      (float internal-time-units-per-second 1d0)))))
+          (clrhash *knowledge-base-cache*)
+          (clrhash *knowledge-view-cache*)
+          (let* ((cold (seconds (lambda () (knowledge-base-read configuration))))
+                 (view nil)
+                 (evaluate (seconds (lambda () (setf view (knowledge-view-current configuration)))))
+                 (reuse (seconds (lambda () (knowledge-view-current configuration))))
+                 (recall (seconds (lambda ()
+                                    (memory-context--relevant-facts view "leave for event-17"))))
+                 (assert (seconds (lambda ()
+                                    (knowledge-tests--said configuration "event.buffer"
+                                                           '("event-1" "PT20M")
+                                                           "a later buffer statement"))))
+                 (reevaluate (seconds (lambda () (setf view (knowledge-view-current configuration))))))
+            (sb-ext:gc :full t)
+            (setf result
+                  (list :claims (hash-table-count
+                                 (knowledge-base-claims (knowledge-base-read configuration)))
+                        :supports (hash-table-count
+                                   (knowledge-base-supports (knowledge-base-read configuration)))
+                        :derived (length (knowledge-view-holds view '("event.departure" "?e" "?t")))
+                        :incomplete (knowledge-view-incomplete view)
+                        :cold-read cold :evaluate evaluate :reuse reuse :recall recall
+                        :assert assert :reevaluate reevaluate
+                        :log-bytes (with-open-file (stream (configuration-knowledge-path configuration)
+                                                           :element-type '(unsigned-byte 8))
+                                     (file-length stream))
+                        :heap-bytes (sb-kernel:dynamic-usage)
+                        :machine (list (machine-type) (machine-version)
+                                       (lisp-implementation-type)
+                                       (lisp-implementation-version))))))))
+    result))
+
+(-> test-knowledge-scale () null)
+(defun test-knowledge-scale ()
+  "Test a thousand-claim knowledge base: incremental appends, complete evaluation, work caps."
+  (let ((result (knowledge-benchmark :events 334 :supports 3)))
+    (test-assert (and (= (getf result :claims) 1003)
+                      (= (getf result :supports) 3007)
+                      (= (getf result :derived) 335)
+                      (null (getf result :incomplete)))
+                 "every derivation completes within the default limits"))
+  (with-test-configuration (base root)
+    (multiple-value-bind (configuration workspace)
+        (memory-source-tests--workspace base root)
+      (declare (ignore workspace))
+      (knowledge-tests--define-appointments configuration)
+      (knowledge-tests--admit-departure configuration)
+      (knowledge-benchmark--populate configuration 334 1)
+      (let* ((pathname (configuration-knowledge-path configuration))
+             (before (platform-path-status *platform* pathname :follow-links-p t))
+             (revision (knowledge-base-revision (knowledge-base-read configuration))))
+        (knowledge-tests--said configuration "event.buffer" '("event-1" "PT20M")
+                               "a later buffer statement")
+        (test-assert (and (platform-file-status-same-object-p
+                           before (platform-path-status *platform* pathname :follow-links-p t))
+                          (= (knowledge-base-revision (knowledge-base-read configuration))
+                             (+ revision 2)))
+                     "a write appends to the same log and the read folds only what it added"))
+      (let ((*knowledge-match-limit* 100))
+        (clrhash *knowledge-view-cache*)
+        (let ((view (knowledge-view-current configuration)))
+          (test-assert (and (equal (knowledge-view-incomplete view) '("departure"))
+                            (= 100 (length (knowledge-view-holds view '("event.departure" "?e" "?t")))))
+                       "a reached work limit is reported instead of evaluating further")))))
+  nil)

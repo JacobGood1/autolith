@@ -360,7 +360,8 @@
 (define-test-suite knowledge-fixtures
   test-knowledge-appointment-fixtures
   test-knowledge-document-fixtures
-  test-knowledge-sales-fixtures)
+  test-knowledge-sales-fixtures
+  test-knowledge-scale)
 
 (define-test-suite papercut
   test-papercuts)
