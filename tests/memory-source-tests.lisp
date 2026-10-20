@@ -231,3 +231,186 @@
             (test-assert (memory-source-tests--error-p function)
                          (format nil "~A is rejected" label)))))))
   nil)
+
+(-> memory-source-tests--status (configuration memory) (values keyword list))
+(defun memory-source-tests--status (configuration memory)
+  "Return MEMORY's status and reason kinds from a fresh assessment pass."
+  (let ((assessment (memory-assess (memory-assessor-create configuration)
+                                   (memory-find configuration
+                                                (memory-identifier memory)))))
+    (values (memory-assessment-status assessment)
+            (mapcar (lambda (reason)
+                      (getf reason :kind))
+                    (memory-assessment-reasons assessment)))))
+
+(-> memory-source-tests--cite (configuration pathname &key (:quote (option string)) (:title string))
+    memory)
+(defun memory-source-tests--cite (configuration pathname &key quote title)
+  "Remember a memory titled TITLE that cites PATHNAME, optionally by QUOTE."
+  (memory-remember configuration
+                   :title title
+                   :content (format nil "~A is documented." title)
+                   :sources (list (memory-source-observe-file
+                                   pathname
+                                   :quote quote
+                                   :time (get-universal-time)))))
+
+
+(-> test-memory-source-status () null)
+(defun test-memory-source-status ()
+  "Test that cited files keep, lose, or cannot confirm their memories' support."
+  (with-test-configuration (base root)
+    (multiple-value-bind (configuration workspace)
+        (memory-source-tests--workspace base root)
+      (let* ((config-file (memory-source-tests--write
+                           (merge-pathnames "config.toml" workspace)
+                           (format nil "[server]~%port = 8080~%host = \"local\"~%")))
+             (readme (memory-source-tests--write
+                      (merge-pathnames "README" workspace)
+                      (format nil "The server listens on port 8080.~%")))
+             (quoted (memory-source-tests--cite configuration config-file
+                                                :title "Port" :quote "port = 8080"))
+             (whole (memory-source-tests--cite configuration config-file
+                                               :title "Whole file"))
+             (alternatives
+               (memory-remember
+                configuration
+                :title "Port with two sources"
+                :content "The port is 8080."
+                :sources (list (memory-source-observe-file
+                                config-file :quote "port = 8080" :time 1)
+                               (memory-source-observe-file
+                                readme :quote "listens on port 8080" :time 1))))
+             (statement
+               (memory-remember
+                configuration
+                :title "Preference"
+                :content "Prefers tabs."
+                :sources (list (list :user :quote "I always want tabs, please"
+                                     :conversation "c" :observed-at 1)
+                               (list :url :url "https://example.com/style"
+                                     :quote nil :observed-at 1))))
+             (mixed
+               (memory-remember
+                configuration
+                :title "Port the user confirmed"
+                :content "The port is 8080, as the user said."
+                :sources (list (memory-source-observe-file
+                                config-file :quote "port = 8080" :time 1)
+                               (list :user :quote "the port is 8080"
+                                     :conversation "c" :observed-at 1))))
+             (plain (memory-remember configuration
+                                     :title "Plain" :content "Nothing cited.")))
+        (dolist (memory (list quoted whole alternatives statement mixed plain))
+          (test-assert (eq (memory-source-tests--status configuration memory) ':current)
+                       (format nil "~A starts current" (memory-title memory))))
+        (memory-source-tests--write
+         config-file (format nil "# edited~%[server]~%port   =   8080~%host = \"remote\"~%"))
+        (test-assert (eq (memory-source-tests--status configuration quoted) ':current)
+                     "an unrelated edit keeps a quoted passage's memory current")
+        (test-assert (equal (multiple-value-list
+                             (memory-source-tests--status configuration whole))
+                            '(:stale (:file-changed)))
+                     "any edit makes a memory citing the whole file stale")
+        (memory-source-tests--write config-file (format nil "[server]~%port = 9090~%"))
+        (test-assert (equal (multiple-value-list
+                             (memory-source-tests--status configuration quoted))
+                            '(:stale (:file-changed)))
+                     "removing the quoted passage makes the memory stale")
+        (test-assert (equal (multiple-value-list
+                             (memory-source-tests--status configuration mixed))
+                            '(:stale (:file-changed)))
+                     "a statement does not keep a memory current once its cited file changes")
+        (test-assert (eq (memory-source-tests--status configuration alternatives) ':current)
+                     "one holding source keeps a memory with alternatives current")
+        (delete-file readme)
+        (test-assert (equal (multiple-value-list
+                             (memory-source-tests--status configuration alternatives))
+                            '(:stale (:file-changed :file-missing)))
+                     "a memory whose every source fails is stale for each reason")
+        (test-assert (equal (memory-assessment-summary
+                             (memory-assess (memory-assessor-create configuration)
+                                            (memory-find configuration
+                                                         (memory-identifier alternatives))))
+                            "config.toml changed; README is missing")
+                     "the summary names each failed source by its workspace path")
+        (with-open-file (stream config-file
+                                :direction ':output
+                                :if-exists ':supersede
+                                :element-type '(unsigned-byte 8))
+          (write-sequence (make-array 3 :element-type '(unsigned-byte 8)
+                                        :initial-contents '(#xff #xfe #x00))
+                          stream))
+        (test-assert (equal (multiple-value-list
+                             (memory-source-tests--status configuration quoted))
+                            '(:unverified (:file-unchecked)))
+                     "a cited file that cannot be read leaves its memory unverified")
+        (test-assert (eq (memory-source-tests--status configuration statement) ':current)
+                     "statements and web pages continue to hold")
+        (let ((assessor (memory-assessor-create configuration)))
+          (test-assert (equal (memory-assessment-summary
+                               (memory-assess assessor
+                                              (memory-find configuration
+                                                           (memory-identifier alternatives))))
+                              "config.toml could not be checked (not text); README is missing")
+                       "an unreadable alternative leaves the memory unverified, not stale")))))
+  nil)
+
+(-> test-memory-premise-status () null)
+(defun test-memory-premise-status ()
+  "Test that derived memories follow their premises' changes and staleness."
+  (with-test-configuration (base root)
+    (multiple-value-bind (configuration workspace)
+        (memory-source-tests--workspace base root)
+      (let* ((schedule (memory-source-tests--write
+                        (merge-pathnames "schedule.txt" workspace)
+                        (format nil "Review at 13:00 in room 4.~%")))
+             (meeting (memory-source-tests--cite configuration schedule
+                                                 :title "Meeting" :quote "Review at 13:00"))
+             (travel (memory-remember configuration
+                                      :title "Travel" :content "30 minutes to the office."))
+             (departure (memory-remember configuration
+                                         :title "Departure" :content "Leave at 12:20."
+                                         :premises (list (memory-identifier meeting)
+                                                         (memory-identifier travel))))
+             (reminder (memory-remember configuration
+                                        :title "Reminder" :content "Set an alarm for 12:10."
+                                        :premises (list (memory-identifier departure)))))
+        (test-assert (eq (memory-source-tests--status configuration reminder) ':current)
+                     "a chain of derived memories starts current")
+        (memory-source-tests--write schedule (format nil "Review at 14:00 in room 4.~%"))
+        (test-assert (equal (multiple-value-list
+                             (memory-source-tests--status configuration departure))
+                            '(:stale (:premise-stale)))
+                     "a stale premise makes the derived memory stale")
+        (test-assert (equal (multiple-value-list
+                             (memory-source-tests--status configuration reminder))
+                            '(:stale (:premise-stale)))
+                     "staleness propagates through the whole chain")
+        (memory-source-tests--write schedule (format nil "Review at 13:00 in room 5.~%"))
+        (test-assert (eq (memory-source-tests--status configuration reminder) ':current)
+                     "restoring the cited passage restores the whole chain")
+        (memory-remember configuration
+                         :identifier (memory-identifier travel)
+                         :title "Travel" :content "45 minutes to the office.")
+        (test-assert (equal (multiple-value-list
+                             (memory-source-tests--status configuration departure))
+                            '(:stale (:premise-changed)))
+                     "a replaced premise makes the derived memory stale")
+        (memory-remember configuration
+                         :identifier (memory-identifier departure)
+                         :title "Departure" :content "Leave at 12:05.")
+        (test-assert (eq (memory-source-tests--status configuration departure) ':current)
+                     "replacing the derived memory reaffirms its premises")
+        (memory-forget configuration (memory-identifier meeting))
+        (test-assert (equal (multiple-value-list
+                             (memory-source-tests--status configuration departure))
+                            '(:stale (:premise-forgotten)))
+                     "a forgotten premise makes the derived memory stale")
+        (let ((assessor (memory-assessor-create configuration)))
+          (test-assert (equal (mapcar #'memory-identifier
+                                      (memory-assessor-dependents
+                                       assessor (memory-identifier departure)))
+                              (list (memory-identifier reminder)))
+                       "dependents are the memories derived directly from a memory")))))
+  nil)

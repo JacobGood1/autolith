@@ -215,7 +215,7 @@ beyond the checked size limit, :NOT-TEXT for non-UTF-8 content, and
     (error ()
       (values nil ':unreadable))))
 
-(-> memory-source-file-holds (list (option string) (option string))
+(-> memory-source-file-holds (list (option string) (option keyword))
     (values keyword (option keyword)))
 (defun memory-source-file-holds (source text failure)
   "Return whether file SOURCE holds for file TEXT read with FAILURE.

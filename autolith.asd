@@ -128,6 +128,7 @@
                              (:file "conversation/async-lisp")
                              (:file "state/memory-sources")
                              (:file "state/memories")
+                             (:file "state/memory-status")
                              (:file "state/papercuts")
                              (:file "state/agendas")
                              (:file "state/plan")
