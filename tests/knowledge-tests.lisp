@@ -1206,7 +1206,7 @@
                       (:id "second" :kind :artifact :path "second" :attempt-limit 1))))
         (application-mission-start application (mission-test--specification :gates gates))
         (test-call-with-function-replacements
-         (list (list 'mission--tool-context (lambda (app) (mission-test--context app)))
+         (list (list 'application-tool-context (lambda (app) (mission-test--context app)))
                (list 'mission-gate-execute
                      (lambda (gate context)
                        (declare (ignore context))
@@ -1572,7 +1572,7 @@
             :gates '((:id "departure-known" :kind :fact
                       :pattern ("event.departure" "review" "?t")))))
           (test-call-with-function-replacements
-           (list (list 'mission--tool-context (lambda (app) (mission-test--context app))))
+           (list (list 'application-tool-context (lambda (app) (mission-test--context app))))
            (lambda () (application-mission-verify application)))
           (let ((gate (first (getf (application-goal application) :gates))))
             (test-assert (eq (getf gate :status) expected)

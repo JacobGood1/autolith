@@ -3576,6 +3576,30 @@ checked."
        (lambda (tool arguments)
          (application-authorize-tool application tool arguments))))))
 
+;;; Tool calls made on the application's behalf
+
+(-> application-tool-context (application) tool-context)
+(defun application-tool-context (application)
+  "Create a tool context with APPLICATION's ordinary permission boundary.
+
+Calls made through it ask the same command and tool authorization as the
+model's calls in a turn."
+  (let ((observer (application-agent-observer application)))
+    (make-instance 'tool-context
+                   :configuration (application-configuration application)
+                   :conversation (application-conversation application)
+                   :registry (application-tool-registry application)
+                   :worker (application-worker application)
+                   :agent (application-agent application)
+                   :observer observer
+                   :command-authorization-function
+                   (lambda (command directory)
+                     (agent-observer-authorize-command observer command directory))
+                   :tool-authorization-function
+                   (lambda (tool arguments)
+                     (agent-observer-authorize-tool observer tool arguments)))))
+
+
 ;;;; -- Session Titles --
 
 (defparameter *application-conversation-title-system-prompt*

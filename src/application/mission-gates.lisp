@@ -47,24 +47,6 @@
           :attempts 0 :status ':pending :fingerprint nil :invalidation 0
           :evidence nil)))
 
-(-> mission--tool-context (application) tool-context)
-(defun mission--tool-context (application)
-  "Create a gate context with the ordinary application's permission boundary."
-  (let ((observer (application-agent-observer application)))
-    (make-instance 'tool-context
-                   :configuration (application-configuration application)
-                   :conversation (application-conversation application)
-                   :registry (application-tool-registry application)
-                   :worker (application-worker application)
-                   :agent (application-agent application)
-                   :observer observer
-                   :command-authorization-function
-                   (lambda (command directory)
-                     (agent-observer-authorize-command observer command directory))
-                   :tool-authorization-function
-                   (lambda (tool arguments)
-                     (agent-observer-authorize-tool observer tool arguments)))))
-
 (-> mission--file-digest (pathname) string)
 (defun mission--file-digest (pathname)
   "Return the SHA-256 of one file, or a stable missing-state marker."
@@ -313,7 +295,7 @@ predicted effects, never satisfy it."
         (setf (getf goal :model-complete-p) t)
         (mission--evidence context ':model-complete "Harness verification requested.")
         (mission--record context))
-      (let* ((tool-context (mission--tool-context application))
+      (let* ((tool-context (application-tool-context application))
              (runtime (tool-context-execution-runtime tool-context))
              (live-jobs (and (typep runtime 'task-orchestrator)
                              (remove-if-not
