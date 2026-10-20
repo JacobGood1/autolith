@@ -687,6 +687,56 @@ KNOWLEDGE-P offers structured knowledge through memory: resources."
           '("id"))))
   registry)
 
+(-> default-tools--register-diagnosis (tool-registry) tool-registry)
+(defun default-tools--register-diagnosis (registry)
+  "Register the tool testing hypotheses with probes in REGISTRY."
+  (tool-registry-describe-namespace
+   registry "diagnosis"
+   "Hypothesis tests that run the probe calls telling causes apart.")
+  (let ((pattern-array
+          (json-object "type" "array"
+                       "items" (json-object "type" "array"
+                                            "items" (json-object
+                                                     "description" "A predicate, then values or parameters such as ?service.")
+                                            "description" "One fact pattern, or [\"not\", PATTERN]."))))
+    (default-tools--register
+     registry
+     (list 'diagnosis-run-tool
+           "diagnosis" "run"
+           "Find which of up to 4 hypotheses explains a failure before repairing it. Each hypothesis predicts facts; each probe is a tool call whose contract observes facts from its result (define contracts with contract-define on memory:facts). Known facts are checked first, then the probe telling apart the most remaining hypotheses per cost runs, at most 3, with no model request between them. A hypothesis is ruled out only by a fact contradicting its prediction. Reports the remaining hypothesis and its repair, or what is still open, and which facts decided."
+           (tool-object-schema
+            (json-object
+             "diagnosis" (tool-string-property "The name of a saved diagnosis to run.")
+             "bindings" (json-object "type" "object"
+                                     "description" "Values for the diagnosis's parameters, such as {\"service\": \"billing\"}.")
+             "hypotheses" (json-object
+                           "type" "array"
+                           "items" (tool-object-schema
+                                    (json-object
+                                     "id" (tool-string-property "Lowercase hypothesis name.")
+                                     "predicts" pattern-array
+                                     "repair" (tool-string-property "What to do if it is the cause.")
+                                     "description" (tool-string-property "What the hypothesis says."))
+                                    '("id" "predicts"))
+                           "description" "The hypotheses, when no saved diagnosis is named.")
+             "probes" (json-object
+                       "type" "array"
+                       "items" (tool-object-schema
+                                (json-object
+                                 "tool" (tool-string-property "The probe's tool, such as service.ping.")
+                                 "arguments" (json-object "type" "object"
+                                                          "description" "Its arguments; ?name takes a parameter.")
+                                 "cost" (json-object "type" "number"
+                                                     "description" "Its relative cost; default 1."))
+                                '("tool"))
+                       "description" "The tool calls that can observe predicted facts.")
+             "parameters" (json-object "type" "array"
+                                       "items" (tool-string-property "A parameter name.")
+                                       "description" "Parameters the hypotheses and probes use, for save_as.")
+             "save_as" (tool-string-property "Save the given hypotheses and probes under this name to run again."))
+            nil))))
+  registry)
+
 (-> default-tools--register-plan (tool-registry &key (:knowledge-p boolean)) tool-registry)
 (defun default-tools--register-plan (registry &key (knowledge-p t))
   "Register workspace plan tools in REGISTRY.
@@ -1138,6 +1188,10 @@ socket."
                                   :knowledge-p (knowledge-active-p configuration))
     (when (knowledge-active-p configuration)
       (default-tools--register-procedure registry))
+    (when (and configuration
+               (knowledge-active-p configuration)
+               (config :diagnosis-p configuration))
+      (default-tools--register-diagnosis registry))
     (default-tools--register-lisp registry)
     (when (and configuration (lsp-configuration-enabled-p configuration))
       (lsp-register-tools registry))

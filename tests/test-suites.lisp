@@ -378,6 +378,11 @@
   test-procedure-commands
   test-procedure-fixture)
 
+(define-test-suite diagnosis
+  test-diagnosis-predictions
+  test-diagnosis-remote-service
+  test-diagnosis-setting)
+
 (define-test-suite papercut
   test-papercuts)
 

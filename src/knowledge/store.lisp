@@ -18,6 +18,9 @@
 (defparameter *knowledge-reason-limit* 400
   "The maximum characters of a retraction reason.")
 
+(defparameter *knowledge-diagnosis-case-limit* 20
+  "The most recent diagnosis cases kept per workspace for listing.")
+
 (deftype knowledge-basis ()
   "Why a support is believed."
   '(member :observation :user-assertion :assumption :model-proposal))
@@ -91,7 +94,17 @@ stopped, and INCOMPLETE-P whether an incomplete final record follows it.")
     :initform (make-hash-table :test #'equal)
     :reader knowledge-base-procedures-table
     :type hash-table
-    :documentation "Learned procedure entries by (WORKSPACE IDENTIFIER): versions, admission, and runs."))
+    :documentation "Learned procedure entries by (WORKSPACE IDENTIFIER): versions, admission, and runs.")
+   (diagnoses
+    :initform (make-hash-table :test #'equal)
+    :reader knowledge-base-diagnoses-table
+    :type hash-table
+    :documentation "Saved diagnosis entries by (SCOPE WORKSPACE IDENTIFIER): the latest definition.")
+   (diagnosis-cases
+    :initform (make-hash-table :test #'equal)
+    :reader knowledge-base-diagnosis-cases-table
+    :type hash-table
+    :documentation "Each workspace's recent diagnosis cases, newest first."))
   (:documentation "The folded state of the knowledge log, with lookup indexes."))
 
 
@@ -257,6 +270,23 @@ Without a configuration, as in standalone tool registries, knowledge is active."
                  (typep (getf properties :time) 'timestamp))))
          ((:procedure-defined :procedure-admitted :procedure-retired :procedure-run)
           (procedure-record-valid-p record))
+         (:diagnosis-defined
+          (let ((properties (rest record)))
+            (and (knowledge--scope-valid-p (getf properties :scope)
+                                           (getf properties :workspace))
+                 (knowledge-diagnosis-p (getf properties :diagnosis))
+                 (typep (getf properties :time) 'timestamp))))
+         (:diagnosis-recorded
+          (let* ((properties (rest record))
+                 (case (getf properties :case)))
+            (and (eq (getf properties :scope) ':workspace)
+                 (non-empty-string-p (getf properties :workspace))
+                 (proper-list-p case)
+                 (evenp (length case))
+                 (stringp (getf case :diagnosis))
+                 (proper-list-p (getf case :remaining))
+                 (proper-list-p (getf case :eliminated))
+                 (typep (getf properties :time) 'timestamp))))
          (:transaction
           (let ((records (getf (rest record) :records)))
             (and (proper-list-p records)
@@ -402,6 +432,23 @@ by a newer generation stays readable after a rollback."
            (setf (gethash key (knowledge-base-procedures-table base))
                  (procedure-entry-reduce (gethash key (knowledge-base-procedures-table base))
                                          record))))
+        (:diagnosis-defined
+         (let ((diagnosis (getf properties :diagnosis)))
+           (setf (gethash (list (getf properties :scope) (getf properties :workspace)
+                                (getf (rest diagnosis) :id))
+                          (knowledge-base-diagnoses-table base))
+                 (list :diagnosis diagnosis
+                       :scope (getf properties :scope)
+                       :workspace (getf properties :workspace)
+                       :time (getf properties :time)))))
+        (:diagnosis-recorded
+         (let ((cases (cons (append (getf properties :case)
+                                    (list :time (getf properties :time)
+                                          :conversation (getf properties :conversation)))
+                            (gethash (getf properties :workspace)
+                                     (knowledge-base-diagnosis-cases-table base)))))
+           (setf (gethash (getf properties :workspace) (knowledge-base-diagnosis-cases-table base))
+                 (subseq cases 0 (min (length cases) *knowledge-diagnosis-case-limit*)))))
         (:transaction
          ;; One atomically appended batch; its records are the revisions.
          (dolist (inner (getf properties :records))
@@ -436,7 +483,11 @@ into the copy leaves BASE, which readers may still be using, unchanged."
                                        (list #'knowledge-base-contracts-table
                                              #'knowledge-base-contracts-table)
                                        (list #'knowledge-base-procedures-table
-                                             #'knowledge-base-procedures-table))
+                                             #'knowledge-base-procedures-table)
+                                       (list #'knowledge-base-diagnoses-table
+                                             #'knowledge-base-diagnoses-table)
+                                       (list #'knowledge-base-diagnosis-cases-table
+                                             #'knowledge-base-diagnosis-cases-table))
           do (let ((into (funcall target copy)))
                (maphash (lambda (key value) (setf (gethash key into) value))
                         (funcall source base))))

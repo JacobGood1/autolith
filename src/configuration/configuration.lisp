@@ -354,6 +354,13 @@ exist yet, and is only put in directory form."
              (list "active" "passive" "off"))
   :default "active")
 
+(define-setting :diagnosis-p (boolean-setting)
+  :label "Diagnostic probes"
+  :group :behavior
+  :documentation "Whether the model may test hypotheses about a failure with probe tool calls (diagnosis.run). It needs active structured knowledge."
+  :scope :durable
+  :environment "AUTOLITH_DIAGNOSIS")
+
 (define-setting :idle-compaction-p (boolean-setting)
   :label "Idle cache compaction"
   :group :behavior

@@ -38,7 +38,8 @@
                                        :rule-admitted :rule-retired :method-defined
                                        :contract-defined :procedure-defined
                                        :procedure-admitted :procedure-retired
-                                       :procedure-run))
+                                       :procedure-run :diagnosis-defined
+                                       :diagnosis-recorded))
                              (eq (getf (rest record) :scope) ':workspace)
                              (equal (data-transfer--knowledge-owner record) workspace))))
                (claims (remove-if-not (lambda (record)
