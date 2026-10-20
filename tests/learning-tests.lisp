@@ -439,6 +439,25 @@
                               (equal (json-get arguments "title") "Sales q5")
                               (equal (json-get arguments "format") "markdown"))
                          "calls receive parameters, an earlier result, and constants")))
+        (knowledge-define-schema configuration
+                                 (knowledge-make-schema
+                                  :predicate "sales.data-ready"
+                                  :arguments '((:name "file" :type :string))))
+        (knowledge-define-contract configuration
+                                   :id "load-ready-data" :tool "sales.load"
+                                   :when (json-object "file" "?file")
+                                   :requires #(#("sales.data-ready" "?file")))
+        (let ((calls (length (learning-tests--scripted-tool-calls load)))
+              (refused (run "quarter" "q8")))
+          (test-assert (and (not (tool-result-success-p refused))
+                            (search "Procedure make-sales-report does not apply: call 1, sales.load: Contract load-ready-data requires sales.data-ready(data/q8.csv), which does not hold."
+                                    (tool-result-content refused))
+                            (= calls (length (learning-tests--scripted-tool-calls load))))
+                       "a run whose contract requirements do not hold makes no call"))
+        (knowledge-assert configuration '("sales.data-ready" "data/q5.csv") :basis ':model-proposal)
+        (knowledge-assert configuration '("sales.data-ready" "data/q6.csv") :basis ':model-proposal)
+        (knowledge-assert configuration '("sales.data-ready" "data/q7.csv") :basis ':model-proposal)
+        (knowledge-assert configuration '("sales.data-ready" "data/q9.csv") :basis ':model-proposal)
         (loop for (parameters expected) in '((() "needs parameter quarter")
                                             (("quarter" "q5" "region" "eu") "region is not one of them")
                                             (("quarter" 5) "must be a non-empty string"))
@@ -470,6 +489,8 @@
                        "a fitting request is offered the one call that does the work"))
         (test-assert (null (learning-tests--offers configuration "Make the sales forecast for q9."))
                      "a request that does not fit is not offered")
+        (test-assert (null (learning-tests--offers configuration "Make the sales report for q8."))
+                     "a request whose values its contracts refuse is not offered")
         (let ((user-run (procedure-run context "make-sales-report"
                                        :parameters '(("quarter" . "q9")) :caller ':user)))
           (test-assert (and (eq (getf user-run :status) ':ok)

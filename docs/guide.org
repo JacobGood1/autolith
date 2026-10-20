@@ -1030,7 +1030,9 @@ is offered the one =procedure.run= call that makes the same calls with =q5=,
 and =@ learned procedure make-sales-report fits this request= appears. The
 first run asks to admit the procedure (=procedure.admit -- make-sales-report
 v1: sales.load, sales.report, notify.send=); full access admits it at once.
-Every call still asks its own approval and passes its contracts. If a call
+Every call still asks its own approval and passes its contracts; a run whose
+calls' contract requirements do not hold for the request's values is refused
+before any call, and is not offered. If a call
 fails, the run stops and the model continues the work with ordinary calls;
 two failed runs in a row suspend the procedure until you admit it again.
 

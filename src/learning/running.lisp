@@ -24,8 +24,8 @@
 
 A learned procedure that was never admitted is admitted first: by the user's
 own (run-procedure) call, or for the model by command authorization. Invalid
-parameters and a retired, suspended, or declined procedure signal
-KNOWLEDGE-ERROR before any call. Otherwise return a plist of :STATUS (:OK or
+parameters, a retired, suspended, or declined procedure, and a call whose
+contract requirements do not hold signal KNOWLEDGE-ERROR before any call. Otherwise return a plist of :STATUS (:OK or
 :FAILED), :VERSION, :STEPS (each :TOOL, :ARGUMENTS, :SUCCESS-P, :OUTPUT),
 :TOTAL, and :FAILURE, after recording the run in the ledger."
   (let* ((configuration (tool-context-configuration context))
@@ -37,6 +37,7 @@ KNOWLEDGE-ERROR before any call. Otherwise return a plist of :STATUS (:OK or
          (outputs nil)
          (reports nil)
          (failure nil))
+    (procedure--check-contracts configuration procedure bindings)
     (loop for step in steps
           for index from 0
           do (let* ((tool-name (getf step :tool))
@@ -118,7 +119,8 @@ KNOWLEDGE-ERROR before any call. Otherwise return a plist of :STATUS (:OK or
 
 Each offer is a plist of :ID, :STATUS, :PROCEDURE, and :BINDINGS. Admitted
 procedures and never-admitted candidates are offered; suspended and retired
-ones are not."
+ones, and those whose contract requirements do not hold for these values,
+are not."
   (loop for entry in (knowledge-base-procedures (knowledge-base-read configuration)
                                                 (knowledge--workspace configuration))
         for status = (procedure-entry-status entry)
@@ -132,6 +134,11 @@ ones are not."
                         (every (lambda (parameter)
                                  (assoc (getf parameter :name) bindings :test #'string=))
                                (getf (rest procedure) :parameters))
+                        (handler-case
+                            (progn (procedure--check-contracts configuration procedure bindings)
+                                   t)
+                          (knowledge-error ()
+                            nil))
                         (list (list :id (getf entry :id)
                                     :status status
                                     :procedure procedure
@@ -240,6 +247,33 @@ Numbers and booleans given as text are read as such first."
                              (:boolean "true or false"))
                            (getf parameter :suffix)))))
     parameters))
+
+(-> procedure--check-contracts (configuration list list) null)
+(defun procedure--check-contracts (configuration procedure bindings)
+  "Refuse PROCEDURE with BINDINGS when a call's contract requirements do not hold.
+
+Calls whose arguments come only from parameters are checked before any call
+is made, so a run that would be refused midway is refused whole. Calls using
+earlier results are checked when they are made."
+  (when (knowledge-active-p configuration)
+    (loop for step in (getf (rest procedure) :steps)
+          for index from 1
+          for arguments = (handler-case (procedure-template-instantiate (getf step :arguments)
+                                                                        bindings nil)
+                            (knowledge-error ()
+                              nil))
+          for refusal = (and arguments
+                             (knowledge-contract-refusal
+                              configuration
+                              (knowledge-contracts-for-call configuration (getf step :tool)
+                                                            arguments)))
+          when refusal
+            do (knowledge--fail ':procedure-inapplicable (getf (rest procedure) :id)
+                                "Procedure ~A does not apply: call ~D, ~A: ~A"
+                                (getf (rest procedure) :id) index (getf step :tool)
+                                (subseq refusal 0 (or (search " The call was not made." refusal)
+                                                      (length refusal))))))
+  nil)
 
 (-> procedure--call (tool-context string json-object integer) tool-result)
 (defun procedure--call (context tool-name arguments index)
