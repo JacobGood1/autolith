@@ -20,7 +20,10 @@
   "Return the complete records of CONFIGURATION's knowledge log, without its header."
   (let ((pathname (configuration-knowledge-path configuration)))
     (if (probe-file pathname)
-        (data-transfer--log-records pathname ':knowledge)
+        (loop for record in (data-transfer--log-records pathname ':knowledge)
+              append (if (eq (first record) :transaction)
+                         (copy-list (getf (rest record) :records))
+                         (list record)))
         nil)))
 
 (-> data-transfer--collect-knowledge (configuration t) list)

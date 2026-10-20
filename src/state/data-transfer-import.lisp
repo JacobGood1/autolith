@@ -202,7 +202,7 @@
                        (cons (list kind :version 1) added)))
                   data-root :replace-p t)))))
       (let* ((path (configuration-knowledge-path configuration))
-             (existing (and (probe-file path) (data-transfer--log-records path ':knowledge)))
+             (existing (data-transfer--knowledge-records configuration))
              (added (data-transfer--merge-knowledge existing (getf archive :knowledge) path)))
         (when added
           (when (and (probe-file path) (nth-value 1 (log-read path)))

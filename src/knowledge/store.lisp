@@ -26,7 +26,10 @@
   "Serialize same-process knowledge transactions.")
 
 (defvar *knowledge-base-cache* (make-hash-table :test #'equal :synchronized t)
-  "Folded knowledge bases by log namestring, each with the file status it reflects.")
+  "(IDENTITY SIZE POSITION BASE INCOMPLETE-P) of each folded log by namestring.
+
+IDENTITY and SIZE describe the file BASE reflects, POSITION is where reading
+stopped, and INCOMPLETE-P whether an incomplete final record follows it.")
 
 (defclass knowledge-base ()
   ((revision
@@ -225,6 +228,15 @@ Without a configuration, as in standalone tool registries, knowledge is active."
                  (or (eq (first record) :rule-retired)
                      (typep (getf properties :rule-version) '(integer 1)))
                  (typep (getf properties :time) 'timestamp))))
+         (:transaction
+          (let ((records (getf (rest record) :records)))
+            (and (proper-list-p records)
+                 records
+                 (every (lambda (inner)
+                          (and (consp inner)
+                               (not (eq (first inner) :transaction))
+                               (knowledge--record-valid-p inner)))
+                        records))))
          (otherwise
           t))
        t))
@@ -273,7 +285,11 @@ by a newer generation stays readable after a rollback."
                  (copy-list properties))
            (let ((entry (gethash claim (knowledge-base-claims base))))
              (if entry
-                 (pushnew support (getf entry :supports) :test #'string=)
+                 (let ((copy (copy-list entry)))
+                   (setf (getf copy :supports)
+                         (adjoin support (getf entry :supports) :test #'string=)
+                         (gethash claim (knowledge-base-claims base))
+                         copy))
                  (let ((proposition (getf properties :proposition)))
                    (setf (gethash claim (knowledge-base-claims base))
                          (list :id claim
@@ -304,7 +320,7 @@ by a newer generation stays readable after a rollback."
          (let* ((rule (getf properties :rule))
                 (key (list (getf properties :scope) (getf properties :workspace)
                            (getf (rest rule) :id)))
-                (entry (or (gethash key (knowledge-base-rules base))
+                (entry (or (copy-list (gethash key (knowledge-base-rules base)))
                            (list :id (getf (rest rule) :id)
                                  :scope (getf properties :scope)
                                  :workspace (getf properties :workspace)
@@ -321,7 +337,7 @@ by a newer generation stays readable after a rollback."
         ((:rule-admitted :rule-retired)
          (let* ((key (list (getf properties :scope) (getf properties :workspace)
                            (getf properties :id)))
-                (entry (gethash key (knowledge-base-rules base))))
+                (entry (copy-list (gethash key (knowledge-base-rules base)))))
            (unless (and entry
                         (or (eq (first record) :rule-retired)
                             (<= 1 (getf properties :rule-version)
@@ -331,39 +347,106 @@ by a newer generation stays readable after a rollback."
            (setf (getf entry :active) (and (eq (first record) :rule-admitted)
                                            (getf properties :rule-version))
                  (gethash key (knowledge-base-rules base)) entry)))
+        (:transaction
+         ;; One atomically appended batch; its records are the revisions.
+         (dolist (inner (getf properties :records))
+           (knowledge--reduce pathname base inner))
+         (decf (knowledge-base-revision base)))
         (otherwise
          ;; A record kind from a newer generation: skip it.
          nil)))
     (incf (knowledge-base-revision base))
     base))
 
-(-> knowledge--store (configuration) sexp-store:log-store)
-(defun knowledge--store (configuration)
-  "Describe the knowledge log schema, reducer, and paths."
-  (let ((pathname (configuration-knowledge-path configuration)))
-    (make-instance
-     'sexp-store:log-store
-     :pathname pathname
-     :lock-pathname (readable-state-lock-pathname pathname "knowledge.lock")
-     :header (list :knowledge :version *knowledge-format-version*)
-     :header-validator
-     (lambda (form)
-       (sexp-store:record-check form :tag ':knowledge
-                               :versions (list *knowledge-format-version*)))
-     :validator #'knowledge--record-valid-p
-     :initial-state (lambda () (make-instance 'knowledge-base))
-     :reducer (lambda (base record)
-                (knowledge--reduce pathname base record)))))
+(-> knowledge--copy-base (knowledge-base) knowledge-base)
+(defun knowledge--copy-base (base)
+  "Return a new base sharing BASE's entries but not its tables.
 
-(-> knowledge--file-key (pathname) t)
-(defun knowledge--file-key (pathname)
-  "Return a value that changes whenever the log at PATHNAME is republished."
-  (let ((status (platform-path-status *platform* pathname :follow-links-p t)))
-    (and status
-         (list (platform-file-status-identity status)
-               (platform-file-status-size status)
-               (platform-file-status-modification-time status)
-               (platform-file-status-change-time status)))))
+The reducer replaces entries instead of modifying them, so folding new records
+into the copy leaves BASE, which readers may still be using, unchanged."
+  (let ((copy (make-instance 'knowledge-base)))
+    (setf (knowledge-base-revision copy) (knowledge-base-revision base))
+    (loop for (source target) in (list (list #'knowledge-base-schemas #'knowledge-base-schemas)
+                                       (list #'knowledge-base-evidence #'knowledge-base-evidence)
+                                       (list #'knowledge-base-supports #'knowledge-base-supports)
+                                       (list #'knowledge-base-claims #'knowledge-base-claims)
+                                       (list #'knowledge-base-predicate-index
+                                             #'knowledge-base-predicate-index)
+                                       (list #'knowledge-base-term-index #'knowledge-base-term-index)
+                                       (list #'knowledge-base-evidence-index
+                                             #'knowledge-base-evidence-index)
+                                       (list #'knowledge-base-rules #'knowledge-base-rules))
+          do (let ((into (funcall target copy)))
+               (maphash (lambda (key value) (setf (gethash key into) value))
+                        (funcall source base))))
+    copy))
+
+(-> knowledge--header () list)
+(defun knowledge--header ()
+  "Return the header that starts every knowledge log."
+  (list :knowledge :version *knowledge-format-version*))
+
+(-> knowledge--lock-pathname (configuration) pathname)
+(defun knowledge--lock-pathname (configuration)
+  "Return the advisory lock serializing writers of CONFIGURATION's knowledge log."
+  (readable-state-lock-pathname (configuration-knowledge-path configuration) "knowledge.lock"))
+
+(-> knowledge--fold-from (pathname knowledge-base integer)
+    (values knowledge-base integer boolean))
+(defun knowledge--fold-from (pathname base position)
+  "Fold PATHNAME's complete records after byte POSITION into BASE.
+
+Return BASE, the position after the last complete record, and whether an
+incomplete final record remains. Position zero starts with the header."
+  (let ((header-p (zerop position)))
+    (multiple-value-bind (next incomplete-p)
+        (sexp-store:log-map
+         (lambda (form)
+           (if header-p
+               (progn
+                 (unless (sexp-store:record-check form :tag ':knowledge
+                                                       :versions (list *knowledge-format-version*))
+                   (knowledge--fail ':corrupt (namestring pathname)
+                                    "The knowledge log header is not supported."))
+                 (setf header-p nil))
+               (progn
+                 (unless (knowledge--record-valid-p form)
+                   (knowledge--fail ':corrupt (namestring pathname)
+                                    "A complete knowledge record is malformed."))
+                 (knowledge--reduce pathname base form))))
+         pathname
+         :start-position position)
+      (values base next incomplete-p))))
+
+(-> knowledge--read-current (configuration) (values knowledge-base boolean))
+(defun knowledge--read-current (configuration)
+  "Return CONFIGURATION's current base, folding only records added since the cached read.
+
+The second value is true when the log ends in an incomplete record. Appends
+keep the file's identity, so the cache continues from its position; any other
+replacement rereads the whole log."
+  (let* ((pathname (configuration-knowledge-path configuration))
+         (name (namestring pathname))
+         (status (platform-path-status *platform* pathname :follow-links-p t)))
+    (if (null status)
+        (values (make-instance 'knowledge-base) nil)
+        (with-recursive-lock-held (*knowledge-lock*)
+          (destructuring-bind (&optional identity size position base incomplete-p)
+              (gethash name *knowledge-base-cache*)
+            (let ((same-p (and base (equal identity (platform-file-status-identity status)))))
+              (cond
+                ((and same-p (= size (platform-file-status-size status)))
+                 (values base incomplete-p))
+                (t
+                 (multiple-value-bind (folded next incomplete-p)
+                     (if (and same-p (< size (platform-file-status-size status)))
+                         (knowledge--fold-from pathname (knowledge--copy-base base) position)
+                         (knowledge--fold-from pathname (make-instance 'knowledge-base) 0))
+                   (setf (gethash name *knowledge-base-cache*)
+                         (list (platform-file-status-identity status)
+                               (platform-file-status-size status)
+                               next folded incomplete-p))
+                   (values folded incomplete-p))))))))))
 
 (-> knowledge--translate-store-errors (function) t)
 (defun knowledge--translate-store-errors (function)
@@ -380,34 +463,44 @@ by a newer generation stays readable after a rollback."
 
 (-> knowledge-base-read (configuration) knowledge-base)
 (defun knowledge-base-read (configuration)
-  "Return CONFIGURATION's folded knowledge base, reusing an unchanged read.
+  "Return CONFIGURATION's folded knowledge base, reading only what was appended.
 
 The returned base is shared; callers must not modify it."
-  (let* ((pathname (configuration-knowledge-path configuration))
-         (name (namestring pathname))
-         (key (knowledge--file-key pathname))
-         (cached (gethash name *knowledge-base-cache*)))
-    (if (and cached key (equal (first cached) key))
-        (rest cached)
-        (let ((base (knowledge--translate-store-errors
-                     (lambda ()
-                       (with-recursive-lock-held (*knowledge-lock*)
-                         (sexp-store:store-read (knowledge--store configuration)))))))
-          (when key
-            (setf (gethash name *knowledge-base-cache*) (cons key base)))
-          base))))
+  (values (knowledge--translate-store-errors
+           (lambda () (knowledge--read-current configuration)))))
 
 (-> knowledge-transact (configuration function) t)
 (defun knowledge-transact (configuration update)
-  "Apply UPDATE to a fresh knowledge base and publish its records atomically.
+  "Apply UPDATE to the current knowledge base and append its records atomically.
 
-UPDATE receives a private base and returns RECORDS, RESULT, and WRITE-P as for
-SEXP-STORE:STORE-TRANSACT. Return RESULT."
-  (with-recursive-lock-held (*knowledge-lock*)
-    (values
-     (knowledge--translate-store-errors
-      (lambda ()
-        (sexp-store:store-transact (knowledge--store configuration) update))))))
+UPDATE receives the shared current base, which it must not modify, and
+returns RECORDS, RESULT, and WRITE-P. The records are validated and folded
+before anything is written; several records are appended as one transaction,
+so an interrupted write leaves none of them. Return RESULT."
+  (let ((pathname (configuration-knowledge-path configuration)))
+    (knowledge--translate-store-errors
+     (lambda ()
+       (with-recursive-lock-held (*knowledge-lock*)
+         (call-with-file-lock
+          (knowledge--lock-pathname configuration)
+          (lambda ()
+            (multiple-value-bind (base incomplete-p) (knowledge--read-current configuration)
+              (when incomplete-p
+                (sexp-store:log-repair-tail pathname)
+                (setf base (knowledge--read-current configuration)))
+              (multiple-value-bind (records result write-p) (funcall update base)
+                (when (and write-p records)
+                  (let ((form (if (rest records)
+                                  (list :transaction :version *knowledge-format-version*
+                                        :records records)
+                                  (first records))))
+                    (unless (knowledge--record-valid-p form)
+                      (knowledge--fail ':invalid form "A knowledge record is malformed."))
+                    (knowledge--reduce pathname (knowledge--copy-base base) form)
+                    (sexp-store:log-append pathname form
+                                           :initial-forms (list (knowledge--header))
+                                           :repair-tail-p nil)))
+                result)))))))))
 
 
 ;;;; -- Lookup --
