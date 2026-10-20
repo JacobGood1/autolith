@@ -1268,7 +1268,7 @@ signals with the candidate canonical names."
                              (setf *telemetry-tool-corrects-previous-p* (and present-p (json-true-p value))))
                            (remhash "corrects_previous" arguments)))
                        (when *telemetry-tool-capture-p* (setf *telemetry-tool-arguments* arguments))
-                       (tool-execute tool context arguments)))))))
+                       (tool-execute-with-contracts tool context arguments)))))))
       (active-image-corruption (condition)
         (error condition))
       (error (condition)

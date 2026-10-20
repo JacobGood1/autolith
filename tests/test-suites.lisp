@@ -359,7 +359,8 @@
   test-knowledge-plan-steps
   test-knowledge-plan-changes
   test-knowledge-task-methods
-  test-knowledge-fact-gates)
+  test-knowledge-fact-gates
+  test-knowledge-action-contracts)
 
 (define-test-suite knowledge-fixtures
   test-knowledge-appointment-fixtures

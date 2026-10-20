@@ -222,6 +222,25 @@ retracting facts, and proposing rules."
         "scope" (memory-scope-property))
        '("id" "task" "steps"))
       (operation-schema
+       "contract-define"
+       (json-object
+        "id" (tool-string-property "Lowercase contract name; defining it again replaces it.")
+        "tool" (tool-string-property "The tool the contract describes, such as shell.run or an MCP tool.")
+        "when" (json-object "type" "object"
+                            "description" "Argument names mapped to required values or to variables they bind.")
+        "requires" (json-object "type" "array"
+                                "items" (json-object "description" "One fact pattern.")
+                                "description" "Fact patterns that must hold before the call; otherwise it is refused.")
+        "effects" (json-object "type" "array"
+                               "items" (json-object "description" "One fact pattern.")
+                               "description" "Facts the call is expected to cause, recorded as predictions.")
+        "observes" (json-object "type" "array"
+                                "items" (json-object "description" "{\"predicate\": NAME, \"arguments\": [VALUE, ?var, $arg.NAME, or $result.PATH]}.")
+                                "description" "Facts read from the call's arguments and JSON result after it succeeds.")
+        "description" (tool-string-property "What the contract states.")
+        "scope" (memory-scope-property))
+       '("id" "tool"))
+      (operation-schema
        "fact-retract"
        (json-object
         "id" (tool-string-property "A claim or support identifier.")

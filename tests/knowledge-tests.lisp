@@ -1583,3 +1583,87 @@
                                    (getf gate :evidence))
                            "the failed gate says which evidence it accepts"))))))
     nil))
+
+(defclass knowledge-tests--mail-tool (tool)
+  ((calls
+    :initform 0
+    :accessor knowledge-tests--mail-tool-calls
+    :documentation "How many times the tool ran."))
+  (:documentation "A mail tool answering with a JSON receipt, for contract tests."))
+
+(defmethod tool-execute ((tool knowledge-tests--mail-tool) (context tool-context) (arguments hash-table))
+  "Count the call and answer with a JSON receipt."
+  (declare (ignore context arguments))
+  (incf (knowledge-tests--mail-tool-calls tool))
+  (tool-success (json-encode (json-object "id" "msg-1" "status" "queued"))))
+
+
+(-> test-knowledge-action-contracts () null)
+(defun test-knowledge-action-contracts ()
+  "Test contracts refusing calls on unmet requirements and recording predictions and observations."
+  (dolist (mode '("active" "passive"))
+    (with-test-configuration (base root)
+      (let* ((configuration (configuration-copy base :working-directory root :knowledge-mode mode))
+             (registry (make-default-tool-registry :configuration configuration))
+             (mail (make-instance 'knowledge-tests--mail-tool
+                                  :namespace "mail" :name "send" :description "Send a report."
+                                  :parameters (tool-object-schema
+                                               (json-object "report" (tool-string-property "Report."))
+                                               '("report"))))
+             (context (make-instance 'tool-context :configuration configuration :worker nil
+                                                   :conversation (conversation-create configuration))))
+        (tool-registry-register registry mail)
+        (dolist (definition '(("report.ready" (("report" :entity)) nil)
+                              ("report.sent" (("report" :entity)) nil)
+                              ("mail.message" (("report" :entity) ("message" :string)) ("report"))))
+          (destructuring-bind (predicate arguments key) definition
+            (knowledge-define-schema
+             configuration
+             (knowledge-make-schema :predicate predicate
+                                    :arguments (mapcar (lambda (argument)
+                                                         (list :name (first argument)
+                                                               :type (second argument)))
+                                                       arguments)
+                                    :key key))))
+        (knowledge-define-contract
+         configuration
+         :id "send-report" :tool "mail.send"
+         :when (json-object "report" "?report")
+         :requires #(#("report.ready" "?report"))
+         :effects #(#("report.sent" "?report"))
+         :observes (vector (json-object "predicate" "mail.message"
+                                        "arguments" #("$arg.report" "$result.id"))))
+        (flet ((send ()
+                 (memory-resource-tests--call registry context "mail" "send" "report" "q3"))
+
+               (holding (pattern)
+                 (knowledge-view-holds (knowledge-view-current configuration) pattern)))
+          (let ((first-call (send)))
+            (if (string= mode "active")
+                (test-assert (and (not (tool-result-success-p first-call))
+                                  (search "Contract send-report requires report.ready(q3), which does not hold. The call was not made."
+                                          (tool-result-content first-call))
+                                  (zerop (knowledge-tests--mail-tool-calls mail)))
+                             "an unmet requirement refuses the call before it runs")
+                (test-assert (and (tool-result-success-p first-call)
+                                  (= 1 (knowledge-tests--mail-tool-calls mail)))
+                             "passive mode never refuses a call")))
+          (knowledge-assert configuration '("report.ready" "q3") :basis ':model-proposal)
+          (when (string= mode "active")
+            (test-assert (tool-result-success-p (send))
+                         "the call runs once its requirement holds"))
+          (let ((sent (first (holding '("report.sent" "q3"))))
+                (message (first (holding '("mail.message" "q3" "?m")))))
+            (test-assert (and sent (not (knowledge-node-observed-p sent)))
+                         "the predicted effect is recorded as a prediction, not an observation")
+            (test-assert (and message
+                              (equal (third (knowledge-node-proposition message)) "msg-1")
+                              (knowledge-node-observed-p message))
+                         "the result's id is observed through the contract")))
+        (when (string= mode "active")
+          (test-assert (search "send-report workspace: mail.send when report = ?report"
+                               (tool-result-content
+                                (memory-resource-tests--call registry context "resource" "read"
+                                                             "uri" "memory:contracts")))
+                       "memory:contracts lists the contract")))))
+  nil)

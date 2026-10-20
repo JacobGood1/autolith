@@ -19,7 +19,7 @@
     :initarg :view-kind
     :reader memory-knowledge-resource-view-kind
     :type keyword
-    :documentation "Which knowledge view: :FACTS, :CLAIM, :PREDICATES, :RULES, :METHODS, or :CHANGES.")
+    :documentation "Which knowledge view: :FACTS, :CLAIM, :PREDICATES, :RULES, :METHODS, :CONTRACTS, or :CHANGES.")
    (claim
     :initarg :claim
     :initform nil
@@ -46,6 +46,7 @@
       ((string= identifier "rules") (make ':rules))
       ((string= identifier "changes") (make ':changes))
       ((string= identifier "methods") (make ':methods))
+      ((string= identifier "contracts") (make ':contracts))
       ((and (uiop:string-prefix-p "claim/" identifier)
             (> (length identifier) (length "claim/")))
        (make ':claim (subseq identifier (length "claim/"))))
@@ -189,6 +190,32 @@ Conflicted facts come first, then the rest by predicate and text."
       (unless entries
         (format stream "~%No methods are defined.")))))
 
+(-> memory-knowledge--render-contracts (knowledge-base (option string)) string)
+(defun memory-knowledge--render-contracts (base workspace)
+  "Return the action contracts visible from WORKSPACE."
+  (let ((entries (sort (loop for entry being the hash-values of (knowledge-base-contracts-table base)
+                             when (knowledge-visible-p (getf entry :scope) (getf entry :workspace)
+                                                       workspace)
+                               collect entry)
+                       #'string< :key (lambda (entry) (getf (rest (getf entry :contract)) :id)))))
+    (with-output-to-string (stream)
+      (format stream "collection: contracts~%count: ~D~%" (length entries))
+      (dolist (entry entries)
+        (let ((contract (rest (getf entry :contract))))
+          (format stream "~%~A ~(~A~): ~A~@[ when ~{~A~^, ~}~]~@[~%  requires ~{~A~^ and ~}~]~@[~%  predicts ~{~A~^ and ~}~]~@[~%  observes ~{~A~^ and ~}~]~@[~%  ~A~]~%"
+                  (getf contract :id) (getf entry :scope) (getf contract :tool)
+                  (mapcar (lambda (condition) (format nil "~A = ~A" (first condition) (rest condition)))
+                          (getf contract :when))
+                  (mapcar #'knowledge-pattern-text (getf contract :requires))
+                  (mapcar #'knowledge-pattern-text (getf contract :effects))
+                  (mapcar (lambda (observation)
+                            (format nil "~A(~{~A~^, ~})" (getf observation :predicate)
+                                    (getf observation :arguments)))
+                          (getf contract :observes))
+                  (getf contract :description))))
+      (unless entries
+        (format stream "~%No contracts are defined.")))))
+
 (-> memory-knowledge--render-changes (configuration string knowledge-view) string)
 (defun memory-knowledge--render-changes (configuration viewer view)
   "Return what changed for VIEWER since it last read memory:changes, and record this read."
@@ -302,6 +329,8 @@ Conflicted facts come first, then the rest by predicate and text."
               (memory-knowledge--render-rules base workspace))
              (:methods
               (memory-knowledge--render-methods base workspace))
+             (:contracts
+              (memory-knowledge--render-contracts base workspace))
              (:changes
               (memory-knowledge--render-changes
                configuration
@@ -643,6 +672,27 @@ Conflicted facts come first, then the rest by predicate and text."
                                                      (tool-context-conversation context)))
     (format nil "~:[Method ~A is unchanged~;Defined method ~A~]." changed-p identifier)))
 
+(-> memory-knowledge--define-contract (tool-context hash-table) string)
+(defun memory-knowledge--define-contract (context operation)
+  "Apply one contract-define OPERATION and describe the result."
+  (memory-knowledge--fields operation "contract-define"
+                            '("op" "id" "tool" "when" "requires" "effects" "observes"
+                              "description" "scope")
+                            '("id" "tool"))
+  (multiple-value-bind (identifier changed-p)
+      (knowledge-define-contract (tool-context-configuration context)
+                                 :id (gethash "id" operation)
+                                 :tool (gethash "tool" operation)
+                                 :when (gethash "when" operation)
+                                 :requires (gethash "requires" operation #())
+                                 :effects (gethash "effects" operation #())
+                                 :observes (gethash "observes" operation #())
+                                 :description (gethash "description" operation)
+                                 :scope (memory-knowledge--scope operation)
+                                 :source-conversation (conversation-identifier
+                                                       (tool-context-conversation context)))
+    (format nil "~:[Contract ~A is unchanged~;Defined contract ~A~]." changed-p identifier)))
+
 (-> memory-knowledge--apply (tool-context t) string)
 (defun memory-knowledge--apply (context operation)
   "Apply one memory:facts OPERATION and return its one-line result."
@@ -660,8 +710,10 @@ Conflicted facts come first, then the rest by predicate and text."
        (memory-knowledge--propose context operation))
       ((equal name "method-define")
        (memory-knowledge--define-method context operation))
+      ((equal name "contract-define")
+       (memory-knowledge--define-contract context operation))
       (t
-       (memory-resource--fail "memory:facts accepts predicate-define, fact-assert, fact-retract, rule-propose, and method-define.")))))
+       (memory-resource--fail "memory:facts accepts predicate-define, fact-assert, fact-retract, rule-propose, method-define, and contract-define.")))))
 
 (defmethod resource-tool-edit
     ((resource memory-knowledge-resource) (tool resource-edit-tool)
