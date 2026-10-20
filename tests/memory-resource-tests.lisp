@@ -544,7 +544,10 @@
                  "memory collection max-results bounds returned entries")
                 (test-assert
                  (and (tool-result-success-p exact-read)
-                      (search (memory-resource--render-item global-memory)
+                      (search (memory-resource--render-item
+                               (memory-assess (memory-assessor-create configuration)
+                                              global-memory)
+                               nil)
                               (tool-result-content exact-read)))
                  "canonical memory item resources return complete content"))))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)
@@ -1054,4 +1057,143 @@
       (platform-delete-directory-tree *platform* root
                                       :validate t
                                       :if-does-not-exist ':ignore)))
+  nil)
+
+(-> test-memory-resource-sources () null)
+(defun test-memory-resource-sources ()
+  "Test cited evidence and premises through memory: resource edits and reads."
+  (with-test-configuration (base root)
+    (let* ((workspace (merge-pathnames "sourced/" root))
+           (configuration (progn
+                            (ensure-directories-exist workspace)
+                            (configuration-copy base :working-directory workspace)))
+           (registry (make-default-tool-registry))
+           (conversation (conversation-create configuration
+                                              :identifier "memory-sources"))
+           (context (make-instance 'tool-context
+                                   :configuration configuration
+                                   :worker nil
+                                   :conversation conversation))
+           (notes (memory-source-tests--write
+                   (merge-pathnames "NOTES.md" workspace)
+                   (format nil "Deploy with make release-prod after tagging.~%"))))
+      (conversation-append-user-message
+       conversation "Please always use tabs for indentation here.")
+      (labels ((read-resource (uri)
+                 "Read one complete memory resource."
+                 (memory-resource-tests--call
+                  registry context "resource" "read" "uri" uri))
+
+               (revision (result)
+                 "Return RESULT's transient revision alias."
+                 (memory-resource-tests--field
+                  (tool-result-content result) "Revision: "))
+
+               (edit (uri operation)
+                 "Apply OPERATION to a fresh observation of URI."
+                 (memory-resource-tests--edit
+                  registry context uri (revision (read-resource uri)) operation))
+
+               (remember (title content &rest fields)
+                 "Create a workspace memory with optional evidence FIELDS."
+                 (edit "memory:workspace"
+                       (apply #'json-object
+                              "op" "memory-remember"
+                              "title" title
+                              "content" content
+                              fields)))
+
+               (created-uri (result)
+                 "Return the exact URI of a created memory."
+                 (memory-resource-tests--field
+                  (tool-result-content result) "Exact URI: "))
+
+               (failure-p (result text)
+                 "Return true when RESULT failed and mentions TEXT."
+                 (and (not (tool-result-success-p result))
+                      (search text (tool-result-content result))
+                      t)))
+        (let* ((deploy (remember "Deploy command"
+                                 "Deploy with make release-prod."
+                                 "sources"
+                                 (vector (json-object "file" "NOTES.md"
+                                                      "quote" "with make release-prod")
+                                         (json-object "user" "always use tabs"))))
+               (deploy-uri (created-uri deploy))
+               (deploy-identifier (memory-resource-tests--uri-identifier deploy-uri))
+               (derived (remember "Release day"
+                                  "Releases need a tag and make release-prod."
+                                  "premises" (vector deploy-uri)))
+               (derived-uri (created-uri derived)))
+          (test-assert (and (tool-result-success-p deploy)
+                            (= 2 (length (memory-sources
+                                          (memory-find configuration deploy-identifier)))))
+                       "memory-remember records a verified file quote and user statement")
+          (test-assert (search "sources:" (tool-result-content (read-resource deploy-uri)))
+                       "an exact memory read lists its sources")
+          (test-assert (and (tool-result-success-p derived)
+                            (search "premises:" (tool-result-content
+                                                 (read-resource derived-uri))))
+                       "a premise named by its memory URI is recorded and shown")
+          (test-assert (search "relied on by:" (tool-result-content
+                                                (read-resource deploy-uri)))
+                       "an exact memory read names the memories derived from it")
+          (dolist (case
+                   (list
+                    (list "a quote absent from the cited file"
+                          (remember "Wrong" "Wrong."
+                                    "sources" (vector (json-object
+                                                       "file" "NOTES.md"
+                                                       "quote" "make release-staging")))
+                          "does not occur")
+                    (list "words the user never said"
+                          (remember "Invented" "Invented."
+                                    "sources" (vector (json-object
+                                                       "user" "always use spaces")))
+                          "user's messages")
+                    (list "a source naming two kinds"
+                          (remember "Ambiguous" "Ambiguous."
+                                    "sources" (vector (json-object
+                                                       "file" "NOTES.md"
+                                                       "url" "https://example.com")))
+                          "exactly one of")
+                    (list "an unknown premise"
+                          (remember "Orphan" "Orphan."
+                                    "premises" (vector "no-such-memory"))
+                          "does not exist")))
+            (destructuring-bind (label result text) case
+              (test-assert (failure-p result text)
+                           (format nil "~A is rejected correctively" label))))
+          (memory-source-tests--write notes (format nil "Deploy with make ship.~%"))
+          (test-assert (search "status: stale (NOTES.md changed)"
+                               (tool-result-content (read-resource deploy-uri)))
+                       "rereading a memory whose cited text changed reports it stale")
+          (test-assert (search "status: stale"
+                               (tool-result-content (read-resource "memory:workspace")))
+                       "collection entries report stale memories")
+          (test-assert (search "(stale)" (tool-result-content (read-resource derived-uri)))
+                       "a derived memory shows which premise is stale")
+          (test-assert (failure-p (edit deploy-uri
+                                        (json-object "op" "memory-replace"
+                                                     "title" "Deploy command"
+                                                     "content" "Deploy with make ship."))
+                                  "current sources")
+                       "replacing without sources requires the cited text to still hold")
+          (let ((replaced (edit deploy-uri
+                                (json-object "op" "memory-replace"
+                                             "title" "Deploy command"
+                                             "content" "Deploy with make ship."
+                                             "sources" (vector (json-object
+                                                                "file" "NOTES.md"
+                                                                "quote" "with make ship"))))))
+            (test-assert (and (tool-result-success-p replaced)
+                              (not (search "status:" (tool-result-content replaced))))
+                         "replacing with current evidence makes the memory current"))
+          (test-assert (search "changed since this memory was written"
+                               (tool-result-content (read-resource derived-uri)))
+                       "a derived memory notices that its premise was restated")
+          (let ((forgotten (edit deploy-uri (json-object "op" "memory-forget"))))
+            (test-assert (and (tool-result-success-p forgotten)
+                              (search derived-uri (tool-result-content forgotten)))
+                         "forgetting a premise names the memories that relied on it"))))))
   nil)

@@ -111,6 +111,32 @@
               '("global" "workspace")
               "Optional complete replacement scope."))
 
+           (memory-sources-property ()
+             "Return the bounded persistent-memory evidence schema."
+             (let ((schema
+                     (cl-llm-provider-api:provider-array-schema
+                      (tool-object-schema
+                       (json-object
+                        "file" (tool-string-property "A cited file path.")
+                        "url" (tool-string-property "A cited http or https address.")
+                        "user" (tool-string-property
+                                "The user's exact words in this conversation.")
+                        "quote" (tool-string-property
+                                 "The exact supporting passage of the file or page; a file quote must occur in the file now."))
+                       nil)
+                      "Optional evidence the memory was written from; each object names one of file, url, or user. A memory whose quoted file text changes is reported stale. Replacing without sources rechecks the existing ones; empty removes them.")))
+               (setf (gethash "maxItems" schema) *memory-source-count-limit*)
+               schema))
+
+           (memory-premises-property ()
+             "Return the bounded persistent-memory premise schema."
+             (let ((schema
+                     (cl-llm-provider-api:provider-array-schema
+                      (tool-string-property "One premise memory identifier.")
+                      "Optional memories this one is derived from; it is reported stale when one changes. Replacing without premises reaffirms the existing ones.")))
+               (setf (gethash "maxItems" schema) *memory-premise-count-limit*)
+               schema))
+
            (operation-schema (name properties required &key any-required)
              "Return one closed resource edit operation variant."
              (setf (gethash "op" properties)
@@ -213,7 +239,9 @@
        (json-object
         "title" (tool-string-property "Complete persistent-memory title.")
         "content" (tool-string-property "Complete persistent-memory content.")
-        "tags" (memory-tags-property))
+        "tags" (memory-tags-property)
+        "sources" (memory-sources-property)
+        "premises" (memory-premises-property))
        '("title" "content"))
       (operation-schema
        "memory-replace"
@@ -221,7 +249,9 @@
         "title" (tool-string-property "Complete replacement memory title.")
         "content" (tool-string-property "Complete replacement memory content.")
         "tags" (memory-tags-property)
-        "scope" (memory-scope-property))
+        "scope" (memory-scope-property)
+        "sources" (memory-sources-property)
+        "premises" (memory-premises-property))
        '("title" "content"))
       (operation-schema
        "memory-forget"

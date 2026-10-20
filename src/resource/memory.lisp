@@ -132,7 +132,7 @@
 (defmethod resource-resolver-edit-documentation ((resolver memory-resolver))
   "Document memory: edits."
   (declare (ignore resolver))
-  "memory:workspace and memory:global create with memory-remember, canonical exact memory:id/<percent-encoded-stable-id> resources accept memory-replace or memory-forget, and memory:relevant is read-only.")
+  "memory:workspace and memory:global create with memory-remember, canonical exact memory:id/<percent-encoded-stable-id> resources accept memory-replace or memory-forget, and memory:relevant is read-only. When a memory restates a file, a web page, or the user's words, cite them as sources; when it is derived from other memories, name them as premises.")
 
 (defmethod resource-resolver-resolve
     ((resolver memory-resolver) identifier (context tool-context))
@@ -176,52 +176,125 @@
       "global"
       (format nil "workspace ~A" (memory-workspace memory))))
 
-(-> memory-resource--render-item (memory) string)
-(defun memory-resource--render-item (memory)
-  "Return complete model-visible MEMORY content and metadata."
-  (format nil
-          "id: ~A~%scope: ~A~%created: ~A~%updated: ~A~%source conversation: ~A~%title: ~A~%tags: ~:[none~;~:*~{~A~^, ~}~]~2%~A"
-          (memory-identifier memory)
-          (memory-resource--scope-label memory)
-          (memory--timestamp-string (memory-created-at memory))
-          (memory--timestamp-string (memory-updated-at memory))
-          (if (memory-source-conversation memory)
-              (conversation-identifier-display
-               (memory-source-conversation memory))
-              "unknown")
-          (memory-title memory)
-          (memory-tags memory)
-          (memory-content memory)))
+(-> memory-resource--status-line (memory-assessment) string)
+(defun memory-resource--status-line (assessment)
+  "Return a status line for a stale or unverified ASSESSMENT, or an empty string."
+  (if (eq (memory-assessment-status assessment) ':current)
+      ""
+      (format nil "status: ~(~A~) (~A)~%"
+              (memory-assessment-status assessment)
+              (memory-assessment-summary assessment))))
 
-(-> memory-resource--collection-entry (memory) string)
-(defun memory-resource--collection-entry (memory)
-  "Return one complete metadata and bounded excerpt entry for MEMORY."
-  (format nil
-          "uri: ~A~%id: ~A~%scope: ~A~%created: ~A~%updated: ~A~%source conversation: ~A~%title: ~A~%tags: ~:[none~;~:*~{~A~^, ~}~]~%excerpt: ~A"
-          (resource-item-uri "memory" (memory-identifier memory))
-          (memory-identifier memory)
-          (memory-resource--scope-label memory)
-          (memory--timestamp-string (memory-created-at memory))
-          (memory--timestamp-string (memory-updated-at memory))
-          (if (memory-source-conversation memory)
-              (conversation-identifier-display
-               (memory-source-conversation memory))
-              "unknown")
-          (memory-title memory)
-          (memory-tags memory)
-          (memory--excerpt (memory-content memory)
-                           *memory-resource-excerpt-limit*)))
+(-> memory-resource--source-line (list) string)
+(defun memory-resource--source-line (outcome)
+  "Return one rendered source line for a source OUTCOME plist."
+  (let* ((source (getf outcome :source))
+         (properties (rest source))
+         (quote (getf properties :quote)))
+    (format nil "  - ~A~@[ \"~A\"~]~A~%"
+            (ecase (first source)
+              (:file
+               (format nil "file ~A" (memory-source-file-display source)))
+              (:url
+               (format nil "url ~A" (getf properties :url)))
+              (:user
+               "user said"))
+            quote
+            (case (getf (getf outcome :reason) :kind)
+              ((nil) "")
+              (:file-changed " (changed)")
+              (:file-missing " (missing)")
+              (otherwise " (could not be checked)")))))
+
+(-> memory-resource--premise-line (list) string)
+(defun memory-resource--premise-line (outcome)
+  "Return one rendered premise line for a premise OUTCOME plist."
+  (let ((memory (getf outcome :memory))
+        (reason (getf outcome :reason)))
+    (format nil "  - ~A~@[ \"~A\"~]~@[ (~A)~]~%"
+            (resource-item-uri "memory" (getf outcome :id))
+            (and memory (memory-title memory))
+            (and reason
+                 (ecase (getf reason :kind)
+                   (:premise-changed "changed since this memory was written")
+                   (:premise-forgotten "forgotten")
+                   (:premise-stale "stale")
+                   (:premise-unverified "unverified")
+                   (:premise-cycle "relies on this memory")
+                   (:premise-too-deep "too deep to check"))))))
+
+(-> memory-resource--render-item (memory-assessment list) string)
+(defun memory-resource--render-item (assessment dependents)
+  "Return complete model-visible content and evidence for ASSESSMENT's memory.
+
+DEPENDENTS are the memories derived from it. A current memory without
+evidence or dependents renders exactly as memories always have."
+  (let ((memory (memory-assessment-memory assessment)))
+    (format nil
+            "id: ~A~%scope: ~A~%created: ~A~%updated: ~A~%source conversation: ~A~%title: ~A~%tags: ~:[none~;~:*~{~A~^, ~}~]~%~A~@[sources:~%~{~A~}~]~@[premises:~%~{~A~}~]~@[relied on by: ~{~A~^, ~}~%~]~%~A"
+            (memory-identifier memory)
+            (memory-resource--scope-label memory)
+            (memory--timestamp-string (memory-created-at memory))
+            (memory--timestamp-string (memory-updated-at memory))
+            (if (memory-source-conversation memory)
+                (conversation-identifier-display
+                 (memory-source-conversation memory))
+                "unknown")
+            (memory-title memory)
+            (memory-tags memory)
+            (memory-resource--status-line assessment)
+            (mapcar #'memory-resource--source-line
+                    (memory-assessment-source-outcomes assessment))
+            (mapcar #'memory-resource--premise-line
+                    (memory-assessment-premise-outcomes assessment))
+            (mapcar (lambda (dependent)
+                      (resource-item-uri "memory" (memory-identifier dependent)))
+                    dependents)
+            (memory-content memory))))
+
+(-> memory-resource--collection-entry (memory-assessment) string)
+(defun memory-resource--collection-entry (assessment)
+  "Return one complete metadata and bounded excerpt entry for ASSESSMENT's memory."
+  (let ((memory (memory-assessment-memory assessment)))
+    (format nil
+            "uri: ~A~%id: ~A~%scope: ~A~%created: ~A~%updated: ~A~%source conversation: ~A~%title: ~A~%tags: ~:[none~;~:*~{~A~^, ~}~]~%~Aexcerpt: ~A"
+            (resource-item-uri "memory" (memory-identifier memory))
+            (memory-identifier memory)
+            (memory-resource--scope-label memory)
+            (memory--timestamp-string (memory-created-at memory))
+            (memory--timestamp-string (memory-updated-at memory))
+            (if (memory-source-conversation memory)
+                (conversation-identifier-display
+                 (memory-source-conversation memory))
+                "unknown")
+            (memory-title memory)
+            (memory-tags memory)
+            (memory-resource--status-line assessment)
+            (memory--excerpt (memory-content memory)
+                             *memory-resource-excerpt-limit*))))
 
 (-> memory-resource--render-collection (non-empty-string list) string)
-(defun memory-resource--render-collection (identifier memories)
-  "Return a clear complete rendering of collection IDENTIFIER and MEMORIES."
-  (if memories
+(defun memory-resource--render-collection (identifier assessments)
+  "Return a clear complete rendering of collection IDENTIFIER and ASSESSMENTS."
+  (if assessments
       (format nil "collection: ~A~%count: ~D~2%~{~A~^~2%~}"
               identifier
-              (length memories)
-              (mapcar #'memory-resource--collection-entry memories))
+              (length assessments)
+              (mapcar #'memory-resource--collection-entry assessments))
       (format nil "collection: ~A~%count: 0~2%No matching memories."
               identifier)))
+
+(-> memory-resource--status-metadata (list) list)
+(defun memory-resource--status-metadata (assessments)
+  "Return the identifiers and explanations of stale or unverified ASSESSMENTS.
+
+Observation metadata carries them, so rereading a memory whose evidence changed
+returns a fresh observation instead of the earlier rendering."
+  (loop for assessment in assessments
+        unless (eq (memory-assessment-status assessment) ':current)
+          collect (list (memory-identifier (memory-assessment-memory assessment))
+                        (memory-assessment-status assessment)
+                        (memory-assessment-summary assessment))))
 
 (-> memory-resource--workspace-identity (tool-context) non-empty-string)
 (defun memory-resource--workspace-identity (context)
@@ -268,22 +341,28 @@
                  :identifier (memory-resource-identifier resource)
                  :workspace workspace-identity
                  :records (mapcar #'memory--record snapshot-memories))))
-    (make-instance 'memory-observation
-                   :uri        (resource-uri resource)
-                   :revision   (resource-readable-snapshot-digest
-                                *memory-resource-digest-key*
-                                snapshot)
-                   :content    (memory-resource--render-collection
-                                (memory-resource-identifier resource)
-                                memories)
-                   :metadata   (list :visibility visibility
-                                     :workspace workspace-identity
-                                     :query query
-                                     :maximum-results maximum-results
-                                     :count (length memories))
-                   :identifier (memory-resource-identifier resource)
-                   :kind       ':collection
-                   :snapshot   snapshot)))
+    (let* ((assessor (memory-assessor-create configuration))
+           (assessments (mapcar (lambda (memory)
+                                  (memory-assess assessor memory))
+                                memories)))
+      (make-instance 'memory-observation
+                     :uri        (resource-uri resource)
+                     :revision   (resource-readable-snapshot-digest
+                                  *memory-resource-digest-key*
+                                  snapshot)
+                     :content    (memory-resource--render-collection
+                                  (memory-resource-identifier resource)
+                                  assessments)
+                     :metadata   (list :visibility visibility
+                                       :workspace workspace-identity
+                                       :query query
+                                       :maximum-results maximum-results
+                                       :count (length memories)
+                                       :status (memory-resource--status-metadata
+                                                assessments))
+                     :identifier (memory-resource-identifier resource)
+                     :kind       ':collection
+                     :snapshot   snapshot))))
 
 (-> memory-resource--item-observation
     (memory-item-resource tool-context)
@@ -291,21 +370,28 @@
 (defun memory-resource--item-observation (resource context)
   "Return RESOURCE's exact active memory observation under CONTEXT."
   (let* ((identifier (memory-resource-identifier resource))
-         (memory
-           (memory-find (tool-context-configuration context) identifier)))
+         (assessor
+           (memory-assessor-create (tool-context-configuration context)))
+         (memory (memory-assessor-find assessor identifier)))
     (unless memory
       (error 'memory-resource-not-found :identifier identifier))
     (let ((snapshot
             (list :kind ':item
                   :identifier identifier
-                  :record (memory--record memory))))
+                  :record (memory--record memory)))
+          (assessment (memory-assess assessor memory))
+          (dependents (memory-assessor-dependents assessor identifier)))
       (make-instance 'memory-observation
                      :uri        (resource-uri resource)
                      :revision   (resource-readable-snapshot-digest
                                   *memory-resource-digest-key*
                                   snapshot)
-                     :content    (memory-resource--render-item memory)
-                     :metadata   (list :scope (memory-scope memory))
+                     :content    (memory-resource--render-item assessment dependents)
+                     :metadata   (list :scope (memory-scope memory)
+                                       :status (memory-resource--status-metadata
+                                                (list assessment))
+                                       :dependents (mapcar #'memory-identifier
+                                                           dependents))
                      :identifier identifier
                      :kind       ':item
                      :snapshot   snapshot))))
@@ -359,6 +445,143 @@
               :message "Memory resource scope must be global or workspace."
               :tool-name "resource.edit")))))
 
+(-> memory-resource--fail (string &rest t) nil)
+(defun memory-resource--fail (control &rest arguments)
+  "Signal a corrective memory resource edit failure."
+  (error 'tool-error
+         :message (apply #'format nil control arguments)
+         :tool-name "resource.edit"))
+
+(-> memory-resource--source-request (t) list)
+(defun memory-resource--source-request (value)
+  "Return one validated source request from a model-supplied JSON source object."
+  (unless (hash-table-p value)
+    (memory-resource--fail "Each memory source must be an object."))
+  (let ((kinds (remove-if-not (lambda (name)
+                                (nth-value 1 (gethash name value)))
+                              '("file" "url" "user")))
+        (quote (gethash "quote" value)))
+    (unless (= (length kinds) 1)
+      (memory-resource--fail "Each memory source names exactly one of file, url, or user."))
+    (loop for name being the hash-keys of value
+          unless (member name (if (string= (first kinds) "user")
+                                  '("user")
+                                  (list (first kinds) "quote"))
+                         :test #'string=)
+            do (memory-resource--fail "A ~A memory source does not accept field ~A."
+                                      (first kinds) name))
+    (let ((target (gethash (first kinds) value)))
+      (unless (non-empty-string-p target)
+        (memory-resource--fail "Memory source ~A must be a non-empty string." (first kinds)))
+      (when (and quote (not (memory-source-quote-p quote)))
+        (memory-resource--fail "A source quote needs ~D to ~D characters of the cited text."
+                               *memory-quote-minimum* *memory-quote-limit*))
+      (cond
+        ((string= (first kinds) "file")
+         (list :file :path target :quote quote))
+        ((string= (first kinds) "url")
+         (unless (and (<= (length target) *memory-source-url-limit*)
+                      (or (uiop:string-prefix-p "https://" target)
+                          (uiop:string-prefix-p "http://" target)))
+           (memory-resource--fail "A url memory source must be an http or https address."))
+         (list :url :url target :quote quote))
+        (t
+         (unless (memory-source-quote-p target)
+           (memory-resource--fail "A user memory source quotes ~D to ~D characters of the user's words."
+                                  *memory-quote-minimum* *memory-quote-limit*))
+         (list :user :quote target))))))
+
+(-> memory-resource--operation-sources (json-object) (values list boolean))
+(defun memory-resource--operation-sources (operation)
+  "Return OPERATION's validated source requests and whether it supplied the field."
+  (multiple-value-bind (sources supplied-p)
+      (gethash "sources" operation)
+    (cond
+      ((not supplied-p)
+       (values nil nil))
+      ((not (vectorp sources))
+       (memory-resource--fail "Memory sources must be an array of source objects."))
+      ((> (length sources) *memory-source-count-limit*)
+       (memory-resource--fail "A memory may cite at most ~D sources."
+                              *memory-source-count-limit*))
+      (t
+       (values (map 'list #'memory-resource--source-request sources) t)))))
+
+(-> memory-resource--premise-identifier (t) non-empty-string)
+(defun memory-resource--premise-identifier (value)
+  "Return the memory identifier named by a premise ID or canonical memory URI."
+  (unless (non-empty-string-p value)
+    (memory-resource--fail "Memory premises must be memory identifiers or memory:id/ URIs."))
+  (if (uiop:string-prefix-p "memory:id/" value)
+      (resource-item-decode-identifier "memory" "memory"
+                                       (subseq value (length "memory:id/")))
+      value))
+
+(-> memory-resource--operation-premises (json-object) (values list boolean))
+(defun memory-resource--operation-premises (operation)
+  "Return OPERATION's premise identifiers and whether it supplied the field."
+  (multiple-value-bind (premises supplied-p)
+      (gethash "premises" operation)
+    (cond
+      ((not supplied-p)
+       (values nil nil))
+      ((not (vectorp premises))
+       (memory-resource--fail "Memory premises must be an array of memory identifiers."))
+      (t
+       (values (map 'list #'memory-resource--premise-identifier premises) t)))))
+
+(-> memory-resource--observe-source (tool-context list timestamp) list)
+(defun memory-resource--observe-source (context request time)
+  "Return the source record for REQUEST after checking it against its evidence.
+
+A file is resolved and authorized like any tool path. A user quote must occur
+in one of the user's own inputs to this conversation."
+  (ecase (first request)
+    (:file
+     (let ((pathname (workspace-tool-path context (getf (rest request) :path)
+                                          :tool-name "resource.edit")))
+       (handler-case
+           (memory-source-observe-file pathname
+                                       :quote (getf (rest request) :quote)
+                                       :time time)
+         (memory-error (condition)
+           (memory-resource--fail "~A" (autolith-error-message condition))))))
+    (:url
+     (list :url
+           :url (getf (rest request) :url)
+           :quote (getf (rest request) :quote)
+           :observed-at time))
+    (:user
+     (let ((conversation (tool-context-conversation context))
+           (quote (getf (rest request) :quote)))
+       (unless (some (lambda (input)
+                       (memory-source-quote-found-p quote input))
+                     (conversation-input-history conversation))
+         (memory-resource--fail "The quote does not occur in the user's messages in this conversation. Quote the user's words exactly."))
+       (list :user
+             :quote quote
+             :conversation (conversation-identifier conversation)
+             :observed-at time)))))
+
+(-> memory-resource--reobserve-sources (memory timestamp) list)
+(defun memory-resource--reobserve-sources (memory time)
+  "Return MEMORY's sources observed again at TIME, for a replacement that keeps them.
+
+A replacement restates the memory, so each cited file must still support it."
+  (mapcar
+   (lambda (source)
+     (if (eq (first source) :file)
+         (let ((pathname (memory-source-file-pathname source (memory-workspace memory))))
+           (handler-case
+               (memory-source-observe-file pathname
+                                           :quote (getf (rest source) :quote)
+                                           :time time)
+             (memory-error (condition)
+               (memory-resource--fail "~A Pass the memory's current sources, or an empty sources array to drop them."
+                                      (autolith-error-message condition)))))
+         (copy-tree source)))
+   (memory-sources memory)))
+
 (-> memory-resource--normalize-operation (t) list)
 (defun memory-resource--normalize-operation (operation)
   "Return one completely validated normalized memory resource OPERATION."
@@ -376,35 +599,51 @@
        (resource-item-validate-operation-fields
      "Memory"
         operation
-        '("op" "title" "content" "tags")
+        '("op" "title" "content" "tags" "sources" "premises")
         '("op" "title" "content"))
-       (list :kind ':remember
-             :title (memory--validate-text
-                     (tool-argument operation "title" :required t)
-                     "title"
-                     *memory-title-limit*)
-             :content (memory--validate-text
-                       (tool-argument operation "content" :required t)
-                       "content"
-                       *memory-content-limit*)
-             :tags (memory-resource--operation-tags operation)))
+       (multiple-value-bind (sources sources-p)
+           (memory-resource--operation-sources operation)
+         (multiple-value-bind (premises premises-p)
+             (memory-resource--operation-premises operation)
+           (list :kind ':remember
+                 :title (memory--validate-text
+                         (tool-argument operation "title" :required t)
+                         "title"
+                         *memory-title-limit*)
+                 :content (memory--validate-text
+                           (tool-argument operation "content" :required t)
+                           "content"
+                           *memory-content-limit*)
+                 :tags (memory-resource--operation-tags operation)
+                 :sources sources
+                 :sources-p sources-p
+                 :premises premises
+                 :premises-p premises-p))))
       ((string= name "memory-replace")
        (resource-item-validate-operation-fields
      "Memory"
         operation
-        '("op" "title" "content" "tags" "scope")
+        '("op" "title" "content" "tags" "scope" "sources" "premises")
         '("op" "title" "content"))
-       (list :kind ':replace
-             :title (memory--validate-text
-                     (tool-argument operation "title" :required t)
-                     "title"
-                     *memory-title-limit*)
-             :content (memory--validate-text
-                       (tool-argument operation "content" :required t)
-                       "content"
-                       *memory-content-limit*)
-             :tags (memory-resource--operation-tags operation)
-             :scope (memory-resource--operation-scope operation)))
+       (multiple-value-bind (sources sources-p)
+           (memory-resource--operation-sources operation)
+         (multiple-value-bind (premises premises-p)
+             (memory-resource--operation-premises operation)
+           (list :kind ':replace
+                 :title (memory--validate-text
+                         (tool-argument operation "title" :required t)
+                         "title"
+                         *memory-title-limit*)
+                 :content (memory--validate-text
+                           (tool-argument operation "content" :required t)
+                           "content"
+                           *memory-content-limit*)
+                 :tags (memory-resource--operation-tags operation)
+                 :scope (memory-resource--operation-scope operation)
+                 :sources sources
+                 :sources-p sources-p
+                 :premises premises
+                 :premises-p premises-p))))
       ((string= name "memory-forget")
        (resource-item-validate-operation-fields
      "Memory"
@@ -465,6 +704,33 @@
                    :kind       ':forgotten
                    :snapshot   snapshot)))
 
+(-> memory-resource--remember
+    (configuration &key (:identifier (option string)) (:title string)
+                        (:content string) (:scope (option memory-scope))
+                        (:tags list) (:source-conversation (option string))
+                        (:sources list) (:premise-arguments list))
+    memory)
+(defun memory-resource--remember
+    (configuration &key identifier title content scope tags source-conversation
+                        sources premise-arguments)
+  "Remember or replace a memory, reporting invalid premises or sources correctively.
+
+PREMISE-ARGUMENTS is empty when the edit omitted premises, so a replacement
+reaffirms the existing ones."
+  (handler-case
+      (apply #'memory-remember
+             configuration
+             :identifier          identifier
+             :title               title
+             :content             content
+             :scope               scope
+             :tags                tags
+             :source-conversation source-conversation
+             :sources             sources
+             premise-arguments)
+    (memory-error (condition)
+      (memory-resource--fail "~A" (autolith-error-message condition)))))
+
 (defmethod resource-apply-operations
     ((resource memory-resource) (context tool-context)
      &key base-revision operations)
@@ -475,8 +741,30 @@
            :tool-name "resource.edit"))
   (let ((operation (memory-resource--normalize-operation (first operations))))
     (memory-resource--validate-operation-target resource operation)
-    (let ((conversation (tool-context-conversation context))
-          (configuration (tool-context-configuration context)))
+    (let* ((conversation (tool-context-conversation context))
+           (configuration (tool-context-configuration context))
+           (now (get-universal-time))
+           ;; Evidence is checked, and outside paths authorized, before the
+           ;; memory lock is taken; the revision check below still guards the
+           ;; memory a kept source list was read from.
+           (sources
+             (case (getf operation :kind)
+               (:forget
+                nil)
+               (otherwise
+                (if (getf operation :sources-p)
+                    (mapcar (lambda (request)
+                              (memory-resource--observe-source context request now))
+                            (getf operation :sources))
+                    (let ((existing
+                            (and (typep resource 'memory-item-resource)
+                                 (memory-find configuration
+                                              (memory-resource-identifier resource)))))
+                      (and existing
+                           (memory-resource--reobserve-sources existing now)))))))
+           (premise-arguments
+             (and (getf operation :premises-p)
+                  (list :premises (getf operation :premises)))))
       (with-recursive-lock-held (*memory-lock*)
         (with-recursive-lock-held
             ((conversation-resource-observation-lock conversation))
@@ -510,14 +798,16 @@
                           (:workspace ':workspace)
                           (:global ':global)))
                       (memory
-                        (memory-remember
+                        (memory-resource--remember
                          configuration
                          :title (getf operation :title)
                          :content (getf operation :content)
                          :scope scope
                          :tags (getf operation :tags)
                          :source-conversation
-                         (conversation-identifier conversation)))
+                         (conversation-identifier conversation)
+                         :sources sources
+                         :premise-arguments premise-arguments))
                       (item-resource
                         (memory-resource--make-item
                          (memory-identifier memory))))
@@ -527,7 +817,7 @@
                           (memory-identifier memory))
                   (resource-uri item-resource))))
               (:replace
-               (memory-remember
+               (memory-resource--remember
                 configuration
                 :identifier (memory-resource-identifier resource)
                 :title (getf operation :title)
@@ -535,7 +825,9 @@
                 :scope (getf operation :scope)
                 :tags (getf operation :tags)
                 :source-conversation
-                (conversation-identifier conversation))
+                (conversation-identifier conversation)
+                :sources sources
+                :premise-arguments premise-arguments)
                (values
                 (memory-resource--item-observation resource context)
                 (format nil "Replaced memory ~A."
@@ -550,8 +842,16 @@
                         (conversation-identifier conversation))))
                  (values
                   (memory-resource--forgotten-observation resource memory)
-                  (format nil "Forgot memory ~A."
-                          (memory-resource-identifier resource))
+                  (format nil "Forgot memory ~A.~@[ These memories relied on it and are now stale: ~{~A~^, ~}.~]"
+                          (memory-resource-identifier resource)
+                          (mapcar (lambda (dependent)
+                                    (format nil "~A \"~A\""
+                                            (resource-item-uri
+                                             "memory" (memory-identifier dependent))
+                                            (memory-title dependent)))
+                                  (memory-assessor-dependents
+                                   (memory-assessor-create configuration)
+                                   (memory-identifier memory))))
                   nil))))))))))
 
 
