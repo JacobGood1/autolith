@@ -8,21 +8,24 @@
   (with-recursive-lock-held (*data-transfer-lock*)
     (with-recursive-lock-held (*agenda-lock*)
       (with-recursive-lock-held (*memory-lock*)
-        (with-lock-held (*papercut-lock*)
-          (labels ((acquire (paths)
-                     (if paths
-                         (call-with-file-lock (first paths)
-                                              (lambda () (acquire (rest paths))))
-                         (plan--call-with-lock configuration function))))
-            (acquire
-             (list (merge-pathnames "data-transfer.lock"
-                                    (config :state-root configuration))
-                   (readable-state-lock-pathname (configuration-agenda-path configuration)
-                                                 "agendas.lock")
-                   (readable-state-lock-pathname (configuration-memory-path configuration)
-                                                 "memories.lock")
-                   (readable-state-lock-pathname (configuration-papercut-path configuration)
-                                                 "papercuts.lock")))))))))
+        (with-recursive-lock-held (*knowledge-lock*)
+          (with-lock-held (*papercut-lock*)
+            (labels ((acquire (paths)
+                       (if paths
+                           (call-with-file-lock (first paths)
+                                                (lambda () (acquire (rest paths))))
+                           (plan--call-with-lock configuration function))))
+              (acquire
+               (list (merge-pathnames "data-transfer.lock"
+                                      (config :state-root configuration))
+                     (readable-state-lock-pathname (configuration-agenda-path configuration)
+                                                   "agendas.lock")
+                     (readable-state-lock-pathname (configuration-memory-path configuration)
+                                                   "memories.lock")
+                     (readable-state-lock-pathname (configuration-papercut-path configuration)
+                                                   "papercuts.lock")
+                     (readable-state-lock-pathname (configuration-knowledge-path configuration)
+                                                   "knowledge.lock"))))))))))
 
 (-> data-transfer--histories (list) list)
 (defun data-transfer--histories (records)
@@ -379,8 +382,15 @@ on other global memories, so premises are followed until none are new."
                                       (append plans agenda-forms)))) :test #'equal)))
       (multiple-value-bind (states input-files)
           (data-transfer--collect-inputs states)
-        (list :format ':autolith-data :version *data-transfer-version*
-              :workspace workspace :workspaces (sort workspaces #'string<)
-              :sessions sessions :children children :memories memories :papercuts papercuts
-              :agendas agenda-forms :plans plans :files (append files input-files)
-              :states states)))))
+        (let ((knowledge (data-transfer--collect-knowledge configuration workspace)))
+          (list :format ':autolith-data :version *data-transfer-version*
+                :workspace workspace
+                :workspaces (sort (remove-duplicates
+                                   (append workspaces
+                                           (data-transfer--knowledge-workspaces
+                                            (list :knowledge knowledge)))
+                                   :test #'equal)
+                                  #'string<)
+                :sessions sessions :children children :memories memories :papercuts papercuts
+                :agendas agenda-forms :plans plans :files (append files input-files)
+                :states states :knowledge knowledge))))))

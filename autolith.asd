@@ -310,6 +310,7 @@
                              (:file "state/data-transfer-collect")
                              (:file "state/data-transfer-validate")
                              (:file "state/data-transfer-import")
+                             (:file "state/data-transfer-knowledge")
                              (:file "application/data-transfer")
                              (:file "startup/data-transfer")
                              (:file "acp/session")

@@ -352,7 +352,8 @@
   test-knowledge-recall
   test-knowledge-commands
   test-knowledge-activation
-  test-knowledge-mission-observations)
+  test-knowledge-mission-observations
+  test-knowledge-transfer)
 
 (define-test-suite papercut
   test-papercuts)
