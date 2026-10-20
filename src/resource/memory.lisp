@@ -210,10 +210,16 @@
 (defun memory-resource--premise-line (outcome)
   "Return one rendered premise line for a premise OUTCOME plist."
   (let ((memory (getf outcome :memory))
+        (claim (getf outcome :claim))
         (reason (getf outcome :reason)))
     (format nil "  - ~A~@[ \"~A\"~]~@[ (~A)~]~%"
-            (resource-item-uri "memory" (getf outcome :id))
-            (and memory (memory-title memory))
+            (if (or claim (eq (getf reason :kind) ':premise-claim))
+                (format nil "memory:claim/~A" (getf outcome :id))
+                (resource-item-uri "memory" (getf outcome :id)))
+            (cond
+              (memory (memory-title memory))
+              (claim (knowledge-node-text claim))
+              (t (getf reason :title)))
             (and reason
                  (ecase (getf reason :kind)
                    (:premise-changed "changed since this memory was written")
@@ -221,7 +227,10 @@
                    (:premise-stale "stale")
                    (:premise-unverified "unverified")
                    (:premise-cycle "relies on this memory")
-                   (:premise-too-deep "too deep to check"))))))
+                   (:premise-too-deep "too deep to check")
+                   (:premise-claim (if (eq (getf reason :applicability) ':unknown)
+                                       "no longer holds"
+                                       (format nil "~(~A~)" (getf reason :applicability)))))))))
 
 (-> memory-resource--render-item (memory-assessment list) string)
 (defun memory-resource--render-item (assessment dependents)

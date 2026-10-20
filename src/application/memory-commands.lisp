@@ -13,6 +13,11 @@
   "Return the Lisp call that explains MEMORY."
   (format nil "(memory ~S)" (memory-short-identifier memory)))
 
+(-> application-memory--short (string) string)
+(defun application-memory--short (identifier)
+  "Return the prefix of IDENTIFIER people type to select it."
+  (subseq identifier 0 (min *memory-short-identifier-length* (length identifier))))
+
 (-> application-memory--date (timestamp) string)
 (defun application-memory--date (timestamp)
   "Return TIMESTAMP's UTC calendar date."
@@ -200,6 +205,7 @@ QUERY narrows the listing with the same lexical ranking recall uses."
 (defun application-memory--premise-rows (outcome &key (indent 4) (depth 1))
   "Return the lines for one premise OUTCOME, expanding its own evidence below it."
   (let* ((memory (getf outcome :memory))
+         (claim (getf outcome :claim))
          (assessment (getf outcome :assessment))
          (kind (getf (getf outcome :reason) :kind)))
     (append
@@ -208,13 +214,29 @@ QUERY narrows the listing with the same lexical ranking recall uses."
         (:holds (terminal-span ':success (format nil "~vT✓ " indent)))
         (:failed (terminal-span ':failure (format nil "~vT✗ " indent)))
         (:unverified (terminal-span ':notice (format nil "~vT? " indent))))
-      (if memory
-          (terminal-span ':plain
-                         (format nil "from \"~A\" " (application-memory--title memory)))
-          (terminal-span ':plain
-                         (format nil "from forgotten memory ~A"
-                                 (sanitize-text (getf outcome :id) :single-line-p t))))
-      (terminal-span ':dim (if memory (application-memory--call memory) ""))
+      (cond
+        (memory
+         (terminal-span ':plain
+                        (format nil "from \"~A\" " (application-memory--title memory))))
+        (claim
+         (terminal-span ':plain
+                        (format nil "from fact \"~A\" "
+                                (sanitize-text (knowledge-node-text claim) :single-line-p t))))
+        ((eq kind ':premise-claim)
+         (terminal-span ':plain
+                        (format nil "from fact \"~A\" "
+                                (sanitize-text (getf (getf outcome :reason) :title)
+                                               :single-line-p t))))
+        (t
+         (terminal-span ':plain
+                        (format nil "from forgotten memory ~A"
+                                (sanitize-text (getf outcome :id) :single-line-p t)))))
+      (terminal-span ':dim (cond
+                             (memory (application-memory--call memory))
+                             ((or claim (eq kind ':premise-claim))
+                              (format nil "(memory ~S)"
+                                      (application-memory--short (getf outcome :id))))
+                             (t "")))
       (terminal-span ':failure
                      (format nil "~A~%"
                              (case kind
@@ -223,6 +245,12 @@ QUERY narrows the listing with the same lexical ranking recall uses."
                                (:premise-unverified " is unverified")
                                (:premise-cycle " relies on this memory")
                                (:premise-too-deep " is too deep to check")
+                               (:premise-claim
+                                (let ((applicability (getf (getf outcome :reason)
+                                                           :applicability)))
+                                  (if (eq applicability ':unknown)
+                                      " no longer holds"
+                                      (format nil " is ~(~A~)" applicability))))
                                (otherwise "")))))
      (when (and assessment (< depth *memory-command-premise-depth*))
        (append

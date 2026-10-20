@@ -132,11 +132,17 @@ is distinguishable from merely touching it."
 
 (-> memory-premise-record-p (t) boolean)
 (defun memory-premise-record-p (record)
-  "Return true when RECORD names one premise memory and its observed digest."
+  "Return true when RECORD names one premise and its observed digest.
+
+A premise is another memory, or with :KIND :CLAIM a structured knowledge claim."
   (and (proper-list-p record)
        (evenp (length record))
        (non-empty-string-p (getf record :id))
        (memory-source-digest-p (getf record :digest))
+       (member (getf record :kind) '(nil :claim))
+       (or (null (getf record :text))
+           (and (stringp (getf record :text))
+                (<= (length (getf record :text)) *memory-content-limit*)))
        t))
 
 (-> memory-sources-valid-p (t memory-scope) boolean)

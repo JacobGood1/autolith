@@ -62,7 +62,12 @@
     :initform (make-hash-table :test #'equal)
     :reader memory-assessor-pending
     :type hash-table
-    :documentation "Memories whose assessment is in progress, to stop cycles."))
+    :documentation "Memories whose assessment is in progress, to stop cycles.")
+   (view
+    :initarg :view
+    :reader memory-assessor-view
+    :type knowledge-view
+    :documentation "Structured knowledge evaluated at the same time, for claim premises."))
   (:documentation "One consistent pass assessing memories against the filesystem."))
 
 
@@ -70,11 +75,19 @@
 
 (-> memory-assessor-create (configuration) memory-assessor)
 (defun memory-assessor-create (configuration)
-  "Return a fresh assessment pass over CONFIGURATION's active memories."
-  (let ((memories (make-hash-table :test #'equal)))
-    (dolist (memory (memory-list configuration :visibility ':all))
+  "Return a fresh assessment pass over CONFIGURATION's active memories.
+
+The pass evaluates CONFIGURATION's structured knowledge from its workspace at
+the same time, so memories derived from claims follow those claims."
+  (let* ((memories (make-hash-table :test #'equal))
+         (all (memory-list configuration :visibility ':all))
+         (view (knowledge-evaluate
+                (knowledge-base-read configuration)
+                :workspace (namestring (config :working-directory configuration))
+                :check (evidence-check-create :memories all))))
+    (dolist (memory all)
       (setf (gethash (memory-identifier memory) memories) memory))
-    (make-instance 'memory-assessor :memories memories)))
+    (make-instance 'memory-assessor :memories memories :view view)))
 
 (-> memory-assessor-find (memory-assessor string) (option memory))
 (defun memory-assessor-find (assessor identifier)
@@ -131,14 +144,31 @@
 (defun memory-assessor--premise-outcome (assessor premise depth)
   "Return the (:id :memory :outcome :assessment :reason) plist for PREMISE."
   (let* ((identifier (getf premise :id))
-         (memory (memory-assessor-find assessor identifier)))
+         (memory (memory-assessor-find assessor identifier))
+         (claim (and (eq (getf premise :kind) ':claim)
+                     (knowledge-view-node (memory-assessor-view assessor) identifier))))
     (flet ((outcome (outcome reason &optional assessment)
              (list :id identifier
                    :memory memory
+                   :claim claim
                    :outcome outcome
                    :assessment assessment
                    :reason reason)))
       (cond
+        ((eq (getf premise :kind) ':claim)
+         (cond
+           ((null claim)
+            (outcome ':failed (list :kind ':premise-claim :id identifier
+                                    :title (or (getf premise :text) identifier)
+                                    :applicability ':unknown)))
+           ((knowledge-node-supported-p claim)
+            (outcome ':holds nil))
+           (t
+            (let ((applicability (knowledge-node-applicability claim)))
+              (outcome (if (eq applicability ':unverified) ':unverified ':failed)
+                       (list :kind ':premise-claim :id identifier
+                             :title (knowledge-node-text claim)
+                             :applicability applicability))))))
         ((null memory)
          (outcome ':failed (list :kind ':premise-forgotten :id identifier)))
         ((gethash identifier (memory-assessor-pending assessor))
@@ -280,7 +310,11 @@
       (:premise-cycle
        (format nil "\"~A\" relies on this memory" title))
       (:premise-too-deep
-       (format nil "\"~A\" is too deep to check" title)))))
+       (format nil "\"~A\" is too deep to check" title))
+      (:premise-claim
+       (if (eq (getf reason :applicability) ':unknown)
+           (format nil "\"~A\" no longer holds" title)
+           (format nil "\"~A\" is ~(~A~)" title (getf reason :applicability)))))))
 
 (-> memory-assessment-summary (memory-assessment) (option string))
 (defun memory-assessment-summary (assessment)

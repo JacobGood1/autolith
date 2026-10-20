@@ -384,10 +384,11 @@ them, so other memories keep their exact earlier record form."
     list)
 (defun memory--resolve-premises
     (configuration active &key identifier premises scope workspace)
-  "Return premise records for the memory IDs in PREMISES as they are now.
+  "Return premise records for the memory and claim IDs in PREMISES as they are now.
 
-Each premise must be an active memory visible from SCOPE and WORKSPACE, and
-none may depend on the memory IDENTIFIER being written."
+Each premise must be an active memory or a stored knowledge claim visible from
+SCOPE and WORKSPACE, and no premise memory may depend on the memory IDENTIFIER
+being written."
   (flet ((fail (premise control &rest arguments)
            (error 'memory-error
                   :message (apply #'format nil control arguments)
@@ -395,19 +396,41 @@ none may depend on the memory IDENTIFIER being written."
                   :identifier premise)))
     (unless (and (proper-list-p premises)
                  (every #'non-empty-string-p premises))
-      (fail nil "Memory premises must be memory identifiers."))
+      (fail nil "Memory premises must be memory or claim identifiers."))
     (when (> (length premises) *memory-premise-count-limit*)
       (fail nil "A memory may have at most ~D premises." *memory-premise-count-limit*))
-    (loop for premise-identifier in (remove-duplicates premises
+    (loop with view = nil
+          for premise-identifier in (remove-duplicates premises
                                                        :test #'string=
                                                        :from-end t)
           for premise = (find premise-identifier active
                               :test #'string=
                               :key #'memory-identifier)
-          do (cond
+          for claim = (and (null premise)
+                           (knowledge-view-node
+                            (or view
+                                (setf view (knowledge-evaluate
+                                            (knowledge-base-read configuration)
+                                            :workspace (knowledge--workspace configuration)
+                                            :check (evidence-check-create
+                                                    :memories active))))
+                            premise-identifier))
+          when claim
+            do (unless (knowledge-visible-p (knowledge-node-scope claim)
+                                            (knowledge-node-workspace claim)
+                                            (and (eq scope ':workspace) workspace))
+                 (fail premise-identifier
+                       "Premise claim ~A belongs to another workspace; a global memory may rely only on global claims."
+                       premise-identifier))
+            and collect (list :id premise-identifier
+                              :digest (memory-source-text-digest premise-identifier)
+                              :kind ':claim
+                              :text (knowledge-node-text claim))
+          else
+            do (cond
                ((null premise)
                 (fail premise-identifier
-                      "Premise memory ~A does not exist." premise-identifier))
+                      "Premise memory or claim ~A does not exist." premise-identifier))
                ((and identifier (string= premise-identifier identifier))
                 (fail premise-identifier
                       "A memory cannot be its own premise."))
@@ -418,9 +441,9 @@ none may depend on the memory IDENTIFIER being written."
                ((and identifier (memory--reaches-p active premise-identifier identifier))
                 (fail premise-identifier
                       "Premise memory ~A already relies on this memory." premise-identifier)))
-          collect (list :id premise-identifier
-                        :digest (memory-content-digest (memory-title premise)
-                                                       (memory-content premise))))))
+            and collect (list :id premise-identifier
+                              :digest (memory-content-digest (memory-title premise)
+                                                             (memory-content premise))))))
 
 (-> memory--keep-premises
     (configuration list list &key (:scope memory-scope) (:workspace (option string)))
@@ -430,16 +453,27 @@ none may depend on the memory IDENTIFIER being written."
 
 Keeping the recorded digests means a changed premise still makes the memory
 stale. A premise forgotten since then stays recorded and keeps it stale."
-  (dolist (premise premises)
-    (let ((memory (find (getf premise :id) active
-                        :test #'string=
-                        :key #'memory-identifier)))
-      (when (and memory (not (memory--premise-visible-p memory scope workspace)))
-        (error 'memory-error
-               :message (format nil "Premise memory ~A belongs to another workspace; a global memory may rely only on global memories."
-                                (getf premise :id))
-               :pathname (configuration-memory-path configuration)
-               :identifier (getf premise :id)))))
+  (let ((knowledge nil))
+    (dolist (premise premises)
+      (let* ((memory (find (getf premise :id) active
+                           :test #'string=
+                           :key #'memory-identifier))
+             (claim (and (eq (getf premise :kind) ':claim)
+                         (knowledge-base-claim
+                          (or knowledge
+                              (setf knowledge (knowledge-base-read configuration)))
+                          (getf premise :id)))))
+        ;; A derived claim premise has no stored owner; only global memories
+        ;; are restricted, and they may cite only global stored claims.
+        (when (or (and memory (not (memory--premise-visible-p memory scope workspace)))
+                  (and (eq scope ':global)
+                       (eq (getf premise :kind) ':claim)
+                       (not (and claim (eq (getf claim :scope) ':global)))))
+          (error 'memory-error
+                 :message (format nil "Premise ~A belongs to another workspace; a global memory may rely only on global premises."
+                                  (getf premise :id))
+                 :pathname (configuration-memory-path configuration)
+                 :identifier (getf premise :id))))))
   (copy-tree premises))
 
 (-> memory--place-sources

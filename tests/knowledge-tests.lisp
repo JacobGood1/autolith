@@ -943,3 +943,46 @@
                                         (first (getf withdrawn :causes))))
                            "a withdrawn departure names the retracted premise"))))))
     nil))
+
+(-> test-knowledge-memory-premises () null)
+(defun test-knowledge-memory-premises ()
+  "Test prose memories derived from structured claims, stored and derived."
+  (with-test-configuration (base root)
+    (multiple-value-bind (configuration workspace)
+        (memory-source-tests--workspace base root)
+      (knowledge-tests--define-appointments configuration)
+      (knowledge-tests--admit-departure configuration)
+      (knowledge-tests--schedule-review configuration workspace "13:00")
+      (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
+                             "be there ten minutes early")
+      (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
+                             "half an hour to get there")
+      (let* ((departure (knowledge-node-identifier
+                         (first (knowledge-view-holds (knowledge-tests--view configuration)
+                                                      '("event.departure" "?e" "?t")))))
+             (note (memory-remember configuration
+                                    :title "Review logistics"
+                                    :content "Book the 12:15 bus to the review."
+                                    :premises (list departure))))
+        (test-assert (and (eq (getf (first (memory-premises note)) :kind) ':claim)
+                          (eq (memory-source-tests--status configuration note) ':current))
+                     "a memory derived from a derived fact is current while the fact holds")
+        (test-assert (eq (memory-source-tests--error-p
+                          (lambda ()
+                            (memory-remember configuration
+                                             :scope ':global
+                                             :title "Global logistics"
+                                             :content "Too broad."
+                                             :premises (list departure))))
+                         t)
+                     "a global memory cannot rely on a workspace fact")
+        (knowledge-tests--schedule-review configuration workspace "14:00")
+        (multiple-value-bind (status reasons) (memory-source-tests--status configuration note)
+          (test-assert (and (eq status ':stale) (equal reasons '(:premise-claim)))
+                       "the memory goes stale when its fact is no longer derived"))
+        (test-assert (equal (memory-assessment-summary
+                             (memory-assess (memory-assessor-create configuration)
+                                            (memory-find configuration (memory-identifier note))))
+                            "\"leave for review at 2026-10-22 12:20 UTC\" no longer holds")
+                     "the reason names the recorded fact even after it disappears"))))
+  nil)

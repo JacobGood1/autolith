@@ -347,7 +347,8 @@
   test-knowledge-justifications-and-conflicts
   test-knowledge-evaluation-bounds
   test-knowledge-explanations
-  test-knowledge-changes)
+  test-knowledge-changes
+  test-knowledge-memory-premises)
 
 (define-test-suite papercut
   test-papercuts)
