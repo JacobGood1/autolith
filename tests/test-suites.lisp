@@ -326,6 +326,10 @@
   test-memory-persistence
   test-memory-context-notices)
 
+(define-test-suite memory-source
+  test-memory-source-records
+  test-memory-premise-records)
+
 (define-test-suite papercut
   test-papercuts)
 
