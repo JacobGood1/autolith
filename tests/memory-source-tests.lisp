@@ -484,3 +484,111 @@
                               "@ 2 relevant memories exist · 1 stale · 1 unverified"))
                      "the notice names stale and unverified memories"))))
   nil)
+
+(-> memory-source-tests--text ((or string list)) string)
+(defun memory-source-tests--text (entry)
+  "Return the plain text of a transcript ENTRY."
+  (if (stringp entry)
+      entry
+      (terminal--spans-text entry)))
+
+
+(-> test-memory-commands () null)
+(defun test-memory-commands ()
+  "Test (memories), (memory), and (forget) as a person uses them."
+  (with-test-configuration (base root)
+    (multiple-value-bind (configuration workspace)
+        (memory-source-tests--workspace base root)
+      (let* ((conversation (conversation-create configuration))
+             (application (make-instance 'application
+                                         :configuration configuration
+                                         :conversation conversation)))
+        (test-assert (search "No memories are saved"
+                             (memory-source-tests--text
+                              (application-memories-entry application)))
+                     "an empty listing says how memories come to exist")
+        (let* ((notes (memory-source-tests--write
+                       (merge-pathnames "NOTES.md" workspace)
+                       (format nil "Deploy with make release-prod after tagging.~%")))
+               (identifiers (list "abcd1111-0000-4000-8000-000000000000"
+                                  "abcd2222-0000-4000-8000-000000000000"
+                                  "ef003333-0000-4000-8000-000000000000"))
+               (deploy nil)
+               (style nil)
+               (release nil))
+          (test-call-with-function-replacements
+           (list (list 'make-identifier (lambda () (pop identifiers))))
+           (lambda ()
+             (setf deploy (memory-remember
+                           configuration
+                           :title "Deploy command"
+                           :content "Deploy with make release-prod."
+                           :sources (list (memory-source-observe-file
+                                           notes :quote "make release-prod" :time 1)))
+                   style (memory-remember configuration
+                                          :title "Indentation"
+                                          :content "Use tabs.")
+                   release (memory-remember configuration
+                                            :title "Release day"
+                                            :content "Tag, then make release-prod."
+                                            :premises (list (memory-identifier deploy))))))
+          (memory-source-tests--write notes (format nil "Deploy with make ship.~%"))
+          (let ((listing (memory-source-tests--text
+                          (application-memories-entry application))))
+            (test-assert (search "memories  3 · 2 stale" listing)
+                         "the listing header counts stale memories")
+            (test-assert (< (search "Deploy command" listing)
+                            (search "Indentation" listing))
+                         "stale memories are listed before current ones")
+            (test-assert (and (search "stale: NOTES.md changed" listing)
+                              (search "(memory \"abcd1111\")" listing)
+                              (search "from 1 memory" listing))
+                         "rows give the reason, the explaining call, and provenance"))
+          (test-assert (let ((filtered (memory-source-tests--text
+                                        (application-memories-entry
+                                         application :query "tabs?"))))
+                         (and (search "Indentation" filtered)
+                              (not (search "Deploy command" filtered))))
+                       "a query narrows the listing")
+          (let ((explained (memory-source-tests--text
+                            (application-memory-entry application "ABCD1"))))
+            (test-assert (and (search "memory  stale · NOTES.md changed" explained)
+                              (search "✗ file NOTES.md \"make release-prod\" changed" explained)
+                              (search "relied on by" explained)
+                              (search "\"Release day\"" explained))
+                         "(memory) explains the evidence and names dependents"))
+          (test-assert (search "\"Deploy command\" is stale"
+                               (memory-source-tests--text
+                                (application-memory-entry application "ef00")))
+                       "a derived memory explains which premise went stale")
+          (test-assert (search "ambiguous"
+                               (memory-source-tests--text
+                                (application-memory-entry application "abcd")))
+                       "an ambiguous prefix asks for more characters")
+          (test-assert (search "none recorded"
+                               (memory-source-tests--text
+                                (application-memory-entry
+                                 application (memory-identifier style))))
+                       "a memory without evidence says so")
+          (test-assert (search "No memory matches"
+                               (memory-source-tests--text
+                                (application-memory-entry application "9999")))
+                       "an unknown ID points to (memories)")
+          (let ((forgotten (memory-source-tests--text
+                            (application-memory-forget-entry application "abcd1"))))
+            (test-assert (and (search "forgot  Deploy command" forgotten)
+                              (search "1 memory relied on it and is now stale" forgotten)
+                              (search "\"Release day\"" forgotten)
+                              (null (memory-find configuration (memory-identifier deploy))))
+                         "(forget) forgets and names the memories that relied on it"))
+          (test-assert (null (memory-find configuration (memory-identifier deploy)))
+                       "the forgotten memory is gone")
+          (test-assert (and (equal (application--memories-slash-arguments " deploy prod ")
+                                   '("deploy prod"))
+                            (null (application--memories-slash-arguments "  ")))
+                       "/memories takes the rest of the line as one query")
+          (test-assert (string= (memory-identifier release)
+                                (memory-identifier
+                                 (memory-resolve configuration "ef003333-0000-4000-8000-000000000000")))
+                       "a full identifier resolves exactly")))))
+  nil)

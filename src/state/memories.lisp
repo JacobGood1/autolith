@@ -26,6 +26,9 @@
 Ordinary prose wraps words in punctuation, as in \"how do I deploy?\", while
 names such as release-prod or config.toml keep their inner punctuation.")
 
+(defparameter *memory-short-identifier-length* 8
+  "The identifier prefix shown to people for one memory.")
+
 (defvar *memory-lock* (make-recursive-lock "Autolith persistent memories")
   "Serialize same-process memory reads, appends, and guarded transactions.")
 
@@ -449,6 +452,38 @@ relative to it; every other file path becomes absolute."
            placed)
          (copy-tree source)))
    sources))
+
+(-> memory-short-identifier (memory) string)
+(defun memory-short-identifier (memory)
+  "Return the abbreviated identifier people type to select MEMORY."
+  (let ((identifier (memory-identifier memory)))
+    (subseq identifier 0 (min *memory-short-identifier-length* (length identifier)))))
+
+(-> memory-resolve (configuration string) (values (option memory) keyword list))
+(defun memory-resolve (configuration identifier)
+  "Resolve an exact identifier or unique prefix among the relevant memories.
+
+The second value is :FOUND, :MISSING, or :AMBIGUOUS; the third lists the
+matching memories when the prefix is ambiguous."
+  (let* ((text (string-trim '(#\Space #\Tab) identifier))
+         (memories (if (non-empty-string-p text)
+                       (memory-list configuration :visibility ':relevant)
+                       nil))
+         (exact (find text memories :key #'memory-identifier :test #'string-equal))
+         (matches (remove-if-not (lambda (memory)
+                                   (uiop:string-prefix-p
+                                    (string-downcase text)
+                                    (string-downcase (memory-identifier memory))))
+                                 memories)))
+    (cond
+      (exact
+       (values exact ':found nil))
+      ((null matches)
+       (values nil ':missing nil))
+      ((null (rest matches))
+       (values (first matches) ':found nil))
+      (t
+       (values nil ':ambiguous matches)))))
 
 (-> memory-remember
     (configuration

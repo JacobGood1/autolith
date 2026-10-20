@@ -270,7 +270,9 @@
       (:premise-changed
        (format nil "\"~A\" changed" title))
       (:premise-forgotten
-       (format nil "premise ~A was forgotten" identifier))
+       (format nil "a premise (~A) was forgotten"
+               (subseq identifier 0 (min *memory-short-identifier-length*
+                                         (length identifier)))))
       (:premise-stale
        (format nil "\"~A\" is stale" title))
       (:premise-unverified
