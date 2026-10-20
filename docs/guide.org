@@ -1032,6 +1032,9 @@ is offered the one =procedure.run= call that makes the same calls with =q5=,
 and =@ learned procedure make-sales-report fits this request= appears. The
 first run asks to admit the procedure (=procedure.admit -- make-sales-report
 v1: sales.load, sales.report, notify.send=); full access admits it at once.
+Once admitted, a procedure a request fits runs before the model's first
+request, shown as its =procedure.run= call, and the model answers from the
+results in one request.
 Every call still asks its own approval and passes its contracts; a run whose
 calls' contract requirements do not hold for the request's values is refused
 before any call, and is not offered. If a call

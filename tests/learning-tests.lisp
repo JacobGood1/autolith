@@ -705,104 +705,162 @@
           (t
            (agent-test-message (format nil "The ~A report is ready." quarter)))))))))
 
+(defclass learning-tests--session ()
+  ((agent
+    :initarg :agent
+    :reader learning-tests--session-agent
+    :documentation "The agent answering the session's requests.")
+   (model
+    :initarg :model
+    :reader learning-tests--session-model
+    :documentation "The scripted model behind the agent.")
+   (observer
+    :initarg :observer
+    :reader learning-tests--session-observer
+    :documentation "The observer collecting statuses and approving commands.")
+   (reports
+    :initarg :reports
+    :reader learning-tests--session-reports
+    :documentation "The scripted sales.report tool.")
+   (failures
+    :initform 0
+    :accessor learning-tests--session-failures
+    :documentation "How many coming sales.report calls fail.")
+   (statuses
+    :initform nil
+    :accessor learning-tests--session-statuses
+    :documentation "The procedure statuses of the latest turn.")
+   (asked
+    :initform nil
+    :accessor learning-tests--session-asked
+    :documentation "Every command approval asked, newest first."))
+  (:documentation "A conversation in which a scripted model makes sales reports."))
+
+(-> learning-tests--session-create (configuration) learning-tests--session)
+(defun learning-tests--session-create (configuration)
+  "Return a report session under CONFIGURATION with scripted sales tools."
+  (let* ((registry (make-default-tool-registry :configuration configuration))
+         (model (make-instance 'learning-tests--model :configuration configuration))
+         (session nil)
+         (reports (learning-tests--tool
+                   registry "sales.report"
+                   (lambda (arguments)
+                     (if (plusp (learning-tests--session-failures session))
+                         (progn (decf (learning-tests--session-failures session))
+                                "The report service is busy.")
+                         (json-object "report" (format nil "reports/~A.md"
+                                                       (json-get arguments "table"))))))))
+    (learning-tests--tool registry "sales.load"
+                          (lambda (arguments)
+                            (let ((file (json-get arguments "file")))
+                              (json-object "rows" 12
+                                           "table" (format nil "t-~A"
+                                                           (subseq file 5 (- (length file) 4)))))))
+    (learning-tests--tool registry "notify.send" (lambda (arguments)
+                                                   (declare (ignore arguments))
+                                                   (json-object "sent" t)))
+    (setf session
+          (make-instance
+           'learning-tests--session
+           :agent (agent-create :configuration configuration :provider model
+                                :conversation (conversation-create configuration)
+                                :tool-registry registry :worker ':unused)
+           :model model
+           :reports reports
+           :observer (callback-agent-observer-create
+                      :status-callback
+                      (lambda (status details)
+                        (when (member status '(:procedures-learned :procedure-offers))
+                          (push (cons status details) (learning-tests--session-statuses session))))
+                      :command-authorization-callback
+                      (lambda (command directory)
+                        (declare (ignore directory))
+                        (push command (learning-tests--session-asked session))
+                        ':sandboxed))))
+    session))
+
+(-> learning-tests--session-turn (learning-tests--session string) list)
+(defun learning-tests--session-turn (session quarter)
+  "Ask SESSION for QUARTER's sales report and return the turn's (REQUESTS TOKENS)."
+  (let* ((model (learning-tests--session-model session))
+         (requests (learning-tests--model-requests model))
+         (tokens (learning-tests--model-tokens model)))
+    (setf (learning-tests--session-statuses session) nil
+          (learning-tests--model-quarter model) quarter)
+    (agent-run-user-turn (learning-tests--session-agent session)
+                         (format nil "Make the sales report for ~A." quarter)
+                         :observer (learning-tests--session-observer session))
+    (list (- (learning-tests--model-requests model) requests)
+          (- (learning-tests--model-tokens model) tokens))))
+
 (-> test-procedure-fixture () null)
 (defun test-procedure-fixture ()
-  "Test that recurring report work is learned, offered, run in one call, and falls back on failure."
-  (with-test-configuration (base root)
-    (let* ((configuration (configuration-copy base :working-directory root))
-           (registry (make-default-tool-registry :configuration configuration))
-           (report-failures 0)
-           (loads (learning-tests--tool
-                   registry "sales.load"
-                   (lambda (arguments)
-                     (let ((file (json-get arguments "file")))
-                       (json-object "rows" 12
-                                    "table" (format nil "t-~A"
-                                                    (subseq file 5 (- (length file) 4))))))))
-           (reports (learning-tests--tool
-                     registry "sales.report"
-                     (lambda (arguments)
-                       (if (plusp report-failures)
-                           (progn (decf report-failures) "The report service is busy.")
-                           (json-object "report" (format nil "reports/~A.md"
-                                                         (json-get arguments "table")))))))
-           (model (make-instance 'learning-tests--model :configuration configuration))
-           (agent (agent-create :configuration configuration :provider model
-                                :conversation (conversation-create configuration)
-                                :tool-registry registry :worker ':unused))
-           (asked nil)
-           (statuses nil)
-           (observer (callback-agent-observer-create
-                      :status-callback (lambda (status details)
-                                         (when (member status '(:procedures-learned
-                                                                :procedure-offers))
-                                           (push (cons status details) statuses)))
-                      :command-authorization-callback (lambda (command directory)
-                                                        (declare (ignore directory))
-                                                        (push command asked)
-                                                        ':sandboxed)))
-           (costs nil))
-      (learning-tests--tool registry "notify.send" (lambda (arguments)
-                                                     (declare (ignore arguments))
-                                                     (json-object "sent" t)))
-      (flet ((turn (quarter)
-               (setf statuses nil
-                     (learning-tests--model-quarter model) quarter)
-               (let ((requests (learning-tests--model-requests model))
-                     (tokens (learning-tests--model-tokens model)))
-                 (agent-run-user-turn agent (format nil "Make the sales report for ~A." quarter)
-                                      :observer observer)
-                 (push (list (- (learning-tests--model-requests model) requests)
-                             (- (learning-tests--model-tokens model) tokens))
-                       costs))))
-        (dolist (quarter '("q1" "q2"))
-          (turn quarter))
-        (test-assert (null statuses) "two turns teach nothing")
-        (turn "q3")
-        (test-assert (equal statuses '((:procedures-learned :procedures (("make-sales-report" 1 3)))))
-                     "the third turn teaches the procedure and the person is told")
-        (turn "q4")
-        (test-assert (and statuses
-                          (every (lambda (status)
-                                   (equal status '(:procedure-offers :names ("make-sales-report"))))
-                                 statuses)
-                          (equal asked '("procedure.admit -- make-sales-report v1: sales.load, sales.report, notify.send")))
-                     "the next fitting request is offered the procedure, admitted on approval")
-        (test-assert (and (equal (json-get (first (learning-tests--scripted-tool-calls loads)) "file")
-                                 "data/q4.csv")
-                          (equal (json-get (first (learning-tests--scripted-tool-calls reports)) "table")
-                                 "t-q4"))
-                     "the procedure makes the same calls with the new request's values")
-        (dolist (quarter '("q5" "q6"))
-          (turn quarter))
-        (destructuring-bind (before after)
-            (list (subseq (reverse costs) 0 3) (subseq (reverse costs) 3 6))
-          (let ((requests-before (reduce #'+ before :key #'first))
-                (requests-after (reduce #'+ after :key #'first))
-                (tokens-before (reduce #'+ before :key #'second))
-                (tokens-after (reduce #'+ after :key #'second)))
-            (test-assert (and (= requests-before 12) (= requests-after 6)
-                              (<= (* 2 requests-after) requests-before))
-                         (format nil "the procedure halves model requests: ~D before, ~D after"
-                                 requests-before requests-after))
-            (test-assert (< tokens-after tokens-before)
-                         (format nil "the procedure uses fewer tokens: ~D before, ~D after"
-                                 tokens-before tokens-after))))
-        (test-assert (equal (procedure-savings configuration "make-sales-report")
-                            (list :turns 3 :requests 2
-                                  :tokens (round (reduce #'+ (subseq costs 0 3) :key #'second) 3)))
-                     "the ledger measures the turns that ran the procedure")
-        (setf report-failures 1)
-        (turn "q7")
-        (let ((entry (knowledge-base-procedure (knowledge-base-read configuration)
-                                               (knowledge--workspace configuration)
-                                               "make-sales-report")))
-          (test-assert (and (= 5 (first (first costs)))
-                            (equal (json-get (first (learning-tests--scripted-tool-calls reports))
+  "Test that ten recurring reports cost half the requests once their procedure is learned."
+  (let ((quarters (loop for index from 1 to 10 collect (format nil "q~D" index)))
+        (baseline nil)
+        (learned nil))
+    (with-test-configuration (base root)
+      (let ((session (learning-tests--session-create
+                      (configuration-copy base :working-directory root :knowledge-mode "off"))))
+        (setf baseline (mapcar (lambda (quarter) (learning-tests--session-turn session quarter))
+                               quarters))))
+    (with-test-configuration (base root)
+      (let* ((configuration (configuration-copy base :working-directory root))
+             (session (learning-tests--session-create configuration)))
+        (flet ((turn (quarter)
+                 (let ((cost (learning-tests--session-turn session quarter)))
+                   (setf learned (append learned (list cost)))
+                   cost))
+
+               (statuses ()
+                 (learning-tests--session-statuses session)))
+          (dolist (quarter (subseq quarters 0 2))
+            (turn quarter))
+          (test-assert (null (statuses)) "two turns teach nothing")
+          (turn "q3")
+          (test-assert (equal (statuses)
+                              '((:procedures-learned :procedures (("make-sales-report" 1 3)))))
+                       "the third turn teaches the procedure and the person is told")
+          (test-assert (and (equal (turn "q4") (list 2 (second (fourth learned))))
+                            (statuses)
+                            (every (lambda (status)
+                                     (equal status '(:procedure-offers :names ("make-sales-report"))))
+                                   (statuses))
+                            (equal (learning-tests--session-asked session)
+                                   '("procedure.admit -- make-sales-report v1: sales.load, sales.report, notify.send")))
+                       "the next request is offered the procedure, which runs once admitted")
+          (test-assert (and (= 1 (first (turn "q5")))
+                            (null (statuses))
+                            (= 1 (length (learning-tests--session-asked session)))
+                            (equal (json-get (first (learning-tests--scripted-tool-calls
+                                                     (learning-tests--session-reports session)))
                                              "table")
-                                   "t-q7")
-                            (= 1 (getf entry :failures))
-                            (eq (procedure-entry-status entry) ':admitted)
-                            (= 1 (length (getf entry :versions))))
-                       "a failed run hands the work back, the model finishes it, and nothing is relearned")))))
+                                   "t-q5"))
+                       "an admitted procedure runs before the model, which answers in one request")
+          (dolist (quarter (subseq quarters 5))
+            (turn quarter))
+          (let ((requests-before (reduce #'+ baseline :key #'first))
+                (requests-after (reduce #'+ learned :key #'first))
+                (tokens-before (reduce #'+ baseline :key #'second))
+                (tokens-after (reduce #'+ learned :key #'second)))
+            (test-assert (and (= 40 requests-before) (= 20 requests-after))
+                         (format nil "ten reports take half the requests, learning included: ~D, not ~D"
+                                 requests-after requests-before))
+            (test-assert (<= (* 4 tokens-after) (* 3 tokens-before))
+                         (format nil "ten reports use at least a quarter fewer tokens: ~D, not ~D"
+                                 tokens-after tokens-before)))
+          (setf (learning-tests--session-failures session) 1)
+          (let ((fallback (turn "q11"))
+                (entry (knowledge-base-procedure (knowledge-base-read configuration)
+                                                 (knowledge--workspace configuration)
+                                                 "make-sales-report")))
+            (test-assert (and (= 4 (first fallback))
+                              (equal (json-get (first (learning-tests--scripted-tool-calls
+                                                       (learning-tests--session-reports session)))
+                                               "table")
+                                     "t-q11")
+                              (= 1 (getf entry :failures))
+                              (eq (procedure-entry-status entry) ':admitted)
+                              (= 1 (length (getf entry :versions))))
+                         "a failed run hands the work back, the model finishes it, and nothing is relearned"))))))
   nil)

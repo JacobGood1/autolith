@@ -587,13 +587,19 @@ request that carries its expansion."
                (when pending-input-identifier
                  (list :pending-input-identifier pending-input-identifier)))))
            (unwind-protect
-                (agent--run-provider-loop
-                 agent observer
-                 :goal-context goal-context
-                 :tools-p tools-p
-                 :tool-allowlist tool-allowlist
-                 :tool-restriction-p tool-restriction-p
-                 :request-number compaction-requests)
+                (progn
+                  (agent-run-fitting-procedure agent observer
+                                               (or (user-message-input-text content) "")
+                                               :automatic-p automatic-p
+                                               :tools-p tools-p
+                                               :tool-restriction-p tool-restriction-p)
+                  (agent--run-provider-loop
+                   agent observer
+                   :goal-context goal-context
+                   :tools-p tools-p
+                   :tool-allowlist tool-allowlist
+                   :tool-restriction-p tool-restriction-p
+                   :request-number compaction-requests))
              (conversation-clear-ephemeral-input-items conversation)
              (setf (conversation-turn-state conversation) nil))))))))
 
