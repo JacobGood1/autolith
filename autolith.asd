@@ -148,6 +148,7 @@
                              (:file "application/command")
                              (:file "configuration/project-adaptations")
                              (:file "agent/memory-context")
+                             (:file "agent/knowledge-usage")
                              (:file "agent/interpreter-discipline")
                              (:file "agent/resume-context")
                              (:file "self/review")

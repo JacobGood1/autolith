@@ -1267,3 +1267,49 @@
                                   :installed-files))
                      "importing the same archive again writes nothing"))))
   nil)
+
+(-> test-knowledge-usage-attribution () null)
+(defun test-knowledge-usage-attribution ()
+  "Test that requests where knowledge took part record its share and their usage."
+  (with-test-configuration (configuration)
+    (knowledge-tests--define-appointments configuration)
+    (knowledge-tests--said configuration "event.start" '("review" "2026-10-22T13:00:00Z")
+                           "the review starts at one")
+    (let* ((conversation (conversation-create configuration))
+           (provider
+             (make-instance
+              'scripted-provider
+              :results (list (agent-test-result
+                              "read-facts"
+                              (list (agent-test-call
+                                     :call-id "facts" :namespace "resource" :name "read"
+                                     :arguments "{\"uri\":\"memory:facts\"}"))
+                              :usage (json-object "input_tokens" 900 "output_tokens" 100
+                                                  "total_tokens" 1000))
+                             (agent-test-result
+                              "answer" (list (agent-test-message "Leave at noon."))
+                              :usage (json-object "input_tokens" 1100 "output_tokens" 20
+                                                  "total_tokens" 1120)))))
+           (agent (agent-create :configuration configuration :conversation conversation
+                                :provider provider
+                                :tool-registry (make-default-tool-registry
+                                                :configuration configuration)
+                                :worker :unused)))
+      (agent-run-user-turn agent "When does the review start?")
+      (test-assert (equal (knowledge-usage-report conversation)
+                          '(:requests 1 :facts 0 :changes 0 :tool-calls 1
+                            :estimated-recall-tokens 0 :request-tokens 1000))
+                   "a request whose model read memory:facts is attributed with its usage")
+      (knowledge-usage-note (conversation-identifier conversation)
+                            :facts 2 :fact-characters 400)
+      (knowledge-usage-capture conversation nil 3
+                               (json-object "input_tokens" 1500 "output_tokens" 30
+                                            "total_tokens" 1530))
+      (knowledge-usage-capture conversation nil 4
+                               (json-object "input_tokens" 1500 "output_tokens" 30
+                                            "total_tokens" 1530))
+      (test-assert (equal (knowledge-usage-report conversation)
+                          '(:requests 2 :facts 2 :changes 0 :tool-calls 1
+                            :estimated-recall-tokens 100 :request-tokens 2530))
+                   "recalled facts are attributed once, and requests without knowledge are not")))
+  nil)

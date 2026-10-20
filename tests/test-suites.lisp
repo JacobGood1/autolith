@@ -353,7 +353,8 @@
   test-knowledge-commands
   test-knowledge-activation
   test-knowledge-mission-observations
-  test-knowledge-transfer)
+  test-knowledge-transfer
+  test-knowledge-usage-attribution)
 
 (define-test-suite papercut
   test-papercuts)

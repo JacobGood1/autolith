@@ -287,7 +287,18 @@ Changes to facts this conversation was given earlier are explained once."
              (facts (and knowledge-p (memory-context--relevant-facts view query)))
              (changes (and knowledge-p
                            (memory-context--recall-changes
-                            configuration (request-context-conversation request) view facts))))
+                            configuration (request-context-conversation request) view facts)))
+             (fact-lines (mapcar (lambda (node) (json-encode (knowledge-node-json view node)))
+                                 facts)))
+        (when knowledge-p
+          (knowledge-usage-note
+           (conversation-identifier (request-context-conversation request))
+           :facts (length facts)
+           :fact-characters (reduce #'+ fact-lines :key #'length)
+           :changes (if changes (knowledge-change-contribution-count changes) 0)
+           :change-characters (if changes
+                                  (length (context-contribution-evidence changes))
+                                  0)))
         (remove
          nil
          (list
@@ -307,8 +318,7 @@ Changes to facts this conversation was given earlier are explained once."
                               :facts (length facts))
                 :evidence (memory-context--evidence
                            (mapcar #'memory-context--match-line selected assessments)
-                           (mapcar (lambda (node) (json-encode (knowledge-node-json view node)))
-                                   facts))
+                           fact-lines)
                 :priority 25
                 :lifetime ':turn
                 :deduplication-key "related-memories")
