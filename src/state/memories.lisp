@@ -20,6 +20,12 @@
 (defparameter *memory-search-term-limit* 24
   "The maximum distinct terms considered by one memory query.")
 
+(defparameter *memory-search-term-punctuation* ".,;:!?\"'`()[]{}<>"
+  "Characters stripped from both ends of a memory search term.
+
+Ordinary prose wraps words in punctuation, as in \"how do I deploy?\", while
+names such as release-prod or config.toml keep their inner punctuation.")
+
 (defvar *memory-lock* (make-recursive-lock "Autolith persistent memories")
   "Serialize same-process memory reads, appends, and guarded transactions.")
 
@@ -585,7 +591,9 @@ existing premises against their current text."
 
 (-> memory--search-terms (string) list)
 (defun memory--search-terms (query)
-  "Return bounded, distinct lowercase whitespace-delimited terms from QUERY."
+  "Return bounded, distinct lowercase whitespace-delimited terms from QUERY.
+
+Punctuation surrounding a term is ignored."
   (unless (non-empty-string-p query)
     (error 'memory-error
            :message "A memory search query must be non-empty."
@@ -593,9 +601,13 @@ existing premises against their current text."
            :identifier nil))
   (let ((terms
           (remove-duplicates
-           (mapcar #'string-downcase
+           (mapcar (lambda (term)
+                     (string-downcase
+                      (string-trim *memory-search-term-punctuation* term)))
                    (remove-if-not
-                    #'non-empty-string-p
+                    (lambda (term)
+                      (non-empty-string-p
+                       (string-trim *memory-search-term-punctuation* term)))
                     (uiop:split-string
                      query
                      :separator '(#\Space #\Tab #\Newline #\Return))))

@@ -448,7 +448,7 @@
         (memory-remember configuration
                          :title "Deploy approvals"
                          :content "Deploys need one approval.")
-        (conversation-append-user-message conversation "how do I deploy")
+        (conversation-append-user-message conversation "how do I deploy?")
         (multiple-value-bind (plain events)
             (memory-source-tests--recall configuration conversation)
           (test-assert (and plain
