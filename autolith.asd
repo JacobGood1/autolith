@@ -135,6 +135,7 @@
                              (:file "knowledge/applicability")
                              (:file "knowledge/rules")
                              (:file "knowledge/evaluation")
+                             (:file "knowledge/explanation")
                              (:file "state/papercuts")
                              (:file "state/agendas")
                              (:file "state/plan")

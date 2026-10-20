@@ -345,7 +345,9 @@
   test-knowledge-rule-lifecycle
   test-knowledge-derivation
   test-knowledge-justifications-and-conflicts
-  test-knowledge-evaluation-bounds)
+  test-knowledge-evaluation-bounds
+  test-knowledge-explanations
+  test-knowledge-changes)
 
 (define-test-suite papercut
   test-papercuts)
