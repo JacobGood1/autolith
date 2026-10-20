@@ -592,3 +592,44 @@
                                  (memory-resolve configuration "ef003333-0000-4000-8000-000000000000")))
                        "a full identifier resolves exactly")))))
   nil)
+
+(-> test-memory-premise-export () null)
+(defun test-memory-premise-export ()
+  "Test that a workspace export carries the global memories its memories rely on."
+  (with-test-configuration (base root)
+    (with-test-configuration (target target-root)
+      (let* ((source (test-data-transfer--workspace
+                      base (merge-pathnames "project/" root)))
+             (notes (memory-source-tests--write
+                     (merge-pathnames "project/NOTES.md" root)
+                     (format nil "Deploy with make release-prod after tagging.~%")))
+             (policy (memory-remember source :scope ':global
+                                      :title "Release policy"
+                                      :content "Releases happen on Tuesdays."))
+             (calendar (memory-remember source :scope ':global
+                                        :title "Release calendar"
+                                        :content "Next release is on Tuesday."
+                                        :premises (list (memory-identifier policy))))
+             (plan (memory-remember source
+                                    :title "Release plan"
+                                    :content "Tag on Monday with make release-prod."
+                                    :sources (list (memory-source-observe-file
+                                                    notes :quote "make release-prod" :time 1))
+                                    :premises (list (memory-identifier calendar))))
+             (path (merge-pathnames "workspace.sexp" root))
+             (destination (merge-pathnames "moved/" target-root)))
+        (memory-remember source :scope ':global
+                         :title "Unrelated" :content "Not a dependency.")
+        (test-assert (= (getf (data-export path
+                                           :workspace (config :working-directory source)
+                                           :configuration source)
+                              :memories)
+                        3)
+                     "the export includes the premise chain and nothing unrelated")
+        (memory-source-tests--write (merge-pathnames "NOTES.md" destination)
+                                    (format nil "Deploy with make release-prod after tagging.~%"))
+        (data-import path :workspace (namestring destination) :configuration target)
+        (let ((relocated (test-data-transfer--workspace target destination)))
+          (test-assert (eq (memory-source-tests--status relocated plan) ':current)
+                       "an imported workspace memory finds its relative source and premises")))))
+  nil)

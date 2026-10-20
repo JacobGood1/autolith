@@ -343,8 +343,12 @@
                  (or (null workspace) (every (lambda (key) (equal key workspace)) actual)))
       (data-transfer--fail pathname ':invalid "Declared archive scope disagrees with entity ownership."))
     (when workspace
-      (let ((linked (loop for agenda in (getf archive :agendas) append
-                      (loop for item in (getf (rest agenda) :items) append (getf (rest item) :memory-ids)))))
+      (let ((linked (data-transfer--memory-links
+                     (getf archive :memories)
+                     :workspace workspace
+                     :linked (loop for agenda in (getf archive :agendas) append
+                               (loop for item in (getf (rest agenda) :items)
+                                     append (getf (rest item) :memory-ids))))))
         (dolist (record (getf archive :memories))
           (when (and (eq (first record) ':memory) (eq (getf (rest record) :scope) ':global)
                      (not (member (getf (rest record) :id) linked :test #'equal)))

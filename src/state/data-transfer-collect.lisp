@@ -64,6 +64,30 @@
                                 (rest history))
                      (rest history))))
 
+(-> data-transfer--memory-links (list &key (:workspace t) (:linked list)) list)
+(defun data-transfer--memory-links (records &key workspace linked)
+  "Return LINKED with every memory that WORKSPACE's memories rely on.
+
+A workspace memory may be derived from global memories, which may in turn rely
+on other global memories, so premises are followed until none are new."
+  (let ((histories (data-transfer--histories records))
+        (links (copy-list linked))
+        (changed t))
+    (loop while changed
+          do (setf changed nil)
+             (dolist (history histories)
+               (let ((owner (data-transfer--history-workspace history ':memory)))
+                 (when (if owner
+                           (equal owner workspace)
+                           (member (first history) links :test #'equal))
+                   (dolist (record (rest history))
+                     (dolist (premise (and (eq (first record) :memory)
+                                           (getf (rest record) :premises)))
+                       (unless (member (getf premise :id) links :test #'equal)
+                         (push (getf premise :id) links)
+                         (setf changed t))))))))
+    links))
+
 (-> data-transfer--session-root (configuration keyword) pathname)
 (defun data-transfer--session-root (configuration kind)
   "Return the durable log root for a conversation or inference KIND."
@@ -286,10 +310,14 @@
          (linked (loop for agenda in agendas append
                    (loop for item in (workspace-agenda-items agenda)
                          append (agenda-item-memory-identifiers item))))
+         (memory-records (data-transfer--log-records
+                          (configuration-memory-path configuration) ':memories))
          (memories (data-transfer--filter-histories
-                    (data-transfer--log-records (configuration-memory-path configuration)
-                                                ':memories)
-                    ':memory :workspace workspace :linked linked))
+                    memory-records ':memory
+                    :workspace workspace
+                    :linked (data-transfer--memory-links memory-records
+                                                         :workspace workspace
+                                                         :linked linked)))
          (papercuts (data-transfer--filter-histories
                      (data-transfer--log-records (configuration-papercut-path configuration)
                                                  ':papercuts)

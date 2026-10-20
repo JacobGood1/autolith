@@ -332,7 +332,8 @@
   test-memory-source-status
   test-memory-premise-status
   test-memory-recall-status
-  test-memory-commands)
+  test-memory-commands
+  test-memory-premise-export)
 
 (define-test-suite papercut
   test-papercuts)
