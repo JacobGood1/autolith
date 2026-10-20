@@ -335,6 +335,9 @@
   test-memory-commands
   test-memory-premise-export)
 
+(define-test-suite knowledge
+  test-knowledge-terms)
+
 (define-test-suite papercut
   test-papercuts)
 
