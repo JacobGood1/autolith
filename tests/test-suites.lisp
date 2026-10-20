@@ -368,6 +368,9 @@
   test-knowledge-sales-fixtures
   test-knowledge-scale)
 
+(define-test-suite learning
+  test-action-traces)
+
 (define-test-suite papercut
   test-papercuts)
 
