@@ -555,3 +555,290 @@
                           '("reminder"))
                    "a retired rule is no longer active after a restart")))
   nil)
+
+(-> knowledge-tests--view (configuration &key (:now timestamp)) knowledge-view)
+(defun knowledge-tests--view (configuration &key (now (get-universal-time)))
+  "Return CONFIGURATION's knowledge evaluated from its workspace at NOW."
+  (knowledge-evaluate (knowledge-base-read configuration)
+                      :workspace (namestring (config :working-directory configuration))
+                      :check (evidence-check-create
+                              :now now
+                              :memories (memory-list configuration :visibility ':all))))
+
+(-> knowledge-tests--claim (configuration string list &key (:negated boolean)) list)
+(defun knowledge-tests--claim (configuration predicate inputs &key negated)
+  "Return the proposition PREDICATE makes of INPUTS under CONFIGURATION's schema."
+  (knowledge-make-proposition
+   (knowledge-base-schema (knowledge-base-read configuration) predicate
+                          :workspace (namestring (config :working-directory configuration)))
+   inputs
+   :negated negated))
+
+(-> knowledge-tests--said (configuration string list string &key (:negated boolean))
+    (values string string))
+(defun knowledge-tests--said (configuration predicate inputs quote &key negated)
+  "Assert PREDICATE of INPUTS as something the user said in QUOTE."
+  (knowledge-assert configuration
+                    (knowledge-tests--claim configuration predicate inputs :negated negated)
+                    :evidence (knowledge-observe :source (list :user :quote quote)
+                                                 :adapter "user/1")
+                    :basis ':user-assertion))
+
+(-> knowledge-tests--departures (knowledge-view) list)
+(defun knowledge-tests--departures (view)
+  "Return the departure times VIEW supports, as canonical instant text."
+  (mapcar (lambda (node)
+            (second (third (knowledge-node-proposition node))))
+          (knowledge-view-holds view '("event.departure" "?event" "?time"))))
+
+
+(-> test-knowledge-derivation () null)
+(defun test-knowledge-derivation ()
+  "Test the appointment fixture: a changed source recomputes the departure locally."
+  (with-test-configuration (base root)
+    (multiple-value-bind (configuration workspace)
+        (memory-source-tests--workspace base root)
+      (knowledge-tests--define-appointments configuration)
+      (knowledge-propose-rule configuration
+                              :id "departure"
+                              :premises '(("event.start" "?event" "?start")
+                                          ("event.travel" "?event" "?travel")
+                                          ("event.buffer" "?event" "?buffer"))
+                              :bindings '(("?leave" ("-" "?start" ("+" "?travel" "?buffer"))))
+                              :conclusion '("event.departure" "?event" "?leave"))
+      (knowledge-admit-rule configuration "departure")
+      (let ((schedule (memory-source-tests--write
+                       (merge-pathnames "schedule.txt" workspace)
+                       (format nil "Design review at 13:00 UTC on 22 October.~%"))))
+        (knowledge-assert configuration
+                          (knowledge-tests--claim configuration "event.start"
+                                                  '("review" "2026-10-22T13:00:00Z"))
+                          :evidence (knowledge-observe-file schedule
+                                                            :quote "review at 13:00"
+                                                            :workspace (namestring workspace))
+                          :basis ':observation)
+        (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
+                               "it takes half an hour to get there")
+        (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
+                               "be there ten minutes early")
+        (let* ((view (knowledge-tests--view configuration))
+               (node (first (knowledge-view-holds view '("event.departure" "review" "?t"))))
+               (justification (first (knowledge-node-justifications node))))
+          (test-assert (equal (knowledge-tests--departures view) '("2026-10-22T12:20:00Z"))
+                       "the departure is derived from start, travel, and buffer")
+          (test-assert (and (equal (getf justification :rule) "departure")
+                            (= (getf justification :version) 1)
+                            (= 3 (length (getf justification :premises)))
+                            (equal (rest (assoc "?leave" (getf justification :bindings)
+                                                :test #'string=))
+                                   '(:instant "2026-10-22T12:20:00Z")))
+                       "the justification names the rule version, premises, and binding")
+          (test-assert (and (equal (knowledge-node-bases node) '((:observation :user-assertion)))
+                            (knowledge-node-observed-p node))
+                       "the derived claim keeps the bases of its premises"))
+        (memory-source-tests--write schedule
+                                    (format nil "Design review at 14:00 UTC on 22 October.~%"))
+        (let ((view (knowledge-tests--view configuration)))
+          (test-assert (null (knowledge-tests--departures view))
+                       "a changed schedule withdraws the departure before the new time is known")
+          (test-assert (eq (knowledge-node-applicability
+                            (knowledge-view-node
+                             view
+                             (knowledge-claim-identifier
+                              (knowledge-tests--claim configuration "event.start"
+                                                      '("review" "2026-10-22T13:00:00Z"))
+                              :scope ':workspace :workspace (namestring workspace))))
+                           ':stale)
+                       "the old start is stale because its source changed"))
+        (knowledge-assert configuration
+                          (knowledge-tests--claim configuration "event.start"
+                                                  '("review" "2026-10-22T14:00:00Z"))
+                          :evidence (knowledge-observe-file schedule
+                                                            :quote "review at 14:00"
+                                                            :workspace (namestring workspace))
+                          :basis ':observation)
+        (test-assert (equal (knowledge-tests--departures (knowledge-tests--view configuration))
+                            '("2026-10-22T13:20:00Z"))
+                     "recording the new start recomputes the departure without a model")
+        (multiple-value-bind (old-buffer)
+            (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
+                                   "be there ten minutes early")
+          (knowledge-tests--said configuration "event.buffer" '("review" "PT20M")
+                                 "make it twenty minutes early")
+          (let ((view (knowledge-tests--view configuration)))
+            (test-assert (and (= 2 (length (knowledge-view-holds
+                                           view '("event.buffer" "review" "?b"))))
+                              (every (lambda (node)
+                                       (eq (knowledge-node-status view node) ':conflicted))
+                                     (knowledge-view-holds view '("event.departure" "review" "?t"))))
+                         "two buffers both hold and their departures conflict, with no winner chosen"))
+          (knowledge-retract configuration old-buffer :reason "superseded")
+          (test-assert (equal (knowledge-tests--departures (knowledge-tests--view configuration))
+                              '("2026-10-22T13:10:00Z"))
+                       "retracting the old buffer leaves one departure")))))
+  nil)
+
+(-> knowledge-tests--admit-departure (configuration &key (:negation boolean)) null)
+(defun knowledge-tests--admit-departure (configuration &key negation)
+  "Admit the departure rule, requiring an explicit not-cancelled claim when NEGATION."
+  (apply #'knowledge-propose-rule configuration
+         (if negation
+             (knowledge-tests--departure-rule)
+             (list :id "departure"
+                   :premises '(("event.start" "?event" "?start")
+                               ("event.travel" "?event" "?travel")
+                               ("event.buffer" "?event" "?buffer"))
+                   :bindings '(("?leave" ("-" "?start" ("+" "?travel" "?buffer"))))
+                   :conclusion '("event.departure" "?event" "?leave"))))
+  (knowledge-admit-rule configuration "departure")
+  nil)
+
+(-> knowledge-tests--review (configuration &key (:travel-basis knowledge-basis)) null)
+(defun knowledge-tests--review (configuration &key (travel-basis ':user-assertion))
+  "Assert the review's start, buffer, and travel, the travel with TRAVEL-BASIS."
+  (knowledge-tests--said configuration "event.start" '("review" "2026-10-22T13:00:00Z")
+                         "the review starts at one")
+  (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
+                         "be there ten minutes early")
+  (if (eq travel-basis ':assumption)
+      (knowledge-assert configuration
+                        (knowledge-tests--claim configuration "event.travel" '("review" "PT30M"))
+                        :basis ':assumption)
+      (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
+                             "half an hour to get there"))
+  nil)
+
+
+(-> test-knowledge-justifications-and-conflicts () null)
+(defun test-knowledge-justifications-and-conflicts ()
+  "Test alternative support paths, explicit negation, conflicts, and assumption bases."
+  (with-test-configuration (configuration)
+    (knowledge-tests--define-appointments configuration)
+    (knowledge-tests--admit-departure configuration :negation t)
+    (knowledge-tests--review configuration)
+    (test-assert (null (knowledge-tests--departures (knowledge-tests--view configuration)))
+                 "a missing cancellation claim does not satisfy a negated premise")
+    (knowledge-tests--said configuration "event.cancelled" '("review")
+                           "the review is definitely still on" :negated t)
+    (test-assert (equal (knowledge-tests--departures (knowledge-tests--view configuration))
+                        '("2026-10-22T12:20:00Z"))
+                 "an explicit not-cancelled claim satisfies it")
+    (multiple-value-bind (stated)
+        (knowledge-tests--said configuration "event.departure" '("review" "2026-10-22T12:20:00Z")
+                               "I will leave at twenty past twelve")
+      (let ((node (knowledge-view-node (knowledge-tests--view configuration) stated)))
+        (test-assert (and (knowledge-node-derived-p node)
+                          (find ':current (knowledge-node-supports node)
+                                :key (lambda (support) (getf support :state))))
+                     "a stated departure the rule also derives has two independent paths"))
+      (knowledge-retract configuration stated)
+      (test-assert (knowledge-node-supported-p
+                    (knowledge-view-node (knowledge-tests--view configuration) stated))
+                   "retracting the statement leaves the derivation supporting it"))
+    (multiple-value-bind (cancelled)
+        (knowledge-tests--said configuration "event.cancelled" '("review")
+                               "the review got cancelled after all")
+      (let ((view (knowledge-tests--view configuration)))
+        (test-assert (eq (knowledge-node-status view (knowledge-view-node view cancelled))
+                         ':conflicted)
+                     "a claim and its explicit negation both supported conflict")
+        (test-assert (equal (knowledge-tests--departures view) '("2026-10-22T12:20:00Z"))
+                     "conflicting evidence is shown, not resolved by picking a winner"))
+      (knowledge-retract configuration cancelled))
+    (knowledge-tests--said configuration "event.departure" '("review" "2026-10-22T12:00:00Z")
+                           "I am leaving at noon")
+    (let* ((view (knowledge-tests--view configuration))
+           (departures (knowledge-view-holds view '("event.departure" "review" "?t"))))
+      (test-assert (and (= 2 (length departures))
+                        (every (lambda (node) (eq (knowledge-node-status view node) ':conflicted))
+                               departures))
+                   "two departure times for one event conflict through the schema key")))
+  (with-test-configuration (configuration)
+    (knowledge-tests--define-appointments configuration)
+    (knowledge-tests--admit-departure configuration)
+    (knowledge-tests--review configuration :travel-basis ':assumption)
+    (let ((node (first (knowledge-view-holds (knowledge-tests--view configuration)
+                                             '("event.departure" "review" "?t")))))
+      (test-assert (and (equal (knowledge-node-bases node) '((:user-assertion :assumption)))
+                        (not (knowledge-node-observed-p node)))
+                   "deriving from an assumption does not make an independent observation")))
+  nil)
+
+(-> test-knowledge-evaluation-bounds () null)
+(defun test-knowledge-evaluation-bounds ()
+  "Test expiry, visibility, refused computations, goals, and incomplete evaluation."
+  (with-test-configuration (base root)
+    (multiple-value-bind (configuration workspace)
+        (memory-source-tests--workspace base root)
+      (declare (ignore workspace))
+      (knowledge-tests--define-appointments configuration)
+      (knowledge-tests--admit-departure configuration)
+      (knowledge-tests--said configuration "event.start" '("review" "2026-10-22T13:00:00Z")
+                             "the review starts at one")
+      (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
+                             "be there ten minutes early")
+      (knowledge-assert configuration
+                        (knowledge-tests--claim configuration "event.travel" '("review" "PT30M"))
+                        :evidence (knowledge-observe
+                                   :source '(:url :url "https://maps.example.com/route")
+                                   :adapter "web/1" :time 1000)
+                        :basis ':observation)
+      (test-assert (knowledge-tests--departures
+                    (knowledge-tests--view configuration :now 2000))
+                   "a fresh route estimate supports the departure")
+      (let ((view (knowledge-tests--view configuration
+                                         :now (+ 1001 *knowledge-url-lifetime*))))
+        (test-assert (and (null (knowledge-tests--departures view))
+                          (eq (knowledge-node-applicability
+                               (knowledge-view-node
+                                view
+                                (knowledge-claim-identifier
+                                 (knowledge-tests--claim configuration "event.travel"
+                                                         '("review" "PT30M"))
+                                 :scope ':workspace
+                                 :workspace (namestring (config :working-directory
+                                                                configuration)))))
+                              ':expired))
+                     "an expired route estimate no longer supports the departure"))
+      (let ((other (memory-tests--configuration-in-workspace
+                    base (merge-pathnames "other/" root))))
+        (ensure-directories-exist (merge-pathnames "other/" root))
+        (test-assert (null (knowledge-view-holds (knowledge-tests--view other)
+                                                 '("event.start" "?e" "?t")))
+                     "another workspace sees none of this workspace's claims"))
+      (knowledge-tests--said configuration "event.start" '("standup" "2026-10-22T09:00:00Z")
+                             "standup is at nine")
+      (knowledge-tests--said configuration "event.buffer" '("standup" "PT0S")
+                             "no need to be early for standup")
+      (knowledge-tests--said configuration "event.travel" '("standup" "PT5M")
+                             "standup is five minutes away")
+      (let ((*knowledge-match-limit* 1))
+        (let ((view (knowledge-tests--view configuration :now 2000)))
+          (test-assert (and (= 1 (length (knowledge-tests--departures view)))
+                            (equal (knowledge-view-incomplete view) '("departure")))
+                       "a reached work limit marks the rule incomplete instead of denying the rest")))
+      (test-assert (null (knowledge-tests--departures
+                          (knowledge-evaluate (knowledge-base-read configuration)
+                                              :workspace (namestring (config :working-directory
+                                                                             configuration))
+                                              :check (evidence-check-create :now 2000)
+                                              :goals '("event.cancelled"))))
+                   "goals skip rules that cannot contribute to them")
+      (knowledge-define-schema configuration
+                               (knowledge-make-schema
+                                :predicate "event.pace"
+                                :arguments '((:name "event" :type :entity)
+                                             (:name "ratio" :type :number))))
+      (knowledge-propose-rule configuration
+                              :id "pace"
+                              :premises '(("event.travel" "?event" "?travel")
+                                          ("event.buffer" "?event" "?buffer"))
+                              :bindings '(("?ratio" ("/" "?travel" "?buffer")))
+                              :conclusion '("event.pace" "?event" "?ratio"))
+      (knowledge-admit-rule configuration "pace")
+      (let ((view (knowledge-tests--view configuration :now 2000)))
+        (test-assert (and (= 1 (length (knowledge-view-holds view '("event.pace" "?e" "?r"))))
+                          (search "Division by zero"
+                                  (getf (first (knowledge-view-errors view)) :message)))
+                     "a computation refused for one match is reported and the others still derive"))))
+  nil)

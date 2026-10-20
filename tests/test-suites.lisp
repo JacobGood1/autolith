@@ -342,7 +342,10 @@
   test-knowledge-applicability
   test-knowledge-rule-validation
   test-knowledge-rule-computations
-  test-knowledge-rule-lifecycle)
+  test-knowledge-rule-lifecycle
+  test-knowledge-derivation
+  test-knowledge-justifications-and-conflicts
+  test-knowledge-evaluation-bounds)
 
 (define-test-suite papercut
   test-papercuts)
