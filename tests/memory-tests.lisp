@@ -135,7 +135,9 @@
                                        :configuration configuration
                                        :conversation conversation
                                        :tool-namespaces #()))
-                      (contribution (memory-related-context request))
+                      (contribution (find "related-memories" (memory-related-context request)
+                                          :key #'context-contribution-identifier
+                                          :test #'string=))
                       (evidence
                         (and contribution
                              (context-contribution-evidence contribution))))

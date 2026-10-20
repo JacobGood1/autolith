@@ -77,36 +77,12 @@
 (-> memory-knowledge--fact-line (knowledge-view knowledge-node) string)
 (defun memory-knowledge--fact-line (view node)
   "Return NODE as one compact JSON line for the model."
-  (let ((line (json-object
-               "id" (knowledge-node-identifier node)
-               "fact" (knowledge-node-text node)
-               "predicate" (knowledge-proposition-predicate (knowledge-node-proposition node))
-               "arguments" (map 'vector #'knowledge-term->json
-                                (knowledge-proposition-arguments
-                                 (knowledge-node-proposition node)))
-               "basis" (map 'vector
-                            (lambda (set)
-                              (format nil "~{~(~A~)~^+~}" set))
-                            (knowledge-node-bases node)))))
-    (when (knowledge-node-negated-p node)
-      (setf (gethash "negated" line) t))
-    (when (knowledge-node-derived-p node)
-      (let ((justification (first (knowledge-node-justifications node))))
-        (setf (gethash "derived" line)
-              (format nil "~A v~D" (getf justification :rule) (getf justification :version)))))
-    (unless (eq (knowledge-node-status view node) ':supported)
-      (setf (gethash "status" line)
-            (string-downcase (symbol-name (knowledge-node-status view node)))))
-    (json-encode line)))
+  (json-encode (knowledge-node-json view node)))
 
 (-> memory-knowledge--matches-p (knowledge-node list) boolean)
 (defun memory-knowledge--matches-p (node terms)
   "Return true when every lowercase query term appears in NODE's text or arguments."
-  (let ((haystack (string-downcase
-                   (format nil "~A ~A"
-                           (knowledge-node-text node)
-                           (knowledge-node-proposition node)))))
-    (and (every (lambda (term) (search term haystack)) terms) t)))
+  (= (knowledge-node-relevance node terms) (length terms)))
 
 (-> memory-knowledge--render-facts
     (knowledge-view &key (:query (option string)) (:maximum-results integer))
@@ -194,7 +170,7 @@ Conflicted facts come first, then the rest by predicate and text."
       (changes
        (format nil "Changes since ~A:~%~{~A~%~}"
                (memory--timestamp-string previous)
-               (memory-knowledge--change-lines changes)))
+               (knowledge-change-lines changes)))
       (t
        (format nil "Nothing changed since ~A." (memory--timestamp-string previous))))))
 
@@ -634,19 +610,6 @@ Conflicted facts come first, then the rest by predicate and text."
       (t
        (memory-resource--fail "memory:facts accepts predicate-define, fact-assert, fact-retract, and rule-propose.")))))
 
-(-> memory-knowledge--change-lines (list) list)
-(defun memory-knowledge--change-lines (changes)
-  "Return one line describing each knowledge change."
-  (mapcar (lambda (change)
-            (ecase (getf change :kind)
-              (:new (format nil "now holds: ~A (~A)" (getf change :text) (getf change :claim)))
-              (:withdrawn (format nil "no longer holds: ~A~@[ because ~{~A~^; ~}~]"
-                                  (getf change :text) (getf change :causes)))
-              (:changed (format nil "changed: ~A, was ~A" (getf change :to) (getf change :from)))
-              (:conflict (format nil "conflicts: ~A (~A)" (getf change :text)
-                                 (getf change :claim)))))
-          changes))
-
 (defmethod resource-tool-edit
     ((resource memory-knowledge-resource) (tool resource-edit-tool)
      (context tool-context) (arguments hash-table))
@@ -682,5 +645,5 @@ Conflicted facts come first, then the rest by predicate and text."
         (tool-success
          (format nil "~{~A~%~}~:[~;~:*~{~A~%~}~]Revision: ~A"
                  (reverse results)
-                 (memory-knowledge--change-lines changes)
+                 (knowledge-change-lines changes)
                  (resource-observation-state-alias state)))))))

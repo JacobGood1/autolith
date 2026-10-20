@@ -639,7 +639,12 @@ retries stay auditable next to the request they belong to."
         observer :related-memories
         (list :count      (memory-context-event-count event)
               :stale      (memory-context-event-stale-count event)
-              :unverified (memory-context-event-unverified-count event))))
+              :unverified (memory-context-event-unverified-count event)
+              :facts      (memory-context-event-fact-count event))))
+      (knowledge-change-event
+       (agent-observer-status
+        observer :knowledge-changes
+        (list :count (knowledge-change-event-count event))))
       (provider-attempt-failed-event
        (let ((details
                (list :request-number request-number

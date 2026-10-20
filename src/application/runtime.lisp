@@ -3256,12 +3256,29 @@ continuation turns, so the notice names what woke the model."
             (sanitize-text name :single-line-p t)))))))
 
 (-> application--related-memories-notice
-    ((integer 1) &key (:stale (integer 0)) (:unverified (integer 0)))
+    ((integer 0) &key (:stale (integer 0)) (:unverified (integer 0)) (:facts (integer 0)))
     string)
-(defun application--related-memories-notice (count &key (stale 0) (unverified 0))
-  "Return the dim notice for COUNT offered memories, STALE and UNVERIFIED among them."
-  (format nil "@ ~D relevant memor~:@P exist~:[~;s~]~[~:; · ~:*~D stale~]~[~:; · ~:*~D unverified~]"
-          count (= count 1) stale unverified))
+(defun application--related-memories-notice (count &key (stale 0) (unverified 0) (facts 0))
+  "Return the dim notice for COUNT offered memories and FACTS offered facts.
+
+STALE and UNVERIFIED count memories whose evidence changed or could not be
+checked."
+  (format nil "@ ~{~A~^ · ~}"
+          (remove nil
+                  (list (when (plusp count)
+                          (format nil "~D relevant memor~:@P exist~:[~;s~]" count (= count 1)))
+                        (when (plusp stale)
+                          (format nil "~D stale" stale))
+                        (when (plusp unverified)
+                          (format nil "~D unverified" unverified))
+                        (when (plusp facts)
+                          (format nil "~D ~:[~;relevant ~]fact~P"
+                                  facts (zerop count) facts))))))
+
+(-> application--knowledge-changes-notice ((integer 1)) string)
+(defun application--knowledge-changes-notice (count)
+  "Return the dim notice that COUNT facts given earlier changed."
+  (format nil "@ ~D fact~:P given earlier changed" count))
 
 (-> application-agent-observer
     (application
@@ -3424,8 +3441,15 @@ continuation turns, so the notice names what woke the model."
                       (application--related-memories-notice
                        (getf details :count)
                        :stale      (getf details :stale 0)
-                       :unverified (getf details :unverified 0)))))
+                       :unverified (getf details :unverified 0)
+                       :facts      (getf details :facts 0)))))
               (setf related-memories-shown-p t)))
+           (:knowledge-changes
+            (application-present
+             application
+             (list (terminal-span
+                    ':dim
+                    (application--knowledge-changes-notice (getf details :count))))))
            (:provider-progress
             (terminal-ui-note-status-progress ui))
            (:provider-request-started

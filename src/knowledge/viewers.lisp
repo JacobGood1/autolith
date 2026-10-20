@@ -58,6 +58,39 @@
                                          (declare (ignore condition))
                                          nil))))
 
+(-> knowledge-viewer-update
+    (configuration string string timestamp function)
+    t)
+(defun knowledge-viewer-update (configuration viewer workspace time function)
+  "Replace VIEWER's snapshot in WORKSPACE by what FUNCTION returns, and return its result.
+
+FUNCTION receives the previous snapshot, the time it was recorded, and whether
+there was none, and returns the new snapshot, or :KEEP to leave it, and a
+result."
+  (knowledge--translate-store-errors
+   (lambda ()
+     (values
+      (sexp-store:store-transact
+       (knowledge-viewer--store configuration)
+       (lambda (viewers)
+         (let ((entry (find-if (lambda (entry)
+                                 (and (equal (getf entry :viewer) viewer)
+                                      (equal (getf entry :workspace) workspace)))
+                               viewers)))
+           (multiple-value-bind (snapshot result)
+               (funcall function (getf entry :snapshot) (getf entry :time) (null entry))
+             (if (eq snapshot ':keep)
+                 (values viewers result nil)
+                 (let ((others (remove entry viewers)))
+                   (values (cons (list :viewer viewer
+                                       :workspace workspace
+                                       :time time
+                                       :snapshot snapshot)
+                                 (subseq others 0 (min (length others)
+                                                       (1- *knowledge-viewer-limit*))))
+                           result
+                           t)))))))))))
+
 (-> knowledge-viewer-changes
     (configuration string knowledge-view &key (:record boolean))
     (values list (option timestamp) boolean))
@@ -66,28 +99,11 @@
 
 The second value is when VIEWER last looked, and the third is true when it
 never had. When RECORD, VIEW becomes what VIEWER last saw."
-  (let ((workspace (knowledge-view-workspace view))
-        (snapshot (knowledge-view-snapshot view)))
-    (values-list
-     (knowledge--translate-store-errors
-      (lambda ()
-        (sexp-store:store-transact
-         (knowledge-viewer--store configuration)
-         (lambda (viewers)
-           (let* ((entry (find-if (lambda (entry)
-                                    (and (equal (getf entry :viewer) viewer)
-                                         (equal (getf entry :workspace) workspace)))
-                                  viewers))
-                  (changes (and entry (knowledge-view-changes (getf entry :snapshot) view)))
-                  (others (remove entry viewers))
-                  (kept (if record
-                            (cons (list :viewer viewer
-                                        :workspace workspace
-                                        :time (knowledge-view-now view)
-                                        :snapshot snapshot)
-                                  (subseq others 0 (min (length others)
-                                                        (1- *knowledge-viewer-limit*))))
-                            viewers)))
-             (values kept
-                     (list changes (and entry (getf entry :time)) (null entry))
-                     (and record t))))))))))
+  (values-list
+   (knowledge-viewer-update
+    configuration viewer (knowledge-view-workspace view) (knowledge-view-now view)
+    (lambda (previous time first-p)
+      (values (if record (knowledge-view-snapshot view) ':keep)
+              (list (and (not first-p) (knowledge-view-changes previous view))
+                    time
+                    first-p))))))

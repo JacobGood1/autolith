@@ -58,6 +58,44 @@
     (:unverified "could not be checked")))
 
 
+(-> knowledge-node-json (knowledge-view knowledge-node) json-object)
+(defun knowledge-node-json (view node)
+  "Return NODE as a complete JSON fact for a model: identity, sentence, values, basis.
+
+Status appears only when the fact is conflicted or otherwise not plainly
+supported; a derived fact names its rule version."
+  (let ((object (json-object
+                 "id" (knowledge-node-identifier node)
+                 "fact" (knowledge-node-text node)
+                 "predicate" (knowledge-proposition-predicate (knowledge-node-proposition node))
+                 "arguments" (map 'vector #'knowledge-term->json
+                                  (knowledge-proposition-arguments
+                                   (knowledge-node-proposition node)))
+                 "basis" (map 'vector
+                              (lambda (set)
+                                (format nil "~{~(~A~)~^+~}" set))
+                              (knowledge-node-bases node)))))
+    (when (knowledge-node-negated-p node)
+      (setf (gethash "negated" object) t))
+    (when (knowledge-node-derived-p node)
+      (let ((justification (first (knowledge-node-justifications node))))
+        (setf (gethash "derived" object)
+              (format nil "~A v~D" (getf justification :rule) (getf justification :version)))))
+    (unless (eq (knowledge-node-status view node) ':supported)
+      (setf (gethash "status" object)
+            (string-downcase (symbol-name (knowledge-node-status view node)))))
+    object))
+
+(-> knowledge-node-relevance (knowledge-node list) (integer 0))
+(defun knowledge-node-relevance (node terms)
+  "Return how many lowercase TERMS appear in NODE's sentence or values."
+  (let ((haystack (string-downcase
+                   (format nil "~A ~A"
+                           (knowledge-node-text node)
+                           (knowledge-node-proposition node)))))
+    (count-if (lambda (term) (search term haystack)) terms)))
+
+
 ;;;; -- Explanations --
 
 (-> knowledge--explain-support (knowledge-view list) list)
@@ -236,3 +274,16 @@ another), :NEW, :WITHDRAWN (with :CAUSES), or :CONFLICT."
                 changes))))
     (let ((ordered (nreverse changes)))
       (subseq ordered 0 (min (length ordered) *knowledge-change-limit*)))))
+
+(-> knowledge-change-lines (list) list)
+(defun knowledge-change-lines (changes)
+  "Return one line describing each knowledge change."
+  (mapcar (lambda (change)
+            (ecase (getf change :kind)
+              (:new (format nil "now holds: ~A (~A)" (getf change :text) (getf change :claim)))
+              (:withdrawn (format nil "no longer holds: ~A~@[ because ~{~A~^; ~}~]"
+                                  (getf change :text) (getf change :causes)))
+              (:changed (format nil "changed: ~A, was ~A" (getf change :to) (getf change :from)))
+              (:conflict (format nil "conflicts: ~A (~A)" (getf change :text)
+                                 (getf change :claim)))))
+          changes))

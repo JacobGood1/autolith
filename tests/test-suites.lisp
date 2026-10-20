@@ -348,7 +348,8 @@
   test-knowledge-evaluation-bounds
   test-knowledge-explanations
   test-knowledge-changes
-  test-knowledge-memory-premises)
+  test-knowledge-memory-premises
+  test-knowledge-recall)
 
 (define-test-suite papercut
   test-papercuts)

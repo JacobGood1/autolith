@@ -986,3 +986,79 @@
                             "\"leave for review at 2026-10-22 12:20 UTC\" no longer holds")
                      "the reason names the recorded fact even after it disappears"))))
   nil)
+
+(-> knowledge-tests--recall (configuration conversation) list)
+(defun knowledge-tests--recall (configuration conversation)
+  "Return the contributions memory recall makes for CONVERSATION's latest input."
+  (let ((*context-contributors* nil)
+        (*context-resolver* (cl-llm-provider-api:make-context-resolver))
+        (*context-last-deliveries* (make-hash-table :test #'equal))
+        (*context-last-delivery-order* nil))
+    (register-context-contributor "related-memories" 'memory-related-context
+                                  :source ':built-in)
+    (context-delivery-contributions (context-resolve-request configuration conversation #()))))
+
+(-> knowledge-tests--contribution (list string) (option context-contribution))
+(defun knowledge-tests--contribution (contributions identifier)
+  "Return the contribution IDENTIFIER among CONTRIBUTIONS."
+  (find identifier contributions :key #'context-contribution-identifier :test #'string=))
+
+
+(-> test-knowledge-recall () null)
+(defun test-knowledge-recall ()
+  "Test recall of complete current facts and once-only explanation of their changes."
+  (with-test-configuration (base root)
+    (multiple-value-bind (configuration workspace)
+        (memory-source-tests--workspace base root)
+      (knowledge-tests--define-appointments configuration)
+      (knowledge-tests--admit-departure configuration)
+      (knowledge-tests--schedule-review configuration workspace "13:00")
+      (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
+                             "be there ten minutes early")
+      (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
+                             "half an hour to get there")
+      (let ((conversation (conversation-create configuration)))
+        (conversation-append-user-message conversation "When should I leave for the review?")
+        (let* ((contributions (knowledge-tests--recall configuration conversation))
+               (advice (knowledge-tests--contribution contributions "related-memories")))
+          (test-assert (and advice
+                            (search "\"fact\":\"leave for review at 2026-10-22 12:20 UTC\""
+                                    (context-contribution-evidence advice))
+                            (search "\"derived\":\"departure v1\""
+                                    (context-contribution-evidence advice))
+                            (search "use them as they are" (context-contribution-instruction advice))
+                            (not (search "persistent memor" (context-contribution-instruction advice)))
+                            (null (knowledge-tests--contribution contributions "knowledge-changes")))
+                       "recall offers the derived departure as a complete current fact")
+          (test-assert (equal (application--related-memories-notice 0 :facts 3)
+                              "@ 3 relevant facts")
+                       "the notice counts offered facts"))
+        (knowledge-tests--schedule-review configuration workspace "14:00")
+        (test-assert (null (knowledge-tests--contribution
+                            (knowledge-tests--recall configuration conversation)
+                            "knowledge-changes"))
+                     "changes wait for the next turn")
+        (conversation-append-user-message conversation "Ok, anything else?")
+        (let* ((changes (knowledge-tests--contribution
+                         (knowledge-tests--recall configuration conversation)
+                         "knowledge-changes")))
+          (test-assert (and changes
+                            (search "changed: leave for review at 2026-10-22 13:20 UTC, was leave for review at 2026-10-22 12:20 UTC"
+                                    (context-contribution-evidence changes))
+                            (eq (context-contribution-lifetime changes) ':next-request))
+                       "the next turn explains how a fact the model was given changed")
+          (test-assert (equal (context-contribution-evidence changes)
+                              (context-contribution-evidence
+                               (knowledge-tests--contribution
+                                (knowledge-tests--recall configuration conversation)
+                                "knowledge-changes")))
+                       "later requests in the same turn offer the same explanation"))
+        (conversation-append-user-message conversation "Thanks.")
+        (test-assert (null (knowledge-tests--contribution
+                            (knowledge-tests--recall configuration conversation)
+                            "knowledge-changes"))
+                     "each change is explained once")
+        (test-assert (equal (application--knowledge-changes-notice 1)
+                            "@ 1 fact given earlier changed")
+                     "the person sees that a fact the model relied on changed"))))
+  nil)
