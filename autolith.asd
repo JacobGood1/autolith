@@ -135,6 +135,7 @@
                              (:file "knowledge/rules")
                              (:file "knowledge/evaluation")
                              (:file "knowledge/explanation")
+                             (:file "knowledge/viewers")
                              (:file "state/memory-status")
                              (:file "state/papercuts")
                              (:file "state/agendas")

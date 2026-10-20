@@ -19,7 +19,7 @@
     :initarg :view-kind
     :reader memory-knowledge-resource-view-kind
     :type keyword
-    :documentation "Which knowledge view: :FACTS, :CLAIM, :PREDICATES, or :RULES.")
+    :documentation "Which knowledge view: :FACTS, :CLAIM, :PREDICATES, :RULES, or :CHANGES.")
    (claim
     :initarg :claim
     :initform nil
@@ -44,6 +44,7 @@
       ((string= identifier "facts") (make ':facts))
       ((string= identifier "predicates") (make ':predicates))
       ((string= identifier "rules") (make ':rules))
+      ((string= identifier "changes") (make ':changes))
       ((and (uiop:string-prefix-p "claim/" identifier)
             (> (length identifier) (length "claim/")))
        (make ':claim (subseq identifier (length "claim/"))))
@@ -181,6 +182,22 @@ Conflicted facts come first, then the rest by predicate and text."
        (format stream "~vTconflicts with ~{~A~^, ~}~%" (+ indent 2) (getf tree :conflicts)))))
   nil)
 
+(-> memory-knowledge--render-changes (configuration string knowledge-view) string)
+(defun memory-knowledge--render-changes (configuration viewer view)
+  "Return what changed for VIEWER since it last read memory:changes, and record this read."
+  (multiple-value-bind (changes previous first-p)
+      (knowledge-viewer-changes configuration viewer view)
+    (cond
+      (first-p
+       (format nil "First look: ~D fact~:P hold now. Later reads of memory:changes report what changed since this one."
+               (length (knowledge-view-snapshot view))))
+      (changes
+       (format nil "Changes since ~A:~%~{~A~%~}"
+               (memory--timestamp-string previous)
+               (memory-knowledge--change-lines changes)))
+      (t
+       (format nil "Nothing changed since ~A." (memory--timestamp-string previous))))))
+
 (-> memory-knowledge--render-claim (knowledge-view string) string)
 (defun memory-knowledge--render-claim (view identifier)
   "Return why claim IDENTIFIER holds or does not, as an indented tree."
@@ -278,7 +295,13 @@ Conflicted facts come first, then the rest by predicate and text."
              (:predicates
               (memory-knowledge--render-predicates base workspace))
              (:rules
-              (memory-knowledge--render-rules base workspace))))
+              (memory-knowledge--render-rules base workspace))
+             (:changes
+              (memory-knowledge--render-changes
+               configuration
+               (format nil "conversation:~A"
+                       (conversation-identifier (tool-context-conversation context)))
+               (memory-knowledge-view context)))))
          (snapshot (list :kind kind
                          :identifier (memory-resource-identifier resource)
                          :workspace workspace

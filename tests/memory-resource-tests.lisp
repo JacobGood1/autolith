@@ -1307,6 +1307,9 @@
                              (content (read-resource "memory:facts" "query" "review"
                                                      "max-results" 1)))
                      "a query and max-results narrow the listing")
+        (test-assert (search "First look: 4 facts hold now"
+                             (content (read-resource "memory:changes")))
+                     "the first memory:changes read records what this conversation saw")
         (memory-source-tests--write schedule
                                     (format nil "Design review at 14:00 UTC on 22 October.~%"))
         (let ((moved (edit (json-object "op" "fact-assert" "predicate" "event.start"
@@ -1317,6 +1320,12 @@
           (test-assert (search "now holds: leave for review at 2026-10-22 13:20 UTC"
                                (content moved))
                        "asserting the new start reports the recomputed departure"))
+        (let ((changes (content (read-resource "memory:changes"))))
+          (test-assert (search "changed: leave for review at 2026-10-22 13:20 UTC, was leave for review at 2026-10-22 12:20 UTC"
+                               changes)
+                       "memory:changes reports the moved departure since the last read"))
+        (test-assert (search "Nothing changed since" (content (read-resource "memory:changes")))
+                     "each change is reported once")
         (dolist (case (list (list "an undefined predicate"
                                   (edit (json-object "op" "fact-assert" "predicate" "room.size"
                                                      "arguments" (vector "a" 1)))
