@@ -291,6 +291,7 @@
                              (:file "application/memory-commands")
                              (:file "application/knowledge-commands")
                              (:file "application/procedure-commands")
+                             (:file "application/diagnosis-commands")
                              (:file "application/relax")
                              (:file "application/complaints")
                              (:file "application/operation")

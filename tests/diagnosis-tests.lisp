@@ -307,3 +307,27 @@
                             (format nil "diagnosis.run is ~:[not ~;~]offered with ~A knowledge and probes ~:[off~;on~]"
                                     expected mode diagnosis-p)))))
   nil)
+
+(-> test-diagnosis-commands () null)
+(defun test-diagnosis-commands ()
+  "Test listing saved diagnoses and recent cases with what decided them."
+  (diagnosis-tests--call-with
+   "commands"
+   (lambda (configuration)
+     (let ((application (make-instance 'application :configuration configuration
+                                                    :conversation (conversation-create configuration)))
+           (world (diagnosis-tests--world-create configuration "stale-endpoint")))
+       (flet ((text (entry)
+                (memory-source-tests--text entry)))
+         (test-assert (search "No diagnoses yet." (text (application-diagnoses-entry application)))
+                      "(diagnoses) says when there are none")
+         (diagnosis-tests--diagnose configuration world (diagnosis-tests--definition))
+         (let ((listing (text (application-diagnoses-entry application))))
+           (test-assert (and (search "diagnoses  1 saved · 1 recent case" listing)
+                             (search "remote-service  unavailable, stale-endpoint, credentials · probes service.ping, service.config, service.auth"
+                                     listing)
+                             (search "✓ remote-service service=billing → stale-endpoint" listing)
+                             (search "repair: Update its endpoint with service.update-endpoint." listing)
+                             (search "ruled out unavailable: " listing))
+                        "(diagnoses) shows the cause found, its repair, and what ruled out the rest"))))))
+  nil)

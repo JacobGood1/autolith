@@ -152,7 +152,7 @@ holds the same file lock as source invalidation and writes.
 | Conversations | headers, messages, provider items, model choices         |
 | Memories      | workspace and global facts, sources and premises, tombs  |
 | Knowledge     | predicates, evidence, supports, rules, retractions,      |
-|               | learned procedures and their runs                        |
+|               | learned procedures and their runs, diagnoses and cases   |
 | Viewers       | the last knowledge snapshot each viewer saw (derived)    |
 | Agendas       | versioned workspace plans and memory identifiers         |
 | Papercuts     | user-visible defect reports and closure tombstones       |

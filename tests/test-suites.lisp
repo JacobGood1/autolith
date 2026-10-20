@@ -381,7 +381,8 @@
 (define-test-suite diagnosis
   test-diagnosis-predictions
   test-diagnosis-remote-service
-  test-diagnosis-setting)
+  test-diagnosis-setting
+  test-diagnosis-commands)
 
 (define-test-suite papercut
   test-papercuts)

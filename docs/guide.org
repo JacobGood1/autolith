@@ -1053,6 +1053,30 @@ turns that ran it, in model requests and tokens. The model reads
 =memory:procedures=. Procedures are kept in the knowledge log, with every run,
 and are learned and offered only while =knowledge-mode= is =active=.
 
+*** Diagnosis
+
+With =Diagnostic probes= on in =(settings)= (or =AUTOLITH_DIAGNOSIS=1=) and
+structured knowledge active, the model can find out why something fails
+before repairing it, instead of trying repairs in turn. =diagnosis.run= takes
+up to four hypotheses, each predicting facts, and probes: tool calls whose
+contracts observe facts from their results. Facts already known are checked
+first; then the probe telling apart the most remaining hypotheses per cost
+runs, at most three, with no model request between them. A hypothesis is
+ruled out only by a fact contradicting one of its predictions, so a case no
+probe can settle is reported as still open rather than guessed. A diagnosis
+can be saved by name and run again with new values.
+
+#+BEGIN_SRC text
+Diagnosis remote-service: stale-endpoint. Repair: Update its endpoint.
+probe 1: service.ping {"service":"billing"} ok → service.reachable(billing, true)
+probe 2: service.config {"service":"billing"} ok → endpoint.current(billing, false)
+ruled out unavailable: service.reachable(billing, true)
+ruled out credentials: endpoint.current(billing, false)
+#+END_SRC
+
+=(diagnoses)= lists saved diagnoses and recent cases: the cause found, its
+repair, and the facts that ruled out the others.
+
 ** Exporting and importing data
 
 Use the same portable archive from the command line or an active session:
