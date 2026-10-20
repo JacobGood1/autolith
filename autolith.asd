@@ -154,6 +154,7 @@
                              (:file "agent/plan-context")
                              (:file "learning/traces")
                              (:file "learning/procedures")
+                             (:file "learning/mining")
                              (:file "agent/interpreter-discipline")
                              (:file "agent/resume-context")
                              (:file "self/review")

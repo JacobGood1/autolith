@@ -209,3 +209,111 @@
                            (knowledge-error (condition) (knowledge-error-code condition))))
                      "admitting an unknown procedure is refused"))))
   nil)
+
+(-> learning-tests--archive-turn (conversation integer &key (:recipient string)) null)
+(defun learning-tests--archive-turn (conversation year &key (recipient "team"))
+  "Record a turn archiving YEAR's invoices and telling RECIPIENT, in two tool calls."
+  (conversation-append-user-message conversation (format nil "Archive invoices of ~D" year))
+  (learning-tests--call conversation
+                        :call-id   (format nil "a~D-1" year)
+                        :tool      "invoices.archive"
+                        :arguments (json-object "year" year "compress" t)
+                        :output    (json-object "archive" (json-object "path"
+                                                                       (format nil "/a/~D.tar" year))))
+  (learning-tests--call conversation
+                        :call-id   (format nil "a~D-2" year)
+                        :tool      "notify.send"
+                        :arguments (json-object "to" recipient
+                                                "message" (format nil "/a/~D.tar" year))
+                        :output    (json-object "sent" t))
+  (learning-tests--request conversation (format nil "a~D-r" year) 900)
+  nil)
+
+(-> test-procedure-mining () null)
+(defun test-procedure-mining ()
+  "Test generalizing recurring tool sequences into procedures that explain each source turn."
+  (with-test-configuration (configuration)
+    (let ((reports (conversation-create configuration))
+          (archives (conversation-create configuration)))
+      (dolist (quarter '("q1" "q3" "q4"))
+        (learning-tests--report-turn reports quarter))
+      (dolist (year '(2021 2022 2023))
+        (learning-tests--archive-turn archives year))
+      (let* ((traces (action-traces-in-conversation (conversation-pathname reports)))
+             (procedure (procedure-mine traces)))
+        (test-assert (equal procedure
+                            '(:procedure
+                              :id "make-sales-report"
+                              :parameters ((:name "file" :type :string))
+                              :input ("Make" "the" "sales" "report" "for" (:param "file" "" "."))
+                              :steps ((:tool "sales.load"
+                                       :arguments (:object ("file" (:text "data/" "file" ".csv"))))
+                                      (:tool "sales.report"
+                                       :arguments (:object ("table" (:from 0 ("table")))
+                                                           ("title" (:text "Sales " "file" ""))))
+                                      (:tool "notify.send"
+                                       :arguments (:object ("to" (:json "\"team\""))
+                                                           ("message"
+                                                            (:json "\"The sales report is ready.\"")))))))
+                     "varying words, earlier results, and constants become one procedure")
+        (test-assert (every (lambda (trace) (procedure-explains-trace-p procedure trace)) traces)
+                     "the procedure reproduces every turn it was learned from"))
+      (let ((procedure (procedure-mine (action-traces-in-conversation
+                                        (conversation-pathname archives)))))
+        (test-assert (and (equal (getf (rest procedure) :parameters)
+                                 '((:name "year" :type :integer)))
+                          (equal (getf (rest procedure) :input)
+                                 '("Archive" "invoices" "of" (:param "year" "" "")))
+                          (equal (procedure-match-input procedure "archive invoices of 2024")
+                                 '(("year" . 2024))))
+                     "a number in the request becomes an integer parameter")
+        (test-assert (equal (getf (second (getf (rest procedure) :steps)) :arguments)
+                            '(:object ("to" (:json "\"team\""))
+                              ("message" (:from 0 ("archive" "path")))))
+                     "a nested result field feeds a later call"))
+      (loop for (description turns expected) in
+            '(("two turns are too few" ((2021 "team") (2022 "team")) nil)
+              ("three agreeing turns are learned" ((2021 "team") (2022 "team") (2023 "team")) t)
+              ("a value seen once is not generalized"
+               ((2021 "team") (2022 "team") (2023 "board")) nil)
+              ("a value varying throughout becomes a parameter"
+               ((2021 "ann") (2022 "bob") (2023 "cy")) t))
+            do (let ((conversation (conversation-create configuration)))
+                 (loop for (year recipient) in turns
+                       do (learning-tests--archive-turn conversation year :recipient recipient))
+                 (test-assert (eq expected
+                                  (and (procedure-learn-candidates
+                                        (reverse (action-traces-in-conversation
+                                                  (conversation-pathname conversation))))
+                                       t))
+                              description)))))
+  nil)
+
+(-> test-procedure-learning () null)
+(defun test-procedure-learning ()
+  "Test recording learned procedures once, keeping their names, and never relearning retired ones."
+  (with-test-configuration (configuration)
+    (let ((conversation (conversation-create configuration))
+          (workspace (knowledge--workspace configuration)))
+      (learning-tests--report-turn conversation "q1")
+      (learning-tests--report-turn conversation "q2")
+      (test-assert (null (procedure-learn configuration)) "two turns teach nothing yet")
+      (learning-tests--report-turn conversation "q3" :requests 5)
+      (test-assert (equal (procedure-learn configuration) '(("make-sales-report" 1 3)))
+                   "the third turn teaches a procedure")
+      (let ((version (procedure-entry-version
+                      (knowledge-base-procedure (knowledge-base-read configuration)
+                                                workspace "make-sales-report"))))
+        (test-assert (and (equal (getf version :baseline) '(:requests 4 :tokens 6500))
+                          (= 3 (length (getf version :examples))))
+                     "a procedure records its source turns and their average cost"))
+      (learning-tests--report-turn conversation "q4")
+      (test-assert (null (procedure-learn configuration))
+                   "another agreeing turn does not add a version")
+      (test-assert (null (procedure-learn (configuration-copy configuration :knowledge-mode "off")))
+                   "nothing is learned when knowledge is off")
+      (procedure-retire configuration "make-sales-report")
+      (learning-tests--report-turn conversation "q5")
+      (test-assert (null (procedure-learn configuration))
+                   "a retired procedure is not learned again")))
+  nil)

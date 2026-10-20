@@ -371,7 +371,9 @@
 (define-test-suite learning
   test-action-traces
   test-procedure-templates
-  test-procedure-lifecycle)
+  test-procedure-lifecycle
+  test-procedure-mining
+  test-procedure-learning)
 
 (define-test-suite papercut
   test-papercuts)
