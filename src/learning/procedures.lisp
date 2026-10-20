@@ -138,7 +138,8 @@
            (:procedure-defined
             (and (procedure-p (getf properties :procedure))
                  (proper-list-p (getf properties :examples))
-                 (proper-list-p (getf properties :baseline))))
+                 (proper-list-p (getf properties :baseline))
+                 (proper-list-p (getf properties :evaluation))))
            (:procedure-admitted
             (and (knowledge-rule-name-p (getf properties :id))
                  (typep (getf properties :procedure-version) '(integer 1))))
@@ -447,6 +448,7 @@ KNOWLEDGE-ERROR."
                                      :procedure procedure
                                      :examples (getf properties :examples)
                                      :baseline (getf properties :baseline)
+                                     :evaluation (getf properties :evaluation)
                                      :time (getf properties :time)))))))
         (:procedure-admitted
          (require-version (getf properties :procedure-version))
@@ -508,15 +510,16 @@ KNOWLEDGE-ERROR."
     (sort entries #'string< :key (lambda (entry) (getf entry :id)))))
 
 (-> procedure-define
-    (configuration list &key (:examples list) (:baseline list)
+    (configuration list &key (:examples list) (:baseline list) (:evaluation list)
                              (:source-conversation (option string)))
     (values string integer boolean))
-(defun procedure-define (configuration procedure &key examples baseline source-conversation)
+(defun procedure-define
+    (configuration procedure &key examples baseline evaluation source-conversation)
   "Record PROCEDURE for CONFIGURATION's workspace unless its newest version is already equal.
 
-EXAMPLES lists the (:CONVERSATION :SEQUENCE) of the turns it was learned from
-and BASELINE their average (:REQUESTS :TOKENS). Return its name, version, and
-whether a version was added."
+EXAMPLES lists the (:CONVERSATION :SEQUENCE) of the turns it was learned from,
+BASELINE their average (:REQUESTS :TOKENS), and EVALUATION how it was checked.
+Return its name, version, and whether a version was added."
   (unless (procedure-p procedure)
     (knowledge--fail ':invalid-procedure procedure "The procedure is malformed."))
   (let ((workspace (knowledge--workspace configuration))
@@ -536,6 +539,7 @@ whether a version was added."
                                   :procedure procedure
                                   :examples examples
                                   :baseline baseline
+                                  :evaluation evaluation
                                   :time (get-universal-time)
                                   :source-conversation source-conversation))
                       (list identifier (1+ (length (getf entry :versions))) t)

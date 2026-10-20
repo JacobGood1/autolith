@@ -1022,8 +1022,10 @@ model request: arguments that never change stay as they were, a value taken
 from an earlier call's JSON result is taken from it again, and values that
 vary become parameters, matched with the words that varied in your requests.
 A procedure is kept only if each of those turns is reproduced by the
-procedure learned from the others, and =@ learned procedure make-sales-report
-from 3 turns · (procedures)= appears.
+procedure learned from the others. If another recent request worded the same
+way did something else, the wording does not show when the procedure applies,
+so it is never offered, though it can still be run. A new procedure shows
+=@ learned procedure make-sales-report from 3 turns · (procedures)=.
 
 When a later request fits, such as =Make the sales report for q5.=, the model
 is offered the one =procedure.run= call that makes the same calls with =q5=,

@@ -223,12 +223,16 @@ with the arguments; every parameter must be bound and suit its type."
 
 (-> procedure-learn-candidates (list) list)
 (defun procedure-learn-candidates (traces)
-  "Return (PROCEDURE EXAMPLES) for each tool sequence enough of TRACES share.
+  "Return (PROCEDURE EXAMPLES EVALUATION) for each tool sequence enough of TRACES share.
 
 TRACES are accepted traces, newest first. A sequence needs two or more calls,
 none of them a procedure run, and at least *PROCEDURE-MINIMUM-EXAMPLES* turns.
 A procedure is returned only when leaving out any one of its turns still
-learns a procedure that explains that turn."
+learns a procedure that explains that turn. When another of TRACES fits the
+request pattern but did something else, other than running a procedure, the
+pattern does not tell when the procedure applies, so it is dropped and the
+procedure is never offered.
+EVALUATION records the turns checked and those counterexamples."
   (let ((groups nil))
     (dolist (trace traces)
       (let ((skeleton (action-trace-skeleton trace)))
@@ -243,7 +247,22 @@ learns a procedure that explains that turn."
           for procedure = (and (>= (length examples) *procedure-minimum-examples*)
                                (procedure--validated examples))
           when procedure
-            collect (list procedure examples))))
+            collect (let ((counterexamples
+                            (count-if (lambda (trace)
+                                        (and (not (member trace examples))
+                                             (notany #'procedure--own-tool-p
+                                                     (action-trace-skeleton trace))
+                                             (nth-value 1 (procedure-match-input
+                                                           procedure (action-trace-input trace)))
+                                             (not (procedure-explains-trace-p procedure trace))))
+                                      traces)))
+                      (when (plusp counterexamples)
+                        (setf procedure (copy-list procedure)
+                              (getf (rest procedure) :input) nil))
+                      (list procedure examples
+                            (list :method ':leave-one-out
+                                  :examples (length examples)
+                                  :counterexamples counterexamples))))))
 
 (-> procedure-learn (configuration) list)
 (defun procedure-learn (configuration)
@@ -257,8 +276,8 @@ recorded version. Nothing is learned when knowledge is off."
       (let* ((workspace (knowledge--workspace configuration))
              (entries (knowledge-base-procedures (knowledge-base-read configuration) workspace))
              (learned nil))
-        (loop for (procedure examples) in (procedure-learn-candidates
-                                            (action-traces configuration))
+        (loop for (procedure examples evaluation) in (procedure-learn-candidates
+                                                       (action-traces configuration))
               for skeleton = (mapcar (lambda (step) (getf step :tool))
                                      (getf (rest procedure) :steps))
               for entry = (find skeleton entries :key #'procedure--entry-skeleton :test #'equal)
@@ -275,7 +294,8 @@ recorded version. Nothing is learned when knowledge is off."
                                               (list :conversation (action-trace-conversation trace)
                                                     :sequence (action-trace-sequence trace)))
                                             examples)
-                          :baseline (procedure--baseline examples))
+                          :baseline (procedure--baseline examples)
+                          :evaluation evaluation)
                        (when added-p
                          (push (list name version (length examples)) learned)))))
         (nreverse learned))))

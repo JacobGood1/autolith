@@ -233,10 +233,14 @@ Conflicted facts come first, then the rest by predicate and text."
                        (getf entry :admitted))
                   (getf entry :runs) (getf entry :failures))
           (when (getf version :examples)
-            (format stream "  learned from ~D turns, ~D model requests and ~D tokens each on average~%"
+            (format stream "  learned from ~D turns, ~D model requests and ~D tokens each on average; each turn is reproduced by the procedure learned from the others~%"
                     (length (getf version :examples))
                     (getf (getf version :baseline) :requests)
                     (getf (getf version :baseline) :tokens)))
+          (let ((counterexamples (getf (getf version :evaluation) :counterexamples)))
+            (when (and counterexamples (plusp counterexamples))
+              (format stream "  not offered: ~D other request~:P with the same wording did something else~%"
+                      counterexamples)))
           (format stream "~@[  parameters: ~{~A~^, ~}~%~]~@[  request: ~A~%~]"
                   (mapcar (lambda (parameter)
                             (format nil "~A (~(~A~)~@[ ending in ~A~])" (getf parameter :name)

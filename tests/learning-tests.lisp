@@ -299,7 +299,25 @@
                                         (reverse (action-traces-in-conversation
                                                   (conversation-pathname conversation))))
                                        t))
-                              description)))))
+                              description)))
+      (let ((conversation (conversation-create configuration)))
+        (dolist (quarter '("q1" "q2" "q3"))
+          (learning-tests--report-turn conversation quarter))
+        (conversation-append-user-message conversation "Make the sales report for q9.")
+        (learning-tests--call conversation :call-id "x-1" :tool "sales.load"
+                                           :arguments (json-object "file" "data/q9.csv")
+                                           :output (json-object "rows" 0 "table" "t-q9"))
+        (learning-tests--call conversation :call-id "x-2" :tool "archive.store"
+                                           :arguments (json-object "table" "t-q9")
+                                           :output (json-object "stored" t))
+        (destructuring-bind (procedure examples evaluation)
+            (first (procedure-learn-candidates
+                    (reverse (action-traces-in-conversation (conversation-pathname conversation)))))
+          (test-assert (and (= 3 (length examples))
+                            (null (getf (rest procedure) :input))
+                            (equal evaluation '(:method :leave-one-out :examples 3
+                                                :counterexamples 1)))
+                       "a request worded the same that did something else keeps it from being offered")))))
   nil)
 
 (-> test-procedure-learning () null)
