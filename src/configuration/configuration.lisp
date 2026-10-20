@@ -790,6 +790,11 @@ selects its own registration, rather than inheriting the previous provider."
   "Return the append-only persistent memory pathname."
   (merge-pathnames "memories.sexp" (config :data-root configuration)))
 
+(-> configuration-knowledge-path (configuration) pathname)
+(defun configuration-knowledge-path (configuration)
+  "Return the append-only structured knowledge pathname."
+  (merge-pathnames "knowledge.sexp" (config :data-root configuration)))
+
 (-> configuration-papercut-path (configuration) pathname)
 (defun configuration-papercut-path (configuration)
   "Return the append-only persistent papercut pathname."

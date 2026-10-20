@@ -170,3 +170,118 @@
                             ':invalid-claim))
                    "a quantity argument accepts only units of its dimension")))
   nil)
+
+(-> knowledge-tests--statement (string) list)
+(defun knowledge-tests--statement (quote)
+  "Return evidence that the user said QUOTE in a test conversation."
+  (knowledge-make-evidence :source (list :user :quote quote :conversation "test")
+                           :observed-at 1
+                           :adapter "test/1"))
+
+(-> knowledge-tests--reread (configuration) knowledge-base)
+(defun knowledge-tests--reread (configuration)
+  "Return CONFIGURATION's knowledge base folded again from its log, as after a restart."
+  (clrhash *knowledge-base-cache*)
+  (knowledge-base-read configuration))
+
+
+(-> test-knowledge-store () null)
+(defun test-knowledge-store ()
+  "Test knowledge persistence, support identity, retraction, schemas, and log tolerance."
+  (with-test-configuration (configuration)
+    (let* ((schema (knowledge-tests--event-schema))
+           (thirteen (knowledge-make-proposition schema '("review" "2026-10-22T13:00:00Z"))))
+      (test-assert (eq (knowledge-tests--error-code
+                        (lambda ()
+                          (knowledge-assert configuration thirteen
+                                            :evidence (knowledge-tests--statement "it is at one")
+                                            :basis ':user-assertion)))
+                       ':unknown-predicate)
+                   "claims need a defined predicate")
+      (knowledge-define-schema configuration schema)
+      (test-assert (eq (knowledge-tests--error-code
+                        (lambda ()
+                          (knowledge-assert configuration thirteen
+                                            :scope ':global
+                                            :evidence (knowledge-tests--statement "it is at one")
+                                            :basis ':user-assertion)))
+                       ':unknown-predicate)
+                   "a global claim needs a global predicate")
+      (multiple-value-bind (claim support)
+          (knowledge-assert configuration thirteen
+                            :evidence (knowledge-tests--statement "the review is at one")
+                            :basis ':user-assertion)
+        (let ((revision (knowledge-base-revision (knowledge-base-read configuration))))
+          (multiple-value-bind (same-claim same-support)
+              (knowledge-assert configuration thirteen
+                                :evidence (knowledge-tests--statement "the review is at one")
+                                :basis ':user-assertion)
+            (test-assert (and (string= claim same-claim)
+                              (string= support same-support)
+                              (= revision (knowledge-base-revision
+                                           (knowledge-base-read configuration))))
+                         "asserting the same support twice writes nothing")))
+        (multiple-value-bind (second-claim second-support)
+            (knowledge-assert configuration thirteen
+                              :evidence (knowledge-tests--statement "review moved to one")
+                              :basis ':user-assertion)
+          (let ((entry (knowledge-base-claim (knowledge-tests--reread configuration) claim)))
+            (test-assert (and (string= claim second-claim)
+                              (string/= support second-support)
+                              (= 2 (length (getf entry :supports))))
+                         "independent evidence adds a second support to the same claim after a restart"))
+          (test-assert (equal (knowledge-retract configuration second-support
+                                                 :reason "misheard")
+                              (list second-support))
+                       "one support can be retracted")
+          (let ((base (knowledge-tests--reread configuration)))
+            (test-assert (and (getf (knowledge-base-support base second-support) :retracted-at)
+                              (equal (getf (knowledge-base-support base second-support)
+                                           :retraction-reason)
+                                     "misheard")
+                              (null (getf (knowledge-base-support base support) :retracted-at)))
+                         "a retracted support stays inspectable beside the active one"))
+          (test-assert (equal (knowledge-retract configuration claim) (list support))
+                       "retracting a claim retracts its remaining active supports")))
+      (multiple-value-bind (assumption-claim assumption-support)
+          (knowledge-assert configuration
+                            (knowledge-make-proposition schema '("lunch" "2026-10-22T12:00:00Z"))
+                            :basis ':assumption)
+        (declare (ignore assumption-claim))
+        (test-assert (null (getf (knowledge-base-support (knowledge-base-read configuration)
+                                                         assumption-support)
+                                 :evidence))
+                     "an assumption needs no evidence"))
+      (test-assert (eq (knowledge-tests--error-code
+                        (lambda ()
+                          (knowledge-assert configuration thirteen :basis ':observation)))
+                       ':invalid-claim)
+                   "an observation needs evidence")
+      (let ((retemplated (knowledge-make-schema :predicate "event.start"
+                                                :arguments '((:name "event" :type :entity)
+                                                             (:name "time" :type :instant))
+                                                :key '("event")
+                                                :template "{event} begins {time}")))
+        (test-assert (= 2 (nth-value 1 (knowledge-define-schema configuration retemplated)))
+                     "changing a template redefines the schema as version 2")
+        (test-assert (eq (knowledge-tests--error-code
+                          (lambda ()
+                            (knowledge-define-schema
+                             configuration
+                             (knowledge-make-schema :predicate "event.start"
+                                                    :arguments '((:name "event" :type :entity)
+                                                                 (:name "day" :type :date))))))
+                         ':schema-in-use)
+                     "changing arguments of a predicate in use is refused"))
+      (let ((base (knowledge-base-read configuration)))
+        (test-assert (eq base (knowledge-base-read configuration))
+                     "an unchanged log is read once"))
+      (let* ((pathname (configuration-knowledge-path configuration))
+             (forms (sexp-store:log-read pathname)))
+        (sexp-store:log-write pathname (append forms (list '(:future-kind :version 9 :x 1))))
+        (with-open-file (stream pathname :direction ':output :if-exists ':append)
+          (write-string "(:claim-asserted :version 1 :support" stream))
+        (let ((base (knowledge-tests--reread configuration)))
+          (test-assert (= (knowledge-base-revision base) (length forms))
+                       "unknown record kinds and an interrupted final record are tolerated")))))
+  nil)
