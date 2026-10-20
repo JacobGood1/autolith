@@ -275,6 +275,7 @@
                              (:file "application/task-inspector")
                              (:file "application/commands")
                              (:file "application/memory-commands")
+                             (:file "application/knowledge-commands")
                              (:file "application/relax")
                              (:file "application/complaints")
                              (:file "application/operation")

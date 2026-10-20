@@ -1062,3 +1062,73 @@
                             "@ 1 fact given earlier changed")
                      "the person sees that a fact the model relied on changed"))))
   nil)
+
+(-> test-knowledge-commands () null)
+(defun test-knowledge-commands ()
+  "Test facts in (memories), explaining and forgetting facts, (what-changed), and rules."
+  (with-test-configuration (base root)
+    (multiple-value-bind (configuration workspace)
+        (memory-source-tests--workspace base root)
+      (let ((application (make-instance 'application
+                                        :configuration configuration
+                                        :conversation (conversation-create configuration))))
+        (flet ((text (entry)
+                 "Return ENTRY's plain text."
+                 (memory-source-tests--text entry)))
+          (knowledge-tests--define-appointments configuration)
+          (knowledge-tests--admit-departure configuration)
+          (knowledge-tests--schedule-review configuration workspace "13:00")
+          (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
+                                 "be there ten minutes early")
+          (multiple-value-bind (travel)
+              (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
+                                     "half an hour to get there")
+            (test-assert (search "facts  4" (text (application-memories-entry application)))
+                         "(memories) lists facts even without prose memories")
+            (test-assert (search "4 facts hold now"
+                                 (text (application-knowledge-changes-entry application)))
+                         "the first (what-changed) records what the person saw")
+            (knowledge-tests--schedule-review configuration workspace "14:00")
+            (let ((listing (text (application-memories-entry application))))
+              (test-assert (and (search "facts  5 · 1 no longer holding" listing)
+                                (< (search "stale: schedule.txt" listing)
+                                   (search "leave for review at 2026-10-22 13:20 UTC" listing)))
+                           "a fact that stopped holding is listed first with its cause"))
+            (let ((changes (text (application-knowledge-changes-entry application))))
+              (test-assert (and (search "~ leave for review at 2026-10-22 13:20 UTC" changes)
+                                (search "was leave for review at 2026-10-22 12:20 UTC" changes))
+                           "(what-changed) shows the departure moving with its cause"))
+            (test-assert (search "Nothing changed since"
+                                 (text (application-knowledge-changes-entry application)))
+                         "(what-changed) reports each change once")
+            (let* ((view (application-knowledge--view application))
+                   (departure (first (knowledge-view-holds view '("event.departure" "?e" "?t"))))
+                   (why (text (application-memory-entry
+                               application
+                               (subseq (knowledge-node-identifier departure) 0 7)))))
+              (test-assert (and (search "fact  supported" why)
+                                (search "derived by departure v1" why)
+                                (search "observation: schedule.txt \"review at 14:00\"" why))
+                           "(memory) explains a fact selected by an ID prefix"))
+            (let ((forgotten (text (application-memory-forget-entry application travel))))
+              (test-assert (and (search "forgot  travel to review takes 30m" forgotten)
+                                (search "1 derived fact changed or stopped holding" forgotten))
+                           "(forget) retracts a fact and names what stopped holding with it")))
+          (test-assert (search "✓ departure v1" (text (application-knowledge-rules-entry application)))
+                       "(rules) lists the admitted rule")
+          (test-assert (search "retired  departure"
+                               (text (application-knowledge-rule-transition-entry
+                                      application "departure" ':retire)))
+                       "(retire-rule) retires a rule")
+          (test-assert (search "awaiting (admit-rule \"departure\")"
+                               (text (application-knowledge-rules-entry application)))
+                       "a retired rule waits for admission")
+          (test-assert (search "admitted  departure v1"
+                               (text (application-knowledge-rule-transition-entry
+                                      application "departure" ':admit)))
+                       "(admit-rule) admits it again")
+          (test-assert (search "No rule \"nothing\" exists"
+                               (text (application-knowledge-rule-transition-entry
+                                      application "nothing" ':admit)))
+                       "an unknown rule points to (rules)")))))
+  nil)

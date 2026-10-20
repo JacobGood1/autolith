@@ -133,35 +133,43 @@ QUERY narrows the listing with the same lexical ranking recall uses."
   (let* ((configuration (application-configuration application))
          (memories (if (non-empty-string-p query)
                        (memory-search configuration query)
-                       (memory-list configuration))))
-    (if (null memories)
-        (list (terminal-span
-               ':hint
-               (if (non-empty-string-p query)
-                   (format nil "No memories match ~S." (sanitize-text query :single-line-p t))
-                   "No memories are saved for this workspace yet. Ask Autolith to remember something.")))
-        (let* ((assessor (memory-assessor-create configuration))
-               (assessments (stable-sort
-                             (mapcar (lambda (memory)
-                                       (memory-assess assessor memory))
-                                     memories)
-                             #'<
-                             :key #'application-memory--status-rank)))
-          (append
-           (list (terminal-span ':brand "memories")
-                 (terminal-span
-                  ':dim
-                  (format nil "  ~D~@[ matching ~S~]~[~:; · ~:*~D stale~]~[~:; · ~:*~D unverified~]~%"
-                          (length assessments)
-                          (and (non-empty-string-p query)
-                               (sanitize-text query :single-line-p t))
-                          (count ':stale assessments :key #'memory-assessment-status)
-                          (count ':unverified assessments :key #'memory-assessment-status)))
-                 (terminal-span
-                  ':dim
-                  (format nil "  stale first, then newest · (memory \"ID\") shows why~%")))
-           (loop for assessment in assessments
-                 append (application-memory--row assessment)))))))
+                       (memory-list configuration)))
+         (assessor (memory-assessor-create configuration))
+         (facts (application-knowledge-facts-section (memory-assessor-view assessor)
+                                                     :query query
+                                                     :memories-p (and memories t))))
+    (cond
+      ((and (null memories) (null facts))
+       (list (terminal-span
+              ':hint
+              (if (non-empty-string-p query)
+                  (format nil "No memories match ~S." (sanitize-text query :single-line-p t))
+                  "No memories are saved for this workspace yet. Ask Autolith to remember something."))))
+      ((null memories)
+       facts)
+      (t
+       (let ((assessments (stable-sort
+                           (mapcar (lambda (memory)
+                                     (memory-assess assessor memory))
+                                   memories)
+                           #'<
+                           :key #'application-memory--status-rank)))
+         (append
+          (list (terminal-span ':brand "memories")
+                (terminal-span
+                 ':dim
+                 (format nil "  ~D~@[ matching ~S~]~[~:; · ~:*~D stale~]~[~:; · ~:*~D unverified~]~%"
+                         (length assessments)
+                         (and (non-empty-string-p query)
+                              (sanitize-text query :single-line-p t))
+                         (count ':stale assessments :key #'memory-assessment-status)
+                         (count ':unverified assessments :key #'memory-assessment-status)))
+                (terminal-span
+                 ':dim
+                 (format nil "  stale first, then newest · (memory \"ID\") shows why~%")))
+          (loop for assessment in assessments
+                append (application-memory--row assessment))
+          facts))))))
 
 
 ;;; (memory "ID")
@@ -322,7 +330,27 @@ QUERY narrows the listing with the same lexical ranking recall uses."
         (:ambiguous
          (application-memory--ambiguous identifier matches))
         (otherwise
-         (application-memory--missing identifier))))))
+         (let ((view (application-knowledge--view application)))
+           (multiple-value-bind (node fact-status fact-matches)
+               (application-knowledge-resolve view identifier)
+             (case fact-status
+               (:found
+                (application-knowledge-fact-entry application view node))
+               (:ambiguous
+                (append
+                 (list (terminal-span
+                        ':failure
+                        (format nil "Fact ID ~A is ambiguous. Enter more characters.~%"
+                                (sanitize-text identifier :single-line-p t))))
+                 (loop for match in fact-matches
+                       append (list (terminal-span
+                                     ':plain
+                                     (format nil "  \"~A\" " (application-knowledge--text match)))
+                                    (terminal-span
+                                     ':dim
+                                     (format nil "~A~%" (application-knowledge--call match)))))))
+               (otherwise
+                (application-memory--missing identifier))))))))))
 
 
 ;;; (forget "ID")
@@ -357,7 +385,46 @@ QUERY narrows the listing with the same lexical ranking recall uses."
         (:ambiguous
          (application-memory--ambiguous identifier matches))
         (otherwise
-         (application-memory--missing identifier))))))
+         (application-knowledge-forget-entry application identifier))))))
+
+(-> application-knowledge-forget-entry (application string) (or string list))
+(defun application-knowledge-forget-entry (application identifier)
+  "Retract the fact selected by IDENTIFIER and name what stopped holding with it."
+  (let ((configuration (application-configuration application))
+        (view (application-knowledge--view application)))
+    (multiple-value-bind (node status) (application-knowledge-resolve view identifier)
+      (if (and (eq status ':found)
+               (knowledge-base-claim (knowledge-view-base view)
+                                     (knowledge-node-identifier node)))
+          (let ((before (knowledge-view-snapshot view)))
+            (knowledge-retract configuration (knowledge-node-identifier node)
+                               :reason "Forgotten with (forget)."
+                               :source-conversation
+                               (conversation-identifier (application-conversation application)))
+            (let ((lost (remove (knowledge-node-identifier node)
+                                (remove-if-not
+                                 (lambda (change)
+                                   (member (getf change :kind) '(:withdrawn :changed)))
+                                 (knowledge-view-changes before
+                                                         (application-knowledge--view application)))
+                                :key (lambda (change) (getf change :claim))
+                                :test #'string=)))
+              (append
+               (list (terminal-span ':success "forgot  ")
+                     (terminal-span ':strong
+                                    (format nil "~A~%" (application-knowledge--text node))))
+               (when lost
+                 (cons (terminal-span ':notice
+                                      (format nil "  ~D derived fact~:P changed or stopped holding:~%"
+                                              (length lost)))
+                       (loop for change in lost
+                             collect (terminal-span
+                                      ':plain
+                                      (format nil "    ~A~%"
+                                              (sanitize-text (or (getf change :from)
+                                                                 (getf change :text))
+                                                             :single-line-p t)))))))))
+          (application-memory--missing identifier)))))
 
 
 ;;;; -- Command Definitions --
@@ -383,9 +450,10 @@ QUERY narrows the listing with the same lexical ranking recall uses."
 
 (define-application-command application--builtin-memory-command
     (:name "/memory"
+     :aliases ("/why")
      :argument "[ID]"
-     :description "explain one memory and its evidence"
-     :tip "shows why Autolith believes a memory: its sources, premises, and what relies on it."
+     :description "explain one memory or fact and its evidence"
+     :tip "shows why Autolith believes a memory or fact: its sources, premises, and what relies on it."
      :busy-behavior :inspect
      :terminal-behavior :shared
      :callable t)
@@ -400,8 +468,8 @@ QUERY narrows the listing with the same lexical ranking recall uses."
 (define-application-command application--builtin-forget-command
     (:name "/forget"
      :argument "[ID]"
-     :description "forget one memory"
-     :tip "removes a memory from recall and names the memories that relied on it."
+     :description "forget one memory or fact"
+     :tip "removes a memory or fact and names what relied on it."
      :busy-behavior :apply
      :terminal-behavior :shared
      :callable t)
