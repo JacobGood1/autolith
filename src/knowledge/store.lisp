@@ -154,7 +154,7 @@
              (non-empty-string-p (getf properties :evidence)))
          (typep (getf properties :basis) 'knowledge-basis)
          (or (getf properties :evidence)
-             (eq (getf properties :basis) ':assumption))
+             (member (getf properties :basis) '(:assumption :model-proposal)))
          (or (null (getf properties :valid-from))
              (typep (getf properties :valid-from) 'timestamp))
          (or (null (getf properties :valid-until))
@@ -528,17 +528,18 @@ same observation recorded twice is one piece of evidence."
   "Support the claim PROPOSITION makes in SCOPE and return the claim and support IDs.
 
 PROPOSITION must fit a schema visible from the workspace. EVIDENCE is a record
-from KNOWLEDGE-MAKE-EVIDENCE, or NIL for an assumption. Asserting the same
-support again writes nothing and returns the existing one."
+from KNOWLEDGE-MAKE-EVIDENCE, or NIL for an assumption or a model's own
+proposal. Asserting the same support again writes nothing and returns the
+existing one."
   (let* ((workspace (knowledge--owner configuration scope))
          (viewer (knowledge--workspace configuration))
          (claim (knowledge-claim-identifier proposition :scope scope :workspace workspace)))
     (unless (typep basis 'knowledge-basis)
       (knowledge--fail ':invalid-claim basis
                        "Basis must be observation, user-assertion, assumption, or model-proposal."))
-    (when (and (null evidence) (not (eq basis ':assumption)))
+    (when (and (null evidence) (not (member basis '(:assumption :model-proposal))))
       (knowledge--fail ':invalid-claim basis
-                       "Only an assumption may be asserted without evidence."))
+                       "Only an assumption or a model proposal may be asserted without evidence."))
     (when (and valid-from valid-until (> valid-from valid-until))
       (knowledge--fail ':invalid-claim valid-until
                        "A validity interval cannot end before it starts."))

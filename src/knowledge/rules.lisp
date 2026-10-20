@@ -431,7 +431,7 @@ VALUE is (PREDICATE ARGUMENT...) or, when NEGATABLE, (:not PATTERN)."
   nil)
 
 (-> knowledge-make-rule
-    (&key (:id string) (:premises list) (:guards list) (:bindings list)
+    (&key (:id string) (:premises sequence) (:guards sequence) (:bindings sequence)
           (:conclusion t) (:description (option string)) (:schema-function function))
     list)
 (defun knowledge-make-rule

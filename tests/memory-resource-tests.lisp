@@ -1200,3 +1200,157 @@
                               (search derived-uri (tool-result-content forgotten)))
                          "forgetting a premise names the memories that relied on it"))))))
   nil)
+
+(-> test-memory-knowledge-resources () null)
+(defun test-memory-knowledge-resources ()
+  "Test defining, asserting, deriving, explaining, and retracting through memory:facts."
+  (with-test-configuration (base root)
+    (let* ((workspace (merge-pathnames "facts/" root))
+           (configuration (progn
+                            (ensure-directories-exist workspace)
+                            (configuration-copy base :working-directory workspace)))
+           (registry (make-default-tool-registry))
+           (conversation (conversation-create configuration :identifier "memory-facts"))
+           (context (make-instance 'tool-context
+                                   :configuration configuration
+                                   :worker nil
+                                   :conversation conversation))
+           (schedule (memory-source-tests--write
+                      (merge-pathnames "schedule.txt" workspace)
+                      (format nil "Design review at 13:00 UTC on 22 October.~%"))))
+      (conversation-append-user-message conversation "It takes half an hour to get there.")
+      (labels ((read-resource (uri &rest arguments)
+                 "Read URI with optional ARGUMENTS and return the result."
+                 (apply #'memory-resource-tests--call registry context "resource" "read"
+                        "uri" uri arguments))
+
+               (content (result)
+                 "Return RESULT's text."
+                 (tool-result-content result))
+
+               (edit (&rest operations)
+                 "Apply OPERATIONS to memory:facts against a fresh revision."
+                 (memory-resource-tests--call
+                  registry context "resource" "edit"
+                  "uri" "memory:facts"
+                  "base-revision" (memory-resource-tests--field
+                                   (content (read-resource "memory:facts")) "Revision: ")
+                  "operations" (coerce operations 'vector)))
+
+               (define (predicate arguments &optional key template)
+                 "Return a predicate-define operation."
+                 (apply #'json-object "op" "predicate-define" "predicate" predicate
+                        "arguments"
+                        (map 'vector (lambda (argument)
+                                       (json-object "name" (first argument)
+                                                    "type" (second argument)))
+                             arguments)
+                        (append (and key (list "key" (coerce key 'vector)))
+                                (and template (list "template" template))))))
+        (test-assert (search "No facts hold" (content (read-resource "memory:facts")))
+                     "an empty knowledge base lists no facts")
+        (let ((defined
+                (edit (define "event.start" '(("event" "entity") ("time" "instant"))
+                              '("event") "{event} starts at {time}")
+                      (define "event.travel" '(("event" "entity") ("duration" "duration"))
+                              '("event"))
+                      (define "event.buffer" '(("event" "entity") ("duration" "duration"))
+                              '("event"))
+                      (define "event.departure" '(("event" "entity") ("time" "instant"))
+                              '("event") "leave for {event} at {time}")
+                      (json-object "op" "fact-assert" "predicate" "event.start"
+                                   "arguments" (vector "review" "2026-10-22T13:00:00Z")
+                                   "sources" (vector (json-object "file" "schedule.txt"
+                                                                  "quote" "review at 13:00")))
+                      (json-object "op" "fact-assert" "predicate" "event.travel"
+                                   "arguments" (vector "review" "PT30M")
+                                   "sources" (vector (json-object "user" "half an hour")))
+                      (json-object "op" "fact-assert" "predicate" "event.buffer"
+                                   "arguments" (vector "review" "PT10M"))
+                      (json-object "op" "rule-propose" "id" "departure"
+                                   "premises" (vector (vector "event.start" "?event" "?start")
+                                                      (vector "event.travel" "?event" "?travel")
+                                                      (vector "event.buffer" "?event" "?buffer"))
+                                   "bindings" (vector (vector "?leave"
+                                                              (vector "-" "?start"
+                                                                      (vector "+" "?travel"
+                                                                              "?buffer"))))
+                                   "conclusion" (vector "event.departure" "?event" "?leave")))))
+          (test-assert (and (tool-result-success-p defined)
+                            (search "Defined event.start version 1" (content defined))
+                            (search "now holds: review starts at 2026-10-22 13:00 UTC"
+                                    (content defined))
+                            (search "derives nothing until it is admitted" (content defined)))
+                       "one edit defines predicates, asserts facts, and proposes a rule"))
+        (knowledge-admit-rule configuration "departure")
+        (let* ((facts (content (read-resource "memory:facts")))
+               (line (find-if (lambda (line) (search "leave for review" line))
+                              (uiop:split-string facts :separator '(#\Newline))))
+               (departure (and line (json-get (json-decode line) "id"))))
+          (test-assert (and line (search "\"derived\":\"departure v1\"" line)
+                            (search "\"basis\":[\"observation+user-assertion+model-proposal\"]"
+                                    line))
+                       "the derived departure is listed with its rule and bases")
+          (let ((why (content (read-resource (format nil "memory:claim/~A" departure)))))
+            (test-assert (and (search "derived by rule departure v1 with ?leave = 2026-10-22 12:20 UTC"
+                                      why)
+                              (search "schedule.txt \"review at 13:00\" (holds)" why)
+                              (search "you said \"half an hour\" (holds)" why))
+                         "memory:claim explains the derivation down to its evidence")))
+        (test-assert (search "event.start(event entity, time instant) v1 workspace key event"
+                             (content (read-resource "memory:predicates")))
+                     "memory:predicates lists the vocabulary")
+        (test-assert (search "departure v1 workspace: active version 1"
+                             (content (read-resource "memory:rules")))
+                     "memory:rules lists the admitted rule")
+        (test-assert (search "count: 4 (showing 1;"
+                             (content (read-resource "memory:facts" "query" "review"
+                                                     "max-results" 1)))
+                     "a query and max-results narrow the listing")
+        (memory-source-tests--write schedule
+                                    (format nil "Design review at 14:00 UTC on 22 October.~%"))
+        (let ((moved (edit (json-object "op" "fact-assert" "predicate" "event.start"
+                                        "arguments" (vector "review" "2026-10-22T14:00:00Z")
+                                        "sources" (vector (json-object
+                                                           "file" "schedule.txt"
+                                                           "quote" "review at 14:00"))))))
+          (test-assert (search "now holds: leave for review at 2026-10-22 13:20 UTC"
+                               (content moved))
+                       "asserting the new start reports the recomputed departure"))
+        (dolist (case (list (list "an undefined predicate"
+                                  (edit (json-object "op" "fact-assert" "predicate" "room.size"
+                                                     "arguments" (vector "a" 1)))
+                                  "Define predicate room.size")
+                            (list "an unknown basis"
+                                  (edit (json-object "op" "fact-assert" "predicate" "event.buffer"
+                                                     "arguments" (vector "review" "PT5M")
+                                                     "basis" "rumor"))
+                                  "basis must be")
+                            (list "a later failing operation"
+                                  (edit (json-object "op" "fact-assert" "predicate" "event.buffer"
+                                                     "arguments" (vector "standup" "PT5M"))
+                                        (json-object "op" "fact-assert" "predicate" "event.buffer"
+                                                     "arguments" (vector "standup" "soon")))
+                                  "Operation 2 failed: Argument duration of event.buffer")))
+          (destructuring-bind (label result text) case
+            (test-assert (and (not (tool-result-success-p result))
+                              (search text (content result)))
+                         (format nil "~A fails correctively" label))))
+        (test-assert (search "Operations 1 to 1 were applied"
+                             (content (edit (json-object "op" "fact-assert"
+                                                         "predicate" "event.buffer"
+                                                         "arguments" (vector "lunch" "PT5M"))
+                                            (json-object "op" "nonsense"))))
+                     "a failure names the operations already applied")
+        (let ((unobserved (memory-resource-tests--call
+                           registry context "resource" "edit"
+                           "uri" "memory:facts"
+                           "base-revision" (memory-resource-tests--field
+                                            (content (read-resource "memory:workspace"))
+                                            "Revision: ")
+                           "operations" (vector (json-object "op" "fact-retract"
+                                                             "id" "c0")))))
+          (test-assert (and (not (tool-result-success-p unobserved))
+                            (search "Read memory:facts" (content unobserved)))
+                       "an edit needs a memory:facts revision from this conversation")))))
+  nil)

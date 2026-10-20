@@ -708,7 +708,8 @@
   test-memory-resources
   test-memory-resource-mutations
   test-memory-resource-filtered-read-write
-  test-memory-resource-sources)
+  test-memory-resource-sources
+  test-memory-knowledge-resources)
 
 (define-test-suite papercut-resource
   test-papercut-resources)

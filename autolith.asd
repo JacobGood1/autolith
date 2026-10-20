@@ -188,6 +188,7 @@
                              (:file "emacs/tools")
                              (:file "resource/agenda")
                              (:file "resource/memory")
+                             (:file "resource/memory-knowledge")
                              (:file "resource/papercut")
                              (:file "tools/search")
                              (:file "workers/search")

@@ -258,6 +258,68 @@
        (json-object)
        nil)
       (operation-schema
+       "predicate-define"
+       (json-object
+        "predicate" (tool-string-property "Lowercase dotted name such as event.start.")
+        "arguments" (cl-llm-provider-api:provider-array-schema
+                     (tool-object-schema
+                      (json-object
+                       "name" (tool-string-property "Lowercase argument name.")
+                       "type" (cl-llm-provider-api:provider-enum-schema
+                               *memory-knowledge-type-names* "The argument's value type.")
+                       "unit" (tool-string-property
+                               "For a quantity, a unit whose dimension values must have."))
+                      '("name" "type"))
+                     "Typed arguments in order.")
+        "key" (cl-llm-provider-api:provider-array-schema
+               (tool-string-property "An argument name.")
+               "Arguments identifying the subject; facts agreeing on them and differing elsewhere conflict.")
+        "template" (tool-string-property "Sentence with {argument} placeholders.")
+        "description" (tool-string-property "What the predicate means.")
+        "scope" (memory-scope-property))
+       '("predicate" "arguments"))
+      (operation-schema
+       "fact-assert"
+       (json-object
+        "predicate" (tool-string-property "A defined predicate.")
+        "arguments" (json-object "type" "array"
+                                 "items" (json-object "description" "One argument value.")
+                                 "description" "Values in argument order: strings, numbers, ISO instants and dates, durations such as PT30M, quantities as {magnitude, unit}.")
+        "negated" (tool-boolean-property "Assert that the fact does not hold.")
+        "sources" (memory-sources-property)
+        "basis" (cl-llm-provider-api:provider-enum-schema
+                 '("observation" "user-assertion" "assumption" "model-proposal")
+                 "Why it is believed; defaults from the sources, or model-proposal without any.")
+        "valid-from" (tool-string-property "ISO instant from which the fact holds.")
+        "valid-until" (tool-string-property "ISO instant after which it no longer holds.")
+        "scope" (memory-scope-property))
+       '("predicate" "arguments"))
+      (operation-schema
+       "fact-retract"
+       (json-object
+        "id" (tool-string-property "A claim or support identifier.")
+        "reason" (tool-string-property "Why it no longer holds."))
+       '("id"))
+      (operation-schema
+       "rule-propose"
+       (json-object
+        "id" (tool-string-property "Lowercase rule name; proposing it again makes a new version.")
+        "premises" (json-object "type" "array"
+                                "items" (json-object "description" "One premise pattern.")
+                                "description" "Patterns such as [\"event.start\", \"?event\", \"?start\"], or [\"not\", PATTERN] matching an explicitly asserted negation.")
+        "guards" (json-object "type" "array"
+                              "items" (json-object "description" "One comparison.")
+                              "description" "Comparisons such as [\"<\", \"?a\", \"?b\"].")
+        "bindings" (json-object "type" "array"
+                                "items" (json-object "description" "One variable and its expression.")
+                                "description" "New variables such as [\"?leave\", [\"-\", \"?start\", \"?travel\"]], computed with + - * / min max abs date start-of-day weekday days hours minutes in-unit.")
+        "conclusion" (json-object "type" "array"
+                                  "items" (json-object "description" "A predicate name, variable, or value.")
+                                  "description" "The pattern the rule concludes, using bound variables.")
+        "description" (tool-string-property "What the rule does.")
+        "scope" (memory-scope-property))
+       '("id" "premises" "conclusion"))
+      (operation-schema
        "papercut-report"
        (json-object
         "issue-kind" (cl-llm-provider-api:provider-enum-schema

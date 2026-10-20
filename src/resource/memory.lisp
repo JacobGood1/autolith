@@ -127,7 +127,7 @@
 (defmethod resource-resolver-read-documentation ((resolver memory-resolver))
   "Document memory: reads."
   (declare (ignore resolver))
-  "memory: exposes revisioned persistent memories, always read in full: memory:relevant, memory:all, or a canonical memory:id/<percent-encoded-stable-id> URI.")
+  "memory: exposes revisioned persistent memories, always read in full: memory:relevant, memory:all, or a canonical memory:id/<percent-encoded-stable-id> URI. Structured knowledge: memory:facts lists facts holding now (query and max-results narrow it), memory:claim/<id> explains why one holds, memory:predicates and memory:rules list the vocabulary and rules.")
 
 (defmethod resource-resolver-edit-documentation ((resolver memory-resolver))
   "Document memory: edits."
@@ -138,8 +138,11 @@
     ((resolver memory-resolver) identifier (context tool-context))
   "Resolve reserved collections or one canonical or compatible exact identifier."
   (declare (ignore resolver context))
-  (let ((visibility (memory-resource--collection-visibility identifier)))
+  (let ((visibility (memory-resource--collection-visibility identifier))
+        (knowledge (memory-knowledge-resolve identifier)))
     (cond
+      (knowledge
+       knowledge)
       (visibility
        (make-instance 'memory-collection-resource
                       :uri        (format nil "memory:~A" identifier)
