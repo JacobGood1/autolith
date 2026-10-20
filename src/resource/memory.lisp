@@ -563,25 +563,6 @@ in one of the user's own inputs to this conversation."
              :conversation (conversation-identifier conversation)
              :observed-at time)))))
 
-(-> memory-resource--reobserve-sources (memory timestamp) list)
-(defun memory-resource--reobserve-sources (memory time)
-  "Return MEMORY's sources observed again at TIME, for a replacement that keeps them.
-
-A replacement restates the memory, so each cited file must still support it."
-  (mapcar
-   (lambda (source)
-     (if (eq (first source) :file)
-         (let ((pathname (memory-source-file-pathname source (memory-workspace memory))))
-           (handler-case
-               (memory-source-observe-file pathname
-                                           :quote (getf (rest source) :quote)
-                                           :time time)
-             (memory-error (condition)
-               (memory-resource--fail "~A Pass the memory's current sources, or an empty sources array to drop them."
-                                      (autolith-error-message condition)))))
-         (copy-tree source)))
-   (memory-sources memory)))
-
 (-> memory-resource--normalize-operation (t) list)
 (defun memory-resource--normalize-operation (operation)
   "Return one completely validated normalized memory resource OPERATION."
@@ -708,15 +689,15 @@ A replacement restates the memory, so each cited file must still support it."
     (configuration &key (:identifier (option string)) (:title string)
                         (:content string) (:scope (option memory-scope))
                         (:tags list) (:source-conversation (option string))
-                        (:sources list) (:premise-arguments list))
+                        (:evidence-arguments list))
     memory)
 (defun memory-resource--remember
     (configuration &key identifier title content scope tags source-conversation
-                        sources premise-arguments)
+                        evidence-arguments)
   "Remember or replace a memory, reporting invalid premises or sources correctively.
 
-PREMISE-ARGUMENTS is empty when the edit omitted premises, so a replacement
-reaffirms the existing ones."
+EVIDENCE-ARGUMENTS holds :SOURCES and :PREMISES only when the edit supplied
+them, so a replacement that omits them keeps the recorded versions."
   (handler-case
       (apply #'memory-remember
              configuration
@@ -726,8 +707,7 @@ reaffirms the existing ones."
              :scope               scope
              :tags                tags
              :source-conversation source-conversation
-             :sources             sources
-             premise-arguments)
+             evidence-arguments)
     (memory-error (condition)
       (memory-resource--fail "~A" (autolith-error-message condition)))))
 
@@ -745,26 +725,16 @@ reaffirms the existing ones."
            (configuration (tool-context-configuration context))
            (now (get-universal-time))
            ;; Evidence is checked, and outside paths authorized, before the
-           ;; memory lock is taken; the revision check below still guards the
-           ;; memory a kept source list was read from.
-           (sources
-             (case (getf operation :kind)
-               (:forget
-                nil)
-               (otherwise
-                (if (getf operation :sources-p)
-                    (mapcar (lambda (request)
-                              (memory-resource--observe-source context request now))
-                            (getf operation :sources))
-                    (let ((existing
-                            (and (typep resource 'memory-item-resource)
-                                 (memory-find configuration
-                                              (memory-resource-identifier resource)))))
-                      (and existing
-                           (memory-resource--reobserve-sources existing now)))))))
-           (premise-arguments
-             (and (getf operation :premises-p)
-                  (list :premises (getf operation :premises)))))
+           ;; memory lock is taken.
+           (evidence-arguments
+             (append
+              (and (getf operation :sources-p)
+                   (list :sources
+                         (mapcar (lambda (request)
+                                   (memory-resource--observe-source context request now))
+                                 (getf operation :sources))))
+              (and (getf operation :premises-p)
+                   (list :premises (getf operation :premises))))))
       (with-recursive-lock-held (*memory-lock*)
         (with-recursive-lock-held
             ((conversation-resource-observation-lock conversation))
@@ -806,8 +776,7 @@ reaffirms the existing ones."
                          :tags (getf operation :tags)
                          :source-conversation
                          (conversation-identifier conversation)
-                         :sources sources
-                         :premise-arguments premise-arguments))
+                         :evidence-arguments evidence-arguments))
                       (item-resource
                         (memory-resource--make-item
                          (memory-identifier memory))))
@@ -826,8 +795,7 @@ reaffirms the existing ones."
                 :tags (getf operation :tags)
                 :source-conversation
                 (conversation-identifier conversation)
-                :sources sources
-                :premise-arguments premise-arguments)
+                :evidence-arguments evidence-arguments)
                (values
                 (memory-resource--item-observation resource context)
                 (format nil "Replaced memory ~A."

@@ -889,11 +889,12 @@ The model records evidence through the =memory:= resources. =memory-remember=
 and =memory-replace= accept =sources=, objects naming one =file=, =url=, or
 =user= with an optional =quote=, and =premises=, memory IDs. A file quote must
 occur in the file and a =user= quote in your messages in this conversation
-when the memory is written. Replacing a memory without =sources= rechecks the
-existing ones, and without =premises= reaffirms them against their current
-text. Workspace memories record files inside the workspace relatively, so they
-survive moving or importing the workspace, and a workspace export includes the
-global memories its memories rely on.
+when the memory is written. Replacing a memory without =sources= or =premises=
+keeps the recorded versions, so restating or retagging a stale memory leaves it
+stale; supplying them again rebinds it to the evidence as it is now. Workspace
+memories record files inside the workspace relatively, so they survive moving
+or importing the workspace, and a workspace export includes the global memories
+its memories rely on.
 
 ** Exporting and importing data
 

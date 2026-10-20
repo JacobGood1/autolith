@@ -124,7 +124,7 @@
                         "quote" (tool-string-property
                                  "The exact supporting passage of the file or page; a file quote must occur in the file now."))
                        nil)
-                      "Optional evidence the memory was written from; each object names one of file, url, or user. A memory whose quoted file text changes is reported stale. Replacing without sources rechecks the existing ones; empty removes them.")))
+                      "Optional evidence the memory was written from; each object names one of file, url, or user. A memory whose quoted file text changes is reported stale. Replacing without sources keeps the recorded ones, so a stale memory stays stale until current sources are supplied; empty removes them.")))
                (setf (gethash "maxItems" schema) *memory-source-count-limit*)
                schema))
 
@@ -133,7 +133,7 @@
              (let ((schema
                      (cl-llm-provider-api:provider-array-schema
                       (tool-string-property "One premise memory identifier.")
-                      "Optional memories this one is derived from; it is reported stale when one changes. Replacing without premises reaffirms the existing ones.")))
+                      "Optional memories this one is derived from; it is reported stale when one changes. Replacing without premises keeps the recorded premise versions; supply them again only after checking the memory still follows from them.")))
                (setf (gethash "maxItems" schema) *memory-premise-count-limit*)
                schema))
 

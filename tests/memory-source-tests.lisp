@@ -144,7 +144,7 @@
 
 (-> test-memory-premise-records () null)
 (defun test-memory-premise-records ()
-  "Test derived memories: premise digests, reaffirmation, scope, and cycles."
+  "Test derived memories: premise digests, rebinding, scope, and cycles."
   (with-test-configuration (base root)
     (multiple-value-bind (configuration workspace)
         (memory-source-tests--workspace base root)
@@ -187,14 +187,24 @@
                             (memory-content-digest "Meeting time"
                                                    "The review meets at 13:00."))
                      "replacing a premise leaves the derived memory's record unchanged")
-        (let ((reaffirmed (memory-remember configuration
-                                           :identifier (memory-identifier departure)
-                                           :title "Departure"
-                                           :content "Leave at 13:20.")))
-          (test-assert (equal (getf (first (memory-premises reaffirmed)) :digest)
+        (let ((restated (memory-remember configuration
+                                         :identifier (memory-identifier departure)
+                                         :title "Departure"
+                                         :content "Leave at 13:20.")))
+          (test-assert (equal (getf (first (memory-premises restated)) :digest)
+                              (memory-content-digest "Meeting time"
+                                                     "The review meets at 13:00."))
+                       "a replacement that omits premises keeps the recorded versions"))
+        (let ((rebound (memory-remember configuration
+                                        :identifier (memory-identifier departure)
+                                        :title "Departure"
+                                        :content "Leave at 13:20."
+                                        :premises (list (memory-identifier meeting)
+                                                        (memory-identifier travel)))))
+          (test-assert (equal (getf (first (memory-premises rebound)) :digest)
                               (memory-content-digest "Meeting time"
                                                      "The review meets at 14:00."))
-                       "replacing a derived memory reaffirms its premises"))
+                       "supplying premises again rebinds them to their current text"))
         (dolist (case
                  (list
                   (list "a missing premise"
@@ -312,6 +322,15 @@
                              (memory-source-tests--status configuration whole))
                             '(:stale (:file-changed)))
                      "any edit makes a memory citing the whole file stale")
+        (memory-remember configuration
+                         :identifier (memory-identifier whole)
+                         :title "Whole file"
+                         :content "Whole file is documented."
+                         :tags '("config"))
+        (test-assert (equal (multiple-value-list
+                             (memory-source-tests--status configuration whole))
+                            '(:stale (:file-changed)))
+                     "retagging a memory does not reobserve its changed file")
         (memory-source-tests--write config-file (format nil "[server]~%port = 9090~%"))
         (test-assert (equal (multiple-value-list
                              (memory-source-tests--status configuration quoted))
@@ -399,9 +418,19 @@
                      "a replaced premise makes the derived memory stale")
         (memory-remember configuration
                          :identifier (memory-identifier departure)
-                         :title "Departure" :content "Leave at 12:05.")
+                         :title "Departure" :content "Leave at 12:20."
+                         :tags '("travel"))
+        (test-assert (equal (multiple-value-list
+                             (memory-source-tests--status configuration departure))
+                            '(:stale (:premise-changed)))
+                     "retagging a stale derived memory does not make it current")
+        (memory-remember configuration
+                         :identifier (memory-identifier departure)
+                         :title "Departure" :content "Leave at 12:05."
+                         :premises (list (memory-identifier meeting)
+                                         (memory-identifier travel)))
         (test-assert (eq (memory-source-tests--status configuration departure) ':current)
-                     "replacing the derived memory reaffirms its premises")
+                     "rebinding the premises after recomputing makes it current")
         (memory-forget configuration (memory-identifier meeting))
         (test-assert (equal (multiple-value-list
                              (memory-source-tests--status configuration departure))

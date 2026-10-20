@@ -422,6 +422,26 @@ none may depend on the memory IDENTIFIER being written."
                         :digest (memory-content-digest (memory-title premise)
                                                        (memory-content premise))))))
 
+(-> memory--keep-premises
+    (configuration list list &key (:scope memory-scope) (:workspace (option string)))
+    list)
+(defun memory--keep-premises (configuration active premises &key scope workspace)
+  "Return recorded PREMISES unchanged after checking they suit SCOPE and WORKSPACE.
+
+Keeping the recorded digests means a changed premise still makes the memory
+stale. A premise forgotten since then stays recorded and keeps it stale."
+  (dolist (premise premises)
+    (let ((memory (find (getf premise :id) active
+                        :test #'string=
+                        :key #'memory-identifier)))
+      (when (and memory (not (memory--premise-visible-p memory scope workspace)))
+        (error 'memory-error
+               :message (format nil "Premise memory ~A belongs to another workspace; a global memory may rely only on global memories."
+                                (getf premise :id))
+               :pathname (configuration-memory-path configuration)
+               :identifier (getf premise :id)))))
+  (copy-tree premises))
+
 (-> memory--place-sources
     (configuration list &key (:from (option string)) (:to (option string)))
     list)
@@ -505,8 +525,9 @@ matching memories when the prefix is ambiguous."
 SOURCES are complete source records; file paths may be absolute and are
 recorded relative to the memory's workspace when inside it. PREMISES are memory
 identifiers, recorded with their current digests. A replacement that omits
-SOURCES keeps the existing sources, and one that omits PREMISES reaffirms the
-existing premises against their current text."
+SOURCES or PREMISES keeps the recorded versions unchanged, so restating or
+retagging a stale memory leaves it stale; supplying them again rebinds the
+memory to the evidence as it is now."
   (let ((validated-title
           (memory--validate-text title "title" *memory-title-limit*))
         (validated-content
@@ -563,20 +584,21 @@ existing premises against their current text."
                                (and existing (memory-workspace existing)))
                      :to workspace))
                   (premise-records
-                    (memory--resolve-premises
-                     configuration active
-                     :identifier identifier
-                     :premises (cond
-                                 (premises-p
-                                  premises)
-                                 (existing
-                                  (mapcar (lambda (premise)
-                                            (getf premise :id))
-                                          (memory-premises existing)))
-                                 (t
-                                  nil))
-                     :scope selected-scope
-                     :workspace workspace))
+                    (cond
+                      (premises-p
+                       (memory--resolve-premises
+                        configuration active
+                        :identifier identifier
+                        :premises   premises
+                        :scope      selected-scope
+                        :workspace  workspace))
+                      (existing
+                       (memory--keep-premises
+                        configuration active (memory-premises existing)
+                        :scope     selected-scope
+                        :workspace workspace))
+                      (t
+                       nil)))
                   (memory
                     (make-instance
                      'memory

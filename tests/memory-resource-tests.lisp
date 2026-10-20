@@ -1173,12 +1173,15 @@
                        "collection entries report stale memories")
           (test-assert (search "(stale)" (tool-result-content (read-resource derived-uri)))
                        "a derived memory shows which premise is stale")
-          (test-assert (failure-p (edit deploy-uri
-                                        (json-object "op" "memory-replace"
-                                                     "title" "Deploy command"
-                                                     "content" "Deploy with make ship."))
-                                  "current sources")
-                       "replacing without sources requires the cited text to still hold")
+          (let ((restated (edit deploy-uri
+                                (json-object "op" "memory-replace"
+                                             "title" "Deploy command"
+                                             "content" "Deploy with make release-prod."
+                                             "tags" (vector "deploy")))))
+            (test-assert (and (tool-result-success-p restated)
+                              (search "status: stale (NOTES.md changed)"
+                                      (tool-result-content restated)))
+                         "replacing without sources keeps a stale memory stale"))
           (let ((replaced (edit deploy-uri
                                 (json-object "op" "memory-replace"
                                              "title" "Deploy command"
