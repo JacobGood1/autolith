@@ -598,6 +598,59 @@ A negated PATTERN matches supported explicit negations."
          (gethash (first atom) (knowledge-view-supported view))))))
 
 
+;;;; -- Queries --
+
+(defparameter *knowledge-solution-limit* 64
+  "The most solutions one pattern query returns.")
+
+(-> knowledge-view-solve (knowledge-view list &key (:limit integer)) (values list boolean))
+(defun knowledge-view-solve (view patterns &key (limit *knowledge-solution-limit*))
+  "Return the ways VIEW's supported facts satisfy PATTERNS together.
+
+Each solution is (BINDINGS . NODES): an alist of variables to terms and the
+facts matched by the positive patterns in order. A negated pattern requires an
+explicitly supported negation, as in rules. The second value is true when the
+limit or the view's step limit cut the search short, so absent solutions are
+unknown rather than impossible."
+  (let ((positive (remove-if #'knowledge-negation-p patterns))
+        (negative (remove-if-not #'knowledge-negation-p patterns))
+        (solutions nil)
+        (count 0)
+        (steps 0)
+        (cut-p nil))
+    (labels ((match (remaining environment nodes)
+               (cond
+                 ((or (>= count limit) (>= steps *knowledge-step-limit*))
+                  (setf cut-p t))
+                 ((null remaining)
+                  (when (every (lambda (pattern)
+                                 (knowledge--negation-supported-p view (second pattern)
+                                                                  environment))
+                               negative)
+                    (incf count)
+                    (push (cons (reverse environment) (reverse nodes)) solutions)))
+                 (t
+                  (dolist (node (knowledge--candidates view (first remaining) environment))
+                    (incf steps)
+                    (multiple-value-bind (extended matched-p)
+                        (knowledge--unify (first remaining) (knowledge-node-proposition node)
+                                          environment)
+                      (when matched-p
+                        (match (rest remaining) extended (cons node nodes)))))))))
+      (match positive nil nil))
+    (values (nreverse solutions) cut-p)))
+
+(-> knowledge-pattern-text (list) string)
+(defun knowledge-pattern-text (pattern)
+  "Return PATTERN, possibly negated and with variables, as compact text."
+  (if (knowledge-negation-p pattern)
+      (format nil "not ~A" (knowledge-pattern-text (second pattern)))
+      (format nil "~A(~{~A~^, ~})" (first pattern)
+              (mapcar (lambda (item)
+                        (if (knowledge-variable-p item) item (knowledge-term-display item)))
+                      (rest pattern)))))
+
+
 ;;;; -- Current Views --
 
 (defvar *knowledge-view-cache* (make-hash-table :test #'equal :synchronized t)

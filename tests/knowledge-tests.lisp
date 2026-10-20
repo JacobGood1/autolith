@@ -1356,3 +1356,70 @@
                                              '("event.buffer" "?e" "?d"))
                        "a new assertion evaluates again")))))
   nil)
+
+(-> test-knowledge-plan-steps () null)
+(defun test-knowledge-plan-steps ()
+  "Test plan steps that depend on facts: filled text, blocking, repair, and receipts."
+  (with-test-configuration (base root)
+    (multiple-value-bind (configuration workspace)
+        (memory-source-tests--workspace base root)
+      (knowledge-tests--define-appointments configuration)
+      (knowledge-define-schema configuration
+                               (knowledge-make-schema
+                                :predicate "event.room"
+                                :arguments '((:name "event" :type :entity)
+                                             (:name "room" :type :string))
+                                :key '("event")))
+      (knowledge-tests--admit-departure configuration)
+      (knowledge-tests--schedule-review configuration workspace "13:00")
+      (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
+                             "be there ten minutes early")
+      (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
+                             "half an hour to get there")
+      (let* ((registry (make-default-tool-registry :configuration configuration))
+             (context (make-instance 'tool-context
+                                     :configuration configuration
+                                     :worker nil
+                                     :conversation (conversation-create configuration))))
+        (flet ((update (&rest steps)
+                 (tool-result-content
+                  (memory-resource-tests--call registry context "plan" "update"
+                                               "steps" (coerce steps 'vector))))
+
+               (listing ()
+                 (tool-result-content
+                  (memory-resource-tests--call registry context "plan" "list")))
+
+               (leave (status)
+                 (json-object "step" "Leave at {?leave}" "status" status "id" "leave"
+                              "requires" #(#("event.departure" "review" "?leave"))))
+
+               (room-step ()
+                 (json-object "step" "Note room {?room}" "status" "pending"
+                              "requires" #(#("event.room" "review" "?room")))))
+          (let ((planned (update (leave "pending") (room-step)
+                                 (json-object "step" "Book a taxi" "status" "pending"))))
+            (test-assert (and (search "1. [pending] Leave at 2026-10-22 12:20 UTC" planned)
+                              (search "2. [pending] Note room {?room} (blocked: nothing satisfies event.room(review, ?room))"
+                                      planned)
+                              (search "3. [pending] Book a taxi" planned))
+                         "steps fill their text from facts and show what blocks them"))
+          (knowledge-tests--schedule-review configuration workspace "14:00")
+          (test-assert (search "1. [pending] Leave at 2026-10-22 13:20 UTC" (listing))
+                       "a pending step follows a recomputed fact without replanning")
+          (update (leave "done") (room-step))
+          (knowledge-tests--schedule-review configuration workspace "15:00")
+          (test-assert (search "1. [done] Leave at 2026-10-22 13:20 UTC (done; it relied on leave for review at 2026-10-22 13:20 UTC, which no longer holds)"
+                               (listing))
+                       "a done step keeps what it was done with and reports the change")
+          (update (leave "done") (room-step))
+          (test-assert (search "(done; it relied on" (listing))
+                       "restating a done step keeps its receipt")
+          (let ((failed (memory-resource-tests--call
+                         registry context "plan" "update"
+                         "steps" (vector (json-object "step" "Pack" "status" "pending"
+                                                      "requires" #(#("trip.bag" "?b")))))))
+            (test-assert (and (not (tool-result-success-p failed))
+                              (search "Define predicate trip.bag" (tool-result-content failed)))
+                         "an undefined predicate in a step is refused correctively"))))))
+  nil)

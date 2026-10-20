@@ -392,7 +392,7 @@ VALUE is (PREDICATE ARGUMENT...) or, when NEGATABLE, (:not PATTERN)."
        (let ((schema (funcall schema-function (first items))))
          (unless schema
            (knowledge--fail ':unknown-predicate (first items)
-                            "Define predicate ~A before using it in a rule." (first items)))
+                            "Define predicate ~A before using it in a pattern." (first items)))
          (unless (= (length (rest items)) (length (knowledge-schema-arguments schema)))
            (knowledge--fail ':invalid-rule (first items)
                             "~A takes ~D arguments." (first items)

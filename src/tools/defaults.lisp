@@ -633,9 +633,12 @@ KNOWLEDGE-P offers structured knowledge through memory: resources."
      '("operation"))))
   registry)
 
-(-> default-tools--register-plan (tool-registry) tool-registry)
-(defun default-tools--register-plan (registry)
-  "Register workspace plan tools in REGISTRY."
+(-> default-tools--register-plan (tool-registry &key (:knowledge-p boolean)) tool-registry)
+(defun default-tools--register-plan (registry &key (knowledge-p t))
+  "Register workspace plan tools in REGISTRY.
+
+KNOWLEDGE-P lets steps name the facts they require and the fact that verifies
+them."
   (let ((empty-schema (tool-object-schema (json-object) nil)))
     (dolist
         (specification
@@ -648,7 +651,8 @@ KNOWLEDGE-P offers structured knowledge through memory: resources."
           (list
            'plan-update-tool
            "plan" "update"
-           "Replace the current workspace plan with ordered steps, or clear it with an empty steps array. Each step has text and status pending, doing, or done. Optional explanation summarizes the plan."
+           (format nil "Replace the current workspace plan with ordered steps, or clear it with an empty steps array. Each step has text and status pending, doing, or done. Optional explanation summarizes the plan.~:[~; A step may name the facts it requires: their variables fill {?var} in its text from current facts, and the plan reports a step blocked while nothing satisfies them or done on facts that later stopped holding.~]"
+                   knowledge-p)
            (tool-object-schema
             (json-object
              "steps"
@@ -659,13 +663,26 @@ KNOWLEDGE-P offers structured knowledge through memory: resources."
               (json-object
                "type" "object"
                "properties"
-               (json-object
-                "step" (tool-string-property
-                        "The work this plan point describes.")
-                "status"
-                (json-object
-                 "type" "string"
-                 "description" "pending, doing/in_progress, or done/completed."))
+               (let ((properties
+                       (json-object
+                        "step" (tool-string-property
+                                "The work this plan point describes.")
+                        "status"
+                        (json-object
+                         "type" "string"
+                         "description" "pending, doing/in_progress, or done/completed."))))
+                 (when knowledge-p
+                   (setf (gethash "id" properties)
+                         (tool-string-property "A stable step name; keeps its record across updates.")
+                         (gethash "requires" properties)
+                         (json-object "type" "array"
+                                      "items" (json-object "description" "One fact pattern.")
+                                      "description" "Fact patterns such as [\"event.departure\", \"review\", \"?leave\"] the step needs.")
+                         (gethash "verify" properties)
+                         (json-object "type" "array"
+                                      "items" (json-object "description" "A predicate, variable, or value.")
+                                      "description" "A fact pattern whose observation confirms the step was done.")))
+                 properties)
                "required" (json-array "step" "status")
                "additionalProperties" (json-false)))
              "explanation"
@@ -1051,7 +1068,8 @@ socket."
     (default-tools--register-shell registry)
     (default-tools--register-papercut registry)
     (default-tools--register-agenda registry)
-    (default-tools--register-plan registry)
+    (default-tools--register-plan registry
+                                  :knowledge-p (knowledge-active-p configuration))
     (default-tools--register-lisp registry)
     (when (and configuration (lsp-configuration-enabled-p configuration))
       (lsp-register-tools registry))
