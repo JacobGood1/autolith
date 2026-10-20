@@ -366,3 +366,192 @@
                                (second case))
                            (format nil "a support ~S is ~A" (first case) (second case)))))))))
   nil)
+
+(-> knowledge-tests--define-appointments (configuration) null)
+(defun knowledge-tests--define-appointments (configuration)
+  "Define the appointment vocabulary used by rule and evaluation tests."
+  (dolist (definition
+           '(("event.start" ((:name "event" :type :entity) (:name "time" :type :instant))
+              ("event") "{event} starts at {time}")
+             ("event.travel" ((:name "event" :type :entity) (:name "duration" :type :duration))
+              ("event") "travel to {event} takes {duration}")
+             ("event.buffer" ((:name "event" :type :entity) (:name "duration" :type :duration))
+              ("event") "arrive {duration} early for {event}")
+             ("event.cancelled" ((:name "event" :type :entity))
+              nil "{event} is cancelled")
+             ("event.departure" ((:name "event" :type :entity) (:name "time" :type :instant))
+              ("event") "leave for {event} at {time}")))
+    (destructuring-bind (predicate arguments key template) definition
+      (knowledge-define-schema configuration
+                               (knowledge-make-schema :predicate predicate
+                                                      :arguments arguments
+                                                      :key key
+                                                      :template template))))
+  nil)
+
+(-> knowledge-tests--departure-rule (&key (:id string)) list)
+(defun knowledge-tests--departure-rule (&key (id "departure"))
+  "Return the departure rule's input fields as keyword arguments."
+  (list :id id
+        :premises '(("event.start" "?event" "?start")
+                    ("event.travel" "?event" "?travel")
+                    ("event.buffer" "?event" "?buffer")
+                    (:not ("event.cancelled" "?event")))
+        :bindings '(("?leave" ("-" "?start" ("+" "?travel" "?buffer"))))
+        :conclusion '("event.departure" "?event" "?leave")))
+
+(-> knowledge-tests--schema-function (configuration) function)
+(defun knowledge-tests--schema-function (configuration)
+  "Return a schema lookup over CONFIGURATION's current knowledge."
+  (let ((base (knowledge-base-read configuration)))
+    (lambda (predicate)
+      (knowledge-base-schema base predicate
+                             :workspace (namestring (config :working-directory configuration))))))
+
+
+(-> test-knowledge-rule-validation () null)
+(defun test-knowledge-rule-validation ()
+  "Test that rules are range restricted, well typed, bounded, and acyclic."
+  (with-test-configuration (configuration)
+    (knowledge-tests--define-appointments configuration)
+    (let ((schemas (knowledge-tests--schema-function configuration)))
+      (test-assert (knowledge-rule-p (apply #'knowledge-make-rule
+                                            :schema-function schemas
+                                            (knowledge-tests--departure-rule)))
+                   "the departure rule is valid")
+      (dolist (case
+               `(("an unbound conclusion variable"
+                  :invalid-rule
+                  (:premises (("event.start" "?event" "?start"))
+                   :conclusion ("event.departure" "?event" "?leave")))
+                 ("a computation on the wrong types"
+                  :invalid-rule
+                  (:premises (("event.start" "?event" "?start"))
+                   :bindings (("?leave" ("-" "?start" 5)))
+                   :conclusion ("event.departure" "?event" "?leave")))
+                 ("an unknown computation"
+                  :invalid-rule
+                  (:premises (("event.start" "?event" "?start"))
+                   :bindings (("?leave" ("later" "?start")))
+                   :conclusion ("event.departure" "?event" "?leave")))
+                 ("a negation of an unbound variable"
+                  :invalid-rule
+                  (:premises (("event.start" "?event" "?start")
+                              (:not ("event.cancelled" "?other")))
+                   :conclusion ("event.departure" "?event" "?start")))
+                 ("a guard across types"
+                  :invalid-rule
+                  (:premises (("event.start" "?event" "?start")
+                              ("event.travel" "?event" "?travel"))
+                   :guards (("<" "?start" "?travel"))
+                   :conclusion ("event.departure" "?event" "?start")))
+                 ("a conclusion of a premise predicate"
+                  :rule-cycle
+                  (:premises (("event.start" "?event" "?start"))
+                   :conclusion ("event.start" "?event" "?start")))
+                 ("an undefined predicate"
+                  :unknown-predicate
+                  (:premises (("event.room" "?event" "?room"))
+                   :conclusion ("event.departure" "?event" "?room")))
+                 ("a literal of the wrong type"
+                  :invalid-term
+                  (:premises (("event.start" "review" "one o'clock"))
+                   :conclusion ("event.departure" "review" "2026-10-22T12:00:00Z")))))
+        (destructuring-bind (label code fields) case
+          (test-assert (eq (knowledge-tests--error-code
+                            (lambda ()
+                              (apply #'knowledge-make-rule :id "r" :schema-function schemas
+                                     fields)))
+                           code)
+                       (format nil "~A is refused as ~(~A~)" label code))))))
+  nil)
+
+(-> test-knowledge-rule-computations () null)
+(defun test-knowledge-rule-computations ()
+  "Test rule computations and guards over typed values."
+  (let ((environment (make-hash-table :test #'equal)))
+    (setf (gethash "?start" environment) '(:instant "2026-10-22T13:00:00Z")
+          (gethash "?travel" environment) '(:duration 1800)
+          (gethash "?day" environment) '(:date "2026-10-22")
+          (gethash "?far" environment) '(:quantity 2 "km")
+          (gethash "?near" environment) '(:quantity 500 "m"))
+    (dolist (case '((("-" "?start" ("+" "?travel" (:duration 600))) (:instant "2026-10-22T12:20:00Z"))
+                    (("-" "?start" (:instant "2026-10-22T12:00:00Z")) (:duration 3600))
+                    (("+" "?day" ("days" 10)) (:date "2026-11-01"))
+                    (("+" "?far" "?near") (:quantity 5/2 "km"))
+                    (("in-unit" "?far" "m") (:quantity 2000 "m"))
+                    (("/" "?travel" (:duration 600)) 3)
+                    (("max" "?near" "?far") (:quantity 2 "km"))
+                    (("weekday" "?day") 4)
+                    (("date" "?start") (:date "2026-10-22"))))
+      (destructuring-bind (expression expected) case
+        (test-assert (equal (knowledge-evaluate-expression expression environment) expected)
+                     (format nil "~S computes ~S" expression expected))))
+    (dolist (expression '(("/" "?travel" 0) ("+" "?day" ("hours" 5)) ("+" "?far" (:quantity 1 "kg"))))
+      (test-assert (eq (knowledge-tests--error-code
+                        (lambda () (knowledge-evaluate-expression expression environment)))
+                       ':evaluation)
+                   (format nil "~S is an evaluation error" expression)))
+    (test-assert (and (knowledge-guard-holds-p '("<" "?near" "?far") environment)
+                      (not (knowledge-guard-holds-p '(">=" "?travel" (:duration 3600)) environment))
+                      (knowledge-guard-holds-p '("=" "?far" (:quantity 2000 "m")) environment))
+                 "guards compare converted values")
+    (test-assert (equal (knowledge-expression-from-input #("-" "?start" "PT10M"))
+                        '("-" "?start" (:duration 600)))
+                 "durations written as text become duration literals"))
+  nil)
+
+(-> test-knowledge-rule-lifecycle () null)
+(defun test-knowledge-rule-lifecycle ()
+  "Test proposing, versioning, admitting, retiring, and cycle refusal of stored rules."
+  (with-test-configuration (configuration)
+    (knowledge-tests--define-appointments configuration)
+    (let ((workspace (namestring (config :working-directory configuration))))
+      (multiple-value-bind (id version new-p)
+          (apply #'knowledge-propose-rule configuration (knowledge-tests--departure-rule))
+        (test-assert (and (string= id "departure") (= version 1) new-p
+                          (null (knowledge-base-active-rules (knowledge-base-read configuration)
+                                                             :workspace workspace)))
+                     "a proposed rule is recorded inactive"))
+      (test-assert (null (nth-value 2 (apply #'knowledge-propose-rule configuration
+                                             (knowledge-tests--departure-rule))))
+                   "proposing the same rule again adds no version")
+      (test-assert (= 1 (knowledge-admit-rule configuration "departure" :by "test"))
+                   "admitting activates the latest version")
+      (apply #'knowledge-propose-rule configuration
+             :description "Leave earlier." (knowledge-tests--departure-rule))
+      (let ((active (knowledge-base-active-rules (knowledge-tests--reread configuration)
+                                                 :workspace workspace)))
+        (test-assert (and (= 1 (length active)) (= 1 (second (first active))))
+                     "a new proposal leaves the admitted version active until admitted itself"))
+      (knowledge-admit-rule configuration "departure")
+      (test-assert (= 2 (second (first (knowledge-base-active-rules
+                                        (knowledge-base-read configuration)
+                                        :workspace workspace))))
+                   "admitting the new version replaces the old one")
+      (knowledge-define-schema
+       configuration
+       (knowledge-make-schema :predicate "event.reminder"
+                              :arguments '((:name "event" :type :entity)
+                                           (:name "time" :type :instant))))
+      (knowledge-propose-rule configuration
+                              :id "reminder"
+                              :premises '(("event.departure" "?event" "?leave"))
+                              :bindings '(("?ping" ("-" "?leave" "PT10M")))
+                              :conclusion '("event.reminder" "?event" "?ping"))
+      (knowledge-admit-rule configuration "reminder")
+      (test-assert (eq (knowledge-tests--error-code
+                        (lambda ()
+                          (knowledge-propose-rule configuration
+                                                  :id "loop"
+                                                  :premises '(("event.reminder" "?event" "?t"))
+                                                  :conclusion '("event.start" "?event" "?t"))))
+                       ':rule-cycle)
+                   "a rule closing a cycle through admitted rules is refused")
+      (knowledge-retire-rule configuration "departure")
+      (test-assert (equal (mapcar (lambda (item) (getf (first item) :id))
+                                  (knowledge-base-active-rules (knowledge-tests--reread configuration)
+                                                               :workspace workspace))
+                          '("reminder"))
+                   "a retired rule is no longer active after a restart")))
+  nil)

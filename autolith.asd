@@ -133,6 +133,7 @@
                              (:file "knowledge/schemas")
                              (:file "knowledge/store")
                              (:file "knowledge/applicability")
+                             (:file "knowledge/rules")
                              (:file "state/papercuts")
                              (:file "state/agendas")
                              (:file "state/plan")

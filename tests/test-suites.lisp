@@ -339,7 +339,10 @@
   test-knowledge-terms
   test-knowledge-schemas
   test-knowledge-store
-  test-knowledge-applicability)
+  test-knowledge-applicability
+  test-knowledge-rule-validation
+  test-knowledge-rule-computations
+  test-knowledge-rule-lifecycle)
 
 (define-test-suite papercut
   test-papercuts)

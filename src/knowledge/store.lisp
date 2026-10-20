@@ -73,7 +73,7 @@
     :initform (make-hash-table :test #'equal)
     :reader knowledge-base-rules
     :type hash-table
-    :documentation "Rule entries by (SCOPE WORKSPACE IDENTIFIER)."))
+    :documentation "Rule entries by (SCOPE WORKSPACE IDENTIFIER): versions and the active one."))
   (:documentation "The folded state of the knowledge log, with lookup indexes."))
 
 
@@ -187,6 +187,20 @@
                      (and (stringp (getf properties :reason))
                           (<= (length (getf properties :reason))
                               *knowledge-reason-limit*))))))
+         (:rule-defined
+          (let ((properties (rest record)))
+            (and (knowledge--scope-valid-p (getf properties :scope)
+                                           (getf properties :workspace))
+                 (knowledge-rule-p (getf properties :rule))
+                 (typep (getf properties :time) 'timestamp))))
+         ((:rule-admitted :rule-retired)
+          (let ((properties (rest record)))
+            (and (knowledge--scope-valid-p (getf properties :scope)
+                                           (getf properties :workspace))
+                 (knowledge-rule-name-p (getf properties :id))
+                 (or (eq (first record) :rule-retired)
+                     (typep (getf properties :rule-version) '(integer 1)))
+                 (typep (getf properties :time) 'timestamp))))
          (otherwise
           t))
        t))
@@ -262,18 +276,42 @@ by a newer generation stays readable after a rollback."
                  (getf support :retraction-reason) (getf properties :reason)
                  (gethash (getf properties :support) (knowledge-base-supports base))
                  support)))
+        (:rule-defined
+         (let* ((rule (getf properties :rule))
+                (key (list (getf properties :scope) (getf properties :workspace)
+                           (getf (rest rule) :id)))
+                (entry (or (gethash key (knowledge-base-rules base))
+                           (list :id (getf (rest rule) :id)
+                                 :scope (getf properties :scope)
+                                 :workspace (getf properties :workspace)
+                                 :versions nil
+                                 :active nil))))
+           (setf (getf entry :versions)
+                 (append (getf entry :versions)
+                         (list (list :version (1+ (length (getf entry :versions)))
+                                     :rule rule
+                                     :time (getf properties :time)
+                                     :source-conversation
+                                     (getf properties :source-conversation))))
+                 (gethash key (knowledge-base-rules base)) entry)))
+        ((:rule-admitted :rule-retired)
+         (let* ((key (list (getf properties :scope) (getf properties :workspace)
+                           (getf properties :id)))
+                (entry (gethash key (knowledge-base-rules base))))
+           (unless (and entry
+                        (or (eq (first record) :rule-retired)
+                            (<= 1 (getf properties :rule-version)
+                                (length (getf entry :versions)))))
+             (fail (format nil "~A names unknown rule ~A." (first record)
+                           (getf properties :id))))
+           (setf (getf entry :active) (and (eq (first record) :rule-admitted)
+                                           (getf properties :rule-version))
+                 (gethash key (knowledge-base-rules base)) entry)))
         (otherwise
-         (knowledge--reduce-extension base record))))
+         ;; A record kind from a newer generation: skip it.
+         nil)))
     (incf (knowledge-base-revision base))
     base))
-
-(-> knowledge--reduce-extension (knowledge-base list) null)
-(defgeneric knowledge--reduce-extension (base record)
-  (:documentation "Fold RECORD of a kind defined outside the core log into BASE.")
-  (:method ((base knowledge-base) record)
-    "Skip a record kind this generation does not know."
-    (declare (ignore base record))
-    nil))
 
 (-> knowledge--store (configuration) sexp-store:log-store)
 (defun knowledge--store (configuration)
