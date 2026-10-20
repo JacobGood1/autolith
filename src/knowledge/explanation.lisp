@@ -25,8 +25,10 @@
 (-> knowledge-node-text (knowledge-node) string)
 (defun knowledge-node-text (node)
   "Return NODE's claim as a sentence."
-  (knowledge-proposition-display (knowledge-node-proposition node)
-                                 (knowledge-node-schema node)))
+  (or (knowledge-node--text node)
+      (setf (knowledge-node--text node)
+            (knowledge-proposition-display (knowledge-node-proposition node)
+                                           (knowledge-node-schema node)))))
 
 (-> knowledge-evidence-text (list) string)
 (defun knowledge-evidence-text (evidence)
@@ -89,10 +91,16 @@ supported; a derived fact names its rule version."
 (-> knowledge-node-relevance (knowledge-node list) (integer 0))
 (defun knowledge-node-relevance (node terms)
   "Return how many lowercase TERMS appear in NODE's sentence or values."
-  (let ((haystack (string-downcase
-                   (format nil "~A ~A"
-                           (knowledge-node-text node)
-                           (knowledge-node-proposition node)))))
+  (let ((haystack (or (knowledge-node--haystack node)
+                      (setf (knowledge-node--haystack node)
+                            (string-downcase
+                             (format nil "~A ~{~A~^ ~}"
+                                     (knowledge-node-text node)
+                                     (cons (knowledge-proposition-predicate
+                                            (knowledge-node-proposition node))
+                                           (mapcar #'knowledge-term-display
+                                                   (knowledge-proposition-arguments
+                                                    (knowledge-node-proposition node))))))))))
     (count-if (lambda (term) (search term haystack)) terms)))
 
 

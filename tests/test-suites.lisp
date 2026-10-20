@@ -354,7 +354,8 @@
   test-knowledge-activation
   test-knowledge-mission-observations
   test-knowledge-transfer
-  test-knowledge-usage-attribution)
+  test-knowledge-usage-attribution
+  test-knowledge-view-cache)
 
 (define-test-suite knowledge-fixtures
   test-knowledge-appointment-fixtures

@@ -81,10 +81,7 @@ The pass evaluates CONFIGURATION's structured knowledge from its workspace at
 the same time, so memories derived from claims follow those claims."
   (let* ((memories (make-hash-table :test #'equal))
          (all (memory-list configuration :visibility ':all))
-         (view (knowledge-evaluate
-                (knowledge-base-read configuration)
-                :workspace (namestring (config :working-directory configuration))
-                :check (evidence-check-create :memories all))))
+         (view (knowledge-view-current configuration)))
     (dolist (memory all)
       (setf (gethash (memory-identifier memory) memories) memory))
     (make-instance 'memory-assessor :memories memories :view view)))

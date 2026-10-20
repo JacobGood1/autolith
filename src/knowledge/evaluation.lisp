@@ -73,7 +73,17 @@
     :initform nil
     :accessor knowledge-node-conflicts
     :type list
-    :documentation "Identifiers of supported claims this one contradicts."))
+    :documentation "Identifiers of supported claims this one contradicts.")
+   (text
+    :initform nil
+    :accessor knowledge-node--text
+    :type (option string)
+    :documentation "The claim's sentence, computed once.")
+   (haystack
+    :initform nil
+    :accessor knowledge-node--haystack
+    :type (option string)
+    :documentation "The claim's lowercase sentence and values for lexical matching."))
   (:documentation "One claim as evaluated in a view."))
 
 (defclass knowledge-view ()
@@ -131,7 +141,12 @@
     :initform 0
     :accessor knowledge-view-steps
     :type (integer 0)
-    :documentation "Candidate claims examined so far."))
+    :documentation "Candidate claims examined so far.")
+   (boundary
+    :initform nil
+    :accessor knowledge-view-boundary
+    :type (option timestamp)
+    :documentation "The earliest later time a support or evidence starts or stops being valid."))
   (:documentation "Knowledge visible from one workspace, evaluated at one time."))
 
 
@@ -263,6 +278,18 @@ proposals this way."
                                          (knowledge-view-argument-index view)))))))
   nil)
 
+(-> knowledge--note-boundaries (knowledge-view list (option list)) null)
+(defun knowledge--note-boundaries (view support evidence)
+  "Lower VIEW's boundary to SUPPORT's or EVIDENCE's next validity change."
+  (let ((now (knowledge-view-now view)))
+    (dolist (time (list (getf support :valid-from) (getf support :valid-until)
+                        (and evidence (getf evidence :valid-until))))
+      (when (and time (> time now)
+                 (or (null (knowledge-view-boundary view))
+                     (< time (knowledge-view-boundary view))))
+        (setf (knowledge-view-boundary view) time))))
+  nil)
+
 (-> knowledge--evaluate-stored (knowledge-view evidence-check) null)
 (defun knowledge--evaluate-stored (view check)
   "Add every visible stored claim to VIEW with the state of each support."
@@ -276,6 +303,10 @@ proposals this way."
                                                  (getf entry :workspace))))
                  (dolist (support-identifier (getf entry :supports))
                    (let ((support (knowledge-base-support base support-identifier)))
+                     (knowledge--note-boundaries view support
+                                                 (and (getf support :evidence)
+                                                      (knowledge-base-evidence-record
+                                                       base (getf support :evidence))))
                      (multiple-value-bind (state reason)
                          (evidence-check-support check base support)
                        (push (list :id support-identifier
@@ -565,3 +596,83 @@ A negated PATTERN matches supported explicit negations."
      (if negated-p
          (gethash (first atom) (knowledge-view-negated view))
          (gethash (first atom) (knowledge-view-supported view))))))
+
+
+;;;; -- Current Views --
+
+(defvar *knowledge-view-cache* (make-hash-table :test #'equal :synchronized t)
+  "The latest view per (knowledge log, workspace), with the state it was evaluated from.")
+
+(defparameter *knowledge-unix-epoch* (encode-universal-time 0 0 0 1 1 1970 0)
+  "The universal time of the Unix epoch, which file modification times count from.")
+
+(-> knowledge--file-fingerprint (pathname) t)
+(defun knowledge--file-fingerprint (pathname)
+  "Return the digest of PATHNAME's text, or why it could not be read."
+  (multiple-value-bind (text failure) (memory-source-read-file pathname)
+    (if text (memory-source-text-digest text) failure)))
+
+(-> knowledge--file-unchanged-p (list timestamp) boolean)
+(defun knowledge--file-unchanged-p (file evaluated-at)
+  "Return true when cached FILE, (PATHNAME STATUS-KEY FINGERPRINT), still holds what was read.
+
+File times have one-second resolution, so a file modified in the second the
+view was evaluated, or later, has its content compared instead of its status."
+  (destructuring-bind (pathname status fingerprint) file
+    (let ((current (knowledge-file-status-key pathname)))
+      (and (if (and (equal current status)
+                    (consp current)
+                    (< (+ (third current) *knowledge-unix-epoch*) evaluated-at))
+               t
+               (equal (knowledge--file-fingerprint pathname) fingerprint))
+           t))))
+
+(-> knowledge--view-cache-valid-p (list knowledge-base t timestamp) boolean)
+(defun knowledge--view-cache-valid-p (entry base memory-key now)
+  "Return true when cached view ENTRY still describes BASE, the memories, and the files at NOW."
+  (let ((view (getf entry :view)))
+    (and view
+         (eq (knowledge-view-base view) base)
+         (equal (getf entry :memory-key) memory-key)
+         (or (eq memory-key ':missing)
+             (< (+ (third memory-key) *knowledge-unix-epoch*) (getf entry :evaluated-at)))
+         (>= now (knowledge-view-now view))
+         (let ((boundary (knowledge-view-boundary view)))
+           (or (null boundary) (< now boundary)))
+         (every (lambda (file) (knowledge--file-unchanged-p file (getf entry :evaluated-at)))
+                (getf entry :files))
+         t)))
+
+(-> knowledge-view-current (configuration &key (:workspace (option string))) knowledge-view)
+(defun knowledge-view-current (configuration &key workspace)
+  "Return CONFIGURATION's knowledge from WORKSPACE now, reusing an evaluation still valid.
+
+A view is reused while the knowledge log, the memory log, and every file it
+read are unchanged and no support or evidence has started or stopped being
+valid since. Recall and listings in a session therefore evaluate once per
+change, not once per request. Views are shared and must not be modified."
+  (let* ((workspace (or workspace (knowledge--workspace configuration)))
+         (base (knowledge-base-read configuration))
+         (now (knowledge-now))
+         (memory-key (knowledge-file-status-key (configuration-memory-path configuration)))
+         (key (list (namestring (configuration-knowledge-path configuration)) workspace))
+         (cached (gethash key *knowledge-view-cache*)))
+    (if (and cached (knowledge--view-cache-valid-p cached base memory-key now))
+        (getf cached :view)
+        (let* ((evaluated-at (get-universal-time))
+               (check (evidence-check-create
+                       :now now
+                       :memories (memory-list configuration :visibility ':all)))
+               (view (knowledge-evaluate base :workspace workspace :check check)))
+          (setf (gethash key *knowledge-view-cache*)
+                (list :view view
+                      :memory-key memory-key
+                      :evaluated-at evaluated-at
+                      :files (loop for pathname being the hash-keys of (evidence-check-files check)
+                                     using (hash-value entry)
+                                   collect (list (pathname pathname)
+                                                 (third entry)
+                                                 (if (first entry)
+                                                     (memory-source-text-digest (first entry))
+                                                     (second entry))))))
+          view))))

@@ -19,11 +19,7 @@
 (-> application-knowledge--view (application) knowledge-view)
 (defun application-knowledge--view (application)
   "Return APPLICATION's knowledge evaluated from its workspace now."
-  (let ((configuration (application-configuration application)))
-    (knowledge-evaluate (knowledge-base-read configuration)
-                        :workspace (knowledge--workspace configuration)
-                        :check (evidence-check-create
-                                :memories (memory-list configuration :visibility ':all)))))
+  (knowledge-view-current (application-configuration application)))
 
 (-> application-knowledge--call (knowledge-node) string)
 (defun application-knowledge--call (node)

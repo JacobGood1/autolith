@@ -44,7 +44,7 @@ Replays and fixtures bind it to evaluate expiry deterministically.")
     :initform (make-hash-table :test #'equal)
     :reader evidence-check-files
     :type hash-table
-    :documentation "Each cited file's (TEXT . FAILURE), read at most once per check.")
+    :documentation "Each cited file's (TEXT FAILURE STATUS-KEY), read at most once per check.")
    (results
     :initform (make-hash-table :test #'equal)
     :reader evidence-check-results
@@ -89,15 +89,30 @@ Replays and fixtures bind it to evaluate expiry deterministically.")
       (setf (gethash (memory-identifier memory) table) memory))
     (make-instance 'evidence-check :now now :memories table)))
 
+(-> knowledge-file-status-key (pathname) t)
+(defun knowledge-file-status-key (pathname)
+  "Return a value that changes whenever the file at PATHNAME changes, or :MISSING."
+  (let ((status (ignore-errors (platform-path-status *platform* pathname :follow-links-p t))))
+    (if status
+        (list (platform-file-status-identity status)
+              (platform-file-status-size status)
+              (platform-file-status-modification-time status)
+              (platform-file-status-change-time status))
+        ':missing)))
+
 (-> evidence-check--file (evidence-check pathname) (values (option string) (option keyword)))
 (defun evidence-check--file (check pathname)
-  "Return PATHNAME's text and read failure, reading it at most once per CHECK."
+  "Return PATHNAME's text and read failure, reading it at most once per CHECK.
+
+The file's status is taken before reading, so a later change to the file is
+never mistaken for the content that was read."
   (let* ((key (namestring pathname))
          (entry (or (gethash key (evidence-check-files check))
                     (setf (gethash key (evidence-check-files check))
-                          (multiple-value-call #'cons
-                            (memory-source-read-file pathname))))))
-    (values (first entry) (rest entry))))
+                          (let ((status (knowledge-file-status-key pathname)))
+                            (multiple-value-bind (text failure) (memory-source-read-file pathname)
+                              (list text failure status)))))))
+    (values (first entry) (second entry))))
 
 (-> evidence-check--file-source (evidence-check list (option string) (option string))
     (values keyword (option keyword)))

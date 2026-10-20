@@ -65,11 +65,13 @@
 (defun memory-knowledge-view (context &key goals)
   "Return CONTEXT's structured knowledge evaluated from its workspace now."
   (let ((configuration (tool-context-configuration context)))
-    (knowledge-evaluate (knowledge-base-read configuration)
-                        :workspace (knowledge--workspace configuration)
-                        :check (evidence-check-create
-                                :memories (memory-list configuration :visibility ':all))
-                        :goals goals)))
+    (if goals
+        (knowledge-evaluate (knowledge-base-read configuration)
+                            :workspace (knowledge--workspace configuration)
+                            :check (evidence-check-create
+                                    :memories (memory-list configuration :visibility ':all))
+                            :goals goals)
+        (knowledge-view-current configuration))))
 
 
 ;;;; -- Rendering --
