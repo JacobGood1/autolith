@@ -14,6 +14,16 @@
 (defparameter *knowledge-tool-lifetime* 86400
   "Seconds a tool output observation supports claims before it expires.")
 
+(defvar *knowledge-clock* #'get-universal-time
+  "A function returning the current universal time for knowledge observations and checks.
+
+Replays and fixtures bind it to evaluate expiry deterministically.")
+
+(-> knowledge-now () timestamp)
+(defun knowledge-now ()
+  "Return the current time as knowledge sees it."
+  (funcall *knowledge-clock*))
+
 (deftype knowledge-applicability ()
   "Whether evidence or a support applies now."
   '(member :current :changed :missing :expired :retracted :pending :unverified))
@@ -57,7 +67,7 @@
     (&key (:source list) (:workspace (option string)) (:digest (option string))
           (:excerpt (option string)) (:adapter string) (:time timestamp))
     list)
-(defun knowledge-observe (&key source workspace digest excerpt adapter (time (get-universal-time)))
+(defun knowledge-observe (&key source workspace digest excerpt adapter (time (knowledge-now)))
   "Return evidence of observing SOURCE at TIME, expiring after the source's lifetime."
   (let ((lifetime (knowledge-source-lifetime source)))
     (knowledge-make-evidence :source      source
@@ -72,7 +82,7 @@
 ;;;; -- Checking --
 
 (-> evidence-check-create (&key (:now timestamp) (:memories list)) evidence-check)
-(defun evidence-check-create (&key (now (get-universal-time)) memories)
+(defun evidence-check-create (&key (now (knowledge-now)) memories)
   "Return a check at NOW that resolves memory evidence against MEMORIES."
   (let ((table (make-hash-table :test #'equal)))
     (dolist (memory memories)
@@ -167,7 +177,7 @@ the read failure of an unverified file."
 (-> knowledge-observe-file
     (pathname &key (:quote (option string)) (:workspace (option string)) (:time timestamp))
     list)
-(defun knowledge-observe-file (pathname &key quote workspace (time (get-universal-time)))
+(defun knowledge-observe-file (pathname &key quote workspace (time (knowledge-now)))
   "Return evidence that file PATHNAME contains QUOTE, or its whole current text.
 
 A file inside WORKSPACE is recorded relative to it. Signal MEMORY-ERROR

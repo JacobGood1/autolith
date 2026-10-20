@@ -356,6 +356,11 @@
   test-knowledge-transfer
   test-knowledge-usage-attribution)
 
+(define-test-suite knowledge-fixtures
+  test-knowledge-appointment-fixtures
+  test-knowledge-document-fixtures
+  test-knowledge-sales-fixtures)
+
 (define-test-suite papercut
   test-papercuts)
 

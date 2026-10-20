@@ -361,6 +361,7 @@
                              (:file "memory-tests")
                              (:file "memory-source-tests")
                              (:file "knowledge-tests")
+                             (:file "knowledge-fixture-tests")
                              (:file "papercut-tests")
                              (:file "update-tests")
                              (:file "agenda-tests")

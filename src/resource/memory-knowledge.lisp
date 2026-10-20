@@ -452,7 +452,7 @@ Conflicted facts come first, then the rest by predicate and text."
                        (memory-knowledge--list (gethash "arguments" operation) "arguments")
                        :negated (and (gethash "negated" operation)
                                      (not (json-false-p (gethash "negated" operation))))))
-         (now (get-universal-time))
+         (now (knowledge-now))
          (requests (and (gethash "sources" operation)
                         (memory-resource--operation-sources operation)))
          (evidence (mapcar (lambda (request)
