@@ -338,7 +338,8 @@
 (define-test-suite knowledge
   test-knowledge-terms
   test-knowledge-schemas
-  test-knowledge-store)
+  test-knowledge-store
+  test-knowledge-applicability)
 
 (define-test-suite papercut
   test-papercuts)
