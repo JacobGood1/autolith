@@ -1423,3 +1423,53 @@
                               (search "Define predicate trip.bag" (tool-result-content failed)))
                          "an undefined predicate in a step is refused correctively"))))))
   nil)
+
+(-> knowledge-tests--plan-advice (configuration conversation) (option context-contribution))
+(defun knowledge-tests--plan-advice (configuration conversation)
+  "Return the plan change advice a request for CONVERSATION carries, if any."
+  (let ((*context-contributors* nil)
+        (*context-resolver* (cl-llm-provider-api:make-context-resolver))
+        (*context-last-deliveries* (make-hash-table :test #'equal))
+        (*context-last-delivery-order* nil))
+    (register-context-contributor "plan-changes" 'plan-changes-context :source ':built-in)
+    (knowledge-tests--contribution
+     (context-delivery-contributions (context-resolve-request configuration conversation #()))
+     "plan-changes")))
+
+
+(-> test-knowledge-plan-changes () null)
+(defun test-knowledge-plan-changes ()
+  "Test that changes to fact-dependent plan steps are explained once, after delivery."
+  (with-test-configuration (base root)
+    (multiple-value-bind (configuration workspace)
+        (memory-source-tests--workspace base root)
+      (knowledge-tests--define-appointments configuration)
+      (knowledge-tests--admit-departure configuration)
+      (knowledge-tests--schedule-review configuration workspace "13:00")
+      (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
+                             "be there ten minutes early")
+      (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
+                             "half an hour to get there")
+      (let* ((conversation (conversation-create configuration))
+             (registry (make-default-tool-registry :configuration configuration))
+             (context (make-instance 'tool-context :configuration configuration :worker nil
+                                                   :conversation conversation)))
+        (conversation-append-user-message conversation "Plan my afternoon.")
+        (memory-resource-tests--call
+         registry context "plan" "update"
+         "steps" (vector (json-object "step" "Leave at {?leave}" "status" "pending" "id" "leave"
+                                      "requires" #(#("event.departure" "review" "?leave")))))
+        (conversation-append-user-message conversation "Anything to adjust?")
+        (test-assert (null (knowledge-tests--plan-advice configuration conversation))
+                     "a plan the model just saw needs no advice")
+        (knowledge-tests--schedule-review configuration workspace "14:00")
+        (conversation-append-user-message conversation "And now?")
+        (let ((advice (knowledge-tests--plan-advice configuration conversation)))
+          (test-assert (and advice
+                            (search "step 1 now reads \"Leave at 2026-10-22 13:20 UTC\" and is ready, was \"Leave at 2026-10-22 12:20 UTC\""
+                                    (context-contribution-evidence advice)))
+                       "the next turn explains how the step changed with its facts"))
+        (conversation-append-user-message conversation "Thanks.")
+        (test-assert (null (knowledge-tests--plan-advice configuration conversation))
+                     "each plan change is explained once"))))
+  nil)

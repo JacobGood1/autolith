@@ -356,7 +356,8 @@
   test-knowledge-transfer
   test-knowledge-usage-attribution
   test-knowledge-view-cache
-  test-knowledge-plan-steps)
+  test-knowledge-plan-steps
+  test-knowledge-plan-changes)
 
 (define-test-suite knowledge-fixtures
   test-knowledge-appointment-fixtures

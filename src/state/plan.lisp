@@ -516,3 +516,36 @@ facts that no longer hold. Prose steps render as always."
                          (plan-step-status step)
                          (plan-step-text-with step bindings)
                          (and check (plan--step-note step check view)))))))
+
+(-> plan-step-snapshot ((option workspace-plan) knowledge-view) list)
+(defun plan-step-snapshot (plan view)
+  "Return how PLAN's fact-dependent steps read against VIEW, for change detection.
+
+Each entry is (:KEY :INDEX :TEXT :NOTE); prose steps are left out."
+  (and plan
+       (loop for step in (workspace-plan-steps plan)
+             for index from 1
+             when (or (plan-step-requires step) (plan-step-verify step))
+               collect (let ((check (plan-step-check step view)))
+                         (list :key (or (plan-step-identifier step) (plan-step-text step))
+                               :index index
+                               :text (plan-step-text-with
+                                      step
+                                      (if (eq (plan-step-status step) ':done)
+                                          (or (getf (plan-step-receipt step) :bindings)
+                                              (getf check :bindings))
+                                          (getf check :bindings)))
+                               :note (plan--step-note step check view))))))
+
+(-> plan-snapshot-changes (list list) list)
+(defun plan-snapshot-changes (previous current)
+  "Return one line for each step in both snapshots whose text or note changed."
+  (loop for entry in current
+        for old = (find (getf entry :key) previous
+                        :key (lambda (item) (getf item :key)) :test #'equal)
+        when (and old (or (string/= (getf old :text) (getf entry :text))
+                          (not (equal (getf old :note) (getf entry :note)))))
+          collect (format nil "step ~D now reads \"~A\"~:[ and is ready~; (~:*~A)~]~@[, was \"~A\"~]"
+                          (getf entry :index) (getf entry :text) (getf entry :note)
+                          (and (string/= (getf old :text) (getf entry :text))
+                               (getf old :text)))))

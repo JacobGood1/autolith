@@ -645,6 +645,10 @@ retries stay auditable next to the request they belong to."
        (agent-observer-status
         observer :knowledge-changes
         (list :count (knowledge-change-event-count event))))
+      (plan-change-event
+       (agent-observer-status
+        observer :plan-changes
+        (list :count (plan-change-event-count event))))
       (provider-attempt-failed-event
        (let ((details
                (list :request-number request-number

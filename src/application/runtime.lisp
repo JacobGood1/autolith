@@ -3450,6 +3450,13 @@ checked."
              (list (terminal-span
                     ':dim
                     (application--knowledge-changes-notice (getf details :count))))))
+           (:plan-changes
+            (application-present
+             application
+             (list (terminal-span
+                    ':dim
+                    (format nil "@ ~D plan step~:P changed with ~:*~[~;its~:;their~] facts"
+                            (getf details :count))))))
            (:provider-progress
             (terminal-ui-note-status-progress ui))
            (:provider-request-started

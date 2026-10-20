@@ -34,12 +34,6 @@
              (workspace-plan-steps plan))
        t))
 
-(-> plan-tool--render (configuration (option workspace-plan)) string)
-(defun plan-tool--render (configuration plan)
-  "Return PLAN checked against current knowledge when any step depends on facts."
-  (plan-render plan :view (and (plan-tool--structured-p plan)
-                               (knowledge-view-current configuration))))
-
 (defmethod tool-execute ((tool plan-list-tool)
                          (context tool-context)
                          (arguments hash-table))
@@ -47,8 +41,10 @@
   (declare (ignore tool arguments))
   (handler-case
       (let* ((configuration (tool-context-configuration context))
-             (plan (plan-load configuration)))
-        (tool-success (plan-tool--render configuration plan)))
+             (plan (plan-load configuration))
+             (view (and (plan-tool--structured-p plan) (knowledge-view-current configuration))))
+        (plan-context-note-delivered configuration (tool-context-conversation context) plan view)
+        (tool-success (plan-render plan :view view)))
     (plan-error (condition)
       (error 'tool-error
              :message (format nil "~A" condition)
@@ -143,6 +139,7 @@ change to those facts can be reported without repeating the step."
                    (progn
                      (plan-clear configuration)
                      nil))))
+        (plan-context-note-delivered configuration (tool-context-conversation context) plan view)
         (tool-success (plan-render plan :view view)))
     (plan-error (condition)
       (error 'tool-error
