@@ -953,7 +953,7 @@ premise and goes stale when the fact stops holding; a fact can cite a memory
 as evidence.
 
 The model reads =memory:facts=, =memory:claim/ID=, =memory:predicates=,
-=memory:rules=, and =memory:changes=, and edits =memory:facts= with
+=memory:rules=, =memory:procedures=, and =memory:changes=, and edits =memory:facts= with
 =predicate-define=, =fact-assert=, =fact-retract=, and =rule-propose=, up to 16
 per edit. Mission status and gate results are recorded as =autolith.mission.*=
 facts.
@@ -1013,6 +1013,38 @@ values as observations of that call, which is how structured tool output,
 MCP results included, becomes facts. The model defines methods with
 =method-define= and contracts with =contract-define=, and reads them from
 =memory:methods= and =memory:contracts=.
+
+*** Learned procedures
+
+When three turns in a workspace make the same tool calls in the same order,
+Autolith learns a /procedure/ from them after the turn, locally and without a
+model request: arguments that never change stay as they were, a value taken
+from an earlier call's JSON result is taken from it again, and values that
+vary become parameters, matched with the words that varied in your requests.
+A procedure is kept only if each of those turns is reproduced by the
+procedure learned from the others, and =@ learned procedure make-sales-report
+from 3 turns · (procedures)= appears.
+
+When a later request fits, such as =Make the sales report for q5.=, the model
+is offered the one =procedure.run= call that makes the same calls with =q5=,
+and =@ learned procedure make-sales-report fits this request= appears. The
+first run asks to admit the procedure (=procedure.admit -- make-sales-report
+v1: sales.load, sales.report, notify.send=); full access admits it at once.
+Every call still asks its own approval and passes its contracts. If a call
+fails, the run stops and the model continues the work with ordinary calls;
+two failed runs in a row suspend the procedure until you admit it again.
+
+#+BEGIN_SRC lisp
+(procedures)          ; procedures, their calls, status, and what they saved
+(run-procedure "make-sales-report" :file "q5")   ; without the model
+(admit-procedure "make-sales-report")             ; allow it, or lift a suspension
+(retire-procedure "make-sales-report")            ; never run or learn it again
+#+END_SRC
+
+=(procedures)= compares the turns a procedure was learned from with recent
+turns that ran it, in model requests and tokens. The model reads
+=memory:procedures=. Procedures are kept in the knowledge log, with every run,
+and are learned and offered only while =knowledge-mode= is =active=.
 
 ** Exporting and importing data
 
