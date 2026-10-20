@@ -649,6 +649,10 @@ retries stay auditable next to the request they belong to."
        (agent-observer-status
         observer :plan-changes
         (list :count (plan-change-event-count event))))
+      (procedure-offer-event
+       (agent-observer-status
+        observer :procedure-offers
+        (list :names (procedure-offer-event-names event))))
       (provider-attempt-failed-event
        (let ((details
                (list :request-number request-number
@@ -1827,6 +1831,7 @@ loop, so compaction ahead of the user message shares the turn's budget."
                     :tool-calls tool-calls
                     :response-id (provider-result-response-id result))
               (agent-turn-completion-details agent)))
+            (agent-learn-procedures agent observer tool-calls)
             (return result))
           (cond
             ((null calls)
@@ -1856,6 +1861,7 @@ loop, so compaction ahead of the user message shares the turn's budget."
                            :tool-calls tool-calls
                            :response-id (provider-result-response-id result))
                      (agent-turn-completion-details agent)))
+                   (agent-learn-procedures agent observer tool-calls)
                    (return result))
                  (agent--apply-steering-input
                   agent observer request-number)))))))))

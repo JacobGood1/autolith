@@ -19,7 +19,7 @@
     :initarg :view-kind
     :reader memory-knowledge-resource-view-kind
     :type keyword
-    :documentation "Which knowledge view: :FACTS, :CLAIM, :PREDICATES, :RULES, :METHODS, :CONTRACTS, or :CHANGES.")
+    :documentation "Which knowledge view: :FACTS, :CLAIM, :PREDICATES, :RULES, :METHODS, :CONTRACTS, :PROCEDURES, or :CHANGES.")
    (claim
     :initarg :claim
     :initform nil
@@ -47,6 +47,7 @@
       ((string= identifier "changes") (make ':changes))
       ((string= identifier "methods") (make ':methods))
       ((string= identifier "contracts") (make ':contracts))
+      ((string= identifier "procedures") (make ':procedures))
       ((and (uiop:string-prefix-p "claim/" identifier)
             (> (length identifier) (length "claim/")))
        (make ':claim (subseq identifier (length "claim/"))))
@@ -216,6 +217,39 @@ Conflicted facts come first, then the rest by predicate and text."
       (unless entries
         (format stream "~%No contracts are defined.")))))
 
+(-> memory-knowledge--render-procedures (knowledge-base string) string)
+(defun memory-knowledge--render-procedures (base workspace)
+  "Return WORKSPACE's learned procedures with their status, record, parameters, and calls."
+  (let ((entries (knowledge-base-procedures base workspace)))
+    (with-output-to-string (stream)
+      (format stream "collection: procedures~%count: ~D~%" (length entries))
+      (dolist (entry entries)
+        (let* ((version (procedure-entry-version entry))
+               (procedure (getf version :procedure)))
+          (format stream "~%~A v~D ~(~A~)~@[ (runs v~D)~] · ~D run~:P, ~D failed~%"
+                  (getf entry :id) (getf version :version) (procedure-entry-status entry)
+                  (and (getf entry :admitted)
+                       (/= (getf entry :admitted) (getf version :version))
+                       (getf entry :admitted))
+                  (getf entry :runs) (getf entry :failures))
+          (when (getf version :examples)
+            (format stream "  learned from ~D turns, ~D model requests and ~D tokens each on average~%"
+                    (length (getf version :examples))
+                    (getf (getf version :baseline) :requests)
+                    (getf (getf version :baseline) :tokens)))
+          (format stream "~@[  parameters: ~{~A~^, ~}~%~]~@[  request: ~A~%~]"
+                  (mapcar (lambda (parameter)
+                            (format nil "~A (~(~A~)~@[ ending in ~A~])" (getf parameter :name)
+                                    (getf parameter :type) (getf parameter :suffix)))
+                          (getf (rest procedure) :parameters))
+                  (procedure-input-text procedure))
+          (loop for step in (getf (rest procedure) :steps)
+                for index from 1
+                do (format stream "  ~D. ~A ~A~%" index (getf step :tool)
+                           (procedure-template-text (getf step :arguments))))))
+      (unless entries
+        (format stream "~%No procedures are learned yet. Autolith learns one when three turns make the same tool calls.")))))
+
 (-> memory-knowledge--render-changes (configuration string knowledge-view) string)
 (defun memory-knowledge--render-changes (configuration viewer view)
   "Return what changed for VIEWER since it last read memory:changes, and record this read."
@@ -331,6 +365,8 @@ Conflicted facts come first, then the rest by predicate and text."
               (memory-knowledge--render-methods base workspace))
              (:contracts
               (memory-knowledge--render-contracts base workspace))
+             (:procedures
+              (memory-knowledge--render-procedures base workspace))
              (:changes
               (memory-knowledge--render-changes
                configuration

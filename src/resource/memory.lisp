@@ -131,7 +131,7 @@
 
 (defmethod resource-resolver-read-documentation ((resolver memory-resolver))
   "Document memory: reads, with structured knowledge views when they are offered."
-  (format nil "memory: exposes revisioned persistent memories, always read in full: memory:relevant, memory:all, or a canonical memory:id/<percent-encoded-stable-id> URI.~:[~; Structured knowledge: memory:facts lists facts holding now (query and max-results narrow it), memory:claim/<id> explains why one holds, memory:predicates, memory:rules, memory:methods, and memory:contracts list the vocabulary, rules, task methods, and tool contracts, and memory:changes reports what changed since this conversation last read it.~]"
+  (format nil "memory: exposes revisioned persistent memories, always read in full: memory:relevant, memory:all, or a canonical memory:id/<percent-encoded-stable-id> URI.~:[~; Structured knowledge: memory:facts lists facts holding now (query and max-results narrow it), memory:claim/<id> explains why one holds, memory:predicates, memory:rules, memory:methods, and memory:contracts list the vocabulary, rules, task methods, and tool contracts, memory:procedures lists learned procedures procedure.run makes, and memory:changes reports what changed since this conversation last read it.~]"
           (memory-resolver-knowledge-p resolver)))
 
 (defmethod resource-resolver-edit-documentation ((resolver memory-resolver))

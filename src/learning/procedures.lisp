@@ -282,6 +282,46 @@ steps' decoded results that :FROM templates must agree with."
                   (setf bindings next)))
        (values bindings t)))))
 
+(-> procedure-template-text (list) string)
+(defun procedure-template-text (template)
+  "Return TEMPLATE as JSON-like text: parameters as {NAME} and earlier results as <call N PATH>."
+  (ecase (first template)
+    (:json
+     (second template))
+    (:param
+     (format nil "{~A}" (second template)))
+    (:text
+     (let ((prefix (json-encode (second template)))
+           (suffix (json-encode (fourth template))))
+       (format nil "~A{~A}~A" (subseq prefix 0 (1- (length prefix))) (third template)
+               (subseq suffix 1))))
+    (:from
+     (format nil "<call ~D ~{~A~^.~}>" (1+ (second template)) (third template)))
+    (:object
+     (format nil "{~{~A~^,~}}"
+             (mapcar (lambda (entry)
+                       (format nil "~A:~A" (json-encode (first entry))
+                               (procedure-template-text (second entry))))
+                     (rest template))))
+    (:array
+     (format nil "[~{~A~^,~}]" (mapcar #'procedure-template-text (rest template))))))
+
+(-> procedure-input-text (list) (option string))
+(defun procedure-input-text (procedure)
+  "Return PROCEDURE's request pattern with {NAME} for parameters and * for any word, or NIL."
+  (let ((input (getf (rest procedure) :input)))
+    (and input
+         (format nil "~{~A~^ ~}"
+                 (mapcar (lambda (element)
+                           (cond
+                             ((stringp element) element)
+                             ((eq (first element) :param)
+                              (format nil "~A{~A}~A" (third element) (second element)
+                                      (fourth element)))
+                             (t
+                              (format nil "~A*~A" (second element) (third element)))))
+                         input)))))
+
 (-> procedure-parameter-accepts-p (list t) boolean)
 (defun procedure-parameter-accepts-p (parameter value)
   "Return true when VALUE has PARAMETER's type and ends with its required suffix."

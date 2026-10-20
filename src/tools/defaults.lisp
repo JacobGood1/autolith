@@ -668,6 +668,25 @@ KNOWLEDGE-P offers structured knowledge through memory: resources."
      '("operation"))))
   registry)
 
+(-> default-tools--register-procedure (tool-registry) tool-registry)
+(defun default-tools--register-procedure (registry)
+  "Register the tool running learned procedures in REGISTRY."
+  (tool-registry-describe-namespace
+   registry "procedure"
+   "Tool-call sequences Autolith learned from recurring work, run in one step.")
+  (default-tools--register
+   registry
+   (list 'procedure-run-tool
+         "procedure" "run"
+         "Make a learned procedure's tool calls in one step, each with its usual authorization, and report every call and result. Use it when Autolith says a procedure fits the request, or one listed by memory:procedures does. A procedure never admitted asks for admission first. If a call fails the run stops and reports where; continue with ordinary calls."
+         (tool-object-schema
+          (json-object
+           "id" (tool-string-property "The procedure's name.")
+           "parameters" (json-object "type" "object"
+                                     "description" "The procedure's parameters by name, such as {\"quarter\": \"q3\"}."))
+          '("id"))))
+  registry)
+
 (-> default-tools--register-plan (tool-registry &key (:knowledge-p boolean)) tool-registry)
 (defun default-tools--register-plan (registry &key (knowledge-p t))
   "Register workspace plan tools in REGISTRY.
@@ -1117,6 +1136,8 @@ socket."
     (default-tools--register-agenda registry)
     (default-tools--register-plan registry
                                   :knowledge-p (knowledge-active-p configuration))
+    (when (knowledge-active-p configuration)
+      (default-tools--register-procedure registry))
     (default-tools--register-lisp registry)
     (when (and configuration (lsp-configuration-enabled-p configuration))
       (lsp-register-tools registry))

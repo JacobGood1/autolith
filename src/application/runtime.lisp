@@ -3280,6 +3280,18 @@ checked."
   "Return the dim notice that COUNT facts given earlier changed."
   (format nil "@ ~D fact~:P given earlier changed" count))
 
+(-> application--procedures-learned-notice (list) string)
+(defun application--procedures-learned-notice (learned)
+  "Return the dim notice naming the procedures, (NAME VERSION TURNS), just LEARNED."
+  (format nil "@ ~{~A~^ · ~} · (procedures)"
+          (mapcar (lambda (entry)
+                    (destructuring-bind (name version turns) entry
+                      (if (= version 1)
+                          (format nil "learned procedure ~A from ~D turns" name turns)
+                          (format nil "procedure ~A v~D learned from ~D turns"
+                                  name version turns))))
+                  learned)))
+
 (-> application-agent-observer
     (application
      &key (:steering-function (option function))
@@ -3299,6 +3311,7 @@ checked."
   (let ((ui (application-ui application))
         (activity-label (application-thinking-label))
         (related-memories-shown-p nil)
+        (procedure-offers-shown-p nil)
         (request-empty-p nil)
         (reasoning-text (text-buffer-create))
         (presented-reasoning-text nil)
@@ -3390,7 +3403,8 @@ checked."
        (lambda (status details)
          (case status
            (:user-message-persisted
-            (setf related-memories-shown-p nil)
+            (setf related-memories-shown-p nil
+                  procedure-offers-shown-p nil)
             (let ((pending-input-identifier
                     (getf details :pending-input-identifier)))
               (when (and pending-input-identifier
@@ -3450,6 +3464,21 @@ checked."
              (list (terminal-span
                     ':dim
                     (application--knowledge-changes-notice (getf details :count))))))
+           (:procedure-offers
+            (unless procedure-offers-shown-p
+              (application-present
+               application
+               (list (terminal-span
+                      ':dim
+                      (format nil "@ learned procedure~P ~{~A~^, ~} fit~:[s~;~] this request"
+                              (length (getf details :names)) (getf details :names)
+                              (rest (getf details :names))))))
+              (setf procedure-offers-shown-p t)))
+           (:procedures-learned
+            (application-present
+             application
+             (list (terminal-span ':dim (application--procedures-learned-notice
+                                         (getf details :procedures))))))
            (:plan-changes
             (application-present
              application
@@ -3545,7 +3574,8 @@ checked."
                       application details)))))
             (application-set-activity application activity-label))
            (:steering-applied
-            (setf related-memories-shown-p nil)
+            (setf related-memories-shown-p nil
+                  procedure-offers-shown-p nil)
             (application-render-records application)
             (application-set-activity application activity-label))
            (:compaction-started

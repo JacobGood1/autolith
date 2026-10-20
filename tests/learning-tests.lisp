@@ -317,3 +317,166 @@
       (test-assert (null (procedure-learn configuration))
                    "a retired procedure is not learned again")))
   nil)
+
+(defclass learning-tests--scripted-tool (tool)
+  ((respond
+    :initarg :respond
+    :reader learning-tests--scripted-tool-respond
+    :type function
+    :documentation "Called with the arguments; returns a JSON object, or a string to fail with.")
+   (calls
+    :initform nil
+    :accessor learning-tests--scripted-tool-calls
+    :documentation "The arguments of each call, newest first."))
+  (:documentation "A tool answering from a script, for procedure tests."))
+
+(defmethod tool-execute ((tool learning-tests--scripted-tool) (context tool-context)
+                         (arguments hash-table))
+  "Record the call and answer as the script says."
+  (declare (ignore context))
+  (push arguments (learning-tests--scripted-tool-calls tool))
+  (let ((answer (funcall (learning-tests--scripted-tool-respond tool) arguments)))
+    (if (stringp answer)
+        (tool-failure answer)
+        (tool-success (json-encode answer)))))
+
+(-> learning-tests--tool (tool-registry string function) learning-tests--scripted-tool)
+(defun learning-tests--tool (registry tool respond)
+  "Register scripted TOOL, a NAMESPACE.NAME string answering through RESPOND, in REGISTRY."
+  (let* ((dot (position #\. tool))
+         (instance (make-instance 'learning-tests--scripted-tool
+                                  :namespace (subseq tool 0 dot) :name (subseq tool (1+ dot))
+                                  :description "A scripted tool."
+                                  :parameters (tool-object-schema (json-object) nil)
+                                  :respond respond)))
+    (tool-registry-register registry instance)
+    instance))
+
+(-> learning-tests--offers (configuration string) list)
+(defun learning-tests--offers (configuration text)
+  "Return the procedure offers context resolution makes for a conversation whose request is TEXT."
+  (let ((*context-contributors* nil)
+        (*context-resolver* (cl-llm-provider-api:make-context-resolver))
+        (*context-last-deliveries* (make-hash-table :test #'equal))
+        (*context-last-delivery-order* nil)
+        (conversation (conversation-create configuration)))
+    (conversation-append-user-message conversation text)
+    (register-context-contributor "procedure-offers" 'procedure-offer-context :source ':built-in)
+    (remove "procedure-offers"
+            (context-delivery-contributions (context-resolve-request configuration conversation #()))
+            :key #'context-contribution-identifier :test-not #'string=)))
+
+(-> test-procedure-running () null)
+(defun test-procedure-running ()
+  "Test running procedures through the tool path, admission, failures, suspension, and offers."
+  (with-test-configuration (base root)
+    (let* ((configuration (configuration-copy base :working-directory root))
+           (registry (make-default-tool-registry :configuration configuration))
+           (decision ':deny)
+           (asked nil)
+           (report-fails-p nil)
+           (load (learning-tests--tool
+                  registry "sales.load"
+                  (lambda (arguments)
+                    (let ((file (json-get arguments "file")))
+                      (json-object "rows" 12
+                                   "table" (format nil "t-~A" (subseq file 5 (- (length file) 4))))))))
+           (report (learning-tests--tool
+                    registry "sales.report"
+                    (lambda (arguments)
+                      (if report-fails-p
+                          "The report service is down."
+                          (json-object "report" (format nil "~A.md" (json-get arguments "table")))))))
+           (context (make-instance 'tool-context
+                                   :configuration configuration :worker nil :registry registry
+                                   :conversation (conversation-create configuration)
+                                   :command-authorization-function
+                                   (lambda (command directory)
+                                     (declare (ignore directory))
+                                     (push command asked)
+                                     decision))))
+      (procedure-define configuration (learning-tests--procedure))
+      (flet ((run (&rest parameters)
+               (memory-resource-tests--call registry context "procedure" "run"
+                                            "id" "make-sales-report"
+                                            "parameters" (apply #'json-object parameters)))
+
+             (entry ()
+               (knowledge-base-procedure (knowledge-base-read configuration)
+                                         (knowledge--workspace configuration)
+                                         "make-sales-report")))
+        (let ((declined (run "quarter" "q5")))
+          (test-assert (and (not (tool-result-success-p declined))
+                            (search "was declined, so it did not run" (tool-result-content declined))
+                            (equal asked '("procedure.admit -- make-sales-report v1: sales.load, sales.report"))
+                            (null (learning-tests--scripted-tool-calls load))
+                            (eq (procedure-entry-status (entry)) ':candidate))
+                       "the model's first run asks admission, and a refusal makes no call"))
+        (setf decision ':sandboxed)
+        (let ((ran (run "quarter" "q5")))
+          (test-assert (and (tool-result-success-p ran)
+                            (search "made 2 calls" (tool-result-content ran))
+                            (search "t-q5.md" (tool-result-content ran))
+                            (eq (procedure-entry-status (entry)) ':admitted))
+                       "an approved run is admitted and reports each call")
+          (let ((arguments (first (learning-tests--scripted-tool-calls report))))
+            (test-assert (and (equal (json-get (first (learning-tests--scripted-tool-calls load)) "file")
+                                     "data/q5.csv")
+                              (equal (json-get arguments "table") "t-q5")
+                              (equal (json-get arguments "title") "Sales q5")
+                              (equal (json-get arguments "format") "markdown"))
+                         "calls receive parameters, an earlier result, and constants")))
+        (loop for (parameters expected) in '((() "needs parameter quarter")
+                                            (("quarter" "q5" "region" "eu") "region is not one of them")
+                                            (("quarter" 5) "must be a non-empty string"))
+              do (let ((result (apply #'run parameters)))
+                   (test-assert (and (not (tool-result-success-p result))
+                                     (search expected (tool-result-content result)))
+                                (format nil "parameters ~S are refused: ~A" parameters expected))))
+        (setf report-fails-p t)
+        (let ((failed (run "quarter" "q6")))
+          (test-assert (and (not (tool-result-success-p failed))
+                            (search "stopped after 1 of 2 calls: sales.report failed: The report service is down."
+                                    (tool-result-content failed))
+                            (search "Continue the work with ordinary tool calls" (tool-result-content failed)))
+                       "a failing call stops the run and hands the work back"))
+        (run "quarter" "q7")
+        (test-assert (and (eq (procedure-entry-status (entry)) ':suspended)
+                          (= 3 (getf (entry) :runs)))
+                     "two failed runs in a row suspend the procedure")
+        (test-assert (search "is suspended after 2 failed runs" (tool-result-content (run "quarter" "q8")))
+                     "a suspended procedure refuses to run")
+        (test-assert (null (learning-tests--offers configuration "Make the sales report for q9."))
+                     "a suspended procedure is not offered")
+        (procedure-admit configuration "make-sales-report")
+        (setf report-fails-p nil)
+        (let ((offer (first (learning-tests--offers configuration "make the sales report for q9."))))
+          (test-assert (and offer
+                            (search "make-sales-report (admitted; calls sales.load, sales.report): procedure.run {\"id\":\"make-sales-report\",\"parameters\":{\"quarter\":\"q9\"}}"
+                                    (context-contribution-evidence offer)))
+                       "a fitting request is offered the one call that does the work"))
+        (test-assert (null (learning-tests--offers configuration "Make the sales forecast for q9."))
+                     "a request that does not fit is not offered")
+        (let ((user-run (procedure-run context "make-sales-report"
+                                       :parameters '(("quarter" . "q9")) :caller ':user)))
+          (test-assert (and (eq (getf user-run :status) ':ok)
+                            (= 1 (getf (entry) :user-runs)))
+                       "the user's own run is recorded as such"))
+        (let ((listing (tool-result-content
+                        (memory-resource-tests--call registry context "resource" "read"
+                                                     "uri" "memory:procedures"))))
+          (test-assert (and (search "make-sales-report v1 admitted · 4 runs, 2 failed" listing)
+                            (search "parameters: quarter (string)" listing)
+                            (search "request: Make the sales report for {quarter}." listing)
+                            (search "1. sales.load {\"file\":\"data/{quarter}.csv\"}" listing)
+                            (search "2. sales.report {\"table\":<call 1 table>,\"title\":\"Sales {quarter}\",\"format\":\"markdown\"}"
+                                    listing))
+                       "memory:procedures shows each procedure's record, request, and calls"))))
+    (with-test-configuration (base root)
+      (let ((registry (make-default-tool-registry
+                       :configuration (configuration-copy base :working-directory root
+                                                               :knowledge-mode "passive"))))
+        (test-assert (null (find "procedure.run" (tool-registry-tools registry)
+                                 :key #'tool-canonical-name :test #'string=))
+                     "procedure.run is offered only while knowledge is active"))))
+  nil)

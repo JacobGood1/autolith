@@ -373,7 +373,8 @@
   test-procedure-templates
   test-procedure-lifecycle
   test-procedure-mining
-  test-procedure-learning)
+  test-procedure-learning
+  test-procedure-running)
 
 (define-test-suite papercut
   test-papercuts)
