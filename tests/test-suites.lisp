@@ -375,7 +375,8 @@
   test-procedure-mining
   test-procedure-learning
   test-procedure-running
-  test-procedure-commands)
+  test-procedure-commands
+  test-procedure-fixture)
 
 (define-test-suite papercut
   test-papercuts)
