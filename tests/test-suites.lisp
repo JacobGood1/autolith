@@ -350,7 +350,8 @@
   test-knowledge-changes
   test-knowledge-memory-premises
   test-knowledge-recall
-  test-knowledge-commands)
+  test-knowledge-commands
+  test-knowledge-activation)
 
 (define-test-suite papercut
   test-papercuts)

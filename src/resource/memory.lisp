@@ -50,8 +50,13 @@
   (:documentation "One exact active persistent memory selected by stable identifier."))
 
 (defclass memory-resolver (resource-resolver)
-  ()
-  (:documentation "Resolve scoped memory collections and exact active memories."))
+  ((knowledge-p
+    :initarg :knowledge-p
+    :initform t
+    :reader memory-resolver-knowledge-p
+    :type boolean
+    :documentation "Whether structured knowledge views resolve and are documented."))
+  (:documentation "Resolve scoped memory collections, exact active memories, and knowledge views."))
 
 (defclass memory-observation (resource-observation)
   ((identifier
@@ -125,21 +130,22 @@
                  :identifier identifier))
 
 (defmethod resource-resolver-read-documentation ((resolver memory-resolver))
-  "Document memory: reads."
-  (declare (ignore resolver))
-  "memory: exposes revisioned persistent memories, always read in full: memory:relevant, memory:all, or a canonical memory:id/<percent-encoded-stable-id> URI. Structured knowledge: memory:facts lists facts holding now (query and max-results narrow it), memory:claim/<id> explains why one holds, memory:predicates and memory:rules list the vocabulary and rules, and memory:changes reports what changed since this conversation last read it.")
+  "Document memory: reads, with structured knowledge views when they are offered."
+  (format nil "memory: exposes revisioned persistent memories, always read in full: memory:relevant, memory:all, or a canonical memory:id/<percent-encoded-stable-id> URI.~:[~; Structured knowledge: memory:facts lists facts holding now (query and max-results narrow it), memory:claim/<id> explains why one holds, memory:predicates and memory:rules list the vocabulary and rules, and memory:changes reports what changed since this conversation last read it.~]"
+          (memory-resolver-knowledge-p resolver)))
 
 (defmethod resource-resolver-edit-documentation ((resolver memory-resolver))
-  "Document memory: edits."
-  (declare (ignore resolver))
-  "memory:workspace and memory:global create with memory-remember, canonical exact memory:id/<percent-encoded-stable-id> resources accept memory-replace or memory-forget, and memory:relevant is read-only. When a memory restates a file, a web page, or the user's words, cite them as sources; when it is derived from other memories, name them as premises.")
+  "Document memory: edits, with structured knowledge operations when they are offered."
+  (format nil "memory:workspace and memory:global create with memory-remember, canonical exact memory:id/<percent-encoded-stable-id> resources accept memory-replace or memory-forget, and memory:relevant is read-only. When a memory restates a file, a web page, or the user's words, cite them as sources; when it is derived from other memories, name them as premises.~:[~; memory:facts accepts up to 16 operations per edit: predicate-define, fact-assert, fact-retract, and rule-propose. Record a value you will need again as a fact with its source, and propose a rule when the same calculation from facts recurs: rules recompute it locally whenever its inputs change.~]"
+          (memory-resolver-knowledge-p resolver)))
 
 (defmethod resource-resolver-resolve
     ((resolver memory-resolver) identifier (context tool-context))
   "Resolve reserved collections or one canonical or compatible exact identifier."
-  (declare (ignore resolver context))
+  (declare (ignore context))
   (let ((visibility (memory-resource--collection-visibility identifier))
-        (knowledge (memory-knowledge-resolve identifier)))
+        (knowledge (and (memory-resolver-knowledge-p resolver)
+                        (memory-knowledge-resolve identifier))))
     (cond
       (knowledge
        knowledge)

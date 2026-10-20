@@ -278,8 +278,10 @@ Changes to facts this conversation was given earlier are explained once."
       (let* ((configuration (request-context-configuration request))
              (matches (memory-rank configuration query :visibility ':relevant))
              (selected (subseq matches 0 (min *memory-context-result-limit* (length matches))))
-             (knowledge-p (plusp (hash-table-count
-                                  (knowledge-base-claims (knowledge-base-read configuration)))))
+             (knowledge-p (and (knowledge-active-p configuration)
+                               (plusp (hash-table-count
+                                       (knowledge-base-claims
+                                        (knowledge-base-read configuration))))))
              (assessor (and (or selected knowledge-p) (memory-assessor-create configuration)))
              (view (and assessor (memory-assessor-view assessor)))
              (facts (and knowledge-p (memory-context--relevant-facts view query)))

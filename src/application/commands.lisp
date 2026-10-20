@@ -2559,6 +2559,11 @@ the settings page and the slash commands behave identically."
          (setf (application-compact-view-p application) value)
          (application-reset-history-pagination application))
        (application-publish-recovery-session application))
+      (:knowledge-mode
+       (setf (config :knowledge-mode configuration) value)
+       ;; The model's resource operations and documentation depend on the
+       ;; mode, so the session's tools are rebuilt for the next request.
+       (application-reload-mcp application))
       (:hurry-up-p (application-set-hurry-up application value))
       (:relax-p
        (application-set-relax application value))

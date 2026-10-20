@@ -64,9 +64,12 @@
              "The pristine or saved worker image; defaults to pristine.")))
     (tool-object-schema properties nil)))
 
-(-> default-tools--resource-operation-schema () json-object)
-(defun default-tools--resource-operation-schema ()
-  "Return the closed workspace, scratchpad, agenda, memory, and papercut resource.edit variants."
+(-> default-tools--resource-operation-schema (&key (:knowledge-p boolean)) json-object)
+(defun default-tools--resource-operation-schema (&key (knowledge-p t))
+  "Return the closed workspace, scratchpad, agenda, memory, and papercut resource.edit variants.
+
+KNOWLEDGE-P adds the memory:facts operations defining predicates, asserting and
+retracting facts, and proposing rules."
   (labels ((line-property (description)
              "Return one positive original-snapshot line schema."
              (let ((schema (tool-integer-property description)))
@@ -161,7 +164,73 @@
      "description"
      "One structured operation for the observed resource type."
      "oneOf"
-     (vector
+     (concatenate
+      'vector
+      (when knowledge-p
+        (list
+      (operation-schema
+       "predicate-define"
+       (json-object
+        "predicate" (tool-string-property "Lowercase dotted name such as event.start.")
+        "arguments" (cl-llm-provider-api:provider-array-schema
+                     (tool-object-schema
+                      (json-object
+                       "name" (tool-string-property "Lowercase argument name.")
+                       "type" (cl-llm-provider-api:provider-enum-schema
+                               *memory-knowledge-type-names* "The argument's value type.")
+                       "unit" (tool-string-property
+                               "For a quantity, a unit whose dimension values must have."))
+                      '("name" "type"))
+                     "Typed arguments in order.")
+        "key" (cl-llm-provider-api:provider-array-schema
+               (tool-string-property "An argument name.")
+               "Arguments identifying the subject; facts agreeing on them and differing elsewhere conflict.")
+        "template" (tool-string-property "Sentence with {argument} placeholders.")
+        "description" (tool-string-property "What the predicate means.")
+        "scope" (memory-scope-property))
+       '("predicate" "arguments"))
+      (operation-schema
+       "fact-assert"
+       (json-object
+        "predicate" (tool-string-property "A defined predicate.")
+        "arguments" (json-object "type" "array"
+                                 "items" (json-object "description" "One argument value.")
+                                 "description" "Values in argument order: strings, numbers, ISO instants and dates, durations such as PT30M, quantities as {magnitude, unit}.")
+        "negated" (tool-boolean-property "Assert that the fact does not hold.")
+        "sources" (memory-sources-property)
+        "basis" (cl-llm-provider-api:provider-enum-schema
+                 '("observation" "user-assertion" "assumption" "model-proposal")
+                 "Why it is believed; defaults from the sources, or model-proposal without any.")
+        "valid-from" (tool-string-property "ISO instant from which the fact holds.")
+        "valid-until" (tool-string-property "ISO instant after which it no longer holds.")
+        "scope" (memory-scope-property))
+       '("predicate" "arguments"))
+      (operation-schema
+       "fact-retract"
+       (json-object
+        "id" (tool-string-property "A claim or support identifier.")
+        "reason" (tool-string-property "Why it no longer holds."))
+       '("id"))
+      (operation-schema
+       "rule-propose"
+       (json-object
+        "id" (tool-string-property "Lowercase rule name; proposing it again makes a new version.")
+        "premises" (json-object "type" "array"
+                                "items" (json-object "description" "One premise pattern.")
+                                "description" "Patterns such as [\"event.start\", \"?event\", \"?start\"], or [\"not\", PATTERN] matching an explicitly asserted negation.")
+        "guards" (json-object "type" "array"
+                              "items" (json-object "description" "One comparison.")
+                              "description" "Comparisons such as [\"<\", \"?a\", \"?b\"].")
+        "bindings" (json-object "type" "array"
+                                "items" (json-object "description" "One variable and its expression.")
+                                "description" "New variables such as [\"?leave\", [\"-\", \"?start\", \"?travel\"]], computed with + - * / min max abs date start-of-day weekday days hours minutes in-unit.")
+        "conclusion" (json-object "type" "array"
+                                  "items" (json-object "description" "A predicate name, variable, or value.")
+                                  "description" "The pattern the rule concludes, using bound variables.")
+        "description" (tool-string-property "What the rule does.")
+        "scope" (memory-scope-property))
+       '("id" "premises" "conclusion"))))
+      (vector
        (operation-schema
         "replace-lines"
         (json-object
@@ -258,68 +327,6 @@
        (json-object)
        nil)
       (operation-schema
-       "predicate-define"
-       (json-object
-        "predicate" (tool-string-property "Lowercase dotted name such as event.start.")
-        "arguments" (cl-llm-provider-api:provider-array-schema
-                     (tool-object-schema
-                      (json-object
-                       "name" (tool-string-property "Lowercase argument name.")
-                       "type" (cl-llm-provider-api:provider-enum-schema
-                               *memory-knowledge-type-names* "The argument's value type.")
-                       "unit" (tool-string-property
-                               "For a quantity, a unit whose dimension values must have."))
-                      '("name" "type"))
-                     "Typed arguments in order.")
-        "key" (cl-llm-provider-api:provider-array-schema
-               (tool-string-property "An argument name.")
-               "Arguments identifying the subject; facts agreeing on them and differing elsewhere conflict.")
-        "template" (tool-string-property "Sentence with {argument} placeholders.")
-        "description" (tool-string-property "What the predicate means.")
-        "scope" (memory-scope-property))
-       '("predicate" "arguments"))
-      (operation-schema
-       "fact-assert"
-       (json-object
-        "predicate" (tool-string-property "A defined predicate.")
-        "arguments" (json-object "type" "array"
-                                 "items" (json-object "description" "One argument value.")
-                                 "description" "Values in argument order: strings, numbers, ISO instants and dates, durations such as PT30M, quantities as {magnitude, unit}.")
-        "negated" (tool-boolean-property "Assert that the fact does not hold.")
-        "sources" (memory-sources-property)
-        "basis" (cl-llm-provider-api:provider-enum-schema
-                 '("observation" "user-assertion" "assumption" "model-proposal")
-                 "Why it is believed; defaults from the sources, or model-proposal without any.")
-        "valid-from" (tool-string-property "ISO instant from which the fact holds.")
-        "valid-until" (tool-string-property "ISO instant after which it no longer holds.")
-        "scope" (memory-scope-property))
-       '("predicate" "arguments"))
-      (operation-schema
-       "fact-retract"
-       (json-object
-        "id" (tool-string-property "A claim or support identifier.")
-        "reason" (tool-string-property "Why it no longer holds."))
-       '("id"))
-      (operation-schema
-       "rule-propose"
-       (json-object
-        "id" (tool-string-property "Lowercase rule name; proposing it again makes a new version.")
-        "premises" (json-object "type" "array"
-                                "items" (json-object "description" "One premise pattern.")
-                                "description" "Patterns such as [\"event.start\", \"?event\", \"?start\"], or [\"not\", PATTERN] matching an explicitly asserted negation.")
-        "guards" (json-object "type" "array"
-                              "items" (json-object "description" "One comparison.")
-                              "description" "Comparisons such as [\"<\", \"?a\", \"?b\"].")
-        "bindings" (json-object "type" "array"
-                                "items" (json-object "description" "One variable and its expression.")
-                                "description" "New variables such as [\"?leave\", [\"-\", \"?start\", \"?travel\"]], computed with + - * / min max abs date start-of-day weekday days hours minutes in-unit.")
-        "conclusion" (json-object "type" "array"
-                                  "items" (json-object "description" "A predicate name, variable, or value.")
-                                  "description" "The pattern the rule concludes, using bound variables.")
-        "description" (tool-string-property "What the rule does.")
-        "scope" (memory-scope-property))
-       '("id" "premises" "conclusion"))
-      (operation-schema
        "papercut-report"
        (json-object
         "issue-kind" (cl-llm-provider-api:provider-enum-schema
@@ -347,11 +354,13 @@
         "resolution" (tool-string-property
                       "Complete bounded private local closure resolution.")
         "diagnostic" (default-tools--diagnostic-property))
-       '("resolution"))))))
+       '("resolution")))))))
 
-(-> default-tools--register-workspace (tool-registry) tool-registry)
-(defun default-tools--register-workspace (registry)
-  "Register the default resource and image-inspection tools in REGISTRY."
+(-> default-tools--register-workspace (tool-registry &key (:knowledge-p boolean)) tool-registry)
+(defun default-tools--register-workspace (registry &key (knowledge-p t))
+  "Register the default resource and image-inspection tools in REGISTRY.
+
+KNOWLEDGE-P offers structured knowledge through memory: resources."
   (tool-registry-describe-namespace
    registry "resource"
    "Revision-gated observation and structured editing of model-addressable resources.")
@@ -370,7 +379,7 @@
      (make-instance 'agenda-resolver :scheme "agenda"))
     (resource-registry-register
      resource-registry
-     (make-instance 'memory-resolver :scheme "memory"))
+     (make-instance 'memory-resolver :scheme "memory" :knowledge-p knowledge-p))
     (resource-registry-register
      resource-registry
      (make-instance 'papercut-resolver :scheme "papercut"))
@@ -430,7 +439,8 @@
                            "description"
                            "Resource-specific operations. Agenda, memory, and papercut resources accept exactly one; line-edited text and observed missing files accept non-overlapping original-line operations; scratchpad: resources additionally accept one scratchpad-delete operation."
                            "minItems" 1
-                           "items" (default-tools--resource-operation-schema)))
+                           "items" (default-tools--resource-operation-schema
+                                    :knowledge-p knowledge-p)))
             '("uri" "base-revision" "operations"))
            :resource-registry resource-registry)
           (list
@@ -1034,7 +1044,8 @@ emacs.* tools and emacs: resources only when it names a reachable Emacs server
 socket."
   (let ((registry (make-instance 'tool-registry))
         (search-worker (search-worker-create :configuration configuration)))
-    (default-tools--register-workspace registry)
+    (default-tools--register-workspace registry
+                                       :knowledge-p (knowledge-active-p configuration))
     (default-tools--register-web registry)
     (default-tools--register-search registry search-worker)
     (default-tools--register-shell registry)

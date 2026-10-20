@@ -342,6 +342,18 @@ exist yet, and is only put in directory form."
   :documentation "Whether requests that re-read uncached context are reported."
   :scope :durable)
 
+(define-setting :knowledge-mode (choice-setting)
+  :label "Structured knowledge"
+  :group :behavior
+  :documentation "Whether facts and rules are used (active), only recorded from observations (passive), or neither (off). Passive and off leave model requests exactly as without them."
+  :type 'non-empty-string
+  :scope :durable
+  :environment "AUTOLITH_KNOWLEDGE"
+  :options (lambda (configuration)
+             (declare (ignore configuration))
+             (list "active" "passive" "off"))
+  :default "active")
+
 (define-setting :idle-compaction-p (boolean-setting)
   :label "Idle cache compaction"
   :group :behavior
