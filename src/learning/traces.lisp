@@ -16,6 +16,9 @@
 (defparameter *action-trace-conversation-limit* 10
   "The most recent conversations one learning pass reads traces from.")
 
+(defparameter *action-trace-output-limit* 16384
+  "The longest call result a trace keeps; longer results are dropped.")
+
 (defvar *action-trace-cache* (make-hash-table :test #'equal :synchronized t)
   "(SEGMENTS POSITION DIRECTORY TRACES) of each read conversation by identity namestring.
 
@@ -43,7 +46,10 @@ and TRACES are newest first.")
     :initarg :calls
     :accessor action-trace-calls
     :type list
-    :documentation "(:TOOL :ARGUMENTS :STATUS :OUTPUT :CALL-ID) for each tool call in order.")
+    :documentation "(:TOOL :ARGUMENTS :STATUS :OUTPUT :CALL-ID) for each tool call in order.
+
+OUTPUT is kept only when it is a JSON object or array of bounded length,
+the only results later calls can take values from.")
    (requests
     :initarg :requests
     :initform 0
@@ -91,17 +97,25 @@ none. Unreadable storage yields none instead of failing the caller."
                                          (predicate #'action-trace-accepted-p))
   "Return up to LIMIT recent traces of CONFIGURATION's workspace satisfying PREDICATE, newest first.
 
-By default only traces accepted for learning are returned."
+By default only traces accepted for learning are returned. Cached traces of
+conversations this read did not reach are released once the cache holds
+twice as many conversations as one read visits."
   (let ((workspace (knowledge--workspace configuration))
-        (collected nil))
+        (collected nil)
+        (visited nil))
     (loop for pathname in (conversation-list configuration)
           repeat *action-trace-conversation-limit*
-          do (setf collected
+          do (push (namestring (conversation-storage-identity-pathname pathname)) visited)
+             (setf collected
                    (append collected
                            (reverse (remove-if-not predicate
                                                    (action-traces-in-conversation
                                                     pathname :workspace workspace)))))
           until (>= (length collected) limit))
+    (when (> (hash-table-count *action-trace-cache*) (* 2 *action-trace-conversation-limit*))
+      (loop for name in (loop for name being the hash-keys of *action-trace-cache* collect name)
+            unless (member name visited :test #'string=)
+              do (remhash name *action-trace-cache*)))
     (subseq collected 0 (min limit (length collected)))))
 
 (-> action-trace--segment-states (pathname) list)
@@ -217,7 +231,8 @@ requests extend the newest one. Compaction requests are not counted."
                               :test #'equal))))
          (when call
            (setf (getf call :status) (getf properties :status)
-                 (getf call :output) (getf properties :output)))))
+                 (getf call :output) (action-trace--retained-output
+                                      (getf properties :output))))))
       (:provider
        (let ((metadata (getf properties :metadata)))
          (when (and current
@@ -238,3 +253,14 @@ requests extend the newest one. Compaction requests are not counted."
           :status nil
           :output nil
           :call-id (json-get item "call_id"))))
+
+(-> action-trace--retained-output (t) (option string))
+(defun action-trace--retained-output (output)
+  "Return call OUTPUT when it may be a JSON object or array no longer than the limit, else NIL."
+  (and (stringp output)
+       (<= (length output) *action-trace-output-limit*)
+       (let ((start (position-if-not (lambda (character)
+                                       (find character '(#\Space #\Tab #\Newline #\Return)))
+                                     output)))
+         (and start (find (char output start) "{[")))
+       output))

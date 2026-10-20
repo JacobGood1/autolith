@@ -93,11 +93,24 @@
                        "a later read continues from the cached traces without changing them"))
         (test-assert (null (action-traces-in-conversation (conversation-pathname conversation)
                                                           :workspace "/elsewhere/"))
-                     "a conversation from another workspace yields no traces"))
+                     "a conversation from another workspace yields no traces")
+        (conversation-append-user-message conversation "Tell the team.")
+        (conversation-append-provider-item
+         conversation
+         (json-object "type" "function_call" "call_id" "t-1" "namespace" "notify" "name" "send"
+                      "arguments" "{}"))
+        (conversation-append-tool-result conversation "t-1" :tool-name "notify.send"
+                                                            :output "Sent to the team."
+                                                            :success-p t)
+        (let ((call (first (action-trace-calls
+                            (first (last (action-traces-in-conversation
+                                          (conversation-pathname conversation))))))))
+          (test-assert (and (eq (getf call :status) ':ok) (null (getf call :output)))
+                       "a result later calls cannot take values from is not kept")))
       (test-assert (equal (mapcar (lambda (trace) (action-trace-input trace))
                                   (action-traces configuration))
-                          '("Make the sales report for q4." "Make the sales report for q3."
-                            "Make the sales report for q1."))
+                          '("Tell the team." "Make the sales report for q4."
+                            "Make the sales report for q3." "Make the sales report for q1."))
                    "recent accepted traces of the workspace come newest first")))
   nil)
 
