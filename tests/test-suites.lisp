@@ -358,7 +358,8 @@
   test-knowledge-view-cache
   test-knowledge-plan-steps
   test-knowledge-plan-changes
-  test-knowledge-task-methods)
+  test-knowledge-task-methods
+  test-knowledge-fact-gates)
 
 (define-test-suite knowledge-fixtures
   test-knowledge-appointment-fixtures

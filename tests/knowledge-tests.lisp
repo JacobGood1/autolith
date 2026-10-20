@@ -1554,3 +1554,32 @@
                                                              "uri" "memory:methods")))
                        "memory:methods lists the methods")))))
   nil)
+
+(-> test-knowledge-fact-gates () null)
+(defun test-knowledge-fact-gates ()
+  "Test mission gates that pass only on facts resting on accepted evidence."
+  (dolist (case '((:user-assertion :passed) (:assumption :failed)))
+    (destructuring-bind (travel-basis expected) case
+      (with-test-configuration (base root)
+        (let* ((configuration (configuration-copy base :working-directory root))
+               (application (mission-test--application configuration)))
+          (knowledge-tests--define-appointments configuration)
+          (knowledge-tests--admit-departure configuration)
+          (knowledge-tests--review configuration :travel-basis travel-basis)
+          (application-mission-start
+           application
+           (mission-test--specification
+            :gates '((:id "departure-known" :kind :fact
+                      :pattern ("event.departure" "review" "?t")))))
+          (test-call-with-function-replacements
+           (list (list 'mission--tool-context (lambda (app) (mission-test--context app))))
+           (lambda () (application-mission-verify application)))
+          (let ((gate (first (getf (application-goal application) :gates))))
+            (test-assert (eq (getf gate :status) expected)
+                         (format nil "a departure derived from ~(~A~) ~(~A~) the gate"
+                                 travel-basis expected))
+            (when (eq expected ':failed)
+              (test-assert (search "No fact resting on observation or user-assertion evidence"
+                                   (getf gate :evidence))
+                           "the failed gate says which evidence it accepts"))))))
+    nil))
