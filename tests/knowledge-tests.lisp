@@ -75,3 +75,98 @@
                     (not (knowledge-term-p '(:quantity 3 "furlongs"))))
                "only canonical forms are terms")
   nil)
+
+(-> knowledge-tests--event-schema () list)
+(defun knowledge-tests--event-schema ()
+  "Return a schema keyed by its event, so one event has one start."
+  (knowledge-make-schema :predicate "event.start"
+                         :arguments '((:name "event" :type :entity)
+                                      (:name "time" :type :instant))
+                         :key '("event")
+                         :template "{event} starts at {time}"))
+
+
+(-> test-knowledge-schemas () null)
+(defun test-knowledge-schemas ()
+  "Test schemas, canonical propositions, claim identity, and conflict keys."
+  (let* ((schema (knowledge-tests--event-schema))
+         (start (knowledge-make-proposition
+                 schema '("review" "2026-10-22T15:00+02:00")))
+         (same (knowledge-make-proposition
+                schema '("review" "2026-10-22T13:00:00Z")))
+         (later (knowledge-make-proposition
+                 schema '("review" "2026-10-22T14:00:00Z")))
+         (denied (knowledge-make-proposition
+                  schema '("review" "2026-10-22T13:00:00Z") :negated t)))
+    (test-assert (equal start '("event.start" "review" (:instant "2026-10-22T13:00:00Z")))
+                 "propositions are canonical whatever the input zone")
+    (test-assert (and (string= (knowledge-claim-identifier start :scope ':workspace
+                                                                  :workspace "/w/")
+                               (knowledge-claim-identifier same :scope ':workspace
+                                                                :workspace "/w/"))
+                      (string/= (knowledge-claim-identifier start :scope ':workspace
+                                                                  :workspace "/w/")
+                                (knowledge-claim-identifier start :scope ':global))
+                      (string/= (knowledge-claim-identifier start :scope ':global)
+                                (knowledge-claim-identifier denied :scope ':global)))
+                 "one proposition in one scope is one claim")
+    (test-assert (and (equal (knowledge-proposition-key start schema)
+                             (knowledge-proposition-key later schema))
+                      (not (knowledge-propositions-equal-p start later))
+                      (null (knowledge-proposition-key denied schema)))
+                 "claims keyed by the same event with other times conflict")
+    (test-assert (equal (list (knowledge-proposition-display start schema)
+                              (knowledge-proposition-display denied nil))
+                        '("review starts at 2026-10-22 13:00 UTC"
+                          "not: event.start(review, 2026-10-22 13:00 UTC)"))
+                 "propositions read as sentences through their template")
+    (dolist (case (list (list "a wrong arity"
+                              (lambda () (knowledge-make-proposition schema '("review"))))
+                        (list "a rule variable"
+                              (lambda () (knowledge-make-proposition
+                                          schema '("?event" "2026-10-22T13:00:00Z"))))))
+      (test-assert (eq (knowledge-tests--error-code (second case)) ':invalid-claim)
+                   (format nil "~A is not a claim" (first case))))
+    (test-assert (handler-case (progn (knowledge-make-proposition schema '("review" "1pm")) nil)
+                   (knowledge-error (condition)
+                     (and (eq (knowledge-error-code condition) ':invalid-term)
+                          (search "Argument time of event.start"
+                                  (autolith-error-message condition))
+                          t)))
+                 "a mistyped argument names the argument it belongs to")
+    (dolist (case (list (list "an unqualified predicate"
+                              (lambda () (knowledge-make-schema
+                                          :predicate "start"
+                                          :arguments '((:name "x" :type :entity)))))
+                        (list "an unknown type"
+                              (lambda () (knowledge-make-schema
+                                          :predicate "a.b"
+                                          :arguments '((:name "x" :type :colour)))))
+                        (list "a duplicate argument"
+                              (lambda () (knowledge-make-schema
+                                          :predicate "a.b"
+                                          :arguments '((:name "x" :type :entity)
+                                                       (:name "x" :type :number)))))
+                        (list "a key naming no argument"
+                              (lambda () (knowledge-make-schema
+                                          :predicate "a.b"
+                                          :arguments '((:name "x" :type :entity)
+                                                       (:name "y" :type :number))
+                                          :key '("z"))))
+                        (list "a unit on a number"
+                              (lambda () (knowledge-make-schema
+                                          :predicate "a.b"
+                                          :arguments '((:name "x" :type :number :unit "km")))))))
+      (test-assert (eq (knowledge-tests--error-code (second case)) ':invalid-schema)
+                   (format nil "~A is not a schema" (first case))))
+    (let ((distance (knowledge-make-schema
+                     :predicate "route.distance"
+                     :arguments '((:name "route" :type :entity)
+                                  (:name "length" :type :quantity :unit "km")))))
+      (test-assert (and (knowledge-make-proposition distance '("r1" (12 "mi")))
+                        (eq (knowledge-tests--error-code
+                             (lambda ()
+                               (knowledge-make-proposition distance '("r1" (12 "kg")))))
+                            ':invalid-claim))
+                   "a quantity argument accepts only units of its dimension")))
+  nil)

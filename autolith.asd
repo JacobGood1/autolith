@@ -130,6 +130,7 @@
                              (:file "state/memories")
                              (:file "state/memory-status")
                              (:file "knowledge/terms")
+                             (:file "knowledge/schemas")
                              (:file "state/papercuts")
                              (:file "state/agendas")
                              (:file "state/plan")
