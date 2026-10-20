@@ -258,11 +258,8 @@ Conflicted facts come first, then the rest by predicate and text."
                   (getf entry :id) (getf latest :version) (getf entry :scope)
                   (getf entry :active)
                   (mapcar #'memory-knowledge--pattern-text (getf (rest rule) :premises))
-                  (mapcar (lambda (guard) (format nil "~A ~S ~S" (first guard) (second guard)
-                                                  (third guard)))
-                          (getf (rest rule) :guards))
-                  (mapcar (lambda (binding) (format nil "~A = ~S" (first binding) (second binding)))
-                          (getf (rest rule) :bindings))
+                  (memory-knowledge--guard-texts rule)
+                  (memory-knowledge--binding-texts rule)
                   (memory-knowledge--pattern-text (getf (rest rule) :conclusion))
                   (getf (rest rule) :description))))
       (unless entries
@@ -536,19 +533,88 @@ Conflicted facts come first, then the rest by predicate and text."
                             '("op" "id" "premises" "guards" "bindings" "conclusion"
                               "description" "scope")
                             '("id" "premises" "conclusion"))
-  (multiple-value-bind (identifier version new-p)
-      (knowledge-propose-rule (tool-context-configuration context)
-                              :id (gethash "id" operation)
-                              :premises (gethash "premises" operation)
-                              :guards (gethash "guards" operation #())
-                              :bindings (gethash "bindings" operation #())
-                              :conclusion (gethash "conclusion" operation)
-                              :description (gethash "description" operation)
-                              :scope (memory-knowledge--scope operation)
-                              :source-conversation (conversation-identifier
-                                                    (tool-context-conversation context)))
-    (format nil "~:[Rule ~A version ~D is unchanged~;Proposed rule ~A version ~D~]; it derives nothing until it is admitted."
-            new-p identifier version)))
+  (let ((configuration (tool-context-configuration context))
+        (scope (memory-knowledge--scope operation)))
+    (multiple-value-bind (identifier version new-p)
+        (knowledge-propose-rule configuration
+                                :id (gethash "id" operation)
+                                :premises (gethash "premises" operation)
+                                :guards (gethash "guards" operation #())
+                                :bindings (gethash "bindings" operation #())
+                                :conclusion (gethash "conclusion" operation)
+                                :description (gethash "description" operation)
+                                :scope scope
+                                :source-conversation (conversation-identifier
+                                                      (tool-context-conversation context)))
+      (let* ((entry (knowledge-base-rule (knowledge-base-read configuration) identifier
+                                         :workspace (knowledge--workspace configuration)))
+             (active-p (eql (getf entry :active) version))
+             (decision (if active-p
+                           ':full-access
+                           (tool-context-authorize-command
+                            context
+                            (memory-knowledge--admission-command
+                             identifier version
+                             (getf (knowledge-rule-entry-version entry version) :rule))
+                            (config :working-directory configuration)))))
+        (cond
+          (active-p
+           (format nil "Rule ~A version ~D is unchanged and active." identifier version))
+          ((eq decision ':deny)
+           (format nil "~:[Rule ~A version ~D is unchanged~;Proposed rule ~A version ~D~]; admission was declined, so it derives nothing. The user can admit it with (admit-rule ~S)."
+                   new-p identifier version identifier))
+          (t
+           (knowledge-admit-rule configuration identifier
+                                 :scope scope :version version
+                                 :by (string-downcase (symbol-name decision)))
+           (format nil "Admitted rule ~A version ~D." identifier version)))))))
+
+(-> memory-knowledge--admission-command (string integer list) string)
+(defun memory-knowledge--admission-command (identifier version rule)
+  "Return the command text a person approves to admit RULE."
+  (format nil "rule.admit -- ~A v~D: ~{~A~^ and ~}~@[ where ~{~A~^, ~}~]~@[ with ~{~A~^, ~}~] => ~A"
+          identifier version
+          (mapcar #'memory-knowledge--pattern-text (getf (rest rule) :premises))
+          (memory-knowledge--guard-texts rule)
+          (memory-knowledge--binding-texts rule)
+          (memory-knowledge--pattern-text (getf (rest rule) :conclusion))))
+
+(-> memory-knowledge--guard-texts (list) list)
+(defun memory-knowledge--guard-texts (rule)
+  "Return RULE's guards as text."
+  (mapcar (lambda (guard)
+            (format nil "~A ~A ~A"
+                    (memory-knowledge--expression-text (second guard))
+                    (first guard)
+                    (memory-knowledge--expression-text (third guard))))
+          (getf (rest rule) :guards)))
+
+(-> memory-knowledge--binding-texts (list) list)
+(defun memory-knowledge--binding-texts (rule)
+  "Return RULE's bindings as text."
+  (mapcar (lambda (binding)
+            (format nil "~A = ~A" (first binding)
+                    (memory-knowledge--expression-text (second binding))))
+          (getf (rest rule) :bindings)))
+
+(-> memory-knowledge--expression-text (t) string)
+(defun memory-knowledge--expression-text (expression)
+  "Return a rule EXPRESSION in infix-style text people read."
+  (cond
+    ((knowledge-variable-p expression)
+     expression)
+    ((and (knowledge-expression-call-p expression)
+          (= (length expression) 3)
+          (member (first expression) '("+" "-" "*" "/") :test #'string=))
+     (format nil "(~A ~A ~A)"
+             (memory-knowledge--expression-text (second expression))
+             (first expression)
+             (memory-knowledge--expression-text (third expression))))
+    ((knowledge-expression-call-p expression)
+     (format nil "~A(~{~A~^, ~})" (first expression)
+             (mapcar #'memory-knowledge--expression-text (rest expression))))
+    (t
+     (knowledge-term-display expression))))
 
 (-> memory-knowledge--apply (tool-context t) string)
 (defun memory-knowledge--apply (context operation)

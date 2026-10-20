@@ -1280,7 +1280,8 @@
                             (search "Defined event.start version 1" (content defined))
                             (search "now holds: review starts at 2026-10-22 13:00 UTC"
                                     (content defined))
-                            (search "derives nothing until it is admitted" (content defined)))
+                            (search "admission was declined, so it derives nothing"
+                                    (content defined)))
                        "one edit defines predicates, asserts facts, and proposes a rule"))
         (knowledge-admit-rule configuration "departure")
         (let* ((facts (content (read-resource "memory:facts")))
@@ -1362,4 +1363,56 @@
           (test-assert (and (not (tool-result-success-p unobserved))
                             (search "Read memory:facts" (content unobserved)))
                        "an edit needs a memory:facts revision from this conversation")))))
+  nil)
+
+(-> test-memory-knowledge-rule-admission () null)
+(defun test-memory-knowledge-rule-admission ()
+  "Test that a proposed rule is admitted exactly when command authorization allows it."
+  (with-test-configuration (configuration)
+    (knowledge-tests--define-appointments configuration)
+    (let* ((registry (make-default-tool-registry))
+           (conversation (conversation-create configuration :identifier "rule-admission"))
+           (requests nil))
+      (flet ((propose (decision description)
+               "Propose a departure rule version as a context deciding DECISION would."
+               (let ((context (make-instance 'tool-context
+                                             :configuration configuration
+                                             :worker nil
+                                             :conversation conversation
+                                             :command-authorization-function
+                                             (lambda (command directory)
+                                               (declare (ignore directory))
+                                               (push command requests)
+                                               decision))))
+                 (memory-resource-tests--call
+                  registry context "resource" "edit"
+                  "uri" "memory:facts"
+                  "base-revision" (memory-resource-tests--field
+                                   (tool-result-content
+                                    (memory-resource-tests--call registry context "resource"
+                                                                 "read" "uri" "memory:facts"))
+                                   "Revision: ")
+                  "operations" (vector (json-object
+                                        "op" "rule-propose" "id" "departure"
+                                        "description" description
+                                        "premises" (vector (vector "event.start" "?e" "?s")
+                                                           (vector "event.travel" "?e" "?t"))
+                                        "bindings" (vector (vector "?l" (vector "-" "?s" "?t")))
+                                        "conclusion" (vector "event.departure" "?e" "?l")))))))
+        (test-assert (and (search "admission was declined" (tool-result-content
+                                                            (propose ':deny "first")))
+                          (null (knowledge-base-active-rules (knowledge-base-read configuration)
+                                                             :workspace (namestring
+                                                                         (config :working-directory
+                                                                                 configuration)))))
+                     "a declined rule stays inactive")
+        (test-assert (equal (first requests)
+                            "rule.admit -- departure v1: event.start(?e, ?s) and event.travel(?e, ?t) with ?l = (?s - ?t) => event.departure(?e, ?l)")
+                     "the person approves a readable statement of the rule")
+        (test-assert (search "Admitted rule departure version 2"
+                             (tool-result-content (propose ':sandboxed "second")))
+                     "an allowed proposal is admitted at once")
+        (test-assert (search "unchanged and active"
+                             (tool-result-content (propose ':deny "second")))
+                     "proposing the active rule again asks nothing"))))
   nil)
