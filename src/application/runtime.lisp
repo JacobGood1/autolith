@@ -3255,6 +3255,14 @@ continuation turns, so the notice names what woke the model."
             ':strong
             (sanitize-text name :single-line-p t)))))))
 
+(-> application--related-memories-notice
+    ((integer 1) &key (:stale (integer 0)) (:unverified (integer 0)))
+    string)
+(defun application--related-memories-notice (count &key (stale 0) (unverified 0))
+  "Return the dim notice for COUNT offered memories, STALE and UNVERIFIED among them."
+  (format nil "@ ~D relevant memor~:@P exist~:[~;s~]~[~:; · ~:*~D stale~]~[~:; · ~:*~D unverified~]"
+          count (= count 1) stale unverified))
+
 (-> application-agent-observer
     (application
      &key (:steering-function (option function))
@@ -3409,14 +3417,15 @@ continuation turns, so the notice names what woke the model."
             (application-publish-recovery-session application))
            (:related-memories
             (unless related-memories-shown-p
-              (let ((count (getf details :count)))
-                (application-present
-                 application
-                 (list (terminal-span
-                        ':dim
-                        (format nil "@ ~D relevant memor~:@P exist~:[~;s~]"
-                                count (= count 1)))))
-                (setf related-memories-shown-p t))))
+              (application-present
+               application
+               (list (terminal-span
+                      ':dim
+                      (application--related-memories-notice
+                       (getf details :count)
+                       :stale      (getf details :stale 0)
+                       :unverified (getf details :unverified 0)))))
+              (setf related-memories-shown-p t)))
            (:provider-progress
             (terminal-ui-note-status-progress ui))
            (:provider-request-started

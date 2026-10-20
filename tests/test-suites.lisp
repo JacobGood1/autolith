@@ -330,7 +330,8 @@
   test-memory-source-records
   test-memory-premise-records
   test-memory-source-status
-  test-memory-premise-status)
+  test-memory-premise-status
+  test-memory-recall-status)
 
 (define-test-suite papercut
   test-papercuts)

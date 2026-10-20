@@ -414,3 +414,73 @@
                               (list (memory-identifier reminder)))
                        "dependents are the memories derived directly from a memory")))))
   nil)
+
+(-> memory-source-tests--recall (configuration conversation)
+    (values (option context-contribution) list))
+(defun memory-source-tests--recall (configuration conversation)
+  "Resolve one request for CONVERSATION and return its memory advice and events."
+  (let* ((*context-contributors* nil)
+         (*context-resolver* (cl-llm-provider-api:make-context-resolver))
+         (*context-last-deliveries* (make-hash-table :test #'equal))
+         (*context-last-delivery-order* nil)
+         (events nil))
+    (register-context-contributor "related-memories" 'memory-related-context
+                                  :source ':built-in)
+    (let ((delivery (context-resolve-request configuration conversation #())))
+      (context-delivery-notify delivery (lambda (event)
+                                          (push event events)))
+      (values (find "related-memories" (context-delivery-contributions delivery)
+                    :key #'context-contribution-identifier
+                    :test #'string=)
+              events))))
+
+
+(-> test-memory-recall-status () null)
+(defun test-memory-recall-status ()
+  "Test that recall flags stale memories and leaves evidence-free recall unchanged."
+  (with-test-configuration (base root)
+    (multiple-value-bind (configuration workspace)
+        (memory-source-tests--workspace base root)
+      (let* ((conversation (conversation-create configuration))
+             (notes (memory-source-tests--write
+                     (merge-pathnames "NOTES.md" workspace)
+                     (format nil "Deploy with make release-prod after tagging.~%"))))
+        (memory-remember configuration
+                         :title "Deploy approvals"
+                         :content "Deploys need one approval.")
+        (conversation-append-user-message conversation "how do I deploy")
+        (multiple-value-bind (plain events)
+            (memory-source-tests--recall configuration conversation)
+          (test-assert (and plain
+                            (not (search "\"status\"" (context-contribution-evidence plain)))
+                            (not (search "Entries with a status"
+                                         (context-contribution-instruction plain)))
+                            (zerop (memory-context-event-stale-count (first events))))
+                       "memories without evidence are recalled exactly as before"))
+        (memory-remember configuration
+                         :title "Deploy command"
+                         :content "Deploy with make release-prod."
+                         :sources (list (memory-source-observe-file
+                                         notes :quote "make release-prod" :time 1)))
+        (memory-source-tests--write notes (format nil "Deploy with make ship.~%"))
+        (multiple-value-bind (advice events)
+            (memory-source-tests--recall configuration conversation)
+          (test-assert (search "\"status\":\"stale\",\"because\":\"NOTES.md changed\""
+                               (context-contribution-evidence advice))
+                       "a stale recalled memory carries its status and reason")
+          (test-assert (search "Entries with a status"
+                               (context-contribution-instruction advice))
+                       "recall explains stale entries only when it offers one")
+          (test-assert (and (= (memory-context-event-count (first events)) 2)
+                            (= (memory-context-event-stale-count (first events)) 1)
+                            (zerop (memory-context-event-unverified-count (first events))))
+                       "the presentation event counts the stale memory"))
+        (test-assert (equal (list (application--related-memories-notice 1)
+                                  (application--related-memories-notice 3 :stale 1)
+                                  (application--related-memories-notice
+                                   2 :stale 1 :unverified 1))
+                            '("@ 1 relevant memory exists"
+                              "@ 3 relevant memories exist · 1 stale"
+                              "@ 2 relevant memories exist · 1 stale · 1 unverified"))
+                     "the notice names stale and unverified memories"))))
+  nil)
