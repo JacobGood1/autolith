@@ -153,6 +153,7 @@
                              (:file "agent/knowledge-usage")
                              (:file "agent/plan-context")
                              (:file "learning/traces")
+                             (:file "learning/procedures")
                              (:file "agent/interpreter-discipline")
                              (:file "agent/resume-context")
                              (:file "self/review")

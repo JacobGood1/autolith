@@ -86,7 +86,12 @@ stopped, and INCOMPLETE-P whether an incomplete final record follows it.")
     :initform (make-hash-table :test #'equal)
     :reader knowledge-base-contracts-table
     :type hash-table
-    :documentation "Action contract entries by (SCOPE WORKSPACE IDENTIFIER): the latest definition."))
+    :documentation "Action contract entries by (SCOPE WORKSPACE IDENTIFIER): the latest definition.")
+   (procedures
+    :initform (make-hash-table :test #'equal)
+    :reader knowledge-base-procedures-table
+    :type hash-table
+    :documentation "Learned procedure entries by (WORKSPACE IDENTIFIER): versions, admission, and runs."))
   (:documentation "The folded state of the knowledge log, with lookup indexes."))
 
 
@@ -250,6 +255,8 @@ Without a configuration, as in standalone tool registries, knowledge is active."
                                            (getf properties :workspace))
                  (knowledge-contract-p (getf properties :contract))
                  (typep (getf properties :time) 'timestamp))))
+         ((:procedure-defined :procedure-admitted :procedure-retired :procedure-run)
+          (procedure-record-valid-p record))
          (:transaction
           (let ((records (getf (rest record) :records)))
             (and (proper-list-p records)
@@ -387,6 +394,14 @@ by a newer generation stays readable after a rollback."
                        :scope (getf properties :scope)
                        :workspace (getf properties :workspace)
                        :time (getf properties :time)))))
+        ((:procedure-defined :procedure-admitted :procedure-retired :procedure-run)
+         (let ((key (list (getf properties :workspace)
+                          (if (eq (first record) :procedure-defined)
+                              (getf (rest (getf properties :procedure)) :id)
+                              (getf properties :id)))))
+           (setf (gethash key (knowledge-base-procedures-table base))
+                 (procedure-entry-reduce (gethash key (knowledge-base-procedures-table base))
+                                         record))))
         (:transaction
          ;; One atomically appended batch; its records are the revisions.
          (dolist (inner (getf properties :records))
@@ -419,7 +434,9 @@ into the copy leaves BASE, which readers may still be using, unchanged."
                                        (list #'knowledge-base-methods-table
                                              #'knowledge-base-methods-table)
                                        (list #'knowledge-base-contracts-table
-                                             #'knowledge-base-contracts-table))
+                                             #'knowledge-base-contracts-table)
+                                       (list #'knowledge-base-procedures-table
+                                             #'knowledge-base-procedures-table))
           do (let ((into (funcall target copy)))
                (maphash (lambda (key value) (setf (gethash key into) value))
                         (funcall source base))))

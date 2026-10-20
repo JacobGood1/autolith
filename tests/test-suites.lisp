@@ -369,7 +369,9 @@
   test-knowledge-scale)
 
 (define-test-suite learning
-  test-action-traces)
+  test-action-traces
+  test-procedure-templates
+  test-procedure-lifecycle)
 
 (define-test-suite papercut
   test-papercuts)
