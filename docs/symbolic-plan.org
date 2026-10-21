@@ -60,18 +60,19 @@ Not shipped yet.
 - Mission gates of kind =:fact= pass only on undisputed observed facts or
   your statements, never on the model's predictions; a derived fact counts
   only if all it rests on, negated premises included, is accepted.
-- Action contracts: a tool call whose requirements do not hold on accepted,
-  undisputed facts is refused before it runs (=accepts= widens that), and
-  facts are read from successful results.
+- Action contracts: admit the exact observation mapping and acceptance policy
+  through the usual approval. Requirements use accepted, undisputed facts;
+  successful results supply the admitted observations. A replacement needs
+  fresh admission; the previous admitted policy applies until then.
 
 ** Learned procedures
 - When three turns make the same tool calls, Autolith learns a procedure from
   them, locally: =@ learned procedure make-sales-report from 3 turns=.
 - A request that fits is offered the one =procedure.run= call that does the
-  work; the first run asks to admit it. Once admitted and shown to save
-  requests, a request matching its wording exactly, apart from parameters,
-  runs it before the model's first request, so the model answers in one
-  request. Procedures are learned only from turns the model finished.
+  work; the first run asks to admit it. Completed, successful model turns of
+  that exact version must demonstrate both request and token savings before
+  a matching request runs it before the model's first request. Procedures
+  are learned only from turns the model finished.
 - Every call keeps its own approval and contracts; a failed call hands the
   work back to the model, and two failed runs in a row suspend it.
 - New commands: =(procedures)= with each procedure's measured savings,
@@ -134,6 +135,29 @@ regression test.
 | Wildcard wording ran procedures before the model         | unread runs need exact wording, admission, and proven savings | 9bc7c7cf |
 | Preflight refused build-then-use procedures              | requirements an earlier call can produce are checked later    | 33c2ff08 |
 | Unfinished turns counted as accepted traces              | accepted turns are answered after the last call, not aborted  | 983a0a5c |
+
+* Daily-drive review (2026-10-21)
+
+Rebased =819ace4= onto =41fd881e= before reviewing. These checks use scripted
+fixtures and disposable Lisp workers, without live provider requests.
+
+| Finding                                      | Correction                                                        | Commits           |
+|----------------------------------------------+-------------------------------------------------------------------+-------------------|
+| An unrelated write could certify a URL       | retrieval receipt binds URL, result digest, and original time      | 49446374          |
+| Disputed premises could justify decisions    | validate complete support paths, including every explicit negation | d4e0e6da fcdb2b2f |
+| Alternative support depended on ordering     | preserve basis sets and all matching negative premises            | d4e0e6da fcdb2b2f |
+| Inference errors could leave decisions open  | refuse fact-based decisions on erroneous or incomplete views       | fcdb2b2f          |
+| Contracts could create evidence unadmitted   | exact mapping and policy admission; imported receipts convey no authority | 152ed722    |
+| Repeated contract variables could disagree   | structural JSON unification before matching                        | bcfd2145          |
+| Learned decimal and boolean inputs failed    | typed JSON request bindings, preserving numeric signs              | d672564b          |
+| Old or unfinished runs qualified new versions | completed same-definition runs with measured request and token savings | 79a7bf4d      |
+| Numeric probe literals failed while planning | distinguish literals from string references                        | a4b2eff5          |
+| Refused probes consumed the execution budget | select only probes whose current requirements permit a call        | c046da62          |
+
+Further review: procedure preflight currently defers a whole call when any
+requirement shares a predicate an earlier call might produce. Check each
+independent requirement and its grounded arguments before starting side
+effects. The quotation-context finding listed above is also open.
 
 * Design
 
