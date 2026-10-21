@@ -2110,6 +2110,27 @@ completion policy applies as described below. Inspect full results with =job.get
 or deliberately await them with =job.wait=. Mission accounting and ordinary
 execution supervision apply to workflows and their callbacks.
 
+** Local text redaction
+
+Call =(redact text)= in the user REPL, or =autolith:redact= from =lisp.eval=
+and Lisp scratchpads, to use the local censorship model:
+
+#+BEGIN_SRC lisp
+(redact "Alice Smith lives in Amsterdam.")
+(redact text :language "en")
+#+END_SRC
+
+Read two return values: the complete redacted string and =:ok=, or =nil= and
+a failure status. Long prose is processed in bounded pieces. A failed piece,
+an overlong unbroken token, or saturated native output rejects the whole result.
+Inference runs locally without telemetry consent or network access. Review the
+result before sharing it; model redaction is not a guarantee of anonymity.
+
+Packaged installations use the bundled model and ONNX Runtime. For a source
+installation, set =AUTOLITH_DEFINGERPRINTER_LIBRARY= to the absolute native
+library path and pass both =:model-directory= and =:runtime-library= as absolute
+paths when the library has no packaged defaults.
+
 ** Worker tool calls
 
 Supply =host-tools=, an array of exact tool names, to =lisp.eval= or

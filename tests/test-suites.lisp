@@ -82,6 +82,12 @@
   ;; telemetry-hook-os-permission-tests.lisp
   test-telemetry-os-permission-failure-hooks)
 
+(define-test-suite redaction
+  test-redaction-lifecycle
+  test-redaction-failures
+  test-redaction-scratchpad
+  test-redaction-real-model)
+
 (define-test-suite telemetry-diagnostics
   test-telemetry-incident-diagnostics
   test-telemetry-diagnostic-redactor-pieces

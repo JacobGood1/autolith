@@ -817,7 +817,7 @@ them."
   "Register Lisp worker, scratchpad, and source-checking tools in REGISTRY."
   (tool-registry-describe-namespace
    registry "lisp"
-   "Named Common Lisp workers, scratchpads, and Lisp-family source checks.")
+   "Named Common Lisp workers, scratchpads, and Lisp-family source checks. Use (autolith:redact text :language \"en\") in worker forms or scratchpads for local censorship-model redaction; returns a string and :ok, or nil and a failure status.")
   (let ((empty-schema (tool-object-schema (json-object) nil)))
     (dolist
         (specification

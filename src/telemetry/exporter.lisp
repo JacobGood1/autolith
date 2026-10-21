@@ -300,31 +300,8 @@
 
 (-> telemetry--redact-narrative (t string string) (option string))
 (defun telemetry--redact-narrative (redactor text language)
-  "Redact complete sentence or word pieces within the native ABI's output bound.
-The native API truncates at 1,024 characters. Reject saturated output or any
-failed piece rather than exporting a partial explanation. One session handles
-all pieces within the caller's existing deadline."
-  (block redact
-    (let ((start  0)
-          (length (length text)))
-      (with-output-to-string (stream)
-        (loop while (< start length)
-              for ceiling = (min length (+ start 512))
-              for end = (if (= ceiling length)
-                            ceiling
-                            (or (loop for index downfrom (1- ceiling) above (+ start 256)
-                                      when (and (char= (char text index) #\Space)
-                                                (find (char text (1- index)) ".!?;"))
-                                        return (1+ index))
-                                (let ((space (position #\Space text :start start :end ceiling :from-end t)))
-                                  (when space (1+ space)))
-                                (return-from redact nil)))
-              do (multiple-value-bind (safe status)
-                     (defingerprinter:redact redactor (subseq text start end) :language language)
-                   (unless (and (eq status ':ok) (stringp safe) (< (length safe) 1024))
-                     (return-from redact nil))
-                   (write-string safe stream))
-                 (setf start end))))))
+  "Return complete locally redacted text, or NIL on any failed piece."
+  (nth-value 0 (redaction--text redactor text language)))
 
 (-> telemetry--worker-redact (list) (option string))
 (defun telemetry--worker-redact (request)
