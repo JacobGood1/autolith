@@ -65,6 +65,16 @@ next
 @@brand:{{{:current}}}/{{{:count}}}@@  @@lisp-prompt:Enter@@ {{{:action}}}  @@lisp-prompt:Esc@@ skip
 #+end_onboarding_text
 
+#+name: footer-scroll-compact
+#+begin_onboarding_text
+@@brand:{{{:current}}}/{{{:count}}}@@ @@lisp-prompt:Enter@@ {{{:action}}} @@lisp-prompt:Esc PgUp/PgDn@@
+#+end_onboarding_text
+
+#+name: footer-scroll-small
+#+begin_onboarding_text
+@@brand:{{{:current}}}/{{{:count}}}@@ @@lisp-prompt:Esc PgUp/PgDn@@
+#+end_onboarding_text
+
 #+name: footer-small
 #+begin_onboarding_text
 @@brand:{{{:current}}}/{{{:count}}}@@ @@lisp-prompt:Enter Esc@@
