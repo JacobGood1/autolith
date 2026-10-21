@@ -361,6 +361,7 @@
   test-knowledge-task-methods
   test-knowledge-fact-gates
   test-knowledge-admissible-support
+  test-knowledge-expiry-lifecycle
   test-knowledge-action-contracts)
 
 (define-test-suite knowledge-fixtures

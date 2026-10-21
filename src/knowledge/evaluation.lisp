@@ -295,10 +295,15 @@ proposals this way."
 
 (-> knowledge--note-boundaries (knowledge-view list (option list)) null)
 (defun knowledge--note-boundaries (view support evidence)
-  "Lower VIEW's boundary to SUPPORT's or EVIDENCE's next validity change."
+  "Lower VIEW's boundary to SUPPORT's or EVIDENCE's next validity change.
+
+A support becomes valid at its valid-from time and stops being valid the
+second after its valid-until time, so those are the instants that change it."
   (let ((now (knowledge-view-now view)))
-    (dolist (time (list (getf support :valid-from) (getf support :valid-until)
-                        (and evidence (getf evidence :valid-until))))
+    (dolist (time (list (getf support :valid-from)
+                        (let ((until (getf support :valid-until))) (and until (1+ until)))
+                        (let ((until (and evidence (getf evidence :valid-until))))
+                          (and until (1+ until)))))
       (when (and time (> time now)
                  (or (null (knowledge-view-boundary view))
                      (< time (knowledge-view-boundary view))))

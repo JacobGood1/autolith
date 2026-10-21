@@ -1584,6 +1584,45 @@
                            "the failed gate says which evidence it accepts"))))))
     nil))
 
+(-> test-knowledge-expiry-lifecycle () null)
+(defun test-knowledge-expiry-lifecycle ()
+  "Test that a fact expires on time after an evaluation at its last valid second."
+  (with-test-configuration (base root)
+    (let* ((configuration (configuration-copy base :working-directory root))
+           (now 100000)
+           (*knowledge-clock* (lambda () now))
+           (until (+ now *knowledge-url-lifetime*)))
+      (knowledge-define-schema configuration
+                               (knowledge-make-schema
+                                :predicate "price.listed"
+                                :arguments '((:name "item" :type :entity)
+                                             (:name "price" :type :number))
+                                :key '("item")))
+      (flet ((observe ()
+               (knowledge-assert configuration '("price.listed" "lamp" 40)
+                                 :evidence (knowledge-observe
+                                            :source '(:url :url "https://example.com/lamp")
+                                            :digest (memory-source-text-digest "Lamp: 40")
+                                            :adapter "web/1")
+                                 :basis ':observation))
+
+             (state ()
+               (knowledge-node-applicability
+                (knowledge-view-node (knowledge-view-current configuration)
+                                     (knowledge-claim-identifier
+                                      '("price.listed" "lamp" 40)
+                                      :scope ':workspace
+                                      :workspace (knowledge--workspace configuration))))))
+        (observe)
+        (setf now until)
+        (test-assert (eq (state) ':current) "an observation applies until its last second")
+        (setf now (1+ until))
+        (test-assert (eq (state) ':expired)
+                     "the view evaluated at that second does not keep it current afterwards")
+        (setf now (+ 100 until))
+        (test-assert (eq (state) ':expired) "an expired observation stays expired"))))
+  nil)
+
 (-> test-knowledge-admissible-support () null)
 (defun test-knowledge-admissible-support ()
   "Test that gates use only undisputed facts on accepted bases, negated premises included."
