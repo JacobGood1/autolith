@@ -419,7 +419,8 @@ result will supply are NIL."
                                        (loop for argument in (getf observation :arguments)
                                              for definition in (knowledge-schema-arguments schema)
                                              for value = (cond
-                                                           ((uiop:string-prefix-p "$arg." argument)
+                                                            ((and (stringp argument)
+                                                                  (uiop:string-prefix-p "$arg." argument))
                                                             (values (knowledge--reference-value
                                                                      argument arguments nil)))
                                                            ((knowledge--reference-p argument) nil)

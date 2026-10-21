@@ -292,6 +292,40 @@
                       "facts still holding are reused, so the saved diagnosis runs no probe")
          (test-assert (search "Diagnosis remote-service: stale-endpoint" report)
                       "a saved diagnosis runs by name with new bindings")))))
+  (diagnosis-tests--call-with
+   "literal-observation"
+   (lambda (configuration)
+     (let ((world (diagnosis-tests--world-create configuration nil)))
+       (knowledge-define-schema configuration
+                                (knowledge-make-schema
+                                 :predicate "service.measurement"
+                                 :arguments '((:name "service" :type :entity)
+                                              (:name "value" :type :number))
+                                 :key '("service")))
+       (knowledge-define-contract
+        configuration :id "measure-service" :tool "service.measure"
+        :observes (vector (json-object "predicate" "service.measurement"
+                                       "arguments" #("billing" 42))))
+       (learning-tests--tool (diagnosis-tests--world-registry world) "service.measure"
+                             (lambda (arguments)
+                               (declare (ignore arguments))
+                               (json-object)))
+       (let* ((report (diagnosis-tests--diagnose
+                       configuration world
+                       (json-object
+                        "save_as" "measurement"
+                        "hypotheses" (vector (json-object "id" "measured"
+                                                          "predicts" #(#("service.measurement" "billing" 42)))
+                                              (json-object "id" "other"
+                                                          "predicts" #(#("service.measurement" "billing" 43))))
+                        "probes" (vector (json-object "tool" "service.measure"
+                                                       "arguments" (json-object))))))
+              (case (first (knowledge-base-diagnosis-cases (knowledge-base-read configuration)
+                                                           (knowledge--workspace configuration)))))
+         (test-assert (and (equal (getf case :remaining) '("measured"))
+                           (eq (getf (first (getf case :probes)) :status) ':ok)
+                           (search "service.measurement(billing, 42)" report))
+                      "a numeric observation literal can select and settle a diagnosis")))))
   nil)
 
 (-> test-diagnosis-setting () null)
