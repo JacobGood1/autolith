@@ -31,6 +31,15 @@
                       (list "total_tokens" tokens))))
   nil)
 
+(-> learning-tests--answer (conversation string) null)
+(defun learning-tests--answer (conversation text)
+  "Record the model's final answer TEXT."
+  (conversation-append-provider-item
+   conversation
+   (json-object "type" "message" "role" "assistant"
+                "content" (vector (json-object "type" "output_text" "text" text))))
+  nil)
+
 (-> learning-tests--report-turn (conversation string &key (:requests integer) (:success-p boolean))
     null)
 (defun learning-tests--report-turn (conversation quarter &key (requests 4) (success-p t))
@@ -58,7 +67,8 @@
                                                   "message" "The sales report is ready.")
                           :output    (json-object "sent" t))
     (dotimes (index requests)
-      (learning-tests--request conversation (format nil "~A-r~D" quarter index) 1500)))
+      (learning-tests--request conversation (format nil "~A-r~D" quarter index) 1500))
+    (learning-tests--answer conversation (format nil "The ~A report is ready." quarter)))
   nil)
 
 (-> test-action-traces () null)
@@ -102,11 +112,29 @@
         (conversation-append-tool-result conversation "t-1" :tool-name "notify.send"
                                                             :output "Sent to the team."
                                                             :success-p t)
-        (let ((call (first (action-trace-calls
-                            (first (last (action-traces-in-conversation
-                                          (conversation-pathname conversation))))))))
-          (test-assert (and (eq (getf call :status) ':ok) (null (getf call :output)))
-                       "a result later calls cannot take values from is not kept")))
+        (flet ((newest ()
+                 (first (last (action-traces-in-conversation
+                               (conversation-pathname conversation))))))
+          (let ((call (first (action-trace-calls (newest)))))
+            (test-assert (and (eq (getf call :status) ':ok) (null (getf call :output)))
+                         "a result later calls cannot take values from is not kept"))
+          (test-assert (not (action-trace-accepted-p (newest)))
+                       "a turn the model has not answered is not accepted")
+          (learning-tests--answer conversation "Done.")
+          (test-assert (action-trace-accepted-p (newest))
+                       "a turn the model answered after its last call is accepted")
+          (let ((start (conversation-next-sequence conversation)))
+            (conversation-append-user-message conversation "Tell the board.")
+            (learning-tests--call conversation :call-id "b-1" :tool "notify.send"
+                                               :arguments (json-object "to" "board")
+                                               :output (json-object "sent" t))
+            (learning-tests--answer conversation "Done.")
+            (conversation-append-turn-aborted conversation :turn-start-sequence start
+                                                           :reason ':cancelled
+                                                           :condition-type "interrupt"
+                                                           :message "Cancelled.")
+            (test-assert (not (action-trace-accepted-p (newest)))
+                         "a cancelled turn is not accepted"))))
       (test-assert (equal (mapcar (lambda (trace) (action-trace-input trace))
                                   (action-traces configuration))
                           '("Tell the team." "Make the sales report for q4."
@@ -240,6 +268,7 @@
                                                 "message" (format nil "/a/~D.tar" year))
                         :output    (json-object "sent" t))
   (learning-tests--request conversation (format nil "a~D-r" year) 900)
+  (learning-tests--answer conversation "Archived.")
   nil)
 
 (-> test-procedure-mining () null)
@@ -545,6 +574,7 @@
                                      :output (json-object "sent" t))
   (dotimes (index requests)
     (learning-tests--request conversation (format nil "~A-r~D" period index) 1000))
+  (learning-tests--answer conversation "Sent.")
   nil)
 
 (-> test-procedure-automatic-runs () null)

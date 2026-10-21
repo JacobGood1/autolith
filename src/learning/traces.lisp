@@ -61,7 +61,19 @@ the only results later calls can take values from.")
     :initform 0
     :accessor action-trace-tokens
     :type (integer 0)
-    :documentation "How many tokens those requests used in total."))
+    :documentation "How many tokens those requests used in total.")
+   (answered-p
+    :initarg :answered-p
+    :initform nil
+    :accessor action-trace-answered-p
+    :type boolean
+    :documentation "Whether the model answered after the turn's last tool call.")
+   (aborted-p
+    :initarg :aborted-p
+    :initform nil
+    :accessor action-trace-aborted-p
+    :type boolean
+    :documentation "Whether the turn was cancelled or failed before it finished."))
   (:documentation "The tool calls and model cost of one user turn."))
 
 (-> action-trace-skeleton (action-trace) list)
@@ -71,11 +83,17 @@ the only results later calls can take values from.")
 
 (-> action-trace-accepted-p (action-trace) boolean)
 (defun action-trace-accepted-p (trace)
-  "Return true when TRACE made at least one call, every call succeeded, and it is short enough."
+  "Return true when TRACE is a finished turn worth learning from.
+
+It made at least one call and no more than the limit, every call succeeded,
+the model answered after the last one, and the turn was not cancelled or
+abandoned on an error."
   (let ((calls (action-trace-calls trace)))
     (and calls
          (<= (length calls) *action-trace-call-limit*)
          (every (lambda (call) (eq (getf call :status) ':ok)) calls)
+         (action-trace-answered-p trace)
+         (not (action-trace-aborted-p trace))
          t)))
 
 (-> action-traces-in-conversation (pathname &key (:workspace (option string))) list)
@@ -195,7 +213,9 @@ it stopped. Any other change rereads every segment."
                              :input        (action-trace-input trace)
                              :calls        (mapcar #'copy-list (action-trace-calls trace))
                              :requests     (action-trace-requests trace)
-                             :tokens       (action-trace-tokens trace))
+                             :tokens       (action-trace-tokens trace)
+                             :answered-p   (action-trace-answered-p trace)
+                             :aborted-p    (action-trace-aborted-p trace))
               (rest traces)))
       nil))
 
@@ -203,8 +223,9 @@ it stopped. Any other change rereads every segment."
 (defun action-trace--reduce (traces record identifier)
   "Return TRACES, newest first, after durable conversation RECORD of conversation IDENTIFIER.
 
-A user message starts a trace; function calls, their results, and model
-requests extend the newest one. Compaction requests are not counted."
+A user message starts a trace; function calls, their results, the model's
+answers, aborts, and model requests extend the newest one. Compaction
+requests are not counted."
   (let ((properties (rest record))
         (current    (first traces)))
     (case (first record)
@@ -221,9 +242,20 @@ requests extend the newest one. Compaction requests are not counted."
       (:provider-item
        (let* ((item (ignore-errors (json-decode (getf properties :wire-json))))
               (call (and current (json-object-p item) (action-trace--call item))))
-         (when call
-           (setf (action-trace-calls current)
-                 (append (action-trace-calls current) (list call))))))
+         (cond
+           (call
+            (setf (action-trace-calls current)
+                  (append (action-trace-calls current) (list call))
+                  (action-trace-answered-p current) nil))
+           ((and current
+                 (json-object-p item)
+                 (equal (json-get item "type") "message")
+                 (equal (json-get item "role") "assistant")
+                 (non-empty-string-p (response-item-assistant-text item)))
+            (setf (action-trace-answered-p current) t)))))
+      (:turn-aborted
+       (when current
+         (setf (action-trace-aborted-p current) t)))
       (:tool-result
        (let ((call (and current
                         (find (getf properties :call-id) (action-trace-calls current)
