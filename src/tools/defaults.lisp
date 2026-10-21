@@ -237,6 +237,11 @@ retracting facts, and proposing rules."
         "observes" (json-object "type" "array"
                                 "items" (json-object "description" "{\"predicate\": NAME, \"arguments\": [VALUE, ?var, $arg.NAME, or $result.PATH]}.")
                                 "description" "Facts read from the call's arguments and JSON result after it succeeds.")
+        "accepts" (json-object "type" "array"
+                               "items" (cl-llm-provider-api:provider-enum-schema
+                                        '("observation" "user-assertion" "assumption" "model-proposal")
+                                        "A basis a requirement may rest on.")
+                               "description" "Bases requirements may rest on; default observation and user-assertion. Add model-proposal to let earlier calls' predicted effects count.")
         "description" (tool-string-property "What the contract states.")
         "scope" (memory-scope-property))
        '("id" "tool"))

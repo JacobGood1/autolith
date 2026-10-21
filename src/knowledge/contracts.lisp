@@ -47,6 +47,7 @@
                      (getf properties :when))
               (every #'consp (getf properties :requires))
               (every #'consp (getf properties :effects))
+              (every (lambda (basis) (typep basis 'knowledge-basis)) (getf properties :accepts))
               (every (lambda (observation)
                        (and (proper-list-p observation)
                             (knowledge-predicate-name-p (getf observation :predicate))
@@ -56,16 +57,19 @@
 
 (-> knowledge-make-contract
     (&key (:id string) (:tool string) (:when t) (:requires sequence) (:effects sequence)
-          (:observes sequence) (:description (option string)) (:schema-function function))
+          (:observes sequence) (:accepts sequence) (:description (option string))
+          (:schema-function function))
     list)
 (defun knowledge-make-contract
-    (&key id tool when requires effects observes description schema-function)
+    (&key id tool when requires effects observes accepts description schema-function)
   "Return a validated contract built from input forms.
 
 WHEN maps argument names to required values or to variables they bind.
 Requirement and effect variables must be bound by WHEN or a positive
 requirement. Observation arguments are values, bound variables, or references
-such as $arg.to and $result.id."
+such as $arg.to and $result.id. ACCEPTS names the bases a requirement may rest
+on, by default observations and the user's statements; naming model-proposal
+lets the predicted effects of earlier calls satisfy it."
   (unless (knowledge-rule-name-p id)
     (knowledge--fail ':invalid-contract id
                      "Contract names are lowercase letters, digits, hyphens, and dots."))
@@ -128,7 +132,23 @@ such as $arg.to and $result.id."
             (knowledge--fail ':invalid-contract variable
                              "~A is not bound by when or a positive requirement." variable))))
       (list :contract :id id :tool tool :when conditions :requires required
-            :effects predicted :observes observed :description description))))
+            :effects predicted :observes observed
+            :accepts (knowledge--accepted-bases accepts id)
+            :description description))))
+
+(-> knowledge--accepted-bases (t string) list)
+(defun knowledge--accepted-bases (accepts identifier)
+  "Return the bases ACCEPTS names, input text or keywords, or NIL for the default."
+  (let ((items (coerce (or accepts #()) 'list)))
+    (mapcar (lambda (item)
+              (or (find item '(:observation :user-assertion :assumption :model-proposal)
+                        :test (lambda (value basis)
+                                (or (eq value basis)
+                                    (and (stringp value)
+                                         (string-equal value (symbol-name basis))))))
+                  (knowledge--fail ':invalid-contract identifier
+                                   "accepts lists observation, user-assertion, assumption, or model-proposal.")))
+            items)))
 
 
 ;;;; -- Stored Contracts --
@@ -144,12 +164,13 @@ such as $arg.to and $result.id."
 
 (-> knowledge-define-contract
     (configuration &key (:id string) (:tool string) (:when t) (:requires sequence)
-                        (:effects sequence) (:observes sequence) (:description (option string))
-                        (:scope memory-scope) (:source-conversation (option string)))
+                        (:effects sequence) (:observes sequence) (:accepts sequence)
+                        (:description (option string)) (:scope memory-scope)
+                        (:source-conversation (option string)))
     (values string boolean))
 (defun knowledge-define-contract
-    (configuration &key id tool when requires effects observes description (scope ':workspace)
-                        source-conversation)
+    (configuration &key id tool when requires effects observes accepts description
+                        (scope ':workspace) source-conversation)
   "Validate and record contract ID, replacing an earlier one of that name in SCOPE.
 
 Return its ID and whether the definition changed."
@@ -161,7 +182,7 @@ Return its ID and whether the definition changed."
       (lambda (base)
         (let* ((contract (knowledge-make-contract
                           :id id :tool tool :when when :requires requires :effects effects
-                          :observes observes :description description
+                          :observes observes :accepts accepts :description description
                           :schema-function
                           (lambda (predicate)
                             (knowledge-base-schema base predicate
@@ -259,20 +280,34 @@ Return its ID and whether the definition changed."
 
 (-> knowledge-contract-refusal (configuration list) (option string))
 (defun knowledge-contract-refusal (configuration matches)
-  "Return why the call described by contract MATCHES must not run, or NIL when it may."
+  "Return why the call described by contract MATCHES must not run, or NIL when it may.
+
+A requirement holds only on undisputed facts resting on the bases the contract
+accepts, by default observations and the user's statements."
   (let ((view (knowledge-view-current configuration)))
     (loop for (contract environment) in matches
+          for accepted = (or (getf (rest contract) :accepts) *knowledge-established-bases*)
           for requires = (mapcar (lambda (pattern)
                                    (knowledge--instantiate-pattern pattern environment))
                                  (getf (rest contract) :requires))
           when requires
-            do (multiple-value-bind (solutions cut-p) (knowledge-view-solve view requires :limit 1)
+            do (multiple-value-bind (solutions cut-p)
+                   (knowledge-view-solve view requires
+                                         :limit 1
+                                         :test (lambda (node)
+                                                 (knowledge-node-admissible-p
+                                                  view node :accepted accepted)))
                  (unless solutions
                    (return
-                     (format nil "Contract ~A requires ~{~A~^ and ~}, which ~:[does not hold~;could not be decided within the search limit~]. The call was not made."
+                     (format nil "Contract ~A requires ~{~A~^ and ~}, which ~A. The call was not made."
                              (getf (rest contract) :id)
                              (mapcar #'knowledge-pattern-text requires)
-                             cut-p)))))))
+                             (cond
+                               (cut-p "could not be decided within the search limit")
+                               ((knowledge-view-solve view requires :limit 1)
+                                (format nil "holds only on disputed facts or on bases it does not accept (it accepts ~{~(~A~)~^, ~})"
+                                        accepted))
+                               (t "does not hold")))))))))
 
 (-> knowledge-contract-record (configuration list hash-table t &key (:tool string)
                                                                        (:conversation (option string)))

@@ -203,11 +203,12 @@ Conflicted facts come first, then the rest by predicate and text."
       (format stream "collection: contracts~%count: ~D~%" (length entries))
       (dolist (entry entries)
         (let ((contract (rest (getf entry :contract))))
-          (format stream "~%~A ~(~A~): ~A~@[ when ~{~A~^, ~}~]~@[~%  requires ~{~A~^ and ~}~]~@[~%  predicts ~{~A~^ and ~}~]~@[~%  observes ~{~A~^ and ~}~]~@[~%  ~A~]~%"
+          (format stream "~%~A ~(~A~): ~A~@[ when ~{~A~^, ~}~]~@[~%  requires ~{~A~^ and ~}~]~@[ on ~{~(~A~)~^, ~}~]~@[~%  predicts ~{~A~^ and ~}~]~@[~%  observes ~{~A~^ and ~}~]~@[~%  ~A~]~%"
                   (getf contract :id) (getf entry :scope) (getf contract :tool)
                   (mapcar (lambda (condition) (format nil "~A = ~A" (first condition) (rest condition)))
                           (getf contract :when))
                   (mapcar #'knowledge-pattern-text (getf contract :requires))
+                  (getf contract :accepts)
                   (mapcar #'knowledge-pattern-text (getf contract :effects))
                   (mapcar (lambda (observation)
                             (format nil "~A(~{~A~^, ~})" (getf observation :predicate)
@@ -717,7 +718,7 @@ Conflicted facts come first, then the rest by predicate and text."
   "Apply one contract-define OPERATION and describe the result."
   (memory-knowledge--fields operation "contract-define"
                             '("op" "id" "tool" "when" "requires" "effects" "observes"
-                              "description" "scope")
+                              "accepts" "description" "scope")
                             '("id" "tool"))
   (multiple-value-bind (identifier changed-p)
       (knowledge-define-contract (tool-context-configuration context)
@@ -727,6 +728,7 @@ Conflicted facts come first, then the rest by predicate and text."
                                  :requires (gethash "requires" operation #())
                                  :effects (gethash "effects" operation #())
                                  :observes (gethash "observes" operation #())
+                                 :accepts (gethash "accepts" operation #())
                                  :description (gethash "description" operation)
                                  :scope (memory-knowledge--scope operation)
                                  :source-conversation (conversation-identifier
