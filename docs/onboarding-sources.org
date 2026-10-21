@@ -449,9 +449,9 @@ If a cited file changes, a premise stops holding, or evidence expires, you'll se
 :END:
 An admitted *rule* derives facts locally. Move a meeting and its calculated departure time changes without a model request.
 
-=(rules)=                  inspect versions and admission
+=(rules)=                   inspect versions and admission
 =(admit-rule "departure")=  approve a proposed rule
-=(what-changed)=           inspect changes and their causes
+=(what-changed)=            inspect changes and their causes
 
 Use =(why "ID")= to follow a conclusion back through its premises. Assumptions keep their status through derivation. Conflicting facts are shown together; missing evidence means unknown.
 
