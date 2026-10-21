@@ -340,6 +340,14 @@
   test-memory-manager-model-note-mutations
   test-memory-manager-model-conflicts
   test-memory-manager-model-fact-mutations)
+
+(define-test-suite memory-manager
+  test-memory-manager-navigation
+  test-memory-manager-layout
+  test-memory-manager-note-form
+  test-memory-manager-unsaved-form
+  test-memory-manager-lifecycle
+  test-memory-manager-command)
 (define-test-suite knowledge
   test-knowledge-terms
   test-knowledge-schemas

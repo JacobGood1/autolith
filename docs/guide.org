@@ -879,6 +879,24 @@ no model requests.
 (forget "3afbfa1a")   ; stop recalling it
 #+END_SRC
 
+In fullscreen, open the memory manager with =(memories)= or =/memories=.
+Browse notes and facts side by side with their evidence; on a narrow terminal,
+press Enter to read the selected item. Use =/= to search titles, bodies, tags,
+IDs, and evidence, Tab to choose All/Notes/Facts, and Shift-Tab to choose a scope.
+Scroll an open explanation with the arrow keys or Page Up/Down. Press Esc to
+return to the list, then Esc again to close.
+
+Press =n= to create a note, =e= to edit one, =d= to forget a note or retract an
+asserted fact, and =r= to reload. Confirm deletion with =y=. In the note form,
+use Tab to move between title, tags, scope, and content; Space to choose a scope;
+Shift-Enter for a content newline; and Enter to save. A changed or deleted note
+must be reloaded before editing. Editing prose preserves its recorded evidence
+and premise versions. Inspect derived facts to find their supporting premises
+and rules. =(memory "ID")= opens the corresponding explanation directly.
+
+In inline or noninteractive sessions, these commands print textual listings and
+explanations.
+
 Any unique prefix of a memory ID selects it. =(forget)= names the memories
 that relied on the forgotten one, which are now stale. Recall marks stale
 memories for the model, which rechecks them before relying on them and

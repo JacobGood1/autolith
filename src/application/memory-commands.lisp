@@ -438,31 +438,39 @@ QUERY narrows the listing with the same lexical ranking recall uses."
 (define-application-command application--builtin-memories-command
     (:name "/memories"
      :argument "[QUERY]"
-     :description "list saved memories, stale ones first"
-     :tip "shows what Autolith remembers here and which memories cite evidence that changed."
-     :busy-behavior :inspect
-     :terminal-behavior :shared
+     :description "browse and manage saved memories and facts"
+     :tip "Browse notes, facts, and their evidence in fullscreen; filter with a query."
+     :busy-behavior :hold
+     :terminal-behavior :exclusive
      :callable t
      :slash-parser application--memories-slash-arguments)
     (application &optional query)
-  (application-present application (application-memories-entry application :query query))
+  (let ((ui (application-ui application)))
+    (if (and ui (terminal-ui-fullscreen-p ui)
+             (terminal-interactive-p (terminal-ui-terminal ui)))
+        (application-memory-manager application :query query)
+        (application-present application (application-memories-entry application :query query))))
   ':continue)
 
 (define-application-command application--builtin-memory-command
     (:name "/memory"
      :aliases ("/why")
      :argument "[ID]"
-     :description "explain one memory or fact and its evidence"
-     :tip "shows why Autolith believes a memory or fact: its sources, premises, and what relies on it."
-     :busy-behavior :inspect
-     :terminal-behavior :shared
+     :description "inspect one memory or fact and its evidence"
+     :tip "Inspect a memory or fact, its sources and premises, and what relies on it."
+     :busy-behavior :hold
+     :terminal-behavior :exclusive
      :callable t)
     (application &optional identifier)
-  (application-present
-   application
-   (if identifier
-       (application-memory-entry application identifier)
-       "Usage: (memory \"ID\"). Run (memories) to list memories."))
+  (let ((ui (application-ui application)))
+    (if (and ui (terminal-ui-fullscreen-p ui)
+             (terminal-interactive-p (terminal-ui-terminal ui)))
+        (application-memory-manager application :identifier identifier)
+        (application-present
+         application
+         (if identifier
+             (application-memory-entry application identifier)
+             "Usage: (memory \"ID\"). Run (memories) to list memories."))))
   ':continue)
 
 (define-application-command application--builtin-forget-command
