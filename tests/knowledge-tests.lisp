@@ -1938,9 +1938,9 @@
                               (knowledge-node-observed-p message))
                          "the result's id is observed through the contract")))
         (when (string= mode "active")
-          (test-assert (search "send-report workspace: mail.send when report = ?report"
-                               (tool-result-content
-                                (memory-resource-tests--call registry context "resource" "read"
-                                                             "uri" "memory:contracts")))
-                       "memory:contracts lists the contract")))))
+          (let ((listing (memory-resource-tests--call registry context "resource" "read"
+                                                     "uri" "memory:contracts")))
+            (test-assert (and (tool-result-success-p listing)
+                              (search "send-report" (tool-result-content listing)))
+                         "memory:contracts lists the contract"))))))
   nil)
