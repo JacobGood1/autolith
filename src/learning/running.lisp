@@ -274,26 +274,43 @@ Numbers and booleans given as text are read as such first."
   "Refuse PROCEDURE with BINDINGS when a call's contract requirements do not hold.
 
 Calls whose arguments come only from parameters are checked before any call
-is made, so a run that would be refused midway is refused whole. Calls using
-earlier results are checked when they are made."
+is made, so a run that would be refused midway is refused whole. A
+requirement an earlier call's contract may produce, as an effect or an
+observation, cannot be judged yet, so that call and calls using earlier
+results are checked when they are made."
   (when (knowledge-active-p configuration)
-    (loop for step in (getf (rest procedure) :steps)
-          for index from 1
-          for arguments = (handler-case (procedure-template-instantiate (getf step :arguments)
-                                                                        bindings nil)
-                            (knowledge-error ()
-                              nil))
-          for refusal = (and arguments
-                             (knowledge-contract-refusal
-                              configuration
-                              (knowledge-contracts-for-call configuration (getf step :tool)
-                                                            arguments)))
-          when refusal
-            do (knowledge--fail ':procedure-inapplicable (getf (rest procedure) :id)
-                                "Procedure ~A does not apply: call ~D, ~A: ~A"
-                                (getf (rest procedure) :id) index (getf step :tool)
-                                (subseq refusal 0 (or (search " The call was not made." refusal)
-                                                      (length refusal))))))
+    (let ((base (knowledge-base-read configuration))
+          (workspace (knowledge--workspace configuration))
+          (produced nil))
+      (loop for step in (getf (rest procedure) :steps)
+            for index from 1
+            for arguments = (handler-case (procedure-template-instantiate (getf step :arguments)
+                                                                          bindings nil)
+                              (knowledge-error ()
+                                nil))
+            for matches = (and arguments
+                               (knowledge-contracts-for-call configuration (getf step :tool)
+                                                             arguments))
+            for refusal = (and matches
+                               (notany (lambda (match)
+                                         (some (lambda (pattern)
+                                                 (member (knowledge-proposition-predicate pattern)
+                                                         produced :test #'string=))
+                                               (getf (rest (first match)) :requires)))
+                                       matches)
+                               (knowledge-contract-refusal configuration matches))
+            when refusal
+              do (knowledge--fail ':procedure-inapplicable (getf (rest procedure) :id)
+                                  "Procedure ~A does not apply: call ~D, ~A: ~A"
+                                  (getf (rest procedure) :id) index (getf step :tool)
+                                  (subseq refusal 0 (or (search " The call was not made." refusal)
+                                                        (length refusal))))
+            do (dolist (contract (knowledge-base-contracts base (getf step :tool)
+                                                           :workspace workspace))
+                 (dolist (pattern (getf (rest contract) :effects))
+                   (pushnew (knowledge-proposition-predicate pattern) produced :test #'string=))
+                 (dolist (observation (getf (rest contract) :observes))
+                   (pushnew (getf observation :predicate) produced :test #'string=))))))
   nil)
 
 (-> procedure--call (tool-context string json-object integer) tool-result)

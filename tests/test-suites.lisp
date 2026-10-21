@@ -378,6 +378,7 @@
   test-procedure-learning
   test-procedure-running
   test-procedure-automatic-runs
+  test-procedure-build-then-use
   test-procedure-commands
   test-procedure-fixture)
 

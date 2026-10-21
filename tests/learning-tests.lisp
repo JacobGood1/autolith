@@ -582,6 +582,56 @@
                               description)))))
   nil)
 
+(-> test-procedure-build-then-use () null)
+(defun test-procedure-build-then-use ()
+  "Test that a procedure using what its earlier call builds runs, checked when each call is made."
+  (with-test-configuration (base root)
+    (let* ((configuration (configuration-copy base :working-directory root))
+           (registry (make-default-tool-registry :configuration configuration))
+           (context (make-instance 'tool-context :configuration configuration :worker nil
+                                                 :registry registry
+                                                 :conversation (conversation-create configuration)))
+           (builds-p t))
+      (learning-tests--tool registry "report.build"
+                            (lambda (arguments)
+                              (if builds-p
+                                  (json-object "file" (format nil "~A.pdf"
+                                                              (json-get arguments "period")))
+                                  (json-object "error" "nothing built"))))
+      (learning-tests--tool registry "mail.send" (lambda (arguments)
+                                                   (declare (ignore arguments))
+                                                   (json-object "sent" t)))
+      (knowledge-define-schema configuration
+                               (knowledge-make-schema :predicate "report.built"
+                                                      :arguments '((:name "file" :type :string))))
+      (knowledge-define-contract configuration
+                                 :id "build-observes" :tool "report.build"
+                                 :observes (vector (json-object "predicate" "report.built"
+                                                                "arguments" #("$result.file"))))
+      (knowledge-define-contract configuration
+                                 :id "send-built" :tool "mail.send"
+                                 :when (json-object "attachment" "?file")
+                                 :requires #(#("report.built" "?file")))
+      (procedure-define configuration
+                        '(:procedure :id "email-report"
+                          :parameters ((:name "period" :type :string))
+                          :steps ((:tool "report.build"
+                                   :arguments (:object ("period" (:param "period"))))
+                                  (:tool "mail.send"
+                                   :arguments (:object ("attachment" (:text "" "period" ".pdf")))))))
+      (procedure-admit configuration "email-report")
+      (test-assert (eq ':ok (getf (procedure-run context "email-report"
+                                                 :parameters '(("period" . "q1")))
+                                  :status))
+                   "a call needing what an earlier call builds is not refused in advance")
+      (setf builds-p nil)
+      (let ((run (procedure-run context "email-report" :parameters '(("period" . "q2")))))
+        (test-assert (and (eq ':failed (getf run :status))
+                          (search "Contract send-built requires report.built(q2.pdf), which does not hold"
+                                  (getf run :failure)))
+                     "the call is still checked when it is made"))))
+  nil)
+
 (-> test-procedure-commands () null)
 (defun test-procedure-commands ()
   "Test listing, running, admitting, and retiring procedures with commands."
