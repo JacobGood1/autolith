@@ -3259,7 +3259,7 @@ continuation turns, so the notice names what woke the model."
     ((integer 0) &key (:stale (integer 0)) (:unverified (integer 0)) (:facts (integer 0)))
     string)
 (defun application--related-memories-notice (count &key (stale 0) (unverified 0) (facts 0))
-  "Return the dim notice for COUNT offered memories and FACTS offered facts.
+  "Return the notice for COUNT offered memories and FACTS offered facts.
 
 STALE and UNVERIFIED count memories whose evidence changed or could not be
 checked."
@@ -3277,12 +3277,12 @@ checked."
 
 (-> application--knowledge-changes-notice ((integer 1)) string)
 (defun application--knowledge-changes-notice (count)
-  "Return the dim notice that COUNT facts given earlier changed."
+  "Return the notice that COUNT facts given earlier changed."
   (format nil "@ ~D fact~:P given earlier changed" count))
 
 (-> application--procedures-learned-notice (list) string)
 (defun application--procedures-learned-notice (learned)
-  "Return the dim notice naming the procedures, (NAME VERSION TURNS), just LEARNED."
+  "Return the notice naming the procedures, (NAME VERSION TURNS), just LEARNED."
   (format nil "@ ~{~A~^ · ~} · (procedures)"
           (mapcar (lambda (entry)
                     (destructuring-bind (name version turns) entry
@@ -3451,7 +3451,10 @@ checked."
               (application-present
                application
                (list (terminal-span
-                      ':dim
+                      (if (or (plusp (getf details :stale 0))
+                              (plusp (getf details :unverified 0)))
+                          ':notice
+                          ':dim)
                       (application--related-memories-notice
                        (getf details :count)
                        :stale      (getf details :stale 0)
@@ -3462,28 +3465,33 @@ checked."
             (application-present
              application
              (list (terminal-span
-                    ':dim
+                    ':notice
                     (application--knowledge-changes-notice (getf details :count))))))
            (:procedure-offers
             (unless procedure-offers-shown-p
               (application-present
                application
                (list (terminal-span
-                      ':dim
-                      (format nil "@ learned procedure~P ~{~A~^, ~} fit~:[s~;~] this request"
-                              (length (getf details :names)) (getf details :names)
-                              (rest (getf details :names))))))
+                      ':brand
+                      (sanitize-text
+                       (format nil "@ learned procedure~P ~{~A~^, ~} fit~:[s~;~] this request"
+                               (length (getf details :names)) (getf details :names)
+                               (rest (getf details :names)))
+                       :single-line-p t))))
               (setf procedure-offers-shown-p t)))
            (:procedures-learned
             (application-present
              application
-             (list (terminal-span ':dim (application--procedures-learned-notice
-                                         (getf details :procedures))))))
+             (list (terminal-span ':success
+                                  (sanitize-text
+                                   (application--procedures-learned-notice
+                                    (getf details :procedures))
+                                   :single-line-p t)))))
            (:plan-changes
             (application-present
              application
              (list (terminal-span
-                    ':dim
+                    ':notice
                     (format nil "@ ~D plan step~:P changed with ~:*~[~;its~:;their~] facts"
                             (getf details :count))))))
            (:provider-progress

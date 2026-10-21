@@ -41,23 +41,34 @@
              (:candidate (terminal-span ':notice "  ? "))
              (:suspended (terminal-span ':failure "  ! "))
              (:retired (terminal-span ':dim "  × ")))
-           (terminal-span ':strong (format nil "~A v~D" identifier (getf version :version)))
-           (terminal-span ':dim
-                          (format nil "  ~(~A~)~@[ · runs v~D~] · ~D run~:P, ~D failed~A~%"
-                                  status
+            (terminal-span ':strong
+                           (format nil "~A v~D"
+                                   (sanitize-text identifier :single-line-p t)
+                                   (getf version :version)))
+            (terminal-span (ecase status
+                             (:admitted ':success)
+                             (:candidate ':notice)
+                             (:suspended ':failure)
+                             (:retired ':dim))
+                           (format nil "  ~(~A~)" status))
+            (terminal-span ':dim
+                           (format nil "~@[ · runs v~D~] · ~D run~:P, ~D failed~A~%"
                                   (and (getf entry :admitted)
                                        (/= (getf entry :admitted) (getf version :version))
                                        (getf entry :admitted))
                                   (getf entry :runs) (getf entry :failures)
                                   (case status
                                     (:candidate
-                                     (format nil " · (admit-procedure ~S)" identifier))
+                                     (format nil " · (admit-procedure ~S)"
+                                             (sanitize-text identifier :single-line-p t)))
                                     (:suspended
-                                     (format nil " · (admit-procedure ~S) to resume" identifier))
+                                     (format nil " · (admit-procedure ~S) to resume"
+                                             (sanitize-text identifier :single-line-p t)))
                                     (otherwise ""))))
            (terminal-span ':plain
                           (format nil "    ~{~A~^ → ~}~%"
-                                  (mapcar (lambda (step) (getf step :tool))
+                                  (mapcar (lambda (step)
+                                            (sanitize-text (getf step :tool) :single-line-p t))
                                           (getf (rest procedure) :steps)))))
      (when request
        (list (terminal-span ':dim (format nil "    request: ~A~%"

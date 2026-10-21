@@ -379,6 +379,7 @@
                              (:file "knowledge-fixture-tests")
                              (:file "learning-tests")
                              (:file "diagnosis-tests")
+                             (:file "symbolic-presentation-tests")
                              (:file "papercut-tests")
                              (:file "update-tests")
                              (:file "agenda-tests")

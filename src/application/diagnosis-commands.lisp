@@ -23,46 +23,68 @@
                                             (length saved) (length cases))))
          (loop for diagnosis in saved
                for properties = (rest diagnosis)
-               append (list (terminal-span ':strong (format nil "  ~A" (getf properties :id)))
-                            (terminal-span ':dim
-                                           (format nil "  ~{~A~^, ~} · probes ~{~A~^, ~}~%"
-                                                   (mapcar (lambda (hypothesis)
-                                                             (getf hypothesis :id))
-                                                           (getf properties :hypotheses))
-                                                   (mapcar (lambda (probe) (getf probe :tool))
-                                                           (getf properties :probes))))))
+                append (list (terminal-span ':strong
+                                            (format nil "  ~A"
+                                                    (application-diagnoses--text (getf properties :id))))
+                             (terminal-span ':dim
+                                            (format nil "  ~{~A~^, ~} · probes ~{~A~^, ~}~%"
+                                                    (mapcar (lambda (hypothesis)
+                                                              (application-diagnoses--text (getf hypothesis :id)))
+                                                            (getf properties :hypotheses))
+                                                    (mapcar (lambda (probe)
+                                                              (application-diagnoses--text (getf probe :tool)))
+                                                            (getf properties :probes))))))
          (loop for case in cases
                append (application-diagnoses--case-lines case))))))
+
+(-> application-diagnoses--text (t) string)
+(defun application-diagnoses--text (value)
+  "Return VALUE as safe single-line diagnosis text."
+  (sanitize-text (princ-to-string value) :single-line-p t))
 
 (-> application-diagnoses--case-lines (list) list)
 (defun application-diagnoses--case-lines (case)
   "Return the terminal lines describing one recorded diagnosis CASE."
-  (let ((remaining (getf case :remaining))
-        (label (format nil "~A~{ ~A=~A~}" (getf case :diagnosis)
-                       (loop for (variable value) in (getf case :bindings)
-                             append (list (string-left-trim "?" variable)
-                                          (sanitize-text (princ-to-string value)
-                                                         :single-line-p t))))))
+  (let* ((remaining (getf case :remaining))
+         (style (cond
+                  ((null remaining)
+                   ':failure)
+                  ((rest remaining)
+                   ':notice)
+                  (t
+                   ':success)))
+         (label (application-diagnoses--text
+                 (format nil "~A~{ ~A=~A~}" (getf case :diagnosis)
+                         (loop for (variable value) in (getf case :bindings)
+                               append (list (string-left-trim "?" variable) value))))))
     (append
-     (cond
-       ((null remaining)
-        (list (terminal-span ':failure "  × ")
-              (terminal-span ':plain (format nil "~A: every hypothesis was ruled out~%" label))))
-       ((rest remaining)
-        (list (terminal-span ':notice "  ? ")
-              (terminal-span ':plain (format nil "~A: ~{~A~^, ~} remain open~%" label remaining))))
-       (t
-        (list (terminal-span ':success "  ✓ ")
-              (terminal-span ':plain (format nil "~A → ~A~%" label (first remaining)))
-              (terminal-span ':dim (if (getf case :repair)
-                                       (format nil "      repair: ~A~%"
-                                               (sanitize-text (getf case :repair)
-                                                              :single-line-p t))
-                                       "")))))
+     (list (terminal-span style (cond
+                                  ((null remaining)
+                                   "  × ")
+                                  ((rest remaining)
+                                   "  ? ")
+                                  (t
+                                   "  ✓ ")))
+           (terminal-span ':strong label)
+           (terminal-span style
+                          (cond
+                            ((null remaining)
+                             (format nil ": every hypothesis was ruled out~%"))
+                            ((rest remaining)
+                             (format nil ": ~{~A~^, ~} remain open~%"
+                                     (mapcar #'application-diagnoses--text remaining)))
+                            (t
+                             (format nil " → ~A~%"
+                                     (application-diagnoses--text (first remaining)))))))
+     (when (and remaining (null (rest remaining)) (getf case :repair))
+       (list (terminal-span ':plain
+                            (format nil "      repair: ~A~%"
+                                    (application-diagnoses--text (getf case :repair))))))
      (loop for entry in (getf case :eliminated)
            collect (terminal-span ':dim
-                                  (format nil "      ruled out ~A: ~A~%" (getf entry :hypothesis)
-                                          (sanitize-text (getf entry :text) :single-line-p t)))))))
+                                  (format nil "      ruled out ~A: ~A~%"
+                                          (application-diagnoses--text (getf entry :hypothesis))
+                                          (application-diagnoses--text (getf entry :text))))))))
 
 
 ;;;; -- Command Definitions --

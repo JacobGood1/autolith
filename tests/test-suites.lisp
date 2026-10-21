@@ -364,6 +364,10 @@
   test-knowledge-expiry-lifecycle
   test-knowledge-action-contracts)
 
+(define-test-suite symbolic-presentation
+  test-symbolic-session-notices
+  test-symbolic-command-styles)
+
 (define-test-suite knowledge-fixtures
   test-knowledge-appointment-fixtures
   test-knowledge-document-fixtures
