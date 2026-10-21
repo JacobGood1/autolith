@@ -335,6 +335,11 @@
   test-memory-commands
   test-memory-premise-export)
 
+(define-test-suite memory-manager-model
+  test-memory-manager-model-listing
+  test-memory-manager-model-note-mutations
+  test-memory-manager-model-conflicts
+  test-memory-manager-model-fact-mutations)
 (define-test-suite knowledge
   test-knowledge-terms
   test-knowledge-schemas
