@@ -471,16 +471,30 @@ The key arguments are OBSERVATION's; every other argument is a variable."
                     (nth-value 1 (knowledge--unify key-pattern atom nil)))))
            (getf hypothesis :predicts)))
 
+(-> knowledge--probe-admissible-p (configuration list) boolean)
+(defun knowledge--probe-admissible-p (configuration probe)
+  "Return true when PROBE's contracted requirements permit its call now."
+  (handler-case
+      (not (knowledge-contract-refusal
+            configuration
+            (knowledge-contracts-for-call configuration (getf probe :tool)
+                                          (knowledge--probe-arguments probe))))
+    (knowledge-error ()
+      nil)))
+
 (-> knowledge--best-probe (configuration knowledge-view list list) (option list))
 (defun knowledge--best-probe (configuration view hypotheses probes)
   "Return the probe telling apart the most pairs of HYPOTHESES per unit of cost, or NIL.
 
 A pair is told apart when the two hypotheses predict differently about a fact
 the probe observes. A fact already known tells nothing new, so a probe only
-observing known facts is not run."
+observing known facts is not run. Probes whose contracts refuse the call are
+ineligible before consuming the bounded execution budget."
   (let ((best nil)
         (best-score 0))
-    (dolist (probe probes)
+    (dolist (probe (remove-if-not (lambda (candidate)
+                                  (knowledge--probe-admissible-p configuration candidate))
+                                probes))
       (let* ((keys (loop for observation in (handler-case
                                                 (knowledge--probe-observations configuration probe)
                                               (knowledge-error ()

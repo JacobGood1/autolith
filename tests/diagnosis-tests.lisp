@@ -326,6 +326,39 @@
                            (eq (getf (first (getf case :probes)) :status) ':ok)
                            (search "service.measurement(billing, 42)" report))
                       "a numeric observation literal can select and settle a diagnosis")))))
+  (diagnosis-tests--call-with
+   "blocked-probe"
+   (lambda (configuration)
+     (let* ((world (diagnosis-tests--world-create configuration "unavailable"))
+            (arguments (diagnosis-tests--definition)))
+       (knowledge-define-schema
+        configuration (knowledge-make-schema :predicate "probe.allowed"
+                                              :arguments '((:name "service" :type :entity))))
+       (knowledge-define-contract
+        configuration :id "service-ping" :tool "service.ping"
+        :when (json-object "service" "?service")
+        :requires #(#("probe.allowed" "?service"))
+        :observes (vector (json-object "predicate" "service.reachable"
+                                       "arguments" #("$arg.service" "$result.reachable"))))
+       (learning-tests--tool (diagnosis-tests--world-registry world) "service.ping-fallback"
+                             (lambda (arguments)
+                               (declare (ignore arguments))
+                               (json-object "reachable" (json-false))))
+       (knowledge-define-contract
+        configuration :id "ping-fallback" :tool "service.ping-fallback"
+        :observes (vector (json-object "predicate" "service.reachable"
+                                       "arguments" #("billing" "$result.reachable"))))
+       (setf (gethash "probes" arguments)
+             (concatenate 'vector (gethash "probes" arguments)
+                          (vector (json-object "tool" "service.ping-fallback"
+                                               "arguments" (json-object)))))
+       (diagnosis-tests--diagnose configuration world arguments)
+       (let ((case (first (knowledge-base-diagnosis-cases (knowledge-base-read configuration)
+                                                         (knowledge--workspace configuration)))))
+         (test-assert (and (equal (getf case :remaining) '("unavailable"))
+                           (equal (mapcar (lambda (probe) (getf probe :tool)) (getf case :probes))
+                                  '("service.ping-fallback")))
+                      "an inadmissible probe consumes no run when a usable discriminator exists")))))
   nil)
 
 (-> test-diagnosis-setting () null)
