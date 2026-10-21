@@ -79,7 +79,8 @@ on facts that later stop holding is checked again."
   "Return the facts satisfying fact GATE on accepted evidence, or NIL.
 
 Facts resting only on bases the gate does not accept, such as a model's
-predicted effects, never satisfy it."
+predicted effects, and conflicted facts never satisfy it. A negated pattern is
+satisfied by an accepted explicit negation."
   (let* ((configuration (tool-context-configuration context))
          (base (knowledge-base-read configuration))
          (pattern (knowledge--pattern-from-input
@@ -88,12 +89,12 @@ predicted effects, never satisfy it."
                      (knowledge-base-schema base predicate
                                             :workspace (knowledge--workspace configuration)))
                    :negatable t)))
-    (rest (find-if (lambda (solution)
-                     (every (lambda (node)
-                              (knowledge-node-observed-p node :accepted (getf gate :accepted)))
-                            (rest solution)))
-                   (knowledge-view-solve (knowledge-view-current configuration)
-                                         (list pattern))))))
+    (let ((view (knowledge-view-current configuration)))
+      (rest (first (knowledge-view-solve view (list pattern)
+                                         :limit 1
+                                         :test (lambda (node)
+                                                 (knowledge-node-admissible-p
+                                                  view node :accepted (getf gate :accepted)))))))))
 
 (-> mission-gate-fingerprint (list tool-context) list)
 (defun mission-gate-fingerprint (gate context)

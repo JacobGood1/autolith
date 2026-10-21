@@ -360,6 +360,7 @@
   test-knowledge-plan-changes
   test-knowledge-task-methods
   test-knowledge-fact-gates
+  test-knowledge-admissible-support
   test-knowledge-action-contracts)
 
 (define-test-suite knowledge-fixtures

@@ -1584,6 +1584,54 @@
                            "the failed gate says which evidence it accepts"))))))
     nil))
 
+(-> test-knowledge-admissible-support () null)
+(defun test-knowledge-admissible-support ()
+  "Test that gates use only undisputed facts on accepted bases, negated premises included."
+  (with-test-configuration (base root)
+    (let* ((configuration (configuration-copy base :working-directory root))
+           (context (make-instance 'tool-context :configuration configuration :worker nil)))
+      (dolist (predicate '("item.exists" "item.blocked" "item.ready" "item.paid"))
+        (knowledge-define-schema configuration
+                                 (knowledge-make-schema
+                                  :predicate predicate
+                                  :arguments '((:name "item" :type :entity)))))
+      (knowledge-propose-rule configuration
+                              :id "readiness"
+                              :premises '(("item.exists" "?x") (:not ("item.blocked" "?x")))
+                              :conclusion '("item.ready" "?x"))
+      (knowledge-admit-rule configuration "readiness")
+      (knowledge-tests--said configuration "item.exists" '("a") "a exists")
+      (knowledge-assert configuration
+                        (knowledge-tests--claim configuration "item.blocked" '("a") :negated t)
+                        :basis ':assumption)
+      (knowledge-tests--said configuration "item.exists" '("b") "b exists")
+      (knowledge-tests--said configuration "item.blocked" '("b") "b is not blocked" :negated t)
+      (knowledge-tests--said configuration "item.paid" '("c") "c is paid")
+      (knowledge-tests--said configuration "item.paid" '("c") "c is not paid" :negated t)
+      (let* ((view (knowledge-view-current configuration))
+             (ready-a (first (knowledge-view-holds view '("item.ready" "a")))))
+        (test-assert (and ready-a
+                          (= 2 (length (getf (first (knowledge-node-justifications ready-a))
+                                             :premises)))
+                          (equal (knowledge-node-bases ready-a)
+                                 '((:user-assertion :assumption))))
+                     "a negated premise joins the derivation's premises and basis"))
+      (loop for (pattern expected description) in
+            '((("item.ready" "a") nil "a conclusion resting on an assumed negation fails the gate")
+              (("item.ready" "b") t "a conclusion resting on stated facts passes the gate")
+              ((:not ("item.blocked" "b")) t "a stated negation passes a negated gate")
+              ((:not ("item.blocked" "a")) nil "an assumed negation fails a negated gate")
+              (("item.paid" "c") nil "a disputed fact fails the gate")
+              ((:not ("item.paid" "c")) nil "a disputed negation fails the gate"))
+            do (test-assert (eq expected
+                                (and (mission--fact-gate-support
+                                      (list :kind :fact :pattern pattern
+                                            :accepted '(:observation :user-assertion))
+                                      context)
+                                     t))
+                            description))))
+  nil)
+
 (defclass knowledge-tests--mail-tool (tool)
   ((calls
     :initform 0
