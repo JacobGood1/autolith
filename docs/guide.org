@@ -902,10 +902,14 @@ Besides prose memories, Autolith keeps structured facts: a predicate applied to
 typed values, such as =event.start review 2026-10-22T13:00:00Z=. Each fact
 cites its evidence, like a memory, and says why it is believed: an
 /observation/ of a file, page, tool, or mission, a /user assertion/, an
-/assumption/, or the model's own /proposal/. A fact stated by two sources has
-two supports and holds while either does. Web pages and tool output expire
-after their lifetime (a week and a day) and support nothing until observed
-again; your statements and recorded runs do not expire.
+/assumption/, or the model's own /proposal/. Where a fact came from decides
+its basis, not what the model calls it: a file Autolith read is an
+observation, your own words a user assertion, and a web page an observation
+only once this conversation retrieved it with the quoted text; anything else
+is the model's proposal. A fact stated by two sources has two supports and
+holds while either does. Web pages and tool output expire after their
+lifetime (a week and a day) and support nothing until observed again, when
+they apply again; your statements and recorded runs do not expire.
 
 Rules derive facts from facts, with dates, durations, numbers, and quantities
 in units:
@@ -1001,13 +1005,19 @@ otherwise:
 (:id "departure-known" :kind :fact :pattern ("event.departure" "review" "?t"))
 #+END_SRC
 
-A model's predictions never satisfy it, and a gate passed on facts that stop
-holding before acceptance is checked again.
+A model's predictions never satisfy it, nor does a fact that another accepted
+fact disputes, and a derived fact counts only if everything it rests on,
+negated premises included, is accepted. A negated pattern such as
+=(:not ("item.blocked" "a"))= passes on an accepted explicit negation. A gate
+passed on facts that stop holding before acceptance is checked again.
 
 An action /contract/ describes a tool call: argument values it applies to,
 facts it requires, facts it is expected to cause, and facts to read from its
 arguments and JSON result, such as =$arg.to= and =$result.id=. A call whose
-requirements do not hold is refused before it runs, with the reason. A
+requirements do not hold is refused before it runs, with the reason; like a
+gate, a requirement holds only on undisputed observations or your statements,
+unless the contract's =accepts= also names =model-proposal= so that an earlier
+call's predicted effects count. A
 successful call records its expected effects as predictions and its observed
 values as observations of that call, which is how structured tool output,
 MCP results included, becomes facts. The model defines methods with
@@ -1032,14 +1042,21 @@ is offered the one =procedure.run= call that makes the same calls with =q5=,
 and =@ learned procedure make-sales-report fits this request= appears. The
 first run asks to admit the procedure (=procedure.admit -- make-sales-report
 v1: sales.load, sales.report, notify.send=); full access admits it at once.
-Once admitted, a procedure a request fits runs before the model's first
+Once a procedure is admitted and a turn running it has taken fewer model
+requests than the turns it was learned from, a request matching its wording
+exactly, apart from its parameters, runs it before the model's first
 request, shown as its =procedure.run= call, and the model answers from the
-results in one request.
-Every call still asks its own approval and passes its contracts; a run whose
-calls' contract requirements do not hold for the request's values is refused
-before any call, and is not offered. If a call
-fails, the run stops and the model continues the work with ordinary calls;
-two failed runs in a row suspend the procedure until you admit it again.
+results in one request. A wording learned with a word that varied, such as
+=Please= or =Kindly=, matches any word there, so it stays an offer the model
+may decline. Procedures are learned only from turns the model finished: every
+call succeeded, the model answered, and the turn was not cancelled.
+
+Every call still asks its own approval and passes its contracts. A run whose
+contract requirements do not hold for the request's values is refused before
+any call and is not offered; a call needing something an earlier call builds
+is checked when it is made. If a call fails, the run stops and the model
+continues the work with ordinary calls; two failed runs in a row suspend the
+procedure until you admit it again.
 
 #+BEGIN_SRC lisp
 (procedures)          ; procedures, their calls, status, and what they saved
@@ -1062,8 +1079,9 @@ up to four hypotheses, each predicting facts, and probes: tool calls whose
 contracts observe facts from their results. Facts already known are checked
 first; then the probe telling apart the most remaining hypotheses per cost
 runs, at most three, with no model request between them. A hypothesis is
-ruled out only by a fact contradicting one of its predictions, so a case no
-probe can settle is reported as still open rather than guessed. A diagnosis
+ruled out only by an undisputed observation or statement contradicting one of
+its predictions, so a case no probe can settle is reported as still open
+rather than guessed. A diagnosis
 can be saved by name and run again with new values.
 
 #+BEGIN_SRC text
