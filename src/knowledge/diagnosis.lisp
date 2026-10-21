@@ -226,30 +226,38 @@ Return its ID and whether the definition changed."
 (defun knowledge-prediction-status (view prediction)
   "Return whether ground PREDICTION is :CONFIRMED, :CONTRADICTED, or :UNKNOWN in VIEW.
 
-The second value is the fact that decided it. A positive prediction is
-contradicted by its explicit negation or, for a keyed predicate, by a fact
-giving its key another value; a negated one is contradicted by the fact it
-denies. Absence of a fact never contradicts."
+The second value is the fact that decided it. Only admissible facts decide:
+undisputed observations or the user's statements, never predictions,
+assumptions, or conflicted facts. A positive prediction is contradicted by its
+explicit negation or, for a keyed predicate, by a fact giving its key another
+value; a negated one is contradicted by the fact it denies. Absence of a fact
+never contradicts."
   (if (knowledge-negation-p prediction)
-      (let ((denied (first (knowledge-view-holds view (second prediction))))
-            (confirmed (first (knowledge-view-holds view prediction))))
+      (let ((denied (first (knowledge--established view (second prediction))))
+            (confirmed (first (knowledge--established view prediction))))
         (cond
           (denied (values ':contradicted denied))
           (confirmed (values ':confirmed confirmed))
           (t (values ':unknown nil))))
-      (let ((confirmed (first (knowledge-view-holds view prediction)))
-            (negated (first (knowledge-view-holds view (list :not prediction))))
+      (let ((confirmed (first (knowledge--established view prediction)))
+            (negated (first (knowledge--established view (list :not prediction))))
             (rival (let ((pattern (knowledge--observation-key view prediction)))
                      (and pattern
                           (find-if-not (lambda (node)
                                          (equal (knowledge-node-proposition node)
                                                 prediction))
-                                       (knowledge-view-holds view pattern))))))
+                                       (knowledge--established view pattern))))))
         (cond
           (confirmed (values ':confirmed confirmed))
           (negated (values ':contradicted negated))
           (rival (values ':contradicted rival))
           (t (values ':unknown nil))))))
+
+(-> knowledge--established (knowledge-view list) list)
+(defun knowledge--established (view pattern)
+  "Return VIEW's admissible facts matching PATTERN."
+  (remove-if-not (lambda (node) (knowledge-node-admissible-p view node))
+                 (knowledge-view-holds view pattern)))
 
 
 ;;;; -- Running a Case --
@@ -477,7 +485,7 @@ observing known facts is not run."
                                               (knowledge-error ()
                                                 nil))
                          for key = (knowledge--observation-key view observation)
-                         when (and key (null (knowledge-view-holds view key)))
+                         when (and key (null (knowledge--established view key)))
                            collect key))
              (pairs (loop for (left . others) on hypotheses
                           sum (loop for right in others
@@ -521,7 +529,7 @@ observing known facts is not run."
                                                       nil))
                                for key = (knowledge--observation-key view observation)
                                append (mapcar #'knowledge-node-text
-                                              (and key (knowledge-view-holds view key))))))))
+                                              (and key (knowledge--established view key))))))))
 
 (-> knowledge--record-case (configuration list &key (:conversation (option string))) null)
 (defun knowledge--record-case (configuration case &key conversation)

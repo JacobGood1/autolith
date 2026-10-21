@@ -172,9 +172,11 @@
   (diagnosis-tests--call-with
    "predictions"
    (lambda (configuration)
-     (knowledge-assert configuration '("service.reachable" "billing" :true)
-                       :basis ':model-proposal)
-     (knowledge-assert configuration '(:not ("auth.accepted" "billing" :false))
+     (knowledge-tests--said configuration "service.reachable" '("billing" :true)
+                            "billing answers")
+     (knowledge-tests--said configuration "auth.accepted" '("billing" :false)
+                            "billing never rejects us" :negated t)
+     (knowledge-assert configuration '("endpoint.current" "billing" :true)
                        :basis ':model-proposal)
      (let ((view (knowledge-view-current configuration)))
        (loop for (prediction expected) in '((("service.reachable" "billing" :true) :confirmed)
@@ -182,6 +184,7 @@
                                             ((:not ("service.reachable" "billing" :true)) :contradicted)
                                             (("service.reachable" "mail" :false) :unknown)
                                             (("endpoint.current" "billing" :false) :unknown)
+                                            (("endpoint.current" "billing" :true) :unknown)
                                             (("auth.accepted" "billing" :false) :contradicted)
                                             ((:not ("auth.accepted" "billing" :false)) :confirmed))
              do (test-assert (eq (knowledge-prediction-status view prediction) expected)
