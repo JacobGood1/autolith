@@ -1870,6 +1870,10 @@
                 (next-turn-finished-observed-p nil)
                 (producer-condition nil)
                 (producer nil))
+           ;; A fresh test-worker cache may need to compile the native syntax
+           ;; highlighter. Finish presentation setup before the bounded gate wait.
+           (application-tool-call-entry tool application
+                                        (agent-test-call :name "gate"))
            (tool-registry-register registry tool)
            (queued-recording-terminal-enqueue
             terminal '(:insert "run the gated tool"))
