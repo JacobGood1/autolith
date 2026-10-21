@@ -569,20 +569,21 @@ Conflicted facts come first, then the rest by predicate and text."
                                :key (lambda (keyword) (string-downcase (symbol-name keyword)))
                                :test #'string=)
                          (memory-resource--fail "basis must be observation, user-assertion, assumption, or model-proposal."))))
-         (claim nil))
+         (claim nil)
+         (notes nil))
     (if evidence
         (dolist (item evidence)
-          (setf claim (knowledge-assert
-                       configuration proposition
-                       :scope (memory-knowledge--scope operation)
-                       :evidence item
-                       :basis (or basis
-                                  (if (eq (first (getf (rest item) :source)) :user)
-                                      ':user-assertion
-                                      ':observation))
-                       :valid-from (memory-knowledge--time operation "valid-from")
-                       :valid-until (memory-knowledge--time operation "valid-until")
-                       :source-conversation (conversation-identifier conversation))))
+          (multiple-value-bind (recorded note) (memory-knowledge--basis context item basis)
+            (when note
+              (pushnew note notes :test #'string=))
+            (setf claim (knowledge-assert
+                         configuration proposition
+                         :scope (memory-knowledge--scope operation)
+                         :evidence item
+                         :basis recorded
+                         :valid-from (memory-knowledge--time operation "valid-from")
+                         :valid-until (memory-knowledge--time operation "valid-until")
+                         :source-conversation (conversation-identifier conversation)))))
         (setf claim (knowledge-assert
                      configuration proposition
                      :scope (memory-knowledge--scope operation)
@@ -590,8 +591,69 @@ Conflicted facts come first, then the rest by predicate and text."
                      :valid-from (memory-knowledge--time operation "valid-from")
                      :valid-until (memory-knowledge--time operation "valid-until")
                      :source-conversation (conversation-identifier conversation))))
-    (format nil "Asserted ~A: ~A."
-            claim (knowledge-proposition-display proposition schema))))
+    (format nil "Asserted ~A: ~A.~{ ~A~}"
+            claim (knowledge-proposition-display proposition schema) (reverse notes))))
+
+(-> memory-knowledge--basis (tool-context list (option keyword)) (values keyword (option string)))
+(defun memory-knowledge--basis (context evidence requested)
+  "Return the basis EVIDENCE establishes, at most REQUESTED, and a note when it was lowered.
+
+A basis comes from where the evidence was checked, never from the label the
+model asks for: a file Autolith read is an observation, the user's own words
+are a user assertion, and a page counts as observed only when this
+conversation retrieved it with the quoted text. Otherwise the support is the
+model's proposal. The model may lower a basis to an assumption or a proposal,
+never raise it."
+  (let* ((source (getf (rest evidence) :source))
+         (established (ecase (first source)
+                        (:file ':observation)
+                        (:user ':user-assertion)
+                        (:url (if (memory-knowledge--url-retrieved-p
+                                   (tool-context-conversation context)
+                                   (getf (rest source) :url) (getf (rest source) :quote))
+                                  ':observation
+                                  ':model-proposal)))))
+    (cond
+      ((member requested '(:assumption :model-proposal))
+       (values requested nil))
+      ((or (null requested) (eq requested established))
+       (values established
+               (and (eq established ':model-proposal)
+                    (format nil "~A was not retrieved with that text in this conversation, so it supports the fact as your proposal; retrieve it with web.run to make it an observation."
+                            (getf (rest source) :url)))))
+      (t
+       (values established
+               (format nil "The ~(~A~) source supports it as ~(~A~), not ~(~A~)."
+                       (first source) established requested))))))
+
+(-> memory-knowledge--url-retrieved-p (conversation string (option string)) boolean)
+(defun memory-knowledge--url-retrieved-p (conversation url quote)
+  "Return true when a tool call in CONVERSATION fetched URL and its successful result contains QUOTE."
+  (let ((calls nil)
+        (found nil))
+    (handler-case
+        (conversation-map-records
+         conversation
+         (lambda (record)
+           (let ((properties (rest record)))
+             (case (first record)
+               (:provider-item
+                (let ((item (ignore-errors (json-decode (getf properties :wire-json)))))
+                  (when (and (json-object-p item)
+                             (equal (json-get item "type") "function_call")
+                             (stringp (json-get item "arguments"))
+                             (search url (json-get item "arguments")))
+                    (push (json-get item "call_id") calls))))
+               (:tool-result
+                (let ((output (getf properties :output)))
+                  (when (and (member (getf properties :call-id) calls :test #'equal)
+                             (eq (getf properties :status) ':ok)
+                             (stringp output)
+                             (or (null quote) (memory-source-quote-found-p quote output)))
+                    (setf found t))))))))
+      (error ()
+        nil))
+    found))
 
 (-> memory-knowledge--retract (tool-context hash-table) string)
 (defun memory-knowledge--retract (context operation)

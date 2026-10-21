@@ -200,7 +200,7 @@ retracting facts, and proposing rules."
         "sources" (memory-sources-property)
         "basis" (cl-llm-provider-api:provider-enum-schema
                  '("observation" "user-assertion" "assumption" "model-proposal")
-                 "Why it is believed; defaults from the sources, or model-proposal without any.")
+                 "Why it is believed. The sources decide it: a file is an observation, the user's words a user assertion, a page an observation only once retrieved with that text in this conversation, and no source a model proposal. Give assumption or model-proposal to claim less.")
         "valid-from" (tool-string-property "ISO instant from which the fact holds.")
         "valid-until" (tool-string-property "ISO instant after which it no longer holds.")
         "scope" (memory-scope-property))

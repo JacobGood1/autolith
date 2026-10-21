@@ -1346,6 +1346,50 @@
             (test-assert (and (not (tool-result-success-p result))
                               (search text (content result)))
                          (format nil "~A fails correctively" label))))
+        (flet ((asserted-bases (result)
+                 "Return the bases of the supports of the claim RESULT asserted."
+                 (let* ((text (content result))
+                        (start (+ (search "Asserted " text) (length "Asserted ")))
+                        (claim (subseq text start (position #\: text :start start)))
+                        (base (knowledge-base-read configuration)))
+                   (sort (remove-duplicates
+                          (mapcar (lambda (support)
+                                    (getf (knowledge-base-support base support) :basis))
+                                  (getf (knowledge-base-claim base claim) :supports)))
+                         #'string<))))
+          (let ((unretrieved (edit (json-object "op" "fact-assert" "predicate" "event.buffer"
+                                                "arguments" (vector "standup" "PT5M")
+                                                "sources" (vector (json-object
+                                                                   "url" "https://example.com/agenda"
+                                                                   "quote" "five minutes early"))))))
+            (test-assert (and (search "https://example.com/agenda was not retrieved with that text in this conversation"
+                                      (content unretrieved))
+                              (equal (asserted-bases unretrieved) '(:model-proposal)))
+                         "a page this conversation never retrieved supports only the model's proposal"))
+          (conversation-append-provider-item
+           conversation
+           (json-object "type" "function_call" "call_id" "fetch-1" "namespace" "web" "name" "run"
+                        "arguments" "{\"open\":[{\"ref_id\":\"https://example.com/agenda\"}]}"))
+          (conversation-append-tool-result conversation "fetch-1"
+                                           :tool-name "web.run"
+                                           :output "Agenda: be five minutes early to standup."
+                                           :success-p t)
+          (let ((retrieved (edit (json-object "op" "fact-assert" "predicate" "event.buffer"
+                                              "arguments" (vector "standup" "PT5M")
+                                              "sources" (vector (json-object
+                                                                 "url" "https://example.com/agenda"
+                                                                 "quote" "five minutes early"))))))
+            (test-assert (and (not (search "not retrieved" (content retrieved)))
+                              (member :observation (asserted-bases retrieved)))
+                         "a page retrieved in this conversation with the quoted text is an observation"))
+          (let ((raised (edit (json-object "op" "fact-assert" "predicate" "event.buffer"
+                                           "arguments" (vector "retro" "PT5M")
+                                           "basis" "observation"
+                                           "sources" (vector (json-object "user" "half an hour"))))))
+            (test-assert (and (search "The user source supports it as user-assertion, not observation."
+                                      (content raised))
+                              (equal (asserted-bases raised) '(:user-assertion)))
+                         "a requested basis never exceeds what its source establishes")))
         (test-assert (search "Operations 1 to 1 were applied"
                              (content (edit (json-object "op" "fact-assert"
                                                          "predicate" "event.buffer"
