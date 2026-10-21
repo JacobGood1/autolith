@@ -256,10 +256,10 @@ sixteen subsets of the four bases, rather than the number of proof paths."
     (view node &key (accepted *knowledge-established-bases*))
   "Return true when NODE may justify an action, a gate, or a diagnosis.
 
-The view must be complete, and some complete support path must rest only on
-ACCEPTED bases with no conflicted premise. Independent paths are alternatives;
-a disputed derivation does not disqualify an independent clean observation."
-  (when (knowledge-view-incomplete view)
+The view must be complete and error-free, and some complete support path must
+rest only on ACCEPTED bases with no conflicted premise. Independent paths are
+alternatives; a disputed derivation does not disqualify a clean observation."
+  (when (or (knowledge-view-incomplete view) (knowledge-view-errors view))
     (return-from knowledge-node-admissible-p nil))
   (let ((states (make-hash-table :test #'eq)))
     (labels ((accepted-support-p (support)
@@ -467,18 +467,18 @@ Return the extended environment and whether matching succeeded."
                           item))
                     (rest pattern)))))
 
-(-> knowledge--negation-node (knowledge-view list list &key (:test (option function)))
-    (option knowledge-node))
-(defun knowledge--negation-node (view pattern environment &key test)
-  "Return VIEW's supported explicit negation of PATTERN under ENVIRONMENT, or NIL.
+(-> knowledge--negation-nodes (knowledge-view list list &key (:test (option function))) list)
+(defun knowledge--negation-nodes (view pattern environment &key test)
+  "Return all supported explicit negations of PATTERN under ENVIRONMENT.
 
-When TEST is given, only a negation it accepts counts."
+When TEST is given, include only negations it accepts. Distinct visible scopes
+are independent support paths even when their propositions agree."
   (let ((atom (knowledge--instantiate pattern environment)))
-    (find-if (lambda (node)
-               (and (knowledge-propositions-equal-p (second (knowledge-node-proposition node))
-                                                    atom)
-                    (or (null test) (funcall test node))))
-             (gethash (first atom) (knowledge-view-negated view)))))
+    (remove-if-not (lambda (node)
+                     (and (knowledge-propositions-equal-p
+                           (second (knowledge-node-proposition node)) atom)
+                          (or (null test) (funcall test node))))
+                   (gethash (first atom) (knowledge-view-negated view)))))
 
 (-> knowledge--record-error (knowledge-view list integer string) null)
 (defun knowledge--record-error (view rule version message)
@@ -558,22 +558,31 @@ When TEST is given, only a negation it accepts counts."
                  (or (>= (knowledge-view-matches view) *knowledge-match-limit*)
                      (>= (knowledge-view-steps view) *knowledge-step-limit*)))
 
+               (match-negative (patterns environment premises)
+                 (cond
+                   ((exhausted-p)
+                    (pushnew (getf entry :id) (knowledge-view-incomplete view)
+                             :test #'string=))
+                   ((null patterns)
+                    (knowledge--conclude view entry rule version
+                                         (reverse premises) environment))
+                   (t
+                    (dolist (node (knowledge--negation-nodes
+                                   view (second (first patterns)) environment))
+                      (when (exhausted-p)
+                        (pushnew (getf entry :id) (knowledge-view-incomplete view)
+                                 :test #'string=)
+                        (return))
+                      (incf (knowledge-view-steps view))
+                      (match-negative (rest patterns) environment (cons node premises))))))
+
                (match (patterns environment premises)
                  (cond
                    ((exhausted-p)
                     (pushnew (getf entry :id) (knowledge-view-incomplete view)
                              :test #'string=))
                    ((null patterns)
-                    ;; A negated premise is a premise like any other: its fact
-                    ;; joins the justification and its basis the conclusion's.
-                    (let ((negations (mapcar (lambda (pattern)
-                                               (knowledge--negation-node
-                                                view (second pattern) environment))
-                                             negative)))
-                      (when (every #'identity negations)
-                        (knowledge--conclude view entry rule version
-                                             (append (reverse premises) negations)
-                                             environment))))
+                     (match-negative negative environment premises))
                    (t
                     (dolist (node (knowledge--candidates view (first patterns) environment))
                       (when (exhausted-p)
@@ -685,19 +694,28 @@ unknown rather than impossible."
         (count 0)
         (steps 0)
         (cut-p nil))
-    (labels ((match (remaining environment nodes)
+    (labels ((match-negative (remaining environment nodes)
                (cond
                  ((or (>= count limit) (>= steps *knowledge-step-limit*))
                   (setf cut-p t))
                  ((null remaining)
-                  (let ((negations (mapcar (lambda (pattern)
-                                             (knowledge--negation-node view (second pattern)
-                                                                       environment :test test))
-                                           negative)))
-                    (when (every #'identity negations)
-                      (incf count)
-                      (push (cons (reverse environment) (append (reverse nodes) negations))
-                            solutions))))
+                  (incf count)
+                  (push (cons (reverse environment) (reverse nodes)) solutions))
+                 (t
+                  (dolist (node (knowledge--negation-nodes
+                                 view (second (first remaining)) environment :test test))
+                    (when (or (>= count limit) (>= steps *knowledge-step-limit*))
+                      (setf cut-p t)
+                      (return))
+                    (incf steps)
+                    (match-negative (rest remaining) environment (cons node nodes))))))
+
+             (match (remaining environment nodes)
+               (cond
+                 ((or (>= count limit) (>= steps *knowledge-step-limit*))
+                  (setf cut-p t))
+                 ((null remaining)
+                   (match-negative negative environment nodes))
                  (t
                   (dolist (node (remove-if-not (lambda (node) (or (null test) (funcall test node)))
                                                (knowledge--candidates view (first remaining)

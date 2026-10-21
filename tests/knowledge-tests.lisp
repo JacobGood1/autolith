@@ -1765,6 +1765,79 @@
                                  '(:kind :fact :pattern ("event.start" "review" "?t")
                                    :accepted (:user-assertion)) context))
                           "even stored evidence cannot satisfy a gate in an incomplete view")))))))
+  (with-test-configuration (base root)
+    (let ((configuration (configuration-copy base :working-directory root)))
+      (dolist (predicate '("item.exists" "item.ready"))
+        (knowledge-define-schema
+         configuration (knowledge-make-schema
+                        :predicate predicate
+                        :arguments '((:name "item" :type :entity)))))
+      (knowledge-propose-rule configuration :id "failed-contradiction"
+                              :premises '(("item.exists" "?x"))
+                              :bindings '(("?unused" ("/" 1 0)))
+                              :conclusion '(:not ("item.ready" "?x")))
+      (knowledge-admit-rule configuration "failed-contradiction")
+      (knowledge-tests--said configuration "item.exists" '("a") "a exists")
+      (let ((source (memory-source-tests--write (merge-pathnames "ready.txt" root) "a is ready")))
+        (knowledge-assert configuration '("item.ready" "a") :basis ':observation
+                          :evidence (knowledge-observe-file source :quote "a is ready"
+                                                            :workspace (namestring root))))
+      (let* ((view (knowledge-tests--view configuration))
+             (node (first (knowledge-view-holds view '("item.ready" "a")))))
+        (test-assert (and node (knowledge-node-observed-p node :accepted '(:observation)))
+                     "the decision node retains its independent observed support")
+        (test-assert (and (knowledge-view-errors view)
+                          (not (knowledge-view-incomplete view)))
+                     "a failed contradiction derivation records an inference error")
+        (test-assert (not (knowledge-node-admissible-p view node))
+                     "stored evidence cannot justify a decision after inference errors"))))
+  (with-test-configuration (base root)
+    (let ((configuration (configuration-copy base :working-directory root)))
+      (dolist (predicate '("item.exists" "item.blocked" "item.ready"))
+        (knowledge-define-schema
+         configuration (knowledge-make-schema
+                        :predicate predicate
+                        :arguments '((:name "item" :type :entity)))))
+      (knowledge-propose-rule configuration :id "negative-alternatives"
+                              :premises '(("item.exists" "?x") (:not ("item.blocked" "?x")))
+                              :conclusion '("item.ready" "?x"))
+      (knowledge-admit-rule configuration "negative-alternatives")
+      (knowledge-tests--said configuration "item.exists" '("a") "a exists")
+      ;; Distinct visible scopes provide independent proofs of the same negation.
+      (dolist (reverse-p '(nil t))
+        (let* ((view (knowledge-tests--view configuration))
+               (negations
+                 (loop for (scope basis) in '((:global :observation) (:workspace :model-proposal))
+                       collect (let ((node (knowledge--view-node
+                                            view (symbol-name scope)
+                                            '(:not ("item.blocked" "a")) scope
+                                            (and (eq scope ':workspace)
+                                                 (knowledge-view-workspace view)))))
+                                 (setf (knowledge-node-supports node)
+                                       (list (list :state :current :basis basis))
+                                       (knowledge-node-bases node) (list (list basis)))
+                                 node))))
+          (setf (gethash "item.blocked" (knowledge-view-negated view))
+                (if reverse-p (reverse negations) negations))
+          (dolist (item (knowledge-base-active-rules
+                        (knowledge-view-base view) :workspace (knowledge-view-workspace view)))
+            (knowledge--run-rule view item))
+          (let ((ready (first (knowledge-view-holds view '("item.ready" "a")))))
+            (test-assert (= 2 (length (knowledge-node-justifications ready)))
+                         "each matching negative fact supplies an independent justification")
+            (test-assert (knowledge-node-admissible-p view ready)
+                         "a clean negative proof justifies a decision in either index order")
+            (test-assert (member '(:observation :user-assertion)
+                                 (knowledge-node-bases ready) :test #'equal)
+                         "negative basis alternatives survive rule matching"))
+          (dolist (patterns '((("item.exists" "?x") (:not ("item.blocked" "?x")))
+                              ((:not ("item.blocked" "a")))))
+            (multiple-value-bind (solutions cut-p) (knowledge-view-solve view patterns)
+              (test-assert (and (= 2 (length solutions)) (not cut-p))
+                           "queries preserve every matching negative alternative"))
+            (multiple-value-bind (solutions cut-p) (knowledge-view-solve view patterns :limit 1)
+              (test-assert (and (= 1 (length solutions)) cut-p)
+                           "negative alternatives obey the solution limit")))))))
   nil)
 
 (defclass knowledge-tests--mail-tool (tool)
