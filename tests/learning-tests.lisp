@@ -686,15 +686,114 @@
                                    (null (procedure-automatic-offer configuration probe)))
                               (format nil "~A: an admitted procedure without savings is only offered"
                                       description))
-                 (conversation-append-user-message conversation (first requests))
-                 (learning-tests--call conversation
-                                       :call-id "run-1" :tool "procedure.run"
-                                       :arguments (json-object "id" name)
-                                       :output (json-object "made" 2))
-                 (learning-tests--request conversation "run-r1" 900)
+                 (learning-tests--demonstrate configuration conversation name
+                                              :request (first requests))
                  (test-assert (eq expected
                                   (and (procedure-automatic-offer configuration probe) t))
                               description)))))
+  (learning-tests--savings-evidence)
+  nil)
+
+(-> learning-tests--demonstrate
+    (configuration conversation string
+     &key (:request string) (:requests integer) (:tokens (option integer))
+          (:answered-p boolean) (:aborted-p boolean) (:failed-extra-p boolean)
+          (:provenance-p boolean) (:unmeasured-request-p boolean))
+    null)
+(defun learning-tests--demonstrate
+    (configuration conversation identifier
+     &key request (requests 1) (tokens 900) (answered-p t) aborted-p failed-extra-p
+          (provenance-p t) unmeasured-request-p)
+  "Run IDENTIFIER through its tool and record a turn with the requested outcome and usage."
+  (let* ((registry (make-default-tool-registry :configuration configuration))
+         (context (make-instance 'tool-context :configuration configuration :worker nil
+                                              :registry registry :conversation conversation
+                                              :call-id "model-run"))
+         (entry (knowledge-base-procedure (knowledge-base-read configuration)
+                                          (knowledge--workspace configuration) identifier))
+         (procedure (getf (procedure-entry-runnable-version entry) :procedure))
+         (parameters (json-object)))
+    (dolist (binding (procedure-match-input procedure request))
+      (setf (gethash (first binding) parameters) (rest binding)))
+    (learning-tests--tool registry "report.build"
+                          (lambda (arguments)
+                            (json-object "file" (format nil "~A.pdf" (json-get arguments "period")))))
+    (learning-tests--tool registry "mail.send"
+                          (lambda (arguments) (declare (ignore arguments)) (json-object "sent" t)))
+    (conversation-append-user-message conversation request)
+    (let ((item (json-object "type" "function_call" "call_id" "model-run"
+                             "namespace" "procedure" "name" "run"
+                             "arguments" (json-encode (json-object "id" identifier
+                                                                   "parameters" parameters)))))
+      (conversation-append-provider-item conversation item)
+      (let ((result (if provenance-p
+                        (tool-registry-execute-call registry item context)
+                        (tool-success "A historical run without definition provenance."))))
+        (test-assert (tool-result-success-p result) "the measured procedure run succeeds")
+        (conversation-append-tool-result conversation "model-run" :tool-name "procedure.run"
+                                         :output (tool-result-content result)
+                                         :success-p (tool-result-success-p result))))
+    (when failed-extra-p
+      (learning-tests--call conversation :call-id "extra" :tool "mail.send"
+                                         :arguments (json-object) :output (json-object)
+                                         :success-p nil))
+    (dotimes (index requests)
+      (if tokens
+          (learning-tests--request conversation (format nil "run-r~D" index) tokens)
+          (conversation-append-provider-metadata conversation
+                                                 (list :response-id (format nil "run-r~D" index)))))
+    (when unmeasured-request-p
+      (conversation-append-provider-metadata conversation '(:response-id "unknown-usage")))
+    (when answered-p
+      (learning-tests--answer conversation "Sent."))
+    (when aborted-p
+      (conversation-append-record conversation '(:turn-aborted :reason "cancelled"))))
+  nil)
+
+(-> learning-tests--savings-evidence () null)
+(defun learning-tests--savings-evidence ()
+  "Test completion, measured costs, and definition provenance before unread procedure reuse."
+  (loop for (description options expected) in
+        '(("a completed cheaper turn" () t)
+          ("an unfinished turn" (:answered-p nil) nil)
+          ("an aborted turn" (:aborted-p t) nil)
+          ("a failed companion call" (:failed-extra-p t) nil)
+          ("unmeasured tokens" (:tokens nil) nil)
+          ("partially measured usage" (:unmeasured-request-p t) nil)
+          ("missing definition provenance" (:provenance-p nil) nil)
+          ("no model requests" (:requests 0) nil)
+          ("equal token use" (:tokens 3000) nil)
+          ("higher token use" (:tokens 4000) nil)
+          ("equal request count" (:requests 3 :tokens 300) nil))
+        do (with-test-configuration (base root)
+             (let* ((configuration (configuration-copy base :working-directory root))
+                    (conversation (conversation-create configuration)))
+               (dolist (period '("q1" "q2" "q3"))
+                 (learning-tests--email-turn conversation (format nil "Email report ~A" period) period))
+               (let ((name (first (first (procedure-learn configuration)))))
+                 (procedure-admit configuration name)
+                 (apply #'learning-tests--demonstrate configuration conversation name
+                        :request "Email report q4" options)
+                 (test-assert (eq expected
+                                  (and (procedure-automatic-offer configuration "Email report q5") t))
+                              (format nil "~A controls eligibility for unread reuse" description))
+                 (when (eq (getf options :answered-p t) nil)
+                   (learning-tests--answer conversation "Sent.")
+                   (test-assert (procedure-automatic-offer configuration "Email report q5")
+                                "only completing the measured turn makes its evidence eligible"))
+                 (when expected
+                   (let* ((entry (knowledge-base-procedure (knowledge-base-read configuration)
+                                                           (knowledge--workspace configuration) name))
+                          (procedure (copy-tree (getf (procedure-entry-runnable-version entry) :procedure))))
+                     (setf (getf (rest procedure) :description) "A revised procedure.")
+                     (procedure-define configuration procedure :baseline '(:requests 3 :tokens 3000))
+                     (procedure-admit configuration name)
+                     (test-assert (and (null (procedure-savings configuration name))
+                                       (null (procedure-automatic-offer configuration "Email report q5")))
+                                  "an earlier definition's evidence cannot authorize a revised definition")
+                     (procedure-admit configuration name :version 1)
+                     (test-assert (procedure-automatic-offer configuration "Email report q5")
+                                  "readmitting the demonstrated definition restores only its own evidence")))))))
   nil)
 
 (-> test-procedure-build-then-use () null)
@@ -799,15 +898,26 @@
                                                                        "make-sales-report" nil)))
                         "(run-procedure) names a missing parameter")))
         (conversation-append-user-message conversation "Make the sales report for q6.")
-        (learning-tests--call conversation
-                              :call-id "run-1" :tool "procedure.run"
-                              :arguments (json-object "id" "make-sales-report"
-                                                      "parameters" (json-object "file" "q6"))
-                              :output (json-object "made" 3))
+        (let ((item (json-object "type" "function_call" "call_id" "run-1"
+                                 "namespace" "procedure" "name" "run"
+                                 "arguments" (json-encode
+                                              (json-object "id" "make-sales-report"
+                                                           "parameters" (json-object "file" "q6"))))))
+          (conversation-append-provider-item conversation item)
+          (let* ((model-context (make-instance 'tool-context
+                                               :configuration configuration :worker nil
+                                               :registry registry :conversation conversation
+                                               :call-id "run-1"))
+                 (run (procedure-run model-context "make-sales-report"
+                                     :parameters '(("file" . "q6")))))
+            (conversation-append-tool-result
+             conversation "run-1" :tool-name "procedure.run"
+             :output (procedure-run-report "make-sales-report" run) :success-p t)))
         (learning-tests--request conversation "run-1-r1" 1200)
         (learning-tests--request conversation "run-1-r2" 1300)
+        (learning-tests--answer conversation "The report is ready.")
         (let ((listing (text (application-procedures-entry application))))
-          (test-assert (and (search "✓ make-sales-report v1  admitted · 1 run, 0 failed" listing)
+          (test-assert (and (search "✓ make-sales-report v1  admitted · 2 runs, 0 failed" listing)
                             (search "turns running it: 2 requests, 2500 tokens (1 turn)" listing))
                        "(procedures) compares turns running it with the turns it was learned from"))
         (test-assert (search "retired  make-sales-report"

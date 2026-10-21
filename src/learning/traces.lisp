@@ -48,6 +48,7 @@ and TRACES are newest first.")
     :type list
     :documentation "(:TOOL :ARGUMENTS :STATUS :OUTPUT :CALL-ID) for each tool call in order.
 
+Procedure calls also retain :PROCEDURE-VERSION and :PROCEDURE provenance.
 OUTPUT is kept only when it is a JSON object or array of bounded length,
 the only results later calls can take values from.")
    (requests
@@ -62,6 +63,12 @@ the only results later calls can take values from.")
     :accessor action-trace-tokens
     :type (integer 0)
     :documentation "How many tokens those requests used in total.")
+   (usage-known-p
+    :initarg :usage-known-p
+    :initform t
+    :accessor action-trace-usage-known-p
+    :type boolean
+    :documentation "Whether every counted model request supplied total token usage.")
    (answered-p
     :initarg :answered-p
     :initform nil
@@ -208,14 +215,15 @@ it stopped. Any other change rereads every segment."
   (if traces
       (let ((trace (first traces)))
         (cons (make-instance 'action-trace
-                             :conversation (action-trace-conversation trace)
-                             :sequence     (action-trace-sequence trace)
-                             :input        (action-trace-input trace)
-                             :calls        (mapcar #'copy-list (action-trace-calls trace))
-                             :requests     (action-trace-requests trace)
-                             :tokens       (action-trace-tokens trace)
-                             :answered-p   (action-trace-answered-p trace)
-                             :aborted-p    (action-trace-aborted-p trace))
+                             :conversation  (action-trace-conversation trace)
+                             :sequence      (action-trace-sequence trace)
+                             :input         (action-trace-input trace)
+                             :calls         (mapcar #'copy-list (action-trace-calls trace))
+                             :requests      (action-trace-requests trace)
+                             :tokens        (action-trace-tokens trace)
+                             :usage-known-p (action-trace-usage-known-p trace)
+                             :answered-p    (action-trace-answered-p trace)
+                             :aborted-p     (action-trace-aborted-p trace))
               (rest traces)))
       nil))
 
@@ -253,6 +261,14 @@ requests are not counted."
                  (equal (json-get item "role") "assistant")
                  (non-empty-string-p (response-item-assistant-text item)))
             (setf (action-trace-answered-p current) t)))))
+      (:procedure-run
+       (let ((call (and current
+                        (find (getf properties :call-id) (action-trace-calls current)
+                              :key (lambda (call) (getf call :call-id)) :test #'equal))))
+         (when (and call (equal (getf call :tool) "procedure.run")
+                    (equal (json-get (getf call :arguments) "id") (getf properties :id)))
+           (setf (getf call :procedure-version) (getf properties :procedure-version)
+                 (getf call :procedure) (getf properties :procedure)))))
       (:turn-aborted
        (when current
          (setf (action-trace-aborted-p current) t)))
@@ -271,8 +287,10 @@ requests are not counted."
                     (getf metadata :response-id)
                     (not (getf metadata :compaction)))
            (incf (action-trace-requests current))
-           (incf (action-trace-tokens current)
-                 (or (conversation--usage-total (getf metadata :usage)) 0))))))
+           (let ((tokens (conversation--usage-total (getf metadata :usage))))
+             (unless tokens
+               (setf (action-trace-usage-known-p current) nil))
+             (incf (action-trace-tokens current) (or tokens 0)))))))
     traces))
 
 (-> action-trace--call (json-object) (option list))
@@ -284,7 +302,9 @@ requests are not counted."
                          (json-object))
           :status nil
           :output nil
-          :call-id (json-get item "call_id"))))
+          :call-id (json-get item "call_id")
+          :procedure-version nil
+          :procedure nil)))
 
 (-> action-trace--retained-output (t) (option string))
 (defun action-trace--retained-output (output)

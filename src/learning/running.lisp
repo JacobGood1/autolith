@@ -74,6 +74,13 @@ contract requirements do not hold signal KNOWLEDGE-ERROR before any call. Otherw
                             :conversation (and (tool-context-conversation context)
                                                (conversation-identifier
                                                 (tool-context-conversation context))))
+      (when (and (eq caller ':model) (eq status ':ok)
+                 (tool-context-conversation context) (tool-context-call-id context))
+        (conversation-append-record
+         (tool-context-conversation context)
+         (list :procedure-run :call-id (tool-context-call-id context)
+               :id identifier :procedure-version (getf version :version)
+               :procedure procedure)))
       (list :status status
             :version (getf version :version)
             :steps (nreverse reports)
@@ -146,13 +153,17 @@ are not."
 
 (-> procedure-savings (configuration string) (option list))
 (defun procedure-savings (configuration identifier)
-  "Return what recent turns that ran procedure IDENTIFIER cost, or NIL when none did.
+  "Return measured costs of completed model turns running IDENTIFIER's admitted definition.
 
-The plist holds :TURNS and the average :REQUESTS and :TOKENS of the turns in
-which the model ran it successfully, to compare with the procedure's baseline."
-  (let ((traces (action-traces configuration
-                               :predicate (lambda (trace)
-                                            (procedure--ran-p trace identifier)))))
+The plist holds :TURNS and average :REQUESTS and :TOKENS. Runs without exact
+version and definition provenance or complete usage measurements do not count."
+  (let* ((entry (knowledge-base-procedure (knowledge-base-read configuration)
+                                          (knowledge--workspace configuration) identifier))
+         (version (and entry (procedure-entry-runnable-version entry)))
+         (traces (and version
+                      (action-traces configuration
+                                     :predicate (lambda (trace)
+                                                  (procedure--ran-p trace identifier version))))))
     (and traces
          (list :turns (length traces)
                :requests (round (reduce #'+ traces :key #'action-trace-requests)
@@ -167,9 +178,9 @@ which the model ran it successfully, to compare with the procedure's baseline."
 Running without the model's reading needs more than a fit. The procedure must
 be admitted; every word of its request pattern that is not a parameter must
 be literal, so a varying word such as \"Please\" or \"Never\" cannot match
-anything; and a turn in which the model ran it must already have taken fewer
-model requests than the turns it was learned from. Anything less stays an
-offer the model may decline."
+anything; and completed model turns running this exact definition must have
+used fewer measured requests and tokens than its learning baseline. Anything
+less is an offer the model may decline."
   (let ((candidates
           (remove-if-not
            (lambda (offer)
@@ -332,23 +343,31 @@ results are checked when they are made."
 
 (-> procedure--demonstrated-p (configuration string) boolean)
 (defun procedure--demonstrated-p (configuration identifier)
-  "Return true when recent turns running procedure IDENTIFIER took fewer requests than its baseline."
+  "Return true when completed runs of IDENTIFIER's admitted definition saved requests and tokens."
   (let* ((entry (knowledge-base-procedure (knowledge-base-read configuration)
                                           (knowledge--workspace configuration)
                                           identifier))
-         (baseline (getf (getf (procedure-entry-version entry (getf entry :admitted)) :baseline)
-                         :requests))
+         (baseline (getf (procedure-entry-version entry (getf entry :admitted)) :baseline))
          (savings (procedure-savings configuration identifier)))
-    (and baseline savings (< (getf savings :requests) baseline) t)))
+    (and baseline savings
+         (realp (getf baseline :requests)) (realp (getf baseline :tokens))
+         (< (getf savings :requests) (getf baseline :requests))
+         (< (getf savings :tokens) (getf baseline :tokens))
+         t)))
 
-(-> procedure--ran-p (action-trace string) boolean)
-(defun procedure--ran-p (trace identifier)
-  "Return true when TRACE ran procedure IDENTIFIER successfully."
-  (and (find-if (lambda (call)
+(-> procedure--ran-p (action-trace string list) boolean)
+(defun procedure--ran-p (trace identifier version)
+  "Return true when TRACE completed a measured model run of IDENTIFIER's exact VERSION."
+  (and (action-trace-accepted-p trace)
+       (plusp (action-trace-requests trace))
+       (action-trace-usage-known-p trace)
+       (find-if (lambda (call)
                   (and (equal (getf call :tool) "procedure.run")
                        (eq (getf call :status) ':ok)
                        (json-object-p (getf call :arguments))
-                       (equal (json-get (getf call :arguments) "id") identifier)))
+                       (equal (json-get (getf call :arguments) "id") identifier)
+                       (eql (getf call :procedure-version) (getf version :version))
+                       (equal (getf call :procedure) (getf version :procedure))))
                 (action-trace-calls trace))
        t))
 
