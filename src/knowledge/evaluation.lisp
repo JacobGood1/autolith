@@ -18,9 +18,6 @@
 (defparameter *knowledge-step-limit* 250000
   "The most candidate claims one evaluation examines before it is incomplete.")
 
-(defparameter *knowledge-basis-set-limit* 4
-  "The most distinct basis sets recorded for one claim.")
-
 (defparameter *knowledge-error-limit* 32
   "The most rule evaluation errors one view retains.")
 
@@ -227,14 +224,29 @@ A supported claim is :CURRENT. Otherwise the reason is taken from its supports:
 
 (-> knowledge--add-basis-set (knowledge-node list) null)
 (defun knowledge--add-basis-set (node set)
-  "Add basis SET to NODE, keeping only minimal sets within the limit."
+  "Add basis SET to NODE, keeping every minimal set.
+
+Canonical sets draw from the four bases, so there are at most sixteen sets."
   (let ((sets (knowledge-node-bases node)))
     (unless (some (lambda (existing) (subsetp existing set)) sets)
       (setf (knowledge-node-bases node)
-            (let ((kept (cons set (remove-if (lambda (existing) (subsetp set existing))
-                                             sets))))
-              (subseq kept 0 (min (length kept) *knowledge-basis-set-limit*))))))
+            (cons set (remove-if (lambda (existing) (subsetp set existing)) sets)))))
   nil)
+
+(-> knowledge--premise-basis-sets (list) list)
+(defun knowledge--premise-basis-sets (premises)
+  "Return every distinct union of one basis set from each of PREMISES.
+
+Canonicalizing after each premise bounds the intermediate result by the
+sixteen subsets of the four bases, rather than the number of proof paths."
+  (let ((sets (list nil)))
+    (dolist (premise premises sets)
+      (setf sets
+            (remove-duplicates
+             (loop for set in sets
+                   append (loop for alternative in (knowledge-node-bases premise)
+                                collect (knowledge--basis-set (append set alternative))))
+             :test #'equal)))))
 
 (defparameter *knowledge-established-bases* '(:observation :user-assertion)
   "The bases a fact may rest on to satisfy a gate or an action's requirement by default.")
@@ -244,19 +256,48 @@ A supported claim is :CURRENT. Otherwise the reason is taken from its supports:
     (view node &key (accepted *knowledge-established-bases*))
   "Return true when NODE may justify an action, a gate, or a diagnosis.
 
-It must be supported, not conflicted, and supported by some path resting only
-on ACCEPTED bases, so predictions, assumptions, and disputed facts never
-decide unless a policy accepts them explicitly."
-  (and (knowledge-node-supported-p node)
-       (not (eq (knowledge-node-status view node) ':conflicted))
-       (knowledge-node-observed-p node :accepted accepted)))
+The view must be complete, and some complete support path must rest only on
+ACCEPTED bases with no conflicted premise. Independent paths are alternatives;
+a disputed derivation does not disqualify an independent clean observation."
+  (when (knowledge-view-incomplete view)
+    (return-from knowledge-node-admissible-p nil))
+  (let ((states (make-hash-table :test #'eq)))
+    (labels ((accepted-support-p (support)
+               (and (eq (getf support :state) ':current)
+                    (member (getf support :basis) accepted)))
+
+             (accepted-justification-p (justification)
+               (every (lambda (identifier)
+                        (let ((premise (knowledge-view-node view identifier)))
+                          (and premise (admissible-p premise))))
+                      (getf justification :premises)))
+
+             (admissible-p (candidate)
+               (multiple-value-bind (state known-p) (gethash candidate states)
+                 (if known-p
+                     (eq state ':accepted)
+                     (progn
+                       ;; A proof cannot justify itself. Admitted rules are acyclic,
+                       ;; but guard the traversal if a malformed view contains a cycle.
+                       (setf (gethash candidate states) ':visiting)
+                       (let ((admitted-p
+                               (and (knowledge-node-supported-p candidate)
+                                    (not (knowledge-node-conflicts candidate))
+                                    (or (some #'accepted-support-p
+                                              (knowledge-node-supports candidate))
+                                        (some #'accepted-justification-p
+                                              (knowledge-node-justifications candidate))))))
+                         (setf (gethash candidate states)
+                               (if admitted-p ':accepted ':rejected))
+                         (and admitted-p t)))))))
+      (admissible-p node))))
 
 (-> knowledge-node-observed-p (knowledge-node &key (:accepted list)) boolean)
 (defun knowledge-node-observed-p (node &key (accepted '(:observation :user-assertion)))
   "Return true when some path supporting NODE rests only on ACCEPTED bases.
 
-An action policy can require claims independent of assumptions and model
-proposals this way."
+For decisions, KNOWLEDGE-NODE-ADMISSIBLE-P also validates the view and every
+premise of a support path."
   (and (some (lambda (set) (subsetp set accepted)) (knowledge-node-bases node)) t))
 
 
@@ -500,11 +541,8 @@ When TEST is given, only a negation it accepts counts."
                                               collect (cons (first binding)
                                                             (gethash (first binding) table))))
                         (knowledge-node-justifications node))
-                  (knowledge--add-basis-set
-                   node
-                   (knowledge--basis-set
-                    (loop for premise in premises
-                          append (first (knowledge-node-bases premise)))))
+                  (dolist (set (knowledge--premise-basis-sets premises))
+                    (knowledge--add-basis-set node set))
                   (knowledge--index-supported view node))))))
       (knowledge-error (condition)
         (knowledge--record-error view rule version (autolith-error-message condition)))))
