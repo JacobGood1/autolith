@@ -28,7 +28,10 @@ Not shipped yet.
 - Besides prose memories, Autolith keeps structured facts: typed values with
   units, dates, instants, and durations, each citing its evidence and why it
   is believed (an observation, your statement, an assumption, or the model's
-  own proposal). Web pages expire after a week and tool output after a day.
+  own proposal). The basis comes from where the evidence was checked, never
+  from the model's label: a web page is an observation only once the
+  conversation retrieved it with the quoted text. Web pages expire after a
+  week and tool output after a day, and apply again when observed again.
 - Rules derive facts from facts, locally and without a model request: move a
   meeting and the departure time moves with it. Conflicting facts are kept and
   shown, never silently resolved. A rule the model proposes derives nothing
@@ -53,17 +56,21 @@ Not shipped yet.
   a step is shown blocked when nothing satisfies it, and a done step whose
   facts stop holding is flagged. =@ 1 plan step changed with its facts=.
 - =plan.expand= turns a task into a checked plan with task methods, locally.
-- Mission gates of kind =:fact= pass only on observed facts or your
-  statements, never on the model's predictions.
-- Action contracts: a tool call whose requirements do not hold is refused
-  before it runs, and facts are read from successful results.
+- Mission gates of kind =:fact= pass only on undisputed observed facts or
+  your statements, never on the model's predictions; a derived fact counts
+  only if all it rests on, negated premises included, is accepted.
+- Action contracts: a tool call whose requirements do not hold on accepted,
+  undisputed facts is refused before it runs (=accepts= widens that), and
+  facts are read from successful results.
 
 ** Learned procedures
 - When three turns make the same tool calls, Autolith learns a procedure from
   them, locally: =@ learned procedure make-sales-report from 3 turns=.
 - A request that fits is offered the one =procedure.run= call that does the
-  work; the first run asks to admit it. Once admitted, a fitting request runs
-  it before the model's first request, so the model answers in one request.
+  work; the first run asks to admit it. Once admitted and shown to save
+  requests, a request matching its wording exactly, apart from parameters,
+  runs it before the model's first request, so the model answers in one
+  request. Procedures are learned only from turns the model finished.
 - Every call keeps its own approval and contracts; a failed call hands the
   work back to the model, and two failed runs in a row suspend it.
 - New commands: =(procedures)= with each procedure's measured savings,
@@ -101,8 +108,31 @@ Open items:
 - Results of executable Skills cannot feed facts yet: cl-skills manifests
   reject unknown keys, so a Skill cannot declare observations.
 - The optional Lisp condition and restart adapter for diagnosis.
+- Leave-one-out validation checks that a procedure reproduces each source
+  turn's calls, not that the task succeeded; outcome checks need replaying
+  effectful tools against fixtures.
+- The quotation-context finding of the 2026-10-21 review is not addressed
+  yet; its details are in the review document, not in this repository.
 - Learned parameter names come from argument keys, so "Summarize the sales of
   q1" learns ={uri}=. Better names would need a model.
+
+* Review fixes (2026-10-21)
+
+Astra reviewed =5fe95cd= and found boundary defects; each fix has a
+regression test.
+
+| Finding                                                  | Fix                                                           | Commit   |
+|----------------------------------------------------------+---------------------------------------------------------------+----------|
+| Negated premises missing from provenance and gates       | negations join justifications, bases, and query solutions     | 4046624b |
+| Gates accepted disputed facts                            | one admissibility rule: supported, undisputed, accepted base  | 4046624b |
+| Contract requirements accepted predictions               | same rule, widened only by a contract's =accepts=             | ad08345b |
+| Diagnosis decided on predictions                         | same rule for confirming and contradicting predictions        | 69413c95 |
+| Unretrieved URLs and model-chosen labels as observations | basis from the checked source; the model may only lower it    | bceb8c4c |
+| Expiry at the boundary second cached as current          | boundaries are valid-from and the second after valid-until    | e4acada2 |
+| Reobserving expired evidence did not renew it            | =:evidence-renewed= records the new observation and expiry    | 7aae30ec |
+| Wildcard wording ran procedures before the model         | unread runs need exact wording, admission, and proven savings | 9bc7c7cf |
+| Preflight refused build-then-use procedures              | requirements an earlier call can produce are checked later    | 33c2ff08 |
+| Unfinished turns counted as accepted traces              | accepted turns are answered after the last call, not aborted  | 983a0a5c |
 
 * Design
 
@@ -169,9 +199,8 @@ Fixture and benchmark results, not live results:
 
 * Commits
 
-Fifty-one commits on =lho/symbolic-autolith=, from =368f278f= (Let memories
-record their sources and premises) to =592a3906= (List diagnoses and document
-diagnostic probes):
+Commits on =lho/symbolic-autolith=, from =368f278f= (Let memories record
+their sources and premises); the review fixes are listed above:
 
 | Stage | Commits                 |
 |-------+-------------------------|
