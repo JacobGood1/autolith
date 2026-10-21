@@ -148,11 +148,15 @@ fixtures and disposable Lisp workers, without live provider requests.
 | Alternative support depended on ordering     | preserve basis sets and all matching negative premises            | d4e0e6da fcdb2b2f |
 | Inference errors could leave decisions open  | refuse fact-based decisions on erroneous or incomplete views       | fcdb2b2f          |
 | Contracts could create evidence unadmitted   | exact mapping and policy admission; imported receipts convey no authority | 152ed722    |
+| Duplicate archive properties exposed receipts | reject ambiguous record, receipt, contract and observation properties | 9923878c       |
+| Import could disable admitted requirements   | preserve local admission while importing inactive proposals         | 9923878c          |
+| Superseded mappings could publish observations | revalidate admission inside each assertion's locked transaction   | 9923878c          |
 | Repeated contract variables could disagree   | structural JSON unification before matching                        | bcfd2145          |
 | Learned decimal and boolean inputs failed    | typed JSON request bindings, preserving numeric signs              | d672564b          |
 | Old or unfinished runs qualified new versions | completed same-definition runs with measured request and token savings | 79a7bf4d      |
 | Numeric probe literals failed while planning | distinguish literals from string references                        | a4b2eff5          |
 | Refused probes consumed the execution budget | select only probes whose current requirements permit a call        | c046da62          |
+| Cold highlighting setup masked cancellation  | prepare tool presentation before timing the cancellable call       | a2ce2c57          |
 
 Further review: procedure preflight currently defers a whole call when any
 requirement shares a predicate an earlier call might produce. Check each
