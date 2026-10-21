@@ -178,12 +178,12 @@
 
 (-> test-prompt-cache-miss-notices () null)
 (defun test-prompt-cache-miss-notices ()
-  "Test optional transcript notices for prompt-cache misses across requests."
+  "Exercise compact colored cache-miss notices through the request lifecycle."
   (let* ((configuration (test-configuration))
          (root (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "cache-miss-ui"))
-         (terminal (make-instance 'recording-terminal :columns 120))
+         (terminal (make-instance 'recording-terminal :columns 40 :styled-p t))
          (ui (terminal-ui-create :terminal terminal))
          (application (make-instance 'application
                                      :configuration configuration
@@ -195,8 +195,16 @@
                   (callback-agent-observer-status-callback observer)))
            (flet ((notice-p ()
                     "Return whether the terminal painted a cache-miss notice."
-                    (not (null (search "prompt cache miss"
-                                       (recording-terminal-output terminal)))))
+                    (not (null (search "Cache miss"
+                                       (clinedi:ansi-strip (recording-terminal-output terminal))))))
+
+                  (notice-counts-p (re-read total)
+                    "Return whether the rendered notice includes both token counts."
+                    (let ((output (clinedi:ansi-strip (recording-terminal-output terminal))))
+                      (and (search "Cache miss" output)
+                           (search (application--token-count-description re-read) output)
+                           (search (application--token-count-description total) output))))
+
                   (request (usage)
                     "Run one request lifecycle completing with USAGE."
                     (recording-terminal-reset terminal)
@@ -212,7 +220,7 @@
                     :usage (prompt-cache-tests--usage 30000 0)))
              (request (prompt-cache-tests--usage 31000 0))
              (test-assert (not (notice-p))
-                          "notices stay silent while the preference is off")
+                          "disabled notices are omitted")
              (test-assert
               (= (prompt-cache-baseline-prompt-tokens
                   (application-prompt-cache-baseline application))
@@ -228,12 +236,19 @@
                                   :completed-at (- (get-universal-time) 900)
                                   :model (config :model configuration)))
              (request (prompt-cache-tests--usage 33000 0))
-             (let ((output (recording-terminal-output terminal)))
-               (test-assert
-                (and (search "prompt cache miss" output)
-                     (search "32.0K of 33.0K prompt tokens" output)
-                     (search "idle for 15 min" output))
-                "an idle miss reports its re-read tokens and cause"))
+             (test-assert (notice-counts-p 32000 33000)
+                          "an idle miss reports re-read and total tokens")
+             (let* ((spans (application--prompt-cache-miss-notice
+                            '(:re-read-tokens 32000 :prompt-tokens 33000)))
+                    (counts (remove-if-not
+                             (lambda (span) (eq ':code (terminal-span-style span))) spans)))
+               (test-assert (eq ':notice (terminal-span-style (first spans)))
+                            "the cache-miss label has warning color")
+               (test-assert (equal (mapcar #'terminal-span-text counts)
+                                   (mapcar #'application--token-count-description '(32000 33000)))
+                            "both token counts have a distinct color")
+               (test-assert (<= (text-cell-width (terminal--spans-text spans)) 40)
+                            "the notice fits a narrow transcript row"))
              (setf (application-prompt-cache-baseline application)
                    (make-instance 'prompt-cache-baseline
                                   :prompt-tokens 72000
@@ -253,12 +268,8 @@
                                       (list "tools"
                                             (list (list "cached_tokens" 9221)
                                                   (list "input_tokens" 9221))))))))))
-             (let ((output (recording-terminal-output terminal)))
-               (test-assert
-                (and (search "8.1K of 73.0K prompt tokens" output)
-                     (search "stopped growing" output)
-                     (search "instructions and tools still cached" output))
-                "a stall names its cause and the attributed prefix state"))
+             (test-assert (notice-counts-p 8128 73000)
+                          "a stalled cache reports its re-read and total tokens")
              (funcall send-status :compaction-completed nil)
              (test-assert
               (null (application-prompt-cache-baseline application))
@@ -276,12 +287,10 @@
                       :usage (prompt-cache-tests--usage 20000 19000)))
                (setf (application-conversation application) resumed)
                (request (prompt-cache-tests--usage 21000 0))
-               (test-assert
-                (search "resumed conversation"
-                        (recording-terminal-output terminal))
-                "switching conversations reseeds the baseline from its history"))))
+               (test-assert (notice-counts-p 20000 21000)
+                            "switching conversations reseeds the baseline from its history"))))
       (ignore-errors (terminal-ui-stop ui))
-      (uiop:delete-directory-tree root :validate t :if-does-not-exist ':ignore)))
+      (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
 (-> test-cache-misses-command () null)

@@ -276,55 +276,16 @@ transcript renderer, including in fullscreen."
 
 ;;;; -- Prompt-Cache Miss Notices --
 
-(-> application--prompt-cache-miss-cause-text (list) string)
-(defun application--prompt-cache-miss-cause-text (miss)
-  "Return the likely-cause clause for the prompt-cache MISS."
-  (ecase (getf miss :cause)
-    (:model-changed
-     "the model changed since the previous request")
-    (:idle
-     (format nil "idle for ~D min; cached context may have expired"
-             (round (getf miss :idle-seconds) 60)))
-    (:context-rewritten
-     "earlier context was rewritten")
-    (:resumed
-     "the resumed conversation was no longer cached")
-    (:prefix-changed
-     "the prompt prefix changed")
-    (:prefix-stalled
-     "the cached prefix stopped growing, so the request likely reached a different provider backend")))
-
-(-> application--prompt-cache-attribution-text (list) (option string))
-(defun application--prompt-cache-attribution-text (miss)
-  "Return what the provider's attribution says about MISS's prefix, when known.
-
-Re-read instructions or tools mean the request prefix itself changed; a cached
-prefix with re-read history points at routing or an expired cache."
-  (let ((instructions (getf miss :instructions-re-read))
-        (tools (getf miss :tools-re-read)))
-    (when (or instructions tools)
-      (flet ((re-read-p (count)
-               "Return true when COUNT exceeds cache rounding."
-               (and count (> count *prompt-cache-block-tokens*))))
-        (cond
-          ((and (re-read-p instructions) (re-read-p tools))
-           "instructions and tools re-read")
-          ((re-read-p instructions)
-           "instructions re-read, tools cached")
-          ((re-read-p tools)
-           "tools re-read, instructions cached")
-          (t
-           "instructions and tools still cached"))))))
-
-(-> application--prompt-cache-miss-notice (list) string)
+(-> application--prompt-cache-miss-notice (list) list)
 (defun application--prompt-cache-miss-notice (miss)
-  "Return the one-line transcript notice for the prompt-cache MISS."
-  (format nil
-          "∙ prompt cache miss: ~A of ~A prompt tokens re-read at the uncached input price; ~A~@[; ~A~]"
-          (application--token-count-description (getf miss :re-read-tokens))
-          (application--token-count-description (getf miss :prompt-tokens))
-          (application--prompt-cache-miss-cause-text miss)
-          (application--prompt-cache-attribution-text miss)))
+  "Return a compact, styled notice with MISS's re-read and total prompt tokens."
+  (list (terminal-span ':notice "Cache miss ")
+        (terminal-span ':code
+                       (application--token-count-description (getf miss :re-read-tokens)))
+        (terminal-span ':dim " / ")
+        (terminal-span ':code
+                       (application--token-count-description (getf miss :prompt-tokens)))
+        (terminal-span ':dim " tokens")))
 
 (-> application-note-prompt-cache-request-started (application) null)
 (defun application-note-prompt-cache-request-started (application)
@@ -368,10 +329,7 @@ notice preference is on, so enabling it mid-session takes effect immediately."
     (when baseline
       (setf (application-prompt-cache-baseline application) baseline))
     (when (and miss (application-cache-miss-notices-p application))
-      (application-present
-       application
-       (list (terminal-span ':hint
-                            (application--prompt-cache-miss-notice miss))))))
+      (application-present application (application--prompt-cache-miss-notice miss))))
   nil)
 
 (-> application--window-label ((option integer) string) string)
