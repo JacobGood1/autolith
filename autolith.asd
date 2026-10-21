@@ -375,6 +375,7 @@
                              (:file "memory-tests")
                              (:file "memory-source-tests")
                              (:file "knowledge-tests")
+                             (:file "contract-tests")
                              (:file "knowledge-fixture-tests")
                              (:file "learning-tests")
                              (:file "diagnosis-tests")

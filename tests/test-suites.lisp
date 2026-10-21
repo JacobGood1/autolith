@@ -388,6 +388,8 @@
   test-diagnosis-setting
   test-diagnosis-commands)
 
+(define-test-suite contracts
+  test-contract-repeated-variables)
 (define-test-suite papercut
   test-papercuts)
 

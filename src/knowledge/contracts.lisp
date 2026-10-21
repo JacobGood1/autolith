@@ -230,6 +230,23 @@ Return its ID and whether the definition changed."
             (values result t)
             (knowledge--json-path result path)))))
 
+(-> knowledge--json-equal-p (t t) boolean)
+(defun knowledge--json-equal-p (left right)
+  "Compare decoded JSON values structurally, with case-sensitive strings and keys."
+  (cond
+    ((and (hash-table-p left) (hash-table-p right))
+     (and (= (hash-table-count left) (hash-table-count right))
+          (loop for key being the hash-keys of left using (hash-value value)
+                always (multiple-value-bind (other present-p) (gethash key right)
+                         (and present-p (knowledge--json-equal-p value other))))))
+    ((and (vectorp left) (not (stringp left))
+          (vectorp right) (not (stringp right)))
+     (and (= (length left) (length right))
+          (every #'knowledge--json-equal-p left right)))
+    ((and (numberp left) (numberp right))
+     (= left right))
+    (t
+     (equal left right))))
 (-> knowledge--contract-bindings (list hash-table) (values list boolean))
 (defun knowledge--contract-bindings (contract arguments)
   "Return the variables CONTRACT's conditions bind from call ARGUMENTS, and whether it matches."
@@ -240,8 +257,13 @@ Return its ID and whether the definition changed."
           ((not present-p)
            (return (values nil nil)))
           ((knowledge-variable-p (rest condition))
-           (push (cons (rest condition) value) environment))
-          ((not (equal (rest condition) value))
+           (let ((binding (assoc (rest condition) environment :test #'string=)))
+             (cond
+               ((null binding)
+                (push (cons (rest condition) value) environment))
+               ((not (knowledge--json-equal-p (rest binding) value))
+                (return (values nil nil))))))
+          ((not (knowledge--json-equal-p (rest condition) value))
            (return (values nil nil))))))))
 
 (-> knowledge--typed-environment (list list function) list)
