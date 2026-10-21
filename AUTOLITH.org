@@ -712,9 +712,9 @@ a user-local init.lisp change, or a private image commit.
   conversation-scoped vault before controller creation, starts with pending
   loading disabled, keeps crash diagnosis first, and never submits recovered
   input automatically. Startup warns while captures or storage failures remain.
-  =/vault= shows bounded chronological previews, =/vault-restore= transactionally
+  =(vault)= shows bounded chronological previews, =(vault-restore)= transactionally
   prepends captures in their exact active, restored-prefix, in-flight steering,
-  queued steering, and remaining-work order, and =/vault-discard= deletes only
+  queued steering, and remaining-work order, and =(vault-discard)= deletes only
   attributed current-conversation state. Corrupt bytes remain unchanged and
   ordinary ingress is blocked while persistence is unsafe; unattributed corrupt
   process-global legacy state remains preserved and ignored.

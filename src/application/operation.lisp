@@ -797,7 +797,7 @@ argument objects to construct a label; only the outer argument list is copied."
     (list
      (let ((name (application-command-name command)))
        (make-instance 'application-command-invocation
-                      :input name
+                      :input (format nil "(~A)" (application-operation--command-name command))
                       :syntax ':lisp
                       :name name
                       :remainder ""

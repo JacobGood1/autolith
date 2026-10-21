@@ -254,7 +254,7 @@ discovered without copying."
             (push (cons kind 1) counts))))
     (when counts
       (format nil
-              "~D skill entr~:@P had diagnostics and were not silently applied (~{~(~A~): ~D~^, ~}). Run /skills for bounded details."
+              "~D skill entr~:@P had diagnostics and were not silently applied (~{~(~A~): ~D~^, ~}). Run (skills) for bounded details."
               (length diagnostics)
               (loop for (kind . count) in (nreverse counts)
                     append (list kind count))))))

@@ -281,7 +281,7 @@ the terminal wraps the semantic spans for both inline and fullscreen tips."
    :style ':failure
    :header "✗ error"
    :body (if (typep condition 'credentials-unavailable)
-             (format nil "~A~%Use /auth to authenticate Autolith directly."
+             (format nil "~A~%Use (auth) to authenticate Autolith directly."
                      condition)
              (format nil "~A" condition))))
 

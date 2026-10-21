@@ -3379,7 +3379,7 @@
               "startup retains exactly the newest two hundred fifty visible entries")
              (test-assert
               (search
-               "showing 250 newest transcript entries; /history loads an earlier page"
+               "showing 250 newest transcript entries; use (history) to load an earlier page"
                output)
               "bounded startup replay explains how to load omitted history"))
            (test-assert
@@ -3568,7 +3568,7 @@
                          (= (terminal-tests--substring-count
                              "CONTEXT COMPACTED" output)
                             2)
-                         (not (search "/history loads an earlier page" output)))
+                         (not (search "use (history) to load an earlier page" output)))
                     "a short active chunk scans exactly one preceding segment"))
                  (let* ((recovery-terminal
                           (make-instance 'recording-terminal :columns 80))

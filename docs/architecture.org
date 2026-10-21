@@ -376,7 +376,7 @@ preferences record; =--fullscreen= overrides it for one launch.
 - OSC 133: =A= and =B= precede input, =C= starts execution, =D;STATUS=
   closes execution. This way you can rely on smarter terminals
 - OSC 0: the interactive window title is =autolith - PATH=. Autolith writes
-  it at UI start, after localgroup attach, and after =/cwd=.
+  it at UI start, after localgroup attach, and after =(cwd "PATH")=.
 - Clinedi owns editor state, input decoding, geometry, and live repainting
 - The fullscreen viewport owns transcript wrapping, application scrolling,
   reflow anchors, and bottom-pinned composer geometry

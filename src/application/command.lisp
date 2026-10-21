@@ -863,6 +863,11 @@ without changing the registry."
     (t
      parsed-arguments)))
 
+(-> application-command--display-name (application-command) string)
+(defun application-command--display-name (command)
+  "Return COMMAND's canonical callable spelling for human-facing diagnostics."
+  (format nil "(~A)" (subseq (application-command-name command) 1)))
+
 (-> application-command--validate-invocation-arity
     (application-command list)
     list)
@@ -877,7 +882,7 @@ without changing the registry."
              :message
              (format nil
                      "Command ~A accepts at most ~D argument~:P; received ~D."
-                     (application-command-name command)
+                     (application-command--display-name command)
                      maximum
                      (length arguments)))))
   arguments)
@@ -953,7 +958,7 @@ without changing the registry."
                      :report
                      (lambda (stream)
                        (format stream "Supply replacement arguments for ~A."
-                               (application-command-name command)))
+                               (application-command--display-name command)))
                      (invoke-callable-handler replacement-arguments)))
                  (apply (application-command-handler command)
                         application arguments)))
@@ -975,7 +980,7 @@ without changing the registry."
                         :message
                         (format nil
                                 "Application command ~A returned invalid action ~S."
-                                (application-command-name command)
+                                (application-command--display-name command)
                                 result)))
                result)))
     (if (eq *application-command-presentation-invocation* invocation)

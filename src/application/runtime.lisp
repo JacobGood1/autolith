@@ -2730,7 +2730,7 @@ may fill the remainder."
                         (terminal-span
                          :hint
                          (format nil
-                                 "∙ showing ~D newest ~A; /history loads an earlier page"
+                                 "∙ showing ~D newest ~A; use (history) to load an earlier page"
                                  (length records)
                                  (if (plusp after-sequence)
                                      "entries added after recovery"
@@ -2960,7 +2960,7 @@ remain finalized so later conversation replay cannot duplicate streamed rows."
                  (list
                   (terminal-span
                    :hint
-                   "∙ more earlier history remains; run /history again"))))
+                   "∙ more earlier history remains; run (history) again"))))
               (when (and (zerop presented-count)
                          (<= candidate-count limit))
                 (application-present
@@ -3861,7 +3861,7 @@ wake the model is still queued, running or undelivered."
          application
          (format nil
                  "The goal paused after ~D automatic continuations. ~
-                  Use /goal resume or send a message to keep going."
+                  Use (goal :resume) or send a message to keep going."
                  *application-goal-continuation-limit*))
         (return))
       ;; A running job's completion wakes the model and resumes the goal.
