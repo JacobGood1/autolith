@@ -1586,7 +1586,7 @@
 
 (-> test-knowledge-expiry-lifecycle () null)
 (defun test-knowledge-expiry-lifecycle ()
-  "Test that a fact expires on time after an evaluation at its last valid second."
+  "Test that a fact expires on time after a cached evaluation and applies again when reobserved."
   (with-test-configuration (base root)
     (let* ((configuration (configuration-copy base :working-directory root))
            (now 100000)
@@ -1620,7 +1620,13 @@
         (test-assert (eq (state) ':expired)
                      "the view evaluated at that second does not keep it current afterwards")
         (setf now (+ 100 until))
-        (test-assert (eq (state) ':expired) "an expired observation stays expired"))))
+        (test-assert (eq (state) ':expired) "an expired observation stays expired")
+        (observe)
+        (test-assert (eq (state) ':current)
+                     "observing the same content again renews it")
+        (setf now (+ 200 until))
+        (test-assert (eq (state) ':current)
+                     "the renewed observation expires a lifetime after it was made"))))
   nil)
 
 (-> test-knowledge-admissible-support () null)

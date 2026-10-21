@@ -232,6 +232,12 @@ Without a configuration, as in standalone tool registries, knowledge is active."
                  (typep (getf properties :time) 'timestamp))))
          (:evidence
           (knowledge--evidence-record-p record))
+         (:evidence-renewed
+          (let ((properties (rest record)))
+            (and (non-empty-string-p (getf properties :id))
+                 (typep (getf properties :observed-at) 'timestamp)
+                 (or (null (getf properties :valid-until))
+                     (typep (getf properties :valid-until) 'timestamp)))))
          (:claim-asserted
           (knowledge--support-record-p record))
          (:support-retracted
@@ -333,6 +339,14 @@ by a newer generation stays readable after a rollback."
         (:evidence
          (setf (gethash (getf properties :id) (knowledge-base-evidence base))
                (copy-list properties)))
+        (:evidence-renewed
+         (let ((evidence (copy-list (gethash (getf properties :id)
+                                             (knowledge-base-evidence base)))))
+           (unless evidence
+             (fail (format nil "A renewal names unknown evidence ~A." (getf properties :id))))
+           (setf (getf evidence :observed-at) (getf properties :observed-at)
+                 (getf evidence :valid-until) (getf properties :valid-until)
+                 (gethash (getf properties :id) (knowledge-base-evidence base)) evidence)))
         (:claim-asserted
          (let ((claim (getf properties :claim))
                (support (getf properties :support))
@@ -782,8 +796,9 @@ same observation recorded twice is one piece of evidence."
 
 PROPOSITION must fit a schema visible from the workspace. EVIDENCE is a record
 from KNOWLEDGE-MAKE-EVIDENCE, or NIL for an assumption or a model's own
-proposal. Asserting the same support again writes nothing and returns the
-existing one."
+proposal. Asserting the same support again returns the existing one; when
+its evidence was observed again since, the renewed observation time and expiry
+are recorded, so a refreshed observation applies again."
   (let* ((workspace (knowledge--owner configuration scope))
          (viewer (knowledge--workspace configuration))
          (claim (knowledge-claim-identifier proposition :scope scope :workspace workspace)))
@@ -825,14 +840,25 @@ existing one."
                                     (eql (getf support :valid-from) valid-from)
                                     (eql (getf support :valid-until) valid-until))))
                            (getf (knowledge-base-claim base claim) :supports))))
+           (let* ((recorded (and evidence
+                                 (knowledge-base-evidence-record base evidence-identifier)))
+                  (renewal
+                    ;; Observing the same content again renews when it was
+                    ;; seen and when it expires; its identity stays the same.
+                    (and recorded
+                         (> (getf (rest evidence) :observed-at) (getf recorded :observed-at))
+                         (list (list :evidence-renewed
+                                     :id evidence-identifier
+                                     :observed-at (getf (rest evidence) :observed-at)
+                                     :valid-until (getf (rest evidence) :valid-until))))))
            (if existing
-               (values nil (list claim existing) nil)
+               (values renewal (list claim existing) (and renewal t))
                (let ((support (make-identifier)))
                  (values
                   (append
-                   (when (and evidence
-                              (null (knowledge-base-evidence-record base evidence-identifier)))
+                   (when (and evidence (null recorded))
                      (list evidence))
+                   renewal
                    (list (list :claim-asserted
                                :version *knowledge-format-version*
                                :support support
@@ -847,7 +873,7 @@ existing one."
                                :time (get-universal-time)
                                :source-conversation source-conversation)))
                   (list claim support)
-                  t))))))))))
+                  t)))))))))))
 
 (-> knowledge-retract
     (configuration string &key (:reason (option string)) (:source-conversation (option string)))

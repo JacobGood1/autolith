@@ -65,7 +65,7 @@
           (remove-if-not
            (lambda (record)
              (case (first record)
-               (:evidence
+               ((:evidence :evidence-renewed)
                 (member (getf (rest record) :id) evidence :test #'string=))
                (:support-retracted
                 (member (getf (rest record) :support) supports :test #'string=))
@@ -126,9 +126,14 @@ every reference to them, in supports and in memory premises, follows."
                (setf (gethash (getf properties :id) evidence) identifier
                      (getf (rest record) :id) identifier)))))))
     (dolist (record (getf copy :knowledge))
-      (when (and (eq (first record) :claim-asserted)
-                 (gethash (getf (rest record) :evidence) evidence))
-        (setf (getf (rest record) :evidence) (gethash (getf (rest record) :evidence) evidence))))
+      (case (first record)
+        (:claim-asserted
+         (when (gethash (getf (rest record) :evidence) evidence)
+           (setf (getf (rest record) :evidence)
+                 (gethash (getf (rest record) :evidence) evidence))))
+        (:evidence-renewed
+         (when (gethash (getf (rest record) :id) evidence)
+           (setf (getf (rest record) :id) (gethash (getf (rest record) :id) evidence))))))
     (dolist (record (getf copy :memories))
       (when (eq (first record) :memory)
         (dolist (premise (getf (rest record) :premises))
