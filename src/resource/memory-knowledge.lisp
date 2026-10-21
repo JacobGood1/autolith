@@ -194,17 +194,24 @@ Conflicted facts come first, then the rest by predicate and text."
 (-> memory-knowledge--render-contracts (knowledge-base (option string)) string)
 (defun memory-knowledge--render-contracts (base workspace)
   "Return the action contracts visible from WORKSPACE."
-  (let ((entries (sort (loop for entry being the hash-values of (knowledge-base-contracts-table base)
-                             when (knowledge-visible-p (getf entry :scope) (getf entry :workspace)
-                                                       workspace)
-                               collect entry)
-                       #'string< :key (lambda (entry) (getf (rest (getf entry :contract)) :id)))))
+  (let ((entries
+          (sort (loop for entry being the hash-values of (knowledge-base-contracts-table base)
+                      when (knowledge-visible-p (getf entry :scope) (getf entry :workspace) workspace)
+                        append (let ((admission (getf entry :admission)))
+                                 (cons entry
+                                       (when (and admission (not (knowledge-contract-admitted-p entry)))
+                                         (list (list :contract (getf admission :contract)
+                                                     :contract-version (getf admission :contract-version)
+                                                     :admission admission :scope (getf entry :scope)))))))
+                #'string< :key (lambda (entry) (getf (rest (getf entry :contract)) :id)))))
     (with-output-to-string (stream)
       (format stream "collection: contracts~%count: ~D~%" (length entries))
       (dolist (entry entries)
         (let ((contract (rest (getf entry :contract))))
-          (format stream "~%~A ~(~A~): ~A~@[ when ~{~A~^, ~}~]~@[~%  requires ~{~A~^ and ~}~]~@[ on ~{~(~A~)~^, ~}~]~@[~%  predicts ~{~A~^ and ~}~]~@[~%  observes ~{~A~^ and ~}~]~@[~%  ~A~]~%"
-                  (getf contract :id) (getf entry :scope) (getf contract :tool)
+          (format stream "~%~A ~(~A~) v~D [~A]: ~A~@[ when ~{~A~^, ~}~]~@[~%  requires ~{~A~^ and ~}~]~@[ on ~{~(~A~)~^, ~}~]~@[~%  predicts ~{~A~^ and ~}~]~@[~%  observes ~{~A~^ and ~}~]~@[~%  ~A~]~%"
+                  (getf contract :id) (getf entry :scope) (getf entry :contract-version)
+                  (if (knowledge-contract-admitted-p entry) "admitted" "proposed")
+                  (getf contract :tool)
                   (mapcar (lambda (condition) (format nil "~A = ~A" (first condition) (rest condition)))
                           (getf contract :when))
                   (mapcar #'knowledge-pattern-text (getf contract :requires))
@@ -794,25 +801,50 @@ Reuse the retrieval time, never the time a later assertion cites it."
 
 (-> memory-knowledge--define-contract (tool-context hash-table) string)
 (defun memory-knowledge--define-contract (context operation)
-  "Apply one contract-define OPERATION and describe the result."
+  "Propose a contract and admit its exact content only after command authorization."
   (memory-knowledge--fields operation "contract-define"
                             '("op" "id" "tool" "when" "requires" "effects" "observes"
                               "accepts" "description" "scope")
                             '("id" "tool"))
-  (multiple-value-bind (identifier changed-p)
-      (knowledge-define-contract (tool-context-configuration context)
-                                 :id (gethash "id" operation)
-                                 :tool (gethash "tool" operation)
-                                 :when (gethash "when" operation)
-                                 :requires (gethash "requires" operation #())
-                                 :effects (gethash "effects" operation #())
-                                 :observes (gethash "observes" operation #())
-                                 :accepts (gethash "accepts" operation #())
-                                 :description (gethash "description" operation)
-                                 :scope (memory-knowledge--scope operation)
-                                 :source-conversation (conversation-identifier
-                                                       (tool-context-conversation context)))
-    (format nil "~:[Contract ~A is unchanged~;Defined contract ~A~]." changed-p identifier)))
+  (let* ((configuration (tool-context-configuration context))
+         (scope (memory-knowledge--scope operation))
+         (workspace (knowledge--owner configuration scope)))
+    (multiple-value-bind (identifier changed-p version)
+        (knowledge-define-contract configuration
+                                   :id (gethash "id" operation)
+                                   :tool (gethash "tool" operation)
+                                   :when (gethash "when" operation)
+                                   :requires (gethash "requires" operation #())
+                                   :effects (gethash "effects" operation #())
+                                   :observes (gethash "observes" operation #())
+                                   :accepts (gethash "accepts" operation #())
+                                   :description (gethash "description" operation)
+                                   :scope scope :admit nil
+                                   :source-conversation (conversation-identifier
+                                                         (tool-context-conversation context)))
+      (let* ((entry (gethash (list scope workspace identifier)
+                            (knowledge-base-contracts-table (knowledge-base-read configuration))))
+             (contract (getf entry :contract))
+             (active-p (knowledge-contract-admitted-p entry))
+             (decision
+               (unless active-p
+                 (tool-context-authorize-command
+                  context
+                  (with-standard-io-syntax
+                    (format nil "contract.admit -- ~(~A~) ~A v~D: ~S"
+                            scope identifier version contract))
+                  (config :working-directory configuration)))))
+        (cond
+          (active-p
+           (format nil "Contract ~A version ~D is unchanged and active." identifier version))
+          ((eq decision ':deny)
+           (format nil "~:[Contract ~A version ~D is unchanged~;Proposed contract ~A version ~D~]; admission was declined, so that version has no runtime effects."
+                   changed-p identifier version))
+          (t
+           (knowledge-admit-contract configuration identifier :scope scope
+                                     :contract contract :version version
+                                     :by (string-downcase (symbol-name decision)))
+           (format nil "Admitted contract ~A version ~D." identifier version)))))))
 
 (-> memory-knowledge--apply (tool-context t) string)
 (defun memory-knowledge--apply (context operation)

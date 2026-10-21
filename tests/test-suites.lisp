@@ -389,7 +389,9 @@
   test-diagnosis-commands)
 
 (define-test-suite contracts
-  test-contract-repeated-variables)
+  test-contract-repeated-variables
+  test-contract-resource-admission
+  test-contract-admission-reload)
 (define-test-suite papercut
   test-papercuts)
 

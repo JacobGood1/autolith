@@ -153,10 +153,21 @@ every reference to them, in supports and in memory premises, follows."
 
 (-> data-transfer--merge-knowledge (list list t) list)
 (defun data-transfer--merge-knowledge (existing imported pathname)
-  "Return IMPORTED records EXISTING lacks, refusing divergent identities or an inconsistent result."
+  "Return IMPORTED records EXISTING lacks, refusing divergent identities or an inconsistent result.
+
+Contract admissions are local authorization receipts. Preserve exported metadata
+in the archive, but import contract definitions as inactive proposals."
   (let ((added nil))
-    (dolist (record imported)
-      (let* ((identity (data-transfer--knowledge-identity record))
+    (dolist (source-record (loop for record in imported
+                                 append (if (eq (first record) :transaction)
+                                            (copy-list (getf (rest record) :records))
+                                            (list record))))
+      (let* ((record (if (eq (first source-record) :contract-defined)
+                         (let ((copy (copy-tree source-record)))
+                           (remf (rest copy) :admission)
+                           copy)
+                         source-record))
+             (identity (data-transfer--knowledge-identity record))
              (match (if identity
                         (find identity existing :key #'data-transfer--knowledge-identity
                                                 :test #'equal)

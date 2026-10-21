@@ -153,12 +153,22 @@ lets the predicted effects of earlier calls satisfy it."
 
 ;;;; -- Stored Contracts --
 
+(-> knowledge-contract-admitted-p (list) boolean)
+(defun knowledge-contract-admitted-p (entry)
+  "Return true when ENTRY's exact current contract has an admission receipt."
+  (let ((admission (getf entry :admission)))
+    (and admission
+         (equal (getf admission :contract) (getf entry :contract))
+         (eql (getf admission :contract-version) (getf entry :contract-version))
+         t)))
+
 (-> knowledge-base-contracts (knowledge-base string &key (:workspace (option string))) list)
 (defun knowledge-base-contracts (base tool &key workspace)
-  "Return the contracts describing TOOL visible from WORKSPACE."
+  "Return admitted contracts describing TOOL visible from WORKSPACE."
   (loop for entry being the hash-values of (knowledge-base-contracts-table base)
-        for contract = (getf entry :contract)
-        when (and (knowledge-visible-p (getf entry :scope) (getf entry :workspace) workspace)
+        for contract = (getf (getf entry :admission) :contract)
+        when (and contract
+                  (knowledge-visible-p (getf entry :scope) (getf entry :workspace) workspace)
                   (string= (getf (rest contract) :tool) tool))
           collect contract))
 
@@ -166,14 +176,17 @@ lets the predicted effects of earlier calls satisfy it."
     (configuration &key (:id string) (:tool string) (:when t) (:requires sequence)
                         (:effects sequence) (:observes sequence) (:accepts sequence)
                         (:description (option string)) (:scope memory-scope)
-                        (:source-conversation (option string)))
-    (values string boolean))
+                        (:source-conversation (option string)) (:admit boolean))
+    (values string boolean integer))
 (defun knowledge-define-contract
     (configuration &key id tool when requires effects observes accepts description
-                        (scope ':workspace) source-conversation)
-  "Validate and record contract ID, replacing an earlier one of that name in SCOPE.
+                        (scope ':workspace) source-conversation (admit t))
+  "Validate and record contract ID in SCOPE.
 
-Return its ID and whether the definition changed."
+This trusted Lisp entry point admits the exact definition by default. Pass
+:ADMIT NIL to propose an inactive definition for separate authorization.
+Until admitted, a replacement leaves the earlier admitted version active.
+Return its ID, whether content changed, and its version."
   (let ((workspace (knowledge--owner configuration scope))
         (viewer (knowledge--workspace configuration)))
     (values-list
@@ -187,18 +200,55 @@ Return its ID and whether the definition changed."
                           (lambda (predicate)
                             (knowledge-base-schema base predicate
                                                    :workspace (and (eq scope ':workspace) viewer)))))
-               (existing (gethash (list scope workspace id) (knowledge-base-contracts-table base))))
-          (if (equal (getf existing :contract) contract)
-              (values nil (list id nil) nil)
+               (existing (gethash (list scope workspace id) (knowledge-base-contracts-table base)))
+               (changed-p (not (equal (getf existing :contract) contract)))
+               (version (+ (or (getf existing :contract-version) 0) (if changed-p 1 0)))
+               (time (get-universal-time)))
+          (if (and (not changed-p) (or (not admit) (knowledge-contract-admitted-p existing)))
+              (values nil (list id nil version) nil)
               (values (list (list :contract-defined
                                   :version *knowledge-format-version*
                                   :scope scope
                                   :workspace workspace
                                   :contract contract
-                                  :time (get-universal-time)
+                                  :contract-version version
+                                  :admission (if admit
+                                                 (list :contract contract :contract-version version
+                                                       :by "trusted-lisp" :time time)
+                                                 (getf existing :admission))
+                                  :time time
                                   :source-conversation source-conversation))
-                      (list id t)
+                      (list id changed-p version)
                       t))))))))
+
+(-> knowledge-admit-contract
+    (configuration string &key (:scope memory-scope) (:contract list)
+                               (:version integer) (:by string))
+    integer)
+(defun knowledge-admit-contract (configuration id &key (scope ':workspace) contract version by)
+  "Admit exactly CONTRACT and VERSION of ID after authorization, returning VERSION.
+
+Refuse if a concurrent edit replaced the proposed definition."
+  (let ((workspace (knowledge--owner configuration scope)))
+    (knowledge-transact
+     configuration
+     (lambda (base)
+       (let ((entry (gethash (list scope workspace id) (knowledge-base-contracts-table base))))
+         (unless (and entry contract (equal contract (getf entry :contract))
+                      (eql version (getf entry :contract-version)) (non-empty-string-p by))
+           (knowledge--fail ':invalid-contract id
+                            "Contract ~A changed before admission; review its current version." id))
+         (if (knowledge-contract-admitted-p entry)
+             (values nil version nil)
+             (let ((time (get-universal-time)))
+               (values (list (list :contract-defined
+                                   :version *knowledge-format-version*
+                                   :scope scope :workspace workspace
+                                   :contract contract :contract-version version
+                                   :admission (list :contract contract :contract-version version
+                                                    :by by :time time)
+                                   :time time))
+                       version t))))))))
 
 
 ;;;; -- Calls --
@@ -345,6 +395,10 @@ fitting its predicate, skips that observation rather than failing the call."
          (claims nil))
     (loop for (contract environment) in matches
           for identifier = (getf (rest contract) :id)
+          when (member contract
+                       (knowledge-base-contracts base (getf (rest contract) :tool)
+                                                 :workspace workspace)
+                       :test #'equal)
           do (dolist (effect (getf (rest contract) :effects))
                (handler-case
                    (push (knowledge-assert
