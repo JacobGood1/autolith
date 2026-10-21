@@ -1366,14 +1366,22 @@
                                       (content unretrieved))
                               (equal (asserted-bases unretrieved) '(:model-proposal)))
                          "a page this conversation never retrieved supports only the model's proposal"))
-          (conversation-append-provider-item
-           conversation
-           (json-object "type" "function_call" "call_id" "fetch-1" "namespace" "web" "name" "run"
-                        "arguments" "{\"open\":[{\"ref_id\":\"https://example.com/agenda\"}]}"))
-          (conversation-append-tool-result conversation "fetch-1"
-                                           :tool-name "web.run"
-                                           :output "Agenda: be five minutes early to standup."
-                                           :success-p t)
+          (test-call-with-function-replacements
+           (list (list 'web-gist--retrieve
+                       (lambda (url)
+                         (declare (ignore url))
+                         "Agenda: be five minutes early to standup.")))
+           (lambda ()
+             (let* ((fetch-context (make-instance 'tool-context
+                                                 :configuration configuration :worker nil
+                                                 :conversation conversation :call-id "fetch-1"))
+                    (result (memory-resource-tests--call
+                             registry fetch-context "web_extra" "gist"
+                             "url" "https://example.com/agenda")))
+               (conversation-append-tool-result conversation "fetch-1"
+                                                :tool-name "web_extra.gist"
+                                                :output (tool-result-content result)
+                                                :success-p (tool-result-success-p result)))))
           (let ((retrieved (edit (json-object "op" "fact-assert" "predicate" "event.buffer"
                                               "arguments" (vector "standup" "PT5M")
                                               "sources" (vector (json-object
@@ -1407,6 +1415,91 @@
           (test-assert (and (not (tool-result-success-p unobserved))
                             (search "Read memory:facts" (content unobserved)))
                        "an edit needs a memory:facts revision from this conversation")))))
+  (memory-resource-tests--check-url-receipts)
+  nil)
+
+(-> memory-resource-tests--check-url-receipts () null)
+(defun memory-resource-tests--check-url-receipts ()
+  "Test that only completed retrieval receipts establish URL observations at their original time."
+  (with-test-configuration (base root)
+    (let* ((configuration (configuration-copy base :working-directory root :knowledge-mode "active"))
+           (registry (make-default-tool-registry :configuration configuration))
+           (conversation (conversation-create configuration))
+           (context (make-instance 'tool-context :configuration configuration :worker nil
+                                                :conversation conversation))
+           (url "https://example.com/ready")
+           (text "The report is ready for publication.")
+           (now 100000)
+           (*knowledge-clock* (lambda () now)))
+      (knowledge-define-schema configuration
+                               (knowledge-make-schema :predicate "site.ready"
+                                                      :arguments '((:name "site" :type :entity))))
+      (labels ((assert-fact (&optional quote)
+                 "Assert from URL through a fresh resource revision and return its evaluated node."
+                 (let* ((read (memory-resource-tests--call registry context "resource" "read"
+                                                          "uri" "memory:facts"))
+                        (source (if quote (json-object "url" url "quote" quote)
+                                    (json-object "url" url)))
+                        (result (memory-resource-tests--call
+                                 registry context "resource" "edit" "uri" "memory:facts"
+                                 "base-revision" (memory-resource-tests--field
+                                                  (tool-result-content read) "Revision: ")
+                                 "operations" (vector (json-object
+                                                       "op" "fact-assert" "predicate" "site.ready"
+                                                       "arguments" #("page")
+                                                       "sources" (vector source))))))
+                   (test-assert (tool-result-success-p result) "the sourced assertion is recorded")
+                   (knowledge-view-node
+                    (knowledge-view-current configuration)
+                    (knowledge-claim-identifier '("site.ready" "page") :scope ':workspace
+                                                :workspace (knowledge--workspace configuration)))))
+
+               (retrieve (call-id &key fail-p corrupt-p)
+                 "Fetch a scripted page and persist its actual result, optionally failing or corrupting it."
+                 (test-call-with-function-replacements
+                  (list (list 'web-gist--retrieve
+                              (lambda (requested)
+                                (test-assert (equal requested url) "the retriever receives the exact URL")
+                                (when fail-p
+                                  (error 'tool-error :tool-name "web_extra.gist" :message "Unavailable."))
+                                text)))
+                  (lambda ()
+                    (let* ((fetch-context (make-instance 'tool-context
+                                                        :configuration configuration :worker nil
+                                                        :conversation conversation :call-id call-id))
+                           (result (memory-resource-tests--call registry fetch-context
+                                                                "web_extra" "gist" "url" url)))
+                      (conversation-append-tool-result
+                       conversation call-id :tool-name "web_extra.gist"
+                       :output (if corrupt-p "Different result, ready for publication." (tool-result-content result))
+                       :success-p (tool-result-success-p result)))))))
+        ;; A successful write mentioning a source is not a retrieval, quoted or unquoted.
+        (conversation-append-provider-item
+         conversation (json-object "type" "function_call" "call_id" "write-1"
+                                   "namespace" "resource" "name" "edit"
+                                   "arguments" (json-encode (json-object "url" url))))
+        (conversation-append-tool-result conversation "write-1" :tool-name "resource.edit"
+                                         :output text :success-p t)
+        (dolist (quote (list nil "ready for publication"))
+          (test-assert (not (knowledge-node-observed-p (assert-fact quote)))
+                       "a memory write cannot certify its own source"))
+        (retrieve "failed" :fail-p t)
+        (test-assert (not (knowledge-node-observed-p (assert-fact)))
+                     "a failed retrieval supplies no observation")
+        (retrieve "corrupt" :corrupt-p t)
+        (test-assert (not (knowledge-node-observed-p (assert-fact)))
+                     "a result with a different digest does not satisfy the receipt")
+        (retrieve "fetched")
+        (test-assert (knowledge-node-observed-p (assert-fact "ready for publication"))
+                     "a completed matching retrieval supports an observation")
+        (test-assert (null (memory-knowledge--url-receipt conversation url "not in the retrieved page"))
+                     "the quote must occur in the identified result")
+        (setf now (+ 100001 *knowledge-url-lifetime*))
+        (test-assert (eq (knowledge-node-applicability (assert-fact "ready for publication")) ':expired)
+                     "citing an old retrieval does not renew its expiry")
+        (retrieve "refetched")
+        (test-assert (eq (knowledge-node-applicability (assert-fact "ready for publication")) ':current)
+                     "fetching the page again renews its evidence"))))
   nil)
 
 (-> test-memory-knowledge-rule-admission () null)

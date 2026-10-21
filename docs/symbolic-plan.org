@@ -29,9 +29,10 @@ Not shipped yet.
   units, dates, instants, and durations, each citing its evidence and why it
   is believed (an observation, your statement, an assumption, or the model's
   own proposal). The basis comes from where the evidence was checked, never
-  from the model's label: a web page is an observation only once the
-  conversation retrieved it with the quoted text. Web pages expire after a
-  week and tool output after a day, and apply again when observed again.
+  from the model's label: retrieve a web source with =web_extra.gist= to
+  record its URL, result identity, and observation time. Web pages expire a
+  week after retrieval and tool output after a day; retrieve them again to
+  renew their evidence.
 - Rules derive facts from facts, locally and without a model request: move a
   meeting and the departure time moves with it. Conflicting facts are kept and
   shown, never silently resolved. A rule the model proposes derives nothing

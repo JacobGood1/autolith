@@ -516,11 +516,17 @@ Conflicted facts come first, then the rest by predicate and text."
                             :adapter "file/1"
                             :time (getf properties :observed-at))))
       (:url
-       (knowledge-observe :source (list :url :url (getf properties :url)
-                                        :quote (getf properties :quote))
-                          :excerpt (getf properties :quote)
-                          :adapter "web/1"
-                          :time (getf properties :observed-at)))
+       (let ((receipt (memory-knowledge--url-receipt
+                       (tool-context-conversation context)
+                       (getf properties :url) (getf properties :quote))))
+         (knowledge-observe
+          :source (append (list :url :url (getf properties :url)
+                                    :quote (getf properties :quote))
+                          (when receipt (list :retrieval "web_extra.gist")))
+          :digest (getf receipt :result-digest)
+          :excerpt (getf properties :quote)
+          :adapter (if receipt "web-retrieval/1" "web-proposal/1")
+          :time (if receipt (getf receipt :observed-at) (getf properties :observed-at)))))
       (:user
        (knowledge-observe :source (list :user :quote (getf properties :quote)
                                         :conversation (getf properties :conversation))
@@ -604,13 +610,13 @@ are a user assertion, and a page counts as observed only when this
 conversation retrieved it with the quoted text. Otherwise the support is the
 model's proposal. The model may lower a basis to an assumption or a proposal,
 never raise it."
+  (declare (ignore context))
   (let* ((source (getf (rest evidence) :source))
          (established (ecase (first source)
                         (:file ':observation)
                         (:user ':user-assertion)
-                        (:url (if (memory-knowledge--url-retrieved-p
-                                   (tool-context-conversation context)
-                                   (getf (rest source) :url) (getf (rest source) :quote))
+                        (:url (if (and (equal (getf (rest source) :retrieval) "web_extra.gist")
+                                       (getf (rest evidence) :digest))
                                   ':observation
                                   ':model-proposal)))))
     (cond
@@ -619,17 +625,21 @@ never raise it."
       ((or (null requested) (eq requested established))
        (values established
                (and (eq established ':model-proposal)
-                    (format nil "~A was not retrieved with that text in this conversation, so it supports the fact as your proposal; retrieve it with web.run to make it an observation."
+                    (format nil "~A was not retrieved with that text in this conversation, so it supports the fact as your proposal; retrieve it with web_extra.gist to make it an observation."
                             (getf (rest source) :url)))))
       (t
        (values established
                (format nil "The ~(~A~) source supports it as ~(~A~), not ~(~A~)."
                        (first source) established requested))))))
 
-(-> memory-knowledge--url-retrieved-p (conversation string (option string)) boolean)
-(defun memory-knowledge--url-retrieved-p (conversation url quote)
-  "Return true when a tool call in CONVERSATION fetched URL and its successful result contains QUOTE."
-  (let ((calls nil)
+(-> memory-knowledge--url-receipt (conversation string (option string)) (option list))
+(defun memory-knowledge--url-receipt (conversation url quote)
+  "Return the latest verified retrieval receipt for URL containing QUOTE.
+
+Only the retriever records receipts. Match its call and result digest against
+successful durable output; a URL in unrelated call arguments proves nothing.
+Reuse the retrieval time, never the time a later assertion cites it."
+  (let ((receipts (make-hash-table :test #'equal))
         (found nil))
     (handler-case
         (conversation-map-records
@@ -637,22 +647,29 @@ never raise it."
          (lambda (record)
            (let ((properties (rest record)))
              (case (first record)
-               (:provider-item
-                (let ((item (ignore-errors (json-decode (getf properties :wire-json)))))
-                  (when (and (json-object-p item)
-                             (equal (json-get item "type") "function_call")
-                             (stringp (json-get item "arguments"))
-                             (search url (json-get item "arguments")))
-                    (push (json-get item "call_id") calls))))
+               (:web-retrieval
+                (when (and (equal (getf properties :tool) "web_extra.gist")
+                           (equal (getf properties :url) url)
+                           (non-empty-string-p (getf properties :call-id))
+                           (memory-source-digest-p (getf properties :result-digest))
+                           (typep (getf properties :observed-at) 'timestamp)
+                           (<= (getf properties :observed-at) (knowledge-now)))
+                  (setf (gethash (getf properties :call-id) receipts) properties)))
                (:tool-result
-                (let ((output (getf properties :output)))
-                  (when (and (member (getf properties :call-id) calls :test #'equal)
+                (let* ((receipt (gethash (getf properties :call-id) receipts))
+                       (output (getf properties :output)))
+                  (when (and receipt
+                             (equal (getf properties :tool) "web_extra.gist")
                              (eq (getf properties :status) ':ok)
                              (stringp output)
-                             (or (null quote) (memory-source-quote-found-p quote output)))
-                    (setf found t))))))))
+                             (equal (getf receipt :result-digest)
+                                    (memory-source-text-digest output))
+                             (or (null quote) (memory-source-quote-found-p quote output))
+                             (or (null found)
+                                 (> (getf receipt :observed-at) (getf found :observed-at))))
+                    (setf found receipt))))))))
       (error ()
-        nil))
+        (setf found nil)))
     found))
 
 (-> memory-knowledge--retract (tool-context hash-table) string)

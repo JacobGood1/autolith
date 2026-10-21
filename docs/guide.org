@@ -905,11 +905,11 @@ cites its evidence, like a memory, and says why it is believed: an
 /assumption/, or the model's own /proposal/. Where a fact came from decides
 its basis, not what the model calls it: a file Autolith read is an
 observation, your own words a user assertion, and a web page an observation
-only once this conversation retrieved it with the quoted text; anything else
-is the model's proposal. A fact stated by two sources has two supports and
-holds while either does. Web pages and tool output expire after their
-lifetime (a week and a day) and support nothing until observed again, when
-they apply again; your statements and recorded runs do not expire.
+once =web_extra.gist= retrieves it with the quoted text. The retrieval receipt
+records the exact URL, result digest, and observation time. A fact stated by
+two sources has two supports and holds while either does. Web pages expire a
+week after retrieval and tool output after a day; fetch the source again to
+renew its evidence. Your statements and recorded runs do not expire.
 
 Rules derive facts from facts, with dates, durations, numbers, and quantities
 in units:
