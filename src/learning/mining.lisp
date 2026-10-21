@@ -137,7 +137,7 @@ differ in shape or type."
                                   collect (generalize (mapcar (lambda (value) (aref value index))
                                                               values)
                                                       key step))))
-                     ((every (lambda (value) (or (stringp value) (realp value))) values)
+                     ((procedure--values-type values)
                       (let ((from (procedure--output-reference values outputs step))
                             (parameter (parameter-with-values values))
                             (hole (hole-with-values values)))
@@ -475,12 +475,13 @@ counts share no pattern."
 
 (-> procedure--punctuation-ends (list) (values string string))
 (defun procedure--punctuation-ends (words)
-  "Return the punctuation every one of WORDS starts with and ends with."
+  "Return shared punctuation around WORDS, preserving numeric signs in their values."
   (flet ((common (reader)
            (let ((shortest (reduce #'min words :key #'length)))
              (coerce (loop for offset below shortest
                            for character = (funcall reader (first words) offset)
                            while (and (not (alphanumericp character))
+                                      (not (find character "+-"))
                                       (every (lambda (word)
                                                (char= (funcall reader word offset) character))
                                              words))
@@ -495,18 +496,18 @@ counts share no pattern."
 
 (-> procedure--hole-values-agree-p (list list) boolean)
 (defun procedure--hole-values-agree-p (hole values)
-  "Return true when request words HOLE are VALUES, numbers compared by their digits."
-  (and (every (lambda (word value)
-                (if (integerp value)
-                    (equal (ignore-errors (parse-integer word)) value)
-                    (equal word value)))
-              hole values)
-       t))
+  "Return true when request words HOLE decode as the JSON-typed argument VALUES."
+  (let ((type (procedure--values-type values)))
+    (and type
+         (every (lambda (word value)
+                  (procedure-json-equal-p (procedure--parse-value word type) value))
+                hole values)
+         t)))
 
 (-> procedure--hole-values (list list) list)
 (defun procedure--hole-values (hole values)
   "Return the parameter values request words HOLE stand for, typed like argument VALUES."
-  (if (every #'integerp values) values hole))
+  (if (eq (procedure--values-type values) ':string) hole values))
 
 (-> procedure--parameter-base-name (string) string)
 (defun procedure--parameter-base-name (key)

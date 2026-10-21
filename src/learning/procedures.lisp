@@ -696,10 +696,10 @@ Unless EMPTY-ENDS-P, PREFIX or SUFFIX must be non-empty."
 
 (-> procedure--parse-value (string procedure-parameter-type) t)
 (defun procedure--parse-value (text type)
-  "Return request word TEXT read as a TYPE value, or TEXT itself when it does not read so."
+  "Return request word TEXT decoded as TYPE, or TEXT when it is not valid JSON."
   (case type
-    (:integer
-     (handler-case (parse-integer text)
-       (error () text)))
+    ((:integer :number :boolean)
+     (handler-case (json-decode text)
+       (json-error () text)))
     (otherwise
      text)))

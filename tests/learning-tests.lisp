@@ -347,6 +347,7 @@
                             (equal evaluation '(:method :leave-one-out :examples 3
                                                 :counterexamples 1)))
                        "a request worded the same that did something else keeps it from being offered")))))
+  (learning-tests--typed-parameters)
   nil)
 
 (-> test-procedure-learning () null)
@@ -425,6 +426,90 @@
     (remove "procedure-offers"
             (context-delivery-contributions (context-resolve-request configuration conversation #()))
             :key #'context-contribution-identifier :test-not #'string=)))
+
+(-> learning-tests--typed-parameters () null)
+(defun learning-tests--typed-parameters ()
+  "Test mining, matching, and offering JSON-typed request parameters."
+  (loop for (description type words values next-word next-value invalid-words) in
+        '(("decimal numbers" :number
+           ("1.5" "2.5" "3.5" "4.5") (1.5d0 2.5d0 3.5d0 4.5d0) "5.5" 5.5d0
+           ("5.5x" "1/2" "1d3" "+5.5" "05.5" "NaN" "true" "null"))
+          ("negative numbers with punctuation" :number
+           ("(-1.5)." "(-2.5)." "(-3.5)." "(-4.5).")
+           (-1.5d0 -2.5d0 -3.5d0 -4.5d0) "(5.5)." 5.5d0
+           ("(--5.5)." "(-5.5x)." "(-1/2)."))
+          ("JSON exponents" :number
+           ("1e-1" "2e-1" "3e-1" "4e-1") (0.1d0 0.2d0 0.3d0 0.4d0) "5E-1" 0.5d0
+           ("5e" "5e-" "5e-1x" "5d-1"))
+          ("mixed integers and decimals" :number
+           ("1" "2.5" "3" "4.5") (1 2.5d0 3 4.5d0) "5" 5
+           ("5x" "#x5" "5/1"))
+          ("negative integers" :integer
+           ("-1" "-2" "-3" "-4") (-1 -2 -3 -4) "5" 5
+           ("5.5" "+5" "05" "5x"))
+          ("JSON true" :boolean
+           ("true" "false" "true" "false") (t :json-false t :json-false) "true" t
+           ("True" "FALSE" "nil" "0" "null" "falsex"))
+          ("JSON false with punctuation" :boolean
+           ("(true)." "(false)." "(true)." "(false).")
+           (t :json-false t :json-false) "(false)." :json-false
+           ("(False)." "(nil)." "(0)." "(falsex).")))
+        do (with-test-configuration (configuration)
+             (let ((conversation (conversation-create configuration)))
+               (loop for word in words
+                     for value in values
+                     for index from 1
+                     do (conversation-append-user-message
+                         conversation (format nil "Set threshold ~A" word))
+                        (learning-tests--call conversation
+                                              :call-id (format nil "threshold-~D" index)
+                                              :tool "settings.threshold"
+                                              :arguments (json-object "value" value)
+                                              :output (json-object "saved" t))
+                        (learning-tests--call conversation
+                                              :call-id (format nil "commit-~D" index)
+                                              :tool "settings.commit"
+                                              :arguments (json-object)
+                                              :output (json-object "saved" t))
+                        (learning-tests--answer conversation "Set."))
+               (let* ((traces (action-traces-in-conversation (conversation-pathname conversation)))
+                      (procedure (procedure-mine traces))
+                      (request (format nil "Set threshold ~A" next-word))
+                      (identifier (getf (rest procedure) :id)))
+                 (test-assert (and procedure
+                                   (eq type (getf (first (getf (rest procedure) :parameters)) :type))
+                                   (every (lambda (trace) (procedure-explains-trace-p procedure trace))
+                                          traces)
+                                   (procedure-learn-candidates (reverse traces)))
+                              (format nil "~A are mined and explain held-out examples" description))
+                 (multiple-value-bind (bindings matched-p) (procedure-match-input procedure request)
+                   (let ((binding (assoc "value" bindings :test #'string=)))
+                     (test-assert (and matched-p binding
+                                       (procedure-json-equal-p (rest binding) next-value))
+                                  (format nil "~A bind the next request's JSON value" description))
+                     (when binding
+                       (test-assert
+                        (procedure-json-equal-p
+                         (procedure-template-instantiate
+                          (getf (first (getf (rest procedure) :steps)) :arguments) bindings nil)
+                         (json-object "value" next-value))
+                        (format nil "~A instantiate a typed tool argument" description)))))
+                 (procedure-define configuration procedure)
+                 (procedure-admit configuration identifier)
+                 (let ((offer (first (learning-tests--offers configuration request))))
+                   (test-assert
+                    (and offer
+                         (search (json-encode (json-object "id" identifier
+                                                          "parameters" (json-object "value" next-value)))
+                                 (context-contribution-evidence offer)))
+                    (format nil "~A produce an offer with typed JSON parameters" description)))
+                 (dolist (word invalid-words)
+                   (let ((invalid-request (format nil "Set threshold ~A" word)))
+                     (test-assert
+                      (and (not (nth-value 1 (procedure-match-input procedure invalid-request)))
+                           (null (learning-tests--offers configuration invalid-request)))
+                      (format nil "~A reject malformed or mistyped word ~S" description word))))))))
+  nil)
 
 (-> test-procedure-running () null)
 (defun test-procedure-running ()
