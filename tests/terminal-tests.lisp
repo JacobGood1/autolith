@@ -1613,6 +1613,11 @@
        active-ui
        '("steer one" "steer two" "steer three")
        '("follow one" "follow two" "follow three"))
+      (let ((spans (apply #'append (terminal-ui--live-prefix-rows active-ui))))
+        (dolist (key '("Empty Tab" "Shift-Tab"))
+          (let ((span (find key spans :key #'terminal-span-text :test #'string=)))
+            (test-assert (and span (eq ':lisp-prompt (terminal-span-style span)))
+                         "queued-input shortcuts use the keyboard highlight style"))))
       (recording-terminal-reset terminal)
       (terminal-ui-stream-update active-ui :tail "  visible response")
       (let ((output (recording-terminal-output terminal)))

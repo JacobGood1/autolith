@@ -2035,8 +2035,11 @@ form keeps every speculative Markdown wrap live until the logical line commits."
                (list
                 (terminal--clip-spans
                  (list
-                  (terminal-span ':hint
-                                 "  Empty Tab edits newest; Shift-Tab cycles."))
+                   (terminal-span ':hint "  ")
+                   (terminal-span ':lisp-prompt "Empty Tab")
+                   (terminal-span ':hint " to edit newest ")
+                   (terminal-span ':lisp-prompt "Shift-Tab")
+                   (terminal-span ':hint " to cycle."))
                  row-width))))))
     (let ((tail (terminal-ui-stream-tail ui)))
       (when tail
