@@ -160,6 +160,27 @@ which the model ran it successfully, to compare with the procedure's baseline."
                :tokens (round (reduce #'+ traces :key #'action-trace-tokens)
                               (length traces))))))
 
+(-> procedure-automatic-offer (configuration string) (option list))
+(defun procedure-automatic-offer (configuration text)
+  "Return the one offer for request TEXT that may run before the model reads the request, or NIL.
+
+Running without the model's reading needs more than a fit. The procedure must
+be admitted; every word of its request pattern that is not a parameter must
+be literal, so a varying word such as \"Please\" or \"Never\" cannot match
+anything; and a turn in which the model ran it must already have taken fewer
+model requests than the turns it was learned from. Anything less stays an
+offer the model may decline."
+  (let ((candidates
+          (remove-if-not
+           (lambda (offer)
+             (and (eq (getf offer :status) ':admitted)
+                  (every (lambda (element)
+                           (or (stringp element) (eq (first element) :param)))
+                         (getf (rest (getf offer :procedure)) :input))
+                  (procedure--demonstrated-p configuration (getf offer :id))))
+           (procedure-offers configuration text))))
+    (and (= 1 (length candidates)) (first candidates))))
+
 (-> procedure-admission-command (string list) string)
 (defun procedure-admission-command (identifier version)
   "Return the command text a person approves to admit VERSION of procedure IDENTIFIER."
@@ -291,6 +312,17 @@ earlier results are checked when they are made."
                       "name" (tool-name tool)
                       "arguments" (json-encode arguments))
          context))))
+
+(-> procedure--demonstrated-p (configuration string) boolean)
+(defun procedure--demonstrated-p (configuration identifier)
+  "Return true when recent turns running procedure IDENTIFIER took fewer requests than its baseline."
+  (let* ((entry (knowledge-base-procedure (knowledge-base-read configuration)
+                                          (knowledge--workspace configuration)
+                                          identifier))
+         (baseline (getf (getf (procedure-entry-version entry (getf entry :admitted)) :baseline)
+                         :requests))
+         (savings (procedure-savings configuration identifier)))
+    (and baseline savings (< (getf savings :requests) baseline) t)))
 
 (-> procedure--ran-p (action-trace string) boolean)
 (defun procedure--ran-p (trace identifier)

@@ -115,13 +115,15 @@ failure while learning is not the turn's failure: nothing is reported."
     null)
 (defun agent-run-fitting-procedure
     (agent observer text &key automatic-p tools-p tool-restriction-p)
-  "Run the one admitted procedure the user's request TEXT fits, before the model's first request.
+  "Run the procedure the user's request TEXT exactly calls for, before the model's first request.
 
 The run is recorded as the procedure.run call the model would have made and
 executed through the ordinary tool path, so each call keeps its approval and
-the model's first request already sees every result. Nothing runs for an
-automatic turn, a turn without tools or with restricted tools, a child agent,
-or when no single admitted procedure fits."
+the model's first request already sees every result. Only an offer
+PROCEDURE-AUTOMATIC-OFFER allows runs this way: admitted, matched word for
+word apart from its parameters, and already shown to save requests. Nothing
+runs for an automatic turn, a turn without tools or with restricted tools, or
+a child agent."
   (let ((configuration (agent-configuration agent))
         (child-class (find-class 'task-child-agent nil))
         (registry (agent-tool-registry agent)))
@@ -132,14 +134,11 @@ or when no single admitted procedure fits."
                registry
                (tool-registry-find registry "procedure" "run")
                (knowledge-active-p configuration))
-      (let ((offers (remove ':candidate
-                            (handler-case (procedure-offers configuration text)
-                              (knowledge-error ()
-                                nil))
-                            :key (lambda (offer) (getf offer :status)))))
-        (when (= 1 (length offers))
-          (let* ((offer (first offers))
-                 (call (json-object "type" "function_call"
+      (let ((offer (handler-case (procedure-automatic-offer configuration text)
+                     (knowledge-error ()
+                       nil))))
+        (when offer
+          (let* ((call (json-object "type" "function_call"
                                     "call_id" (format nil "autolith-procedure-~A" (make-identifier))
                                     "namespace" "procedure"
                                     "name" "run"

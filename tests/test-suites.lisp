@@ -377,6 +377,7 @@
   test-procedure-mining
   test-procedure-learning
   test-procedure-running
+  test-procedure-automatic-runs
   test-procedure-commands
   test-procedure-fixture)
 

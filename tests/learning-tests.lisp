@@ -533,6 +533,55 @@
                      "procedure.run is offered only while knowledge is active"))))
   nil)
 
+(-> learning-tests--email-turn (conversation string string &key (:requests integer)) null)
+(defun learning-tests--email-turn (conversation request period &key (requests 3))
+  "Record a turn answering REQUEST by building PERIOD's report and emailing it."
+  (conversation-append-user-message conversation request)
+  (learning-tests--call conversation :call-id (format nil "~A-1" period) :tool "report.build"
+                                     :arguments (json-object "period" period)
+                                     :output (json-object "file" (format nil "~A.pdf" period)))
+  (learning-tests--call conversation :call-id (format nil "~A-2" period) :tool "mail.send"
+                                     :arguments (json-object "attachment" (format nil "~A.pdf" period))
+                                     :output (json-object "sent" t))
+  (dotimes (index requests)
+    (learning-tests--request conversation (format nil "~A-r~D" period index) 1000))
+  nil)
+
+(-> test-procedure-automatic-runs () null)
+(defun test-procedure-automatic-runs ()
+  "Test that only exact, admitted, proven procedures run before the model reads a request."
+  (loop for (description requests expected) in
+        '(("varying words become wildcards, which never run unread"
+           ("Please email report q1" "Kindly email report q2" "Now email report q3")
+           nil)
+          ("an exact pattern runs once it has saved requests"
+           ("Email report q1" "Email report q2" "Email report q3")
+           t))
+        do (with-test-configuration (base root)
+             (let* ((configuration (configuration-copy base :working-directory root))
+                    (conversation (conversation-create configuration))
+                    (probe (if expected "Email report q4" "Never email report q4")))
+               (loop for request in requests
+                     for index from 1
+                     do (learning-tests--email-turn conversation request (format nil "q~D" index)))
+               (destructuring-bind ((name version turns)) (procedure-learn configuration)
+                 (declare (ignore version turns))
+                 (procedure-admit configuration name)
+                 (test-assert (and (procedure-offers configuration probe)
+                                   (null (procedure-automatic-offer configuration probe)))
+                              (format nil "~A: an admitted procedure without savings is only offered"
+                                      description))
+                 (conversation-append-user-message conversation (first requests))
+                 (learning-tests--call conversation
+                                       :call-id "run-1" :tool "procedure.run"
+                                       :arguments (json-object "id" name)
+                                       :output (json-object "made" 2))
+                 (learning-tests--request conversation "run-r1" 900)
+                 (test-assert (eq expected
+                                  (and (procedure-automatic-offer configuration probe) t))
+                              description)))))
+  nil)
+
 (-> test-procedure-commands () null)
 (defun test-procedure-commands ()
   "Test listing, running, admitting, and retiring procedures with commands."
