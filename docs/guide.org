@@ -1053,11 +1053,12 @@ is offered the one =procedure.run= call that makes the same calls with =q5=,
 and =@ learned procedure make-sales-report fits this request= appears. The
 first run asks to admit the procedure (=procedure.admit -- make-sales-report
 v1: sales.load, sales.report, notify.send=); full access admits it at once.
-Once a procedure is admitted and a turn running it has taken fewer model
-requests than the turns it was learned from, a request matching its wording
-exactly, apart from its parameters, runs it before the model's first
-request, shown as its =procedure.run= call, and the model answers from the
-results in one request. A wording learned with a word that varied, such as
+Automatic execution requires completed, successful model turns running the exact
+admitted procedure version and content, with complete usage measurements showing
+both fewer model requests and fewer tokens than its learning baseline. A request
+matching its wording exactly, apart from its parameters, then runs it before the
+model's first request, shown as its =procedure.run= call, and the model answers
+from the results in one request. A wording learned with a word that varied, such as
 =Please= or =Kindly=, matches any word there, so it stays an offer the model
 may decline. Procedures are learned only from turns the model finished: every
 call succeeded, the model answered, and the turn was not cancelled.
