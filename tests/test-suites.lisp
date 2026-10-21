@@ -391,7 +391,10 @@
 (define-test-suite contracts
   test-contract-repeated-variables
   test-contract-resource-admission
-  test-contract-admission-reload)
+  test-contract-admission-reload
+  test-contract-import-duplicate-properties
+  test-contract-import-preserves-local-admission
+  test-contract-record-supersession)
 (define-test-suite papercut
   test-papercuts)
 

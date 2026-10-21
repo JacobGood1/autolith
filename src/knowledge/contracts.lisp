@@ -38,7 +38,7 @@
   "Return true when CONTRACT has the structure of a validated contract."
   (and (proper-list-p contract)
        (eq (first contract) :contract)
-       (evenp (length (rest contract)))
+       (knowledge--properties-p (rest contract))
        (let ((properties (rest contract)))
          (and (knowledge-rule-name-p (getf properties :id))
               (non-empty-string-p (getf properties :tool))
@@ -49,7 +49,7 @@
               (every #'consp (getf properties :effects))
               (every (lambda (basis) (typep basis 'knowledge-basis)) (getf properties :accepts))
               (every (lambda (observation)
-                       (and (proper-list-p observation)
+                       (and (knowledge--properties-p observation)
                             (knowledge-predicate-name-p (getf observation :predicate))
                             (proper-list-p (getf observation :arguments))))
                      (getf properties :observes))))
@@ -408,7 +408,8 @@ fitting its predicate, skips that observation rather than failing the call."
                                                    :call identifier)
                                      :adapter (format nil "contract/~A/predicted" identifier))
                           :basis ':model-proposal
-                          :source-conversation conversation)
+                          :source-conversation conversation
+                          :contract contract)
                          claims)
                  (knowledge-error () nil)))
              (dolist (observation (getf (rest contract) :observes))
@@ -439,7 +440,8 @@ fitting its predicate, skips that observation rather than failing the call."
                                        :excerpt (tool-result-content result)
                                        :adapter (format nil "contract/~A" identifier))
                             :basis ':observation
-                            :source-conversation conversation)
+                            :source-conversation conversation
+                            :contract contract)
                            claims))
                  (knowledge-error () nil))))
     (nreverse claims)))

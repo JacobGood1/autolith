@@ -157,6 +157,8 @@ every reference to them, in supports and in memory premises, follows."
 
 Contract admissions are local authorization receipts. Preserve exported metadata
 in the archive, but import contract definitions as inactive proposals."
+  (unless (every #'knowledge--record-valid-p imported)
+    (data-transfer--fail pathname ':invalid "Malformed imported knowledge record."))
   (let ((added nil))
     (dolist (source-record (loop for record in imported
                                  append (if (eq (first record) :transaction)

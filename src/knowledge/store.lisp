@@ -217,12 +217,23 @@ Without a configuration, as in standalone tool registries, knowledge is active."
          (typep (getf properties :time) 'timestamp)
          t)))
 
+(-> knowledge--properties-p (t) boolean)
+(defun knowledge--properties-p (properties)
+  "Return true for a proper property list with unique keyword names."
+  (and (proper-list-p properties)
+       (evenp (length properties))
+       (loop with seen = nil
+             for (key value) on properties by #'cddr
+             always (and (keywordp key)
+                         (not (member key seen))
+                         (progn (push key seen) t)))))
+
 (-> knowledge--record-valid-p (t) boolean)
 (defun knowledge--record-valid-p (record)
   "Return true when RECORD is well formed. Unknown kinds are left to the reducer."
   (and (proper-list-p record)
        (keywordp (first record))
-       (evenp (length (rest record)))
+       (knowledge--properties-p (rest record))
        (case (first record)
          (:schema-defined
           (let ((properties (rest record)))
@@ -277,7 +288,7 @@ Without a configuration, as in standalone tool registries, knowledge is active."
                      (typep (getf properties :contract-version) '(integer 1)))
                  (let ((admission (getf properties :admission)))
                    (or (null admission)
-                       (and (proper-list-p admission) (evenp (length admission))
+                       (and (knowledge--properties-p admission)
                             (knowledge-contract-p (getf admission :contract))
                             (equal (getf (rest (getf admission :contract)) :id)
                                    (getf (rest (getf properties :contract)) :id))
@@ -447,9 +458,13 @@ by a newer generation stays readable after a rollback."
          (let* ((contract (getf properties :contract))
                 (key (list (getf properties :scope) (getf properties :workspace)
                            (getf (rest contract) :id)))
-                (version (or (getf properties :contract-version) 1))
-                (admission (getf properties :admission))
-                (previous (gethash key (knowledge-base-contracts-table base))))
+                (previous (gethash key (knowledge-base-contracts-table base)))
+                ;; An unadmitted proposal cannot retire a local authorization or
+                ;; move the local version backwards when importing older history.
+                (version (max (or (getf properties :contract-version) 1)
+                              (or (getf previous :contract-version) 1)))
+                (admission (or (getf properties :admission)
+                               (getf previous :admission))))
            (unless (or (null admission)
                        (and (eql version (getf admission :contract-version))
                             (equal contract (getf admission :contract)))
@@ -809,18 +824,20 @@ same observation recorded twice is one piece of evidence."
     (configuration list
      &key (:scope memory-scope) (:evidence (option list)) (:basis knowledge-basis)
           (:valid-from (option timestamp)) (:valid-until (option timestamp))
-          (:source-conversation (option string)))
+          (:source-conversation (option string)) (:contract (option list)))
     (values string string))
 (defun knowledge-assert
     (configuration proposition
-     &key (scope ':workspace) evidence basis valid-from valid-until source-conversation)
+     &key (scope ':workspace) evidence basis valid-from valid-until source-conversation contract)
   "Support the claim PROPOSITION makes in SCOPE and return the claim and support IDs.
 
 PROPOSITION must fit a schema visible from the workspace. EVIDENCE is a record
 from KNOWLEDGE-MAKE-EVIDENCE, or NIL for an assumption or a model's own
 proposal. Asserting the same support again returns the existing one; when
 its evidence was observed again since, the renewed observation time and expiry
-are recorded, so a refreshed observation applies again."
+are recorded, so a refreshed observation applies again. When CONTRACT is
+provided, its exact mapping must still be admitted at the assertion's commit;
+a superseded mapping signals INVALID-CONTRACT without writing any records."
   (let* ((workspace (knowledge--owner configuration scope))
          (viewer (knowledge--workspace configuration))
          (claim (knowledge-claim-identifier proposition :scope scope :workspace workspace)))
@@ -837,6 +854,13 @@ are recorded, so a refreshed observation applies again."
      (knowledge-transact
      configuration
      (lambda (base)
+       (when (and contract
+                  (not (member contract
+                               (knowledge-base-contracts base (getf (rest contract) :tool)
+                                                         :workspace viewer)
+                               :test #'equal)))
+         (knowledge--fail ':invalid-contract (getf (rest contract) :id)
+                          "The contract mapping is no longer admitted."))
        (let ((schema (knowledge-base-schema base (knowledge-proposition-predicate proposition)
                                             :workspace viewer)))
          (unless schema
