@@ -350,98 +350,109 @@ Refuse if a concurrent edit replaced the proposed definition."
                                    (getf (rest contract) :effects))
                            environment schema-function)))))
 
-(-> knowledge-contract-refusal (configuration list) (option string))
-(defun knowledge-contract-refusal (configuration matches)
-  "Return why the call described by contract MATCHES must not run, or NIL when it may.
+(-> knowledge-contract-refusal (configuration list &key (:view (option knowledge-view)))
+    (values (option string) list))
+(defun knowledge-contract-refusal (configuration matches &key view)
+  "Return a refusal and the admitted (CONTRACT ENVIRONMENT SUPPORTS) matches.
 
-A requirement holds only on undisputed facts resting on the bases the contract
-accepts, by default observations and the user's statements."
-  (let ((view (knowledge-view-current configuration)))
-    (loop for (contract environment) in matches
-          for accepted = (or (getf (rest contract) :accepts) *knowledge-established-bases*)
-          for requires = (mapcar (lambda (pattern)
+Requirements must have exactly one distinct binding environment on accepted,
+undisputed facts. Multiple proof paths for that environment retain all their
+claim identities. Incomplete searches and ambiguous environments refuse the call."
+  (let ((view (or view (knowledge-view-current configuration)))
+        (admitted nil))
+    (dolist (match matches (values nil (nreverse admitted)))
+      (destructuring-bind (contract environment &optional supports) match
+        (declare (ignore supports))
+        (let* ((accepted (or (getf (rest contract) :accepts) *knowledge-established-bases*))
+               (requires (mapcar (lambda (pattern)
                                    (knowledge--instantiate-pattern pattern environment))
-                                 (getf (rest contract) :requires))
-          when requires
-            do (multiple-value-bind (solutions cut-p)
-                   (knowledge-view-solve view requires
-                                         :limit 1
-                                         :test (lambda (node)
-                                                 (knowledge-node-admissible-p
-                                                  view node :accepted accepted)))
-                 (unless solutions
-                   (return
-                     (format nil "Contract ~A requires ~{~A~^ and ~}, which ~A. The call was not made."
-                             (getf (rest contract) :id)
-                             (mapcar #'knowledge-pattern-text requires)
-                             (cond
-                               (cut-p "could not be decided within the search limit")
-                               ((knowledge-view-solve view requires :limit 1)
-                                (format nil "holds only on disputed facts or on bases it does not accept (it accepts ~{~(~A~)~^, ~})"
-                                        accepted))
-                               (t "does not hold")))))))))
+                                 (getf (rest contract) :requires))))
+          (multiple-value-bind (solutions cut-p)
+              (knowledge-view-solve view requires
+                                    :test (lambda (node)
+                                            (knowledge-node-admissible-p
+                                             view node :accepted accepted)))
+            (let* ((environments (remove-duplicates (mapcar #'first solutions) :test #'equal))
+                   (reason (cond
+                             (cut-p "could not be decided within the search limit")
+                             ((rest environments) "has ambiguous requirement bindings")
+                             ((null solutions)
+                              (if (knowledge-view-solve view requires :limit 1)
+                                  (format nil "holds only on disputed facts or on bases it does not accept (it accepts ~{~(~A~)~^, ~})" accepted)
+                                  "does not hold")))))
+              (when reason
+                (return (values
+                         (format nil "Contract ~A requires ~{~A~^ and ~}, which ~A. The call was not made."
+                                 (getf (rest contract) :id)
+                                 (mapcar #'knowledge-pattern-text requires) reason)
+                         nil)))
+              (push (list contract
+                          (append environment (first environments))
+                          (remove-duplicates
+                           (loop for solution in solutions
+                                append (mapcar #'knowledge-node-identifier (rest solution)))
+                           :test #'equal))
+                    admitted))))))))
 
 (-> knowledge-contract-record (configuration list hash-table t &key (:tool string)
-                                                                       (:conversation (option string)))
-    list)
+                                                                        (:conversation (option string)))
+    (values list list))
 (defun knowledge-contract-record (configuration matches arguments result &key tool conversation)
-  "Record the predicted effects and observed facts of a successful described call.
+  "Return asserted claim identifiers and structured mapping errors for a successful call.
 
-Return the asserted claim identifiers. A value missing from the result, or not
-fitting its predicate, skips that observation rather than failing the call."
+Requirement claim identities are retained in the evidence source. Mapping errors
+never change the external action's outcome and never disappear silently."
   (let* ((decoded (ignore-errors (json-decode (tool-result-content result))))
          (base (knowledge-base-read configuration))
          (workspace (knowledge--workspace configuration))
-         (claims nil))
-    (loop for (contract environment) in matches
-          for identifier = (getf (rest contract) :id)
-          when (member contract
-                       (knowledge-base-contracts base (getf (rest contract) :tool)
-                                                 :workspace workspace)
-                       :test #'equal)
-          do (dolist (effect (getf (rest contract) :effects))
-               (handler-case
-                   (push (knowledge-assert
-                          configuration (knowledge--instantiate-pattern effect environment)
-                          :evidence (knowledge-observe
-                                     :source (list :tool :name tool :conversation conversation
-                                                   :call identifier)
-                                     :adapter (format nil "contract/~A/predicted" identifier))
-                          :basis ':model-proposal
-                          :source-conversation conversation
-                          :contract contract)
-                         claims)
-                 (knowledge-error () nil)))
-             (dolist (observation (getf (rest contract) :observes))
-               (handler-case
-                   (let* ((schema (knowledge-base-schema base (getf observation :predicate)
-                                                         :workspace workspace))
-                          (inputs
-                            (mapcar (lambda (argument)
-                                      (cond
-                                        ((knowledge--reference-p argument)
-                                         (multiple-value-bind (value present-p)
-                                             (knowledge--reference-value argument arguments decoded)
-                                           (unless present-p
-                                             (knowledge--fail ':missing-value argument
-                                                              "~A is not in the call." argument))
-                                           value))
-                                        ((knowledge-variable-p argument)
-                                         (rest (assoc argument environment :test #'string=)))
-                                        (t argument)))
-                                    (getf observation :arguments))))
+         (claims nil)
+         (errors nil))
+    (dolist (match matches)
+      (destructuring-bind (contract environment &optional supports) match
+        (let* ((identifier (getf (rest contract) :id))
+               (source (list :tool :name tool :conversation conversation
+                             :call identifier :requirements supports)))
+          (labels ((record (pattern basis)
                      (push (knowledge-assert
-                            configuration (knowledge-make-proposition schema inputs)
+                            configuration pattern
                             :evidence (knowledge-observe
-                                       :source (list :tool :name tool :conversation conversation
-                                                     :call identifier)
-                                       :digest (memory-source-text-digest
-                                                (tool-result-content result))
+                                       :source source
+                                       :digest (memory-source-text-digest (tool-result-content result))
                                        :excerpt (tool-result-content result)
-                                       :adapter (format nil "contract/~A" identifier))
-                            :basis ':observation
-                            :source-conversation conversation
-                            :contract contract)
+                                       :adapter (format nil "contract/~A/~(~A~)" identifier basis))
+                            :basis basis :source-conversation conversation :contract contract)
                            claims))
-                 (knowledge-error () nil))))
-    (nreverse claims)))
+
+                   (failed (kind condition)
+                     (push (json-object "contract" identifier "mapping" kind
+                                        "message" (autolith-error-message condition))
+                           errors)))
+            (dolist (effect (getf (rest contract) :effects))
+              (handler-case
+                  (record (knowledge--instantiate-pattern effect environment) ':model-proposal)
+                (knowledge-error (condition) (failed "effect" condition))))
+            (dolist (observation (getf (rest contract) :observes))
+              (handler-case
+                  (let* ((schema (knowledge-base-schema base (getf observation :predicate)
+                                                        :workspace workspace))
+                         (inputs
+                           (mapcar (lambda (argument)
+                                     (cond
+                                       ((knowledge--reference-p argument)
+                                        (multiple-value-bind (value present-p)
+                                            (knowledge--reference-value argument arguments decoded)
+                                          (unless present-p
+                                            (knowledge--fail ':missing-value argument
+                                                             "~A is not in the call." argument))
+                                          value))
+                                       ((knowledge-variable-p argument)
+                                        (let ((binding (assoc argument environment :test #'string=)))
+                                          (unless binding
+                                            (knowledge--fail ':missing-value argument
+                                                             "~A has no admitted binding." argument))
+                                          (rest binding)))
+                                       (t argument)))
+                                   (getf observation :arguments))))
+                    (record (knowledge-make-proposition schema inputs) ':observation))
+                (knowledge-error (condition) (failed "observation" condition))))))))
+    (values (nreverse claims) (nreverse errors))))

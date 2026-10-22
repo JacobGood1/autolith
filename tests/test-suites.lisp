@@ -377,7 +377,8 @@
   test-knowledge-cross-scope-conflicts
   test-knowledge-admissible-support
   test-knowledge-expiry-lifecycle
-  test-knowledge-action-contracts)
+  test-knowledge-action-contracts
+  test-contract-requirement-bindings)
 
 (define-test-suite knowledge-replacement
   test-knowledge-replacement-renewal

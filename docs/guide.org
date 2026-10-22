@@ -1061,6 +1061,16 @@ admission metadata for provenance; imported contracts require local admission.
 Trusted Lisp callers of =knowledge-define-contract= admit their definitions by
 default; pass =:admit nil= to propose one for separate authorization.
 
+Requirements may bind variables used by effects and observations. A call needs
+one distinct binding environment; ambiguous bindings or an incomplete search
+refuse it before execution. Evidence records retain the supporting claim IDs.
+If a successful call's observation mapping fails, its plain result reports
+=externalSuccess: true=, a bounded =externalResult= excerpt, and structured
+=contractErrors= with =contractRecording: "failed"=. Rich results include a
+bounded diagnostic after their ordered content. Durable details retain the
+recording diagnostic and subtype metadata; clipped MCP sections include their
+original metadata as provenance.
+
 *** Learned procedures
 
 When three turns in a workspace make the same tool calls in the same order,
