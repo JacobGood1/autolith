@@ -300,13 +300,14 @@
                                         "retracting the old buffer settles the departure")))
            (4
             (schedule start 5)
+            (knowledge-fixture--edit fixture (start-fact start))
             (knowledge-fixture--check fixture
                                       (equal (departures) (list (departure (- start travel buffer))))
-                                      "an unrelated edit keeps the departure")
+                                      "reobserving the schedule yields the same departure")
             (knowledge-fixture--check fixture
                                       (search "Nothing changed"
                                               (knowledge-fixture--read fixture "memory:changes"))
-                                      "an unrelated edit reports no change")))))))
+                                      "reobserving the room edit reports no fact change")))))))
   nil)
 
 (-> test-knowledge-appointment-fixtures () null)
@@ -543,7 +544,7 @@
                                        (+ 7 (third (second rows)))))))
               (setf rows (list (first rows) (first changed) (third rows)))
               (write-csv rows)
-              (apply #'knowledge-fixture--edit fixture (row-facts (first changed)))
+              (apply #'knowledge-fixture--edit fixture (mapcan #'row-facts rows))
               (knowledge-fixture--check fixture (equal (margins) (expected rows))
                                         "an edited row recomputes only its margin")
               (let ((changes (knowledge-fixture--read fixture "memory:changes")))
@@ -560,24 +561,25 @@
            (2
             (let ((added (list (format nil "o-~D-4" index) 200 150)))
               (write-csv (append rows (list added)))
-              (apply #'knowledge-fixture--edit fixture (row-facts added))
+              (apply #'knowledge-fixture--edit fixture (mapcan #'row-facts (append rows (list added))))
               (knowledge-fixture--check fixture
                                         (equal (margins) (expected (append rows (list added))))
                                         "an added row derives its own margin")))
            (3
             (write-csv rows "# exported nightly")
+            (apply #'knowledge-fixture--edit fixture (mapcan #'row-facts rows))
             (knowledge-fixture--check fixture (equal (margins) (expected rows))
-                                      "a header comment changes nothing")
+                                      "reobserving the rows yields the same margins")
             (knowledge-fixture--check fixture
                                       (search "Nothing changed"
                                               (knowledge-fixture--read fixture "memory:changes"))
-                                      "an unrelated edit reports no change"))
+                                      "reobserving the header edit reports no fact change"))
            (4
             (let ((loss (list (first (first rows)) (second (first rows))
                               (+ 15 (second (first rows))))))
               (setf rows (cons loss (rest rows)))
               (write-csv rows)
-              (apply #'knowledge-fixture--edit fixture (row-facts loss))
+              (apply #'knowledge-fixture--edit fixture (mapcan #'row-facts rows))
               (knowledge-fixture--check fixture
                                         (member (format nil "~A loses money" (first loss)) (losses)
                                                 :test #'string=)
