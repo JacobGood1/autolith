@@ -433,6 +433,7 @@
 (define-test-suite user-init
   test-site-configuration-root
   test-site-configuration-noninteractive-commands
+  test-private-startup-replay
   test-user-init
   test-user-init-settings
   test-local-source-tree-registration

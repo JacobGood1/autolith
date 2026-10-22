@@ -932,11 +932,17 @@ newly acquired lease."
 (-> application-create
     (configuration &key (:conversation-id (option string))
                         (:permission-mode (member :ask :auto :sandboxed :full-access))
-                        (:pristine-p boolean))
+                        (:pristine-p boolean)
+                        (:image-replay-failures list))
     application)
 (defun application-create
-    (configuration &key conversation-id (permission-mode ':ask) pristine-p)
-  "Create a connected application, loading CONVERSATION-ID with PERMISSION-MODE."
+    (configuration &key conversation-id (permission-mode ':ask) pristine-p
+                        (image-replay-failures nil image-state-loaded-p))
+  "Create a connected application, loading CONVERSATION-ID with PERMISSION-MODE.
+
+Supplying IMAGE-REPLAY-FAILURES means startup already loaded private image state
+for this configuration and pristine mode. Reuse that replay's diagnostics and
+lineage instead of loading it again."
   (let ((preferred-configuration configuration))
     (context-runtime-reset)
     (configuration-ensure-directories preferred-configuration)
@@ -954,9 +960,11 @@ newly acquired lease."
            (recovery-rendered-sequence (second recovery-state))
            (recovery-history-floor-sequence (third recovery-state))
            (mutation-replay-failures
-             (if pristine-p
-                 (image-state-load preferred-configuration :pristine-p t)
-                 (image-state-load preferred-configuration)))
+             (if image-state-loaded-p
+                 image-replay-failures
+                 (if pristine-p
+                     (image-state-load preferred-configuration :pristine-p t)
+                     (image-state-load preferred-configuration))))
            (extension-registry-snapshot nil)
            (registry nil)
            (worker nil)

@@ -1287,7 +1287,9 @@ stale Localgroup records itself.
 Autolith loads the optional user file
 =${XDG_CONFIG_HOME:-~/.config}/autolith/init.lisp= after tracked code, a
 selected private image commit, and any site or trusted directory
-configuration. It reloads on retained generation reconnect.
+configuration. This order also applies to =autolith models= and =autolith auth=.
+Use =--pristine= to skip private replay and executable initialization.
+The user file reloads on retained generation reconnect.
 
 The file is ordinary Common Lisp in package =AUTOLITH=, with your full
 privileges. It is not copied into private replay or the pristine recovery
