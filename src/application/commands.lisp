@@ -3028,7 +3028,7 @@ The current value and its source sit in aligned columns of their own."
      :terminal-behavior :shared
      :callable t
      :slash-parser application--parse-boolean-control
-     :static-options (:on :off :status))
+     :static-options (t nil :status))
     (application &optional (mode ':status))
   (application-codex-fast-mode-command application mode)
   ':continue)
@@ -3041,7 +3041,7 @@ The current value and its source sit in aligned columns of their own."
      :terminal-behavior :shared
      :callable t
      :slash-parser application--parse-boolean-control
-     :static-options (:on :off))
+     :static-options (t nil))
     (application &optional (mode ':status))
   (application-trace-command application mode)
   ':continue)
@@ -3054,7 +3054,7 @@ The current value and its source sit in aligned columns of their own."
      :terminal-behavior :shared
      :callable t
      :slash-parser application--parse-boolean-control
-     :static-options (:on :off))
+     :static-options (t nil))
     (application &optional (mode ':status))
   (application-turn-timestamps-command application mode)
   ':continue)
@@ -3067,7 +3067,7 @@ The current value and its source sit in aligned columns of their own."
      :terminal-behavior :shared
      :callable t
      :slash-parser application--parse-boolean-control
-     :static-options (:on :off))
+     :static-options (t nil))
     (application &optional (mode ':status))
   (application-simple-technical-english-command application mode)
   ':continue)
@@ -3080,7 +3080,7 @@ The current value and its source sit in aligned columns of their own."
      :terminal-behavior :shared
      :callable t
      :slash-parser application--parse-boolean-control
-     :static-options (:on :off))
+     :static-options (t nil))
     (application &optional (mode ':status))
   (application-session-titles-command application mode)
   ':continue)
@@ -3093,7 +3093,7 @@ The current value and its source sit in aligned columns of their own."
      :terminal-behavior :shared
      :callable t
      :slash-parser application--parse-boolean-control
-     :static-options (:on :off))
+     :static-options (t nil))
     (application &optional (mode ':status))
   (application-cache-miss-notices-command application mode)
   ':continue)
@@ -3106,7 +3106,7 @@ The current value and its source sit in aligned columns of their own."
      :terminal-behavior :shared
      :callable t
      :slash-parser application--parse-boolean-control
-     :static-options (:on :off))
+     :static-options (t nil))
     (application &optional (mode ':status))
   (application-hurry-up-command application mode)
   ':continue)
@@ -3488,7 +3488,7 @@ The current value and its source sit in aligned columns of their own."
      :terminal-behavior :shared
      :callable t
      :slash-parser application--parse-boolean-control
-     :static-options (:on :off))
+     :static-options (t nil))
     (application &optional (mode ':status))
   (application-compact-tool-command application mode)
   ':continue)

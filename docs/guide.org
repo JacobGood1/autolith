@@ -1965,8 +1965,9 @@ Provider preference fields are sent as supplied, including =order=,
   picker requires exclusive terminal input when open. The responsive reader
   continues animating until then.
 - =:static-options= replaces =:argument= for one finite positional parameter.
-  Supply native strings or keywords to derive the help hint and completions.
-  Define a slash parser to translate text choices to keyword values.
+  Supply native strings, keywords, or booleans to derive the help hint and
+  completions. Use =(t nil)= for boolean controls. Define a slash parser to
+  translate text choices to native values.
 
 ** Live definitions
 
