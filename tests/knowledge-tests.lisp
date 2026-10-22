@@ -345,9 +345,9 @@
                        "a web observation expires while a statement does not")
           (memory-source-tests--write schedule (format nil "Review at 13:00 in room 5.~%"))
           (let ((check (check 2000)))
-            (test-assert (and (eq (knowledge-tests--evidence-state check quoted) ':current)
+            (test-assert (and (eq (knowledge-tests--evidence-state check quoted) ':changed)
                               (eq (knowledge-tests--evidence-state check whole) ':changed))
-                         "a quoted passage survives an unrelated edit, a whole-file digest does not"))
+                         "a surviving quotation cannot establish applicability after a source edit"))
           (delete-file schedule)
           (test-assert (eq (knowledge-tests--evidence-state (check 2000) quoted) ':missing)
                        "a deleted file no longer supports anything")
@@ -372,6 +372,56 @@
               (test-assert (eq (evidence-check-support (check 2000) store (first case))
                                (second case))
                            (format nil "a support ~S is ~A" (first case) (second case)))))))))
+  nil)
+
+(-> test-knowledge-quotation-context () null)
+(defun test-knowledge-quotation-context ()
+  "Test that an obsolete section cannot support current facts through a surviving quote."
+  (with-test-configuration (base root)
+    (let* ((configuration (configuration-copy base :working-directory root))
+           (context (make-instance 'tool-context :configuration configuration :worker nil))
+           (quote "The report is ready for release.")
+           (file (memory-source-tests--write
+                  (merge-pathnames "status.txt" root) (format nil "Current status~%~A~%" quote)))
+           (observed (knowledge-observe-file file :quote quote :workspace (namestring root))))
+      (dolist (predicate '("report.ready" "report.sendable"))
+        (knowledge-define-schema
+         configuration (knowledge-make-schema :predicate predicate
+                                              :arguments '((:name "report" :type :entity)))))
+      (knowledge-propose-rule configuration :id "sendable"
+                              :premises '(("report.ready" "?r"))
+                              :conclusion '("report.sendable" "?r"))
+      (knowledge-admit-rule configuration "sendable")
+      (knowledge-assert configuration '("report.ready" "q3")
+                        :evidence observed :basis ':observation)
+      (flet ((gate (pattern)
+               (mission--fact-gate-support (list :kind :fact :pattern pattern
+                                                :accepted '(:observation :user-assertion)) context)))
+        (test-assert (gate '("report.sendable" "q3"))
+                     "the original current section supports a derived fact gate")
+        (memory-source-tests--write
+         file (format nil "Obsolete status~%~A~%Current status~%The report still needs review.~%" quote))
+        (let* ((view (knowledge-view-current configuration))
+               (node (knowledge-view-node
+                      view (knowledge-claim-identifier '("report.ready" "q3")
+                                                       :scope ':workspace
+                                                       :workspace (namestring root)))))
+          (test-assert (eq (knowledge-node-applicability node) ':stale)
+                       "changing the context invalidates the original observation")
+          (test-assert (not (gate '("report.sendable" "q3")))
+                       "a surviving obsolete quote cannot justify a derived fact gate"))
+        (let ((refreshed (knowledge-observe-file file :quote "The report still needs review."
+                                                    :workspace (namestring root))))
+          (knowledge-assert configuration '(:not ("report.ready" "q3"))
+                            :evidence refreshed :basis ':observation))
+        (test-assert (gate '(:not ("report.ready" "q3")))
+                     "an explicit observation of the new status supports the corrected fact")
+        (let* ((store (knowledge-tests--reread configuration))
+               (historical (knowledge-base-evidence-record store (getf (rest observed) :id))))
+          (test-assert (equal historical (rest observed))
+                       "replay preserves the original quotation, source digest, and time")
+          (test-assert (eq (evidence-check-evidence (evidence-check-create) historical) ':changed)
+                       "replaying provenance does not refresh its applicability")))))
   nil)
 
 (-> knowledge-tests--define-appointments (configuration) null)

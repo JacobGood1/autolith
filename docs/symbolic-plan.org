@@ -113,8 +113,6 @@ Open items:
 - Leave-one-out validation checks that a procedure reproduces each source
   turn's calls, not that the task succeeded; outcome checks need replaying
   effectful tools against fixtures.
-- The quotation-context finding of the 2026-10-21 review is not addressed
-  yet; its details are in the review document, not in this repository.
 - Learned parameter names come from argument keys, so "Summarize the sales of
   q1" learns ={uri}=. Better names would need a model.
 
@@ -161,7 +159,8 @@ fixtures and disposable Lisp workers, without live provider requests.
 Further review: procedure preflight currently defers a whole call when any
 requirement shares a predicate an earlier call might produce. Check each
 independent requirement and its grounded arguments before starting side
-effects. The quotation-context finding listed above is also open.
+effects. Quoted file evidence now requires the observed content digest; a surviving
+quotation in an edited document preserves provenance but not current support.
 
 * Design
 

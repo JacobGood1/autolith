@@ -353,6 +353,7 @@
   test-knowledge-schemas
   test-knowledge-store
   test-knowledge-applicability
+  test-knowledge-quotation-context
   test-knowledge-rule-validation
   test-knowledge-rule-computations
   test-knowledge-rule-lifecycle

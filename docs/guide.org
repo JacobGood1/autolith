@@ -929,6 +929,11 @@ two sources has two supports and holds while either does. Web pages expire a
 week after retrieval and tool output after a day; fetch the source again to
 renew its evidence. Your statements and recorded runs do not expire.
 
+A structured fact's file evidence applies only to the exact observed content,
+even when its quotation survives an edit elsewhere in the file. Review the new
+revision and observe it again before using it as current evidence. The original
+quotation and digest are kept for historical inspection.
+
 Rules derive facts from facts, with dates, durations, numbers, and quantities
 in units:
 

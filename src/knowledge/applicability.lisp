@@ -3,10 +3,10 @@
 ;;;; -- Evidence Applicability --
 
 ;;; Evidence is an immutable record of what was observed; whether it still
-;;; applies is decided now. Files are checked against their quoted passage or
-;;; digest. Web pages and tool output expire: they are never refetched in the
-;;; background, so after their lifetime they no longer support anything until
-;;; observed again. A user's statement and a recorded run stay as they were.
+;;; applies is decided now. File evidence requires the observed content digest,
+;;; including when it quotes a passage: surrounding edits may change its meaning.
+;;; Web pages and tool output expire without background retrieval. A user's
+;;; statement and a recorded run stay as they were.
 
 (defparameter *knowledge-url-lifetime* (* 7 86400)
   "Seconds a web observation supports claims before it expires.")
@@ -117,14 +117,15 @@ never mistaken for the content that was read."
 (-> evidence-check--file-source (evidence-check list (option string) (option string))
     (values keyword (option keyword)))
 (defun evidence-check--file-source (check source workspace digest)
-  "Return whether file SOURCE, observed with DIGEST, still holds, and why not."
+  "Return whether file SOURCE still has the observed DIGEST and quoted passage."
   (let ((pathname (memory-source-file-pathname source workspace)))
     (multiple-value-bind (text failure) (evidence-check--file check pathname)
       (let ((quote (getf (rest source) :quote)))
         (cond
-          ((and text (if quote
-                         (memory-source-quote-found-p quote text)
-                         (equal (memory-source-text-digest text) digest)))
+          ((and text (null digest))
+           (values ':unverified ':missing-digest))
+          ((and text (equal (memory-source-text-digest text) digest)
+                (or (null quote) (memory-source-quote-found-p quote text)))
            (values ':current nil))
           (text
            (values ':changed ':changed))
