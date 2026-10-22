@@ -29,7 +29,8 @@
            (dolist (specification
                     '((rlm-infer-tool-create infer :completed)
                       (rlm-map-tool-create rlm-map :failed)
-                      (rlm-complete-tool-create rlm-complete :aborted)))
+                      (rlm-complete-tool-create rlm-complete :aborted)
+                      (rlm-distill-tool-create rlm-distill :completed)))
              (destructuring-bind (constructor operation expected-state) specification
                (let* ((lock (make-lock "RLM activity test"))
                       (condition (make-condition-variable))
@@ -41,12 +42,16 @@
                       (job nil)
                       (tool (funcall constructor :provider provider))
                       (arguments
-                        (if (eq operation 'rlm-map)
-                            (json-object "tasks" (json-array
-                                                  (json-object "task" "private task"))
-                                         "async" t)
-                            (json-object "task" "private task" "async" t
-                                         "context" (json-object "text" "private source")))))
+                        (cond
+                          ((eq operation 'rlm-map)
+                           (json-object "tasks" (json-array
+                                                 (json-object "task" "private task"))
+                                        "async" t))
+                          ((eq operation 'rlm-distill)
+                           (json-object "traces" (json-array "private trace") "async" t))
+                          (t
+                           (json-object "task" "private task" "async" t
+                                        "context" (json-object "text" "private source"))))))
                  (test-call-with-function-replacements
                   (list
                    (list 'task-orchestrator-emit
@@ -60,7 +65,11 @@
                                  (task--condition-broadcast condition))))))
                    (list operation
                          (lambda (&rest arguments)
-                           (setf reporter (getf (rest arguments) :activity-callback))
+                           (setf reporter
+                                 (getf (if (eq operation 'rlm-distill)
+                                           arguments
+                                           (rest arguments))
+                                       :activity-callback))
                            ;; Map and root frames may invoke this on another worker.
                            (bordeaux-threads:join-thread
                             (make-thread
@@ -73,7 +82,10 @@
                                    do (condition-wait condition lock :timeout 2)))
                            (if (eq expected-state ':failed)
                                (error 'rlm-inference-error :message "Scripted failure.")
-                               (values "answer" "trace" 0)))))
+                               (values (if (eq operation 'rlm-distill)
+                                           '(:status :declined)
+                                           "answer")
+                                       "trace" 0)))))
                   (lambda ()
                     (unwind-protect
                          (progn
@@ -1641,7 +1653,7 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
            (rlm-endpoint-start
             :provider (make-instance 'rlm-map-test-provider)
             :configuration configuration
-            :budget (rlm-budget-create :calls 1 :tokens 100 :depth 1)
+             :budget (rlm-budget-create :calls 5 :tokens 200 :depth 1)
             :activity-callback
             (lambda (activity)
               (push activity activities))))
@@ -1650,6 +1662,30 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
          (stopped-p nil))
     (unwind-protect
          (progn
+           (dolist (policy '(:direct :rlm-policy-test-split))
+             (let ((response
+                     (rlm-endpoint-test-call
+                      endpoint
+                      (list :rlm-request :token (rlm-endpoint-token endpoint)
+                            :operation ':run
+                            :arguments (list :task "private policy task"
+                                             :policy policy :concurrency 1)))))
+               (test-assert (eq (getf (rest response) :status) ':ok)
+                            "endpoint policy runs complete through the transport")))
+           (test-assert
+            (every (lambda (prefix)
+                     (some (lambda (activity) (uiop:string-prefix-p prefix activity))
+                           activities))
+                   '("run · direct · request" "run · map · frame"
+                     "run · synthesis · request"))
+            "proxied policies report direct, map and synthesis request phases")
+           (test-assert
+            (every (lambda (activity)
+                     (and (<= (length activity) 160)
+                          (not (search "private policy task" activity))))
+                   activities)
+            "policy progress contains bounded phases and counters, not task text")
+           (setf activities nil)
            (rlm-endpoint-stop endpoint)
            (setf stopped-p t)
            (funcall retained-callback "request 2 · 0 calls left")
