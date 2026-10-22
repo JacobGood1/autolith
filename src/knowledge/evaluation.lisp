@@ -178,9 +178,7 @@ unsupported claim whose explicit negation is supported is refuted."
      ':conflicted)
     ((knowledge-node-supported-p node)
      ':supported)
-    ((let ((negation (gethash (knowledge--negation-identifier node)
-                              (knowledge-view-nodes view))))
-       (and negation (knowledge-node-supported-p negation)))
+    ((knowledge--opposite-nodes view node)
      ':refuted)
     (t
      ':unknown)))
@@ -204,15 +202,22 @@ A supported claim is :CURRENT. Otherwise the reason is taken from its supports:
           ((member ':retracted states) ':retracted)
           (t ':unknown)))))
 
-(-> knowledge--negation-identifier (knowledge-node) string)
-(defun knowledge--negation-identifier (node)
-  "Return the identifier of the claim contradicting NODE outright in its scope."
-  (let ((proposition (knowledge-node-proposition node)))
-    (knowledge-claim-identifier (if (knowledge-negation-p proposition)
-                                    (second proposition)
-                                    (list :not proposition))
-                                :scope (knowledge-node-scope node)
-                                :workspace (knowledge-node-workspace node))))
+(-> knowledge--opposite-nodes (knowledge-view knowledge-node) list)
+(defun knowledge--opposite-nodes (view node)
+  "Return all supported claims in VIEW that explicitly contradict NODE.
+
+Storage scope identifies ownership, not a separate truth domain within a view."
+  (let* ((proposition (knowledge-node-proposition node))
+         (opposite (if (knowledge-negation-p proposition)
+                       (second proposition)
+                       (list :not proposition)))
+         (index (if (knowledge-node-negated-p node)
+                    (knowledge-view-supported view)
+                    (knowledge-view-negated view))))
+    (remove-if-not
+     (lambda (candidate)
+       (knowledge-propositions-equal-p opposite (knowledge-node-proposition candidate)))
+     (gethash (knowledge-proposition-predicate proposition) index))))
 
 
 ;;;; -- Bases --
@@ -605,13 +610,11 @@ are independent support paths even when their propositions agree."
     (loop for node being the hash-values of (knowledge-view-nodes view)
           when (knowledge-node-supported-p node)
             do (if (knowledge-node-negated-p node)
-                   (let ((positive (gethash (knowledge--negation-identifier node)
-                                            (knowledge-view-nodes view))))
-                     (when (and positive (knowledge-node-supported-p positive))
-                       (pushnew (knowledge-node-identifier positive)
-                                (knowledge-node-conflicts node) :test #'string=)
-                       (pushnew (knowledge-node-identifier node)
-                                (knowledge-node-conflicts positive) :test #'string=)))
+                   (dolist (positive (knowledge--opposite-nodes view node))
+                     (pushnew (knowledge-node-identifier positive)
+                              (knowledge-node-conflicts node) :test #'string=)
+                     (pushnew (knowledge-node-identifier node)
+                              (knowledge-node-conflicts positive) :test #'string=))
                    (let ((key (and (knowledge-node-schema node)
                                    (knowledge-proposition-key (knowledge-node-proposition node)
                                                               (knowledge-node-schema node)))))

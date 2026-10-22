@@ -1629,6 +1629,91 @@
                      "the renewed observation expires a lifetime after it was made"))))
   nil)
 
+(-> test-knowledge-cross-scope-conflicts () null)
+(defun test-knowledge-cross-scope-conflicts ()
+  "Test visible opposites across scopes at fact gates and action dispatch."
+  (dolist (global-negated '(nil t))
+    (with-test-configuration (base root)
+      (let* ((configuration (configuration-copy base :working-directory root))
+             (other (configuration-copy
+                     base :working-directory
+                     (ensure-directories-exist (merge-pathnames "other/" root))))
+             (context (make-instance 'tool-context :configuration configuration :worker nil
+                                                  :conversation (conversation-create configuration)))
+             (other-context (make-instance 'tool-context :configuration other :worker nil))
+             (registry (make-default-tool-registry :configuration configuration))
+             (mail (make-instance 'knowledge-tests--mail-tool
+                                  :namespace "mail" :name "send" :description "Send a report."
+                                  :parameters (tool-object-schema
+                                               (json-object "report" (tool-string-property "Report."))
+                                               '("report"))))
+             (positive '("report.ready" "q3"))
+             (negative '(:not ("report.ready" "q3")))
+             (global (if global-negated negative positive)))
+        (tool-registry-register registry mail)
+        (dolist (predicate '("report.ready" "report.eligible" "report.blocked" "report.known"))
+          (knowledge-define-schema
+           configuration
+           (knowledge-make-schema :predicate predicate
+                                  :arguments '((:name "report" :type :entity)))
+           :scope ':global))
+        (knowledge-propose-rule configuration :id "eligible"
+                                :premises '(("report.ready" "?r"))
+                                :conclusion '("report.eligible" "?r"))
+        (knowledge-admit-rule configuration "eligible")
+        (knowledge-tests--said configuration "report.known" '("q3") "q3 is known")
+        (knowledge-propose-rule configuration :id "blocked"
+                                :premises '(("report.known" "?r") (:not ("report.ready" "?r")))
+                                :conclusion '("report.blocked" "?r"))
+        (knowledge-admit-rule configuration "blocked")
+        (knowledge-assert configuration global :scope ':global
+                          :evidence (knowledge-observe :source '(:user :quote "global report status")
+                                                       :adapter "user/1")
+                          :basis ':user-assertion)
+        (knowledge-assert configuration (if global-negated positive negative)
+                          :evidence (knowledge-observe :source '(:user :quote "local opposite status")
+                                                       :adapter "user/1")
+                          :basis ':user-assertion)
+        (let* ((view (knowledge-view-current configuration))
+               (nodes (append (knowledge-view-holds view positive)
+                              (knowledge-view-holds view negative))))
+          (test-assert (= 2 (length nodes)) "both scoped identities are visible")
+          (dolist (node nodes)
+            (test-assert (and (eq (knowledge-node-status view node) ':conflicted)
+                              (member (knowledge-node-identifier
+                                       (find-if (lambda (other) (not (eq other node))) nodes))
+                                      (knowledge-node-conflicts node) :test #'string=)
+                              (not (knowledge-node-admissible-p view node)))
+                         "each visible opposite has a symmetric conflict edge")))
+        (dolist (pattern (list positive negative '("report.eligible" "q3")
+                              '("report.blocked" "q3")))
+          (test-assert (not (mission--fact-gate-support
+                            (list :kind :fact :pattern pattern
+                                  :accepted '(:observation :user-assertion)) context))
+                       "neither disputed premise nor its conclusion satisfies a fact gate")
+          (knowledge-define-contract configuration :id "send-report" :tool "mail.send"
+                                     :requires (list pattern))
+          (test-assert (and (not (tool-result-success-p
+                                 (memory-resource-tests--call registry context "mail" "send"
+                                                              "report" "q3")))
+                            (zerop (knowledge-tests--mail-tool-calls mail)))
+                       "a contract refuses the disputed requirement before the action"))
+        (test-assert (mission--fact-gate-support
+                      (list :kind :fact :pattern global
+                            :accepted '(:observation :user-assertion)) other-context)
+                     "the other workspace can use the unopposed global claim")
+        (dolist (scope '(:global :workspace))
+          (knowledge-assert configuration '("report.ready" "clean") :scope scope
+                            :evidence (knowledge-observe :source '(:user :quote "clean is ready")
+                                                         :adapter "user/1")
+                            :basis ':user-assertion))
+        (let* ((view (knowledge-view-current configuration))
+               (nodes (knowledge-view-holds view '("report.ready" "clean"))))
+          (test-assert (and (= 2 (length nodes))
+                            (every (lambda (node) (knowledge-node-admissible-p view node)) nodes))
+                       "equal positives in different scopes are independent clean alternatives")))))
+  nil)
+
 (-> test-knowledge-admissible-support () null)
 (defun test-knowledge-admissible-support ()
   "Test that gates use only undisputed facts on accepted bases, negated premises included."

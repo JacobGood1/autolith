@@ -373,6 +373,7 @@
   test-knowledge-plan-changes
   test-knowledge-task-methods
   test-knowledge-fact-gates
+  test-knowledge-cross-scope-conflicts
   test-knowledge-admissible-support
   test-knowledge-expiry-lifecycle
   test-knowledge-action-contracts)
