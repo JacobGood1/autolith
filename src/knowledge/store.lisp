@@ -961,6 +961,32 @@ Return the retracted support identifiers. Retracted supports stay inspectable."
                targets
                (and targets t))))))
 
+(-> knowledge--source-identity (list) list)
+(defun knowledge--source-identity (source)
+  "Return SOURCE's stable producer identity, independent of observation details.
+
+Files use their path and relative-path flag; URLs use their address. Tools use
+their name, not the conversation or call that recorded an observation. User
+statements use their conversation when known, or their quotation otherwise.
+Memory, mission, and skill sources use their object ID. Quotations, digests,
+and adapter details do not distinguish revisions of an identified source."
+  (let ((properties (rest source)))
+    (case (first source)
+      (:file
+       (list ':file (getf properties :path) (getf properties :relative)))
+      (:url
+       (list ':url (getf properties :url)))
+      (:tool
+       (list ':tool (getf properties :name)))
+      (:user
+       (if (getf properties :conversation)
+           (list ':user ':conversation (getf properties :conversation))
+           (list ':user ':quote (getf properties :quote))))
+      ((:memory :mission :skill)
+       (list (first source) (getf properties :id)))
+      (otherwise
+       (knowledge--fail ':invalid-evidence source "The evidence source is malformed.")))))
+
 (-> knowledge-replace-observation
     (configuration list list &key (:scope memory-scope) (:source-conversation (option string)))
     string)
@@ -973,7 +999,7 @@ source are retracted in the same transaction, so an adapter reporting a
 mission's new status does not leave its old status standing. Return the claim."
   (let* ((workspace (knowledge--owner configuration scope))
          (claim (knowledge-claim-identifier proposition :scope scope :workspace workspace))
-         (source (getf (rest evidence) :source)))
+         (source-identity (knowledge--source-identity (getf (rest evidence) :source))))
     (knowledge-transact
      configuration
      (lambda (base)
@@ -1002,18 +1028,18 @@ mission's new status does not leave its old status standing. Return the claim."
                                                        base (getf support :evidence)))
                                      when (and (null (getf support :retracted-at))
                                                cited
-                                               (eq (first (getf cited :source)) (first source))
-                                               (equal (getf (rest (getf cited :source)) :id)
-                                                      (getf (rest source) :id)))
+                                               (equal (knowledge--source-identity
+                                                       (getf cited :source))
+                                                      source-identity))
                                        collect support-identifier)))
               (active-p
                 (some (lambda (support-identifier)
                         (let ((support (knowledge-base-support base support-identifier)))
-                           (and (null (getf support :retracted-at))
-                                (eq (getf support :basis) ':observation)
-                                (null (getf support :valid-from))
-                                (null (getf support :valid-until))
-                                (equal (getf support :evidence) (getf (rest evidence) :id)))))
+                          (and (null (getf support :retracted-at))
+                               (eq (getf support :basis) ':observation)
+                               (null (getf support :valid-from))
+                               (null (getf support :valid-until))
+                               (equal (getf support :evidence) (getf (rest evidence) :id)))))
                       (getf (knowledge-base-claim base claim) :supports)))
                (observation-records (knowledge--observation-records base evidence)))
          (unless (knowledge-proposition-valid-p proposition schema)
@@ -1046,4 +1072,4 @@ mission's new status does not leave its old status standing. Return the claim."
                          :time time
                          :source-conversation source-conversation))))
           claim
-           (or superseded observation-records (not active-p))))))))
+          (or superseded observation-records (not active-p))))))))

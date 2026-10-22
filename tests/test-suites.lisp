@@ -380,7 +380,8 @@
   test-knowledge-action-contracts)
 
 (define-test-suite knowledge-replacement
-  test-knowledge-replacement-renewal)
+  test-knowledge-replacement-renewal
+  test-knowledge-replacement-source-identity)
 
 (define-test-suite symbolic-presentation
   test-symbolic-session-notices

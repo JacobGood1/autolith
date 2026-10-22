@@ -53,3 +53,73 @@
           (test-assert (eq (knowledge-node-applicability (node claim)) ':expired)
                        "renewed evidence expires at its new deadline")))))
   nil)
+
+
+(-> test-knowledge-replacement-source-identity () null)
+(defun test-knowledge-replacement-source-identity ()
+  "Test replacement isolates source identities and supersedes their own revisions."
+  (dolist (sources
+           '(((:url :url "https://example.com/a" :quote "old")
+              (:url :url "https://example.com/b")
+              (:url :quote "new" :url "https://example.com/a"))
+             ((:tool :name "probe.a" :conversation "one" :call "old")
+              (:tool :name "probe.b" :conversation "one")
+              (:tool :call "new" :conversation "two" :name "probe.a"))
+             ((:tool :name "probe.a" :call "old")
+              (:tool :name "probe.b")
+              (:tool :name "probe.a" :call "new"))
+             ((:file :path "a.txt" :relative t :quote "old")
+              (:file :path "b.txt" :relative t)
+              (:file :quote "new" :relative t :path "a.txt"))
+             ((:mission :id "a" :detail "old")
+              (:mission :id "b")
+              (:mission :detail "new" :id "a"))
+             ((:skill :id "a" :detail "old")
+              (:skill :id "b")
+              (:skill :detail "new" :id "a"))
+             ((:memory :id "a" :digest "0000000000000000000000000000000000000000000000000000000000000000")
+              (:memory :id "b" :digest "0000000000000000000000000000000000000000000000000000000000000000")
+              (:memory :id "a" :digest "1111111111111111111111111111111111111111111111111111111111111111"))
+             ((:user :conversation "one" :quote "The lamp was listed for ten yesterday.")
+              (:user :conversation "two" :quote "The lamp is listed elsewhere for twenty.")
+              (:user :quote "The lamp is now listed for thirty today." :conversation "one"))
+             ((:user :quote "The lamp was listed for ten yesterday.")
+              (:user :quote "The lamp is listed elsewhere for twenty.")
+              (:user :quote "The lamp was listed for ten yesterday."))))
+    (with-test-configuration (base root)
+      (let ((configuration (configuration-copy base :working-directory root)))
+        (knowledge-define-schema
+         configuration
+         (knowledge-make-schema :predicate "price.listed"
+                                :arguments '((:name "item" :type :entity)
+                                             (:name "price" :type :number))
+                                :key '("item")))
+        (labels ((observe (source value)
+                   (knowledge-replace-observation
+                    configuration (list "price.listed" "lamp" value)
+                    (knowledge-make-evidence :source source
+                                             :observed-at 100000
+                                             :digest (memory-source-text-digest
+                                                      (format nil "Lamp: ~D" value))
+                                             :adapter "test/1")))
+
+                 (support (claim)
+                   (let ((base (knowledge-base-read configuration)))
+                     (knowledge-base-support
+                      base (first (getf (knowledge-base-claim base claim) :supports))))))
+          (let ((original (observe (first sources) 10))
+                (independent (observe (second sources) 20)))
+            (test-assert (null (getf (support original) :retracted-at))
+                         (format nil "a distinct ~S source does not supersede the original"
+                                 (first (first sources))))
+            (let ((replacement (observe (third sources) 30)))
+              (test-assert (getf (support original) :retracted-at)
+                           "a changed report supersedes its own source's previous value")
+              (test-assert (null (getf (support independent) :retracted-at))
+                           "same-source replacement preserves the independent report")
+              (knowledge-tests--reread configuration)
+              (test-assert (and (getf (support original) :retracted-at)
+                                (null (getf (support independent) :retracted-at))
+                                (null (getf (support replacement) :retracted-at)))
+                           "replay preserves the per-source replacement decision")))))))
+  nil)
