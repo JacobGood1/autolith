@@ -197,22 +197,42 @@ are conditional until the ordinary per-call check. Bound the entire proof search
                          (incompatible-p resolved (procedure--preflight-resolve candidate bindings)))
                        (opposition-candidates (knowledge-proposition-predicate resolved) bindings))))
 
+             (finish-proof (proof)
+               ;; Each proof keeps its bindings, premise patterns, and applied rules.
+               ;; Propagate newly grounded computations before checking the entire path.
+               (let ((bindings (first proof)))
+                 (loop for previous = bindings
+                       do (dolist (rule (third proof))
+                            (spend)
+                            (let ((solutions (finish-rule rule bindings)))
+                              (unless solutions (return-from finish-proof nil))
+                              (setf bindings (first solutions))))
+                       until (eq previous bindings))
+                 (unless (some (lambda (premise) (opposed-p premise bindings)) (second proof))
+                   (list bindings (second proof) (third proof)))))
+
              (prove (pattern bindings)
                (spend)
                (let ((answers nil)
                      (pattern (procedure--preflight-resolve pattern bindings)))
                  (dolist (node (knowledge-view-holds view pattern))
+                   ;; Reconstruct derived paths through their rules, rather than treating
+                   ;; a current conclusion as independent of its future-invalidated premises.
                    (when (and (knowledge-node-admissible-p view node :accepted accepted)
-                              (not (opposed-p (knowledge-node-proposition node) bindings)))
+                              (some (lambda (support)
+                                      (and (eq (getf support :state) ':current)
+                                           (member (getf support :basis) accepted)))
+                                    (knowledge-node-supports node)))
                      (multiple-value-bind (next matched-p)
                          (procedure--preflight-unify pattern (knowledge-node-proposition node) bindings)
-                       (when matched-p (push next answers)))))
+                       (when (and matched-p (not (opposed-p pattern next)))
+                         (push (list next (list pattern) nil) answers)))))
                  (dolist (production produced)
                    (when (member (second production) accepted)
                      (multiple-value-bind (next matched-p)
                          (procedure--preflight-unify pattern (first production) bindings)
                        (when (and matched-p (not (opposed-p pattern next)))
-                         (push next answers)))))
+                         (push (list next (list pattern) nil) answers)))))
                  (dolist (item rules)
                    (let* ((rule (fresh-rule (third item)))
                           (conclusion (getf (rest rule) :conclusion)))
@@ -222,21 +242,26 @@ are conditional until the ordinary per-call check. Bound the entire proof search
                        (multiple-value-bind (next matched-p)
                            (procedure--preflight-unify pattern conclusion bindings)
                          (when matched-p
-                           (dolist (solution (solve (getf (rest rule) :premises) next))
-                             (dolist (finished (finish-rule rule solution))
-                               (unless (opposed-p pattern finished)
-                                 (push finished answers)))))))))
+                           (dolist (proof (solve (getf (rest rule) :premises) next))
+                             (let ((finished (finish-proof
+                                              (list (first proof)
+                                                    (cons pattern (second proof))
+                                                    (append (third proof) (list rule))))))
+                               (when finished (push finished answers)))))))))
                  answers))
 
              (solve (remaining bindings)
                (spend)
                (if (null remaining)
-                   (list bindings)
-                   (remove-if
-                    (lambda (solution)
-                      (some (lambda (pattern) (opposed-p pattern solution)) remaining))
-                    (loop for next in (prove (first remaining) bindings)
-                          append (solve (rest remaining) next))))))
+                   (list (list bindings nil nil))
+                   (loop for head in (prove (first remaining) bindings)
+                         append
+                         (loop for tail in (solve (rest remaining) (first head))
+                               for finished = (finish-proof
+                                               (list (first tail)
+                                                     (append (second head) (second tail))
+                                                     (append (third head) (third tail))))
+                               when finished collect finished)))))
       (when (null (variables (mapcar #'rest environment)))
         (multiple-value-bind (current cut-p)
             (knowledge-view-solve
@@ -246,7 +271,7 @@ are conditional until the ordinary per-call check. Bound the entire proof search
           (when cut-p
             (knowledge--fail ':procedure-preflight-unknown patterns
                              "Procedure preflight could not complete the current requirement search."))))
-      (let* ((solutions (solve patterns environment))
+      (let* ((solutions (mapcar #'first (solve patterns environment)))
              (names (remove-duplicates (append (variables patterns) (mapcar #'first environment))
                                        :test #'equal))
              (resolved

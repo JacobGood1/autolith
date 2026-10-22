@@ -387,3 +387,84 @@
                        (format nil "~(~A~): shared symbolic observations cannot prove an undisputed requirement"
                                case))))))
   nil)
+
+
+(-> test-procedure-preflight-proof-dependencies () null)
+(defun test-procedure-preflight-proof-dependencies ()
+  "Revalidate every selected proof premise and rule after joining future bindings."
+  (dolist (case '(:derived-premise :current-derived-premise :clean-alternative
+                 :selected-false-guard :selected-computation-mismatch))
+    (with-test-configuration (base root)
+      (let* ((configuration (configuration-copy base :working-directory root :knowledge-mode "active"))
+             (registry (make-default-tool-registry :configuration configuration))
+             (context (make-instance 'tool-context :configuration configuration :worker nil
+                                                  :registry registry
+                                                  :conversation (conversation-create configuration)))
+             (numeric-p (member case '(:selected-false-guard :selected-computation-mismatch)))
+             (build (learning-tests--tool
+                     registry "report.build"
+                     (lambda (arguments)
+                       (declare (ignore arguments)) (json-object "id" "a" "other" "a" "count" 2))))
+             (send (learning-tests--tool
+                    registry "mail.send"
+                    (lambda (arguments)
+                      (declare (ignore arguments)) (json-object "sent" t)))))
+        (dolist (predicate '("report.ready" "report.seed" "report.anchor"))
+          (knowledge-define-schema
+           configuration (knowledge-make-schema :predicate predicate
+                                                :arguments '((:name "file" :type :string)))))
+        (dolist (predicate '("report.measure" "report.capacity"))
+          (knowledge-define-schema
+           configuration (knowledge-make-schema
+                          :predicate predicate
+                          :arguments '((:name "file" :type :string) (:name "amount" :type :number)))))
+        (when (member case '(:current-derived-premise :clean-alternative))
+          (knowledge-tests--said configuration "report.seed" '("a") "a is seeded"))
+        (when (eq case ':clean-alternative)
+          (knowledge-tests--said configuration "report.ready" '("a") "a is independently ready"))
+        (knowledge-propose-rule
+         configuration :id "derive-requirement"
+         :premises (if numeric-p '(("report.measure" "?file" "?count")) '(("report.seed" "?file")))
+         :bindings (when (eq case ':selected-computation-mismatch) '(("?next" ("+" "?count" 1))))
+         :guards (when (eq case ':selected-false-guard) '((">" "?count" 4)))
+         :conclusion (if (eq case ':selected-computation-mismatch)
+                         '("report.capacity" "?file" "?next") '("report.ready" "?file")))
+        (knowledge-admit-rule configuration "derive-requirement")
+        (unless numeric-p
+          (knowledge-propose-rule configuration :id "anchor-opposition"
+                                 :premises '(("report.anchor" "?file"))
+                                 :conclusion '(:not ("report.seed" "?file")))
+          (knowledge-admit-rule configuration "anchor-opposition"))
+        (knowledge-define-contract
+         configuration :id "dependency-observations" :tool "report.build"
+         :observes (if numeric-p
+                       (vector (json-object "predicate" "report.measure"
+                                            "arguments" #("$result.id" "$result.count")))
+                       (concatenate
+                        'vector
+                        (when (eq case ':derived-premise)
+                          (vector (json-object "predicate" "report.seed" "arguments" #("$result.id"))))
+                        (vector (json-object "predicate" "report.anchor" "arguments" #("$result.other"))))))
+        (knowledge-define-contract
+         configuration :id "require-derived" :tool "mail.send"
+         :requires (append (if (eq case ':selected-computation-mismatch)
+                               '(("report.capacity" "a" 5)) '(("report.ready" "a")))
+                           (if numeric-p '(("report.measure" "a" 2)) '(("report.anchor" "a")))))
+        (procedure-define
+         configuration
+         '(:procedure :id "dependency-report"
+           :steps ((:tool "report.build" :arguments (:object))
+                   (:tool "mail.send" :arguments (:object)))))
+        (procedure-admit configuration "dependency-report")
+        (let ((outcome (handler-case (procedure-run context "dependency-report")
+                         (knowledge-error (condition) condition))))
+          (test-assert
+           (if (eq case ':clean-alternative)
+               (and (listp outcome) (eq (getf outcome :status) ':ok)
+                    (= 1 (length (learning-tests--scripted-tool-calls build)))
+                    (= 1 (length (learning-tests--scripted-tool-calls send))))
+               (and (typep outcome 'knowledge-error)
+                    (null (learning-tests--scripted-tool-calls build))
+                    (null (learning-tests--scripted-tool-calls send))))
+           (format nil "~(~A~): final bindings must preserve a complete admissible proof" case))))))
+  nil)

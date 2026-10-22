@@ -407,6 +407,7 @@
   test-procedure-preflight-rule-bindings
   test-procedure-preflight-conflict-closure
   test-procedure-preflight-shared-future-conflicts
+  test-procedure-preflight-proof-dependencies
   test-procedure-commands
   test-procedure-fixture)
 
