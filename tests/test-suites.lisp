@@ -379,6 +379,9 @@
   test-knowledge-expiry-lifecycle
   test-knowledge-action-contracts)
 
+(define-test-suite knowledge-replacement
+  test-knowledge-replacement-renewal)
+
 (define-test-suite symbolic-presentation
   test-symbolic-session-notices
   test-symbolic-command-styles)

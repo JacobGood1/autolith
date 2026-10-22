@@ -820,6 +820,22 @@ same observation recorded twice is one piece of evidence."
       (knowledge--fail ':invalid-evidence source "The evidence description is malformed."))
     record))
 
+(-> knowledge--observation-records (knowledge-base (option list)) list)
+(defun knowledge--observation-records (base evidence)
+  "Return records to retain EVIDENCE or renew a newer observation of its identity."
+  (when evidence
+    (let* ((properties (rest evidence))
+           (identifier (getf properties :id))
+           (recorded (knowledge-base-evidence-record base identifier)))
+      (cond
+        ((null recorded)
+         (list evidence))
+        ((> (getf properties :observed-at) (getf recorded :observed-at))
+         (list (list :evidence-renewed
+                     :id identifier
+                     :observed-at (getf properties :observed-at)
+                     :valid-until (getf properties :valid-until))))))))
+
 (-> knowledge-assert
     (configuration list
      &key (:scope memory-scope) (:evidence (option list)) (:basis knowledge-basis)
@@ -885,41 +901,29 @@ a superseded mapping signals INVALID-CONTRACT without writing any records."
                                     (eq (getf support :basis) basis)
                                     (eql (getf support :valid-from) valid-from)
                                     (eql (getf support :valid-until) valid-until))))
-                           (getf (knowledge-base-claim base claim) :supports))))
-           (let* ((recorded (and evidence
-                                 (knowledge-base-evidence-record base evidence-identifier)))
-                  (renewal
-                    ;; Observing the same content again renews when it was
-                    ;; seen and when it expires; its identity stays the same.
-                    (and recorded
-                         (> (getf (rest evidence) :observed-at) (getf recorded :observed-at))
-                         (list (list :evidence-renewed
-                                     :id evidence-identifier
-                                     :observed-at (getf (rest evidence) :observed-at)
-                                     :valid-until (getf (rest evidence) :valid-until))))))
-           (if existing
-               (values renewal (list claim existing) (and renewal t))
-               (let ((support (make-identifier)))
-                 (values
-                  (append
-                   (when (and evidence (null recorded))
-                     (list evidence))
-                   renewal
-                   (list (list :claim-asserted
-                               :version *knowledge-format-version*
-                               :support support
-                               :claim claim
-                               :scope scope
-                               :workspace workspace
-                               :proposition proposition
-                               :evidence evidence-identifier
-                               :basis basis
-                               :valid-from valid-from
-                               :valid-until valid-until
-                               :time (get-universal-time)
-                               :source-conversation source-conversation)))
-                  (list claim support)
-                  t)))))))))))
+                           (getf (knowledge-base-claim base claim) :supports)))
+                (observation-records (knowledge--observation-records base evidence)))
+            (if existing
+                (values observation-records (list claim existing) (and observation-records t))
+                (let ((support (make-identifier)))
+                  (values
+                   (append
+                    observation-records
+                    (list (list :claim-asserted
+                                :version *knowledge-format-version*
+                                :support support
+                                :claim claim
+                                :scope scope
+                                :workspace workspace
+                                :proposition proposition
+                                :evidence evidence-identifier
+                                :basis basis
+                                :valid-from valid-from
+                                :valid-until valid-until
+                                :time (get-universal-time)
+                                :source-conversation source-conversation)))
+                   (list claim support)
+                   t))))))))))
 
 (-> knowledge-retract
     (configuration string &key (:reason (option string)) (:source-conversation (option string)))
@@ -1005,9 +1009,13 @@ mission's new status does not leave its old status standing. Return the claim."
               (active-p
                 (some (lambda (support-identifier)
                         (let ((support (knowledge-base-support base support-identifier)))
-                          (and (null (getf support :retracted-at))
-                               (equal (getf support :evidence) (getf (rest evidence) :id)))))
-                      (getf (knowledge-base-claim base claim) :supports))))
+                           (and (null (getf support :retracted-at))
+                                (eq (getf support :basis) ':observation)
+                                (null (getf support :valid-from))
+                                (null (getf support :valid-until))
+                                (equal (getf support :evidence) (getf (rest evidence) :id)))))
+                      (getf (knowledge-base-claim base claim) :supports)))
+               (observation-records (knowledge--observation-records base evidence)))
          (unless (knowledge-proposition-valid-p proposition schema)
            (knowledge--fail ':invalid-claim (knowledge-proposition-predicate proposition)
                             "The observation does not fit the schema of ~A."
@@ -1022,8 +1030,7 @@ mission's new status does not leave its old status standing. Return the claim."
                            :time time
                            :source-conversation source-conversation))
                    superseded)
-           (unless (knowledge-base-evidence-record base (getf (rest evidence) :id))
-             (list evidence))
+            observation-records
            (unless active-p
              (list (list :claim-asserted
                          :version *knowledge-format-version*
@@ -1039,4 +1046,4 @@ mission's new status does not leave its old status standing. Return the claim."
                          :time time
                          :source-conversation source-conversation))))
           claim
-          (or superseded (not active-p))))))))
+           (or superseded observation-records (not active-p))))))))

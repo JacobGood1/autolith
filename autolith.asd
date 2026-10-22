@@ -377,6 +377,7 @@
                              (:file "memory-tests")
                              (:file "memory-source-tests")
                              (:file "knowledge-tests")
+                             (:file "knowledge-replacement-tests")
                              (:file "memory-manager-model-tests")
                              (:file "contract-tests")
                              (:file "knowledge-fixture-tests")
