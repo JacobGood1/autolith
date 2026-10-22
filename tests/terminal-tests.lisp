@@ -1367,6 +1367,79 @@
        "blocking traces remain inside the live-region viewport budget")))
   nil)
 
+(-> test-terminal-rlm-activities () null)
+(defun test-terminal-rlm-activities ()
+  "Test RLM grouping, reader animation, viewport bounds and real stale timing."
+  (dolist (fullscreen-p '(nil t))
+    (let* ((clock 100)
+           (terminal (make-instance 'recording-terminal :columns 100 :rows 40))
+           (ui (terminal-ui-create :terminal terminal :fullscreen-p fullscreen-p
+                                   :clock-function (lambda () clock)))
+           (inference
+             (list :id "exec:rlm" :type ':tool :index 2 :tool "rlm.map"
+                   :description "frame 2/4 · request 1 · 6 calls left"
+                   :state ':running :duration-ms 5000 :activity-age-ms 0 :detached t))
+           (command
+             (list :id "exec:command" :type ':tool :index 1 :tool "shell.run"
+                   :description "Check sources" :state ':running
+                   :duration-ms 2000 :detached t))
+           (agent
+             (list :id "review-3" :index 3 :agent "reviewer"
+                   :state ':running :current-tool nil
+                   :current-tool-duration-ms nil :recent-tools nil
+                   :request-count 1 :duration-ms 1000
+                   :assignment "Review the patch." :detached t)))
+      (with-terminal-ui (active-ui ui)
+        (terminal-ui-set-status active-ui "waiting")
+        (terminal-ui-set-command-activities active-ui (list inference command))
+        (terminal-ui-set-agent-activities active-ui (list agent))
+        (terminal-ui-refresh-status active-ui)
+        (let ((text (nth-value 0 (terminal-ui--live-content active-ui clock))))
+          (test-assert (and (search "RLM 1" text)
+                            (search "commands 1" text)
+                            (search "agents 1" text)
+                            (search "exec:rlm" text)
+                            (search "frame 2/4" text))
+                       "RLM has its own section beside commands and children"))
+        (dolist (height '(40 12 8 6))
+          (dolist (width '(100 24))
+            (setf (terminal-rows terminal) height
+                  (terminal-columns terminal) width)
+            (let* ((command-rows (terminal-ui--command-activity-rows-at
+                                   active-ui clock width))
+                   (inference-rows (terminal-ui--command-activity-rows-at
+                                     active-ui clock width t))
+                   (agent-rows (terminal-ui--agent-activity-rows-at
+                                 active-ui clock width))
+                   (rows (append command-rows inference-rows agent-rows)))
+              (test-assert
+               (and (<= (length rows) (terminal-ui--activity-row-budget active-ui))
+                    (every (lambda (row) (<= (terminal--spans-width row) width)) rows))
+               "all three strips fit narrow and short inline/fullscreen viewports"))))
+        (setf (terminal-rows terminal) 40
+              (terminal-columns terminal) 100)
+        (terminal-ui-set-agent-activities active-ui nil)
+        (terminal-ui-set-command-activities active-ui (list inference))
+        (incf clock)
+        (test-assert (terminal-ui-refresh-status active-ui)
+                     "detached inference animates without further tool notifications")
+        (test-assert (not (search "no update"
+                                 (terminal-ui--status-text-at active-ui clock)))
+                     "recent real RLM progress counts as active work")
+        (incf clock (+ 1 *terminal-ui-stale-status-seconds*))
+        (terminal-ui-refresh-status active-ui)
+        (test-assert (search "no update" (terminal-ui--status-text-at active-ui clock))
+                     "animation alone cannot hide an inference provider stall")
+        (terminal-ui-set-command-activities active-ui (list inference))
+        (test-assert (not (search "no update"
+                                 (terminal-ui--status-text-at active-ui clock)))
+                     "a fresh phase update clears RLM staleness")
+        (terminal-ui-refresh-status active-ui)
+        (terminal-ui-set-command-activities active-ui nil)
+        (test-assert (null (terminal-ui--execution-activities active-ui t))
+                     "painted inference rows clear with their job lifecycle"))))
+  nil)
+
 (-> test-terminal-command-activities () null)
 (defun test-terminal-command-activities ()
   "Test primary command rows, timing, completion retention, and row bounds."

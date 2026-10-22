@@ -1213,38 +1213,44 @@ recalled drafts. An @ path token still offers file completion."
          (- (terminal-ui--maximum-live-rows (terminal-ui-terminal ui))
             reserved-rows))))
 
-(-> terminal-ui--command-row-demand (terminal-ui) (integer 0))
-(defun terminal-ui--command-row-demand (ui)
-  "Return the useful maximum row demand for UI's command activity strip."
-  (let ((count
-          (length (terminal-ui--command-presentation-activities ui))))
+(-> terminal-ui--execution-activities (terminal-ui boolean) list)
+(defun terminal-ui--execution-activities (ui inference-p)
+  "Select UI's command or RLM rows from their shared execution-job snapshots."
+  (remove-if-not
+   (lambda (activity)
+     (eq inference-p (tool-recursive-inference-p (getf activity :tool))))
+   (terminal-ui--command-presentation-activities ui)))
+
+(-> terminal-ui--command-row-demand (terminal-ui &optional boolean) (integer 0))
+(defun terminal-ui--command-row-demand (ui &optional inference-p)
+  "Return the useful row demand for UI's command or RLM activity strip."
+  (let ((count (length (terminal-ui--execution-activities ui inference-p))))
     (if (plusp count)
         (+ 1 (min count *terminal-ui-command-visible-limit*))
         0)))
 
 (-> terminal-ui--activity-row-budgets
     (terminal-ui)
-    (values (integer 0) (integer 0)))
+    (values (integer 0) (integer 0) (integer 0)))
 (defun terminal-ui--activity-row-budgets (ui)
-  "Return fair command and child row budgets within UI's shared viewport bound."
-  (let ((total (terminal-ui--activity-row-budget ui))
-        (commands-p
-          (not
-           (null (terminal-ui--command-presentation-activities ui))))
-        (agents-p (not (null (terminal-ui-agent-activities ui)))))
-    (cond
-      ((and commands-p agents-p)
-       (let* ((available (- total (if (>= total 3) 1 0)))
-              (command-budget
-                (min (terminal-ui--command-row-demand ui)
-                     (max 1 (1- available)))))
-         (values command-budget (- available command-budget))))
-      (commands-p
-       (values total 0))
-      (agents-p
-       (values 0 total))
-      (t
-       (values 0 0)))))
+  "Return fair command, child and RLM row budgets in the shared viewport."
+  (let* ((total (terminal-ui--activity-row-budget ui))
+         (demands (vector (terminal-ui--command-row-demand ui)
+                          (if (terminal-ui-agent-activities ui) total 0)
+                          (terminal-ui--command-row-demand ui t)))
+         (count (count-if #'plusp demands))
+         (gap-count (if (>= total (1- (* 2 count))) (max 0 (1- count)) 0))
+         (remaining (- total gap-count))
+         (budgets (vector 0 0 0)))
+    (dolist (index '(2 0 1))
+      (when (and (plusp remaining) (plusp (aref demands index)))
+        (incf (aref budgets index))
+        (decf remaining)))
+    (dolist (index '(0 2 1))
+      (let ((extra (min remaining (- (aref demands index) (aref budgets index)))))
+        (incf (aref budgets index) extra)
+        (decf remaining extra)))
+    (values (aref budgets 0) (aref budgets 1) (aref budgets 2))))
 
 (-> terminal-ui--command-row-budget (terminal-ui) (integer 0))
 (defun terminal-ui--command-row-budget (ui)
@@ -1257,12 +1263,13 @@ recalled drafts. An @ path token still offers file completion."
   (nth-value 1 (terminal-ui--activity-row-budgets ui)))
 
 (-> terminal-ui--command-activity-selection
-    (terminal-ui)
+    (terminal-ui &optional boolean)
     (values list list (integer 0) boolean (integer 0)))
-(defun terminal-ui--command-activity-selection (ui)
-  "Return all, visible, header, overflow, and omission command row values."
-  (let* ((activities (terminal-ui--command-presentation-activities ui))
-         (row-budget (terminal-ui--command-row-budget ui))
+(defun terminal-ui--command-activity-selection (ui &optional inference-p)
+  "Return all, visible, header, overflow and omission values for one strip."
+  (let* ((activities (terminal-ui--execution-activities ui inference-p))
+         (row-budget (nth-value (if inference-p 2 0)
+                               (terminal-ui--activity-row-budgets ui)))
          (header-row-count (if (> row-budget 1) 1 0))
          (body-row-budget (max 0 (- row-budget header-row-count)))
          (limited-visible-count
@@ -1286,17 +1293,18 @@ recalled drafts. An @ path token still offers file completion."
 
 (-> terminal-ui--command-visible-activities (terminal-ui) list)
 (defun terminal-ui--command-visible-activities (ui)
-  "Return the command activities represented by rows in UI's next paint."
-  (nth-value 1 (terminal-ui--command-activity-selection ui)))
+  "Return the execution activities represented by rows in UI's next paint."
+  (append (nth-value 1 (terminal-ui--command-activity-selection ui))
+          (nth-value 1 (terminal-ui--command-activity-selection ui t))))
 
 (-> terminal-ui--command-activity-rows-at
-    (terminal-ui real integer)
+    (terminal-ui real integer &optional boolean)
     list)
-(defun terminal-ui--command-activity-rows-at (ui now row-width)
-  "Return viewport-bounded primary command rows for UI at monotonic NOW."
+(defun terminal-ui--command-activity-rows-at (ui now row-width &optional inference-p)
+  "Return viewport-bounded command or RLM rows for UI at monotonic NOW."
   (multiple-value-bind
       (activities visible-activities header-row-count overflow-row-p omitted-count)
-      (terminal-ui--command-activity-selection ui)
+      (terminal-ui--command-activity-selection ui inference-p)
     (let* ((column-widths
              (layout-column-widths
               (loop for activity in visible-activities
@@ -1313,12 +1321,13 @@ recalled drafts. An @ path token still offers file completion."
            (tool-width (or (second column-widths) 0))
            (header-row
              (terminal--clip-spans
-              (list (terminal-span ':tool "commands")
+              (list (terminal-span ':tool (if inference-p "RLM" "commands"))
                     (terminal-span ':dim
                                    (format nil " ~D" (length activities))))
               row-width)))
       (when (and activities
-                 (plusp (terminal-ui--command-row-budget ui)))
+                 (plusp (nth-value (if inference-p 2 0)
+                                   (terminal-ui--activity-row-budgets ui))))
         (append
          (when (plusp header-row-count)
            (list header-row))
@@ -1334,7 +1343,8 @@ recalled drafts. An @ path token still offers file completion."
              (list (terminal-span ':dim "  ")
                    (terminal-span
                     ':dim
-                    (format nil "… ~D more command~:P" omitted-count)))
+                    (format nil "… ~D more ~A" omitted-count
+                            (if inference-p "RLM jobs" "commands"))))
              row-width))))))))
 
 
@@ -1524,17 +1534,20 @@ recalled drafts. An @ path token still offers file completion."
              (1+ travel))
         0)))
 
-(-> terminal-ui--running-job-p (terminal-ui) boolean)
-(defun terminal-ui--running-job-p (ui)
-  "Return true when UI presents at least one running command or child agent."
+(-> terminal-ui--running-job-p (terminal-ui &optional real) boolean)
+(defun terminal-ui--running-job-p
+    (ui &optional (now (funcall (terminal-ui-clock-function ui))))
+  "Return true for running jobs, excluding RLM with no recent real progress."
   (not
    (null
-    (find ':running
-          (append (terminal-ui--command-presentation-activities ui)
-                  (terminal-ui-agent-activities ui))
-          :key (lambda (activity)
-                 (getf activity ':state))
-          :test #'eq))))
+    (find-if
+     (lambda (activity)
+       (and (eq (getf activity :state) ':running)
+            (or (not (tool-recursive-inference-p (getf activity :tool "")))
+                (< (- now (getf activity :progress-at now))
+                   *terminal-ui-stale-status-seconds*))))
+     (append (terminal-ui--command-presentation-activities ui)
+             (terminal-ui-agent-activities ui))))))
 
 (-> terminal-ui--status-signature-at (terminal-ui real) list)
 (defun terminal-ui--status-signature-at (ui now)
@@ -1542,7 +1555,7 @@ recalled drafts. An @ path token still offers file completion."
   (multiple-value-bind (elapsed idle)
       (terminal-ui--status-times-at ui now)
     (list elapsed
-          (and (not (terminal-ui--running-job-p ui))
+          (and (not (terminal-ui--running-job-p ui now))
                (>= idle *terminal-ui-stale-status-seconds*)
                idle)
           (terminal-ui--status-spinner-phase-at ui now))))
@@ -1591,7 +1604,7 @@ recalled drafts. An @ path token still offers file completion."
   "Return UI's activity timing at monotonic NOW."
   (multiple-value-bind (elapsed idle)
       (terminal-ui--status-times-at ui now)
-    (if (and (not (terminal-ui--running-job-p ui))
+    (if (and (not (terminal-ui--running-job-p ui now))
              (>= idle *terminal-ui-stale-status-seconds*))
         (format nil "~A · no update ~A"
                 (terminal-ui--duration-text elapsed)
@@ -1982,20 +1995,24 @@ form keeps every speculative Markdown wrap live until the logical line commits."
       (setf rows
             (append rows
                     (list (terminal-ui--local-activity-row ui row-width)))))
-    (let ((command-rows
-            (and (terminal-ui--command-presentation-activities ui)
-                 (terminal-ui--command-activity-rows-at
-                  ui status-now row-width)))
-          (agent-rows
-            (and (terminal-ui-agent-activities ui)
-                 (terminal-ui--agent-activity-rows-at
-                  ui status-now row-width))))
-      (setf rows
-            (append rows command-rows
-                    (when (and command-rows agent-rows
-                               (>= (terminal-ui--activity-row-budget ui) 3))
-                      (list nil))
-                    agent-rows)))
+    (let* ((sections
+             (remove nil
+                     (list (and (terminal-ui--execution-activities ui nil)
+                                (terminal-ui--command-activity-rows-at
+                                 ui status-now row-width))
+                           (and (terminal-ui--execution-activities ui t)
+                                (terminal-ui--command-activity-rows-at
+                                 ui status-now row-width t))
+                           (and (terminal-ui-agent-activities ui)
+                                (terminal-ui--agent-activity-rows-at
+                                 ui status-now row-width)))))
+           (gap-p (>= (terminal-ui--activity-row-budget ui)
+                      (1- (* 2 (length sections))))))
+      (loop for section in sections
+            for first-p = t then nil
+            do (setf rows (append rows
+                                  (when (and gap-p (not first-p)) (list nil))
+                                  section))))
     (when (terminal-ui-status ui)
       (setf rows
             (append rows
@@ -2882,6 +2899,8 @@ frames, so this function never paints directly from a child thread."
         (sanitize-text (getf activity :description) :single-line-p t)
         :state (getf activity :state)
         :duration-ms (getf activity :duration-ms)
+        :progress-at
+        (- observed-at (/ (or (getf activity :activity-age-ms) 0) 1000))
         :observed-at observed-at
         :detached (not (null (getf activity :detached)))))
 

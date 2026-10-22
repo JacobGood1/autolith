@@ -576,7 +576,7 @@ exchange without scrolling through reasoning and tool activity.")
                 (lambda (channel payload)
                   (case channel
                     ((:task-subagent-lifecycle :task-subagent-progress
-                      :tool-execution-lifecycle)
+                      :tool-execution-lifecycle :tool-execution-progress)
                      (application--refresh-task-presentation
                       application orchestrator))
                     (:task-subagent-verbal-response

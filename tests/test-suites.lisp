@@ -970,6 +970,7 @@
   test-task-child-shared-agent-loop)
 
 (define-test-suite inference
+  test-rlm-job-activity
   test-rlm-frame-budget-activity
   test-rlm-budget-exhaustion-guidance
   test-rlm-value-preview
@@ -1120,6 +1121,7 @@
   test-terminal-timed-status
   test-terminal-compaction-indicator
   test-terminal-agent-activities
+  test-terminal-rlm-activities
   test-terminal-command-activities
   test-terminal-stream-update
   test-terminal-command-completion

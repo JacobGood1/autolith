@@ -2,6 +2,149 @@
 
 ;;;; -- Recursive Inference Tests --
 
+(-> test-rlm-job-activity () null)
+(defun test-rlm-job-activity ()
+  "Test detached RLM phases, nested-thread ownership and terminal cleanup."
+  (let* ((configuration (test-configuration))
+         (root (test-configuration-root configuration))
+         (registry (task-augment-tool-registry (make-instance 'tool-registry)))
+         (orchestrator
+           (task-run-tool-orchestrator (tool-registry-find registry "task" "run")))
+         (parent (task-tests--primary-agent configuration "rlm-activity" registry))
+         (conversation (agent-conversation parent))
+         (terminal (make-instance 'recording-terminal :columns 100 :rows 30))
+         (ui (terminal-ui-create :terminal terminal))
+         (application (make-instance 'application
+                                     :configuration configuration
+                                     :conversation conversation
+                                     :tool-registry registry :ui ui))
+         (context (make-instance 'tool-context
+                                :configuration configuration :worker nil
+                                :conversation conversation :registry registry
+                                :agent parent))
+         (provider (make-instance 'rlm-inference-test-provider :results nil)))
+    (unwind-protect
+         (with-terminal-ui (active-ui ui)
+           (application-connect-task-presentation application)
+           (dolist (specification
+                    '((rlm-infer-tool-create infer :completed)
+                      (rlm-map-tool-create rlm-map :failed)
+                      (rlm-complete-tool-create rlm-complete :aborted)))
+             (destructuring-bind (constructor operation expected-state) specification
+               (let* ((lock (make-lock "RLM activity test"))
+                      (condition (make-condition-variable))
+                      (ready-p nil)
+                      (release-p nil)
+                      (finished-p nil)
+                      (emit (symbol-function 'task-orchestrator-emit))
+                      (reporter nil)
+                      (job nil)
+                      (tool (funcall constructor :provider provider))
+                      (arguments
+                        (if (eq operation 'rlm-map)
+                            (json-object "tasks" (json-array
+                                                  (json-object "task" "private task"))
+                                         "async" t)
+                            (json-object "task" "private task" "async" t
+                                         "context" (json-object "text" "private source")))))
+                 (test-call-with-function-replacements
+                  (list
+                   (list 'task-orchestrator-emit
+                         (lambda (target channel payload)
+                           (prog1 (funcall emit target channel payload)
+                             (when (and (eq channel ':tool-execution-lifecycle)
+                                        (member (getf payload :status)
+                                                '(:completed :failed :aborted)))
+                               (with-lock-held (lock)
+                                 (setf finished-p t)
+                                 (task--condition-broadcast condition))))))
+                   (list operation
+                         (lambda (&rest arguments)
+                           (setf reporter (getf (rest arguments) :activity-callback))
+                           ;; Map and root frames may invoke this on another worker.
+                           (bordeaux-threads:join-thread
+                            (make-thread
+                             (lambda () (funcall reporter "request 2 · 6 calls left"))
+                             :name "RLM nested activity test"))
+                           (with-lock-held (lock)
+                             (setf ready-p t)
+                             (task--condition-broadcast condition)
+                             (loop until release-p
+                                   do (condition-wait condition lock :timeout 2)))
+                           (if (eq expected-state ':failed)
+                               (error 'rlm-inference-error :message "Scripted failure.")
+                               (values "answer" "trace" 0)))))
+                  (lambda ()
+                    (unwind-protect
+                         (progn
+                           (recording-terminal-reset terminal)
+                           (test-assert (tool-result-success-p
+                                         (tool-execute tool context arguments))
+                                        "RLM admission returns its background job")
+                           (setf job (first (last (task-orchestrator-list-jobs
+                                                  orchestrator))))
+                           (with-lock-held (lock)
+                             (loop until ready-p
+                                   unless (condition-wait condition lock :timeout 5)
+                                     do (error "RLM activity test did not start.")))
+                           (let ((activity (session-job-live-activity job)))
+                             (test-assert
+                              (and (eq (getf activity :state) ':running)
+                                   (string= (getf activity :description)
+                                            "request 2 · 6 calls left")
+                                   (integerp (getf activity :activity-age-ms))
+                                   (equal (getf (first (terminal-ui-command-activities ui))
+                                                :description)
+                                          (getf activity :description)))
+                              "nested progress reaches the job and application listener")
+                             (test-assert
+                              (not (search "private" (prin1-to-string activity)))
+                              "the live projection excludes task and source contents"))
+                           (test-assert (string= (recording-terminal-output terminal) "")
+                                        "RLM progress never paints from its worker")
+                           (terminal-ui-refresh-status active-ui)
+                           (test-assert
+                            (search "RLM" (recording-terminal-output terminal))
+                            "the reader paints a separate inference section")
+                           ;; Reattaching snapshots the running job, not an observer tail.
+                           (application-disconnect-task-presentation application)
+                           (application-connect-task-presentation application)
+                           (test-assert
+                            (search "request 2"
+                                    (getf (first (terminal-ui-command-activities ui))
+                                          :description))
+                            "reconnection recovers the current RLM phase")
+                           (terminal-ui-refresh-status active-ui)
+                           (if (eq expected-state ':aborted)
+                               (session-job-cancel job ':test)
+                               (with-lock-held (lock)
+                                 (setf release-p t)
+                                 (task--condition-broadcast condition)))
+                           (session-job-await job 5)
+                           (with-lock-held (lock)
+                             (loop until finished-p
+                                   unless (condition-wait condition lock :timeout 5)
+                                     do (error "RLM terminal presentation did not finish.")))
+                           (test-assert
+                            (and (eq (job-state job) expected-state)
+                                 (null (session-job-live-activity job))
+                                 (null (terminal-ui-command-activities ui)))
+                            "completed, failed and cancelled inference rows clear")
+                           (funcall reporter "late progress")
+                           (test-assert (null (terminal-ui-command-activities ui))
+                                        "late callbacks cannot revive terminal jobs"))
+                      (with-lock-held (lock)
+                        (setf release-p t)
+                        (task--condition-broadcast condition))
+                      (when job
+                        (session-job-cancel job ':test-cleanup)
+                        (session-job-await job 5)))))))))
+      (application-disconnect-task-presentation application)
+      (task-orchestrator-close orchestrator)
+      (platform-delete-directory-tree *platform* root
+                                      :validate t :if-does-not-exist ':ignore)))
+  nil)
+
 (-> test-rlm-frame-budget-activity () null)
 (defun test-rlm-frame-budget-activity ()
   "Test framed inference forwards nested budget activity."
