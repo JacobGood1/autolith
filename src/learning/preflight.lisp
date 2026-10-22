@@ -152,35 +152,50 @@ are conditional until the ordinary per-call check. Bound the entire proof search
                    (loop for next in (raw-prove (first remaining) bindings)
                          append (raw-solve (rest remaining) next))))
 
-             (opposition-candidates (predicate)
-               (multiple-value-bind (cached present-p) (gethash predicate oppositions)
-                 (if present-p
-                     cached
-                     (let* ((schema (knowledge-base-schema
-                                     (knowledge-view-base view) predicate
-                                     :workspace (knowledge-view-workspace view)))
-                            (atom (cons predicate
-                                        (mapcar (lambda (argument)
-                                                  (declare (ignore argument))
-                                                  (procedure--preflight-variable))
-                                                (knowledge-schema-arguments schema))))
-                            (future-variables (remove-duplicates (variables produced) :test #'equal))
-                            (candidates nil))
-                       (dolist (pattern (list atom (list :not atom)))
-                         (dolist (solution (raw-prove pattern nil))
-                           ;; A possible future value cannot be guessed to create a conflict.
-                           (when (every (lambda (variable)
-                                          (equal variable
-                                                 (procedure--preflight-resolve variable solution)))
-                                        future-variables)
-                             (pushnew (procedure--preflight-resolve pattern solution)
-                                      candidates :test #'equal))))
-                       (setf (gethash predicate oppositions) candidates)))))
+             (opposition-candidates (predicate bindings)
+               (let* ((future-state (mapcar (lambda (variable)
+                                             (procedure--preflight-resolve variable bindings))
+                                           (remove-duplicates (variables produced) :test #'equal)))
+                      (cache-key (list predicate future-state)))
+                 (multiple-value-bind (cached present-p) (gethash cache-key oppositions)
+                   (if present-p
+                       cached
+                       (let* ((schema (knowledge-base-schema
+                                       (knowledge-view-base view) predicate
+                                       :workspace (knowledge-view-workspace view)))
+                              (atom (cons predicate
+                                          (mapcar (lambda (argument)
+                                                    (declare (ignore argument))
+                                                    (procedure--preflight-variable))
+                                                  (knowledge-schema-arguments schema))))
+                              (unbound-futures (remove-duplicates
+                                                (remove-if-not #'knowledge-variable-p future-state)
+                                                :test #'equal))
+                              (candidates nil))
+                         (dolist (pattern (list atom (list :not atom)))
+                           (dolist (solution (raw-prove pattern bindings))
+                             (let ((roots (mapcar (lambda (variable)
+                                                   (procedure--preflight-resolve variable solution))
+                                                 unbound-futures)))
+                               ;; Permit aliases, but no additional guesses or equalities
+                               ;; beyond the selected joint requirement bindings.
+                               (when (and (every #'knowledge-variable-p roots)
+                                          (= (length roots)
+                                             (length (remove-duplicates roots :test #'equal))))
+                                 (let ((aliases (loop for root in roots
+                                                      for variable in unbound-futures
+                                                      unless (equal root variable)
+                                                        collect (cons root variable))))
+                                   (pushnew (procedure--preflight-resolve
+                                             (procedure--preflight-resolve pattern solution) aliases)
+                                            candidates :test #'equal))))))
+                         (setf (gethash cache-key oppositions) candidates))))))
 
              (opposed-p (pattern bindings)
                (let ((resolved (procedure--preflight-resolve pattern bindings)))
-                 (some (lambda (candidate) (incompatible-p resolved candidate))
-                       (opposition-candidates (knowledge-proposition-predicate resolved)))))
+                 (some (lambda (candidate)
+                         (incompatible-p resolved (procedure--preflight-resolve candidate bindings)))
+                       (opposition-candidates (knowledge-proposition-predicate resolved) bindings))))
 
              (prove (pattern bindings)
                (spend)
@@ -217,8 +232,11 @@ are conditional until the ordinary per-call check. Bound the entire proof search
                (spend)
                (if (null remaining)
                    (list bindings)
-                   (loop for next in (prove (first remaining) bindings)
-                         append (solve (rest remaining) next)))))
+                   (remove-if
+                    (lambda (solution)
+                      (some (lambda (pattern) (opposed-p pattern solution)) remaining))
+                    (loop for next in (prove (first remaining) bindings)
+                          append (solve (rest remaining) next))))))
       (when (null (variables (mapcar #'rest environment)))
         (multiple-value-bind (current cut-p)
             (knowledge-view-solve

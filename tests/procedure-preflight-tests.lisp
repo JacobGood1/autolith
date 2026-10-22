@@ -304,3 +304,86 @@
                     (= 1 (length (learning-tests--scripted-tool-calls send)))))
            (format nil "~(~A~): distinguish inevitable conflict from unknown future values" case))))))
   nil)
+
+
+(-> test-procedure-preflight-shared-future-conflicts () null)
+(defun test-procedure-preflight-shared-future-conflicts ()
+  "Keep shared future identities through selected bindings and nested rule aliases."
+  (dolist (case '(:selected-binding :nested-alias :joint-future-constraints :selected-guard))
+    (with-test-configuration (base root)
+      (let* ((configuration (configuration-copy base :working-directory root :knowledge-mode "active"))
+             (registry (make-default-tool-registry :configuration configuration))
+             (context (make-instance 'tool-context :configuration configuration :worker nil
+                                                  :registry registry
+                                                  :conversation (conversation-create configuration)))
+             (build (learning-tests--tool
+                     registry "report.build"
+                     (lambda (arguments)
+                       (declare (ignore arguments)) (json-object "id" "a" "other" "a" "count" 5))))
+             (send (learning-tests--tool
+                    registry "mail.send"
+                    (lambda (arguments)
+                      (declare (ignore arguments)) (json-object "sent" t)))))
+        (dolist (predicate '("report.ready" "report.seed" "report.anchor" "report.copy"))
+          (knowledge-define-schema
+           configuration (knowledge-make-schema :predicate predicate
+                                                :arguments '((:name "file" :type :string)))))
+        (knowledge-define-schema
+         configuration (knowledge-make-schema
+                        :predicate "report.measure"
+                        :arguments '((:name "file" :type :string) (:name "amount" :type :number))))
+        (when (eq case ':nested-alias)
+          (knowledge-tests--said configuration "report.ready" '("a") "a is ready")
+          (knowledge-propose-rule configuration :id "seed-copy"
+                                 :premises '(("report.seed" "?file"))
+                                 :conclusion '("report.copy" "?file"))
+          (knowledge-admit-rule configuration "seed-copy"))
+        (knowledge-propose-rule
+         configuration :id "future-opposition"
+         :premises (case case
+                     (:nested-alias '(("report.anchor" "?file") ("report.copy" "?file")))
+                     (:joint-future-constraints '(("report.seed" "?file") ("report.anchor" "?file")))
+                     (:selected-guard '(("report.measure" "?file" "?amount")))
+                     (otherwise '(("report.seed" "?file"))))
+         :guards (when (eq case ':selected-guard) '((">" "?amount" 4)))
+         :conclusion (if (eq case ':nested-alias)
+                         '(:not ("report.ready" "a"))
+                         '(:not ("report.ready" "?file"))))
+        (knowledge-admit-rule configuration "future-opposition")
+        (knowledge-define-contract
+         configuration :id "shared-observations" :tool "report.build"
+         :observes
+         (concatenate
+          'vector
+          (vector (json-object "predicate" (if (eq case ':nested-alias)
+                                               "report.anchor" "report.ready")
+                               "arguments" #("$result.id")))
+          (case case
+            (:joint-future-constraints
+             (vector (json-object "predicate" "report.seed" "arguments" #("$result.id"))
+                     (json-object "predicate" "report.anchor" "arguments" #("$result.other"))))
+            (:selected-guard
+             (vector (json-object "predicate" "report.measure"
+                                  "arguments" #("$result.id" "$result.count"))))
+            (otherwise
+             (vector (json-object "predicate" "report.seed" "arguments" #("$result.id")))))))
+        (knowledge-define-contract
+         configuration :id "send-ready" :tool "mail.send"
+         :requires (append '(("report.ready" "a"))
+                           (case case
+                             (:joint-future-constraints '(("report.anchor" "a")))
+                             (:selected-guard '(("report.measure" "a" 5))))))
+        (procedure-define
+         configuration
+         '(:procedure :id "shared-conflict-report"
+           :steps ((:tool "report.build" :arguments (:object))
+                   (:tool "mail.send" :arguments (:object)))))
+        (procedure-admit configuration "shared-conflict-report")
+        (let ((outcome (handler-case (procedure-run context "shared-conflict-report")
+                         (knowledge-error (condition) condition))))
+          (test-assert (and (typep outcome 'knowledge-error)
+                            (null (learning-tests--scripted-tool-calls build))
+                            (null (learning-tests--scripted-tool-calls send)))
+                       (format nil "~(~A~): shared symbolic observations cannot prove an undisputed requirement"
+                               case))))))
+  nil)
