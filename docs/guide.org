@@ -1688,6 +1688,16 @@ sessions are reported as local observations, not proof of eviction or routing
 failure. The first request after compaction is quiet. The setting is off by
 default and persists across restarts.
 
+In Responses requests, skill catalogs and selected skill instructions keep their
+first surviving history position instead of moving after each new message.
+Autolith reads the current skill contents and checks activation on every request.
+Selected instructions expire with the logical turn; only the small selection
+call and result enter durable history. Mutable session state and other ordinary
+request context follow history. After compaction or removed history boundaries,
+Autolith places active skill context after the new history. Use =(context)= to
+inspect contribution sizes. Provider cache hits and savings depend on the
+provider and are not guaranteed.
+
 ** Providers
 
 Register a OpenAI-compatible provider:

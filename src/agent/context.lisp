@@ -78,6 +78,13 @@
     :documentation "Whether the request is a side-channel compaction."))
   (:documentation "A read-only snapshot supplied to context contributors."))
 
+(defclass anchored-context-contribution (context-contribution)
+  ()
+  (:documentation
+   "Current request context projected at its first surviving history boundary.
+Use for large stable blocks whose position can be reused while their current
+activation, contents, and lifetime are checked on every request."))
+
 (defclass context-delivery ()
   ((conversation-identifier
     :initarg :conversation-identifier
@@ -460,6 +467,11 @@ have the same evaluation behavior as DEFUN."
    :contributor contributor
    :source source))
 
+(defmethod context--copy-contribution
+    ((contribution anchored-context-contribution) contributor source)
+  "Preserve anchored placement while attaching registration provenance."
+  (change-class (call-next-method) 'anchored-context-contribution))
+
 (defmethod context-contribution-provider-event ((contribution context-contribution))
   nil)
 
@@ -516,6 +528,64 @@ have the same evaluation behavior as DEFUN."
                               (json-encode
                                (context-contribution-evidence contribution)))))
                ordered)))))
+
+(-> context-delivery-project-items
+    ((option context-delivery) conversation list)
+    (values list (option string)))
+(defun context-delivery-project-items (delivery conversation items)
+  "Return ITEMS with active anchored context and the remaining context tail.
+
+Only identities and history boundaries survive assembly. Render current selected
+contributions afresh, dropping inactive blocks and relocating anchors whose
+history was removed or compacted. Never append context to durable history."
+  (unless delivery
+    (return-from context-delivery-project-items (values items nil)))
+  (let* ((contributions (context-delivery-contributions delivery))
+         (anchored (stable-sort
+                    (remove-if-not
+                     (lambda (contribution)
+                       (typep contribution 'anchored-context-contribution))
+                     contributions)
+                    #'< :key #'context-contribution-priority))
+         (trailing (remove-if
+                    (lambda (contribution)
+                      (typep contribution 'anchored-context-contribution))
+                    contributions)))
+    (with-recursive-lock-held ((conversation-append-lock conversation))
+      (let ((previous (conversation-context-anchors conversation))
+            (generation (conversation-log-generation conversation))
+            (groups (make-hash-table :test #'eq))
+            (anchors nil)
+            (projected nil))
+        (dolist (contribution anchored)
+          (let* ((key (list (context-contribution-contributor contribution)
+                            (context-contribution-source contribution)
+                            (context-contribution-identifier contribution)))
+                 (old (assoc key previous :test #'equal))
+                 (after (if (and old
+                                (= (getf (rest old) :generation) generation)
+                                (or (null (getf (rest old) :after))
+                                    (member (getf (rest old) :after) items
+                                            :test #'eq)))
+                            (getf (rest old) :after)
+                            (first (last items))))
+                 (message
+                   (json-object
+                    "role" "developer"
+                    "content" (json-array
+                               (json-object
+                                "type" "input_text"
+                                "text" (context--render (list contribution)))))))
+            (push (list key :generation generation :after after) anchors)
+            (push message (gethash after groups))))
+        (dolist (message (reverse (gethash nil groups)))
+          (push message projected))
+        (dolist (item items)
+          (push item projected)
+          (dolist (message (reverse (gethash item groups)))
+            (push message projected)))
+        (setf (conversation-context-anchors conversation) (nreverse anchors))
+        (values (nreverse projected) (context--render trailing))))))
 
 (-> context--invoke-contributors
     (request-context list)

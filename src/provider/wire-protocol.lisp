@@ -270,44 +270,43 @@ tools only when trimming history for compaction, which
                #()
                (concatenate 'vector
                             (provider-responses-request-namespaces provider
-                                                                   request-namespaces)
+                                                                  request-namespaces)
                             (coerce hosted-tools 'vector))))
          (delivery
            (unless compaction-p
              (context-resolve-request configuration conversation request-namespaces
                                       :goal-context goal-context)))
-         (projection
-           (make-instance 'cl-llm-provider-api::wire-request :model
-                          (config :model configuration) :items
-                          (conversation-input-items-for-family conversation
-                                                               (provider-family
-                                                                provider)
-                                                               :include-ephemeral-p
-                                                               (not compaction-p))
-                          :prefix
-                          (list
-                           (let ((*system-prompt-hosted-web-search-p*
-                                   hosted-web-search-p))
-                             (system-prompt configuration)))
-                          :suffix
-                          (list (and (not compaction-p) goal-context)
-                                (and delivery (context-delivery-rendered delivery))
-                                (and compaction-p *compaction-instructions*))
-                          :options
-                          (list :reasoning-effort
-                                (provider-responses-wire-effort provider configuration)
-                                :reasoning-summary
-                                (and (not compaction-p)
-                                     (provider-responses-reasoning-summary provider
-                                                                           configuration))
-                                :maximum-output-tokens
-                                (and (provider-output-ceiling-p provider)
-                                     *provider-maximum-output-tokens*)
-                                :fields
-                                (provider-responses-request-fields provider conversation
-                                                                   :compaction-p
-                                                                   compaction-p)))))
-    (values
-     (provider-request-object provider projection effective-namespaces :compaction-p
-                              compaction-p)
-     delivery)))
+         (history
+           (conversation-input-items-for-family
+            conversation (provider-family provider)
+            :include-ephemeral-p (not compaction-p))))
+    (multiple-value-bind (items context-tail)
+        (context-delivery-project-items delivery conversation history)
+      (let ((projection
+              (make-instance
+               'cl-llm-provider-api:wire-request
+               :model (config :model configuration)
+               :items items
+               :prefix (list
+                        (let ((*system-prompt-hosted-web-search-p*
+                                hosted-web-search-p))
+                          (system-prompt configuration)))
+               :suffix (list (and (not compaction-p) goal-context)
+                             context-tail
+                             (and compaction-p *compaction-instructions*))
+               :options
+               (list :reasoning-effort
+                     (provider-responses-wire-effort provider configuration)
+                     :reasoning-summary
+                     (and (not compaction-p)
+                          (provider-responses-reasoning-summary provider configuration))
+                     :maximum-output-tokens
+                     (and (provider-output-ceiling-p provider)
+                          *provider-maximum-output-tokens*)
+                     :fields
+                     (provider-responses-request-fields provider conversation
+                                                        :compaction-p compaction-p)))))
+        (values
+         (provider-request-object provider projection effective-namespaces
+                                  :compaction-p compaction-p)
+         delivery)))))

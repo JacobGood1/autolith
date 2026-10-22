@@ -432,18 +432,20 @@ discovered without copying."
                   (append
                    contributions
                    (list
-                    (make-context-contribution
-                     :identifier
-                     (skill--context-identifier
-                      "skill-selected"
-                      (skill-metadata-name metadata))
-                     :instruction instruction
-                     :priority 920
-                     :class ':mandatory
-                     :deduplication-key
-                     (skill--context-identifier
-                      "skill-selected"
-                      (skill-metadata-name metadata)))))
+                    (change-class
+                     (make-context-contribution
+                      :identifier
+                      (skill--context-identifier
+                       "skill-selected"
+                       (skill-metadata-name metadata))
+                      :instruction instruction
+                      :priority 920
+                      :class ':mandatory
+                      :deduplication-key
+                      (skill--context-identifier
+                       "skill-selected"
+                       (skill-metadata-name metadata)))
+                     'anchored-context-contribution)))
                   next-total)))
          (skill-read-error (condition)
            (values
@@ -465,12 +467,14 @@ discovered without copying."
          (selection-names (skill-logical-turn-selection-names)))
     (when (or skills selection-names)
       (let ((contributions
-              (list (make-context-contribution
-                     :identifier "skill-catalog"
-                     :instruction (skill--catalog-instruction catalog)
-                     :priority 900
-                     :class ':mandatory
-                     :deduplication-key "skill-catalog")))
+              (list (change-class
+                     (make-context-contribution
+                      :identifier "skill-catalog"
+                      :instruction (skill--catalog-instruction catalog)
+                      :priority 900
+                      :class ':mandatory
+                      :deduplication-key "skill-catalog")
+                     'anchored-context-contribution)))
             (selected-characters 0))
           (dolist (name selection-names)
             (unless (skill-catalog-find catalog name)
