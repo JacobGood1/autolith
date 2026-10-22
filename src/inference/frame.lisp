@@ -272,24 +272,26 @@ pass (context-slice ...) directly instead of wrapping it in a list."
 
 (-> rlm--stream-progress-callback
     ((option function) &key (:activity string))
-    (option function))
+    function)
 (defun rlm--stream-progress-callback (callback &key (activity "receiving"))
-  "Report actual provider event arrivals at most once per second, without content."
-  (when callback
-    (let ((clock *rlm-activity-clock-function*)
-          (reported-at nil)
-          (lock (make-lock "RLM stream progress")))
-      (lambda (&optional event)
-        (declare (ignore event))
-        (let ((report-p
-                (with-lock-held (lock)
-                  (let ((now (funcall clock)))
-                    (when (or (null reported-at)
-                              (>= (- now reported-at) internal-time-units-per-second))
-                      (setf reported-at now)
-                      t)))))
-          (when report-p
-            (rlm--note-activity callback activity)))))))
+  "Return a provider event callback reporting content-free arrivals once per second.
+With no activity CALLBACK, return a no-op provider callback."
+  (if (null callback)
+      (constantly nil)
+      (let ((clock *rlm-activity-clock-function*)
+            (reported-at nil)
+            (lock (make-lock "RLM stream progress")))
+        (lambda (&optional event)
+          (declare (ignore event))
+          (let ((report-p
+                  (with-lock-held (lock)
+                    (let ((now (funcall clock)))
+                      (when (or (null reported-at)
+                                (>= (- now reported-at) internal-time-units-per-second))
+                        (setf reported-at now)
+                        t)))))
+            (when report-p
+              (rlm--note-activity callback activity)))))))
 
 (-> rlm--run-direct-inference
     (string string t rlm-budget model-provider conversation

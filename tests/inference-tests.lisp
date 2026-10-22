@@ -345,7 +345,8 @@
      (conversation conversation)
      &key tool-namespaces event-callback goal-context compaction-p)
   "Return PROVIDER's next scripted inference result."
-  (declare (ignore event-callback goal-context compaction-p))
+  (declare (ignore goal-context compaction-p))
+  (check-type event-callback function)
   (push (copy-tree (conversation-input-items-for-request conversation))
         (rlm-inference-test-provider-input-snapshots provider))
   (push (length tool-namespaces)
