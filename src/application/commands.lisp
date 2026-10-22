@@ -278,14 +278,26 @@ transcript renderer, including in fullscreen."
 
 (-> application--prompt-cache-miss-notice (list) list)
 (defun application--prompt-cache-miss-notice (miss)
-  "Return a compact, styled notice with MISS's re-read and total prompt tokens."
+  "Return measured uncached input and any accompanying local observation."
   (list (terminal-span ':notice "Cache miss ")
         (terminal-span ':code
-                       (application--token-count-description (getf miss :re-read-tokens)))
+                       (application--token-count-description
+                        (getf miss :uncached-tokens)))
         (terminal-span ':dim " / ")
         (terminal-span ':code
                        (application--token-count-description (getf miss :prompt-tokens)))
-        (terminal-span ':dim " tokens")))
+        (terminal-span ':dim " input tokens uncached; cause unknown")
+        (terminal-span ':dim
+                       (case (getf miss :cause)
+                         (:model-changed "; model changed")
+                         (:idle "; idle interval exceeded local heuristic")
+                         (:prompt-shrank "; prompt size decreased")
+                         (:resumed "; resumed session")
+                         (otherwise "")))
+        (terminal-span ':dim
+                       (if (getf miss :stalled-p)
+                           "; cached-token count stagnant"
+                           ""))))
 
 (-> application-note-prompt-cache-request-started (application) null)
 (defun application-note-prompt-cache-request-started (application)

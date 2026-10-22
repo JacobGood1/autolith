@@ -1678,22 +1678,14 @@ subscription route. Idle compaction uses the ordinary paid checkpoint and
 summary path. It can reduce the context sent after a long pause, but neither a
 cache hit nor a net saving is guaranteed.
 
-Providers bill context served from their prompt cache at a fraction of the
-uncached input price, so a request that re-reads context the previous request
-had cached costs noticeably more. =(cache-misses t)=
-enables a dim notice after any request whose cache reads fell below half of the
-previous prompt, and after any request whose cache reads stopped growing while
-the prompt grew and at least a sixteenth of the previous prompt, never less
-than 4096 tokens, was re-read. The notice gives the re-read and total prompt
-token counts and the likely cause: a model change, an idle gap during which
-cached context may have expired, rewritten earlier context, a resumed
-conversation, a changed prompt prefix, or a stalled
-prefix, which means the request reached a provider backend without the newest
-cached context. When the provider attributes cache reads to request fields, the
-notice adds whether the instructions and tools were re-read or still cached, so
-a changed prefix is told apart from lost routing. The first request after
-compaction is expected to miss and stays quiet. Autolith carries no price
-table, so the notice reports tokens rather than currency. The setting is off by
+=(cache-misses t)= enables notices when cached input falls below half the
+previous prompt size, or cache reads stagnate as input grows and the shortfall
+against the previous prompt reaches both 4096 tokens and one sixteenth. The
+notice reports current uncached and total input tokens. Uncached input includes
+new messages and temporary context; it is not a measurement of repeated text.
+The cause is unknown. Model changes, idle intervals, smaller prompts and resumed
+sessions are reported as local observations, not proof of eviction or routing
+failure. The first request after compaction is quiet. The setting is off by
 default and persists across restarts.
 
 ** Providers

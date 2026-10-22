@@ -2,129 +2,97 @@
 
 ;;;; -- Prompt-Cache Miss Tests --
 
-(-> prompt-cache-tests--usage (integer (option integer)) list)
+(-> prompt-cache-tests--usage ((option integer) (option integer)) list)
 (defun prompt-cache-tests--usage (input cached)
-  "Return portable usage with INPUT prompt tokens and optional CACHED reads."
-  (append (list (list "input_tokens" input)
-                (list "output_tokens" 10))
-          (and cached
-               (list (list "cached_input_tokens" cached)))))
+  "Return portable usage with optional INPUT and CACHED counters."
+  (append (list (list "output_tokens" 10))
+          (and input (list (list "input_tokens" input)))
+          (and cached (list (list "cached_input_tokens" cached)))))
 
 (-> test-prompt-cache-miss-detection () null)
 (defun test-prompt-cache-miss-detection ()
-  "Test cache-miss thresholds, re-read accounting, and cause attribution."
+  "Test measured uncached input, observation limits, and stagnant cache counts."
   (let ((baseline (make-instance 'prompt-cache-baseline
                                  :prompt-tokens 40000
                                  :completed-at 1000
                                  :model "model-a")))
-    (test-assert
-     (null (prompt-cache-miss-detect nil (prompt-cache-tests--usage 41000 0)
-                                     :started-at 1010
-                                     :model "model-a"))
-     "the first request of a conversation has no baseline to miss")
-    (test-assert
-     (null (prompt-cache-miss-detect baseline
-                                     (prompt-cache-tests--usage 41000 39000)
-                                     :started-at 1010
-                                     :model "model-a"))
-     "a request served mostly from the cache is not a miss")
-    (test-assert
-     (null (prompt-cache-miss-detect baseline
-                                     (prompt-cache-tests--usage 41000 20000)
-                                     :started-at 1010
-                                     :model "model-a"))
-     "cache reads reaching half of the previous prompt are not a miss")
-    (test-assert
-     (null (prompt-cache-miss-detect baseline
-                                     (prompt-cache-tests--usage 41000 nil)
-                                     :started-at 1010
-                                     :model "model-a"))
-     "providers without cache counters report nothing")
-    (test-assert
-     (null (prompt-cache-miss-detect
-            (make-instance 'prompt-cache-baseline
-                           :prompt-tokens 500
-                           :completed-at 1000
-                           :model "model-a")
-            (prompt-cache-tests--usage 600 0)
-            :started-at 1010
-            :model "model-a"))
-     "prompts below the cacheable minimum report nothing")
-    (dolist (case '((:model-changed 1010 "model-b" 41000 0 40000 10)
-                    (:idle 1400 "model-a" 41000 100 39900 400)
-                    (:context-rewritten 1010 "model-a" 8000 0 8000 10)
-                    (:prefix-changed 1010 "model-a" 41000 19999 20001 10)))
-      (destructuring-bind (cause started-at model input cached re-read idle)
-          case
+    (dolist (case '((:model-changed 1010 "model-b" 41000 0 41000 10)
+                    (:idle 1400 "model-a" 41000 100 40900 400)
+                    (:prompt-shrank 1010 "model-a" 8000 0 8000 10)
+                    (:unknown 1010 "model-a" 41000 19999 21001 10)))
+      (destructuring-bind (cause started-at model input cached uncached idle) case
         (let ((miss (prompt-cache-miss-detect
-                     baseline
-                     (prompt-cache-tests--usage input cached)
-                     :started-at started-at
-                     :model model)))
+                     baseline (prompt-cache-tests--usage input cached)
+                     :started-at started-at :model model)))
           (test-assert
            (and miss
                 (eq (getf miss :cause) cause)
-                (= (getf miss :re-read-tokens) re-read)
+                (= (getf miss :uncached-tokens) uncached)
                 (= (getf miss :prompt-tokens) input)
                 (= (getf miss :cached-tokens) cached)
+                (null (getf miss :stalled-p))
                 (eql (getf miss :idle-seconds) idle))
-           (format nil "a ~(~A~) miss reports its re-read tokens and cause"
-                   cause)))))
+           (format nil "~A reports current usage, not assumed reusable text" cause)))))
+    (dolist (case '((40000 nil 41000 39000 "mostly cached")
+                    (40000 nil 41000 20000 "threshold boundary")
+                    (40000 nil 41000 nil "missing current cache counter")
+                    (40000 30000 nil 0 "missing current input counter")
+                    (500 0 600 0 "below reporting minimum")))
+      (destructuring-bind (previous previous-cached input cached description) case
+        (test-assert
+         (null (prompt-cache-miss-detect
+                (make-instance 'prompt-cache-baseline
+                               :prompt-tokens previous :cached-tokens previous-cached
+                               :completed-at 1000 :model "model-a")
+                (prompt-cache-tests--usage input cached)
+                :started-at 1010 :model "model-a"))
+         description)))
+    (test-assert
+     (null (prompt-cache-miss-detect nil (prompt-cache-tests--usage 41000 0)))
+     "no baseline means no comparative report")
     (let ((miss (prompt-cache-miss-detect
                  (make-instance 'prompt-cache-baseline :prompt-tokens 40000)
                  (prompt-cache-tests--usage 41000 0)
-                 :started-at 1010
-                 :model "model-a")))
+                 :started-at 1010 :model "model-a")))
       (test-assert
-       (and miss
-            (eq (getf miss :cause) ':resumed)
+       (and miss (eq (getf miss :cause) ':resumed)
             (null (getf miss :idle-seconds)))
-       "a persisted baseline without a time attributes the miss to resuming"))
-    (let ((stalled (make-instance 'prompt-cache-baseline
-                                  :prompt-tokens 72000
-                                  :cached-tokens 63872
-                                  :completed-at 1000
-                                  :model "model-a")))
-      (dolist (case '((73000 63872 t "reads that stay flat behind a growing prompt are a stall")
-                      (73000 63900 t "reads within one cache block of the previous level still stall")
-                      (73000 70000 nil "reads that grew with the prompt are healthy")
-                      (73000 60000 t "reads that fell below the previous level also stall")
-                      (71000 63872 nil "a shorter prompt is not a stall")))
-        (destructuring-bind (input cached stall-p description) case
-          (let ((miss (prompt-cache-miss-detect
-                       stalled
-                       (prompt-cache-tests--usage input cached)
-                       :started-at 1010
-                       :model "model-a")))
-            (test-assert
-             (if stall-p
-                 (and miss
-                      (eq (getf miss :cause) ':prefix-stalled)
-                      (= (getf miss :re-read-tokens) (- 72000 cached)))
-                 (or (null miss)
-                     (not (eq (getf miss :cause) ':prefix-stalled))))
-             description))))
+       "a resumed baseline reports session provenance, not cache expiry"))
+    (dolist (case '((63872 73000 63872 t :unknown)
+                    (63872 73000 63900 t :unknown)
+                    (63872 73000 70000 nil nil)
+                    (63872 73000 60000 t :unknown)
+                    (63872 71000 63872 nil nil)
+                    (69000 73000 69000 nil nil)
+                    (72000 140000 72000 nil nil)
+                    (69000 140000 69000 nil nil)
+                    (nil 73000 63872 nil nil)
+                    (1024 73000 1024 t :unknown)
+                    (0 73000 0 t :unknown)
+                    (1024 73000 20000 nil :unknown)))
+      (destructuring-bind (previous-cached input cached stalled-p cause) case
+        (let ((miss (prompt-cache-miss-detect
+                     (make-instance 'prompt-cache-baseline
+                                    :prompt-tokens 72000 :cached-tokens previous-cached
+                                    :completed-at 1000 :model "model-a")
+                     (prompt-cache-tests--usage input cached)
+                     :started-at 1010 :model "model-a")))
+          (test-assert
+           (and (eql (not (null (getf miss :stalled-p))) stalled-p)
+                (eq (getf miss :cause) cause)
+                (or (null miss)
+                    (= (getf miss :uncached-tokens) (- input cached))))
+           (format nil "cache counts ~S yield stagnation ~S without inferring a cause"
+                   case stalled-p)))))
+    (let ((miss (prompt-cache-miss-detect
+                 (make-instance 'prompt-cache-baseline
+                                :prompt-tokens 72000 :cached-tokens 0
+                                :completed-at 1000 :model "model-a")
+                 (prompt-cache-tests--usage 73000 0)
+                 :started-at 1010 :model "model-b")))
       (test-assert
-       (null (prompt-cache-miss-detect
-              (make-instance 'prompt-cache-baseline
-                             :prompt-tokens 72000
-                             :cached-tokens 69000
-                             :completed-at 1000
-                             :model "model-a")
-              (prompt-cache-tests--usage 73000 69000)
-              :started-at 1010
-              :model "model-a"))
-       "a small re-read behind flat reads is the request-local tail, not a stall")
-      (test-assert
-       (null (prompt-cache-miss-detect
-              (make-instance 'prompt-cache-baseline
-                             :prompt-tokens 72000
-                             :completed-at 1000
-                             :model "model-a")
-              (prompt-cache-tests--usage 73000 63872)
-              :started-at 1010
-              :model "model-a"))
-       "a baseline without cache reads cannot judge a stall"))
+       (and (getf miss :stalled-p) (eq (getf miss :cause) ':model-changed))
+       "a severe stall preserves an independently observed model change"))
     (let ((miss (prompt-cache-miss-detect
                  baseline
                  (append (prompt-cache-tests--usage 41000 0)
@@ -143,8 +111,8 @@
                  :model "model-a")))
       (test-assert
        (and miss
-            (= (getf miss :instructions-re-read) 111)
-            (= (getf miss :tools-re-read) 9221))
+             (= (getf miss :instructions-uncached) 111)
+             (= (getf miss :tools-uncached) 9221))
        "server attribution reports uncached instructions and tools")))
   nil)
 
@@ -236,19 +204,17 @@
                                   :completed-at (- (get-universal-time) 900)
                                   :model (config :model configuration)))
              (request (prompt-cache-tests--usage 33000 0))
-             (test-assert (notice-counts-p 32000 33000)
-                          "an idle miss reports re-read and total tokens")
+             (test-assert (notice-counts-p 33000 33000)
+                          "an idle miss reports measured uncached and total input")
              (let* ((spans (application--prompt-cache-miss-notice
-                            '(:re-read-tokens 32000 :prompt-tokens 33000)))
+                             '(:uncached-tokens 33000 :prompt-tokens 33000)))
                     (counts (remove-if-not
                              (lambda (span) (eq ':code (terminal-span-style span))) spans)))
                (test-assert (eq ':notice (terminal-span-style (first spans)))
                             "the cache-miss label has warning color")
                (test-assert (equal (mapcar #'terminal-span-text counts)
-                                   (mapcar #'application--token-count-description '(32000 33000)))
-                            "both token counts have a distinct color")
-               (test-assert (<= (text-cell-width (terminal--spans-text spans)) 40)
-                            "the notice fits a narrow transcript row"))
+                                   (mapcar #'application--token-count-description '(33000 33000)))
+                             "the renderer reports measured uncached input"))
              (setf (application-prompt-cache-baseline application)
                    (make-instance 'prompt-cache-baseline
                                   :prompt-tokens 72000
@@ -268,8 +234,8 @@
                                       (list "tools"
                                             (list (list "cached_tokens" 9221)
                                                   (list "input_tokens" 9221))))))))))
-             (test-assert (notice-counts-p 8128 73000)
-                          "a stalled cache reports its re-read and total tokens")
+             (test-assert (notice-counts-p 9128 73000)
+                          "a stalled cache reports measured uncached and total input")
              (funcall send-status :compaction-completed nil)
              (test-assert
               (null (application-prompt-cache-baseline application))
@@ -287,7 +253,7 @@
                       :usage (prompt-cache-tests--usage 20000 19000)))
                (setf (application-conversation application) resumed)
                (request (prompt-cache-tests--usage 21000 0))
-               (test-assert (notice-counts-p 20000 21000)
+               (test-assert (notice-counts-p 21000 21000)
                             "switching conversations reseeds the baseline from its history"))))
       (ignore-errors (terminal-ui-stop ui))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
