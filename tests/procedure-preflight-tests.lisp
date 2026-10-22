@@ -214,3 +214,93 @@
                      (= 1 (length (learning-tests--scripted-tool-calls send))))))
            (format nil "~(~A~) respects the computed binding and guard at its earliest decidable check" case))))))
   nil)
+
+
+(-> test-procedure-preflight-conflict-closure () null)
+(defun test-procedure-preflight-conflict-closure ()
+  "Refuse inevitable derived and partial-term conflicts without guessing future values."
+  (dolist (case '(:derived-opposition :computed-opposition :partial-key-conflict
+                 :unknown-owner :unknown-key :unknown-guard :false-guard))
+    (with-test-configuration (base root)
+      (let* ((configuration (configuration-copy base :working-directory root :knowledge-mode "active"))
+             (registry (make-default-tool-registry :configuration configuration))
+             (context (make-instance 'tool-context :configuration configuration :worker nil
+                                                  :registry registry
+                                                  :conversation (conversation-create configuration)))
+             (owner-p (member case '(:partial-key-conflict :unknown-owner :unknown-key)))
+             (blocked-p (member case '(:derived-opposition :computed-opposition :partial-key-conflict)))
+             (build (learning-tests--tool
+                     registry "report.build"
+                     (lambda (arguments)
+                       (declare (ignore arguments))
+                       (json-object "file" "q2" "owner" "bob" "id" "old" "count" 2))))
+             (send (learning-tests--tool
+                    registry "mail.send"
+                    (lambda (arguments)
+                      (declare (ignore arguments)) (json-object "sent" t)))))
+        (knowledge-define-schema
+         configuration (knowledge-make-schema :predicate "report.built"
+                                              :arguments '((:name "file" :type :string))))
+        (dolist (predicate '("report.measure" "report.capacity"))
+          (knowledge-define-schema
+           configuration (knowledge-make-schema
+                          :predicate predicate
+                          :arguments '((:name "file" :type :string) (:name "amount" :type :number)))))
+        (knowledge-define-schema
+         configuration (knowledge-make-schema
+                        :predicate "report.owner" :key '("file")
+                        :arguments '((:name "file" :type :string) (:name "owner" :type :string)
+                                     (:name "token" :type :string))))
+        (cond
+          (owner-p
+           (knowledge-tests--said configuration "report.owner" '("q1" "bob" "old") "Bob owns q1"))
+          ((eq case ':computed-opposition)
+           (knowledge-tests--said configuration "report.capacity" '("q1" 5)
+                                  "q1 does not have capacity five" :negated t))
+          (t
+           (knowledge-tests--said configuration "report.built" '("q1") "q1 is already built")))
+        (unless owner-p
+          (knowledge-propose-rule
+           configuration :id "measure-consequence"
+           :premises '(("report.measure" "?file" "?count"))
+           :bindings (when (eq case ':computed-opposition) '(("?next" ("+" "?count" 1))))
+           :guards (when (member case '(:unknown-guard :false-guard)) '((">" "?count" 4)))
+           :conclusion (if (eq case ':computed-opposition)
+                           '("report.capacity" "?file" "?next")
+                           '(:not ("report.built" "?file"))))
+          (knowledge-admit-rule configuration "measure-consequence"))
+        (knowledge-define-contract
+         configuration :id "build-observation" :tool "report.build"
+         :observes
+         (vector (if owner-p
+                     (json-object "predicate" "report.owner"
+                                  "arguments" (vector (if (eq case ':unknown-key) "$result.file" "q1")
+                                                      (if (eq case ':unknown-owner) "$result.owner" "alice")
+                                                      "$result.id"))
+                     (json-object "predicate" "report.measure"
+                                  "arguments" (vector "q1" (if (eq case ':unknown-guard)
+                                                              "$result.count" 4))))))
+        (knowledge-define-contract
+         configuration :id "send-requirement" :tool "mail.send"
+         :requires (cond
+                     (owner-p '(("report.owner" "q1" "bob" "old")))
+                     ((eq case ':computed-opposition) '(("report.capacity" "q1" "?amount")))
+                     (t '(("report.built" "q1")))))
+        (procedure-define
+         configuration
+         '(:procedure :id "conflict-report"
+           :steps ((:tool "report.build" :arguments (:object))
+                   (:tool "mail.send" :arguments (:object)))))
+        (procedure-admit configuration "conflict-report")
+        (let ((outcome (handler-case (procedure-run context "conflict-report")
+                         (knowledge-error (condition) condition))))
+          (test-assert
+           (if blocked-p
+               (and (typep outcome 'knowledge-error)
+                    (null (learning-tests--scripted-tool-calls build))
+                    (null (learning-tests--scripted-tool-calls send)))
+               (and (listp outcome) (eq (getf outcome :status) ':ok)
+                    (= 1 (length (learning-tests--scripted-tool-calls build)))
+                    (= 1 (length (learning-tests--scripted-tool-calls send)))))
+           (format nil "~(~A~): distinguish inevitable conflict from unknown future values" case))))))
+  nil)

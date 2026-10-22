@@ -49,6 +49,7 @@ argument equality, accepted bases, and admitted derivations before deferring a
 requirement. Guards and computed values still depending on future observations
 are conditional until the ordinary per-call check. Bound the entire proof search."
   (let ((steps 0)
+        (oppositions (make-hash-table :test #'equal))
         (rules (knowledge-base-active-rules (knowledge-view-base view)
                                            :workspace (knowledge-view-workspace view))))
     (labels ((spend ()
@@ -78,25 +79,16 @@ are conditional until the ordinary per-call check. Bound the entire proof search
                                              :workspace (knowledge-view-workspace view)))
                                     (key (and schema (knowledge-proposition-key left schema))))
                                (and key (equal key (knowledge-proposition-key right schema))
-                                    (not (equal left right)))))
+                                    (some (lambda (left-term right-term)
+                                            (and (null (variables left-term))
+                                                 (null (variables right-term))
+                                                 (not (equal left-term right-term))))
+                                          (knowledge-proposition-arguments left)
+                                          (knowledge-proposition-arguments right)))))
                         (equal (knowledge-proposition-atom left)
                                (knowledge-proposition-atom right)))))
 
-             (opposed-p (pattern bindings)
-               (let* ((grounded (procedure--preflight-resolve pattern bindings))
-                      (predicate (knowledge-proposition-predicate grounded)))
-                 (and (null (variables grounded))
-                      (or (some (lambda (node)
-                                  (incompatible-p grounded (knowledge-node-proposition node)))
-                                (append (gethash predicate (knowledge-view-supported view))
-                                        (gethash predicate (knowledge-view-negated view))))
-                          (some (lambda (production)
-                                  (let ((candidate (first production)))
-                                    (and (null (variables candidate))
-                                         (incompatible-p grounded candidate))))
-                                produced)))))
-
-             (finish-rule (rule bindings)
+             (finish-rule (rule bindings &key definite-p)
                (let ((table (make-hash-table :test #'equal)))
                  (labels ((refresh ()
                             (dolist (variable (variables rule))
@@ -106,21 +98,89 @@ are conditional until the ordinary per-call check. Bound the entire proof search
                           (known-p (expression)
                             (null (variables (procedure--preflight-resolve expression bindings)))))
                    (dolist (binding (getf (rest rule) :bindings))
-                     (when (known-p (second binding))
-                       (refresh)
-                       (multiple-value-bind (next matched-p)
-                           (procedure--preflight-unify
-                            (first binding)
-                            (knowledge-evaluate-expression (second binding) table)
-                            bindings)
-                         (unless matched-p (return-from finish-rule nil))
-                         (setf bindings next))))
+                     (cond
+                       ((known-p (second binding))
+                        (refresh)
+                        (multiple-value-bind (next matched-p)
+                            (procedure--preflight-unify
+                             (first binding)
+                             (knowledge-evaluate-expression (second binding) table)
+                             bindings)
+                          (unless matched-p (return-from finish-rule nil))
+                          (setf bindings next)))
+                       (definite-p
+                        (return-from finish-rule nil))))
                    (refresh)
                    (when (every (lambda (guard)
-                                  (or (not (known-p (rest guard)))
-                                      (knowledge-guard-holds-p guard table)))
+                                  (if (known-p (rest guard))
+                                      (knowledge-guard-holds-p guard table)
+                                      (not definite-p)))
                                 (getf (rest rule) :guards))
                      (list bindings)))))
+
+             (raw-prove (pattern bindings)
+               ;; Opposition counts every supported basis, including disputed facts.
+               ;; Do not recursively require opponents to be undisputed themselves.
+               (spend)
+               (let* ((pattern (procedure--preflight-resolve pattern bindings))
+                      (predicate (knowledge-proposition-predicate pattern))
+                      (answers nil))
+                 (dolist (candidate
+                          (append (mapcar #'knowledge-node-proposition
+                                          (append (gethash predicate (knowledge-view-supported view))
+                                                  (gethash predicate (knowledge-view-negated view))))
+                                  (mapcar #'first produced)))
+                   (multiple-value-bind (next matched-p)
+                       (procedure--preflight-unify pattern candidate bindings)
+                     (when matched-p (push next answers))))
+                 (dolist (item rules)
+                   (let* ((rule (fresh-rule (third item)))
+                          (conclusion (getf (rest rule) :conclusion)))
+                     (when (and (eq (knowledge-negation-p pattern) (knowledge-negation-p conclusion))
+                                (equal predicate (knowledge-proposition-predicate conclusion)))
+                       (multiple-value-bind (next matched-p)
+                           (procedure--preflight-unify pattern conclusion bindings)
+                         (when matched-p
+                           (dolist (solution (raw-solve (getf (rest rule) :premises) next))
+                             (setf answers (nconc (finish-rule rule solution :definite-p t) answers))))))))
+                 answers))
+
+             (raw-solve (remaining bindings)
+               (spend)
+               (if (null remaining)
+                   (list bindings)
+                   (loop for next in (raw-prove (first remaining) bindings)
+                         append (raw-solve (rest remaining) next))))
+
+             (opposition-candidates (predicate)
+               (multiple-value-bind (cached present-p) (gethash predicate oppositions)
+                 (if present-p
+                     cached
+                     (let* ((schema (knowledge-base-schema
+                                     (knowledge-view-base view) predicate
+                                     :workspace (knowledge-view-workspace view)))
+                            (atom (cons predicate
+                                        (mapcar (lambda (argument)
+                                                  (declare (ignore argument))
+                                                  (procedure--preflight-variable))
+                                                (knowledge-schema-arguments schema))))
+                            (future-variables (remove-duplicates (variables produced) :test #'equal))
+                            (candidates nil))
+                       (dolist (pattern (list atom (list :not atom)))
+                         (dolist (solution (raw-prove pattern nil))
+                           ;; A possible future value cannot be guessed to create a conflict.
+                           (when (every (lambda (variable)
+                                          (equal variable
+                                                 (procedure--preflight-resolve variable solution)))
+                                        future-variables)
+                             (pushnew (procedure--preflight-resolve pattern solution)
+                                      candidates :test #'equal))))
+                       (setf (gethash predicate oppositions) candidates)))))
+
+             (opposed-p (pattern bindings)
+               (let ((resolved (procedure--preflight-resolve pattern bindings)))
+                 (some (lambda (candidate) (incompatible-p resolved candidate))
+                       (opposition-candidates (knowledge-proposition-predicate resolved)))))
 
              (prove (pattern bindings)
                (spend)
@@ -148,8 +208,9 @@ are conditional until the ordinary per-call check. Bound the entire proof search
                            (procedure--preflight-unify pattern conclusion bindings)
                          (when matched-p
                            (dolist (solution (solve (getf (rest rule) :premises) next))
-                             (unless (opposed-p pattern solution)
-                               (setf answers (nconc (finish-rule rule solution) answers)))))))))
+                             (dolist (finished (finish-rule rule solution))
+                               (unless (opposed-p pattern finished)
+                                 (push finished answers)))))))))
                  answers))
 
              (solve (remaining bindings)
