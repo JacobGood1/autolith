@@ -403,6 +403,8 @@
   test-procedure-running
   test-procedure-automatic-runs
   test-procedure-build-then-use
+  test-procedure-grounded-preflight
+  test-procedure-preflight-rule-bindings
   test-procedure-commands
   test-procedure-fixture)
 

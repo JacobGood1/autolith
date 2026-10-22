@@ -282,46 +282,53 @@ Numbers and booleans given as text are read as such first."
 
 (-> procedure--check-contracts (configuration list list) null)
 (defun procedure--check-contracts (configuration procedure bindings)
-  "Refuse PROCEDURE with BINDINGS when a call's contract requirements do not hold.
+  "Reject grounded blockers before any call; defer only possible earlier-call dependencies.
 
-Calls whose arguments come only from parameters are checked before any call
-is made, so a run that would be refused midway is refused whole. A
-requirement an earlier call's contract may produce, as an effect or an
-observation, cannot be judged yet, so that call and calls using earlier
-results are checked when they are made."
+All requirements must have a joint proof on accepted current facts, applicable
+earlier productions, or admitted derivations. Future values stay symbolic and
+are checked again against actual results by the ordinary call dispatch."
   (when (knowledge-active-p configuration)
-    (let ((base (knowledge-base-read configuration))
-          (workspace (knowledge--workspace configuration))
+    (let ((view (knowledge-view-current configuration))
+          (unknowns (make-hash-table :test #'equal))
           (produced nil))
-      (loop for step in (getf (rest procedure) :steps)
-            for index from 1
-            for arguments = (handler-case (procedure-template-instantiate (getf step :arguments)
-                                                                          bindings nil)
-                              (knowledge-error ()
-                                nil))
-            for matches = (and arguments
-                               (knowledge-contracts-for-call configuration (getf step :tool)
-                                                             arguments))
-            for refusal = (and matches
-                               (notany (lambda (match)
-                                         (some (lambda (pattern)
-                                                 (member (knowledge-proposition-predicate pattern)
-                                                         produced :test #'string=))
-                                               (getf (rest (first match)) :requires)))
-                                       matches)
-                               (knowledge-contract-refusal configuration matches))
-            when refusal
-              do (knowledge--fail ':procedure-inapplicable (getf (rest procedure) :id)
-                                  "Procedure ~A does not apply: call ~D, ~A: ~A"
-                                  (getf (rest procedure) :id) index (getf step :tool)
-                                  (subseq refusal 0 (or (search " The call was not made." refusal)
-                                                        (length refusal))))
-            do (dolist (contract (knowledge-base-contracts base (getf step :tool)
-                                                           :workspace workspace))
-                 (dolist (pattern (getf (rest contract) :effects))
-                   (pushnew (knowledge-proposition-predicate pattern) produced :test #'string=))
-                 (dolist (observation (getf (rest contract) :observes))
-                   (pushnew (getf observation :predicate) produced :test #'string=))))))
+      (labels ((result-variable (index path)
+                 (let ((key (list index path)))
+                   (or (gethash key unknowns)
+                       (setf (gethash key unknowns) (procedure--preflight-variable))))))
+        (loop for step in (getf (rest procedure) :steps)
+              for index from 0
+              for arguments = (procedure--preflight-arguments
+                               (getf step :arguments) bindings #'result-variable)
+              for matches = (and (hash-table-p arguments)
+                                 (procedure--preflight-matches view (getf step :tool) arguments))
+              do (let ((next-productions nil))
+                   (dolist (match matches)
+                     (destructuring-bind (contract environment) match
+                       (let* ((accepted (or (getf (rest contract) :accepts)
+                                            *knowledge-established-bases*))
+                              (solutions
+                                (procedure--preflight-solutions
+                                 :view view :patterns (getf (rest contract) :requires)
+                                 :environment environment :produced produced :accepted accepted)))
+                         (unless solutions
+                           (let ((refusal (or (knowledge-contract-refusal configuration (list match) :view view)
+                                              "The requirement has no applicable earlier-call proof.")))
+                             (knowledge--fail ':procedure-inapplicable (getf (rest procedure) :id)
+                                              "Procedure ~A does not apply: call ~D, ~A: ~A"
+                                              (getf (rest procedure) :id) (1+ index) (getf step :tool)
+                                              (subseq refusal 0
+                                                      (or (search " The call was not made." refusal)
+                                                          (length refusal))))))
+                         (dolist (solution solutions)
+                           (setf next-productions
+                                 (nconc
+                                  (procedure--preflight-productions
+                                   :contract contract :environment solution :arguments arguments
+                                   :view view :result-variable (lambda (path)
+                                                                 (result-variable index path)))
+                                  next-productions))))))
+                   ;; A call cannot use its own promises, nor another contract on that call.
+                   (setf produced (nconc next-productions produced)))))))
   nil)
 
 (-> procedure--call (tool-context string json-object integer) tool-result)

@@ -156,11 +156,12 @@ fixtures and disposable Lisp workers, without live provider requests.
 | Refused probes consumed the execution budget | select only probes whose current requirements permit a call        | c046da62          |
 | Cold highlighting setup masked cancellation  | prepare tool presentation before timing the cancellable call       | a2ce2c57          |
 
-Further review: procedure preflight currently defers a whole call when any
-requirement shares a predicate an earlier call might produce. Check each
-independent requirement and its grounded arguments before starting side
-effects. Quoted file evidence now requires the observed content digest; a surviving
-quotation in an edited document preserves provenance but not current support.
+Procedure preflight now checks grounded requirements jointly, including
+applicable earlier calls, argument bindings, accepted bases, explicit negation,
+and admitted derivations. Future observations stay symbolic until each call's
+ordinary contract check. Quoted file evidence requires the observed content
+digest; a surviving quotation in an edited document preserves provenance but
+not current support.
 
 * Design
 
