@@ -2,6 +2,92 @@
 
 ;;;; -- Recursive Inference Tests --
 
+(-> test-rlm-stream-progress () null)
+(defun test-rlm-stream-progress ()
+  "Test real direct/read-frame events refresh activity while silent clocks do not."
+  (let* ((configuration (test-configuration))
+         (root (test-configuration-root configuration))
+         (provider (make-instance 'rlm-inference-test-provider :results nil)))
+    (unwind-protect
+         (dolist (framed-p '(nil t))
+           (let* ((clock 0)
+                  (*rlm-activity-clock-function*
+                    (lambda () (round (* clock internal-time-units-per-second))))
+                  (ui (terminal-ui-create
+                       :terminal (make-instance 'recording-terminal)
+                       :clock-function (lambda () clock)))
+                  (activities nil))
+             (labels ((publish (activity)
+                        (push activity activities)
+                        (terminal-ui-set-command-activities
+                         ui (list (list :id "exec:stream" :type ':tool :index 1
+                                        :tool "rlm.infer" :description activity
+                                        :state ':running :duration-ms 0
+                                        :activity-age-ms 0 :detached t))))
+
+                      (exercise (event-callback)
+                        (funcall event-callback
+                                 (make-instance 'assistant-delta-event :text "private assistant"))
+                        (test-assert (= (length activities) 2)
+                                     "the first real stream event reports receiving progress")
+                        (setf clock 1/2)
+                        (funcall event-callback
+                                 (make-instance 'reasoning-delta-event :text "private reasoning"))
+                        (test-assert (= (length activities) 2)
+                                     "nearby stream events coalesce within one second")
+                        (let ((signature (terminal-ui--animation-signature-at ui clock)))
+                          (setf clock (+ 2 *terminal-ui-stale-status-seconds*))
+                          (test-assert
+                           (and (not (equal signature
+                                            (terminal-ui--animation-signature-at ui clock)))
+                                (= (length activities) 2)
+                                (search "no update" (terminal-ui--status-text-at ui clock)))
+                           "silence and spinner animation cannot manufacture progress"))
+                        (funcall event-callback
+                                 (make-instance 'assistant-delta-event :text "private late output"))
+                        (test-assert
+                         (and (= (length activities) 3)
+                              (= (getf (first (terminal-ui-command-activities ui))
+                                       :progress-at)
+                                 clock)
+                              (not (search "no update"
+                                           (terminal-ui--status-text-at ui clock))))
+                         "a later actual event refreshes the visible progress age")
+                        (test-assert
+                         (every (lambda (activity)
+                                  (and (not (search "private" activity))
+                                       (<= (length activity) 160)))
+                                activities)
+                         "stream reports expose only bounded request counters and phase")))
+               (terminal-ui-set-status ui "waiting")
+               (if framed-p
+                   (multiple-value-bind (status-callback flush)
+                       (rlm--frame-budget-callback
+                        (rlm-budget-create :calls 2 :tokens 100 :depth 1)
+                        "private task" :activity-callback #'publish)
+                     (unwind-protect
+                          (progn
+                            (funcall status-callback ':provider-request-started nil)
+                            (exercise (lambda (event)
+                                        (declare (ignore event))
+                                        (funcall status-callback ':provider-progress nil))))
+                       (funcall flush)))
+                   (test-call-with-function-replacements
+                    (list (list 'provider-stream-turn
+                                (lambda (provider conversation &rest options)
+                                  (declare (ignore provider conversation))
+                                  (exercise (getf options :event-callback))
+                                  (rlm-inference-test-result "stream-test" "answer" 10))))
+                    (lambda ()
+                      (test-assert
+                       (string= (infer "private task" :provider provider
+                                       :configuration configuration :activity-callback #'publish)
+                                "answer")
+                       "direct inference retains its normal response while reporting events")))))))
+      (platform-delete-directory-tree *platform* root
+                                      :validate t :if-does-not-exist ':ignore)))
+  nil)
+
 (-> test-rlm-job-activity () null)
 (defun test-rlm-job-activity ()
   "Test detached RLM phases, nested-thread ownership and terminal cleanup."

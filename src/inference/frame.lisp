@@ -267,6 +267,30 @@ pass (context-slice ...) directly instead of wrapping it in a list."
         nil)))
   nil)
 
+(defparameter *rlm-activity-clock-function* #'get-internal-real-time
+  "The monotonic tick clock captured by inference stream progress reporters.")
+
+(-> rlm--stream-progress-callback
+    ((option function) &key (:activity string))
+    (option function))
+(defun rlm--stream-progress-callback (callback &key (activity "receiving"))
+  "Report actual provider event arrivals at most once per second, without content."
+  (when callback
+    (let ((clock *rlm-activity-clock-function*)
+          (reported-at nil)
+          (lock (make-lock "RLM stream progress")))
+      (lambda (&optional event)
+        (declare (ignore event))
+        (let ((report-p
+                (with-lock-held (lock)
+                  (let ((now (funcall clock)))
+                    (when (or (null reported-at)
+                              (>= (- now reported-at) internal-time-units-per-second))
+                      (setf reported-at now)
+                      t)))))
+          (when report-p
+            (rlm--note-activity callback activity)))))))
+
 (-> rlm--run-direct-inference
     (string string t rlm-budget model-provider conversation
      &key (:activity-callback (option function)))
@@ -292,9 +316,12 @@ pass (context-slice ...) directly instead of wrapping it in a list."
                                 (provider-stream-turn provider conversation
                                                       :tool-namespaces #()
                                                       :event-callback
-                                                      (lambda (event)
-                                                        (declare (ignore event))
-                                                        nil)))))
+                                                      (rlm--stream-progress-callback
+                                                       activity-callback
+                                                       :activity
+                                                       (format nil "request ~D · ~D calls left · receiving"
+                                                               request-count
+                                                               (rlm-budget-remaining-calls budget)))))))
                         (rlm--record-response conversation result)
                         (let ((billable (rlm-usage-billable-tokens
                                          (provider-usage-normalize
@@ -345,7 +372,8 @@ value flushes an unsettled tranche after an aborted turn, and the third
 returns the billable tokens settled so far."
   (let ((tranche nil)
         (request-count 0)
-        (tokens-spent 0))
+        (tokens-spent 0)
+        (stream-progress nil))
     (values
      (lambda (status details)
        (case status
@@ -356,6 +384,11 @@ returns the billable tokens settled so far."
            (format nil "request ~D · ~D calls left"
                    (incf request-count)
                    (rlm-budget-remaining-calls budget)))
+          (setf stream-progress
+                (rlm--stream-progress-callback
+                 activity-callback
+                 :activity (format nil "request ~D · ~D calls left · receiving"
+                                   request-count (rlm-budget-remaining-calls budget))))
           tranche)
          (:provider-request-completed
           (when tranche
@@ -364,6 +397,9 @@ returns the billable tokens settled so far."
               (incf tokens-spent (or billable 0))
               (rlm-budget-settle-output budget (shiftf tranche nil)
                                         billable))))
+         (:provider-progress
+          (when stream-progress
+            (funcall stream-progress)))
          (:tool-call-progress
           (let ((activity (getf details ':activity)))
             (when (non-empty-string-p activity)

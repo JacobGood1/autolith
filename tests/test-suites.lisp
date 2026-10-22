@@ -971,6 +971,7 @@
 
 (define-test-suite inference
   test-rlm-job-activity
+  test-rlm-stream-progress
   test-rlm-frame-budget-activity
   test-rlm-budget-exhaustion-guidance
   test-rlm-value-preview
