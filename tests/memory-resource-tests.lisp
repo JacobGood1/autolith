@@ -1416,11 +1416,14 @@
                             (search "Read memory:facts" (content unobserved)))
                        "an edit needs a memory:facts revision from this conversation")))))
   (memory-resource-tests--check-url-receipts)
+  (memory-resource-tests--check-url-receipts :long-p t)
+  (memory-resource-tests--check-url-receipts :long-p t :spill-p nil)
   nil)
 
-(-> memory-resource-tests--check-url-receipts () null)
-(defun memory-resource-tests--check-url-receipts ()
-  "Test that only completed retrieval receipts establish URL observations at their original time."
+(-> memory-resource-tests--check-url-receipts
+    (&key (:long-p boolean) (:spill-p boolean)) null)
+(defun memory-resource-tests--check-url-receipts (&key long-p (spill-p t))
+  "Test completed retrievals, retained quotations, authenticity, and original observation times."
   (with-test-configuration (base root)
     (let* ((configuration (configuration-copy base :working-directory root :knowledge-mode "active"))
            (registry (make-default-tool-registry :configuration configuration))
@@ -1428,13 +1431,20 @@
            (context (make-instance 'tool-context :configuration configuration :worker nil
                                                 :conversation conversation))
            (url "https://example.com/ready")
-           (text "The report is ready for publication.")
+           (text (if long-p
+                     (let ((prefix "The report is ready for publication.")
+                           (suffix "The appendix is verified."))
+                       (concatenate 'string prefix
+                                    (make-string (- 9000 (length prefix) (length suffix))
+                                                 :initial-element #\Space)
+                                    suffix))
+                     "The report is ready for publication."))
            (now 100000)
            (*knowledge-clock* (lambda () now)))
       (knowledge-define-schema configuration
                                (knowledge-make-schema :predicate "site.ready"
                                                       :arguments '((:name "site" :type :entity))))
-      (labels ((assert-fact (&optional quote)
+      (labels ((assert-fact (&optional quote (page "page"))
                  "Assert from URL through a fresh resource revision and return its evaluated node."
                  (let* ((read (memory-resource-tests--call registry context "resource" "read"
                                                           "uri" "memory:facts"))
@@ -1446,23 +1456,29 @@
                                                   (tool-result-content read) "Revision: ")
                                  "operations" (vector (json-object
                                                        "op" "fact-assert" "predicate" "site.ready"
-                                                       "arguments" #("page")
+                                                       "arguments" (vector page)
                                                        "sources" (vector source))))))
                    (test-assert (tool-result-success-p result) "the sourced assertion is recorded")
                    (knowledge-view-node
                     (knowledge-view-current configuration)
-                    (knowledge-claim-identifier '("site.ready" "page") :scope ':workspace
-                                                :workspace (knowledge--workspace configuration)))))
+                     (knowledge-claim-identifier (list "site.ready" page) :scope ':workspace
+                                                 :workspace (knowledge--workspace configuration)))))
 
                (retrieve (call-id &key fail-p corrupt-p)
                  "Fetch a scripted page and persist its actual result, optionally failing or corrupting it."
                  (test-call-with-function-replacements
-                  (list (list 'web-gist--retrieve
-                              (lambda (requested)
-                                (test-assert (equal requested url) "the retriever receives the exact URL")
-                                (when fail-p
-                                  (error 'tool-error :tool-name "web_extra.gist" :message "Unavailable."))
-                                text)))
+                  (append
+                   (unless spill-p
+                     (list (list 'tool--spill-result-text
+                                 (lambda (context name output)
+                                   (declare (ignore context name output))
+                                   nil))))
+                   (list (list 'web-gist--retrieve
+                               (lambda (requested)
+                                 (test-assert (equal requested url) "the retriever receives the exact URL")
+                                 (when fail-p
+                                   (error 'tool-error :tool-name "web_extra.gist" :message "Unavailable."))
+                                 text))))
                   (lambda ()
                     (let* ((fetch-context (make-instance 'tool-context
                                                         :configuration configuration :worker nil
@@ -1472,7 +1488,13 @@
                       (conversation-append-tool-result
                        conversation call-id :tool-name "web_extra.gist"
                        :output (if corrupt-p "Different result, ready for publication." (tool-result-content result))
-                       :success-p (tool-result-success-p result)))))))
+                       :success-p (tool-result-success-p result))
+                      (when (and long-p (not fail-p))
+                        (test-assert (and (< (length (tool-result-content result)) 8300)
+                                          (not (search "The appendix is verified."
+                                                       (tool-result-content result))))
+                                     "the durable presentation contains only a bounded prefix and notice"))
+                      result)))))
         ;; A successful write mentioning a source is not a retrieval, quoted or unquoted.
         (conversation-append-provider-item
          conversation (json-object "type" "function_call" "call_id" "write-1"
@@ -1494,12 +1516,41 @@
                      "a completed matching retrieval supports an observation")
         (test-assert (null (memory-knowledge--url-receipt conversation url "not in the retrieved page"))
                      "the quote must occur in the identified result")
+        (when long-p
+          (test-assert (= (length text) 9000) "the retrieval exceeds the presentation limit")
+          (test-assert (eql spill-p
+                            (knowledge-node-observed-p
+                             (assert-fact "The appendix is verified." "appendix")))
+                       "a tail quotation requires verified retained overflow content")
+          (test-assert (not (knowledge-node-observed-p
+                            (assert-fact "characters omitted" "notice")))
+                       "the presentation notice is not retrieved evidence"))
+        (incf now 10)
+        (test-assert (= 100000
+                        (getf (memory-knowledge--url-receipt
+                               conversation url "ready for publication" :configuration configuration)
+                              :observed-at))
+                     "receipt resolution preserves the original retrieval time")
         (setf now (+ 100001 *knowledge-url-lifetime*))
         (test-assert (eq (knowledge-node-applicability (assert-fact "ready for publication")) ':expired)
                      "citing an old retrieval does not renew its expiry")
         (retrieve "refetched")
         (test-assert (eq (knowledge-node-applicability (assert-fact "ready for publication")) ':current)
-                     "fetching the page again renews its evidence"))))
+                     "fetching the page again renews its evidence")
+        (when (and long-p spill-p)
+          (let* ((receipt (memory-knowledge--url-receipt
+                           conversation url "The appendix is verified." :configuration configuration))
+                 (object (rlm-context-object-find configuration
+                                                  (subseq (getf receipt :content-object) 8))))
+            (test-assert (= now (getf receipt :observed-at))
+                         "fresh retrieval evidence has the new retrieval time")
+            (with-open-file (stream (rlm-context-object-pathname object)
+                                    :direction ':output :if-exists ':supersede)
+              (write-string "Corrupted retained content." stream))
+            (test-assert (null (memory-knowledge--url-receipt
+                                conversation url "The appendix is verified."
+                                :configuration configuration))
+                         "corrupt retained content cannot certify a quotation"))))))
   nil)
 
 (-> test-memory-knowledge-rule-admission () null)

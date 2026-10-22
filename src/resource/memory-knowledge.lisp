@@ -525,7 +525,8 @@ Conflicted facts come first, then the rest by predicate and text."
       (:url
        (let ((receipt (memory-knowledge--url-receipt
                        (tool-context-conversation context)
-                       (getf properties :url) (getf properties :quote))))
+                       (getf properties :url) (getf properties :quote)
+                       :configuration (tool-context-configuration context))))
          (knowledge-observe
           :source (append (list :url :url (getf properties :url)
                                     :quote (getf properties :quote))
@@ -639,13 +640,44 @@ never raise it."
                (format nil "The ~(~A~) source supports it as ~(~A~), not ~(~A~)."
                        (first source) established requested))))))
 
-(-> memory-knowledge--url-receipt (conversation string (option string)) (option list))
-(defun memory-knowledge--url-receipt (conversation url quote)
-  "Return the latest verified retrieval receipt for URL containing QUOTE.
+(-> memory-knowledge--receipt-content
+    (list string (option configuration)) (option string))
+(defun memory-knowledge--receipt-content (receipt output configuration)
+  "Verify OUTPUT's presentation and return the retained retrieved text.
 
-Only the retriever records receipts. Match its call and result digest against
-successful durable output; a URL in unrelated call arguments proves nothing.
-Reuse the retrieval time, never the time a later assertion cites it."
+Without overflow storage only the original prefix is evidence, never the
+omission notice. With storage, verify the complete object's retrieval digest.
+Older receipts identify their complete, unbounded output directly."
+  (let ((output-digest (getf receipt :output-digest))
+        (content-object (getf receipt :content-object))
+        (retained-length (getf receipt :retained-length)))
+    (when (equal (or output-digest (getf receipt :result-digest))
+                 (memory-source-text-digest output))
+      (cond
+        ((null output-digest)
+         output)
+        (content-object
+         (when (and configuration
+                    (stringp content-object)
+                    (uiop:string-prefix-p "context:" content-object))
+           (multiple-value-bind (object content)
+               (rlm-context-object-find configuration (subseq content-object 8))
+             (when (and object (stringp content)
+                        (equal (getf receipt :result-digest)
+                               (memory-source-text-digest content)))
+               content))))
+        ((typep retained-length `(integer 0 ,(length output)))
+         (subseq output 0 retained-length))))))
+
+(-> memory-knowledge--url-receipt
+    (conversation string (option string) &key (:configuration (option configuration)))
+    (option list))
+(defun memory-knowledge--url-receipt (conversation url quote &key configuration)
+  "Return the latest completed, verified retrieval receipt for URL containing QUOTE.
+
+Match the durable presentation separately from the immutable retrieved content.
+Only retained retrieved text supports quotations. Reuse the retrieval time,
+never the time a later assertion cites it."
   (let ((receipts (make-hash-table :test #'equal))
         (found nil))
     (handler-case
@@ -664,14 +696,15 @@ Reuse the retrieval time, never the time a later assertion cites it."
                   (setf (gethash (getf properties :call-id) receipts) properties)))
                (:tool-result
                 (let* ((receipt (gethash (getf properties :call-id) receipts))
-                       (output (getf properties :output)))
-                  (when (and receipt
-                             (equal (getf properties :tool) "web_extra.gist")
-                             (eq (getf properties :status) ':ok)
-                             (stringp output)
-                             (equal (getf receipt :result-digest)
-                                    (memory-source-text-digest output))
-                             (or (null quote) (memory-source-quote-found-p quote output))
+                       (output (getf properties :output))
+                       (content
+                         (when (and receipt
+                                    (equal (getf properties :tool) "web_extra.gist")
+                                    (eq (getf properties :status) ':ok)
+                                    (stringp output))
+                           (memory-knowledge--receipt-content receipt output configuration))))
+                  (when (and content
+                             (or (null quote) (memory-source-quote-found-p quote content))
                              (or (null found)
                                  (> (getf receipt :observed-at) (getf found :observed-at))))
                     (setf found receipt))))))))

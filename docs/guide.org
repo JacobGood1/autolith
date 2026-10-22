@@ -924,7 +924,10 @@ cites its evidence, like a memory, and says why it is believed: an
 its basis, not what the model calls it: a file Autolith read is an
 observation, your own words a user assertion, and a web page an observation
 once =web_extra.gist= retrieves it with the quoted text. The retrieval receipt
-records the exact URL, result digest, and observation time. A fact stated by
+identifies the retrieved content, the bounded tool preview, and the original
+observation time. Quotations can cite the complete retained overflow object;
+if overflow storage is unavailable, only text in the retrieved prefix counts.
+The omission notice is presentation, not source evidence. A fact stated by
 two sources has two supports and holds while either does. Web pages expire a
 week after retrieval and tool output after a day; fetch the source again to
 renew its evidence. Your statements and recorded runs do not expire.
