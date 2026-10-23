@@ -1711,13 +1711,14 @@ cache hit nor a net saving is guaranteed.
 
 =(cache-misses t)= enables notices when cached input falls below half the
 previous prompt size, or cache reads stagnate as input grows and the shortfall
-against the previous prompt reaches both 4096 tokens and one sixteenth. The
-notice reports current uncached and total input tokens. Uncached input includes
-new messages and temporary context; it is not a measurement of repeated text.
-The cause is unknown. Model changes, idle intervals, smaller prompts and resumed
-sessions are reported as local observations, not proof of eviction or routing
-failure. The first request after compaction is quiet. The setting is off by
-default and persists across restarts.
+against the previous prompt reaches both 4096 tokens and one sixteenth. Each
+notice starts with a red =!= and reports current uncached and total input tokens.
+Uncached input includes new messages and temporary context; it is not a
+measurement of repeated text. The cause is unknown. Model changes, idle intervals
+and smaller prompts are reported as local observations, not proof of eviction or
+routing failure. The first request after resuming a session or compacting is quiet
+and establishes a fresh baseline. The setting is off by default and persists
+across restarts.
 
 In Responses requests, skill catalogs and selected skill instructions keep their
 first surviving history position instead of moving after each new message.

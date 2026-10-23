@@ -72,11 +72,11 @@
     :accessor application-prompt-cache-baseline
     :type (option prompt-cache-baseline)
     :documentation "What the next provider request should find in the prompt cache.")
-   (prompt-cache-conversation-id
+   (prompt-cache-conversation
     :initform nil
-    :accessor application-prompt-cache-conversation-id
-    :type (option string)
-    :documentation "The conversation whose persisted usage seeded the baseline.")
+    :accessor application-prompt-cache-conversation
+    :type (option conversation)
+    :documentation "The loaded conversation whose local requests establish the baseline.")
    (prompt-cache-request-started-at
     :initform nil
     :accessor application-prompt-cache-request-started-at

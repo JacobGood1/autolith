@@ -279,7 +279,8 @@ transcript renderer, including in fullscreen."
 (-> application--prompt-cache-miss-notice (list) list)
 (defun application--prompt-cache-miss-notice (miss)
   "Return measured uncached input and any accompanying local observation."
-  (list (terminal-span ':notice "Cache miss ")
+  (list (terminal-span ':failure "! ")
+        (terminal-span ':notice "Cache miss ")
         (terminal-span ':code
                        (application--token-count-description
                         (getf miss :uncached-tokens)))
@@ -301,18 +302,15 @@ transcript renderer, including in fullscreen."
 
 (-> application-note-prompt-cache-request-started (application) null)
 (defun application-note-prompt-cache-request-started (application)
-  "Record the start of a provider request for prompt-cache miss detection.
+  "Start a local cache observation window without warning on resumed history.
 
-The first request of each conversation seeds the baseline from its newest
-persisted provider usage, so a resumed session notices its cold cache."
+The first completed request establishes the baseline for this loaded conversation.
+Persisted usage describes an earlier session, not a cache expectation for this one."
   (application-idle-compaction-note-started application)
   (let ((conversation (application-conversation application)))
-    (unless (equal (application-prompt-cache-conversation-id application)
-                   (conversation-identifier conversation))
-      (setf (application-prompt-cache-conversation-id application)
-            (conversation-identifier conversation)
-            (application-prompt-cache-baseline application)
-            (prompt-cache-baseline-from-conversation conversation)))
+    (unless (eq (application-prompt-cache-conversation application) conversation)
+      (setf (application-prompt-cache-conversation application) conversation
+            (application-prompt-cache-baseline application) nil))
     (setf (application-context-estimate-cache application) nil
           (application-prompt-cache-request-started-at application)
           (get-universal-time)
