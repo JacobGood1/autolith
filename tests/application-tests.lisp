@@ -2331,12 +2331,9 @@
 (defun test-tool-code-output-highlighting ()
   "Format explicit code payloads through generic and shell result boundaries."
   (let* ((application (application-tests--ui-application :columns 100 :compact-view-p nil))
-         (json "{\"answer\":42,\"message\":\"hello\"}")
-         (diff (format nil "diff --git a/demo.lisp b/demo.lisp~%--- a/demo.lisp~%+++ b/demo.lisp~%@@ -1 +1 @@~%-(defun greet () ~S)~%+(defun greet () ~S)"
-                       "before" "after")))
+         (json "{\"answer\":42,\"message\":\"hello\"}"))
     (dolist (output (list (format nil "```json~%~A~%```" json)
-                          "(:state :ready :message \"hello\")"
-                          diff))
+                          "(:state :ready :message \"hello\")"))
       (let ((entry (conversation-record-entry
                     application (list :tool-result :tool "unknown.run" :status ':ok :output output))))
         (test-assert (find ':syntax-string entry :key #'terminal-span-style)
@@ -2366,6 +2363,49 @@
                    application (list :tool-result :tool "unknown.run" :status ':ok :output output))))
       (test-assert (<= (count #\Newline (test-terminal-row-text entry)) 6)
                    "Fenced output obeys the tool row budget."))))
+
+(-> test-raw-diff-output-presentation () null)
+(defun test-raw-diff-output-presentation ()
+  "Preserve captured diff prefixes and indentation beneath one output rail."
+  (let* ((application (application-tests--ui-application :columns 100 :compact-view-p nil))
+         (lines '("diff --git a/demo.lisp b/demo.lisp"
+                  "index abcdef0..1234567 100644"
+                  "--- a/demo.lisp"
+                  "+++ b/demo.lisp"
+                  "@@ -1,2 +1,2 @@"
+                  " (in-package #:demo)"
+                  "-(defun greet () \"before\")"
+                  "+(defun greet () \"after\")"
+                  "\\ No newline at end of file"
+                  "diff --git a/notes.txt b/notes.txt"
+                  "--- a/notes.txt"
+                  "+++ b/notes.txt"
+                  "@@ -1,2 +1,2 @@"
+                  " "
+                  "-  old text"
+                  "+  new text"))
+         (diff (format nil "~{~A~^~%~}" lines)))
+    (dolist (case '(("unknown.run" nil 24)
+                    ("shell.run" "combined output" 24)
+                    ("shell.run" "stderr" 24)
+                    ("shell.run" "stdout" 6)))
+      (destructuring-bind (tool stream limit) case
+        (let* ((*application-tool-output-lines* limit)
+               (output (if stream
+                           (format nil "exit 0~%Execution: exited; timeout no; cancelled no~%~A: ~D bytes retained, ~D bytes observed; capture-complete yes; status complete~%Log: shell-log:fixture~%~A"
+                                   stream (length diff) (length diff) diff)
+                           diff))
+               (entry (conversation-record-entry
+                       application (list :tool-result :tool tool :status ':ok :output output)))
+               (rendered (application--display-lines (test-terminal-row-text entry)))
+               (railed (remove-if-not (lambda (line) (position #\│ line)) rendered))
+               (columns (mapcar (lambda (line) (position #\│ line)) railed))
+               (payload (mapcar (lambda (line) (subseq line (+ 2 (position #\│ line))))
+                                railed)))
+          (test-assert (and columns (apply #'= columns))
+                       "metadata, context and change lines share one output rail")
+          (test-assert (equal payload (subseq lines 0 (min limit (length lines))))
+                       "bounded output preserves each diff line including its original prefix"))))))
 
 (-> test-resource-source-highlighting () null)
 (defun test-resource-source-highlighting ()

@@ -1237,6 +1237,7 @@
   test-lisp-source-result-highlighting
   test-evaluation-value-highlighting
   test-tool-code-output-highlighting
+  test-raw-diff-output-presentation
   test-resource-source-highlighting
   test-search-source-highlighting
   test-lsp-result-severity-presentation

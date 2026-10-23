@@ -33,50 +33,6 @@
        (when (> (length rows) limit)
          (list (list (terminal-span ':dim "… more content"))))))))
 
-(-> application--diff-output-rows (string integer) (option list))
-(defun application--diff-output-rows (text limit)
-  "Render a unified diff with shared change gutters and path-aware source tokens."
-  (let* ((lines (application--display-lines text))
-         (first (first lines)))
-    (when (and first
-               (or (uiop:string-prefix-p "diff --git " first)
-                   (and (uiop:string-prefix-p "--- " first)
-                        (search (format nil "~%+++ ") text)))
-               (search "@@" text))
-      (let ((path nil))
-        (append
-         (loop for line in (subseq lines 0 (min limit (length lines)))
-               collect
-               (cond
-                 ((or (uiop:string-prefix-p "--- " line)
-                      (uiop:string-prefix-p "+++ " line))
-                  (let ((name (subseq line 4)))
-                    (setf path (if (or (uiop:string-prefix-p "a/" name)
-                                      (uiop:string-prefix-p "b/" name))
-                                   (subseq name 2)
-                                   name)))
-                  (list (terminal-span ':dim "│ ") (terminal-span ':strong line)))
-                 ((and (plusp (length line))
-                       (find (char line 0) "+- " :test #'char=))
-                  (let* ((content (subseq line 1))
-                         (kind (case (char line 0)
-                                 (#\+ ':added)
-                                 (#\- ':removed)
-                                 (otherwise ':context))))
-                  (append
-                   (list (syntax--terminal-span
-                          (case kind
-                            (:added ':added-gutter)
-                            (:removed ':removed-gutter)
-                            (otherwise ':context-gutter))
-                          (format nil "~C │ " (char line 0))))
-                   (or (and path (syntax--highlight-spans content :pathname path))
-                       (list (terminal-span ':plain content))))))
-                 (t
-                  (list (terminal-span ':dim "│ ") (terminal-span ':hint line)))))
-         (when (> (length lines) limit)
-           (list (list (terminal-span ':dim "… more diff lines")))))))))
-
 (-> application--code-output-rows
     (application string &key (:limit integer) (:json-p boolean))
     (option list))
@@ -89,7 +45,6 @@ recursive field layout of the generic result presenter. Shell output is not
 assumed to be shell source."
   (let ((trimmed (string-left-trim '(#\Space #\Tab #\Newline #\Return) text)))
     (or (application--fenced-output-rows application text limit)
-        (application--diff-output-rows trimmed limit)
         (when (uiop:string-prefix-p "(:" trimmed)
           (application--source-preview-rows
            text :language *application-common-lisp-language* :limit limit))
