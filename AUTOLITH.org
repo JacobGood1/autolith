@@ -835,9 +835,9 @@ a user-local init.lisp change, or a private image commit.
   argument mappings. Noninteractive calls preserve ordinary arity errors, while
   interactive calls can supply replacement arguments through the restart
   debugger or abort safely to the prompt. Provider calls keep their canonical
-  tool names and render deterministic syntax-highlighted Lisp without claiming
-  literal source. File changes number removed and added rows whenever exact
-  original and resulting coordinates are known.
+  tool names and show aligned keyword-labeled argument tables, followed directly
+  by highlighted source rails. File changes number removed and added rows
+  whenever exact original and resulting coordinates are known.
 
   Explicit Lisp and resolved registered interactive commands attempt to append
   durable outcome records with bounded source and result fields outside ordinary

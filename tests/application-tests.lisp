@@ -2664,28 +2664,6 @@
                 (<= (terminal--spans-width row) 29))
               rows)
        "tool detail columns stay inside their transcript cell budget"))
-    (let ((form
-            (application--provider-call-equivalent-form
-             (json-object
-              "type" "function_call"
-              "namespace" "odd"
-              "name" "tool"
-              "arguments"
-              "{\"z\":[true,false,null],\"a key)\":{\"b\":true,\"a\":\"x\"}}"))))
-      (test-assert
-       (string=
-        form
-        "(odd.tool :|a key)| (json-object \"a\" \"x\" \"b\" t) :z (vector t nil :null))")
-       "provider calls render deterministic readable Lisp with distinct JSON values"))
-    (let ((form
-            (application--provider-call-equivalent-form
-             (json-object
-              "type" "function_call"
-              "namespace" "1"
-              "name" "2"
-              "arguments" "{\"path\":\"x\"}"))))
-      (test-assert (string= form "(|1.2| :path \"x\")")
-                   "numeric provider names are escaped into a Lisp symbol token"))
     (let* ((call
              (json-object
               "type" "function_call"
@@ -2698,13 +2676,10 @@
               :compact-view-p nil))
            (entry (response-item-entry wide-application call))
            (text (test-terminal-row-text entry)))
-      (test-assert (null (application--provider-call-equivalent-form call))
-                   "trailing JSON data cannot be presented as a Lisp form")
       (test-assert
        (and (equal (first entry) (terminal-span :tool "▸ resource.read"))
-            (not (search "equivalent Lisp" text))
-            (not (search "(resource.read" text)))
-       "malformed provider calls keep their tool name without fabricated Lisp"))
+            (not (find #\Newline text)))
+       "malformed provider arguments retain the tool header without fabricated fields"))
     (let* ((narrow-application
              (application-tests--ui-application
               :columns 20
@@ -2729,70 +2704,25 @@
             (<= (text-cell-width header) 19)
             (char= (char header (1- (length header))) #\…))
        "provider-controlled tool names are sanitized and width-bounded"))
-    (let* ((*application-provider-form-characters* 10)
-           (uri "workspace:provider-form-fallback")
-           (entry
+    (let* ((entry
              (response-item-entry
-              application
+              (application-tests--ui-application :columns 100 :compact-view-p nil)
               (json-object
-               "type" "function_call"
-               "namespace" "resource"
-               "name" "read"
-               "arguments" (json-encode (json-object "uri" uri)))))
-           (text (test-terminal-row-text entry)))
+               "type" "function_call" "namespace" "odd" "name" "tool"
+               "arguments" "{\"z\":false,\"a key)\":true,\"nested\":{\"value\":null}}")))
+           (lines (rest (uiop:split-string (test-terminal-row-text entry)
+                                           :separator '(#\Newline))))
+           (value-columns (mapcar #'search '("true" "null" "false") lines)))
       (test-assert
-       (and (equal (first entry) (terminal-span :tool "▸ resource.read"))
-            (not (search "(resource.read" text))
-            (search uri text))
-       "simple tool calls retain their detail when Lisp rendering is bounded out"))
-    (let ((*application-provider-form-characters* 10))
-      (test-assert
-       (null
-        (application--provider-call-equivalent-form
-         (json-object
-          "type" "function_call"
-          "namespace" "resource"
-          "name" "read"
-          "arguments" "{\"uri\":\"workspace:a path beyond the bound\"}")))
-       "equivalent provider forms stop before exceeding their output bound"))
-    (let* ((form
-             (application--provider-call-equivalent-form
-              (json-object
-               "type" "function_call"
-               "namespace" "x|y"
-               "name" "z\\q"
-               "arguments" "{}"))))
-      (multiple-value-bind (expression end)
-          (read-from-string form)
-        (test-assert
-         (and (= end (length form))
-              (consp expression)
-              (symbolp (first expression))
-              (string= (symbol-name (first expression)) "x|y.z\\q"))
-         "hostile provider names remain one escaped readable function symbol")))
-    (labels ((render (source)
-               "Render SOURCE as one ordinary resource.read provider call."
-               (application--provider-call-equivalent-form
-                (json-object
-                 "type" "function_call"
-                 "namespace" "resource"
-                 "name" "read"
-                 "arguments" source)))
-
-             (bounded (source &rest limits)
-               "Render SOURCE with provider form decoding bounded by LIMITS."
-               (let ((*application-provider-form-limits*
-                       (apply #'make-json-limits limits)))
-                 (render source))))
-      (test-assert
-       (and (render "{\"value\":{\"a\":{\"b\":1}}}")
-            (null (bounded "{}" :maximum-characters 1))
-            (null (bounded "{\"a\":1,\"b\":2}" :maximum-object-members 1))
-            (null (bounded "{\"value\":{\"a\":{\"b\":1}}}" :maximum-depth 2))
-            (null (bounded "{\"uri\":\"four\"}" :maximum-string-characters 3))
-            (null (bounded "{\"uri\":\"x\"}" :maximum-object-key-characters 2))
-            (null (render "{\"x\\ny\":1}")))
-       "provider forms enforce their decoding limits and key characters"))
+       (and (search ":|a key)|" (first lines))
+            (search ":nested.value" (second lines))
+            (search ":z" (third lines))
+            (search "true" (first lines))
+            (search "null" (second lines))
+            (search "false" (third lines)))
+       "generic argument tables escape keyword labels and preserve nested JSON values")
+      (test-assert (apply #'= value-columns)
+                   "generic argument values share one column across nested fields"))
     (let* ((source (format nil "~{form-line-~D~^~%~}"
                            (loop for index from 1 to 10 collect index)))
            (entry (response-item-entry
@@ -2808,12 +2738,9 @@
            (text (test-terminal-row-text entry)))
       (test-assert
        (and (equal (first entry) (terminal-span :tool "▸ self.eval"))
-            (find (terminal-span :syntax-function "self.eval")
-                  entry
-                  :test #'equal)
-            (search "(self.eval :forms (vector" text)
-            (not (search "equivalent Lisp" text)))
-       "provider tool requests keep their names and syntax-highlighted Lisp forms")
+            (search ":restart" text)
+            (not (search "(self.eval" text)))
+       "provider tool requests show keyword arguments without a synthetic Lisp call")
       (test-assert (and (search "form-line-1" text)
                         (search "… +2 more lines" text))
                    "self.eval previews only the first configured source lines")
@@ -2823,7 +2750,7 @@
                                         (search "CONTINUE"
                                                 (terminal-span-text span))))
                                  entry))
-                   "self.eval presents restart selection in a separate area")
+                   "self.eval presents the selected restart in its argument table")
       (test-assert (not (search "{\"forms\"" text))
                    "tool requests never expose raw argument JSON"))
     (let* ((entry (response-item-entry
@@ -2837,13 +2764,10 @@
            (text (test-terminal-row-text entry)))
       (test-assert
        (and (equal (first entry) (terminal-span :tool "▸ lisp.eval"))
-            (find (terminal-span :syntax-function "lisp.eval")
-                  entry
-                  :test #'equal)
-            (search "(lisp.eval :forms (vector \"(+ 1 2)\"))" text)
-            (not (search "equivalent Lisp" text))
+            (search "(+ 1 2)" text)
+            (not (search "(lisp.eval" text))
             (not (search "{\"forms\"" text)))
-       "lisp.eval calls show syntax-highlighted Lisp instead of JSON"))
+       "lisp.eval calls show their source rail without a synthetic invocation"))
     (let* ((entry (response-item-entry
                    application
                    (json-object
@@ -2856,13 +2780,37 @@
                                   "directory" "/tmp/work"
                                   "timeout-seconds" 30)))))
            (text (test-terminal-row-text entry)))
-      (test-assert (and (search "$ printf" text)
-                        (search "directory" text)
-                        (search "/tmp/work" text)
-                        (search "30 seconds" text))
-                   "shell.run calls show command text and execution metadata")
-      (test-assert (not (search "{\"command\"" text))
-                   "shell.run calls omit raw argument JSON"))
+      (let* ((lines (rest (uiop:split-string text :separator '(#\Newline))))
+             (rail (position-if (lambda (line) (search "$ printf" line)) lines)))
+        (test-assert
+         (and rail (= rail 2)
+              (search ":directory" (first lines))
+              (search "/tmp/work" (first lines))
+              (search ":timeout-seconds" (second lines))
+              (search "30" (second lines)))
+         "shell source begins immediately after the last keyword argument row")))
+    (dolist (columns '(24 40 100))
+      (dolist (case (list (list "shell" "run"
+                               (json-object "command" "printf hello" "directory" "work"))
+                         (list "lisp" "eval"
+                               (json-object "forms" (vector "(+ 1 2)") "repl" "sample"))
+                         (list "self" "set"
+                               (json-object "symbol" "*sample*" "value" "(list :x 1)"))))
+        (destructuring-bind (namespace name arguments) case
+          (let* ((entry
+                   (response-item-entry
+                    (application-tests--ui-application :columns columns :compact-view-p nil)
+                    (json-object "type" "function_call" "namespace" namespace "name" name
+                                 "arguments" (json-encode arguments))))
+                 (lines (uiop:split-string (test-terminal-row-text entry)
+                                           :separator '(#\Newline))))
+            (test-assert
+             (and (search "  :" (second lines))
+                  (search "│ " (third lines))
+                  (find ':syntax-keyword entry :key #'terminal-span-style)
+                  (every (lambda (line) (< (text-cell-width line) columns)) lines))
+             (format nil "~A.~A arguments touch the source rail at ~D columns"
+                     namespace name columns))))))
     (let ((entry (response-item-entry
                   application
                   (json-decode
@@ -4187,7 +4135,7 @@
                         1)
                        (search "<thought>" output)
                        (search "▸ self.eval" output)
-                       (search "(self.eval :forms (vector" output)
+                       (search "(+ 1 2)" output)
                        (null (terminal-ui-preview-rows
                               (application-ui application))))
                 "tool-only provider steps finalize one trace before the tool call")))

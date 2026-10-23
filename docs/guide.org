@@ -740,6 +740,10 @@ string notation. Tool calls return their usual values, so
 modified report strings also use string notation. Synchronous and asynchronous
 evaluation retain the same display text for replay.
 
+Provider tool calls show aligned argument tables with Lisp keyword labels, such
+as =:directory= and =:timeout-seconds=. Shell commands and Lisp source appear in
+highlighted rails directly below the arguments, without a blank row between them.
+
 Start input with =?= followed by whitespace to evaluate one form asynchronously
 in the active image. Use this for a blocking operation or a bare variable:
 
