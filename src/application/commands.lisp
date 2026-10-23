@@ -313,7 +313,8 @@ persisted provider usage, so a resumed session notices its cold cache."
             (conversation-identifier conversation)
             (application-prompt-cache-baseline application)
             (prompt-cache-baseline-from-conversation conversation)))
-    (setf (application-prompt-cache-request-started-at application)
+    (setf (application-context-estimate-cache application) nil
+          (application-prompt-cache-request-started-at application)
           (get-universal-time)
           (application-prompt-cache-request-model application)
           (config :model (application-configuration application))))
@@ -502,15 +503,16 @@ notice preference is on, so enabling it mid-session takes effect immediately."
                   (list "prompt cache"
                         (application--prompt-cache-description usage)))
              (list "context"
-                   (let ((used (conversation-last-total-tokens
-                                (application-conversation application)))
-                         (window (config :context-window configuration)))
-                     (format nil "~A of ~A used (~D%), compacts at ~D%"
-                             (application--token-count-description used)
-                             (application--token-count-description window)
-                             (round (* 100 used) (max 1 window))
-                             (config :compaction-threshold-percent
-                                     configuration)))))))
+                   (multiple-value-bind (used estimated-p)
+                       (application-context-usage application)
+                     (let ((window (config :context-window configuration)))
+                       (format nil "~A~A of ~A used (~D%), compacts at ~D%"
+                               (if estimated-p "~" "")
+                               (application--token-count-description used)
+                               (application--token-count-description window)
+                               (round (* 100 used) (max 1 window))
+                               (config :compaction-threshold-percent
+                                       configuration))))))))
          (width
            (application--field-label-width
             (append (mapcar #'first fields)

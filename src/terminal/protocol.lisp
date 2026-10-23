@@ -229,7 +229,12 @@ mutation passes through TERMINAL-SET-DIMENSIONS.")
     :initform nil
     :accessor terminal-ui-context-used
     :type (option (integer 0))
-    :documentation "The newest provider-reported context usage in tokens.")
+    :documentation "The newest provider-reported or estimated context usage in tokens.")
+   (context-estimated-p
+    :initform nil
+    :accessor terminal-ui-context-estimated-p
+    :type boolean
+    :documentation "Whether the context usage is a portable estimate rather than provider usage.")
    (context-window
     :initform nil
     :accessor terminal-ui-context-window

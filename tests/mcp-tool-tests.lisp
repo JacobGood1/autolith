@@ -1225,9 +1225,8 @@
                                     (configuration
                                       (application-configuration application)))
                                 (and
-                                  (= (terminal-ui-context-used ui)
-                                     (conversation-last-total-tokens
-                                      (application-conversation application)))
+                                  (plusp (terminal-ui-context-used ui))
+                                  (terminal-ui-context-estimated-p ui)
                                   (= (terminal-ui-context-window ui)
                                      (config :context-window configuration))
                                   (= (terminal-ui-context-compaction-limit ui)

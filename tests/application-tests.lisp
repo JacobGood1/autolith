@@ -3224,7 +3224,8 @@
                  "clean-source recovery restores its conversation and cursors")
                 (let ((ui (application-ui application)))
                   (test-assert
-                    (and (zerop (terminal-ui-context-used ui))
+                    (and (plusp (terminal-ui-context-used ui))
+                         (terminal-ui-context-estimated-p ui)
                          (= (terminal-ui-context-window ui) 272000)
                          (= (terminal-ui-context-compaction-limit ui) 217600))
                    "application creation seeds its idle context meter")
@@ -3269,7 +3270,8 @@
                  "retained-generation reconnect restores recovery state")
                 (let ((ui (application-ui application)))
                   (test-assert
-                    (and (zerop (terminal-ui-context-used ui))
+                    (and (plusp (terminal-ui-context-used ui))
+                         (terminal-ui-context-estimated-p ui)
                          (= (terminal-ui-context-window ui) 272000)
                          (= (terminal-ui-context-compaction-limit ui) 217600))
                    "application reconnect seeds its idle context meter")
@@ -3772,6 +3774,7 @@
            (application-refresh-context-meter application)
            (test-assert
              (and (= (terminal-ui-context-used ui) 262500)
+                  (not (terminal-ui-context-estimated-p ui))
                   (= (terminal-ui-context-window ui) 272000)
                   (= (terminal-ui-context-compaction-limit ui) 217600))
             "application refresh projects current provider usage into the idle meter")
@@ -3799,12 +3802,23 @@
                (declare (ignore display cursor))
                (test-assert (search "COMPACTING  [====>" text)
                             "the application observer projects compaction live"))
-             (setf (conversation-last-total-tokens conversation) 0)
+             (conversation-append-provider-metadata
+              conversation
+              (list :compaction ':summary :usage '(("total_tokens" 270000))))
+             (conversation-append-summary conversation "retained handoff")
              (funcall send-status :compaction-completed nil)
              (test-assert (not (terminal-ui-compacting-p ui))
                           "completion removes the compaction indicator")
-             (test-assert (zerop (terminal-ui-context-used ui))
-                          "compaction completion refreshes the context meter")
+             (test-assert (and (plusp (terminal-ui-context-used ui))
+                               (< (terminal-ui-context-used ui) 262500)
+                               (terminal-ui-context-estimated-p ui))
+                          "compaction completion estimates retained context, not compaction spend")
+             (conversation-append-provider-metadata
+              conversation (list :usage '(("total_tokens" 24000))))
+             (funcall send-status :provider-request-completed nil)
+             (test-assert (and (= (terminal-ui-context-used ui) 24000)
+                               (not (terminal-ui-context-estimated-p ui)))
+                          "the next provider report replaces the compacted prompt estimate")
              (funcall send-status :compaction-started nil)
              (funcall send-status :turn-completed nil)
              (test-assert (and (not (terminal-ui-compacting-p ui))
@@ -6065,8 +6079,8 @@
                    (active-configuration
                      (application-configuration application)))
               (test-assert
-               (and (= (terminal-ui-context-used ui)
-                       (conversation-last-total-tokens conversation))
+               (and (plusp (terminal-ui-context-used ui))
+                    (terminal-ui-context-estimated-p ui)
                     (= (terminal-ui-context-window ui)
                        (config :context-window active-configuration))
                     (= (terminal-ui-context-compaction-limit ui)

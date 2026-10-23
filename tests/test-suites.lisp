@@ -479,7 +479,10 @@
 
 (define-test-suite context
   test-session-state-context-contributor
-  test-request-local-context)
+  test-request-local-context
+  test-known-context-estimate
+  test-context-estimate-cache
+  test-context-estimate-provider-family)
 
 (define-test-suite context-rule
   test-context-rule-selection

@@ -511,6 +511,56 @@ have the same evaluation behavior as DEFUN."
   "Return the library's default request-context cost for product diagnostics."
   (cl-llm-provider-api:context-contribution-token-estimate contribution))
 
+(-> context--known-value-character-count (t) (integer 0))
+(defun context--known-value-character-count (value)
+  "Count portable JSON-like VALUE characters without serializing its whole tree."
+  (typecase value
+    (string
+     (length value))
+    (number
+     (length (princ-to-string value)))
+    (hash-table
+     (loop for key being the hash-keys of value using (hash-value item)
+           sum (+ (context--known-value-character-count key)
+                  (context--known-value-character-count item))))
+    (vector
+     (loop for item across value
+           sum (context--known-value-character-count item)))
+    (cons
+     (loop for item in value
+           sum (context--known-value-character-count item)))
+    (null
+     0)
+    (t
+     (length (princ-to-string value)))))
+
+(-> context-estimate-known-tokens
+    (configuration conversation
+     &key (:tool-registry (option tool-registry)) (:hurry-up-p boolean)
+          (:family (option keyword)))
+    (integer 0))
+(defun context-estimate-known-tokens
+    (configuration conversation &key tool-registry hurry-up-p family)
+  "Estimate known request context before provider usage is available.
+
+The portable fallback uses four characters per token for the system prompt,
+mutable session state, compatible retained input, and known tool schemas. Do not
+invoke request-local contributors merely to display idle context usage."
+  (let ((characters
+          (+ (length (system-prompt configuration))
+             (length (request-context-session-state
+                      configuration :hurry-up-p hurry-up-p))
+             (context--known-value-character-count
+              (conversation-input-items-for-family
+               conversation
+               (or family (model-family (config :model configuration)
+                                        (config :model-provider configuration)))))
+             (if tool-registry
+                 (context--known-value-character-count
+                  (tool-registry-provider-schemas tool-registry))
+                 0))))
+    (ceiling characters 4)))
+
 (-> context--render (list) (option string))
 (defun context--render (contributions)
   "Render CONTRIBUTIONS as one request-local developer instruction block."

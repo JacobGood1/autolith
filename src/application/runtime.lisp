@@ -57,6 +57,11 @@
     :accessor application-goal
     :type list
     :documentation "The session goal plist holding objective, status, and continuations.")
+   (context-estimate-cache
+    :initform nil
+    :accessor application-context-estimate-cache
+    :type list
+    :documentation "The last estimate key and token count, without rendered request payloads.")
    (idle-compaction-episode
     :initform nil
     :accessor application-idle-compaction-episode
@@ -1366,6 +1371,7 @@ lineage instead of loading it again."
   (tool-registry-detach-runtime-state
    (application-tool-registry application))
   (setf (application-provider application) nil
+        (application-context-estimate-cache application) nil
         (application-worker application) nil
         (application-agent application) nil
         (application-ui application) nil
@@ -1374,6 +1380,59 @@ lineage instead of loading it again."
         (application-input-controller application) nil
         (application-update-check-thread application) nil)
   application)
+
+(-> application--context-estimate-key (application keyword) list)
+(defun application--context-estimate-key (application family)
+  "Identify known request inputs without rebuilding prompt, session, or schemas.
+
+Conversation appends and request starts delimit mutable session snapshots.
+Configuration replacement, prompt settings, tool replacement, and hurry-up
+changes also invalidate the cache. External files are sampled at these boundaries."
+  (let ((configuration (application-configuration application))
+        (conversation (application-conversation application)))
+    (list configuration
+          (loop for setting in '(:working-directory :source-root :immutable-p
+                                 :relax-p :web-search-mode :simple-technical-english-p)
+                collect (config setting configuration))
+          conversation
+          (conversation-next-sequence conversation)
+          (conversation-log-generation conversation)
+          (conversation-ephemeral-input-entries conversation)
+          family
+          (application-hurry-up-p application)
+          (application-prompt-cache-request-started-at application)
+          (and (slot-boundp application 'tool-registry)
+               (let ((registry (application-tool-registry application)))
+                 (cons registry (tool-registry-tools registry)))))))
+
+(-> application-context-usage (application) (values (integer 0) boolean))
+(defun application-context-usage (application)
+  "Return reported context usage, otherwise a cached portable estimate."
+  (let* ((conversation (application-conversation application))
+         (reported (conversation-last-total-tokens conversation)))
+    (when (plusp reported)
+      (return-from application-context-usage (values reported nil)))
+    (let* ((configuration (application-configuration application))
+           (provider (and (slot-boundp application 'provider)
+                          (application-provider application)))
+           (family (if provider
+                       (provider-family provider)
+                       (model-family (config :model configuration)
+                                     (config :model-provider configuration))))
+           (key (application--context-estimate-key application family))
+           (cached (application-context-estimate-cache application)))
+      (unless (equal key (first cached))
+        (setf cached
+              (list key
+                    (context-estimate-known-tokens
+                     configuration conversation
+                     :hurry-up-p (application-hurry-up-p application)
+                     :family family
+                     :tool-registry
+                     (and (slot-boundp application 'tool-registry)
+                          (application-tool-registry application))))
+              (application-context-estimate-cache application) cached))
+      (values (second cached) t))))
 
 (-> application-refresh-context-meter (application) null)
 (defun application-refresh-context-meter (application)
@@ -1385,14 +1444,16 @@ lineage instead of loading it again."
       (when ui
         (terminal-ui-set-idle-status-details
          ui (application--status-details application))
-        (let ((configuration (application-configuration application)))
-          (terminal-ui-set-context-usage
-           ui
-           :used (conversation-last-total-tokens
-                  (application-conversation application))
-           :window (config :context-window configuration)
-           :compaction-limit
-           (configuration-compaction-token-limit configuration))))))
+        (multiple-value-bind (used estimated-p)
+            (application-context-usage application)
+          (let ((configuration (application-configuration application)))
+            (terminal-ui-set-context-usage
+             ui
+             :used used
+             :estimated-p estimated-p
+             :window (config :context-window configuration)
+             :compaction-limit
+             (configuration-compaction-token-limit configuration)))))))
   nil)
 
 (-> application--install-configuration
@@ -3553,7 +3614,6 @@ checked."
            (:provider-request-completed
             (when (plusp (getf details :tool-call-count 0))
               (setf request-empty-p nil))
-            (application-refresh-context-meter application)
             (reasoning-flush)
             (let ((completed-stream-text
                     (and stream-open-p (text-buffer-string stream-text)))
@@ -3563,6 +3623,7 @@ checked."
                application
                :streamed-assistant-text completed-stream-text
                :streamed-reasoning-text completed-reasoning-text))
+            (application-refresh-context-meter application)
             (application-note-prompt-cache-request-completed
              application details))
            (:tool-call-started
@@ -3600,6 +3661,7 @@ checked."
             (terminal-ui-set-compacting ui t))
            (:compaction-completed
             (terminal-ui-set-compacting ui nil)
+            (application-refresh-context-meter application)
             ;; The rewritten prompt cannot hit the old cache, so the expected
             ;; miss on the next request is not worth a notice.
             (setf (application-prompt-cache-baseline application) nil)

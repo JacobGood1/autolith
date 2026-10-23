@@ -1653,6 +1653,12 @@ GPT-6.1, GPT-6, and GPT-5.6 models, which compact at about 218K tokens by defaul
 ctx [==========|..] 218K / 272K used
 #+END_EXAMPLE
 
+Before provider usage is available, =~= marks an estimate from the known system
+prompt, session state, retained conversation, and tool schemas. The estimate uses
+four characters per token. After compaction, the meter estimates the replacement
+context until the next provider report. Compaction request usage is recorded
+separately as work spent on the checkpoint and summary.
+
 At narrow widths, the meter keeps the used and window counts and drops the bar.
 
 Use =(compact)= to compact the current conversation immediately,
