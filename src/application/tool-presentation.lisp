@@ -1477,7 +1477,7 @@ OPERATION's own declared target line so they stay numbered."
                               operation
                               (1+ index))))
                       (or change-rows
-                          (application--structured-object-rows
+                          (application--generic-argument-rows
                            application operation :excluded-keys '("op")))))
                    (application--structured-value-rows
                     application
@@ -1521,7 +1521,7 @@ OPERATION's own declared target line so they stay numbered."
                               operation
                               (1+ index))))
                       (or change-rows
-                          (application--structured-object-rows
+                          (application--generic-argument-rows
                            application operation :excluded-keys '("op")))))
                    (application--structured-value-rows
                     application

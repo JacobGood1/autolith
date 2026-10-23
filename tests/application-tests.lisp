@@ -2723,6 +2723,38 @@
        "generic argument tables escape keyword labels and preserve nested JSON values")
       (test-assert (apply #'= value-columns)
                    "generic argument values share one column across nested fields"))
+    (dolist (columns '(24 40 100))
+      (dolist (uri '("memory:workspace" "workspace:example" "extension:example"))
+        (let* ((entry
+                 (response-item-entry
+                  (application-tests--ui-application :columns columns :compact-view-p nil)
+                  (json-object
+                   "type" "function_call" "namespace" "resource" "name" "edit"
+                   "arguments"
+                   (json-encode
+                    (json-object
+                     "uri" uri "base-revision" "Rfixture"
+                     "operations"
+                     (vector (json-object "op" "memory-remember"
+                                          "title" "TITLE" "scope" "global"
+                                          "tags" (vector "TAG")
+                                          "content" (format nil "first content~%second content"))))))))
+               (lines (uiop:split-string (test-terminal-row-text entry)
+                                         :separator '(#\Newline)))
+               (value-columns
+                 (loop for value in '("global" "TAG" "TITLE")
+                       for row = (find-if (lambda (line) (search value line)) lines)
+                       collect (and row (search value row)))))
+          (test-assert
+           (and (every #'integerp value-columns) (apply #'= value-columns))
+           (format nil "~A operation fields share a value column at ~D columns"
+                   uri columns))
+          (test-assert
+           (and (or (< columns 40)
+                    (search ":base-revision" (test-terminal-row-text entry)))
+                (position-if (lambda (line) (search "first content" line)) lines)
+                (every (lambda (line) (< (text-cell-width line) columns)) lines))
+           "resource operations retain argument names, multiline previews and cell bounds"))))
     (let* ((source (format nil "~{form-line-~D~^~%~}"
                            (loop for index from 1 to 10 collect index)))
            (entry (response-item-entry
