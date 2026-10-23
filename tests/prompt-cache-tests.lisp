@@ -163,13 +163,13 @@
                   (callback-agent-observer-status-callback observer)))
            (flet ((notice-p ()
                     "Return whether the terminal painted a cache-miss notice."
-                    (not (null (search "Cache miss"
+                    (not (null (search "cache miss"
                                        (clinedi:ansi-strip (recording-terminal-output terminal))))))
 
                   (notice-counts-p (re-read total)
                     "Return whether the rendered notice includes both token counts."
                     (let ((output (clinedi:ansi-strip (recording-terminal-output terminal))))
-                      (and (search "Cache miss" output)
+                      (and (search "cache miss" output)
                            (search (application--token-count-description re-read) output)
                            (search (application--token-count-description total) output))))
 

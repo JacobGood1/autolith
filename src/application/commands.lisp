@@ -280,24 +280,24 @@ transcript renderer, including in fullscreen."
 (defun application--prompt-cache-miss-notice (miss)
   "Return measured uncached input and any accompanying local observation."
   (list (terminal-span ':failure "! ")
-        (terminal-span ':notice "Cache miss ")
+        (terminal-span ':notice "cache miss ")
         (terminal-span ':code
                        (application--token-count-description
                         (getf miss :uncached-tokens)))
         (terminal-span ':dim " / ")
         (terminal-span ':code
                        (application--token-count-description (getf miss :prompt-tokens)))
-        (terminal-span ':dim " input tokens uncached; cause unknown")
+        (terminal-span ':dim " input tokens uncached")
         (terminal-span ':dim
                        (case (getf miss :cause)
-                         (:model-changed "; model changed")
-                         (:idle "; idle interval exceeded local heuristic")
-                         (:prompt-shrank "; prompt size decreased")
-                         (:resumed "; resumed session")
+                         (:model-changed " · model changed")
+                         (:idle " · idle interval exceeded local heuristic")
+                         (:prompt-shrank " · prompt size decreased")
+                         (:resumed " · resumed session")
                          (otherwise "")))
         (terminal-span ':dim
                        (if (getf miss :stalled-p)
-                           "; cached-token count stagnant"
+                           " · cached-token count stagnant"
                            ""))))
 
 (-> application-note-prompt-cache-request-started (application) null)
