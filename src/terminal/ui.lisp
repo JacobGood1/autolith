@@ -137,18 +137,18 @@ offered only while the typed prefix no longer matches its primary."
 
 (-> terminal-ui-create
     (&key (:terminal terminal) (:editor (option line-editor)) (:prompt string)
-          (:placeholder string) (:completions list) (:fullscreen-p boolean)
-          (:completion-function (option function))
-          (:completion-root (option pathname))
-          (:path-search-function (option function))
-          (:message-header-prefixes list)
-          (:clock-function function))
+     (:placeholder string) (:completions list) (:fullscreen-p boolean)
+     (:completion-function (option function))
+     (:completion-root (option pathname))
+     (:path-search-function (option function))
+     (:message-header-prefixes list)
+     (:clock-function function))
     terminal-ui)
 (defun terminal-ui-create
     (&key terminal editor (prompt "> ") (placeholder "") completions
-          completion-function completion-root path-search-function fullscreen-p
-          message-header-prefixes
-          (clock-function #'terminal-ui--monotonic-seconds))
+       completion-function completion-root path-search-function fullscreen-p
+       message-header-prefixes
+       (clock-function #'terminal-ui--monotonic-seconds))
   "Create an inline or opt-in fullscreen UI for interactive TERMINAL.
 
 MESSAGE-HEADER-PREFIXES name the transcript lines the fullscreen viewport
@@ -229,7 +229,7 @@ jumps between as messages."
   "Replace editor history with sanitized application input entries."
   (with-terminal-ui-locked (ui)
     (clinedi:line-editor-replace-history (terminal-ui-editor ui)
-                                       (mapcar #'sanitize-text entries)))
+                                         (mapcar #'sanitize-text entries)))
   ui)
 
 (-> terminal-ui--call-with-lock-if-available
@@ -247,7 +247,7 @@ emergency terminal input responsive while another thread owns presentation."
                (sb-sys:with-interrupts
                  (values (funcall function) t))
             (sb-thread:release-mutex lock))
-        (values nil nil)))))
+          (values nil nil)))))
 
 
 ;;;; -- Terminal Presentation --
@@ -271,14 +271,14 @@ emergency terminal input responsive while another thread owns presentation."
     (loop with position = 0
           while (< position (length text))
           for replacement =
-            (find-if
-             (lambda (entry)
-               (let ((label (first entry)))
-                 (and (<= (+ position (length label)) (length text))
-                      (string= label text
-                               :start2 position
-                               :end2 (+ position (length label))))))
-             mapping)
+                          (find-if
+                           (lambda (entry)
+                             (let ((label (first entry)))
+                               (and (<= (+ position (length label)) (length text))
+                                    (string= label text
+                                             :start2 position
+                                             :end2 (+ position (length label))))))
+                           mapping)
           do (if replacement
                  (progn
                    (write-string (rest replacement) stream)
@@ -532,7 +532,7 @@ the draft is exact."
                   (terminal--clip-spans
                    (append prompt-spans
                            (list (terminal-span :hint
-                                                 (terminal-ui-placeholder ui))))
+                                                (terminal-ui-placeholder ui))))
                    columns)))
             (values spans
                     (min (length prompt-text)
@@ -867,18 +867,18 @@ recalled drafts. An @ path token still offers file completion."
     (let ((selector (terminal-ui-completion-selector ui)))
       (unless (selector-items selector)
         (return (values nil nil)))
-        (unless (or (terminal-ui-completion-active-p ui)
-                    (member event
-                            '(:up :down :complete :complete-previous
-                              :submit :escape)))
-          (return (values nil nil)))
-        (when (and (member event '(:up :down))
-                   (not (terminal-ui-completion-active-p ui))
-                   (terminal-ui--editor-history-navigating-p
-                    (terminal-ui-editor ui)))
-          (return (values nil nil)))
-        (when (member event '(:up :down :complete :complete-previous))
-          (terminal-ui--begin-completion ui))
+      (unless (or (terminal-ui-completion-active-p ui)
+                  (member event
+                          '(:up :down :complete :complete-previous
+                            :submit :escape)))
+        (return (values nil nil)))
+      (when (and (member event '(:up :down))
+                 (not (terminal-ui-completion-active-p ui))
+                 (terminal-ui--editor-history-navigating-p
+                  (terminal-ui-editor ui)))
+        (return (values nil nil)))
+      (when (member event '(:up :down :complete :complete-previous))
+        (terminal-ui--begin-completion ui))
       (multiple-value-bind (selector-action entry)
           (selector-handle-event selector event)
         (case selector-action
@@ -1269,7 +1269,7 @@ recalled drafts. An @ path token still offers file completion."
   "Return all, visible, header, overflow and omission values for one strip."
   (let* ((activities (terminal-ui--execution-activities ui inference-p))
          (row-budget (nth-value (if inference-p 2 0)
-                               (terminal-ui--activity-row-budgets ui)))
+                                (terminal-ui--activity-row-budgets ui)))
          (header-row-count (if (> row-budget 1) 1 0))
          (body-row-budget (max 0 (- row-budget header-row-count)))
          (limited-visible-count
@@ -1303,7 +1303,7 @@ recalled drafts. An @ path token still offers file completion."
 (defun terminal-ui--command-activity-rows-at (ui now row-width &optional inference-p)
   "Return viewport-bounded command or RLM rows for UI at monotonic NOW."
   (multiple-value-bind
-      (activities visible-activities header-row-count overflow-row-p omitted-count)
+        (activities visible-activities header-row-count overflow-row-p omitted-count)
       (terminal-ui--command-activity-selection ui inference-p)
     (let* ((column-widths
              (layout-column-widths
@@ -1596,6 +1596,7 @@ recalled drafts. An @ path token still offers file completion."
              agents))
        (and (terminal-ui-context-window ui)
             (list (terminal-ui-context-used ui)
+                  (terminal-ui-context-estimated-p ui)
                   (terminal-ui-context-window ui)
                   (terminal-ui-context-compaction-limit ui)))))))
 
@@ -1637,7 +1638,8 @@ recalled drafts. An @ path token still offers file completion."
 (-> terminal-ui--context-compact-text (terminal-ui) string)
 (defun terminal-ui--context-compact-text (ui)
   "Return UI's complete compact used/window context count."
-  (format nil "~A/~A"
+  (format nil "~A~A/~A"
+          (if (terminal-ui-context-estimated-p ui) "~" "")
           (terminal-ui--context-count-text (terminal-ui-context-used ui))
           (terminal-ui--context-count-text (terminal-ui-context-window ui))))
 
@@ -1682,7 +1684,9 @@ recalled drafts. An @ path token still offers file completion."
         (window (terminal-ui-context-window ui))
         (limit (terminal-ui-context-compaction-limit ui)))
     (when (and used window limit (plusp maximum-width))
-      (let* ((used-text (terminal-ui--context-count-text used))
+      (let* ((used-text (format nil "~A~A"
+                                (if (terminal-ui-context-estimated-p ui) "~" "")
+                                (terminal-ui--context-count-text used)))
              (window-text (terminal-ui--context-count-text window))
              (full-prefix "ctx ")
              (full-suffix
@@ -2052,11 +2056,11 @@ form keeps every speculative Markdown wrap live until the logical line commits."
                (list
                 (terminal--clip-spans
                  (list
-                   (terminal-span ':hint "  ")
-                   (terminal-span ':lisp-prompt "Empty Tab")
-                   (terminal-span ':hint " to edit newest ")
-                   (terminal-span ':lisp-prompt "Shift-Tab")
-                   (terminal-span ':hint " to cycle."))
+                  (terminal-span ':hint "  ")
+                  (terminal-span ':lisp-prompt "Empty Tab")
+                  (terminal-span ':hint " edit newest ")
+                  (terminal-span ':lisp-prompt "Shift-Tab")
+                  (terminal-span ':hint " cycle"))
                  row-width))))))
     (let ((tail (terminal-ui-stream-tail ui)))
       (when tail
@@ -2071,23 +2075,23 @@ form keeps every speculative Markdown wrap live until the logical line commits."
 (-> terminal-ui--composer-rows (terminal-ui) (values list integer integer))
 (defun terminal-ui--composer-rows (ui)
   "Return composer rows, its cursor row, and the character offset within that row."
-  (let* ((terminal (terminal-ui-terminal ui))
+  (let* ((terminal  (terminal-ui-terminal ui))
          (row-width (max 1 (terminal-columns terminal)))
-         (selector (terminal-ui-selector ui)))
+         (selector  (terminal-ui-selector ui)))
     (cond
       (selector
-       (let* ((hint (or (terminal-ui-selector-hint ui)
-                        "enter selects, esc cancels"))
-              (title-spans
-                (terminal--clip-spans
-                 (list (terminal-span ':brand "∙ ")
-                       (terminal-span ':plain (terminal-ui-selector-title ui))
-                       (terminal-span ':hint (format nil "  ~A" hint)))
-                 row-width)))
-         (values (append (list title-spans nil)
-                         (terminal-ui--choice-rows selector row-width)
-                         (list nil))
-                 0 (length (terminal--spans-text title-spans)))))
+          (let* ((hint (or (terminal-ui-selector-hint ui)
+                           "Enter to select, Escape to cancel"))
+                 (title-spans
+                   (terminal--clip-spans
+                    (list (terminal-span ':brand "∙ ")
+                          (terminal-span ':plain (terminal-ui-selector-title ui))
+                          (terminal-span ':hint (format nil "  ~A" hint)))
+                    row-width)))
+            (values (append (list title-spans nil)
+                            (terminal-ui--choice-rows selector row-width)
+                            (list nil))
+                    0 (length (terminal--spans-text title-spans)))))
       (t
        (multiple-value-bind (prompt-spans cursor-offset)
            (terminal-ui--prompt-content ui)
@@ -2228,13 +2232,13 @@ removes it."
 
 (-> terminal-ui--present-live
     (terminal-ui &key (:status-now (option real))
-                      (:appended-text string)
-                      (:appended-display string)
-                      (:appended-regions list))
+     (:appended-text string)
+     (:appended-display string)
+     (:appended-regions list))
     null)
 (defmethod terminal-ui--present-live
     ((ui terminal-ui) &key status-now (appended-text "") (appended-display "")
-                      appended-regions)
+                        appended-regions)
   "Present UI live content, atomically preceding it with appended scrollback.
 
 Native scrollback has no mouse reporting, so APPENDED-REGIONS are kept only
@@ -2344,18 +2348,18 @@ The texts end with a blank separator row. Regions index the plain text."
 
 (-> terminal-ui-select
     (terminal-ui &key (:title string) (:items list) (:hint (option string))
-                 (:visible-count (integer 1)) (:initial-name (option string))
-                 (:initial-value (option string)) (:search-p boolean)
-                 (:search-key function) (:resize-callback (option function))
-                 (:on-event (option function)) (:poll-interval (option real)))
+     (:visible-count (integer 1)) (:initial-name (option string))
+     (:initial-value (option string)) (:search-p boolean)
+     (:search-key function) (:resize-callback (option function))
+     (:on-event (option function)) (:poll-interval (option real)))
     (option string))
 (defun terminal-ui-select
     (ui &key (title "select") items hint
-             (visible-count *terminal-ui-visible-completions*)
-             initial-name initial-value search-p
-             (search-key #'terminal-ui--picker-default-search-text)
-             resize-callback on-event
-             (poll-interval *terminal-ui-picker-poll-interval*))
+          (visible-count *terminal-ui-visible-completions*)
+          initial-name initial-value search-p
+          (search-key #'terminal-ui--picker-default-search-text)
+          resize-callback on-event
+          (poll-interval *terminal-ui-picker-poll-interval*))
   "Select an application entry through Clinedi's filtered modal session.
 
 Entries carry :NAME and optionally a distinct :VALUE. ON-EVENT receives
@@ -2385,7 +2389,7 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
                                            :test #'equal)))))
            (base-title title)
            (current-hint (or hint (and search-p
-                                      "type searches, backspace edits, enter selects, esc cancels"))))
+                                       "type searches, backspace edits, enter selects, esc cancels"))))
       (labels ((publish ()
                  (let* ((selector (clinedi:selection-session-selector session))
                         ;; The selector composer reserves three rows; fullscreen
@@ -2409,7 +2413,7 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
                      ((and (consp action) (eq (first action) ':replace))
                       (destructuring-bind
                           (next-title next-items &optional (next-hint nil hint-p)
-                                                          (next-value nil value-p))
+                                                   (next-value nil value-p))
                           (rest action)
                         (unless (every #'terminal-completion-p next-items)
                           (return-from terminal-ui-select nil))
@@ -2540,15 +2544,15 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
               (terminal-ui-terminal ui) ':command-finished 1))
            (unless (terminal-ui-fullscreen-p ui)
              (live-region-dismiss (terminal-ui-live-region ui))))
-       (setf (terminal-ui-started-p ui) nil
-             (terminal-ui-prompt-marker-state ui) ':closed
-             (terminal-ui-notice ui) nil
-             (terminal-ui-notice-deadline ui) nil
-             (terminal-ui-live-output-suspended-p ui) nil)
-     (unwind-protect
-          (when (terminal-ui-fullscreen-p ui)
-            (terminal-ui-fullscreen-leave ui))
-       (terminal-stop (terminal-ui-terminal ui)))))
+      (setf (terminal-ui-started-p ui) nil
+            (terminal-ui-prompt-marker-state ui) ':closed
+            (terminal-ui-notice ui) nil
+            (terminal-ui-notice-deadline ui) nil
+            (terminal-ui-live-output-suspended-p ui) nil)
+      (unwind-protect
+           (when (terminal-ui-fullscreen-p ui)
+             (terminal-ui-fullscreen-leave ui))
+        (terminal-stop (terminal-ui-terminal ui)))))
   ui)
 
 (defmacro with-terminal-ui ((variable ui-form) &body body)
@@ -2558,7 +2562,7 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
           (progn
             (terminal-ui-start ,variable)
             (locally
-              ,@body))
+                ,@body))
        (terminal-ui-stop ,variable))))
 
 (-> terminal-ui-mark-finalized (terminal-ui t) boolean)
@@ -2713,21 +2717,24 @@ seen can offer the notice again."
 (-> terminal-ui-set-context-usage
     (terminal-ui
      &key (:used (integer 0)) (:window (integer 1))
-          (:compaction-limit (integer 1)))
+     (:compaction-limit (integer 1)) (:estimated-p boolean))
     terminal-ui)
-(defun terminal-ui-set-context-usage (ui &key used window compaction-limit)
-  "Set UI's provider-reported context usage, window, and compaction limit."
+(defun terminal-ui-set-context-usage (ui &key used window compaction-limit
+                                           (estimated-p nil))
+  "Set context usage, window, compaction limit, and its measurement provenance."
   (unless (<= compaction-limit window)
     (error 'terminal-error
            :message "The context compaction limit cannot exceed its window."
            :operation ':set-context-usage
            :cause nil))
   (with-terminal-ui-locked (ui)
-    (unless (equal (list used window compaction-limit)
+    (unless (equal (list used estimated-p window compaction-limit)
                    (list (terminal-ui-context-used ui)
+                         (terminal-ui-context-estimated-p ui)
                          (terminal-ui-context-window ui)
                          (terminal-ui-context-compaction-limit ui)))
       (setf (terminal-ui-context-used ui) used
+            (terminal-ui-context-estimated-p ui) estimated-p
             (terminal-ui-context-window ui) window
             (terminal-ui-context-compaction-limit ui) compaction-limit)
       (when (terminal-ui-started-p ui)
@@ -2770,7 +2777,7 @@ seen can offer the notice again."
 (-> terminal-ui-set-status
     (terminal-ui (option string)
      &key (:details terminal-styled-text)
-          (:worked-seconds (option (integer 0))))
+     (:worked-seconds (option (integer 0))))
     terminal-ui)
 (defun terminal-ui-set-status (ui status &key details worked-seconds)
   "Begin or clear UI's timed STATUS activity and animated modeline.
@@ -3004,10 +3011,10 @@ thread."
       (terminal-ui--call-with-lock-if-available
        ui
        (lambda ()
-          (let* ((status-now
-                   (and (or (terminal-ui--status-row-visible-p ui)
-                            (terminal-ui-notice ui))
-                        (funcall (terminal-ui-clock-function ui))))
+         (let* ((status-now
+                  (and (or (terminal-ui--status-row-visible-p ui)
+                           (terminal-ui-notice ui))
+                       (funcall (terminal-ui-clock-function ui))))
                 (notice-expired-p
                   (terminal-ui--expire-notice-at ui status-now))
                 (signature nil))
