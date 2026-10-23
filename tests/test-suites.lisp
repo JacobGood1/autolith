@@ -668,6 +668,11 @@
   test-provider-qualified-model-application)
 
 (define-test-suite provider
+  test-codex-context-anchoring
+  test-codex-context-boundaries
+  test-codex-context-request
+  test-codex-rendered-context-request
+  test-codex-anchored-contributions-request
   test-provider-deferred-tool-models
   test-provider-deferred-tool-loading
   test-provider-request
