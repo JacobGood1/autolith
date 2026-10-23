@@ -2349,7 +2349,7 @@ column is WIDTH cells, or otherwise wide enough for the longest label present."
        (application--transcript-entry
         application
         :style ':tool
-        :header "▸ web search"
+        :header "▸ (web search)"
         :detail (let ((detail (web-search-call-detail item)))
                   (and (non-empty-string-p detail)
                        detail))))

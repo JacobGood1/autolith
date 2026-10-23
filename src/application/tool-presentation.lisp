@@ -167,8 +167,13 @@ assumed to be shell source."
 
 (-> application--tool-header (application string) string)
 (defun application--tool-header (application header)
-  "Return HEADER sanitized and clipped to APPLICATION's transcript width."
-  (let* ((safe-header (sanitize-text header :single-line-p t))
+  "Parenthesize call names, then sanitize and clip HEADER to transcript width."
+  (let* ((call-header
+           (if (and *application-provider-call-presentation*
+                    (uiop:string-prefix-p "▸ " header))
+               (format nil "▸ (~A)" (subseq header 2))
+               header))
+         (safe-header (sanitize-text call-header :single-line-p t))
          (maximum-width
            (max 1
                 (1- (terminal-columns

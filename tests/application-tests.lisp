@@ -2677,7 +2677,7 @@
            (entry (response-item-entry wide-application call))
            (text (test-terminal-row-text entry)))
       (test-assert
-       (and (equal (first entry) (terminal-span :tool "▸ resource.read"))
+       (and (equal (first entry) (terminal-span :tool "▸ (resource.read)"))
             (not (find #\Newline text)))
        "malformed provider arguments retain the tool header without fabricated fields"))
     (let* ((narrow-application
@@ -2737,10 +2737,9 @@
                                   "restart" "CONTINUE")))))
            (text (test-terminal-row-text entry)))
       (test-assert
-       (and (equal (first entry) (terminal-span :tool "▸ self.eval"))
-            (search ":restart" text)
-            (not (search "(self.eval" text)))
-       "provider tool requests show keyword arguments without a synthetic Lisp call")
+       (and (equal (first entry) (terminal-span :tool "▸ (self.eval)"))
+            (search ":restart" text))
+       "provider calls show a parenthesized name above their argument table")
       (test-assert (and (search "form-line-1" text)
                         (search "… +2 more lines" text))
                    "self.eval previews only the first configured source lines")
@@ -2763,11 +2762,10 @@
                                  (json-object "forms" (vector "(+ 1 2)"))))))
            (text (test-terminal-row-text entry)))
       (test-assert
-       (and (equal (first entry) (terminal-span :tool "▸ lisp.eval"))
+       (and (equal (first entry) (terminal-span :tool "▸ (lisp.eval)"))
             (search "(+ 1 2)" text)
-            (not (search "(lisp.eval" text))
             (not (search "{\"forms\"" text)))
-       "lisp.eval calls show their source rail without a synthetic invocation"))
+       "lisp.eval calls show a parenthesized name above their source rail"))
     (let* ((entry (response-item-entry
                    application
                    (json-object
@@ -2817,7 +2815,7 @@
                    "{\"type\":\"web_search_call\",
                      \"action\":{\"type\":\"search\",
                                  \"query\":\"live lisp images\"}}"))))
-      (test-assert (equal (first entry) (terminal-span :tool "▸ web search"))
+      (test-assert (equal (first entry) (terminal-span :tool "▸ (web search)"))
                    "web search calls present a styled search header")
       (test-assert (search "live lisp images"
                            (test-terminal-row-text entry))
@@ -4148,7 +4146,7 @@
                          output)
                         1)
                        (search "<thought>" output)
-                       (search "▸ self.eval" output)
+                       (search "▸ (self.eval)" output)
                        (search "(+ 1 2)" output)
                        (null (terminal-ui-preview-rows
                               (application-ui application))))
