@@ -231,6 +231,8 @@
   test-configuration-source-platform-reading)
 
 (define-test-suite fullscreen
+  test-terminal-compact-success-groups
+  test-terminal-compact-success-stream-and-retry
   test-terminal-fullscreen-viewport
   test-terminal-fullscreen-new-conversation
   test-terminal-fullscreen-small-windows

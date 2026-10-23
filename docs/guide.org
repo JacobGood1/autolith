@@ -744,6 +744,7 @@ Provider tool calls show parenthesized names, such as =(shell.run)=, above align
 argument tables with Lisp keyword labels, such as =:directory= and
 =:timeout-seconds=. Shell commands and Lisp source appear in highlighted rails
 directly below the arguments, without a blank row between them.
+Consecutive single-line tool success messages share a block without blank rows.
 Unified diffs in captured output use the ordinary output rail, with their
 original change prefixes and indentation.
 
