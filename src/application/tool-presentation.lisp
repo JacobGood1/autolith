@@ -1762,11 +1762,17 @@ OPERATION's own declared target line so they stay numbered."
                 retry-text ':hint *application-tool-output-lines*
                 :gutter "│ "))))))
 
-(-> application--failure-result-rows (string) list)
-(defun application--failure-result-rows (output)
-  "Return structured condition details for failed tool OUTPUT."
-  (let ((restart-marker (format nil "Available restarts:~%"))
-        (backtrace-marker (format nil "~%~%Backtrace:~%")))
+(-> application--failure-result-rows
+    (string &key (:tool-name (option string)))
+    list)
+(defun application--failure-result-rows (output &key tool-name)
+  "Return condition details, omitting TOOL-NAME's redundant failure prefix."
+  (let* ((prefix (and tool-name (format nil "~A failed: " tool-name)))
+         (output (if (and prefix (uiop:string-prefix-p prefix output))
+                     (subseq output (length prefix))
+                     output))
+         (restart-marker (format nil "Available restarts:~%"))
+         (backtrace-marker (format nil "~%~%Backtrace:~%")))
     (cond
       ((search restart-marker output)
        (application--debugger-rows output))
@@ -2077,7 +2083,8 @@ re-emitting untrusted serialized JSON."
                (application--mcp-content-rows application record)
                (if (application--tool-result-success-p record)
                    (application--structured-output-rows application output)
-                   (application--failure-result-rows output))))))
+                   (application--failure-result-rows
+                    output :tool-name (getf (rest record) :tool)))))))
 
 (-> application--tool-execution-handoff-entry (application list list) list)
 (defun application--tool-execution-handoff-entry (application record handoff)

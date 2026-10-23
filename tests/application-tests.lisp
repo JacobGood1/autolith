@@ -3023,12 +3023,29 @@
                         (search "CAR" text)
                         (search "values" text))
                    "lisp.describe results separate structured description and values"))
+    (dolist (case '(("resource.read"
+                    "resource.read failed: byte-count is out of range."
+                    "byte-count is out of range.")
+                   ("resource.read" "File not found." "File not found.")
+                   ("resource.read" "backend.run failed: unavailable"
+                    "backend.run failed: unavailable")
+                   ("unknown.run" "unknown.run failed: resource.read failed: denied"
+                    "resource.read failed: denied")))
+      (destructuring-bind (tool output reason) case
+        (let ((entry (conversation-record-entry
+                      application
+                      (list :tool-result :tool tool :status ':error :output output))))
+          (test-assert
+           (and (equal (first entry)
+                       (terminal-span ':failure (format nil "✗ ~A failed" tool)))
+                (find (terminal-span ':plain reason) entry :test #'equal))
+           "the failure header identifies the tool and its body shows only the reason"))))
     (let* ((entry (conversation-record-entry
                    application
                    (list :tool-result :seq 6 :time 0 :call-id 5
                          :tool "self.eval" :status ':error
                          :output (format nil
-                                         "Needs a value.~2%Available restarts:~%~
+                                         "self.eval failed: Needs a value.~2%Available restarts:~%~
                                             CONTINUE  Try again.~%~
                                             USE-VALUE  Supply a value.~%~
                                           Retry the identical call with a restart."))))
@@ -3036,7 +3053,8 @@
       (test-assert (equal (first entry)
                           (terminal-span :failure "✗ self.eval failed"))
                    "failed tool results present a failure header")
-      (test-assert (and (search "condition" text)
+      (test-assert (and (find (terminal-span ':plain "Needs a value.") entry :test #'equal)
+                        (search "condition" text)
                         (search "available restarts" text)
                         (search "retry" text)
                         (find-if (lambda (span)
