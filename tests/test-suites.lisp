@@ -235,6 +235,7 @@
   test-terminal-compact-success-stream-and-retry
   test-terminal-compact-call-groups
   test-terminal-fullscreen-viewport
+  test-terminal-fullscreen-pinned-activities
   test-terminal-fullscreen-new-conversation
   test-terminal-fullscreen-small-windows
   test-terminal-fullscreen-flush-wrap-cursor

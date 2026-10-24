@@ -266,6 +266,79 @@
       (test-assert (string= "draft" (line-editor-text (terminal-ui-editor ui))) "scrolling preserves the draft")))
   nil)
 
+(-> test-terminal-fullscreen-pinned-activities () null)
+(defun test-terminal-fullscreen-pinned-activities ()
+  "Keep live chrome beside the draft while unfinished output scrolls with history."
+  (let* ((terminal (make-instance 'recording-terminal :columns 100 :rows 36))
+         (markers '("REPL" "exec:1" "exec:2" "review-3" "receiving response"
+                    "preview-live" "notice-live" "steer-live" "queued-live")))
+    (with-terminal-ui (ui (terminal-ui-create :terminal terminal :fullscreen-p t
+                                             :prompt "> " :clock-function (constantly 10)))
+      (terminal-ui-set-input ui "draft")
+      (terminal-ui-append-finalized-batch
+       ui (loop for index below 60 collect (list index (format nil "history ~D" index))))
+      (terminal-ui-set-status ui "receiving response")
+      (terminal-ui-set-command-activities
+       ui (list (list :id "exec:1" :type ':tool :index 1 :tool "shell.run"
+                      :description "Build the release" :state ':running
+                      :duration-ms 1000 :detached t)
+                (list :id "exec:2" :type ':tool :index 2 :tool "rlm.infer"
+                      :description "Review source" :state ':running
+                      :duration-ms 1000 :detached t)))
+      (terminal-ui-set-agent-activities
+       ui (list (list :id "review-3" :index 3 :agent "reviewer" :state ':running
+                      :current-tool "resource.read" :current-tool-duration-ms 1000
+                      :recent-tools nil :request-count 1 :duration-ms 1000
+                      :assignment "Review the patch." :detached t)))
+      (terminal-ui-set-preview-rows ui (list (list (terminal-span ':plain "preview-live"))))
+      (terminal-ui-set-notice ui "notice-live" :duration-seconds 100)
+      (terminal-ui-set-pending-inputs ui '("steer-live") '("queued-live"))
+      (terminal-ui-stream-update ui :tail "unfinished-output")
+      (labels ((frame ()
+                 (mapcar #'clinedi:ansi-strip (terminal-ui-fullscreen--frame ui 10)))
+
+               (positions (rows)
+                 (loop for marker in markers
+                       collect (position-if (lambda (row) (search marker row)) rows))))
+        (let* ((initial (frame))
+               (pinned (positions initial))
+               (input-row (position-if (lambda (row) (search "draft" row)) initial)))
+          (test-assert (every #'integerp pinned) "all active chrome fits above the draft")
+          (test-assert (some (lambda (row) (search "unfinished-output" row)) initial)
+                       "tail-follow mode shows unfinished transcript output")
+          (dolist (event '(:page-up (:scroll -1) :scroll-top :page-down :scroll-bottom))
+            (terminal-ui-process-event ui event)
+            (let ((rows (frame)))
+              (test-assert (equal pinned (positions rows))
+                           "history navigation leaves each live chrome row beside the draft")
+              (test-assert (search "draft" (nth input-row rows))
+                           "navigation keeps the input cursor row")))
+          (terminal-ui-process-event ui ':scroll-top)
+          (test-assert (notany (lambda (row) (search "unfinished-output" row)) (frame))
+                       "unfinished transcript output scrolls away rather than joining the pinned chrome")
+          (let ((top (fullscreen-test--top ui)))
+            (terminal-ui-stream-update ui :tail "new unfinished output")
+            (terminal-ui-append-finalized ui ':later "new committed output")
+            (test-assert (and (= top (fullscreen-test--top ui))
+                              (equal pinned (positions (frame))))
+                         "new output preserves both the history anchor and pinned chrome"))
+          (dolist (row pinned)
+            (test-assert (null (terminal-ui-fullscreen--click-action ui 1 (1+ row)))
+                         "pinned chrome has no transcript click target")))
+        (terminal-ui-set-input ui (format nil "猫 draft~%second line"))
+        (dolist (size '((20 8) (1 1) (5 3) (80 18)))
+          (destructuring-bind (width height) size
+            (terminal-ui-resize ui width :rows height)
+            (multiple-value-bind (rows row column) (terminal-ui-fullscreen--frame ui 10)
+              (test-assert (and (= (length rows) height)
+                                (<= 0 row) (< row height)
+                                (<= 0 column) (< column width)
+                                (every (lambda (display)
+                                         (<= (clinedi:ansi-display-width display) width))
+                                       rows))
+                           "busy chrome and a multiline draft fit a resized frame")))))))
+  nil)
+
 (-> test-terminal-fullscreen-small-windows () null)
 (defun test-terminal-fullscreen-small-windows ()
   "Keep Unicode drafts and the cursor inside resized, even one-cell, viewports."

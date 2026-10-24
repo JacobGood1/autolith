@@ -199,10 +199,21 @@ composer's dim placeholder without reading as a second modeline."
     (terminal--render-spans (terminal-ui-terminal ui)
                             (terminal--clip-spans spans width))))
 
+(-> terminal-ui-fullscreen--prompt-prefix
+    (fullscreen-terminal-ui &key (:width integer) (:limit (integer 0)) (:now (option real)))
+    list)
+(defun terminal-ui-fullscreen--prompt-prefix (ui &key width limit now)
+  "Bound prompt-adjacent rows to LIMIT, omitting their leading transcript gap."
+  (let* ((rows (terminal-ui-fullscreen--display-rows
+                ui (terminal-ui--prompt-prefix-rows ui now) width))
+         (visible (member-if (lambda (row) (plusp (length row))) rows))
+         (count (min limit (if visible (1+ (length visible)) 0))))
+    (subseq (append visible (when visible (list ""))) 0 count)))
+
 (-> terminal-ui-fullscreen--frame (fullscreen-terminal-ui (option real))
     (values list integer integer))
 (defun terminal-ui-fullscreen--frame (ui status-now)
-  "Compose only visible transcript rows above a fixed-bottom composer."
+  "Compose scrollable transcript output above pinned activity and input rows."
   (let* ((terminal (terminal-ui-terminal ui))
          (width (max 1 (terminal-columns terminal)))
          (height (max 1 (terminal-rows terminal))))
@@ -211,10 +222,20 @@ composer's dim placeholder without reading as a second modeline."
         (terminal-ui-fullscreen--composer ui width height)
       (let* ((viewport (fullscreen-terminal-ui-viewport ui))
              (separator-p (> height (length composer)))
-             (space (max 0 (- height (length composer) (if separator-p 1 0))))
+             (available (max 0 (- height (length composer) (if separator-p 1 0))))
+             ;; Keep a transcript row even when activity fills the available space.
+             (prefix (terminal-ui-fullscreen--prompt-prefix
+                      ui :width width :limit (max 0 (1- available)) :now status-now))
+             (space (- available (length prefix)))
              (committed (clinedi:transcript-viewport-row-count viewport))
-             (live (coerce (terminal-ui-fullscreen--display-rows
-                            ui (terminal-ui--live-prefix-rows ui status-now) width) 'vector))
+             (tail (terminal-ui-stream-tail ui))
+             (live (coerce
+                    (terminal-ui-fullscreen--display-rows
+                     ui (when tail
+                          (append (when (terminal-ui-compact-tail-group ui) (list nil))
+                                  (terminal-ui--stream-tail-rows terminal tail width)))
+                     width)
+                    'vector))
              (total (+ committed (length live)))
              (top (clinedi:transcript-viewport-layout viewport space
                                                       :extra-rows (length live)))
@@ -229,10 +250,9 @@ composer's dim placeholder without reading as a second modeline."
          (append visible (make-list (max 0 (- space (length visible))) :initial-element "")
                  (when separator-p
                    (list (terminal-ui-fullscreen--legend-row
-                          ui
-                          :top top :total total :space space :width width)))
-                 composer)
-         (+ space (if separator-p 1 0) cursor-row) cursor-column)))))
+                          ui :top top :total total :space space :width width)))
+                 prefix composer)
+         (+ space (if separator-p 1 0) (length prefix) cursor-row) cursor-column)))))
 
 
 ;;;; -- Physical Frames and Navigation --

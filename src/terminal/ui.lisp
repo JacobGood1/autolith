@@ -1997,9 +1997,9 @@ form keeps every speculative Markdown wrap live until the logical line commits."
             (get-output-stream-string display-stream)
             cursor-index)))
 
-(-> terminal-ui--live-prefix-rows (terminal-ui &optional (option real)) list)
-(defun terminal-ui--live-prefix-rows (ui &optional status-now)
-  "Return the live activity and unfinished transcript rows before the composer."
+(-> terminal-ui--prompt-prefix-rows (terminal-ui &optional (option real)) list)
+(defun terminal-ui--prompt-prefix-rows (ui &optional status-now)
+  "Return the prompt's status, activities, previews and pending inputs."
   (let* ((terminal (terminal-ui-terminal ui))
          (row-width (max 1 (terminal-columns terminal)))
          (status-row-p (terminal-ui--status-row-visible-p ui))
@@ -2086,12 +2086,17 @@ form keeps every speculative Markdown wrap live until the logical line commits."
                   (terminal-span ':lisp-prompt "Shift-Tab")
                   (terminal-span ':hint " cycle"))
                  row-width))))))
-    (let ((tail (terminal-ui-stream-tail ui)))
-      (when tail
-        (setf rows
-              (append rows
-                      (terminal-ui--stream-tail-rows
-                       terminal tail row-width)))))
+    rows))
+
+(-> terminal-ui--live-prefix-rows (terminal-ui &optional (option real)) list)
+(defun terminal-ui--live-prefix-rows (ui &optional status-now)
+  "Return the live activity and unfinished transcript rows before the composer."
+  (let* ((terminal (terminal-ui-terminal ui))
+         (row-width (max 1 (terminal-columns terminal)))
+         (rows (terminal-ui--prompt-prefix-rows ui status-now))
+         (tail (terminal-ui-stream-tail ui)))
+    (when tail
+      (setf rows (append rows (terminal-ui--stream-tail-rows terminal tail row-width))))
     (when rows
       (setf rows (append rows (list nil))))
     (if (terminal-ui-compact-tail-group ui)
