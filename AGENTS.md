@@ -312,10 +312,35 @@ is started. Select suites or individual cases for focused work:
 ```
 
 Selectors are exact, case-insensitive names; repeated selectors form a union.
-Unknown names fail. Selected runs and `--list` skip recovery probes. `--timeout`
+Unknown names fail. Selected runs and `--list` skip the source checks and
+recovery probes. `--timeout`
 is a per-worker deadline in seconds (default 600). Every run reports case timings
 and the slowest cases. Worker failures, invalid results, and timeouts fail the
 command; worker process groups are terminated and reaped on exit.
+
+A complete run also checks the source and its compiler warnings. While the
+cases run, a separate process compiles every system from scratch into a private
+FASL directory and records each warning SBCL would print. Every warning nobody
+silenced on purpose, style warnings included, fails the check; silence one only
+where its reason is visible in the source. The rules in `checks/` enforce the
+mechanical parts of this file: layout and alignment, section headers,
+documentation strings, `->` declarations, keyword parameters, list accessors,
+`format` percent signs, constants, the project package, TODO and FIXME
+comments, and em dashes. They also require every Lisp file to be a fixed point
+of parinfer-rust's paren mode, so editors running parinfer never reindent
+committed source. The bootstrap builds the private parinfer library from the
+commit in `native/parinfer/commit`. Every finding is reported at the end of
+the run.
+
+```sh
+./script/check --source
+./script/check --fix
+```
+
+`--source` runs only the source rules and the warning compile. `--fix` repairs
+what the rules can repair, then reports the rest. Layout repairs that would
+change anything but whitespace outside string literals are refused. Review a
+repair like any other change.
 
 Set `AUTOLITH_TEST_STACK_AFTER` to a positive integer number of seconds when
 diagnosing a stalled worker. Inspect its captured log for `RUN` entries and

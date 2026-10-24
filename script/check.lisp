@@ -44,7 +44,8 @@ then the online CPU count from getconf or sysctl."
 
 (defun check--parse-arguments (arguments)
   "Parse selectors and execution limits, rejecting invalid command arguments."
-  (let ((suites nil) (tests nil) (jobs nil) (timeout 600) (list-p nil) (help-p nil))
+  (let ((suites nil) (tests nil) (jobs nil) (timeout 600) (list-p nil) (help-p nil)
+        (source-p nil) (fix-p nil))
     (labels ((argument (option)
                (or (pop arguments) (check--fail "~A requires a value." option)))
 
@@ -69,13 +70,19 @@ then the online CPU count from getconf or sysctl."
                   (setf timeout (positive-integer option)))
                  ((string= option "--list")
                   (setf list-p t))
+                 ((string= option "--source")
+                  (setf source-p t))
+                 ((string= option "--fix")
+                  (setf fix-p t))
                  ((string= option "--help")
                   (setf help-p t))
                  (t
                   (check--fail "Unknown argument ~S. Use --help." option)))))
+    (when (and (or source-p fix-p) (or suites tests list-p))
+      (check--fail "--source and --fix do not combine with --suite, --test, or --list."))
     (list :suites (nreverse suites) :tests (nreverse tests)
           :jobs (or jobs (check--processor-count))
-          :timeout timeout :list list-p :help help-p)))
+          :timeout timeout :list list-p :help help-p :source source-p :fix fix-p)))
 
 (defun check--usage (&optional (stream *standard-output*))
   "Print the supported test command options."
@@ -84,12 +91,14 @@ then the online CPU count from getconf or sysctl."
   --suite NAME   Select a suite (repeatable).
   --test NAME    Select a case (repeatable).
   --list         List selected suites and cases without running them.
+  --source       Run only the source checks and the clean-compile warning check.
+  --fix          Repair what the source checks can repair, then report the rest.
   --jobs N       Maximum concurrent test processes (default: available logical CPUs).
   --timeout N    Deadline in seconds per process (default: 600).
   --help         Show this help.
 
-With no selectors, run every case and the recovery checks.
-Selectors and --list bypass recovery checks.
+With no selectors, run the source checks, the clean-compile warning check,
+every case, and the recovery checks. Selectors and --list run only cases.
 " stream))
 
 (defun check--read-single-form (pathname)
@@ -517,6 +526,107 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
     (check--load-test-system source-root)
     setup))
 
+(defun check--parinfer-library ()
+  "Return the private parinfer library the bootstrap installs."
+  (merge-pathnames (concatenate 'string "native/parinfer/"
+                                (uiop:symbol-call '#:autolith '#:source-parinfer-library-name))
+                   (autolith-application-root :data)))
+
+(defun check--source-findings (source-root &key fix)
+  "Return the source rules' findings in SOURCE-ROOT, repairing what they can first with FIX."
+  (uiop:symbol-call '#:autolith '#:source-check-run source-root
+                    :fix              fix
+                    :parinfer-library (check--parinfer-library)
+                    :stream           *standard-output*))
+
+(defun check--start-warnings (source-root temporary-root)
+  "Start the clean compile that records SOURCE-ROOT's unsilenced warnings."
+  (uiop:symbol-call '#:autolith '#:source-warning-run-start source-root
+                    :command   (check--runtime-command source-root)
+                    :directory (merge-pathnames "warnings/" temporary-root)))
+
+(defun check--stop-warnings (run)
+  "Stop the clean compile RUN when it is still running."
+  (let ((process (uiop:symbol-call '#:autolith '#:source-warning-run-process run)))
+    (when (uiop:process-alive-p process)
+      (uiop:terminate-process process :urgent t)
+      (uiop:wait-process process))))
+
+(defun check--report-findings (findings)
+  "Print the source and warning FINDINGS and their summary."
+  (uiop:symbol-call '#:autolith '#:source-check-report findings *standard-output*))
+
+(defun check--run-fix (source-root)
+  "Repair what the source rules can, report the rest, and return the exit status."
+  (let ((findings (check--source-findings source-root :fix t)))
+    (check--report-findings findings)
+    (if findings 1 0)))
+
+(defun check--run (options source-root)
+  "Run the checks OPTIONS select and return the exit status.
+
+A complete run starts the clean compile first so it overlaps the source rules,
+the test workers, and the recovery checks, then reports every source finding
+and warning last."
+  (let* ((suites          (getf options :suites))
+         (tests           (getf options :tests))
+         (list-p          (getf options :list))
+         (source-only-p   (getf options :source))
+         (complete-p      (not (or suites tests list-p)))
+         ;; Compile once before concurrent processes load the same FASL cache.
+         (quicklisp-setup (check--load-tests source-root
+                                             :build-sandbox (not (or list-p source-only-p))))
+         (cases           (and (not source-only-p)
+                               (uiop:symbol-call '#:autolith '#:tests-select
+                                                 :suites suites
+                                                 :tests  tests))))
+    (unless (or source-only-p cases)
+      (check--fail "No test cases matched the selection."))
+    (when list-p
+      (uiop:symbol-call '#:autolith '#:tests-list :suites suites :tests tests)
+      (return-from check--run 0))
+    (let ((temporary-root (merge-pathnames
+                           (format nil "autolith-check-~D-~D/" (sb-posix:getpid)
+                                   (random most-positive-fixnum))
+                           (uiop:temporary-directory)))
+          (jobs           (getf options :jobs))
+          (timeout        (getf options :timeout))
+          (warnings       nil))
+      (unwind-protect
+           (progn
+             (when complete-p
+               (setf warnings (check--start-warnings source-root temporary-root)))
+             (let* ((findings (and complete-p (check--source-findings source-root)))
+                    (passed-p (or source-only-p
+                                  (check--run-workers
+                                   cases
+                                   :source-root    source-root
+                                   :temporary-root temporary-root
+                                   :active-core    (check--build-active-core source-root
+                                                                             temporary-root)
+                                   :worker-core    (check--build-worker-core source-root
+                                                                             temporary-root)
+                                   :jobs           jobs
+                                   :timeout        timeout))))
+               (when (and complete-p (not source-only-p))
+                 (check--run-recovery :source-root     source-root
+                                      :temporary-root  temporary-root
+                                      :quicklisp-setup quicklisp-setup
+                                      :jobs            jobs
+                                      :timeout         timeout))
+               (when complete-p
+                 (setf findings
+                       (append findings
+                               (uiop:symbol-call '#:autolith '#:source-warning-run-finish
+                                                 warnings)))
+                 (check--report-findings findings))
+               (if (and passed-p (null findings))
+                   0
+                   1)))
+        (when warnings
+          (check--stop-warnings warnings))
+        (check--delete-temporary-root temporary-root)))))
+
 (defun check--delete-temporary-root (pathname)
   "Delete PATHNAME through Autolith's host-specific directory-tree adapter."
   (let ((platform-symbol (find-symbol "*PLATFORM*" "AUTOLITH"))
@@ -531,39 +641,15 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
   "Execute the test CLI and return its exit status."
   (handler-case
       (let ((options (check--parse-arguments arguments)))
-        (when (getf options :help)
-          (check--usage)
-          (return-from check-main 0))
-        ;; Compile once before concurrent processes load the same FASL cache.
-        (let ((quicklisp-setup
-                (check--load-tests source-root :build-sandbox (not (getf options :list)))))
-          (let* ((suites (getf options :suites))
-                 (tests (getf options :tests))
-                 (cases (uiop:symbol-call '#:autolith '#:tests-select :suites suites :tests tests)))
-            (unless cases
-              (check--fail "No test cases matched the selection."))
-            (when (getf options :list)
-              (uiop:symbol-call '#:autolith '#:tests-list :suites suites :tests tests)
-              (return-from check-main 0))
-            (let* ((temporary-root
-                     (merge-pathnames
-                      (format nil "autolith-check-~D-~D/" (sb-posix:getpid)
-                              (random most-positive-fixnum))
-                      (uiop:temporary-directory)))
-                   (jobs (getf options :jobs))
-                   (timeout (getf options :timeout)))
-              (unwind-protect
-                   (let* ((active-core (check--build-active-core source-root temporary-root))
-                          (worker-core (check--build-worker-core source-root temporary-root))
-                          (passed-p (check--run-workers
-                                     cases :source-root source-root :temporary-root temporary-root
-                                     :active-core active-core :worker-core worker-core
-                                     :jobs jobs :timeout timeout)))
-                     (unless (or suites tests)
-                       (check--run-recovery :source-root source-root :temporary-root temporary-root
-                                            :quicklisp-setup quicklisp-setup :jobs jobs :timeout timeout))
-                     (if passed-p 0 1))
-                 (check--delete-temporary-root temporary-root))))))
+        (cond
+          ((getf options :help)
+           (check--usage)
+           0)
+          ((getf options :fix)
+           (check--load-tests source-root)
+           (check--run-fix source-root))
+          (t
+           (check--run options source-root))))
     (error (condition)
       (format *error-output* "~&Test command failed: ~A~%" condition)
       1)))
