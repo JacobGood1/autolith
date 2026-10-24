@@ -371,6 +371,7 @@
                               (:file "rules")
                               (:file "formatting")
                               (:file "definitions")
+                              (:file "parinfer")
                               (:file "runner")))))
 
 (asdf:defsystem #:autolith/tests

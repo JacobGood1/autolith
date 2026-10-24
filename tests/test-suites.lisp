@@ -1500,4 +1500,5 @@
   test-source-rule-findings
   test-source-rule-repairs
   test-source-check-repair-guard
-  test-source-check-repository-run)
+  test-source-check-repository-run
+  test-source-parinfer-missing-library)

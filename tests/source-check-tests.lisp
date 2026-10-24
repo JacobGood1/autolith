@@ -253,3 +253,22 @@
                    "the repair is written in place")))
   nil)
 
+
+;;;; -- Native and Process Boundaries --
+
+(-> test-source-parinfer-missing-library () null)
+(defun test-source-parinfer-missing-library ()
+  "Report a missing parinfer library as a structured failure that names the bootstrap."
+  (with-test-configuration (configuration root)
+    (declare (ignore configuration))
+    (let ((library (merge-pathnames (source-parinfer-library-name) root)))
+      (test-assert (handler-case
+                       (progn
+                         (source-parinfer-run library "(a)")
+                         nil)
+                     (source-parinfer-error (condition)
+                       (and (equal (source-parinfer-error-library condition) library)
+                            (search "./script/bootstrap" (autolith-error-message condition))
+                            t)))
+                   "a missing library is a parinfer error")))
+  nil)

@@ -177,6 +177,10 @@ grandchild processes all land under the rail."
     (bootstrap-call-railed
      (lambda ()
        (load (merge-pathnames "script/build-fff.lisp" source-root))))
+    (bootstrap-section "Building the private parinfer library")
+    (bootstrap-call-railed
+     (lambda ()
+       (load (merge-pathnames "script/build-parinfer.lisp" source-root))))
     (bootstrap-section "Building the private ColorLisp syntax library")
     (bootstrap-call-railed
      (lambda ()

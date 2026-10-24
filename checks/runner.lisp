@@ -36,10 +36,12 @@
 
 ;;;; -- Public Functions --
 
-(-> source-check-rules () list)
-(defun source-check-rules ()
-  "Return instances of every source rule."
-  (mapcar #'make-instance *source-check-rule-classes*))
+(-> source-check-rules (&key (:parinfer-library (option pathname))) list)
+(defun source-check-rules (&key parinfer-library)
+  "Return instances of every source rule, parinfer's when PARINFER-LIBRARY is given."
+  (append (mapcar #'make-instance *source-check-rule-classes*)
+          (and parinfer-library
+               (list (make-instance 'source-parinfer-rule :library parinfer-library)))))
 
 (-> source-check-paths (pathname) list)
 (defun source-check-paths (root)
@@ -119,14 +121,15 @@ layout repairs changed anything but whitespace outside string literals."
     (values (source-file-text current) (nreverse changed))))
 
 (-> source-check-run
-    (pathname &key (:fix boolean) (:paths (option list)) (:stream stream))
+    (pathname &key (:fix boolean) (:parinfer-library (option pathname))
+                   (:paths (option list)) (:stream stream))
     list)
-(defun source-check-run (root &key fix paths (stream *standard-output*))
+(defun source-check-run (root &key fix parinfer-library paths (stream *standard-output*))
   "Check ROOT's tracked files, or PATHS among them, and return the remaining findings.
 
 With FIX, repairable findings are repaired in place first, and each repaired
 file is reported to STREAM. SOURCE-CHECK-REPORT prints the findings."
-  (let* ((rules                       (source-check-rules))
+  (let* ((rules                       (source-check-rules :parinfer-library parinfer-library))
          (*source-check-system-paths* (let ((system-paths (source-check-system-paths root)))
                                         (and (plusp (hash-table-count system-paths))
                                              system-paths)))
