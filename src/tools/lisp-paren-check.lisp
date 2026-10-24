@@ -31,10 +31,22 @@
       (error 'tool-error
              :message "lisp.paren-check requires a non-empty string path."
              :tool-name "lisp.paren-check"))
-    (multiple-value-bind (success-p content)
-        (lisp-paren-check-path
-         (workspace-tool-path context requested :tool-name "lisp.paren-check")
-         :readable-roots *workspace-tool-readable-roots*)
-      (if success-p
-          (tool-success content)
-          (tool-failure content)))))
+    (let* ((path (workspace-tool-path context requested :tool-name "lisp.paren-check"))
+           (roots (workspace-tool-readable-roots context)))
+      (multiple-value-bind (success-p content)
+          (lisp-paren-check-path
+           path
+           ;; An approved outside path is readable for this check, as it is for
+           ;; resource.read; the check still stays inside the requested tree.
+           :readable-roots (if (workspace-tool--read-path-allowed-p path roots)
+                               roots
+                               (cons (lisp-paren-check-tool--root path) roots)))
+        (if success-p
+            (tool-success content)
+            (tool-failure content))))))
+
+(-> lisp-paren-check-tool--root (pathname) pathname)
+(defun lisp-paren-check-tool--root (path)
+  "Return the directory that makes approved PATH readable: itself, or the file's directory."
+  (or (uiop:directory-exists-p path)
+      (uiop:pathname-directory-pathname path)))

@@ -858,6 +858,18 @@
                         (tool-execute tool full-access (json-object "path" sibling-native)))
                        (= (length requests) 1))
                   "lisp.paren-check checks an approved file outside the workspace")
+                 ;; An agent turn binds the readable roots to its workspace and
+                 ;; source, as a recovery session's worktree does.
+                 (let ((*workspace-tool-readable-roots* (list workspace)))
+                   (dolist (target (list sibling-native
+                                         (uiop:native-namestring
+                                          (uiop:pathname-directory-pathname
+                                           (truename sibling-asd)))))
+                     (test-assert
+                      (tool-result-success-p
+                       (tool-execute tool full-access (json-object "path" target)))
+                      (format nil "lisp.paren-check checks approved ~A outside a bound workspace"
+                              target))))
                  (setf requests nil)
                  (workspace-tool-path full-access (uiop:native-namestring workspace))
                  (test-assert (null requests)
