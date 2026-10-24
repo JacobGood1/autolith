@@ -745,10 +745,11 @@ string notation. Tool calls return their usual values, so
 modified report strings also use string notation. Synchronous and asynchronous
 evaluation retain the same display text for replay.
 
-Provider tool calls show parenthesized names, such as =(shell.run)=, above aligned
-argument tables with Lisp keyword labels, such as =:directory= and
-=:timeout-seconds=. Shell commands and Lisp source appear in highlighted rails
-directly below the arguments, without a blank row between them.
+Provider tool calls show parenthesized names, such as =(shell.run)=, with Lisp
+keyword labels, such as =:directory= and =:timeout-seconds=. Short argument tables
+fit inside the parentheses on one line; wider calls use aligned rows below the
+name. Shell commands and Lisp source appear in highlighted rails directly below
+the arguments, without a blank row between them.
 Consecutive single-line tool success messages share a block without blank rows.
 Unified diffs in captured output use the ordinary output rail, with their
 original change prefixes and indentation.

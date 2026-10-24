@@ -2744,9 +2744,17 @@
             (<= (text-cell-width header) 19)
             (char= (char header (1- (length header))) #\…))
        "provider-controlled tool names are sanitized and width-bounded"))
+    (let ((inline (response-item-entry
+                   (application-tests--ui-application :columns 100 :compact-view-p nil)
+                   (json-object
+                    "type" "function_call" "namespace" "odd" "name" "tool"
+                    "arguments" "{\"z\":false,\"a key)\":true,\"nested\":{\"value\":null}}"))))
+      (test-assert (string= (test-terminal-row-text inline)
+                            "▸ (odd.tool :|a key)| true :nested.value null :z false)")
+                   "short call arguments fold into one header line"))
     (let* ((entry
              (response-item-entry
-              (application-tests--ui-application :columns 100 :compact-view-p nil)
+              (application-tests--ui-application :columns 40 :compact-view-p nil)
               (json-object
                "type" "function_call" "namespace" "odd" "name" "tool"
                "arguments" "{\"z\":false,\"a key)\":true,\"nested\":{\"value\":null}}")))
@@ -2809,9 +2817,10 @@
                                   "restart" "CONTINUE")))))
            (text (test-terminal-row-text entry)))
       (test-assert
-       (and (equal (first entry) (terminal-span :tool "▸ (self.eval)"))
-            (search ":restart" text))
-       "provider calls show a parenthesized name above their argument table")
+       (and (string= (first (uiop:split-string text :separator '(#\Newline)))
+                     "▸ (self.eval :restart CONTINUE)")
+            (search "│ form-line-1" text))
+       "provider calls fold short arguments into their header above body rows")
       (test-assert (and (search "form-line-1" text)
                         (search "… +2 more lines" text))
                    "self.eval previews only the first configured source lines")
@@ -2839,7 +2848,7 @@
             (not (search "{\"forms\"" text)))
        "lisp.eval calls show a parenthesized name above their source rail"))
     (let* ((entry (response-item-entry
-                   application
+                   (application-tests--ui-application :columns 100 :compact-view-p nil)
                    (json-object
                     "type" "function_call"
                     "namespace" "shell"
@@ -2850,15 +2859,12 @@
                                   "directory" "/tmp/work"
                                   "timeout-seconds" 30)))))
            (text (test-terminal-row-text entry)))
-      (let* ((lines (rest (uiop:split-string text :separator '(#\Newline))))
-             (rail (position-if (lambda (line) (search "$ printf" line)) lines)))
+      (let ((lines (uiop:split-string text :separator '(#\Newline))))
         (test-assert
-         (and rail (= rail 2)
-              (search ":directory" (first lines))
-              (search "/tmp/work" (first lines))
-              (search ":timeout-seconds" (second lines))
-              (search "30" (second lines)))
-         "shell source begins immediately after the last keyword argument row")))
+         (and (string= (first lines)
+                       "▸ (shell.run :directory /tmp/work :timeout-seconds 30)")
+              (search "$ printf" (second lines)))
+         "shell source begins immediately after the inline arguments")))
     (dolist (columns '(24 40 100))
       (dolist (case (list (list "shell" "run"
                                (json-object "command" "printf hello" "directory" "work"))
@@ -2875,8 +2881,11 @@
                  (lines (uiop:split-string (test-terminal-row-text entry)
                                            :separator '(#\Newline))))
             (test-assert
-             (and (search "  :" (second lines))
-                  (search "│ " (third lines))
+             (and (if (< columns 40)
+                      (and (search "  :" (second lines))
+                           (search "│ " (third lines)))
+                      (and (search (format nil "▸ (~A.~A :" namespace name) (first lines))
+                           (search "│ " (second lines))))
                   (find ':syntax-keyword entry :key #'terminal-span-style)
                   (every (lambda (line) (< (text-cell-width line) columns)) lines))
              (format nil "~A.~A arguments touch the source rail at ~D columns"
@@ -3073,6 +3082,43 @@
                  "help lists every interactive command")
     (test-assert (search "pick a generation for recovery" help)
                  "help lists command descriptions"))
+  nil)
+
+(-> test-tool-call-inline-arguments () null)
+(defun test-tool-call-inline-arguments ()
+  "Fit complete arguments by terminal cells and retain wrapped argument tables."
+  (dolist (value '("sample" "界é" ""))
+    (let* ((expected (format nil "▸ (odd.tool :value ~A)" value))
+           (width (text-cell-width expected)))
+      (dolist (fits-p '(nil t))
+        (let* ((columns (+ width (if fits-p 1 0)))
+               (entry (response-item-entry
+                       (application-tests--ui-application :columns columns :compact-view-p nil)
+                       (json-object "type" "function_call" "namespace" "odd" "name" "tool"
+                                    "arguments" (json-encode (json-object "value" value)))))
+               (text (test-terminal-row-text entry)))
+          (test-assert
+           (if fits-p
+               (string= text expected)
+               (and (find #\Newline text)
+                    (string= (terminal-span-text (first entry)) "▸ (odd.tool)")))
+           (format nil "inline fit uses terminal cells and reserves one column for ~S" value))
+          (test-assert
+           (and (find ':syntax-keyword entry :key #'terminal-span-style)
+                (every (lambda (line) (< (text-cell-width line) columns))
+                       (uiop:split-string text :separator '(#\Newline))))
+           "inline and table presentations preserve keyword styling and width bounds")))))
+  (let* ((entry (response-item-entry
+                 (application-tests--ui-application :columns 24 :compact-view-p nil)
+                 (json-object "type" "function_call" "namespace" "odd" "name" "tool"
+                              "arguments" "{\"value\":\"alpha beta gamma delta epsilon zeta\"}")))
+         (text (test-terminal-row-text entry)))
+    (test-assert
+     (and (> (count #\Newline text) 1)
+          (string= (terminal-span-text (first entry)) "▸ (odd.tool)")
+          (every (lambda (word) (search word text))
+                 '("alpha" "beta" "gamma" "delta" "epsilon" "zeta")))
+     "a wrapped argument retains its complete table rather than a partial inline header"))
   nil)
 
 (-> test-recovery-cursor-normalization () null)

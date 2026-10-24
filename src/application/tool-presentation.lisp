@@ -155,23 +155,79 @@ assumed to be shell source."
         (append (terminal--clip-spans indented (max 0 (1- maximum-width)))
                 (list (terminal-span ':dim "…"))))))
 
+(-> application--tool-argument-row-p (list) boolean)
+(defun application--tool-argument-row-p (row)
+  "Return whether ROW begins a provider call's keyword/value argument table."
+  (and row
+       (eq (terminal-span-style (first row)) ':syntax-keyword)))
+
+(-> application--inline-tool-call-header
+    (application string list &key (:style terminal-style))
+    (values (option list) list))
+(defun application--inline-tool-call-header (application header rows &key (style ':tool))
+  "Fold complete leading argument rows into HEADER when they fit one line.
+
+Return the inline header spans and remaining body rows, or NIL and the original
+ROWS. Wrapped arguments retain their table. Specialized body rows follow the
+header without participating in compaction."
+  (let* ((arguments (loop for row in rows
+                          while (application--tool-argument-row-p row)
+                          collect row))
+         (complete-p
+           (and arguments
+                (every (lambda (row)
+                         (and (= (length row) 3)
+                              (uiop:string-prefix-p
+                               ":" (terminal-span-text (first row)))
+                              (string= (terminal-span-text (second row)) "  ")))
+                       arguments))))
+    (when (and complete-p (uiop:string-prefix-p "▸ " header))
+      (let* ((spans
+               (append
+                (list (terminal-span
+                       style
+                       (format nil "▸ (~A"
+                               (sanitize-text (subseq header 2) :single-line-p t))))
+                (loop for row in arguments
+                      append (list
+                              (terminal-span ':plain " ")
+                              (terminal-span
+                               ':syntax-keyword
+                               (string-right-trim
+                                '(#\Space) (terminal-span-text (first row))))
+                              (terminal-span ':plain " ")
+                              (third row)))
+                (list (terminal-span style ")"))))
+             (available-width
+               (max 1 (1- (terminal-columns
+                            (terminal-ui-terminal (application-ui application)))))))
+        (when (<= (terminal--spans-width spans) available-width)
+          (return-from application--inline-tool-call-header
+            (values spans (nthcdr (length arguments) rows))))))
+    (values nil rows)))
+
 (-> application--tool-entry
     (application &key (:style terminal-style) (:header string)
                  (:detail (option string)) (:rows list))
     list)
 (defun application--tool-entry
     (application &key (style ':plain) (header "") detail rows)
-  "Return a transcript header followed by concise styled tool ROWS."
-  (append
-   (application--transcript-entry
-    application
-    :style style
-    :header (application--tool-header application header)
-    :detail detail)
-   (loop for row in rows
-         append (list (terminal-span ':plain (string #\Newline)))
-         when row
-           append (application--tool-row-spans application row))))
+  "Return a tool entry, inlining fitting call arguments above any body rows."
+  (multiple-value-bind (inline-header body-rows)
+      (if (and *application-provider-call-presentation* (null detail))
+          (application--inline-tool-call-header application header rows :style style)
+          (values nil rows))
+    (append
+     (or inline-header
+         (application--transcript-entry
+          application
+          :style style
+          :header (application--tool-header application header)
+          :detail detail))
+     (loop for row in body-rows
+           append (list (terminal-span ':plain (string #\Newline)))
+           when row
+             append (application--tool-row-spans application row)))))
 
 (-> application--tool-field-rows (application list) list)
 (defun application--tool-field-rows (application fields)
