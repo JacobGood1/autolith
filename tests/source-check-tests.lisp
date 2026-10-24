@@ -272,3 +272,43 @@
                             t)))
                    "a missing library is a parinfer error")))
   nil)
+
+(-> test-source-warning-run () null)
+(defun test-source-warning-run ()
+  "Turn the compiling process's records into distinct findings, and report a failed compile."
+  (with-test-configuration (configuration root)
+    (declare (ignore configuration))
+    (let ((command (list (lisp-worker-sbcl-command) "--script")))
+      (source-check-tests--write
+       root "script/compile-warnings.lisp"
+       (source-check-tests--text
+        '("(require :asdf)"
+          "(with-open-file (stream (third (uiop:command-line-arguments)) :direction :output)"
+          "  (prin1 '((:path \"src/a.lisp\" :line 3 :type \"style-warning\" :message \"unused"
+          "   variable\")"
+          "          (:path \"src/a.lisp\" :line 3 :type \"style-warning\" :message \"unused variable\")"
+          "          (:path nil :line nil :type \"warning\" :message \"undefined function\"))"
+          "         stream))")))
+      (let ((findings (source-warning-run-finish
+                       (source-warning-run-start root
+                                                 :command   command
+                                                 :directory (merge-pathnames "run/" root)))))
+        (test-assert (equal (mapcar (lambda (finding)
+                                      (list (source-finding-path finding) (source-finding-line finding)
+                                            (source-finding-message finding)))
+                                    findings)
+                            '(("src/a.lisp" 3 "style-warning: unused variable")
+                              ("(end of compilation)" 1 "warning: undefined function")))
+                     "records become one finding per distinct warning"))
+      (delete-file (merge-pathnames "script/compile-warnings.lisp" root))
+      (test-assert (handler-case
+                       (progn
+                         (source-warning-run-finish
+                          (source-warning-run-start root
+                                                    :command   command
+                                                    :directory (merge-pathnames "failed/" root)))
+                         nil)
+                     (source-warning-run-failed ()
+                       t))
+                   "a compile that cannot finish is a failure, not a clean result")))
+  nil)
