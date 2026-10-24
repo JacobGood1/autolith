@@ -30,6 +30,7 @@ the clanker can, and the same machinery is exposed to you.
 Type =(=, =[=, or ={= in the composer to insert a matching pair with the cursor
 between the braces. Type the closing brace to move past it, or press Backspace
 between an empty pair to delete both braces.
+The work indicator displays =REPL= with one letter highlighted in sequence.
 
 * Terminal diagrams
 
