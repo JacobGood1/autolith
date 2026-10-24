@@ -1606,7 +1606,7 @@ OPERATION's own declared target line so they stay numbered."
     (application--tool-entry
      application
      :style (if success-p ':success ':failure)
-     :header (format nil "~:[✗ ~A failed~;✓ ~A~]" success-p tool-name)
+     :header (format nil "~:[! ~A failed~;✓ ~A~]" success-p tool-name)
      :detail complete-detail
      :rows rows)))
 
@@ -2338,7 +2338,7 @@ log references and byte counts are for the model."
           (application--tool-entry
            application
            :style (if clean-p ':success ':failure)
-           :header (format nil "~:[✗~;✓~] ~A ~A"
+           :header (format nil "~:[!~;✓~] ~A ~A"
                            clean-p (getf (rest record) :tool) exit)
            :detail (application--tool-result-timing record)
            :rows (append

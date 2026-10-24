@@ -2925,7 +2925,7 @@
                                   combined output: 4 bytes retained, 4 bytes observed; ~
                                   capture-complete yes; status complete~%~
                                   Log: shell-log:a/b/c/output~%oops~%")
-                     ':failure "✗ shell.run exit 2" '("oops"))
+                      ':failure "! shell.run exit 2" '("oops"))
                (list "a timeout with truncated separate streams" ':error
                      (format nil "exit unavailable~%Execution: timed-out; timeout yes; cancelled no~%~
                                   stdout: 10 bytes retained, 99 bytes observed; ~
@@ -2934,7 +2934,7 @@
                                   stderr: 5 bytes retained, 5 bytes observed; ~
                                   capture-complete yes; status complete~%~
                                   Log: shell-log:a/b/c/error~%boom~%")
-                     ':failure "✗ shell.run exit unavailable"
+                      ':failure "! shell.run exit unavailable"
                      '("timed out" "output truncated: 10 of 99 bytes kept"
                        "stdout" "partial" "stderr" "boom"))))
       (destructuring-bind (label status output style header shown) case
@@ -3037,7 +3037,7 @@
                       (list :tool-result :tool tool :status ':error :output output))))
           (test-assert
            (and (equal (first entry)
-                       (terminal-span ':failure (format nil "✗ ~A failed" tool)))
+                        (terminal-span ':failure (format nil "! ~A failed" tool)))
                 (find (terminal-span ':plain reason) entry :test #'equal))
            "the failure header identifies the tool and its body shows only the reason"))))
     (let* ((entry (conversation-record-entry
@@ -3051,7 +3051,7 @@
                                           Retry the identical call with a restart."))))
            (text (test-terminal-row-text entry)))
       (test-assert (equal (first entry)
-                          (terminal-span :failure "✗ self.eval failed"))
+                           (terminal-span :failure "! self.eval failed"))
                    "failed tool results present a failure header")
       (test-assert (and (find (terminal-span ':plain "Needs a value.") entry :test #'equal)
                         (search "condition" text)
