@@ -751,6 +751,7 @@ fit inside the parentheses on one line; wider calls use aligned rows below the
 name. Shell commands and Lisp source appear in highlighted rails directly below
 the arguments, without a blank row between them.
 Consecutive single-line tool success messages share a block without blank rows.
+Consecutive single-line calls to the same tool also share a block without blank rows.
 Unified diffs in captured output use the ordinary output rail, with their
 original change prefixes and indentation.
 

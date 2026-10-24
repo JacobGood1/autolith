@@ -233,6 +233,7 @@
 (define-test-suite fullscreen
   test-terminal-compact-success-groups
   test-terminal-compact-success-stream-and-retry
+  test-terminal-compact-call-groups
   test-terminal-fullscreen-viewport
   test-terminal-fullscreen-new-conversation
   test-terminal-fullscreen-small-windows

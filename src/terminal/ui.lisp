@@ -2094,7 +2094,7 @@ form keeps every speculative Markdown wrap live until the logical line commits."
                        terminal tail row-width)))))
     (when rows
       (setf rows (append rows (list nil))))
-    (if (terminal-ui-compact-success-tail-p ui)
+    (if (terminal-ui-compact-tail-group ui)
         (cons nil rows)
         rows)))
 
@@ -2340,14 +2340,47 @@ while output is deferred and otherwise dropped."
               (not (find #\Return text))
               t))))
 
+(-> terminal-ui--compact-call-tool ((or string list)) (option string))
+(defun terminal-ui--compact-call-tool (entry)
+  "Return the full tool name of a single-line call, or NIL for other entries."
+  (when (and (consp entry)
+             (notany #'termdown:widget-p entry)
+             (eq (terminal-span-style (first entry)) ':tool))
+    (let* ((header (terminal-span-text (first entry)))
+           (text (terminal--spans-text entry))
+           (last-span (first (last entry)))
+           (inline-p (and (not (eq (first entry) last-span))
+                          (eq (terminal-span-style last-span) ':tool)
+                          (string= (terminal-span-text last-span) ")"))))
+      (when (and (uiop:string-prefix-p "▸ (" header)
+                 (> (length header) 3)
+                 (not (find #\Newline text))
+                 (not (find #\Return text)))
+        (let* ((end (if inline-p
+                        (length header)
+                        (and (char= (char header (1- (length header))) #\))
+                             (1- (length header)))))
+               (name (and end (subseq header 3 end))))
+          (and (non-empty-string-p name) name))))))
+
+(-> terminal-ui--compact-entry-group
+    ((or string list))
+    (or null (eql :success) string))
+(defun terminal-ui--compact-entry-group (entry)
+  "Return a shared success group or an exact per-tool call group for ENTRY."
+  (if (terminal-ui--compact-success-p entry)
+      ':success
+      (terminal-ui--compact-call-tool entry)))
+
 (-> terminal-ui--finalized-content
     (terminal-ui (or string list))
     (values string string))
 (defun terminal-ui--finalized-content (ui entry)
   "Return finalized ENTRY as plain text, styled text, and click regions.
 
-Single-line tool successes end with one newline; other entries include a blank
-separator row. Regions index the plain text. This formatter does not change UI."
+Compact tool calls and successes end with one newline; other entries include a
+blank separator row. Regions index the plain text. This formatter does not
+change UI."
   (let* ((terminal (terminal-ui-terminal ui))
          (spans (if (stringp entry)
                     (list (terminal-span ':plain entry))
@@ -2359,7 +2392,7 @@ separator row. Regions index the plain text. This formatter does not change UI."
                  (char= (char plain (1- (length plain))) #\Newline))
       (setf plain (concatenate 'string plain (string #\Newline))
             display (concatenate 'string display (string #\Newline))))
-    (if (terminal-ui--compact-success-p entry)
+    (if (terminal-ui--compact-entry-group entry)
         (values plain display regions)
         (values (concatenate 'string plain (string #\Newline))
                 (concatenate 'string display (string #\Newline))
@@ -2617,35 +2650,36 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
       t)))
 
 (defmethod terminal-ui--append-output :around
-    ((ui terminal-ui) text display &key regions compact-first-p compact-last-p)
-  "Separate compact success groups at committed output boundaries."
+    ((ui terminal-ui) text display &key regions compact-first-group compact-last-group)
+  "Separate compact groups at committed output boundaries."
   (if (zerop (length text))
       (call-next-method)
-      (let* ((previous (terminal-ui-compact-success-tail-p ui))
-             (gap-p (and previous (not compact-first-p)))
+      (let* ((previous (terminal-ui-compact-tail-group ui))
+             (gap-p (and previous (not (equal previous compact-first-group))))
              (prefix (if gap-p (string #\Newline) ""))
              (completed-p nil))
-        (setf (terminal-ui-compact-success-tail-p ui) compact-last-p)
+        (setf (terminal-ui-compact-tail-group ui) compact-last-group)
         (unwind-protect
              (prog1
                  (call-next-method
                   ui (concatenate 'string prefix text)
                   (concatenate 'string prefix display)
                   :regions (termdown:shift-regions regions (length prefix))
-                  :compact-first-p compact-first-p :compact-last-p compact-last-p)
+                  :compact-first-group compact-first-group
+                  :compact-last-group compact-last-group)
                (setf completed-p t))
           (unless completed-p
-            (setf (terminal-ui-compact-success-tail-p ui) previous))))))
+            (setf (terminal-ui-compact-tail-group ui) previous))))))
 
 (defmethod terminal-ui--append-output
-    ((ui terminal-ui) text display &key regions compact-first-p compact-last-p)
+    ((ui terminal-ui) text display &key regions compact-first-group compact-last-group)
   "Append output to native scrollback, deferring it during direct terminal I/O.
 
 REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
-  (declare (ignore compact-first-p compact-last-p))
+  (declare (ignore compact-first-group compact-last-group))
   (if (terminal-interactive-p (terminal-ui-terminal ui))
       (terminal-ui--present-live ui :appended-text text :appended-display display
-                                   :appended-regions regions)
+                                  :appended-regions regions)
       (progn
         (terminal--write-safe-text (terminal-ui-terminal ui) display)
         (terminal-flush (terminal-ui-terminal ui))))
@@ -2656,7 +2690,10 @@ REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
   (with-terminal-ui-locked (ui)
     (multiple-value-bind (text display)
         (terminal-ui--finalized-content ui entry)
-      (terminal-ui--append-output ui text display)))
+      (let ((group (terminal-ui--compact-entry-group entry)))
+        (terminal-ui--append-output ui text display
+                                    :compact-first-group group
+                                    :compact-last-group group))))
   nil)
 
 (-> terminal-ui-append-finalized (terminal-ui t (or string list)) boolean)
@@ -2669,12 +2706,12 @@ REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
       (handler-case
           (multiple-value-bind (text display regions)
               (terminal-ui--finalized-content ui entry)
-            (let ((compact-p (terminal-ui--compact-success-p entry)))
+            (let ((group (terminal-ui--compact-entry-group entry)))
               (terminal-ui--append-output
                ui text display :regions regions
-               :compact-first-p compact-p :compact-last-p compact-p))
+               :compact-first-group group :compact-last-group group))
             (setf (gethash identifier
-                           (terminal-ui-finalized-identifiers ui))
+                          (terminal-ui-finalized-identifiers ui))
                   t))
         (error (condition)
           (remhash identifier (terminal-ui-finalized-identifiers ui))
@@ -2687,7 +2724,7 @@ REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
   (with-terminal-ui-locked (ui)
     (let ((pending nil)
           (seen (make-hash-table :test #'equal))
-          (previous-compact-p nil))
+          (previous-group nil))
       (dolist (pair entries)
         (destructuring-bind (identifier entry) pair
           (unless (or (gethash identifier
@@ -2695,13 +2732,13 @@ REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
                       (gethash identifier seen))
             (multiple-value-bind (text display regions)
                 (terminal-ui--finalized-content ui entry)
-              (let ((compact-p (terminal-ui--compact-success-p entry)))
-                (when (and previous-compact-p (not compact-p))
+              (let ((group (terminal-ui--compact-entry-group entry)))
+                (when (and previous-group (not (equal previous-group group)))
                   (setf text (concatenate 'string (string #\Newline) text)
                         display (concatenate 'string (string #\Newline) display)
                         regions (termdown:shift-regions regions 1)))
-                (push (list identifier text display regions compact-p) pending)
-                (setf previous-compact-p compact-p
+                (push (list identifier text display regions group) pending)
+                (setf previous-group group
                       (gethash identifier seen) t))))))
       (setf pending (nreverse pending))
       (when pending
@@ -2710,8 +2747,8 @@ REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
               (regions nil)
               (offset 0))
           (dolist (entry pending)
-            (destructuring-bind (identifier text display entry-regions compact-p) entry
-              (declare (ignore identifier compact-p))
+            (destructuring-bind (identifier text display entry-regions group) entry
+              (declare (ignore identifier group))
               (write-string text text-stream)
               (write-string display display-stream)
               (setf regions
@@ -2724,8 +2761,8 @@ REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
                 (progn
                   (terminal-ui--append-output
                    ui text display :regions regions
-                   :compact-first-p (fifth (first pending))
-                   :compact-last-p (fifth (first (last pending))))
+                   :compact-first-group (fifth (first pending))
+                   :compact-last-group (fifth (first (last pending))))
                   (dolist (entry pending)
                     (setf (gethash
                            (first entry)
