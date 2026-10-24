@@ -70,8 +70,8 @@
                            (push (list :path    path
                                        :line    (compile-warnings--line source-root path)
                                        :type    (string-downcase (type-of condition))
-                                       :message (remove #\Newline
-                                                        (princ-to-string condition)))
+                                       :message (substitute #\Space #\Newline
+                                                            (princ-to-string condition)))
                                  warnings)))))))
     (let ((asdf:*compile-file-warnings-behaviour* ':warn)
           (asdf:*compile-file-failure-behaviour*  ':warn))
