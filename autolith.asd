@@ -1,8 +1,28 @@
+;;;; -- Autolith Systems --
+
+;;; Compiling a file proclaims its -> declarations while its classes are still
+;;; placeholders, so loading the file into the same image proclaims them again
+;;; and SBCL reports that each declaration over a class from that file differs
+;;; from itself. Loading Autolith's own files muffles that report. A genuine
+;;; disagreement needs two declarations of one function, which the source
+;;; checks refuse, and still warns when it is compiled.
+
+(defclass autolith-source-file (asdf:cl-source-file)
+  ()
+  (:documentation "An Autolith source file, loaded without SBCL's self-redeclaration reports."))
+
+(defmethod asdf:perform :around ((operation asdf:load-op) (component autolith-source-file))
+  "Load COMPONENT, muffling the report that its -> declarations differ from themselves."
+  (handler-bind (#+sbcl
+                 (sb-kernel::ftype-proclamation-mismatch-warning #'muffle-warning))
+    (call-next-method)))
+
 (asdf:defsystem #:autolith
   :description "A live, self-modifying Common Lisp agent."
   :author "Lukáš Hozda"
   :license "ISC"
   :version (:read-file-line "VERSION")
+  :default-component-class autolith-source-file
   :serial t
   :depends-on (#:agentcomms
                #:argo
@@ -352,6 +372,7 @@
   :description "The Autolith installer and binary release service."
   :depends-on (#:autolith
                #:sb-bsd-sockets)
+  :default-component-class autolith-source-file
   :serial t
   :components ((:module "server"
                 :serial t
@@ -362,18 +383,19 @@
                              (:file "release-main")))))
 
 (asdf:defsystem #:autolith/checks
-  :description "Repository source checks and repairs for Autolith's coding rules."
-  :depends-on  (#:autolith)
-  :serial      t
-  :components  ((:module     "checks"
-                 :serial     t
-                 :components ((:file "syntax")
-                              (:file "rules")
-                              (:file "formatting")
-                              (:file "definitions")
-                              (:file "parinfer")
-                              (:file "warnings")
-                              (:file "runner")))))
+  :description             "Repository source checks and repairs for Autolith's coding rules."
+  :depends-on              (#:autolith)
+  :default-component-class autolith-source-file
+  :serial                  t
+  :components              ((:module     "checks"
+                             :serial     t
+                             :components ((:file "syntax")
+                                          (:file "rules")
+                                          (:file "formatting")
+                                          (:file "definitions")
+                                          (:file "parinfer")
+                                          (:file "warnings")
+                                          (:file "runner")))))
 
 (asdf:defsystem #:autolith/tests
   :description "Tests for Autolith."
@@ -381,6 +403,7 @@
                #:autolith/checks
                (:feature (:not :win32) #:autolith/release-server)
                #:fiveam)
+  :default-component-class autolith-source-file
   :serial t
   :components ((:module "tests"
                 :serial t
@@ -574,6 +597,7 @@
 (asdf:defsystem #:autolith/structural
   :description "Optional structural code queries and revision-aware rewrites."
   :depends-on (#:autolith #:clasted/ast-grep)
+  :default-component-class autolith-source-file
   :serial t
   :components ((:file "src/structural/workspace")
                (:file "src/structural/tools")))
@@ -581,6 +605,7 @@
 (asdf:defsystem #:autolith/structural/tests
   :description "Autolith structural tool boundary checks."
   :depends-on (#:autolith/structural #:autolith/tests)
+  :default-component-class autolith-source-file
   :serial t
   :components ((:file "tests/structural-tests"))
   :perform (asdf:test-op (operation component)
@@ -591,6 +616,7 @@
 (asdf:defsystem #:autolith/debug
   :description "Optional semantic Debug Adapter Protocol sessions."
   :depends-on (#:autolith #:daphne)
+  :default-component-class autolith-source-file
   :serial t
   :components ((:file "src/debug/sessions")
                (:file "src/debug/tools")))
@@ -598,6 +624,7 @@
 (asdf:defsystem #:autolith/debug/tests
   :description "Autolith debug tool boundary checks."
   :depends-on (#:autolith/debug #:autolith/tests)
+  :default-component-class autolith-source-file
   :serial t
   :components ((:file "tests/debug-tests"))
   :perform (asdf:test-op (operation component)
