@@ -361,9 +361,22 @@
                              (:file "release-archive")
                              (:file "release-main")))))
 
+(asdf:defsystem #:autolith/checks
+  :description "Repository source checks and repairs for Autolith's coding rules."
+  :depends-on  (#:autolith)
+  :serial      t
+  :components  ((:module     "checks"
+                 :serial     t
+                 :components ((:file "syntax")
+                              (:file "rules")
+                              (:file "formatting")
+                              (:file "definitions")
+                              (:file "runner")))))
+
 (asdf:defsystem #:autolith/tests
   :description "Tests for Autolith."
   :depends-on (#:autolith
+               #:autolith/checks
                (:feature (:not :win32) #:autolith/release-server)
                #:fiveam)
   :serial t
@@ -550,6 +563,7 @@
                              (:file "telemetry-hook-tool-denial-tests")
                              (:file "telemetry-hook-authority-tests")
                              (:file "telemetry-hook-os-permission-tests")
+                             (:file "source-check-tests")
                              (:file "test-suites"))))
   :perform (asdf:test-op (operation component)
              (declare (ignore operation component))

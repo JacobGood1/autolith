@@ -1494,3 +1494,10 @@
 (define-test-suite async-lisp-presentation
   test-application-async-lisp-readable-results
   test-application-async-lisp-styled-reports)
+
+(define-test-suite source-checks
+  test-source-syntax-positions
+  test-source-rule-findings
+  test-source-rule-repairs
+  test-source-check-repair-guard
+  test-source-check-repository-run)

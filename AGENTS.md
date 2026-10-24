@@ -196,6 +196,10 @@ of repeating type or state dispatch in `cond` trees.
   (-> generation-find (string) (option generation))
   ```
 
+  Declare each function once, directly before its definition. Generic
+  functions take no `->` declaration; their documentation and their methods'
+  specializers describe them.
+
 - Keep reusable custom types in one coherent location.
 - Do not define weak aliases that merely expand to `list` or another generic
   type. Validate structured types with `(satisfies predicate)` or a stronger
