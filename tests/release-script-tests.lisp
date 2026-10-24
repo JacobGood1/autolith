@@ -557,7 +557,7 @@ printf '%s\\n' \"${LIBRARY_PATH:-}\" > \"${AUTOLITH_TEST_EVENT_LOG:?}\"
   (declare (ignore pathname))
   nil)
 ")
-    (dolist (relative '("build-sandbox.lisp" "build-fff.lisp"))
+    (dolist (relative '("build-sandbox.lisp" "build-fff.lisp" "build-parinfer.lisp"))
       (release-script-tests--write-file
        (merge-pathnames relative script-directory)
        "nil
