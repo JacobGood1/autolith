@@ -1402,10 +1402,7 @@ it was published, and the tracked definition CONFIGURATION's source holds now."
              agent
              (application-agent-observer application))
          (terminal-ui-set-compacting (application-ui application) nil)
-         (application-set-activity application nil))
-       (application-present
-        application
-        "Compacted history."))))
+         (application-set-activity application nil)))))
   nil)
 
 
