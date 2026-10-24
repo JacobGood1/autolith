@@ -198,7 +198,8 @@ jumps between as messages."
                    :terminal terminal
                    :editor (or editor
                                (line-editor-create
-                                :history-limit *terminal-history-limit*))
+                                :history-limit *terminal-history-limit*
+                                :auto-pair-p t))
                    :live-region live-region
                    :clock-function clock-function
                    :prompt prompt
@@ -626,6 +627,26 @@ the draft is exact."
        :token-end end
        :search-function (terminal-ui-path-search-function ui)))))
 
+(-> terminal-ui--paired-closers (line-editor) (option string))
+(defun terminal-ui--paired-closers (editor)
+  "Return the closing brackets after EDITOR's cursor when nothing else follows it.
+
+Brace pairing leaves the closers of an operation being typed after the cursor,
+so they are not part of the name being completed."
+  (let* ((text (line-editor-text editor))
+         (rest (subseq text (min (line-editor-cursor editor) (length text)))))
+    (and (plusp (length rest))
+         (every (lambda (character) (find character ")]}")) rest)
+         rest)))
+
+(-> terminal-ui--completion-text (line-editor) string)
+(defun terminal-ui--completion-text (editor)
+  "Return EDITOR's text as completion reads it, without paired closers after the cursor."
+  (let ((text (line-editor-text editor)))
+    (if (terminal-ui--paired-closers editor)
+        (subseq text 0 (line-editor-cursor editor))
+        text)))
+
 (-> terminal-ui--matching-completions (terminal-ui) list)
 (defun terminal-ui--matching-completions (ui)
   "Return command, operation, or workspace path completions for UI's input.
@@ -636,7 +657,7 @@ name. Path completions apply when no command prefix matches."
   (unless (terminal-interactive-p (terminal-ui-terminal ui))
     (return-from terminal-ui--matching-completions nil))
   (let* ((editor (terminal-ui-editor ui))
-         (text (line-editor-text editor))
+         (text (terminal-ui--completion-text editor))
          (cursor (line-editor-cursor editor))
          (command-matches
            (and (terminal-ui--operation-completion-prefix-p text)
@@ -648,7 +669,7 @@ name. Path completions apply when no command prefix matches."
                   (terminal-ui--current-completions ui))))))
     (if command-matches
         command-matches
-        (terminal-ui--matching-path-completions ui text cursor))))
+        (terminal-ui--matching-path-completions ui (line-editor-text editor) cursor))))
 
 (-> terminal-ui--reconcile-completions (terminal-ui) list)
 (defun terminal-ui--reconcile-completions (ui)
@@ -804,17 +825,24 @@ recalled drafts. An @ path token still offers file completion."
 
 (-> terminal-ui--accept-completion (terminal-ui list) null)
 (defun terminal-ui--accept-completion (ui entry)
-  "Apply ENTRY to UI's input as a command name or a spliced path token."
+  "Apply ENTRY to UI's input as a command name or a spliced path token.
+
+Paired closers after the cursor stay after it while the completed name leaves
+its parenthesis open, and are dropped once the name closes it itself."
   (if (eq (getf entry :kind) ':path)
       (terminal-ui--accept-path-completion ui entry)
-      (line-editor-set-text
-       (terminal-ui-editor ui)
-       (sanitize-text
-        (concatenate 'string
-                     (getf entry :name)
-                     (if (getf entry :argument)
-                         " "
-                         "")))))
+      (let* ((editor (terminal-ui-editor ui))
+             (closers (or (terminal-ui--paired-closers editor) ""))
+             (inserted (sanitize-text
+                        (concatenate 'string
+                                     (getf entry :name)
+                                     (if (getf entry :argument)
+                                         " "
+                                         ""))))
+             (open (max 0 (- (count #\( inserted) (count #\) inserted))))
+             (kept (subseq closers 0 (min open (length closers)))))
+        (line-editor-set-text editor (concatenate 'string inserted kept)
+                              :cursor (length inserted))))
   nil)
 
 (-> terminal-ui--begin-completion (terminal-ui) null)

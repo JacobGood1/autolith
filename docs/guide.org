@@ -27,6 +27,10 @@ Autolith's prompt window can also evuluate lisp forms directly:
 This can be frequently helpful since you can use the exact same tools
 the clanker can, and the same machinery is exposed to you.
 
+Type =(=, =[=, or ={= in the composer to insert a matching pair with the cursor
+between the braces. Type the closing brace to move past it, or press Backspace
+between an empty pair to delete both braces.
+
 * Terminal diagrams
 
 Ask for a fenced =mermaid= block to view a diagram directly in the terminal.
