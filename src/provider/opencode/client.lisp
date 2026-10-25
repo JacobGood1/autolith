@@ -43,7 +43,7 @@
           (openai-compatible--fetch-models
            configuration
            :provider-name "opencode"
-           :endpoint (opencode-models-endpoint)
+           :endpoint      (opencode-models-endpoint)
            :credential-manager
            (opencode-credential-manager-create configuration))))
 
@@ -68,13 +68,13 @@ The provider's stable session identifier also rides as the x-opencode-session
 request header so the backend can pin caching to one session."
   (let ((session-id (make-identifier)))
     (make-instance 'opencode-chat-completions-provider
-                   :configuration configuration
+                   :configuration      configuration
                    :credential-manager (opencode-credential-manager-create
                                         configuration)
-                   :session-id session-id
-                   :headers (list (cons "x-opencode-session" session-id))
-                   :display-name "OpenCode"
-                   :family ':opencode)))
+                   :session-id         session-id
+                   :headers            (list (cons "x-opencode-session" session-id))
+                   :display-name       "OpenCode"
+                   :family             ':opencode)))
 
 (defmethod provider-request-object :around
     ((provider opencode-chat-completions-provider)
@@ -96,4 +96,3 @@ request header so the backend can pin caching to one session."
   (declare (ignore open-browser-p))
   (opencode-api-key-login (provider-credential-manager provider)
                           :stream (or stream *standard-output*)))
-
