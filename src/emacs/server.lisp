@@ -46,8 +46,8 @@ return a value json-serialize accepts: a plist, vector, string, number, t,
   (let* ((socket (or (config :emacs-server-socket configuration)
                      (error 'emacs-server-error
                             :message "No Emacs server socket is configured."
-                            :reason ':unavailable)))
-         (reply (emacs-server-evaluate socket (emacs-server--wrap body arguments))))
+                            :reason  ':unavailable)))
+         (reply  (emacs-server-evaluate socket (emacs-server--wrap body arguments))))
     (emacs-server--decode-reply reply)))
 
 (-> emacs-server-evaluate (pathname string &key (:timeout (real 0))) string)
@@ -58,7 +58,7 @@ return a value json-serialize accepts: a plist, vector, string, number, t,
                         (error 'emacs-server-error
                                :message (format nil "The Emacs server at ~A is not reachable: ~A"
                                                 (uiop:native-namestring socket) condition)
-                               :reason ':unavailable)))))
+                               :reason  ':unavailable)))))
     (unwind-protect
          (let ((stream (sb-bsd-sockets:socket-make-stream
                         connection :input t :output t :element-type 'character
@@ -78,11 +78,11 @@ return a value json-serialize accepts: a plist, vector, string, number, t,
                (error 'emacs-server-error
                       :message (format nil "Emacs did not answer within ~A seconds; it may be waiting in the minibuffer."
                                        timeout)
-                      :reason ':timeout))
+                      :reason  ':timeout))
              (stream-error (condition)
                (error 'emacs-server-error
                       :message (format nil "The Emacs server connection failed: ~A" condition)
-                      :reason ':protocol))))
+                      :reason  ':protocol))))
       (ignore-errors (sb-bsd-sockets:socket-close connection)))))
 
 
@@ -94,11 +94,16 @@ return a value json-serialize accepts: a plist, vector, string, number, t,
   (with-output-to-string (stream)
     (loop for character across text
           do (case character
-               (#\& (write-string "&&" stream))
-               (#\- (write-string "&-" stream))
-               (#\Newline (write-string "&n" stream))
-               (#\Space (write-string "&_" stream))
-               (t (write-char character stream))))))
+               (#\&
+                (write-string "&&" stream))
+               (#\-
+                (write-string "&-" stream))
+               (#\Newline
+                (write-string "&n" stream))
+               (#\Space
+                (write-string "&_" stream))
+               (t
+                (write-char character stream))))))
 
 (-> emacs-server-unquote (string) string)
 (defun emacs-server-unquote (text)
@@ -110,10 +115,14 @@ return a value json-serialize accepts: a plist, vector, string, number, t,
                (if (and (char= character #\&) (< (1+ index) (length text)))
                    (progn
                      (write-char (case (char text (1+ index))
-                                   (#\& #\&)
-                                   (#\- #\-)
-                                   (#\n #\Newline)
-                                   (t #\Space))
+                                   (#\&
+                                    #\&)
+                                   (#\-
+                                    #\-)
+                                   (#\n
+                                    #\Newline)
+                                   (t
+                                    #\Space))
                                  stream)
                      (incf index 2))
                    (progn
@@ -140,14 +149,14 @@ return a value json-serialize accepts: a plist, vector, string, number, t,
 
 The text is the printed value without the newline Emacs appends to it."
   (let ((value (make-string-output-stream))
-        (size 0))
+        (size  0))
     (loop for line = (read-line stream nil nil)
           while line
           do (incf size (length line))
              (when (> size *emacs-server-maximum-reply*)
                (error 'emacs-server-error
                       :message "The Emacs reply is larger than the client accepts."
-                      :reason ':protocol))
+                      :reason  ':protocol))
              (cond
                ((uiop:string-prefix-p "-print-nonl " line)
                 (write-string (emacs-server-unquote (subseq line 12)) value))
@@ -158,7 +167,7 @@ The text is the printed value without the newline Emacs appends to it."
                        :message (format nil "Emacs signaled: ~A"
                                         (string-right-trim '(#\Newline)
                                                            (emacs-server-unquote (subseq line 7))))
-                       :reason ':elisp-error))))
+                       :reason  ':elisp-error))))
     (let ((text (get-output-stream-string value)))
       ;; Emacs ends the printed value with one newline of its own.
       (if (and (plusp (length text)) (char= (char text (1- (length text))) #\Newline))
@@ -175,22 +184,22 @@ The text is the printed value without the newline Emacs appends to it."
           (unless (json-object-p value)
             (error 'emacs-server-error
                    :message "Emacs returned JSON that is not an object."
-                   :reason ':protocol))
+                   :reason  ':protocol))
           value)
       (emacs-server-error (condition)
         (error condition))
       (error (condition)
         (error 'emacs-server-error
                :message (format nil "Emacs returned an unreadable value: ~A" condition)
-               :reason ':protocol)))))
+               :reason  ':protocol)))))
 
 
 ;;;; -- Conditions --
 
 (define-condition emacs-server-error (autolith-error)
   ((reason
-    :initarg :reason
-    :reader emacs-server-error-reason
-    :type (member :unavailable :timeout :elisp-error :protocol)
+    :initarg       :reason
+    :reader        emacs-server-error-reason
+    :type          (member :unavailable :timeout :elisp-error :protocol)
     :documentation "Why the request failed."))
   (:documentation "An Emacs server request failed."))
