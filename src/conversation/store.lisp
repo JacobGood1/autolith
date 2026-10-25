@@ -60,9 +60,9 @@
   "Return TITLE bounded to the configured title length at a word boundary."
   (if (<= (length title) *conversation-title-maximum-characters*)
       title
-      (let* ((limit (1- *conversation-title-maximum-characters*))
+      (let* ((limit    (1- *conversation-title-maximum-characters*))
              (boundary (position #\Space title :end limit :from-end t))
-             (end (if (and boundary (>= boundary 16)) boundary limit)))
+             (end      (if (and boundary (>= boundary 16)) boundary limit)))
         (concatenate 'string
                      (string-right-trim '(#\Space) (subseq title 0 end))
                      "…"))))
@@ -96,8 +96,8 @@
 (-> conversation-title-generated-normalize (string) (option non-empty-string))
 (defun conversation-title-generated-normalize (text)
   "Return TEXT as a valid generated title, or NIL when its shape is unsuitable."
-  (let* ((collapsed (conversation-title--collapse-whitespace text))
-         (lowercase (string-downcase collapsed))
+  (let* ((collapsed  (conversation-title--collapse-whitespace text))
+         (lowercase  (string-downcase collapsed))
          (normalized (conversation-title-normalize text))
          (words
            (remove ""
@@ -147,240 +147,240 @@
 
 (defclass conversation ()
   ((identifier
-    :initarg :identifier
-    :reader conversation-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        conversation-identifier
+    :type          non-empty-string
     :documentation "The stable conversation identifier.")
    (prompt-cache-key
-    :initarg :prompt-cache-key
-    :initform nil
-    :accessor conversation-prompt-cache-key
-    :type (option non-empty-string)
+    :initarg       :prompt-cache-key
+    :initform      nil
+    :accessor      conversation-prompt-cache-key
+    :type          (option non-empty-string)
     :documentation "The root-lineage key shared by provider prompt caches.")
    (pathname
-    :initarg :pathname
-    :reader conversation-pathname
-    :type pathname
+    :initarg       :pathname
+    :reader        conversation-pathname
+    :type          pathname
     :documentation "The stable top-level identity pathname for this conversation.")
    (log-pathname
-    :initarg :log-pathname
-    :accessor conversation-log-pathname
-    :type pathname
+    :initarg       :log-pathname
+    :accessor      conversation-log-pathname
+    :type          pathname
     :documentation "The active legacy log or deterministic chunk file.")
    (persisted-p
-    :initarg :persisted-p
-    :accessor conversation-persisted-p
-    :type boolean
+    :initarg       :persisted-p
+    :accessor      conversation-persisted-p
+    :type          boolean
     :documentation "True after the header and first durable record are published.")
    (incomplete-tail-p
-    :initarg :incomplete-tail-p
-    :initform nil
-    :accessor conversation-incomplete-tail-p
-    :type boolean
+    :initarg       :incomplete-tail-p
+    :initform      nil
+    :accessor      conversation-incomplete-tail-p
+    :type          boolean
     :documentation "Whether the next append must repair an interrupted final form.")
    (log-generation
-    :initform 0
-    :accessor conversation-log-generation
-    :type (integer 0)
+    :initform      0
+    :accessor      conversation-log-generation
+    :type          (integer 0)
     :documentation "The count of active-log replacements since this object loaded.")
    (append-lock
-    :initform (make-recursive-lock "Autolith conversation append")
-    :reader conversation-append-lock
-    :type t
+    :initform      (make-recursive-lock "Autolith conversation append")
+    :reader        conversation-append-lock
+    :type          t
     :documentation "The lock serializing durable record sequence assignment.")
    (created-at
-    :initarg :created-at
-    :reader conversation-created-at
-    :type timestamp
+    :initarg       :created-at
+    :reader        conversation-created-at
+    :type          timestamp
     :documentation "The creation time as Common Lisp universal time.")
    (origin-directory
-    :initarg :origin-directory
-    :initform nil
-    :reader conversation-origin-directory
-    :type (option string)
+    :initarg       :origin-directory
+    :initform      nil
+    :reader        conversation-origin-directory
+    :type          (option string)
     :documentation "The workspace directory in which this conversation began.")
    (title
-    :initarg :title
-    :initform nil
-    :accessor conversation-title
-    :type (option non-empty-string)
+    :initarg       :title
+    :initform      nil
+    :accessor      conversation-title
+    :type          (option non-empty-string)
     :documentation "The current human-readable session title.")
    (title-source
-    :initarg :title-source
-    :initform nil
-    :accessor conversation-title-source
-    :type (member nil :initial :generated)
+    :initarg       :title-source
+    :initform      nil
+    :accessor      conversation-title-source
+    :type          (member nil :initial :generated)
     :documentation "Whether the title came from the initial prompt or a later model pass.")
    (title-refresh-in-progress-p
-    :initform nil
-    :accessor conversation-title-refresh-in-progress-p
-    :type boolean
+    :initform      nil
+    :accessor      conversation-title-refresh-in-progress-p
+    :type          boolean
     :documentation "Whether this object has reserved the automatic generated-title request.")
    (model
-    :initarg :model
-    :initform nil
-    :accessor conversation-model
-    :type (option non-empty-string)
+    :initarg       :model
+    :initform      nil
+    :accessor      conversation-model
+    :type          (option non-empty-string)
     :documentation "The provider model most recently selected for this conversation.")
    (model-provider
-    :initarg :model-provider
-    :initform nil
-    :accessor conversation-model-provider
-    :type (option non-empty-string)
+    :initarg       :model-provider
+    :initform      nil
+    :accessor      conversation-model-provider
+    :type          (option non-empty-string)
     :documentation "The explicit provider selected with this conversation's model.")
    (reasoning-effort
-    :initarg :reasoning-effort
-    :initform nil
-    :accessor conversation-reasoning-effort
-    :type (option non-empty-string)
+    :initarg       :reasoning-effort
+    :initform      nil
+    :accessor      conversation-reasoning-effort
+    :type          (option non-empty-string)
     :documentation "The reasoning effort most recently selected for this conversation.")
    (next-sequence
-    :initarg :next-sequence
-    :accessor conversation-next-sequence
-    :type integer
+    :initarg       :next-sequence
+    :accessor      conversation-next-sequence
+    :type          integer
     :documentation "The sequence number assigned to the next appended event.")
-    (last-aborted-turn-start-sequence
-     :initform nil
-     :accessor conversation-last-aborted-turn-start-sequence
-     :type (option integer)
-     :documentation "The start sequence of the latest turn-aborted marker in memory.")
+   (last-aborted-turn-start-sequence
+    :initform      nil
+    :accessor      conversation-last-aborted-turn-start-sequence
+    :type          (option integer)
+    :documentation "The start sequence of the latest turn-aborted marker in memory.")
    (projection
-    :initform (clinker-transcript:make-projection)
-    :reader conversation-projection
-    :type clinker-transcript:projection
+    :initform      (clinker-transcript:make-projection)
+    :reader        conversation-projection
+    :type          clinker-transcript:projection
     :documentation "The ordered provider projection and its item metadata.")
    (ephemeral-input-entries
     :initform nil
     :accessor conversation-ephemeral-input-entries
-    :type list
+    :type     list
     :documentation
     "Request-local provider items and owned attachments awaiting one response.")
-    (context-anchors
-     :initform nil
-     :accessor conversation-context-anchors
-     :type list
-     :documentation
-     "Process-local context identities and history boundaries, without instruction bodies.")
-    (image-artifact-names
-     :initform (make-hash-table :test #'equal)
-     :reader conversation-image-artifact-names
-     :type hash-table
-     :documentation "The basenames of image artifacts referenced by durable records.")
+   (context-anchors
+    :initform nil
+    :accessor conversation-context-anchors
+    :type     list
+    :documentation
+    "Process-local context identities and history boundaries, without instruction bodies.")
+   (image-artifact-names
+    :initform      (make-hash-table :test #'equal)
+    :reader        conversation-image-artifact-names
+    :type          hash-table
+    :documentation "The basenames of image artifacts referenced by durable records.")
    (resource-observations
     :initform (make-fifo-cache
                :test            #'equal
                :weight-function #'resource-observation-state-weight)
-    :reader conversation-resource-observations
-    :type fifo-cache
+    :reader   conversation-resource-observations
+    :type     fifo-cache
     :documentation
     "Transient model-visible resource revisions in FIFO insertion order.")
    (resource-observation-lock
     :initform (make-recursive-lock "Autolith resource observations")
-    :reader conversation-resource-observation-lock
-    :type t
+    :reader   conversation-resource-observation-lock
+    :type     t
     :documentation
     "The lock serializing transient resource observations and gated edits.")
    (turn-state
-    :initform nil
-    :accessor conversation-turn-state
-    :type (option string)
+    :initform      nil
+    :accessor      conversation-turn-state
+    :type          (option string)
     :documentation "The transient provider routing token for one user turn.")
    (resumed-p
     :initform nil
     :accessor conversation-resumed-p
-    :type boolean
+    :type     boolean
     :documentation
     "Whether this object was loaded from durable storage and the model has
 not yet been told that work from the previous process is gone.")
    (resume-note-turn
     :initform nil
     :accessor conversation-resume-note-turn
-    :type (option (integer 0))
+    :type     (option (integer 0))
     :documentation
     "The user-turn count during which the resume note is being delivered.")
    (last-total-tokens
-    :initform 0
-    :accessor conversation-last-total-tokens
-    :type (integer 0)
+    :initform      0
+    :accessor      conversation-last-total-tokens
+    :type          (integer 0)
     :documentation "The total token usage reported by the newest provider step.")
    (last-activity-at
-    :initform nil
-    :accessor conversation-last-activity-at
-    :type (option timestamp)
+    :initform      nil
+    :accessor      conversation-last-activity-at
+    :type          (option timestamp)
     :documentation "The newest timestamp observed in a durable record.")
    (user-turn-count
-    :initform 0
-    :accessor conversation-user-turn-count
-    :type (integer 0)
+    :initform      0
+    :accessor      conversation-user-turn-count
+    :type          (integer 0)
     :documentation "The number of durable user message records.")
    (working-seconds
     :initform 0
     :accessor conversation-working-seconds
-    :type (integer 0)
+    :type     (integer 0)
     :documentation
     "Accumulated seconds of agent work, excluding gaps before user messages.")
    (picker-search-message-count
-    :initform 0
-    :accessor conversation-picker-search-message-count
-    :type (integer 0)
+    :initform      0
+    :accessor      conversation-picker-search-message-count
+    :type          (integer 0)
     :documentation "The count of durable user and assistant search messages.")
    (pending-input-identifiers
-    :initform nil
-    :accessor conversation-durable-pending-input-identifiers
-    :type list
+    :initform      nil
+    :accessor      conversation-durable-pending-input-identifiers
+    :type          list
     :documentation "Durable pending-input identifiers in chronological first-seen order.")
    (picker-preview
-    :initform nil
-    :accessor conversation-picker-preview
-    :type (option string)
+    :initform      nil
+    :accessor      conversation-picker-preview
+    :type          (option string)
     :documentation "The newest user or assistant text retained for conversation pickers.")
    (user-operation-records
     :initform (make-deque
-               :maximum-count 16
+               :maximum-count  16
                :weight-function
                (lambda (record)
                  (let ((properties (rest record)))
                    (+ (length (getf properties :source))
                       (length (getf properties :result)))))
                :maximum-weight 32000)
-    :reader conversation-user-operation-records
-    :type deque
+    :reader   conversation-user-operation-records
+    :type     deque
     :documentation
     "Recent bounded local user operations in chronological durable order.")
    (input-history
-    :initform (make-deque)
-    :accessor conversation-input-history-entries
-    :type deque
+    :initform      (make-deque)
+    :accessor      conversation-input-history-entries
+    :type          deque
     :documentation "Complete chronological editable inputs loaded from the sidecar.")
    (input-history-loaded-p
-    :initform nil
-    :accessor conversation-input-history-loaded-p
-    :type boolean
+    :initform      nil
+    :accessor      conversation-input-history-loaded-p
+    :type          boolean
     :documentation "Whether the complete input-only sidecar is loaded into this heap.")
    (input-history-indexed-sequence
-    :initform 0
-    :accessor conversation-input-history-indexed-sequence
-    :type (integer 0)
+    :initform      0
+    :accessor      conversation-input-history-indexed-sequence
+    :type          (integer 0)
     :documentation "Newest editable input durably indexed in the sidecar.")
    (input-history-last-sequence
-    :initform 0
-    :accessor conversation-input-history-last-sequence
-    :type (integer 0)
+    :initform      0
+    :accessor      conversation-input-history-last-sequence
+    :type          (integer 0)
     :documentation "Newest editable input observed in authoritative conversation records.")
    (prompt-cache-usage
-    :initform nil
-    :accessor conversation-prompt-cache-usage
-    :type list
+    :initform      nil
+    :accessor      conversation-prompt-cache-usage
+    :type          list
     :documentation "Newest numeric prompt and cached-input usage, or NIL when unknown.")
    (pending-async-lisp-events
-    :initform (make-deque)
-    :accessor conversation-pending-async-lisp-events
-    :type deque
+    :initform      (make-deque)
+    :accessor      conversation-pending-async-lisp-events
+    :type          deque
     :documentation "Durable asynchronous Lisp events awaiting provider projection.")
    (latest-goal-record
-    :initform nil
-    :accessor conversation-latest-goal-record
-    :type (option list)
+    :initform      nil
+    :accessor      conversation-latest-goal-record
+    :type          (option list)
     :documentation "The newest durable goal record observed in this conversation."))
   (:documentation "An append-only conversation and its provider projection."))
 
@@ -409,7 +409,7 @@ not yet been told that work from the previous process is gone.")
 (defun conversation--note-prompt-cache-usage (conversation record)
   "Retain the newest valid numeric provider usage for startup without history scans."
   (when (eq (first record) ':provider)
-    (let* ((usage (getf (getf (rest record) :metadata) :usage))
+    (let* ((usage         (getf (getf (rest record) :metadata) :usage))
            (prompt-tokens (conversation--usage-field usage "input_tokens"))
            (cached-tokens (conversation--usage-field usage "cached_input_tokens")))
       (when (typep prompt-tokens '(integer 0))
@@ -448,77 +448,75 @@ not yet been told that work from the previous process is gone.")
   (clinker-transcript:projection-metadata-table
    (conversation-projection conversation) ':handoff-family))
 
-
 (defclass conversation-picker-metadata ()
   ((source-segment
-    :initarg :source-segment
-    :reader conversation-picker-metadata-source-segment
-    :type non-empty-string
+    :initarg       :source-segment
+    :reader        conversation-picker-metadata-source-segment
+    :type          non-empty-string
     :documentation "The namestring of the indexed active conversation segment.")
    (source-size
-    :initarg :source-size
-    :reader conversation-picker-metadata-source-size
-    :type (integer 0)
+    :initarg       :source-size
+    :reader        conversation-picker-metadata-source-size
+    :type          (integer 0)
     :documentation "The byte size of the indexed active conversation segment.")
    (source-write-date
-    :initarg :source-write-date
-    :reader conversation-picker-metadata-source-write-date
-    :type (integer 0)
+    :initarg       :source-write-date
+    :reader        conversation-picker-metadata-source-write-date
+    :type          (integer 0)
     :documentation "The indexed active conversation segment's write date.")
    (source-revision
-    :initarg :source-revision
-    :reader conversation-picker-metadata-source-revision
-    :type (integer 0)
+    :initarg       :source-revision
+    :reader        conversation-picker-metadata-source-revision
+    :type          (integer 0)
     :documentation "The durable picker-cache revision captured with the log.")
    (working-seconds
-    :initarg :working-seconds
-    :reader conversation-picker-metadata-working-seconds
-    :type (integer 0)
+    :initarg       :working-seconds
+    :reader        conversation-picker-metadata-working-seconds
+    :type          (integer 0)
     :documentation "The accumulated durable agent-working seconds.")
    (user-turn-count
-    :initarg :user-turn-count
-    :reader conversation-picker-metadata-user-turn-count
-    :type (integer 0)
+    :initarg       :user-turn-count
+    :reader        conversation-picker-metadata-user-turn-count
+    :type          (integer 0)
     :documentation "The count of durable user-message records.")
    (title
-    :initarg :title
-    :initform nil
-    :reader conversation-picker-metadata-title
-    :type (option non-empty-string)
+    :initarg       :title
+    :initform      nil
+    :reader        conversation-picker-metadata-title
+    :type          (option non-empty-string)
     :documentation "The current human-readable session title.")
    (search-message-count
-    :initarg :search-message-count
-    :reader conversation-picker-metadata-search-message-count
-    :type (integer 0)
+    :initarg       :search-message-count
+    :reader        conversation-picker-metadata-search-message-count
+    :type          (integer 0)
     :documentation "The count of indexed durable user and assistant messages.")
    (preview
-    :initarg :preview
-    :reader conversation-picker-metadata-preview
-    :type (option string)
+    :initarg       :preview
+    :reader        conversation-picker-metadata-preview
+    :type          (option string)
     :documentation "The newest user or assistant message text.")
    (incomplete-tail-p
-    :initarg :incomplete-tail-p
-    :reader conversation-picker-metadata-incomplete-tail-p
-    :type boolean
+    :initarg       :incomplete-tail-p
+    :reader        conversation-picker-metadata-incomplete-tail-p
+    :type          boolean
     :documentation "Whether indexing stopped before an interrupted final form."))
   (:documentation "A validated compact cache of one conversation's picker fields."))
 
-
 (defclass conversation-picker-search-index ()
   ((source-revision
-    :initarg :source-revision
-    :reader conversation-picker-search-index-source-revision
-    :type (integer 0)
+    :initarg       :source-revision
+    :reader        conversation-picker-search-index-source-revision
+    :type          (integer 0)
     :documentation "The durable message-search revision captured with the log.")
    (message-count
-    :initarg :message-count
-    :reader conversation-picker-search-index-message-count
-    :type (integer 0)
+    :initarg       :message-count
+    :reader        conversation-picker-search-index-message-count
+    :type          (integer 0)
     :documentation "The count of indexed durable user and assistant messages.")
    (messages
-    :initarg :messages
-    :reader conversation-picker-search-index-messages
-    :type list
+    :initarg       :messages
+    :reader        conversation-picker-search-index-messages
+    :type          list
     :documentation "Chronological durable user and assistant message text."))
   (:documentation "A validated durable search index for one conversation picker."))
 
@@ -527,24 +525,24 @@ not yet been told that work from the previous process is gone.")
 
 (defclass conversation-lease ()
   ((identifier
-    :initarg :identifier
-    :reader conversation-lease-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        conversation-lease-identifier
+    :type          non-empty-string
     :documentation "The normalized conversation identifier held by this lease.")
    (lock-pathname
-    :initarg :lock-pathname
-    :reader conversation-lease--lock-pathname
-    :type pathname
+    :initarg       :lock-pathname
+    :reader        conversation-lease--lock-pathname
+    :type          pathname
     :documentation "The per-conversation lock file removed after a normal release.")
    (guard-pathname
-    :initarg :guard-pathname
-    :reader conversation-lease--guard-pathname
-    :type pathname
+    :initarg       :guard-pathname
+    :reader        conversation-lease--guard-pathname
+    :type          pathname
     :documentation "The shared lock serializing per-conversation lock-file lifecycle.")
    (lock-lease
-    :initarg :lock-lease
-    :reader conversation-lease--lock-lease
-    :type ls-flock:lease
+    :initarg       :lock-lease
+    :reader        conversation-lease--lock-lease
+    :type          ls-flock:lease
     :documentation "The process-shared exclusive lock lease."))
   (:documentation
    "A process-lifetime exclusive lease on one primary conversation."))
@@ -575,9 +573,9 @@ not yet been told that work from the previous process is gone.")
     nil
     "Conversation ~A is already active in another Autolith process."
     (conversation-identifier-display identifier))
-   :pathname conversation-pathname
-   :sequence nil
-   :identifier identifier
+   :pathname       conversation-pathname
+   :sequence       nil
+   :identifier     identifier
    :lease-pathname lease-pathname))
 
 (-> conversation-lease-held-p (conversation-lease) boolean)
@@ -613,10 +611,10 @@ a crash may leave one that a later lease acquisition can reuse safely."
            guard-pathname
            (lambda ()
              (make-instance 'conversation-lease
-                            :identifier normalized
-                            :lock-pathname lease-pathname
+                            :identifier     normalized
+                            :lock-pathname  lease-pathname
                             :guard-pathname guard-pathname
-                            :lock-lease (lease-acquire lease-pathname)))))
+                            :lock-lease     (lease-acquire lease-pathname)))))
       (file-lock-busy ()
         (conversation--lease-in-use
          normalized conversation-pathname lease-pathname))
@@ -663,11 +661,11 @@ a crash may leave one that a later lease acquisition can reuse safely."
     (record &key (working-seconds 0) (user-turn-count 0) last-activity-at)
   "Return activity values after applying durable RECORD to a picker summary."
   (let ((time (and (consp record) (getf (rest record) :time)))
-         (user-message-p
-           (and (consp record)
-                (eq (first record) ':message)
-                (eq (getf (rest record) :role) ':user)
-                (not (getf (rest record) :automatic-p)))))
+        (user-message-p
+          (and (consp record)
+               (eq (first record) ':message)
+               (eq (getf (rest record) :role) ':user)
+               (not (getf (rest record) :automatic-p)))))
     (when (typep time 'timestamp)
       (when (and last-activity-at
                  (not user-message-p)
@@ -705,7 +703,6 @@ a crash may leave one that a later lease acquisition can reuse safely."
            (error ()
              nil)))))))
 
-
 (-> conversation--note-picker-search-message (conversation string) string)
 (defun conversation--note-picker-search-message (conversation message)
   "Retain MESSAGE as the newest preview and count it for search staleness."
@@ -736,8 +733,8 @@ a crash may leave one that a later lease acquisition can reuse safely."
   (multiple-value-bind (working-seconds user-turn-count last-activity-at)
       (conversation--activity-after-record
        record
-       :working-seconds (conversation-working-seconds conversation)
-       :user-turn-count (conversation-user-turn-count conversation)
+       :working-seconds  (conversation-working-seconds conversation)
+       :user-turn-count  (conversation-user-turn-count conversation)
        :last-activity-at (conversation-last-activity-at conversation))
     (setf (conversation-working-seconds conversation) working-seconds
           (conversation-user-turn-count conversation) user-turn-count
@@ -754,19 +751,19 @@ a crash may leave one that a later lease acquisition can reuse safely."
   "Return a self-contained portable chunk header for CONVERSATION."
   (list :conversation
         :version 2
-        :id (conversation-identifier conversation)
-        :created-at (conversation-created-at conversation)
-        :directory (conversation-origin-directory conversation)
-        :prompt-cache-key (conversation-prompt-cache-key conversation)
-        :title (conversation-title conversation)
-        :title-source (conversation-title-source conversation)
-        :model (conversation-model conversation)
-        :model-provider (conversation-model-provider conversation)
-        :reasoning-effort (conversation-reasoning-effort conversation)
+        :id                   (conversation-identifier conversation)
+        :created-at           (conversation-created-at conversation)
+        :directory            (conversation-origin-directory conversation)
+        :prompt-cache-key     (conversation-prompt-cache-key conversation)
+        :title                (conversation-title conversation)
+        :title-source         (conversation-title-source conversation)
+        :model                (conversation-model conversation)
+        :model-provider       (conversation-model-provider conversation)
+        :reasoning-effort     (conversation-reasoning-effort conversation)
         :chunk-start-sequence chunk-start-sequence
-        :working-seconds (conversation-working-seconds conversation)
-        :user-turn-count (conversation-user-turn-count conversation)
-        :last-activity-at (conversation-last-activity-at conversation)
+        :working-seconds      (conversation-working-seconds conversation)
+        :user-turn-count      (conversation-user-turn-count conversation)
+        :last-activity-at     (conversation-last-activity-at conversation)
         :picker-search-message-count
         (conversation-picker-search-message-count conversation)
         :picker-preview
@@ -782,7 +779,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
         (if (= chunk-start-sequence 1)
             0
             (conversation-input-history-last-sequence conversation))
-        :prompt-cache-usage (copy-tree (conversation-prompt-cache-usage conversation))
+        :prompt-cache-usage   (copy-tree (conversation-prompt-cache-usage conversation))
         :pending-async-lisp-events
         (copy-tree (deque->list
                     (conversation-pending-async-lisp-events conversation)))
@@ -804,9 +801,9 @@ a crash may leave one that a later lease acquisition can reuse safely."
    (conversation--header-record conversation :chunk-start-sequence 1)
    record
    :lock-pathname (conversation--initial-publication-lock-pathname conversation)
-   :occupied-p (lambda ()
-                 (conversation-storage-occupied-p
-                  (conversation-pathname conversation))))
+   :occupied-p    (lambda ()
+                    (conversation-storage-occupied-p
+                     (conversation-pathname conversation))))
   (setf (conversation-persisted-p conversation) t
         (conversation-incomplete-tail-p conversation) nil)
   nil)
@@ -858,9 +855,9 @@ a crash may leave one that a later lease acquisition can reuse safely."
          (1+ (conversation-picker-revision-read pathname)))
       (error (condition)
         (error 'conversation-invariant-error
-               :message (format nil
-                                "Could not invalidate conversation picker metadata: ~A"
-                                condition)
+               :message  (format nil
+                                 "Could not invalidate conversation picker metadata: ~A"
+                                 condition)
                :pathname pathname
                :sequence (conversation-next-sequence conversation))))))
 
@@ -878,16 +875,16 @@ a crash may leave one that a later lease acquisition can reuse safely."
         :version 3
         :source-segment
         (conversation-picker-metadata-source-segment metadata)
-        :source-size (conversation-picker-metadata-source-size metadata)
+        :source-size     (conversation-picker-metadata-source-size metadata)
         :source-write-date
         (conversation-picker-metadata-source-write-date metadata)
         :source-revision (conversation-picker-metadata-source-revision metadata)
         :working-seconds (conversation-picker-metadata-working-seconds metadata)
         :user-turn-count (conversation-picker-metadata-user-turn-count metadata)
-        :title (conversation-picker-metadata-title metadata)
+        :title           (conversation-picker-metadata-title metadata)
         :search-message-count
         (conversation-picker-metadata-search-message-count metadata)
-        :preview (conversation-picker-metadata-preview metadata)
+        :preview         (conversation-picker-metadata-preview metadata)
         :incomplete-tail-p
         (conversation-picker-metadata-incomplete-tail-p metadata)))
 
@@ -899,19 +896,19 @@ a crash may leave one that a later lease acquisition can reuse safely."
       (when (and (conversation--record-form-p record)
                  (eq (first record) :conversation-picker-metadata)
                  (= (or (getf (rest record) :version) 0) 3))
-        (let* ((source-segment (getf (rest record) :source-segment))
-               (source-size (getf (rest record) :source-size))
-               (source-write-date (getf (rest record) :source-write-date))
-               (source-revision (getf (rest record) :source-revision))
-               (working-seconds (getf (rest record) :working-seconds))
-               (user-turn-count (getf (rest record) :user-turn-count))
-               (title (getf (rest record) :title))
+        (let* ((source-segment       (getf (rest record) :source-segment))
+               (source-size          (getf (rest record) :source-size))
+               (source-write-date    (getf (rest record) :source-write-date))
+               (source-revision      (getf (rest record) :source-revision))
+               (working-seconds      (getf (rest record) :working-seconds))
+               (user-turn-count      (getf (rest record) :user-turn-count))
+               (title                (getf (rest record) :title))
                (normalized-title
                  (and (stringp title)
                       (conversation-title-normalize title)))
                (search-message-count (getf (rest record) :search-message-count))
-               (preview (getf (rest record) :preview))
-               (incomplete-tail-p (getf (rest record) :incomplete-tail-p)))
+               (preview              (getf (rest record) :preview))
+               (incomplete-tail-p    (getf (rest record) :incomplete-tail-p)))
           (when (and (non-empty-string-p source-segment)
                      (typep source-size '(integer 0))
                      (typep source-write-date '(integer 0))
@@ -923,16 +920,16 @@ a crash may leave one that a later lease acquisition can reuse safely."
                      (or (null preview) (stringp preview))
                      (typep incomplete-tail-p 'boolean))
             (make-instance 'conversation-picker-metadata
-                           :source-segment source-segment
-                           :source-size source-size
-                           :source-write-date source-write-date
-                           :source-revision source-revision
-                           :working-seconds working-seconds
-                           :user-turn-count user-turn-count
-                           :title normalized-title
+                           :source-segment       source-segment
+                           :source-size          source-size
+                           :source-write-date    source-write-date
+                           :source-revision      source-revision
+                           :working-seconds      working-seconds
+                           :user-turn-count      user-turn-count
+                           :title                normalized-title
                            :search-message-count search-message-count
-                           :preview preview
-                           :incomplete-tail-p incomplete-tail-p))))
+                           :preview              preview
+                           :incomplete-tail-p    incomplete-tail-p))))
     (error ()
       nil)))
 
@@ -942,9 +939,9 @@ a crash may leave one that a later lease acquisition can reuse safely."
   "Return the validated picker sidecar only when its source stamp is current."
   (sexp-store:sidecar-read
    (conversation-picker-metadata-pathname pathname)
-   :decode #'conversation-picker-metadata-from-record
+   :decode       #'conversation-picker-metadata-from-record
    :source-token (lambda () (conversation-picker-metadata-source-token pathname))
-   :value-token #'conversation-picker-metadata-token))
+   :value-token  #'conversation-picker-metadata-token))
 
 (-> conversation-picker-metadata-source-token (pathname) list)
 (defun conversation-picker-metadata-source-token (pathname)
@@ -967,9 +964,9 @@ a crash may leave one that a later lease acquisition can reuse safely."
   "Publish picker METADATA only while its source stamp is current."
   (sexp-store:sidecar-write
    (conversation-picker-metadata-pathname pathname) metadata
-   :encode #'conversation-picker-metadata-record
+   :encode       #'conversation-picker-metadata-record
    :source-token (lambda () (conversation-picker-metadata-source-token pathname))
-   :value-token #'conversation-picker-metadata-token)
+   :value-token  #'conversation-picker-metadata-token)
   metadata)
 
 (-> conversation-picker-metadata-publish (conversation) null)
@@ -981,9 +978,9 @@ a crash may leave one that a later lease acquisition can reuse safely."
       (conversation-picker-metadata-write
        (conversation-pathname conversation)
        (make-instance 'conversation-picker-metadata
-                       :source-segment       segment
-                       :source-size          size
-                       :source-write-date    write-date
+                       :source-segment    segment
+                       :source-size       size
+                       :source-write-date write-date
                        :source-revision
                        (conversation-picker-revision-read
                         (conversation-pathname conversation))
@@ -991,10 +988,10 @@ a crash may leave one that a later lease acquisition can reuse safely."
                        (conversation-working-seconds conversation)
                        :user-turn-count
                        (conversation-user-turn-count conversation)
-                       :title                (conversation-title conversation)
+                       :title             (conversation-title conversation)
                        :search-message-count
                        (conversation-picker-search-message-count conversation)
-                       :preview              (conversation-picker-preview conversation)
+                       :preview           (conversation-picker-preview conversation)
                        :incomplete-tail-p
                        (conversation-incomplete-tail-p conversation)))))
   nil)
@@ -1035,7 +1032,6 @@ a crash may leave one that a later lease acquisition can reuse safely."
                :pathname pathname
                :sequence (conversation-next-sequence conversation))))))
 
-
 (-> conversation-picker-search--messages-p (t) boolean)
 (defun conversation-picker-search--messages-p (value)
   "Return true when VALUE is a finite proper list of strings."
@@ -1047,7 +1043,6 @@ a crash may leave one that a later lease acquisition can reuse safely."
              (every #'stringp value))))
     (type-error ()
       nil)))
-
 
 (-> conversation-picker-search-index-record
     (conversation-picker-search-index)
@@ -1063,7 +1058,6 @@ a crash may leave one that a later lease acquisition can reuse safely."
         :messages
         (conversation-picker-search-index-messages index)))
 
-
 (-> conversation-picker-search-index-from-record
     (t)
     (option conversation-picker-search-index))
@@ -1074,19 +1068,18 @@ a crash may leave one that a later lease acquisition can reuse safely."
                  (eq (first record) :conversation-picker-search)
                  (= (or (getf (rest record) :version) 0) 1))
         (let ((source-revision (getf (rest record) :source-revision))
-              (message-count (getf (rest record) :message-count))
-              (messages (getf (rest record) :messages)))
+              (message-count   (getf (rest record) :message-count))
+              (messages        (getf (rest record) :messages)))
           (when (and (typep source-revision '(integer 0))
                      (typep message-count '(integer 0))
                      (conversation-picker-search--messages-p messages)
                      (= message-count (length messages)))
             (make-instance 'conversation-picker-search-index
                            :source-revision source-revision
-                           :message-count message-count
-                           :messages messages))))
+                           :message-count   message-count
+                           :messages        messages))))
     (error ()
       nil)))
-
 
 (-> conversation-picker-search-read
     (pathname)
@@ -1097,12 +1090,12 @@ a crash may leave one that a later lease acquisition can reuse safely."
     (when metadata
       (sexp-store:sidecar-read
        (conversation-picker-search-pathname pathname)
-       :decode #'conversation-picker-search-index-from-record
+       :decode       #'conversation-picker-search-index-from-record
        :source-token (lambda () (conversation-picker-search-revision-read pathname))
-       :value-token #'conversation-picker-search-index-source-revision
-       :validate (lambda (index)
-                   (= (conversation-picker-search-index-message-count index)
-                      (conversation-picker-metadata-search-message-count metadata)))))))
+       :value-token  #'conversation-picker-search-index-source-revision
+       :validate     (lambda (index)
+                       (= (conversation-picker-search-index-message-count index)
+                          (conversation-picker-metadata-search-message-count metadata)))))))
 
 (-> conversation-picker-search-write
     (pathname conversation-picker-search-index)
@@ -1111,9 +1104,9 @@ a crash may leave one that a later lease acquisition can reuse safely."
   "Publish searchable text only while its source revision is current."
   (sexp-store:sidecar-write
    (conversation-picker-search-pathname pathname) index
-   :encode #'conversation-picker-search-index-record
+   :encode       #'conversation-picker-search-index-record
    :source-token (lambda () (conversation-picker-search-revision-read pathname))
-   :value-token #'conversation-picker-search-index-source-revision)
+   :value-token  #'conversation-picker-search-index-source-revision)
   index)
 
 (-> conversation-create
@@ -1125,42 +1118,42 @@ a crash may leave one that a later lease acquisition can reuse safely."
 (defun conversation-create
     (configuration &key identifier prompt-cache-key storage-root created-at)
   "Create an in-memory conversation that persists under optional STORAGE-ROOT."
-  (let* ((created-at (or created-at (get-universal-time)))
-         (root (uiop:ensure-directory-pathname
-                (or storage-root
-                    (configuration-conversation-root configuration))))
+  (let* ((created-at       (or created-at (get-universal-time)))
+         (root             (uiop:ensure-directory-pathname
+                            (or storage-root
+                                (configuration-conversation-root configuration))))
          (conversation-id
            (conversation-identifier-validate-path-component
             (or identifier
                 (conversation-identifier-generate root :timestamp created-at))))
          (origin-directory (namestring
                             (config :working-directory configuration)))
-         (identity (merge-pathnames
-                    (make-pathname :name conversation-id :type "sexp")
-                    root))
-         (log-pathname (conversation-chunk-pathname identity 1)))
+         (identity         (merge-pathnames
+                            (make-pathname :name conversation-id :type "sexp")
+                            root))
+         (log-pathname     (conversation-chunk-pathname identity 1)))
     (when (conversation-storage-occupied-p identity)
       (error 'conversation-error
-             :message (format nil "Conversation ~A already exists." conversation-id)
+             :message  (format nil "Conversation ~A already exists." conversation-id)
              :pathname identity
              :sequence nil))
     (make-instance 'conversation
-                   :identifier conversation-id
-                   :prompt-cache-key prompt-cache-key
-                   :pathname identity
-                   :log-pathname log-pathname
-                   :persisted-p nil
+                   :identifier        conversation-id
+                   :prompt-cache-key  prompt-cache-key
+                   :pathname          identity
+                   :log-pathname      log-pathname
+                   :persisted-p       nil
                    :incomplete-tail-p nil
-                   :created-at created-at
-                   :origin-directory origin-directory
-                   :model (config :model configuration)
+                   :created-at        created-at
+                   :origin-directory  origin-directory
+                   :model             (config :model configuration)
                    :model-provider
                    (let ((name (config :model-provider configuration)))
                      (and (non-empty-string-p name) name))
                    :reasoning-effort
                    (config :reasoning-effort configuration)
-                   :next-sequence 1
-                   :input-items nil)))
+                   :next-sequence     1
+                   :input-items       nil)))
 
 (-> conversation--repair-incomplete-tail (conversation) null)
 (defun conversation--repair-incomplete-tail (conversation)
@@ -1172,8 +1165,8 @@ a crash may leave one that a later lease acquisition can reuse safely."
         (setf (conversation-incomplete-tail-p conversation) nil))
     (error (condition)
       (error 'conversation-invariant-error
-             :message (format nil "Could not repair incomplete conversation tail: ~A"
-                              condition)
+             :message  (format nil "Could not repair incomplete conversation tail: ~A"
+                               condition)
              :pathname (conversation-log-pathname conversation)
              :sequence (conversation-next-sequence conversation))))
   nil)
@@ -1194,17 +1187,17 @@ a crash may leave one that a later lease acquisition can reuse safely."
   (with-recursive-lock-held ((conversation-append-lock conversation))
     (unless (keywordp (first record))
       (error 'conversation-invariant-error
-             :message "A conversation record must begin with a keyword."
+             :message  "A conversation record must begin with a keyword."
              :pathname (conversation-pathname conversation)
              :sequence (conversation-next-sequence conversation)))
     (when (and (conversation-persisted-p conversation)
                (conversation-incomplete-tail-p conversation))
       (conversation--repair-incomplete-tail conversation))
-    (let* ((sequence (conversation-next-sequence conversation))
-           (sequenced (list* (first record)
-                             :seq sequence
-                             :time (get-universal-time)
-                             (rest record)))
+    (let* ((sequence              (conversation-next-sequence conversation))
+           (sequenced             (list* (first record)
+                                         :seq  sequence
+                                         :time (get-universal-time)
+                                         (rest record)))
            (picker-search-message (conversation--record-preview sequenced)))
       (when (conversation--compaction-record-p sequenced)
         (conversation-input-history--ensure-current conversation))
@@ -1219,7 +1212,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
                 (let ((pathname (conversation-log-pathname conversation)))
                   (unless (probe-file pathname)
                     (error 'conversation-invariant-error
-                           :message "The active persisted conversation log is missing."
+                           :message  "The active persisted conversation log is missing."
                            :pathname pathname
                            :sequence sequence))
                   (if (conversation--compaction-record-p sequenced)
@@ -1259,7 +1252,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
   "Return bounded nonempty string VALUE for aborted-turn FIELD."
   (unless (non-empty-string-p value)
     (error 'conversation-invariant-error
-           :message (format nil "Turn-aborted ~A must be a non-empty string." field)
+           :message  (format nil "Turn-aborted ~A must be a non-empty string." field)
            :pathname #P"conversation.sexp"
            :sequence nil))
   (if (<= (length value) maximum-characters)
@@ -1288,13 +1281,13 @@ a crash may leave one that a later lease acquisition can reuse safely."
         (return-from conversation-append-turn-aborted nil))
       (unless (member reason '(:cancelled :agent-loop :application-error))
         (error 'conversation-invariant-error
-               :message "A turn-aborted record has an unsupported reason."
+               :message  "A turn-aborted record has an unsupported reason."
                :pathname (conversation-pathname conversation)
                :sequence (conversation-next-sequence conversation)))
       (unless (or (null request-number)
                   (typep request-number '(integer 1)))
         (error 'conversation-invariant-error
-               :message "A turn-aborted request number must be positive."
+               :message  "A turn-aborted request number must be positive."
                :pathname (conversation-pathname conversation)
                :sequence (conversation-next-sequence conversation)))
       (let ((record
@@ -1303,7 +1296,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
                (list :turn-aborted
                      :turn-start-seq turn-start-sequence
                      :last-complete-seq last-complete-sequence
-                     :reason reason
+                     :reason            reason
                      :condition-type
                      (conversation--bounded-turn-abort-text
                       condition-type
@@ -1314,7 +1307,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
                       message
                       "message"
                       *conversation-turn-aborted-message-maximum-characters*)
-                     :request-number request-number))))
+                     :request-number    request-number))))
         (setf (conversation-last-aborted-turn-start-sequence conversation)
               turn-start-sequence)
         record))))
@@ -1384,16 +1377,16 @@ a crash may leave one that a later lease acquisition can reuse safely."
   (let ((normalized (conversation-title-normalize title)))
     (unless normalized
       (error 'conversation-invariant-error
-             :message "A conversation title must contain displayable text."
+             :message  "A conversation title must contain displayable text."
              :pathname (conversation-pathname conversation)
              :sequence (conversation-next-sequence conversation)))
     (unless (member source '(:initial :generated))
       (error 'conversation-invariant-error
-             :message "A conversation title has an unsupported source."
+             :message  "A conversation title has an unsupported source."
              :pathname (conversation-pathname conversation)
              :sequence (conversation-next-sequence conversation)))
     (with-recursive-lock-held ((conversation-append-lock conversation))
-      (let ((current-title (conversation-title conversation))
+      (let ((current-title  (conversation-title conversation))
             (current-source (conversation-title-source conversation)))
         (when (and (eq source ':generated)
                    (eq current-source ':generated))
@@ -1403,7 +1396,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
           (return-from conversation-set-title normalized))
         (unless (conversation--title-transition-valid-p current-source source)
           (error 'conversation-invariant-error
-                 :message "A conversation title has an invalid source transition."
+                 :message  "A conversation title has an invalid source transition."
                  :pathname (conversation-pathname conversation)
                  :sequence (conversation-next-sequence conversation)))
         (let ((sequence (conversation-next-sequence conversation)))
@@ -1492,7 +1485,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
      (conversation-input-items-for-request
       conversation :include-ephemeral-p include-ephemeral-p)
      family
-     :item-families (conversation-input-item-families conversation)
+     :item-families    (conversation-input-item-families conversation)
      :handoff-families (conversation-portable-handoff-families conversation))))
 
 (-> conversation-compaction-summary-view
@@ -1503,18 +1496,18 @@ a crash may leave one that a later lease acquisition can reuse safely."
   (let ((view
           (make-instance
            'conversation
-           :identifier (conversation-identifier conversation)
+           :identifier       (conversation-identifier conversation)
            :prompt-cache-key (conversation-prompt-cache-key conversation)
-           :pathname (conversation-pathname conversation)
-           :log-pathname (conversation-log-pathname conversation)
-           :persisted-p nil
-           :created-at (conversation-created-at conversation)
+           :pathname         (conversation-pathname conversation)
+           :log-pathname     (conversation-log-pathname conversation)
+           :persisted-p      nil
+           :created-at       (conversation-created-at conversation)
            :origin-directory (conversation-origin-directory conversation)
-           :model (conversation-model conversation)
-           :model-provider (conversation-model-provider conversation)
+           :model            (conversation-model conversation)
+           :model-provider   (conversation-model-provider conversation)
            :reasoning-effort (conversation-reasoning-effort conversation)
-           :next-sequence (conversation-next-sequence conversation)
-           :input-items (copy-list items))))
+           :next-sequence    (conversation-next-sequence conversation)
+           :input-items      (copy-list items))))
     (if family
         (dolist (item items)
           (setf (gethash item (conversation-input-item-families view)) family))
@@ -1547,8 +1540,8 @@ a crash may leave one that a later lease acquisition can reuse safely."
   "Return ITEM's safe user or final-assistant reference message, or NIL."
   (when (and (json-object-p item)
              (string= (or (json-get item "type") "") "message"))
-    (let ((role (json-get item "role"))
-          (phase (json-get item "phase"))
+    (let ((role    (json-get item "role"))
+          (phase   (json-get item "phase"))
           (content (json-get item "content")))
       (when (and (stringp role)
                  (member role '("user" "assistant") :test #'string=)
@@ -1617,9 +1610,9 @@ wire order while the snapshot plus its developer boundary fits within
 MAXIMUM-WIRE-BYTES. Only candidate messages within the retained suffix are
 copied."
   (with-recursive-lock-held ((conversation-append-lock conversation))
-    (let ((items (coerce (conversation-input-items conversation) 'vector))
+    (let ((items           (coerce (conversation-input-items conversation) 'vector))
           (ephemeral-items (make-hash-table :test #'eq))
-          (selected nil)
+          (selected        nil)
           (wire-bytes
             (conversation--inherited-reference-wire-byte-length nil)))
       (dolist (entry (conversation-ephemeral-input-entries conversation))
@@ -1775,9 +1768,9 @@ copied."
 (-> conversation-append-user-message
     (conversation (or string user-message-input)
      &key (:pending-input-identifier (option non-empty-string))
-           (:automatic-p boolean)
-           (:job-completion (option list))
-           (:operation-request (option list)))
+          (:automatic-p boolean)
+          (:job-completion (option list))
+          (:operation-request (option list)))
     (values json-object list))
 (defun conversation-append-user-message
     (conversation input
@@ -1795,7 +1788,7 @@ transcript show automatic INPUT as a short notice."
            (conversation--prepare-images
             conversation
             (user-message-input-image-pathnames input)))
-         (item (user-message-item content attachments)))
+         (item    (user-message-item content attachments)))
     (with-recursive-lock-held ((conversation-append-lock conversation))
       (let* ((initial-title
                (and (not automatic-p)
@@ -1805,10 +1798,10 @@ transcript show automatic INPUT as a short notice."
                      (if (non-empty-string-p content)
                          content
                          *conversation-image-only-title*))))
-             (previous-title (conversation-title conversation))
+             (previous-title        (conversation-title conversation))
              (previous-title-source (conversation-title-source conversation))
-             (record nil)
-             (durable-p nil))
+             (record                nil)
+             (durable-p             nil))
         (when initial-title
           (setf (conversation-title conversation) initial-title
                 (conversation-title-source conversation) ':initial))
@@ -1835,7 +1828,7 @@ transcript show automatic INPUT as a short notice."
                                (mapcar #'image-attachment-record attachments)))
                        (unless attachments
                          (list :wire-json (json-encode item))))))
-                (conversation--remember-image-attachments conversation attachments)
+               (conversation--remember-image-attachments conversation attachments)
                (setf durable-p t
                      (conversation-turn-state conversation) nil)
                (values (conversation--append-input-item conversation item)
@@ -1854,7 +1847,7 @@ transcript show automatic INPUT as a short notice."
          item :preceding-items (conversation-input-items conversation))
       (clinker-transcript:reconciliation-error (condition)
         (error 'conversation-invariant-error
-               :message (format nil "Invalid provider function call: ~A" condition)
+               :message  (format nil "Invalid provider function call: ~A" condition)
                :pathname (conversation-pathname conversation)
                :sequence (conversation-next-sequence conversation))))
     (unless (json-object-source-p (json-get item "arguments"))
@@ -1931,16 +1924,16 @@ transcript show automatic INPUT as a short notice."
         (validate-tree
          details
          (make-source-grammar
-          :label "Tool result metadata"
+          :label                     "Tool result metadata"
           :maximum-depth 64 :maximum-nodes 8192
           :maximum-string-characters *conversation-tool-details-maximum-octets*
           :allowed-atom-predicate
           (lambda (value)
             (or (null value) (eq value t) (keywordp value)
                 (stringp value) (numberp value)))))
-        (let* ((text (with-standard-io-syntax
-                       (let ((*print-circle* nil) (*print-readably* t))
-                         (write-to-string details))))
+        (let* ((text   (with-standard-io-syntax
+                         (let ((*print-circle* nil) (*print-readably* t))
+                           (write-to-string details))))
                (octets (length (utf8-string-to-octets text))))
           (if (<= octets *conversation-tool-details-maximum-octets*)
               details
@@ -1982,7 +1975,7 @@ transcript show automatic INPUT as a short notice."
                     (list output))
                   image-attachments))))
          (attachments (conversation--tool-content-images blocks))
-         (retained-p nil))
+         (retained-p  nil))
     (unwind-protect
          (progn
            (unless (or (and (null cpu-microseconds)
@@ -2000,12 +1993,12 @@ transcript show automatic INPUT as a short notice."
                           (typep block 'image-attachment)))
                     blocks)
              (error 'conversation-invariant-error
-                    :message "Tool output contains an invalid content block."
+                    :message  "Tool output contains an invalid content block."
                     :pathname (conversation-pathname conversation)
                     :sequence (conversation-next-sequence conversation)))
            (when (and attachments (not success-p))
              (error 'conversation-invariant-error
-                    :message "A failed tool result cannot contain image output."
+                    :message  "A failed tool result cannot contain image output."
                     :pathname (conversation-pathname conversation)
                     :sequence (conversation-next-sequence conversation)))
            (let* ((wire-output
@@ -2020,26 +2013,30 @@ transcript show automatic INPUT as a short notice."
                  (append
                    (list :tool-result
                          :call-id call-id
-                         :tool tool-name
+                         :tool       tool-name
                          :tool-label tool-label
-                         :status (ecase category
-                                   (:success ':ok)
-                                   (:failure ':error)
-                                   (:neutral ':neutral)
-                                   (:mechanics ':mechanics))
-                         :category category
-                         :details (conversation--bounded-tool-details details)
-                         :output output)
+                         :status     (ecase category
+                                       (:success
+                                        ':ok)
+                                       (:failure
+                                        ':error)
+                                       (:neutral
+                                        ':neutral)
+                                       (:mechanics
+                                        ':mechanics))
+                         :category   category
+                         :details    (conversation--bounded-tool-details details)
+                         :output     output)
                   (when attachments
                     (list
                      :content-blocks
                      (mapcar #'conversation--tool-content-block-record blocks)))
                   (when cpu-microseconds
-                    (list :cpu-microseconds cpu-microseconds
+                    (list :cpu-microseconds  cpu-microseconds
                           :real-microseconds real-microseconds))
                   (unless attachments
                     (list :wire-json (json-encode item)))))
-                 (conversation--remember-image-attachments conversation attachments)
+                (conversation--remember-image-attachments conversation attachments)
                 (setf retained-p t)
                 (conversation--append-input-item conversation item))
                (:next-response
@@ -2056,7 +2053,7 @@ transcript show automatic INPUT as a short notice."
 (defun conversation--tool-call-name (item)
   "Return a readable canonical name for function call ITEM."
   (let ((namespace (json-get item "namespace"))
-        (name (json-get item "name")))
+        (name      (json-get item "name")))
     (cond
       ((and (non-empty-string-p namespace) (non-empty-string-p name))
        (format nil "~A.~A" namespace name))
@@ -2089,7 +2086,7 @@ transcript show automatic INPUT as a short notice."
                     :tool-name
                     (conversation--tool-call-name
                      (clinker-transcript:missing-output-repair-call intent))
-                    :output *conversation-interrupted-tool-output*
+                    :output    *conversation-interrupted-tool-output*
                     :success-p nil)))))
       (clinker-transcript:reconciliation-error (condition)
         (error 'conversation-invariant-error
@@ -2153,7 +2150,7 @@ transcript show automatic INPUT as a short notice."
   (unless (and (conversation--model-selection-p model reasoning-effort)
                (or (null provider) (non-empty-string-p provider)))
     (error 'conversation-invariant-error
-           :message "A conversation model selection is invalid."
+           :message  "A conversation model selection is invalid."
            :pathname (conversation-pathname conversation)
            :sequence (conversation-next-sequence conversation)))
   (unless (and (string= model (or (conversation-model conversation) ""))
@@ -2188,7 +2185,6 @@ transcript show automatic INPUT as a short notice."
                               content)))))
 
 
-
 ;;;; -- Conversation Loading --
 
 (-> conversation--call-with-record-mapper (function function) (values &rest t))
@@ -2210,7 +2206,7 @@ translating a condition signaled by the record visitor."
         (if (eq condition callback-store-error)
             (error condition)
             (error 'conversation-invariant-error
-                   :message (format nil "Malformed conversation storage: ~A" condition)
+                   :message  (format nil "Malformed conversation storage: ~A" condition)
                    :pathname (sexp-store:store-error-pathname condition)
                    :sequence (when (typep condition 'sexp-store:segment-error)
                                (sexp-store:segment-error-sequence condition))))))))
@@ -2225,7 +2221,6 @@ translating a condition signaled by the record visitor."
    (lambda (visit)
      (log-map visit pathname :start-position start-position))))
 
-
 (-> conversation--segment-options
     (pathname &key (:on-header (option function))) list)
 (defun conversation--segment-options (identity &key on-header)
@@ -2237,7 +2232,7 @@ translating a condition signaled by the record visitor."
               (funcall on-header conversation))
             (values (conversation-next-sequence conversation)
                     (= (getf (rest header) :version) 1))))
-        :record-sequence (lambda (record) (getf (rest record) :seq))
+        :record-sequence       (lambda (record) (getf (rest record) :seq))
         :validate-record
         (lambda (pathname record)
           (unless (conversation--record-form-p record)
@@ -2291,8 +2286,8 @@ translating a condition signaled by the record visitor."
 (defun conversation--map-picker-records (pathname function)
   "Map only PATHNAME's active checkpoint chunk, or its legacy storage."
   (let* ((identity (conversation-storage-identity-pathname pathname))
-         (active (conversation-storage-active-pathname identity))
-         (header (and active (conversation--peek-segment-header active))))
+         (active   (conversation-storage-active-pathname identity))
+         (header   (and active (conversation--peek-segment-header active))))
     (if (eql (getf (rest header) :version) 2)
         (progn
           (funcall function header)
@@ -2306,15 +2301,15 @@ translating a condition signaled by the record visitor."
     (option conversation-picker-metadata))
 (defun conversation-picker-metadata-scan (pathname)
   "Rebuild resume-picker metadata from the active checkpoint chunk or legacy storage."
-  (let ((working-seconds 0)
-        (user-turn-count 0)
-         (title
-           (let* ((header (ignore-errors (conversation-peek-header pathname)))
-                  (candidate (and header (getf (rest header) :title))))
-             (and (conversation-title-valid-p candidate) candidate)))
+  (let ((working-seconds      0)
+        (user-turn-count      0)
+        (title
+          (let* ((header    (ignore-errors (conversation-peek-header pathname)))
+                 (candidate (and header (getf (rest header) :title))))
+            (and (conversation-title-valid-p candidate) candidate)))
         (search-message-count 0)
-        (last-activity-at nil)
-        (preview nil))
+        (last-activity-at     nil)
+        (preview              nil))
     (handler-case
         (multiple-value-bind
             (initial-segment initial-size initial-write-date)
@@ -2328,8 +2323,8 @@ translating a condition signaled by the record visitor."
                        (working-seconds user-turn-count last-activity-at)
                      (conversation--activity-after-record
                       record
-                      :working-seconds working-seconds
-                      :user-turn-count user-turn-count
+                      :working-seconds  working-seconds
+                      :user-turn-count  user-turn-count
                       :last-activity-at last-activity-at))
                    (case (first record)
                      (:conversation
@@ -2371,16 +2366,16 @@ translating a condition signaled by the record visitor."
                              (= initial-revision
                                 (conversation-picker-revision-read pathname)))
                     (make-instance 'conversation-picker-metadata
-                                   :source-segment initial-segment
-                                   :source-size initial-size
-                                   :source-write-date initial-write-date
-                                   :source-revision initial-revision
-                                   :working-seconds working-seconds
-                                   :user-turn-count user-turn-count
-                                   :title title
+                                   :source-segment       initial-segment
+                                   :source-size          initial-size
+                                   :source-write-date    initial-write-date
+                                   :source-revision      initial-revision
+                                   :working-seconds      working-seconds
+                                   :user-turn-count      user-turn-count
+                                   :title                title
                                    :search-message-count search-message-count
-                                   :preview preview
-                                   :incomplete-tail-p incomplete-tail-p)))))))
+                                   :preview              preview
+                                   :incomplete-tail-p    incomplete-tail-p)))))))
       (error ()
         nil))))
 
@@ -2394,20 +2389,19 @@ translating a condition signaled by the record visitor."
           (sexp-store:sidecar-rebuild
            (conversation-picker-metadata-pathname pathname)
            :lock-pathname (conversation-picker-source-lock-pathname pathname)
-           :build (lambda ()
-                    (setf metadata (conversation-picker-metadata-scan pathname)))
-           :encode #'conversation-picker-metadata-record
-           :source-token (lambda () (conversation-picker-metadata-source-token pathname))
-           :value-token #'conversation-picker-metadata-token))
+           :build         (lambda ()
+                            (setf metadata (conversation-picker-metadata-scan pathname)))
+           :encode        #'conversation-picker-metadata-record
+           :source-token  (lambda () (conversation-picker-metadata-source-token pathname))
+           :value-token   #'conversation-picker-metadata-token))
         metadata)))
-
 
 (-> conversation-picker-search-scan
     (pathname)
     (option conversation-picker-search-index))
 (defun conversation-picker-search-scan (pathname)
   "Scan PATHNAME's segments once for complete durable user and assistant text."
-  (let ((messages nil)
+  (let ((messages      nil)
         (message-count 0))
     (handler-case
         (multiple-value-bind
@@ -2437,11 +2431,10 @@ translating a condition signaled by the record visitor."
                     (make-instance
                      'conversation-picker-search-index
                      :source-revision initial-search-revision
-                     :message-count message-count
-                     :messages (nreverse messages))))))))
+                     :message-count   message-count
+                     :messages        (nreverse messages))))))))
       (error ()
         nil))))
-
 
 (-> conversation-picker-search-find
     (pathname)
@@ -2456,10 +2449,10 @@ translating a condition signaled by the record visitor."
                 (sexp-store:sidecar-rebuild
                  (conversation-picker-search-pathname pathname)
                  :lock-pathname (conversation-picker-source-lock-pathname pathname)
-                 :build (lambda () (conversation-picker-search-scan pathname))
-                 :encode #'conversation-picker-search-index-record
-                 :source-token (lambda () (conversation-picker-search-revision-read pathname))
-                 :value-token #'conversation-picker-search-index-source-revision))
+                 :build         (lambda () (conversation-picker-search-scan pathname))
+                 :encode        #'conversation-picker-search-index-record
+                 :source-token  (lambda () (conversation-picker-search-revision-read pathname))
+                 :value-token   #'conversation-picker-search-index-source-revision))
               (conversation-picker-search-read pathname))))))
 
 (-> conversation-picker-search-close (conversation) null)
@@ -2473,7 +2466,6 @@ later picker searches read it without scanning the log."
     (ignore-errors
       (conversation-picker-search-find (conversation-pathname conversation))))
   nil)
-
 
 (-> conversation-picker-search-index-text
     (conversation-picker-search-index)
@@ -2500,8 +2492,8 @@ later picker searches read it without scanning the log."
         (log-read source)
       (error (condition)
         (error 'conversation-invariant-error
-               :message (format nil "Malformed conversation record: ~A"
-                                condition)
+               :message  (format nil "Malformed conversation record: ~A"
+                                 condition)
                :pathname source
                :sequence nil)))))
 
@@ -2509,7 +2501,7 @@ later picker searches read it without scanning the log."
 (defun conversation--record-error (conversation properties message)
   "Signal persisted record invariant failure MESSAGE for CONVERSATION."
   (error 'conversation-invariant-error
-         :message message
+         :message  message
          :pathname (conversation-pathname conversation)
          :sequence (getf properties :seq)))
 
@@ -2565,7 +2557,7 @@ later picker searches read it without scanning the log."
 (defmethod conversation--project-record
     ((kind (eql :message)) conversation properties)
   (let ((content (getf properties :content))
-        (images (getf properties :images)))
+        (images  (getf properties :images)))
     (when (and (null (conversation-title conversation))
                (= (conversation-user-turn-count conversation) 1)
                (eq (getf properties :role) ':user)
@@ -2586,7 +2578,7 @@ later picker searches read it without scanning the log."
 
 (defmethod conversation--project-record
     ((kind (eql :title)) conversation properties)
-  (let* ((title (getf properties :value))
+  (let* ((title  (getf properties :value))
          (normalized-title
            (and (stringp title)
                 (conversation-title-normalize title)))
@@ -2604,7 +2596,7 @@ later picker searches read it without scanning the log."
     ((kind (eql :tool-result)) conversation properties)
   (cond
     ((conversation--property-present-p properties :content-blocks)
-     (let ((call-id (getf properties :call-id))
+     (let ((call-id     (getf properties :call-id))
            (descriptors (getf properties :content-blocks)))
        (unless (consp descriptors)
          (conversation--record-error
@@ -2625,7 +2617,7 @@ later picker searches read it without scanning the log."
               conversation descriptor properties))
            descriptors))))))
     ((conversation--property-present-p properties :images)
-     (let ((call-id (getf properties :call-id))
+     (let ((call-id     (getf properties :call-id))
            (descriptors (getf properties :images)))
        (unless (consp descriptors)
          (conversation--record-error
@@ -2683,7 +2675,6 @@ later picker searches read it without scanning the log."
          conversation
          (conversation--inherited-reference-boundary-item))))))
 
-
 (defmethod conversation--project-record
     ((kind (eql :provider)) conversation properties)
   (let ((total (conversation--usage-total
@@ -2693,8 +2684,8 @@ later picker searches read it without scanning the log."
 
 (defmethod conversation--project-record
     ((kind (eql :configuration)) conversation properties)
-  (let ((model (getf properties :model))
-        (provider (getf properties :model-provider))
+  (let ((model            (getf properties :model))
+        (provider         (getf properties :model-provider))
         (reasoning-effort (getf properties :reasoning-effort)))
     (unless (and (conversation--persisted-model-selection-p model reasoning-effort)
                  (or (null provider) (non-empty-string-p provider)))
@@ -2708,13 +2699,13 @@ later picker searches read it without scanning the log."
 (defmethod conversation--project-record
     ((kind (eql :turn-aborted)) conversation properties)
   "Validate and project one durable aborted-turn boundary."
-  (let ((sequence (getf properties :seq))
-        (turn-start-sequence (getf properties :turn-start-seq))
+  (let ((sequence               (getf properties :seq))
+        (turn-start-sequence    (getf properties :turn-start-seq))
         (last-complete-sequence (getf properties :last-complete-seq))
-        (reason (getf properties :reason))
-        (condition-type (getf properties :condition-type))
-        (message (getf properties :message))
-        (request-number (getf properties :request-number)))
+        (reason                 (getf properties :reason))
+        (condition-type         (getf properties :condition-type))
+        (message                (getf properties :message))
+        (request-number         (getf properties :request-number)))
     (unless (and (typep sequence '(integer 1))
                  (typep turn-start-sequence '(integer 1))
                  (typep last-complete-sequence '(integer 1))
@@ -2754,10 +2745,10 @@ later picker searches read it without scanning the log."
   (unless (conversation--record-form-p record)
     (conversation--record-error
      conversation nil "A persisted conversation record is not a keyword property list."))
-  (let* ((kind (first record))
-         (properties (rest record))
-         (sequence (getf properties :seq))
-         (wire-json (getf properties :wire-json))
+  (let* ((kind                  (first record))
+         (properties            (rest record))
+         (sequence              (getf properties :seq))
+         (wire-json             (getf properties :wire-json))
          (content-blocks-p
            (conversation--property-present-p properties :content-blocks))
          (images-p
@@ -2806,8 +2797,8 @@ later picker searches read it without scanning the log."
   (handler-case
       (with-open-file (stream pathname :direction ':input :external-format ':utf-8)
         (let* ((*read-eval* nil)
-               (end-marker (cons nil nil))
-               (form (read stream nil end-marker)))
+               (end-marker  (cons nil nil))
+               (form        (read stream nil end-marker)))
           (if (and (conversation--record-form-p form)
                    (eq (first form) :conversation))
               form
@@ -2851,7 +2842,7 @@ later picker searches read it without scanning the log."
   "Validate HEADER and return its empty resumable conversation projection."
   (flet ((invalid (message)
            (error 'conversation-invariant-error
-                  :message message
+                  :message  message
                   :pathname identity
                   :sequence nil)))
     (unless (and (conversation--record-form-p header)
@@ -2860,20 +2851,20 @@ later picker searches read it without scanning the log."
                  (non-empty-string-p (getf (rest header) :id))
                  (typep (getf (rest header) :created-at) 'timestamp))
       (invalid "The conversation header is missing or unsupported."))
-    (let* ((properties (rest header))
-           (version (getf properties :version))
-           (identifier (getf properties :id))
+    (let* ((properties          (rest header))
+           (version             (getf properties :version))
+           (identifier          (getf properties :id))
            (identity-identifier (pathname-name identity))
-           (directory (getf properties :directory))
-           (title (and (= version 2) (getf properties :title)))
+           (directory           (getf properties :directory))
+           (title               (and (= version 2) (getf properties :title)))
            (normalized-title
              (and (stringp title)
                   (conversation-title-normalize title)))
-           (title-source (and (= version 2) (getf properties :title-source)))
-           (model (getf properties :model))
-           (model-provider (getf properties :model-provider))
-           (reasoning-effort (getf properties :reasoning-effort))
-           (prompt-cache-key (getf properties :prompt-cache-key))
+           (title-source        (and (= version 2) (getf properties :title-source)))
+           (model               (getf properties :model))
+           (model-provider      (getf properties :model-provider))
+           (reasoning-effort    (getf properties :reasoning-effort))
+           (prompt-cache-key    (getf properties :prompt-cache-key))
            (chunk-start-sequence
              (if (= version 2)
                  (getf properties :chunk-start-sequence)
@@ -2962,25 +2953,25 @@ later picker searches read it without scanning the log."
              "The conversation chunk header contains invalid resumable state.")))
       (let ((conversation
               (make-instance 'conversation
-                             :identifier identifier
-                             :prompt-cache-key prompt-cache-key
-                             :pathname identity
-                             :log-pathname log-pathname
-                             :persisted-p t
+                             :identifier        identifier
+                             :prompt-cache-key  prompt-cache-key
+                             :pathname          identity
+                             :log-pathname      log-pathname
+                             :persisted-p       t
                              :incomplete-tail-p nil
-                             :created-at (getf properties :created-at)
+                             :created-at        (getf properties :created-at)
                              :origin-directory
                              (and (stringp directory) directory)
-                             :title (and normalized-title
-                                         (copy-seq normalized-title))
-                             :title-source title-source
-                             :model (and (non-empty-string-p model) model)
-                             :model-provider model-provider
+                             :title             (and normalized-title
+                                                     (copy-seq normalized-title))
+                             :title-source      title-source
+                             :model             (and (non-empty-string-p model) model)
+                             :model-provider    model-provider
                              :reasoning-effort
                              (and (non-empty-string-p reasoning-effort)
                                   reasoning-effort)
-                             :next-sequence chunk-start-sequence
-                             :input-items nil)))
+                             :next-sequence     chunk-start-sequence
+                             :input-items       nil)))
         (when (= version 2)
           (setf (conversation-working-seconds conversation) working-seconds
                 (conversation-user-turn-count conversation) user-turn-count
@@ -3010,14 +3001,14 @@ later picker searches read it without scanning the log."
   "Validate RECORD as PATHNAME's deterministic first durable record."
   (unless (conversation--record-form-p record)
     (error 'conversation-invariant-error
-           :message "A conversation chunk begins with a malformed record."
+           :message  "A conversation chunk begins with a malformed record."
            :pathname pathname
            :sequence nil))
   (when (= (getf (rest header) :version) 2)
-    (let* ((properties (rest record))
+    (let* ((properties     (rest record))
            (start-sequence (getf (rest header) :chunk-start-sequence))
-           (sequence (getf properties :seq))
-           (compaction-p (conversation--compaction-record-p record)))
+           (sequence       (getf properties :seq))
+           (compaction-p   (conversation--compaction-record-p record)))
       (unless (and (typep sequence '(integer 1))
                    (= sequence start-sequence))
         (error 'conversation-invariant-error
@@ -3044,7 +3035,7 @@ later picker searches read it without scanning the log."
         (when (and (eq (first record) :summary)
                    (not (stringp (getf properties :content))))
           (error 'conversation-invariant-error
-                 :message "A conversation summary checkpoint has invalid content."
+                 :message  "A conversation summary checkpoint has invalid content."
                  :pathname pathname
                  :sequence sequence)))))
   nil)
@@ -3065,7 +3056,7 @@ later picker searches read it without scanning the log."
       (declare (ignore position start-sequence next-sequence))
       (unless (plusp record-count)
         (error 'conversation-invariant-error
-               :message "The conversation chunk has no durable record."
+               :message  "The conversation chunk has no durable record."
                :pathname pathname
                :sequence nil))
       (setf (conversation-incomplete-tail-p conversation) incomplete-tail-p)
@@ -3096,12 +3087,12 @@ later picker searches read it without scanning the log."
 (-> conversation-load (pathname) conversation)
 (defun conversation-load (pathname)
   "Load PATHNAME from its newest self-contained chunk or legacy segments."
-  (let* ((identity (conversation-storage-identity-pathname pathname))
+  (let* ((identity  (conversation-storage-identity-pathname pathname))
          (pathnames (conversation-storage-pathnames identity))
-         (active (first (last pathnames))))
+         (active    (first (last pathnames))))
     (unless active
       (error 'conversation-invariant-error
-             :message "The conversation does not contain a durable segment."
+             :message  "The conversation does not contain a durable segment."
              :pathname identity
              :sequence nil))
     (let* ((header (conversation-peek-header active))
@@ -3129,7 +3120,7 @@ later picker searches read it without scanning the log."
   (let ((pathname (conversation-pathname-for-id configuration identifier)))
     (unless (conversation-storage-active-pathname pathname)
       (error 'conversation-error
-             :message (format nil "Conversation ~A does not exist." identifier)
+             :message  (format nil "Conversation ~A does not exist." identifier)
              :pathname pathname
              :sequence nil))
     (conversation-load pathname)))
@@ -3187,7 +3178,6 @@ later picker searches read it without scanning the log."
     (mapcar #'first
             (sort summaries #'> :key #'second))))
 
-
 (-> conversation-activity-summary (pathname)
     (values (integer 0) (integer 0)))
 (defun conversation-activity-summary (pathname)
@@ -3201,12 +3191,10 @@ resume-picker reads use the compact sidecar instead of replaying the log."
                 (conversation-picker-metadata-user-turn-count metadata))
         (values 0 0))))
 
-
 (defparameter *conversation-delete-directory-tree-function*
   (lambda (pathname &rest arguments)
     (apply #'platform-delete-directory-tree *platform* pathname arguments))
   "Function used to remove private artifact trees after conversation deletion.")
-
 
 (-> conversation-delete (configuration string) pathname)
 (defun conversation-delete (configuration identifier)
@@ -3232,7 +3220,7 @@ storage is missing, IDENTIFIER is invalid, or another process owns it."
             (merge-pathnames
              (format nil "tasks/~A/" task-fragment)
              (config :data-root configuration))))
-         (lease nil))
+         (lease    nil))
     (unwind-protect
          (progn
            (setf lease (conversation-lease-acquire configuration normalized))
@@ -3251,7 +3239,7 @@ storage is missing, IDENTIFIER is invalid, or another process owns it."
                    (platform-delete-directory-tree
                     *platform*
                     chunk-directory
-                    :validate t
+                    :validate          t
                     :if-does-not-exist ':ignore)))
              (error (condition)
                (error 'conversation-invariant-error
@@ -3270,7 +3258,7 @@ storage is missing, IDENTIFIER is invalid, or another process owns it."
                    (when (probe-file root)
                      (funcall *conversation-delete-directory-tree-function*
                               root
-                              :validate t
+                              :validate          t
                               :if-does-not-exist ':ignore))))
              (error (condition)
                (error 'conversation-invariant-error
