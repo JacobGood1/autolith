@@ -2,18 +2,21 @@
 
 ;;;; -- Task Child Execution --
 
+(-> task-parent-depth ((option agent)) (integer 0))
 (defun task-parent-depth (agent)
   "Return AGENT's explicit task depth, treating the primary agent as zero."
   (if (typep agent 'task-child-agent)
       (task-child-agent-depth agent)
       0))
 
+(-> task-parent-spawn-policy ((option agent)) t)
 (defun task-parent-spawn-policy (agent)
   "Return AGENT's effective child-agent spawn policy."
   (if (typep agent 'task-child-agent)
       (task-agent-definition-spawns (task-child-agent-definition agent))
       :all))
 
+(-> task-parent-can-spawn-p ((option agent) t task-orchestrator) boolean)
 (defun task-parent-can-spawn-p (agent child-name orchestrator)
   "Return true when AGENT may create CHILD-NAME at the configured depth."
   (let ((policy (task-parent-spawn-policy agent)))
@@ -24,6 +27,7 @@
          (and (listp policy) (member child-name policy :test #'string-equal)))
      t)))
 
+(-> task--tool-spec-matches-p (string tool) boolean)
 (defun task--tool-spec-matches-p (spec tool)
   "Return true when agent tool SPEC permits TOOL."
   (let* ((normalized (string-downcase spec))
@@ -32,6 +36,7 @@
     (or (string= normalized canonical)
         (string= normalized (format nil "~A.*" namespace)))))
 
+(-> task--definition-allows-tool-p (task-agent-definition tool) boolean)
 (defun task--definition-allows-tool-p (definition tool)
   "Return true when DEFINITION permits ordinary TOOL."
   (let ((specs (task-agent-definition-tools definition)))
@@ -65,6 +70,9 @@
            :definition-name (task-agent-definition-name definition)))))
    nil))
 
+(-> task-child-tool-registry
+    (tool-registry task-agent-definition (option task-orchestrator) (integer 0))
+    tool-registry)
 (defun task-child-tool-registry (parent-registry definition orchestrator depth)
   "Build a restricted child registry with yield and structurally bounded spawning."
   (let ((registry (make-instance 'tool-registry)))
@@ -145,6 +153,7 @@
         (mcp-tool-registry-refresh registry :only-dirty-p t)))
     registry))
 
+(-> task--model-alias (string (option string)) (option string))
 (defun task--model-alias (alias parent-model)
   "Resolve one child model ALIAS relative to PARENT-MODEL."
   (let ((value (string-downcase alias)))
@@ -166,6 +175,7 @@ Routine delegated work should not inherit the parent's effort: a parent
 running at high or max effort would otherwise multiply that cost across every
 child it spawns.")
 
+(-> task--thinking-effort ((option keyword)) string)
 (defun task--thinking-effort (level)
   "Resolve child reasoning LEVEL to a supported provider effort."
   (let ((value (and level (string-downcase (symbol-name level)))))
@@ -175,6 +185,7 @@ child it spawns.")
         value
         *task-default-reasoning-effort*)))
 
+(-> task-configuration-for-definition (configuration task-agent-definition) configuration)
 (defun task-configuration-for-definition (parent-configuration definition)
   "Copy PARENT-CONFIGURATION with DEFINITION's model, effort, and web policy.
 
@@ -231,12 +242,14 @@ boundary cannot fit within that budget."
              (conversation--inherited-reference-wire-byte-length nil))
          limit)))
 
+(-> task-output-definition-text (task-agent-definition) (option string))
 (defun task-output-definition-text (definition)
   "Return DEFINITION's output contract as prompt text, or NIL."
   (let ((output (task-agent-definition-output definition)))
     (and output
          (task--write-readable-sexp output :pretty-p t))))
 
+(-> task-child-goal-context (task-job configuration) string)
 (defun task-child-goal-context (job child-configuration)
   "Build child instructions without replacing ordinary path authorization."
   (let* ((definition (task-job-definition job))
@@ -385,10 +398,12 @@ boundary cannot fit within that budget."
                        (task--write-readable-sexp
                         '(:yield-submit :accepted-p t))))))))))))))
 
+(-> task--utf8-length (string) (integer 0))
 (defun task--utf8-length (text)
   "Return the UTF-8 byte length of TEXT on the supported SBCL runtime."
   (length (utf8-string-to-octets text)))
 
+(-> task--bounded-output ((option string)) string)
 (defun task--bounded-output (text)
   "Bound TEXT by configured UTF-8 bytes and lines, marking truncation."
   (let* ((maximum-bytes
@@ -618,6 +633,7 @@ candidates."
         (when (probe-file temporary)
           (delete-file temporary))))))
 
+(-> task--result-output (task-completion task-progress provider-result) string)
 (defun task--result-output (completion progress result)
   "Select bounded child output from COMPLETION, PROGRESS, and provider RESULT."
   (let ((text
@@ -638,6 +654,9 @@ candidates."
           (t
            "(no output)"))))
 
+(-> task--assemble-child-result
+    (task-job provider-result agent conversation task-completion)
+    list)
 (defun task--assemble-child-result
     (job provider-result child conversation completion)
   "Assemble one portable SingleResult-style plist for a completed child."
@@ -679,6 +698,7 @@ candidates."
                 (task-job-detached-p job))))
     base))
 
+(-> task--failed-result (task-job keyword (option string)) list)
 (defun task--failed-result (job status message)
   "Return a portable terminal failure result for JOB."
   (let* ((parent   (task-job-parent-agent job))
@@ -746,6 +766,7 @@ candidates."
       (job-await execution))
     executions))
 
+(-> task-run-child (task-job) list)
 (defun task-run-child (job)
   "Create and run JOB's real in-process child session through terminal yield."
   (let* ((parent       (task-job-parent-agent job))
@@ -817,4 +838,5 @@ candidates."
              (task--assemble-child-result
               job result child conversation completion)))
       (task-job-cancel-execution-descendants job ':parent-finished)
+      ; mallet:suppress no-ignore-errors -- best-effort worker shutdown must not mask the child result
       (ignore-errors (lisp-worker-pool-stop-all worker)))))
