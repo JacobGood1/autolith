@@ -2997,25 +2997,31 @@ The current value and its source sit in aligned columns of their own."
      :busy-behavior     :apply
      :terminal-behavior :exclusive
      :callable          t)
-    (application &optional (model nil model-supplied-p) &key provider)
-  (multiple-value-bind (selected selected-provider)
-      (cond
-        (model
-         (values model provider))
-        ((and model-supplied-p (null provider))
-         (values nil nil))
-        (*application-command-interactive-p*
-         (application--pick-model application :provider provider)))
-    (when selected
-      (application-set-model application selected :provider selected-provider)
-      (let ((effort (and *application-command-interactive-p*
-                         (application--pick-reasoning-effort application))))
-        (when effort (application-set-reasoning-effort application effort))
-        (application-present
-         application
-         (format nil "The model is now ~A with reasoning effort ~A."
-                 (configuration-model-selection-id (application-configuration application))
-                 (config :reasoning-effort (application-configuration application)))))))
+    (application &rest arguments)
+  ;; ARGUMENTS are an optional MODEL followed by :PROVIDER, parsed here because
+  ;; a lambda list mixing &OPTIONAL and &KEY is ambiguous: an odd count means
+  ;; the first argument is the model.
+  (let* ((model-supplied-p (oddp (length arguments)))
+         (model            (and model-supplied-p (first arguments))))
+    (destructuring-bind (&key provider) (if model-supplied-p (rest arguments) arguments)
+      (multiple-value-bind (selected selected-provider)
+          (cond
+            (model
+             (values model provider))
+            ((and model-supplied-p (null provider))
+             (values nil nil))
+            (*application-command-interactive-p*
+             (application--pick-model application :provider provider)))
+        (when selected
+          (application-set-model application selected :provider selected-provider)
+          (let ((effort (and *application-command-interactive-p*
+                             (application--pick-reasoning-effort application))))
+            (when effort (application-set-reasoning-effort application effort))
+            (application-present
+             application
+             (format nil "The model is now ~A with reasoning effort ~A."
+                     (configuration-model-selection-id (application-configuration application))
+                     (config :reasoning-effort (application-configuration application)))))))))
   ':continue)
 
 (define-application-command application--builtin-models-command
