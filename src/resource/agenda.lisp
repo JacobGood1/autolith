@@ -4,9 +4,9 @@
 
 (define-condition agenda-resource-identifier-unsupported (autolith-error)
   ((identifier
-    :initarg :identifier
-    :reader agenda-resource-identifier-unsupported-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        agenda-resource-identifier-unsupported-identifier
+    :type          non-empty-string
     :documentation "The agenda resource identifier that is not yet supported."))
   (:default-initargs :message "The agenda resource identifier is not supported.")
   (:documentation "An agenda: URI names something other than the current workspace agenda.")
@@ -27,9 +27,9 @@
 
 (defclass agenda-resource (resource)
   ((directory
-    :initarg :directory
-    :reader agenda-resource-directory
-    :type non-empty-string
+    :initarg       :directory
+    :reader        agenda-resource-directory
+    :type          non-empty-string
     :documentation "The canonical current workspace directory resolved under authority."))
   (:documentation "The canonical current workspace agenda exposed as agenda:current."))
 
@@ -39,14 +39,14 @@
 
 (defclass agenda-observation (resource-observation)
   ((directory
-    :initarg :directory
-    :reader agenda-observation-directory
-    :type non-empty-string
+    :initarg       :directory
+    :reader        agenda-observation-directory
+    :type          non-empty-string
     :documentation "The canonical workspace directory represented by this observation.")
    (snapshot
-    :initarg :snapshot
-    :reader agenda-observation-snapshot
-    :type list
+    :initarg       :snapshot
+    :reader        agenda-observation-snapshot
+    :type          list
     :documentation "The exact detached readable agenda snapshot, including empty state."))
   (:documentation "An exact rendered and structural snapshot of the current workspace agenda."))
 
@@ -161,7 +161,7 @@
 (defun agenda-resource--snapshot (directory record)
   "Return an exact detached snapshot for DIRECTORY and optional agenda RECORD."
   (list :directory directory
-        :record (and record (agenda--record->form record))))
+        :record    (and record (agenda--record->form record))))
 
 (-> agenda-resource--observation-from-state
     (agenda-resource agenda-state)
@@ -169,8 +169,8 @@
 (defun agenda-resource--observation-from-state (resource state)
   "Return RESOURCE's exact current-workspace observation from validated STATE."
   (let* ((configuration-directory (agenda-resource-directory resource))
-         (record (agenda-find state configuration-directory))
-         (snapshot (agenda-resource--snapshot configuration-directory record)))
+         (record                  (agenda-find state configuration-directory))
+         (snapshot                (agenda-resource--snapshot configuration-directory record)))
     (make-instance 'agenda-observation
                    :uri       (resource-uri resource)
                    :revision  (resource-readable-snapshot-digest
@@ -204,7 +204,6 @@
 ;;;; -- Conversation Observation State --
 
 
-
 ;;;; -- Agenda Operation Arguments --
 
 (-> agenda-resource--status (json-object &key (:required boolean))
@@ -215,23 +214,28 @@
       (gethash "status" arguments)
     (when (and required (not present-p))
       (error 'tool-error
-             :message "An agenda status is required."
+             :message   "An agenda status is required."
              :tool-name "resource.edit"))
     (cond
       ((not present-p)
        nil)
       ((not (stringp value))
        (error 'tool-error
-              :message "Agenda status must be a string."
+              :message   "Agenda status must be a string."
               :tool-name "resource.edit"))
-      ((string-equal value "todo") ':todo)
-      ((string-equal value "doing") ':doing)
-      ((string-equal value "blocked") ':blocked)
-      ((string-equal value "done") ':done)
-      ((string-equal value "note") ':note)
+      ((string-equal value "todo")
+       ':todo)
+      ((string-equal value "doing")
+       ':doing)
+      ((string-equal value "blocked")
+       ':blocked)
+      ((string-equal value "done")
+       ':done)
+      ((string-equal value "note")
+       ':note)
       (t
        (error 'tool-error
-              :message "Agenda status must be todo, doing, blocked, done, or note."
+              :message   "Agenda status must be todo, doing, blocked, done, or note."
               :tool-name "resource.edit")))))
 
 (-> agenda-resource--string-argument
@@ -244,11 +248,11 @@
       (gethash name arguments)
     (when (and required (not present-p))
       (error 'tool-error
-             :message (format nil "~A requires ~A." tool-name name)
+             :message   (format nil "~A requires ~A." tool-name name)
              :tool-name tool-name))
     (when (and present-p (not (non-empty-string-p value)))
       (error 'tool-error
-             :message (format nil "~A must be a non-empty string." name)
+             :message   (format nil "~A must be a non-empty string." name)
              :tool-name tool-name))
     value))
 
@@ -267,7 +271,7 @@
        (values (coerce value 'list) t))
       (t
        (error 'tool-error
-              :message "memory-ids must be an array of non-empty strings."
+              :message   "memory-ids must be an array of non-empty strings."
               :tool-name tool-name)))))
 
 
@@ -278,31 +282,31 @@
   "Return one validated normalized agenda resource OPERATION."
   (unless (hash-table-p operation)
     (error 'tool-error
-           :message "Agenda resource operations must be JSON objects."
+           :message   "Agenda resource operations must be JSON objects."
            :tool-name "resource.edit"))
   (let ((name (tool-argument operation "op" :required t)))
     (unless (stringp name)
       (error 'tool-error
-             :message "Agenda resource operation op must be a string."
+             :message   "Agenda resource operation op must be a string."
              :tool-name "resource.edit"))
     (cond
       ((string= name "agenda-add")
        (resource-item-validate-operation-fields
-     "Agenda"
+        "Agenda"
         operation
         '("op" "text" "status" "memory-ids")
         '("op" "text"))
        (multiple-value-bind (memory-identifiers memory-identifiers-supplied-p)
            (agenda-resource--memory-identifiers operation "resource.edit")
          (declare (ignore memory-identifiers-supplied-p))
-         (list :kind ':add
-               :text (agenda-resource--string-argument
-                      operation "text" "resource.edit" :required t)
-               :status (or (agenda-resource--status operation) ':todo)
+         (list :kind               ':add
+               :text               (agenda-resource--string-argument
+                                    operation "text" "resource.edit" :required t)
+               :status             (or (agenda-resource--status operation) ':todo)
                :memory-identifiers memory-identifiers)))
       ((string= name "agenda-update")
        (resource-item-validate-operation-fields
-     "Agenda"
+        "Agenda"
         operation
         '("op" "id" "text" "status" "memory-ids")
         '("op" "id"))
@@ -317,18 +321,18 @@
              (agenda-resource--memory-identifiers operation "resource.edit")
            (unless (or text status memory-identifiers-supplied-p)
              (error 'tool-error
-                    :message "agenda-update requires text, status, or memory-ids."
+                    :message   "agenda-update requires text, status, or memory-ids."
                     :tool-name "resource.edit"))
-           (list :kind ':update
-                 :identifier identifier
-                 :text text
-                 :status status
+           (list :kind               ':update
+                 :identifier         identifier
+                 :text               text
+                 :status             status
                  :memory-identifiers memory-identifiers
                  :memory-identifiers-supplied-p
                  memory-identifiers-supplied-p))))
       ((string= name "agenda-remove")
        (resource-item-validate-operation-fields
-     "Agenda"
+        "Agenda"
         operation '("op" "id") '("op" "id"))
        (list :kind ':remove
              :identifier
@@ -349,9 +353,9 @@
     (:add
      (let ((item
              (agenda-add :configuration configuration
-                         :state state
-                         :text (getf operation :text)
-                         :status (getf operation :status)
+                         :state         state
+                         :text          (getf operation :text)
+                         :status        (getf operation :status)
                          :memory-identifiers
                          (getf operation :memory-identifiers))))
        (format nil "Added agenda item ~A." (agenda-item-identifier item))))
@@ -372,13 +376,13 @@
      (let ((identifier (getf operation :identifier)))
        (unless (agenda-remove configuration state identifier)
          (error 'tool-error
-                :message (format nil "Agenda item ~A does not exist here."
-                                 identifier)
+                :message   (format nil "Agenda item ~A does not exist here."
+                                   identifier)
                 :tool-name "resource.edit"))
        (format nil "Removed agenda item ~A." identifier)))
     (otherwise
      (error 'tool-error
-            :message "The normalized agenda resource operation is unsupported."
+            :message   "The normalized agenda resource operation is unsupported."
             :tool-name "resource.edit"))))
 
 (defmethod resource-apply-operations
@@ -387,7 +391,7 @@
   "Apply exactly one revision-gated operation to the current workspace agenda."
   (unless (and (listp operations) (= (length operations) 1))
     (error 'tool-error
-           :message "agenda:current requires exactly one operation per resource.edit call."
+           :message   "agenda:current requires exactly one operation per resource.edit call."
            :tool-name "resource.edit"))
   (let ((conversation (tool-context-conversation context)))
     (with-recursive-lock-held (*agenda-lock*)
@@ -432,14 +436,14 @@
   (when (or (nth-value 1 (gethash "start-line" arguments))
             (nth-value 1 (gethash "line-count" arguments)))
     (error 'tool-error
-           :message "agenda:current is always read in full and does not accept line windows."
+           :message   "agenda:current is always read in full and does not accept line windows."
            :tool-name "resource.read"))
   (with-recursive-lock-held (*agenda-lock*)
     (let* ((observation (resource-observe resource context))
            (state
               (resource-observation-state-ensure
-              (tool-context-conversation context)
-              observation)))
+               (tool-context-conversation context)
+               observation)))
       (tool-success (resource-item-read-result state)))))
 
 (defmethod resource-tool-edit
@@ -447,26 +451,26 @@
      (context tool-context) (arguments hash-table))
   "Apply one revision-gated agenda operation and return a fresh complete observation."
   (declare (ignore tool))
-  (let* ((uri (tool-argument arguments "uri" :required t))
-         (base-revision (tool-argument arguments "base-revision" :required t))
+  (let* ((uri             (tool-argument arguments "uri" :required t))
+         (base-revision   (tool-argument arguments "base-revision" :required t))
          (operation-array (tool-argument arguments "operations" :required t)))
     (unless (non-empty-string-p base-revision)
       (error 'tool-error
-             :message "Resource edit base-revision must be a non-empty string."
+             :message   "Resource edit base-revision must be a non-empty string."
              :tool-name "resource.edit"))
     (unless (and (vectorp operation-array) (= (length operation-array) 1))
       (error 'tool-error
-             :message "agenda:current requires exactly one operation per resource.edit call."
+             :message   "agenda:current requires exactly one operation per resource.edit call."
              :tool-name "resource.edit"))
     (handler-case
         (multiple-value-bind (observation summary)
             (resource-apply-operations resource context
                                        :base-revision base-revision
-                                       :operations (coerce operation-array 'list))
+                                       :operations    (coerce operation-array 'list))
           (let ((state
                    (resource-observation-state-ensure
-                   (tool-context-conversation context)
-                   observation)))
+                    (tool-context-conversation context)
+                    observation)))
             (tool-success
              (format nil "~A~%~A"
                      summary
