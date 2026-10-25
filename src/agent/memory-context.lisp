@@ -3,60 +3,60 @@
 ;;;; -- Request-Local Memory Recall --
 
 (defclass memory-context-contribution (context-contribution)
-  ((count :initarg :count
-          :reader memory-context-contribution-count
-          :type (integer 0)
+  ((count :initarg       :count
+          :reader        memory-context-contribution-count
+          :type          (integer 0)
           :documentation "The number of memories offered in this contribution.")
-   (stale-count :initarg :stale-count
-                :initform 0
-                :reader memory-context-contribution-stale-count
-                :type (integer 0)
+   (stale-count :initarg       :stale-count
+                :initform      0
+                :reader        memory-context-contribution-stale-count
+                :type          (integer 0)
                 :documentation "How many offered memories cite evidence that changed.")
-   (unverified-count :initarg :unverified-count
-                     :initform 0
-                     :reader memory-context-contribution-unverified-count
-                     :type (integer 0)
+   (unverified-count :initarg       :unverified-count
+                     :initform      0
+                     :reader        memory-context-contribution-unverified-count
+                     :type          (integer 0)
                      :documentation "How many offered memories cite evidence that could not be checked.")
-   (fact-count :initarg :fact-count
-               :initform 0
-               :reader memory-context-contribution-fact-count
-               :type (integer 0)
+   (fact-count :initarg       :fact-count
+               :initform      0
+               :reader        memory-context-contribution-fact-count
+               :type          (integer 0)
                :documentation "How many structured facts are offered."))
   (:documentation "Related-memory advice with its presentation counts."))
 
 (defclass memory-context-event (provider-event)
-  ((count :initarg :count
-          :reader memory-context-event-count
-          :type (integer 0)
+  ((count :initarg       :count
+          :reader        memory-context-event-count
+          :type          (integer 0)
           :documentation "The number of memories offered to the model.")
-   (stale-count :initarg :stale-count
-                :initform 0
-                :reader memory-context-event-stale-count
-                :type (integer 0)
+   (stale-count :initarg       :stale-count
+                :initform      0
+                :reader        memory-context-event-stale-count
+                :type          (integer 0)
                 :documentation "How many offered memories cite evidence that changed.")
-   (unverified-count :initarg :unverified-count
-                     :initform 0
-                     :reader memory-context-event-unverified-count
-                     :type (integer 0)
+   (unverified-count :initarg       :unverified-count
+                     :initform      0
+                     :reader        memory-context-event-unverified-count
+                     :type          (integer 0)
                      :documentation "How many offered memories cite evidence that could not be checked.")
-   (fact-count :initarg :fact-count
-               :initform 0
-               :reader memory-context-event-fact-count
-               :type (integer 0)
+   (fact-count :initarg       :fact-count
+               :initform      0
+               :reader        memory-context-event-fact-count
+               :type          (integer 0)
                :documentation "How many structured facts were offered."))
   (:documentation "A presentation event for a delivered related-memory notice."))
 
 (defclass knowledge-change-contribution (context-contribution)
-  ((count :initarg :count
-          :reader knowledge-change-contribution-count
-          :type (integer 1)
+  ((count :initarg       :count
+          :reader        knowledge-change-contribution-count
+          :type          (integer 1)
           :documentation "How many changed facts the advice explains."))
   (:documentation "Advice explaining changes to facts a conversation was given."))
 
 (defclass knowledge-change-event (provider-event)
-  ((count :initarg :count
-          :reader knowledge-change-event-count
-          :type (integer 1)
+  ((count :initarg       :count
+          :reader        knowledge-change-event-count
+          :type          (integer 1)
           :documentation "How many changed facts were explained to the model."))
   (:documentation "A presentation event for delivered knowledge-change advice."))
 
@@ -135,7 +135,7 @@ adds its status and the reason."
             "title" (memory-title memory)
             "tags" (coerce (memory-tags memory) 'vector)
             "excerpt" (memory--excerpt (memory-content memory)
-                                        *memory-context-excerpt-limit*))))
+                                       *memory-context-excerpt-limit*))))
     (unless (eq (memory-assessment-status assessment) ':current)
       (setf (gethash "status" line)
             (string-downcase (symbol-name (memory-assessment-status assessment)))
@@ -152,7 +152,7 @@ adds its status and the reason."
 (-> memory-context--relevant-facts (knowledge-view string) list)
 (defun memory-context--relevant-facts (view query)
   "Return VIEW's supported facts most related to retrieval terms QUERY, best first."
-  (let* ((terms (memory--search-terms query))
+  (let* ((terms  (memory--search-terms query))
          (scored (loop for node being the hash-values of (knowledge-view-nodes view)
                        for score = (and (knowledge-node-supported-p node)
                                         (knowledge-node-relevance node terms))
@@ -218,8 +218,8 @@ sentence about memories whose evidence changed."
 Changes are computed once per turn and offered for the next request only, so
 each is explained once, retries included."
   (let* ((identifier (conversation-identifier conversation))
-         (turn (memory-context--turn-key conversation))
-         (cached (gethash identifier *memory-context-turn-changes*)))
+         (turn       (memory-context--turn-key conversation))
+         (cached     (gethash identifier *memory-context-turn-changes*)))
     (if (and cached (eql (first cached) turn))
         (rest cached)
         (let ((advice
@@ -238,9 +238,9 @@ each is explained once, retries included."
                                              (not (member (getf change :claim) given
                                                           :test #'string=)))))
                                   (knowledge-view-changes previous view))))
-                          (keep (append given
-                                        (mapcar (lambda (change) (getf change :claim)) changes)
-                                        (mapcar #'knowledge-node-identifier offered))))
+                          (keep  (append given
+                                         (mapcar (lambda (change) (getf change :claim)) changes)
+                                         (mapcar #'knowledge-node-identifier offered))))
                      (if (and first-p (null offered))
                          (values ':keep nil)
                          (values (remove-if-not (lambda (entry)
@@ -250,13 +250,13 @@ each is explained once, retries included."
                                  (and changes
                                       (change-class
                                        (make-context-contribution
-                                        :identifier "knowledge-changes"
+                                        :identifier        "knowledge-changes"
                                         :instruction
                                         "Facts you were given earlier in this conversation changed. Revise any answer or plan that relied on the old values."
-                                        :evidence (format nil "~{~A~^~%~}"
-                                                          (knowledge-change-lines changes))
-                                        :priority 30
-                                        :lifetime ':next-request
+                                        :evidence          (format nil "~{~A~^~%~}"
+                                                                   (knowledge-change-lines changes))
+                                        :priority          30
+                                        :lifetime          ':next-request
                                         :deduplication-key "knowledge-changes")
                                        'knowledge-change-contribution
                                        :count (length changes))))))))))
@@ -271,31 +271,31 @@ Memories are offered as before, with status when their evidence changed.
 Facts are complete and current, so the model can use them without rereading.
 Changes to facts this conversation was given earlier are explained once."
   (let* ((user-input (request-context-latest-user-text request))
-         (query (and (non-empty-string-p user-input)
-                     (memory-context--query user-input))))
+         (query      (and (non-empty-string-p user-input)
+                          (memory-context--query user-input))))
     (when (and (not (request-context-compaction-p request))
                (non-empty-string-p query))
       (let* ((configuration (request-context-configuration request))
-             (matches (memory-rank configuration query :visibility ':relevant))
-             (selected (subseq matches 0 (min *memory-context-result-limit* (length matches))))
-             (knowledge-p (and (knowledge-active-p configuration)
-                               (plusp (hash-table-count
-                                       (knowledge-base-claims
-                                        (knowledge-base-read configuration))))))
-             (assessor (and (or selected knowledge-p) (memory-assessor-create configuration)))
-             (view (and assessor (memory-assessor-view assessor)))
-             (facts (and knowledge-p (memory-context--relevant-facts view query)))
-             (changes (and knowledge-p
-                           (memory-context--recall-changes
-                            configuration (request-context-conversation request) view facts)))
-             (fact-lines (mapcar (lambda (node) (json-encode (knowledge-node-json view node)))
-                                 facts)))
+             (matches       (memory-rank configuration query :visibility ':relevant))
+             (selected      (subseq matches 0 (min *memory-context-result-limit* (length matches))))
+             (knowledge-p   (and (knowledge-active-p configuration)
+                                 (plusp (hash-table-count
+                                         (knowledge-base-claims
+                                          (knowledge-base-read configuration))))))
+             (assessor      (and (or selected knowledge-p) (memory-assessor-create configuration)))
+             (view          (and assessor (memory-assessor-view assessor)))
+             (facts         (and knowledge-p (memory-context--relevant-facts view query)))
+             (changes       (and knowledge-p
+                                 (memory-context--recall-changes
+                                  configuration (request-context-conversation request) view facts)))
+             (fact-lines    (mapcar (lambda (node) (json-encode (knowledge-node-json view node)))
+                                    facts)))
         (when knowledge-p
           (knowledge-usage-note
            (conversation-identifier (request-context-conversation request))
-           :facts (length facts)
-           :fact-characters (reduce #'+ fact-lines :key #'length)
-           :changes (if changes (knowledge-change-contribution-count changes) 0)
+           :facts             (length facts)
+           :fact-characters   (reduce #'+ fact-lines :key #'length)
+           :changes           (if changes (knowledge-change-contribution-count changes) 0)
            :change-characters (if changes
                                   (length (context-contribution-evidence changes))
                                   0)))
@@ -311,16 +311,16 @@ Changes to facts this conversation was given earlier are explained once."
                      (count ':unverified assessments :key #'memory-assessment-status)))
               (change-class
                (make-context-contribution
-                :identifier "related-memories"
-                :instruction (memory-context--instruction
-                              :memories (length selected)
-                              :status-p (plusp (+ stale-count unverified-count))
-                              :facts (length facts))
-                :evidence (memory-context--evidence
-                           (mapcar #'memory-context--match-line selected assessments)
-                           fact-lines)
-                :priority 25
-                :lifetime ':turn
+                :identifier        "related-memories"
+                :instruction       (memory-context--instruction
+                                    :memories (length selected)
+                                    :status-p (plusp (+ stale-count unverified-count))
+                                    :facts    (length facts))
+                :evidence          (memory-context--evidence
+                                    (mapcar #'memory-context--match-line selected assessments)
+                                    fact-lines)
+                :priority          25
+                :lifetime          ':turn
                 :deduplication-key "related-memories")
                'memory-context-contribution
                :count            (length selected)
