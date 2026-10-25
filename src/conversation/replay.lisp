@@ -4,33 +4,33 @@
 
 (defclass conversation-replay-record ()
   ((record
-    :initarg :record
-    :reader conversation-replay-record-record
-    :type list
+    :initarg       :record
+    :reader        conversation-replay-record-record
+    :type          list
     :documentation "The exact durable conversation record.")
    (turn
-    :initarg :turn
-    :reader conversation-replay-record-turn
-    :type (integer 0)
+    :initarg       :turn
+    :reader        conversation-replay-record-turn
+    :type          (integer 0)
     :documentation "The user-turn number active when the record was written."))
   (:documentation "One durable record annotated for read-only replay navigation."))
 
 (defclass conversation-replay-session ()
   ((conversation
-    :initarg :conversation
-    :reader conversation-replay-session-conversation
-    :type conversation
+    :initarg       :conversation
+    :reader        conversation-replay-session-conversation
+    :type          conversation
     :documentation "The conversation being inspected without a lease.")
    (records
-    :initarg :records
-    :reader conversation-replay-session-records
-    :type vector
+    :initarg       :records
+    :reader        conversation-replay-session-records
+    :type          vector
     :documentation "The chronological replay records.")
    (position
-    :initarg :position
-    :initform 0
-    :accessor conversation-replay-session-position
-    :type (integer 0)
+    :initarg       :position
+    :initform      0
+    :accessor      conversation-replay-session-position
+    :type          (integer 0)
     :documentation "The zero-based index of the selected record."))
   (:documentation "Navigation state for one read-only conversation replay."))
 
@@ -46,8 +46,8 @@
 (defun conversation-replay--project-provider-item (record)
   "Return the bounded replay projection of provider-item RECORD."
   (let ((wire-json (getf (rest record) :wire-json))
-        (sequence (getf (rest record) :seq))
-        (time (getf (rest record) :time)))
+        (sequence  (getf (rest record) :seq))
+        (time      (getf (rest record) :time)))
     (handler-case
         (let* ((item (and (stringp wire-json) (json-decode wire-json)))
                (type (and (json-object-p item) (json-get item "type"))))
@@ -65,7 +65,7 @@
                           :content summary))))
             ((string= (or type "") "function_call")
              (list ':tool-call :seq sequence :time time
-                   :tool (function-call-canonical-name item)
+                   :tool      (function-call-canonical-name item)
                    :arguments (or (json-get item "arguments") "")))
             ((string= (or type "") "web_search_call")
              (list ':web-search :seq sequence :time time
@@ -83,11 +83,11 @@
      (let ((properties (rest record)))
        (append
         (list ':message
-              :seq (getf properties :seq)
-              :time (getf properties :time)
-              :role (getf properties :role)
+              :seq         (getf properties :seq)
+              :time        (getf properties :time)
+              :role        (getf properties :role)
               :automatic-p (getf properties :automatic-p)
-              :content (getf properties :content))
+              :content     (getf properties :content))
         (when (getf properties :pending-input-identifier)
           (list :pending-input-identifier
                 (getf properties :pending-input-identifier)))
@@ -100,36 +100,36 @@
      (conversation-replay--project-provider-item record))
     (:tool-result
      (list ':tool-result
-           :seq (getf (rest record) :seq)
-           :time (getf (rest record) :time)
-           :tool (getf (rest record) :tool)
-           :status (getf (rest record) :status)
+           :seq      (getf (rest record) :seq)
+           :time     (getf (rest record) :time)
+           :tool     (getf (rest record) :tool)
+           :status   (getf (rest record) :status)
             :details (getf (rest record) :details)
-           :output (getf (rest record) :output)))
+           :output   (getf (rest record) :output)))
     (:turn-aborted
      (list ':turn-aborted
-           :seq (getf (rest record) :seq)
-           :time (getf (rest record) :time)
-           :turn-start-seq (getf (rest record) :turn-start-seq)
+           :seq               (getf (rest record) :seq)
+           :time              (getf (rest record) :time)
+           :turn-start-seq    (getf (rest record) :turn-start-seq)
            :last-complete-seq (getf (rest record) :last-complete-seq)
-           :reason (getf (rest record) :reason)
-           :condition-type (getf (rest record) :condition-type)
-           :message (getf (rest record) :message)
-           :request-number (getf (rest record) :request-number)))
+           :reason            (getf (rest record) :reason)
+           :condition-type    (getf (rest record) :condition-type)
+           :message           (getf (rest record) :message)
+           :request-number    (getf (rest record) :request-number)))
     (:async-lisp-event
      (list ':message
-           :seq (getf (rest record) :seq)
-           :time (getf (rest record) :time)
+           :seq     (getf (rest record) :seq)
+           :time    (getf (rest record) :time)
            :role ':user :automatic-p t
            :content (conversation-async-lisp--message record)))
     (:native-compaction
      (let ((summary (getf (rest record) :summary)))
        (and (stringp summary)
             (list ':summary
-                  :seq (getf (rest record) :seq)
-                  :time (getf (rest record) :time)
+                  :seq         (getf (rest record) :seq)
+                  :time        (getf (rest record) :time)
                   :through-seq (getf (rest record) :through-seq)
-                  :content summary))))
+                  :content     summary))))
     ((:async-lisp-delivered :provider)
      nil)
     (otherwise
@@ -155,10 +155,10 @@ whole history when a crash or retention boundary interrupted sequencing."
 (defun conversation-replay-load (configuration identifier)
   "Load IDENTIFIER's newest header without replaying or repairing its state."
   (let* ((identity (conversation-pathname-for-id configuration identifier))
-         (active (conversation-storage-active-pathname identity)))
+         (active   (conversation-storage-active-pathname identity)))
     (unless active
       (error 'conversation-error
-             :message (format nil "Conversation ~A does not exist." identifier)
+             :message  (format nil "Conversation ~A does not exist." identifier)
              :pathname identity
              :sequence nil))
     (let ((conversation
@@ -171,7 +171,7 @@ whole history when a crash or retention boundary interrupted sequencing."
 (defun conversation-replay-create (conversation)
   "Create bounded read-only navigation state from CONVERSATION's records."
   (let ((records nil)
-        (turn 0))
+        (turn    0))
     (conversation-replay--map-records
      conversation
      (lambda (record)
@@ -181,16 +181,16 @@ whole history when a crash or retention boundary interrupted sequencing."
          (when projected
            (push (make-instance 'conversation-replay-record
                                 :record projected
-                                :turn turn)
+                                :turn   turn)
                  records)))))
     (unless records
       (error 'conversation-error
-             :message "The conversation contains no replayable records."
+             :message  "The conversation contains no replayable records."
              :pathname (conversation-pathname conversation)
              :sequence nil))
     (make-instance 'conversation-replay-session
                    :conversation conversation
-                   :records (coerce (nreverse records) 'vector))))
+                   :records      (coerce (nreverse records) 'vector))))
 
 (-> conversation-replay--current-record
     (conversation-replay-session)
@@ -278,10 +278,10 @@ whole history when a crash or retention boundary interrupted sequencing."
     null)
 (defun conversation-replay-write-current (session stream &key raw-p)
   "Write SESSION's selected record, optionally as its projected S-expression."
-  (let* ((entry (conversation-replay--current-record session))
-         (record (conversation-replay-record-record entry))
+  (let* ((entry    (conversation-replay--current-record session))
+         (record   (conversation-replay-record-record entry))
          (sequence (conversation-replay--record-sequence entry))
-         (time (conversation-replay--record-time entry)))
+         (time     (conversation-replay--record-time entry)))
     (format stream "~&[turn ~D | sequence ~A | ~A | ~A]~%"
             (conversation-replay-record-turn entry)
             (or sequence "?")
@@ -324,7 +324,7 @@ whole history when a crash or retention boundary interrupted sequencing."
     conversation-replay-record)
 (defun conversation-replay--select-index (session predicate description)
   "Select SESSION's first record satisfying PREDICATE or reject DESCRIPTION."
-  (let* ((records (conversation-replay-session-records session))
+  (let* ((records  (conversation-replay-session-records session))
          (position (position-if predicate records)))
     (unless position
       (error 'configuration-error
@@ -368,10 +368,10 @@ whole history when a crash or retention boundary interrupted sequencing."
                      (char= (char text 4) #\-)
                      (char= (char text 7) #\-))
           (error "bad date"))
-        (let* ((year (parse-integer text :start 0 :end 4 :junk-allowed nil))
+        (let* ((year  (parse-integer text :start 0 :end 4 :junk-allowed nil))
                (month (parse-integer text :start 5 :end 7 :junk-allowed nil))
-               (day (parse-integer text :start 8 :end 10 :junk-allowed nil))
-               (time (encode-universal-time 0 0 0 day month year)))
+               (day   (parse-integer text :start 8 :end 10 :junk-allowed nil))
+               (time  (encode-universal-time 0 0 0 day month year)))
           (multiple-value-bind (second minute hour decoded-day decoded-month decoded-year)
               (decode-universal-time time)
             (declare (ignore second minute hour))
@@ -409,8 +409,8 @@ whole history when a crash or retention boundary interrupted sequencing."
 (defun conversation-replay--parse-clock (text)
   "Parse local clock TEXT and return hour, minute, and second."
   (handler-case
-      (let* ((parts (uiop:split-string text :separator '(#\:)))
-             (hour (parse-integer (first parts) :junk-allowed nil))
+      (let* ((parts  (uiop:split-string text :separator '(#\:)))
+             (hour   (parse-integer (first parts) :junk-allowed nil))
              (minute (parse-integer (second parts) :junk-allowed nil))
              (second (if (third parts)
                          (parse-integer (third parts) :junk-allowed nil)
@@ -478,7 +478,7 @@ A bare HH:MM[:SS] value uses the selected record's local date."
       (error 'configuration-error
              :message
              "Replay selection must be turn N, date YYYY-MM-DD, time TIME, or sequence N."))
-    (let ((kind (string-downcase (first arguments)))
+    (let ((kind  (string-downcase (first arguments)))
           (value (second arguments)))
       (cond
         ((string= kind "turn")
@@ -502,7 +502,7 @@ A bare HH:MM[:SS] value uses the selected record's local date."
 (defun conversation-replay-write-location (session stream)
   "Write SESSION's current navigation location to STREAM."
   (let* ((records (conversation-replay-session-records session))
-         (entry (conversation-replay--current-record session)))
+         (entry   (conversation-replay--current-record session)))
     (format stream
             "record ~D of ~D, turn ~D, sequence ~A, ~A~%"
             (1+ (conversation-replay-session-position session))
@@ -544,8 +544,8 @@ A bare HH:MM[:SS] value uses the selected record's local date."
 (defun conversation-replay-execute-command (session line stream)
   "Execute replay debugger LINE and return true when the session should continue."
   (let* ((arguments (conversation-replay--command-arguments line))
-         (command (string-downcase (or (first arguments) "next")))
-         (value (second arguments)))
+         (command   (string-downcase (or (first arguments) "next")))
+         (value     (second arguments)))
     (labels ((reject-extra-arguments (maximum)
                "Reject command words beyond MAXIMUM."
                (when (> (length arguments) maximum)
@@ -633,7 +633,7 @@ A bare HH:MM[:SS] value uses the selected record's local date."
                  (interactive-stream-p output))))
   "Inspect IDENTIFIER without acquiring a lease or writing conversation state."
   (let* ((conversation (conversation-replay-load configuration identifier))
-         (session (conversation-replay-create conversation)))
+         (session      (conversation-replay-create conversation)))
     (conversation-replay-apply-selection session selection)
     (format output "~&Autolith replay ~A~@[  ~A~]~%"
             (conversation-identifier-display
@@ -663,7 +663,7 @@ A bare HH:MM[:SS] value uses the selected record's local date."
 (-> conversation-fork--raw-records (conversation) list)
 (defun conversation-fork--raw-records (conversation)
   "Return every complete durable record in CONVERSATION across all chunks."
-  (let ((records nil)
+  (let ((records  nil)
         (identity (conversation-pathname conversation)))
     (dolist (pathname (conversation-storage-pathnames identity))
       (conversation--from-header
@@ -679,7 +679,7 @@ A bare HH:MM[:SS] value uses the selected record's local date."
     conversation-replay-session)
 (defun conversation-fork--selection-session (conversation records)
   "Return replay-selector state over exact durable RECORDS."
-  (let ((turn 0)
+  (let ((turn    0)
         (entries nil))
     (dolist (record records)
       (when (and (conversation--record-form-p record)
@@ -687,16 +687,16 @@ A bare HH:MM[:SS] value uses the selected record's local date."
         (incf turn))
       (push (make-instance 'conversation-replay-record
                            :record record
-                           :turn turn)
+                           :turn   turn)
             entries))
     (unless entries
       (error 'conversation-error
-             :message "The conversation contains no durable records to fork."
+             :message  "The conversation contains no durable records to fork."
              :pathname (conversation-pathname conversation)
              :sequence nil))
     (make-instance 'conversation-replay-session
                    :conversation conversation
-                   :records (coerce (nreverse entries) 'vector))))
+                   :records      (coerce (nreverse entries) 'vector))))
 
 (-> conversation-fork--select-head (conversation list list) integer)
 (defun conversation-fork--select-head (conversation records selection)
@@ -711,7 +711,7 @@ A bare HH:MM[:SS] value uses the selected record's local date."
              (conversation-replay--current-record session))))
       (unless (typep sequence '(integer 1))
         (error 'conversation-invariant-error
-               :message "The selected fork head has no valid durable sequence."
+               :message  "The selected fork head has no valid durable sequence."
                :pathname (conversation-pathname conversation)
                :sequence sequence))
       sequence)))
@@ -720,14 +720,14 @@ A bare HH:MM[:SS] value uses the selected record's local date."
 (defun conversation-fork--prefix (conversation records head-sequence)
   "Return RECORDS through inclusive HEAD-SEQUENCE after contiguous validation."
   (let ((expected 1)
-        (prefix nil)
-        (found-p nil))
+        (prefix   nil)
+        (found-p  nil))
     (dolist (record records)
       (when (> expected head-sequence)
         (return))
       (unless (conversation--record-form-p record)
         (error 'conversation-invariant-error
-               :message "A fork source record is not a keyword property list."
+               :message  "A fork source record is not a keyword property list."
                :pathname (conversation-pathname conversation)
                :sequence expected))
       (let ((sequence (getf (rest record) :seq)))
@@ -745,8 +745,8 @@ A bare HH:MM[:SS] value uses the selected record's local date."
         (incf expected)))
     (unless found-p
       (error 'conversation-error
-             :message (format nil "Fork head sequence ~D does not exist."
-                              head-sequence)
+             :message  (format nil "Fork head sequence ~D does not exist."
+                               head-sequence)
              :pathname (conversation-pathname conversation)
              :sequence head-sequence))
     (nreverse prefix)))
@@ -755,7 +755,7 @@ A bare HH:MM[:SS] value uses the selected record's local date."
 (defun conversation-fork--image-descriptors (records)
   "Return the unique image descriptors referenced by durable RECORDS."
   (let ((descriptors nil)
-        (seen (make-hash-table :test #'equal)))
+        (seen        (make-hash-table :test #'equal)))
     (labels ((note (descriptor)
                "Retain DESCRIPTOR once by its artifact basename."
                (let ((artifact (and (listp descriptor)
@@ -807,8 +807,8 @@ A bare HH:MM[:SS] value uses the selected record's local date."
 
 SELECTION uses the replay selector syntax.  A null selection chooses the newest
 complete durable record.  The source is read only and never repaired."
-  (let* ((source (conversation-replay-load configuration source-identifier))
-         (records (conversation-fork--raw-records source))
+  (let* ((source           (conversation-replay-load configuration source-identifier))
+         (records          (conversation-fork--raw-records source))
          (head-sequence
            (conversation-fork--select-head source records selection))
          (prefix
@@ -820,10 +820,10 @@ complete durable record.  The source is read only and never repaired."
             :prompt-cache-key
             (conversation-fork--prompt-cache-key
              source (or identifier "generated-fork"))))
-         (target-identity (conversation-pathname target))
-         (target-log (conversation-log-pathname target))
+         (target-identity  (conversation-pathname target))
+         (target-log       (conversation-log-pathname target))
          (target-artifacts (conversation-image-artifact-root target))
-         (published-p nil))
+         (published-p      nil))
     (unwind-protect
          (progn
            (conversation-fork--copy-images
@@ -833,10 +833,10 @@ complete durable record.  The source is read only and never repaired."
            (let ((provenance
                    (list :fork
                          :seq (1+ head-sequence)
-                         :time (get-universal-time)
-                         :source-id (conversation-identifier source)
+                         :time            (get-universal-time)
+                         :source-id       (conversation-identifier source)
                          :source-sequence head-sequence
-                         :selection (and selection (copy-list selection)))))
+                         :selection       (and selection (copy-list selection)))))
              (conversation--apply-record target provenance)
              (log-append target-log
                          (first prefix)
@@ -855,5 +855,5 @@ complete durable record.  The source is read only and never repaired."
         (when (probe-file target-artifacts)
           (ignore-errors
             (platform-delete-directory-tree *platform* target-artifacts
-                                            :validate t
+                                            :validate          t
                                             :if-does-not-exist ':ignore)))))))
