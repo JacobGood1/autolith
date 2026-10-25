@@ -43,7 +43,7 @@
   (device-authentication-login
    (provider-device-authentication-client provider)
    (provider-credential-manager provider)
-   :stream (or stream *standard-output*)
+   :stream         (or stream *standard-output*)
    :open-browser-p open-browser-p)
   "Nous Research authentication was saved by Autolith.")
 
@@ -51,7 +51,7 @@
                                   &key stream open-browser-p)
   "Authenticate PROVIDER through Nous Portal's browser device flow."
   (nous-provider-authenticate provider
-                              :stream stream
+                              :stream         stream
                               :open-browser-p open-browser-p))
 
 (-> nous-provider--messages-model-p (string) boolean)
@@ -68,19 +68,19 @@
   (if (nous-provider--messages-model-p (config :model configuration))
       (make-instance
        'nous-messages-provider
-       :configuration configuration
-       :registration registration
+       :configuration      configuration
+       :registration       registration
        :credential-manager manager
-       :session-id session-id)
+       :session-id         session-id)
       (make-instance
        'nous-chat-completions-provider
-       :configuration configuration
-       :registration registration
-       :credential-manager manager
-       :session-id session-id
-       :display-name "Nous Research"
-       :family ':nous
-       :headers nil
+       :configuration       configuration
+       :registration        registration
+       :credential-manager  manager
+       :session-id          session-id
+       :display-name        "Nous Research"
+       :family              ':nous
+       :headers             nil
        :reasoning-parameter nil)))
 
 (-> nous-provider-create (configuration) model-provider)
@@ -138,7 +138,7 @@
             in (openai-compatible--fetch-models
                 configuration
                 :provider-name "Nous Research"
-                :endpoint (nous-models-endpoint)
+                :endpoint      (nous-models-endpoint)
                 :credential-manager
                 (nous-credential-manager-create configuration))
           for identifier = (or (model-spec-name spec) "")
@@ -158,9 +158,9 @@
   "Return bearer-authenticated headers for Nous's native Messages route."
   (openai-compatible--authenticated-headers
    credentials
-   :accept "text/event-stream"
+   :accept       "text/event-stream"
    :content-type "application/json"
-   :custom (list (cons "anthropic-version" *anthropic-api-version*))))
+   :custom       (list (cons "anthropic-version" *anthropic-api-version*))))
 
 (defmethod provider-open-response-stream
     ((provider nous-messages-provider)
