@@ -52,7 +52,7 @@ are presented by the evaluator."
      (copy-seq text))
     (user-message-input
      (user-message-input-create
-      :text text
+      :text            text
       :image-pathnames (user-message-input-image-pathnames input)))))
 
 (-> application-lisp--control-condition-p (condition) boolean)
@@ -107,12 +107,12 @@ Return values, status, condition report, restart names, and selected restart nam
                  (funcall restart-selector
                           (debug-session-condition session)
                           (debug-session-restarts session)))))
-           :condition-p debug-condition-p
-           :passthrough-p #'application-lisp--control-condition-p
-           :restart-p (lambda (restart)
-                        (and (restart-name restart)
-                             (not (eq (restart-name restart) 'abort))))
-           :evaluate-source #'application-lisp--restart-arguments
+           :condition-p        debug-condition-p
+           :passthrough-p      #'application-lisp--control-condition-p
+           :restart-p          (lambda (restart)
+                                 (and (restart-name restart)
+                                      (not (eq (restart-name restart) 'abort))))
+           :evaluate-source    #'application-lisp--restart-arguments
            :observer
            (when application
              (lambda (event payload)
@@ -126,12 +126,12 @@ Return values, status, condition report, restart names, and selected restart nam
                           (sanitize-text (getf payload :recovery-condition-report)
                                          :single-line-p t)
                           512)))))))
-           :source (or source "")
-           :operation-kind operation-kind
-           :retry-p retry-p
-           :return-values-p return-values-p
+           :source             (or source "")
+           :operation-kind     operation-kind
+           :retry-p            retry-p
+           :return-values-p    return-values-p
            :abort-restart-name 'abort-user-operation
-           :abort-report "Return to the Autolith prompt.")))
+           :abort-report       "Return to the Autolith prompt.")))
     (values (outcome-values outcome)
             (outcome-status outcome)
             (outcome-condition-report outcome)
@@ -151,19 +151,19 @@ multiple values become restart arguments. Returning NIL aborts only this local
 evaluation. APPLICATION enables its registered command and tool function
 bindings. Output and every returned value are captured without mutation
 journaling or provider conversation projection."
-  (let ((output-stream (make-string-output-stream))
-        (raw-values nil)
-        (status ':ok)
-        (condition-text nil)
-        (restart-names nil)
-        (selected-restart-name nil)
-        (loop-action nil)
+  (let ((output-stream                   (make-string-output-stream))
+        (raw-values                      nil)
+        (status                          ':ok)
+        (condition-text                  nil)
+        (restart-names                   nil)
+        (selected-restart-name           nil)
+        (loop-action                     nil)
         (*application-lisp-tool-results* (make-hash-table :test #'eq)))
     (handler-case
-        (let ((*standard-output* output-stream)
-              (*error-output* output-stream)
-              (*trace-output* output-stream)
-              (*package* (find-package '#:autolith))
+        (let ((*standard-output*                   output-stream)
+              (*error-output*                      output-stream)
+              (*trace-output*                      output-stream)
+              (*package*                           (find-package '#:autolith))
               (*application-operation-application* application))
           (multiple-value-bind
                 (values debugger-status debugger-condition debugger-restart-names
@@ -173,11 +173,11 @@ journaling or provider conversation projection."
                    (when application
                      (application-operation-install-bindings application))
                    (eval (self-read-form source)))
-                 :application application
-                 :source source
-                 :operation-kind ':lisp
-                 :retry-p t
-                 :return-values-p t
+                 :application      application
+                 :source           source
+                 :operation-kind   ':lisp
+                 :retry-p          t
+                 :return-values-p  t
                  :restart-selector restart-selector)
             (setf raw-values values
                   status debugger-status
@@ -194,25 +194,25 @@ journaling or provider conversation projection."
            conversation-invariant-error
            active-image-corruption)
        (condition)
-        (error condition))
+       (error condition))
       (serious-condition (condition)
         (setf status ':error
               condition-text (princ-to-string condition)
               raw-values nil)))
     (let ((*standard-output* output-stream)
-          (*error-output* output-stream)
-          (*trace-output* output-stream)
-          (*package* (find-package '#:autolith)))
+          (*error-output*    output-stream)
+          (*trace-output*    output-stream)
+          (*package*         (find-package '#:autolith)))
       (multiple-value-bind (rendered-values value-kinds)
           (application-lisp--render-values raw-values application)
         (application-lisp-evaluation-create
-         :status status
-         :output (get-output-stream-string output-stream)
+         :status                status
+         :output                (get-output-stream-string output-stream)
          :values rendered-values :value-kinds value-kinds
-         :condition condition-text
-         :restart-names restart-names
+         :condition             condition-text
+         :restart-names         restart-names
          :selected-restart-name selected-restart-name
-         :loop-action loop-action)))))
+         :loop-action           loop-action)))))
 
 
 ;;;; -- Local Evaluation Presentation --
@@ -259,15 +259,15 @@ journaling or provider conversation projection."
                        (application-lisp--value-spans value))))
             (list (terminal-span ':success "⇒ ")
                   (terminal-span ':dim "no values")))))
-      (:aborted
-       (append
-        (list (terminal-span ':failure "aborted"))
-        (when (application-lisp-evaluation-condition evaluation)
-          (list
-           (terminal-span
-            ':plain
-            (format nil ": ~A"
-                    (application-lisp-evaluation-condition evaluation)))))))
+     (:aborted
+      (append
+       (list (terminal-span ':failure "aborted"))
+       (when (application-lisp-evaluation-condition evaluation)
+         (list
+          (terminal-span
+           ':plain
+           (format nil ": ~A"
+                   (application-lisp-evaluation-condition evaluation)))))))
      (:error
       (list
        (terminal-span ':failure "error: ")
@@ -286,9 +286,9 @@ journaling or provider conversation projection."
         for report = (application-lisp--restart-report restart)
         for description = (format nil "~A  ~A" name-text report)
         collect
-        (list :name (format nil "~D" index)
-              :argument nil
-              :group "live restarts"
+        (list :name        (format nil "~D" index)
+              :argument    nil
+              :group       "live restarts"
               :description description
               :description-spans
               (list (terminal-span
@@ -299,7 +299,7 @@ journaling or provider conversation projection."
 (-> application-lisp--read-restart-value (application) (option string))
 (defun application-lisp--read-restart-value (application)
   "Read one restart argument form while preserving the user's current draft."
-  (let* ((ui (application-ui application))
+  (let* ((ui     (application-ui application))
          (editor (terminal-ui-editor ui))
          (saved-input
            (terminal-ui--submission-input ui (line-editor-text editor))))
@@ -404,7 +404,7 @@ journaling or provider conversation projection."
 
 The owner thread remains inside its dynamic restart binding while an independent
 Autolith diagnosis may propose validated executable recoveries."
-  (let* ((ui (application-ui application))
+  (let* ((ui       (application-ui application))
          (terminal (and ui (terminal-ui-terminal ui))))
     (when ui
       (application-present
@@ -412,16 +412,16 @@ Autolith diagnosis may propose validated executable recoveries."
        (application-lisp--debugger-condition-entry condition)))
     (unless (and ui terminal (terminal-interactive-p terminal))
       (return-from application-lisp--select-restart (values nil nil)))
-    (let* ((live-items (application-lisp--restart-items restarts))
+    (let* ((live-items      (application-lisp--restart-items restarts))
            (preferred-index (application-lisp--preferred-restart-index restarts))
            (session
              (make-instance 'application-debugger-session
-                            :snapshot *application-debugger-snapshot*
+                            :snapshot    *application-debugger-snapshot*
                             :application application)))
       (labels ((live-choice (choice)
                  "Resolve CHOICE to a live restart and optional argument source."
-                 (let* ((index (and (stringp choice)
-                                    (parse-integer choice :junk-allowed t)))
+                 (let* ((index   (and (stringp choice)
+                                      (parse-integer choice :junk-allowed t)))
                         (restart (and index (nth index restarts))))
                    (if (and restart
                             (member (restart-name restart)
@@ -440,11 +440,11 @@ Autolith diagnosis may propose validated executable recoveries."
                               (getf snapshot :failure)
                               "Diagnosis completed without an explanation."))
                         (bounded-text (bounded-string text :limit 512))
-                        (description (format nil "diagnosis  ~A" bounded-text)))
-                   (list :name "diagnosis"
-                         :argument nil
-                         :value "diagnosis-info"
-                         :group "Autolith diagnosis"
+                        (description  (format nil "diagnosis  ~A" bounded-text)))
+                   (list :name        "diagnosis"
+                         :argument    nil
+                         :value       "diagnosis-info"
+                         :group       "Autolith diagnosis"
                          :description description
                          :description-spans
                          (list (terminal-span ':notice "diagnosis")
@@ -457,10 +457,10 @@ Autolith diagnosis may propose validated executable recoveries."
                    (append
                     live-items
                     (if running-p
-                        (list (list :name "cancel-diagnosis"
-                                    :argument nil
-                                    :value "cancel-diagnosis"
-                                    :group "Autolith diagnosis"
+                        (list (list :name        "cancel-diagnosis"
+                                    :argument    nil
+                                    :value       "cancel-diagnosis"
+                                    :group       "Autolith diagnosis"
                                     :description "cancel diagnosis"
                                     :description-spans
                                     (list (terminal-span ':failure
@@ -474,10 +474,10 @@ Autolith diagnosis may propose validated executable recoveries."
                                         :limit 512)
                           for description = (format nil "~A  ~A" name report)
                           collect
-                          (list :name name
-                                :argument nil
-                                :value name
-                                :group "Autolith recoveries"
+                          (list :name        name
+                                :argument    nil
+                                :value       name
+                                :group       "Autolith recoveries"
                                 :description description
                                 :description-spans
                                 (list (terminal-span ':success name)
@@ -487,10 +487,10 @@ Autolith diagnosis may propose validated executable recoveries."
                (normal-items ()
                  "Build the ordinary live-restart selector items."
                  (append live-items
-                         (list (list :name "ask-autolith"
-                                     :argument nil
-                                     :value "ask-autolith"
-                                     :group "Autolith diagnosis"
+                         (list (list :name        "ask-autolith"
+                                     :argument    nil
+                                     :value       "ask-autolith"
+                                     :group       "Autolith diagnosis"
                                      :description "Ask Autolith why this failed"
                                      :description-spans
                                      (list (terminal-span
@@ -513,9 +513,9 @@ Autolith diagnosis may propose validated executable recoveries."
                (interrupt-event ()
                  "Handle an interrupt without losing a live debugger modal."
                  (let* ((controller (application-input-controller application))
-                        (active-p (and controller
-                                       (application-input-controller-turn-active-p
-                                        controller))))
+                        (active-p   (and controller
+                                         (application-input-controller-turn-active-p
+                                          controller))))
                    (if (not active-p)
                        '(:cancel)
                        (case (application-input-controller--active-turn-interrupt-action
@@ -536,9 +536,12 @@ Autolith diagnosis may propose validated executable recoveries."
                  "Handle ordinary debugger picker events."
                  (declare (ignore selector))
                  (case event
-                   (:interrupt (interrupt-event))
-                   ((:escape :stream-end) '(:cancel))
-                   (otherwise nil)))
+                   (:interrupt
+                    (interrupt-event))
+                   ((:escape :stream-end)
+                    '(:cancel))
+                   (otherwise
+                    nil)))
 
                (diagnose ()
                  "Run the independent diagnosis modal and return its selection."
@@ -551,11 +554,11 @@ Autolith diagnosis may propose validated executable recoveries."
                              (choice
                                (terminal-ui-select
                                 ui
-                                :title "restart debugger"
-                                :items running-items
-                                :initial-name (format nil "~D" preferred-index)
+                                :title           "restart debugger"
+                                :items           running-items
+                                :initial-name    (format nil "~D" preferred-index)
                                 :resize-callback #'application-pending-terminal-size
-                                :poll-interval 0.1
+                                :poll-interval   0.1
                                 :on-event
                                 (lambda (event selector)
                                   (declare (ignore selector))
@@ -578,38 +581,38 @@ Autolith diagnosis may propose validated executable recoveries."
                    (when (eq (getf (application-debugger-poll session) :state)
                              ':running)
                      (application-debugger-cancel-diagnosis session)))))
-      (loop
-        (let ((choice
-                (terminal-ui-select
-                 ui
-                 :title "restart debugger"
-                 :items (normal-items)
-                 :initial-name (format nil "~D" preferred-index)
-                 :resize-callback #'application-pending-terminal-size
-                 :on-event #'normal-event)))
-          (cond
-            ((null choice)
-             (return (values nil nil)))
-            ((string= choice "ask-autolith")
-               (let ((diagnosis-choice (diagnose)))
-                 (cond
-                   ((or (null diagnosis-choice)
-                        (and (stringp diagnosis-choice)
-                             (member diagnosis-choice
-                                     '("cancel-diagnosis" "diagnosis-info")
-                                     :test #'string=)))
-                    nil)
-                   ((typep diagnosis-choice 'recovery)
-                    (return (values diagnosis-choice nil)))
-                   ((member diagnosis-choice
-                            (mapcar (lambda (item) (getf item :name)) live-items)
-                            :test #'string=)
-                    (multiple-value-bind (restart source)
-                        (live-choice diagnosis-choice)
-                      (return (values restart source)))))))
-            (t
-             (multiple-value-bind (restart source) (live-choice choice)
-               (return (values restart source)))))))))))
+       (loop
+         (let ((choice
+                 (terminal-ui-select
+                  ui
+                  :title           "restart debugger"
+                  :items           (normal-items)
+                  :initial-name    (format nil "~D" preferred-index)
+                  :resize-callback #'application-pending-terminal-size
+                  :on-event        #'normal-event)))
+           (cond
+             ((null choice)
+              (return (values nil nil)))
+             ((string= choice "ask-autolith")
+              (let ((diagnosis-choice (diagnose)))
+                (cond
+                  ((or (null diagnosis-choice)
+                       (and (stringp diagnosis-choice)
+                            (member diagnosis-choice
+                                    '("cancel-diagnosis" "diagnosis-info")
+                                    :test #'string=)))
+                   nil)
+                  ((typep diagnosis-choice 'recovery)
+                   (return (values diagnosis-choice nil)))
+                  ((member diagnosis-choice
+                           (mapcar (lambda (item) (getf item :name)) live-items)
+                           :test #'string=)
+                   (multiple-value-bind (restart source)
+                       (live-choice diagnosis-choice)
+                     (return (values restart source)))))))
+             (t
+              (multiple-value-bind (restart source) (live-choice choice)
+                (return (values restart source)))))))))))
 
 (-> application-lisp-call-with-ui-debugger
     (application function
@@ -627,11 +630,11 @@ Autolith diagnosis may propose validated executable recoveries."
   (let ((effective-source (or source "")))
     (application-lisp-call-with-debugger
      function
-     :application application
-     :source effective-source
-     :operation-kind operation-kind
-     :retry-p retry-p
-     :return-values-p return-values-p
+     :application       application
+     :source            effective-source
+     :operation-kind    operation-kind
+     :retry-p           retry-p
+     :return-values-p   return-values-p
      :restart-selector
      (lambda (condition restarts)
        (application-lisp--select-restart application condition restarts))
@@ -643,7 +646,7 @@ Autolith diagnosis may propose validated executable recoveries."
 (defun application-lisp--user-operation-result (evaluation result-entry)
   "Return RESULT-ENTRY as durable text with EVALUATION's loop action."
   (let ((rendered (terminal--spans-text result-entry))
-        (action (application-lisp-evaluation-loop-action evaluation)))
+        (action   (application-lisp-evaluation-loop-action evaluation)))
     (if action
         (format nil "~A~%loop action: ~(~A~)" rendered action)
         rendered)))
@@ -662,8 +665,8 @@ caller."
   (application-set-local-activity application "evaluating local Lisp")
   (let* ((evaluation
            (unwind-protect
-                (let ((*application-local-user-evaluation-p* t)
-                      (*application-command-interactive-p* interactive-p)
+                (let ((*application-local-user-evaluation-p*               t)
+                      (*application-command-interactive-p*                 interactive-p)
                       (*application-user-operation-recording-suppressed-p* t))
                   (application-lisp-evaluate
                    source
@@ -681,15 +684,17 @@ caller."
     (application-present application result-entry)
     (conversation-append-user-operation
      (application-conversation application)
-     :kind ':lisp
+     :kind   ':lisp
      :source source
      :status status
      :result result)
     (case status
       (:ok
        (or (application-lisp-evaluation-loop-action evaluation) ':continue))
-      (:aborted ':aborted)
-      (:error ':failed))))
+      (:aborted
+       ':aborted)
+      (:error
+       ':failed))))
 
 (-> application-lisp--value-columns ((option application)) (integer 1))
 (defun application-lisp--value-columns (application)
@@ -726,7 +731,7 @@ No raw values or tool objects escape in the returned lists."
               (push (third snapshot) kinds))
             (progn
               (push (application-lisp--render-value
-                     value :columns (application-lisp--value-columns application)
+                     value :columns        (application-lisp--value-columns application)
                            :initial-column 2)
                     texts)
               (push ':lisp kinds)))))
