@@ -69,9 +69,10 @@
                                              (:file
                                               (getf (rest source) :path))
                                              (:url
-                                              (or (ignore-errors
-                                                   (quri:uri-host
-                                                    (quri:uri (getf (rest source) :url))))
+                                              (or (handler-case
+                                                      (uri-host (uri (getf (rest source) :url)))
+                                                    (uri-error ()
+                                                      nil))
                                                   "web"))
                                              (:user
                                               "you said")
