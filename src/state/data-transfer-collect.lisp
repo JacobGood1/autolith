@@ -367,8 +367,9 @@ on other global memories, so premises are followed until none are new."
                     (data-transfer--strings
                      (list sessions children memories papercuts agenda-forms plans states))
                     (loop for file in files
-                          for text = (ignore-errors
-                                       (utf8-octets-to-string (getf file :bytes)))
+                          for text = (handler-case (utf8-octets-to-string (getf file :bytes))
+                                       (utf8-conversion-failed ()
+                                         nil))
                           when text collect text)))
           (root    (merge-pathnames "inferences/objects/" (config :data-root configuration))))
       (when (uiop:directory-exists-p root)
