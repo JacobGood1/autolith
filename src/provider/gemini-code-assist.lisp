@@ -310,9 +310,10 @@ propagates."
                       *gemini-code-assist-nonstream-retry-delay*)))
 
 (-> gemini-code-assist--post
-    (gemini-code-assist-provider oauth-credentials non-empty-string keyword json-object)
+    (gemini-code-assist-provider oauth-credentials
+     &key (:method non-empty-string) (:stage keyword) (:request json-object))
     json-object)
-(defun gemini-code-assist--post (provider credentials method stage request)
+(defun gemini-code-assist--post (provider credentials &key method stage request)
   "POST one non-streaming Code Assist RPC."
   (gemini-code-assist--nonstream-request
    provider credentials
@@ -420,9 +421,11 @@ propagates."
                :response   nil))
       (let* ((load
                (gemini-code-assist--post
-                provider credentials "loadCodeAssist" ':load
-                (json-object "cloudaicompanionProject" project
-                             "metadata" (gemini-code-assist--metadata project))))
+                provider credentials
+                :method  "loadCodeAssist"
+                :stage   ':load
+                :request (json-object "cloudaicompanionProject" project
+                                      "metadata" (gemini-code-assist--metadata project))))
              (current        (json-get load "currentTier"))
              (loaded-project (json-get load "cloudaicompanionProject")))
         (if (json-object-p current)
@@ -438,12 +441,14 @@ propagates."
                    (free-p  (string= tier-id "free-tier"))
                    (onboard
                      (gemini-code-assist--post
-                      provider credentials "onboardUser" ':onboard
-                      (json-object
-                       "tierId" tier-id
-                       "cloudaicompanionProject" (unless free-p project)
-                       "metadata"
-                       (gemini-code-assist--metadata (unless free-p project))))))
+                      provider credentials
+                      :method  "onboardUser"
+                      :stage   ':onboard
+                      :request (json-object
+                                "tierId" tier-id
+                                "cloudaicompanionProject" (unless free-p project)
+                                "metadata"
+                                (gemini-code-assist--metadata (unless free-p project))))))
               (loop while (and (not (json-get onboard "done"))
                                (non-empty-string-p (json-get onboard "name")))
                     do (sleep 5)
