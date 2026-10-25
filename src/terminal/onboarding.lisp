@@ -291,7 +291,7 @@ Body scrolling never hides the exercise prompt. Recompute geometry each paint."
              (widget-regions (termdown:widget-regions spans))
              (body-row       (+ (length header) padding)))
         ;; Source offsets survive omitted boundary whitespace during word wrap.
-        (loop for (plain display) in wrapped
+        (loop for (plain nil) in wrapped
               for row from 0
               for start = (or (search plain text :start2 source-offset) source-offset)
               for end = (+ start (length plain))
@@ -418,8 +418,11 @@ reader dispatch and never evaluate input, including quoted topic arguments."
               (end         (gensym "END")))
           (set-macro-character #\#
                                (lambda (stream character)
-                                 (declare (ignore character))
-                                 (error 'reader-error :stream stream)))
+                                 (declare (ignore stream character))
+                                 (error 'onboarding-error
+                                        :message   "Reader dispatch is disabled in help requests."
+                                        :operation ':onboard
+                                        :cause     nil)))
           (with-input-from-string (stream text)
             (let ((form (read stream nil end)))
               (when (and (listp form) (<= 1 (length form) 2)
