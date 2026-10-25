@@ -29,22 +29,22 @@ sidecar and, after an interrupted append, the active segment."
 (defun conversation-input-history--record-input (record)
   "Return RECORD's editable text, excluding automatic messages and assistant output."
   (let* ((properties (rest record))
-         (input (case (first record)
-                  (:message
-                   (when (and (eq (getf properties :role) ':user)
-                              (not (getf properties :automatic-p)))
-                     (getf properties :content)))
-                  (:user-operation
-                   (when (member (getf properties :kind) '(:command :lisp))
-                     (getf properties :source))))))
+         (input      (case (first record)
+                       (:message
+                        (when (and (eq (getf properties :role) ':user)
+                                   (not (getf properties :automatic-p)))
+                          (getf properties :content)))
+                       (:user-operation
+                        (when (member (getf properties :kind) '(:command :lisp))
+                          (getf properties :source))))))
     (and (non-empty-string-p input) input)))
 
 (-> conversation-input-history--header (conversation) list)
 (defun conversation-input-history--header (conversation)
   "Identify the source conversation of one complete input-only index."
   (list :conversation-input-history :version 1
-        :id (conversation-identifier conversation)
-        :created-at (conversation-created-at conversation)))
+        :id                         (conversation-identifier conversation)
+        :created-at                 (conversation-created-at conversation)))
 
 (-> conversation-input-history--read (conversation) (values t integer boolean))
 (defun conversation-input-history--read (conversation)
@@ -54,8 +54,8 @@ Return its input deque, newest indexed sequence and validity flag."
       (multiple-value-bind (forms incomplete-p)
           (log-read (conversation-input-history-pathname
                      (conversation-pathname conversation)))
-        (let ((header (first forms))
-              (entries (make-deque))
+        (let ((header   (first forms))
+              (entries  (make-deque))
               (sequence 0))
           (unless (and (eq (first header) ':conversation-input-history)
                        (eql (getf (rest header) :version) 1)
@@ -65,7 +65,7 @@ Return its input deque, newest indexed sequence and validity flag."
                             (conversation-created-at conversation)))
             (return-from conversation-input-history--read (values nil 0 nil)))
           (dolist (record (rest forms))
-            (let ((next (getf (rest record) :seq))
+            (let ((next  (getf (rest record) :seq))
                   (input (getf (rest record) :source)))
               (unless (and (eq (first record) ':input)
                            (typep next '(integer 1))
@@ -86,8 +86,8 @@ Return its input deque, newest indexed sequence and validity flag."
 (-> conversation-input-history--rebuild (conversation) null)
 (defun conversation-input-history--rebuild (conversation)
   "Atomically build the complete sidecar once from authoritative durable records."
-  (let ((records nil)
-        (entries (make-deque))
+  (let ((records  nil)
+        (entries  (make-deque))
         (sequence 0))
     (conversation--map-storage-records
      (conversation-pathname conversation)
@@ -110,7 +110,7 @@ Return its input deque, newest indexed sequence and validity flag."
 (-> conversation-input-history--append (conversation list) null)
 (defun conversation-input-history--append (conversation record)
   "Append an unindexed input in constant work without rewriting earlier inputs."
-  (let ((input (conversation-input-history--record-input record))
+  (let ((input    (conversation-input-history--record-input record))
         (sequence (getf (rest record) :seq)))
     (when (and input
                (> sequence (conversation-input-history-indexed-sequence conversation)))
@@ -127,8 +127,8 @@ Return its input deque, newest indexed sequence and validity flag."
   "Load a complete index, rebuilding when it predates the active checkpoint."
   (multiple-value-bind (entries sequence valid-p)
       (conversation-input-history--read conversation)
-    (let* ((header (conversation--peek-segment-header
-                    (conversation-log-pathname conversation)))
+    (let* ((header     (conversation--peek-segment-header
+                        (conversation-log-pathname conversation)))
            (checkpoint (getf (rest header) :input-history-last-sequence 0)))
       (if (or (not valid-p) (< sequence checkpoint))
           (conversation-input-history--rebuild conversation)
@@ -165,8 +165,8 @@ retired segment unless the complete sidecar itself is missing or corrupt."
                (setf current-p t))
            (error (condition)
              (error 'conversation-invariant-error
-                    :message (format nil "Could not maintain editable input history: ~A"
-                                     condition)
+                    :message  (format nil "Could not maintain editable input history: ~A"
+                                      condition)
                     :pathname (conversation-input-history-pathname
                                (conversation-pathname conversation))
                     :sequence (conversation-next-sequence conversation))))
