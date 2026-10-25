@@ -142,8 +142,6 @@
      :terminal-behavior :shared
      :slash-parser      application-refinement-slash-arguments
      :callable          t)
-    (application &optional action identifier &rest options
-                 &key revision verdict evidence &allow-other-keys)
-  (declare (ignore revision verdict evidence))
+    (application &optional action identifier &rest options)
   (apply #'application-refinement-command application action identifier options)
   ':continue)
