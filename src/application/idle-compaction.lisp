@@ -15,7 +15,6 @@
   (lambda () (/ (get-internal-real-time) internal-time-units-per-second))
   "The process-local monotonic clock for cache opportunities, in seconds.")
 
-(-> provider-prompt-cache-retention-estimate (model-provider) (option (integer 1)))
 (defgeneric provider-prompt-cache-retention-estimate (provider)
   (:documentation "Return PROVIDER's estimated inactive cache lifetime, or NIL when unknown.
 
