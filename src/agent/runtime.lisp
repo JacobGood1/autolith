@@ -1796,8 +1796,10 @@ loop, so compaction ahead of the user message shares the turn's budget."
            observer result request-number)
           (agent--note-turn-state conversation result)
           (agent-observer-status observer :provider-request-completed completion-details)
-          (knowledge-usage-capture conversation calls request-number
-                                   (provider-result-usage result))
+          (knowledge-usage-capture conversation
+                                   :calls          calls
+                                   :request-number request-number
+                                   :usage          (provider-result-usage result))
           (when (or (agent-turn-complete-p agent result)
                     (and (null calls) (mission-agent-terminal-p agent)))
             (agent-observer-status

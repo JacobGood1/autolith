@@ -1348,12 +1348,16 @@
                    "a request whose model read memory:facts is attributed with its usage")
       (knowledge-usage-note (conversation-identifier conversation)
                             :facts 2 :fact-characters 400)
-      (knowledge-usage-capture conversation nil 3
-                               (json-object "input_tokens" 1500 "output_tokens" 30
-                                            "total_tokens" 1530))
-      (knowledge-usage-capture conversation nil 4
-                               (json-object "input_tokens" 1500 "output_tokens" 30
-                                            "total_tokens" 1530))
+      (knowledge-usage-capture conversation
+                               :request-number 3
+                               :usage          (json-object "input_tokens" 1500
+                                                            "output_tokens" 30
+                                                            "total_tokens" 1530))
+      (knowledge-usage-capture conversation
+                               :request-number 4
+                               :usage          (json-object "input_tokens" 1500
+                                                            "output_tokens" 30
+                                                            "total_tokens" 1530))
       (test-assert (equal (knowledge-usage-report conversation)
                           '(:requests 2 :facts 2 :changes 0 :tool-calls 1
                             :estimated-recall-tokens 100 :request-tokens 2530))

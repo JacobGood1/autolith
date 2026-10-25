@@ -41,8 +41,9 @@
                       "memory:changes"))))
        t))
 
-(-> knowledge-usage-capture (conversation list (integer 1) t) null)
-(defun knowledge-usage-capture (conversation calls request-number usage)
+(-> knowledge-usage-capture
+    (conversation &key (:calls list) (:request-number (integer 1)) (:usage t)) null)
+(defun knowledge-usage-capture (conversation &key calls request-number usage)
   "Attribute knowledge's share of one completed request to CONVERSATION durably.
 
 CALLS are the request's function calls and USAGE its provider usage. Nothing
