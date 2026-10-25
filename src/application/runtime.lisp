@@ -520,10 +520,10 @@ exchange without scrolling through reasoning and tool activity.")
   nil)
 
 (-> application--present-task-response
-    (application task-orchestrator function list)
+    (application task-orchestrator &key (:listener function) (:payload list))
     null)
 (defun application--present-task-response
-    (application orchestrator listener payload)
+    (application orchestrator &key listener payload)
   "Present one response from APPLICATION's exact current task LISTENER."
   (with-lock-held ((application-task-presentation-lock application))
     (when (and (eq orchestrator
@@ -586,7 +586,8 @@ exchange without scrolling through reasoning and tool activity.")
                       application orchestrator))
                     (:task-subagent-verbal-response
                      (application--present-task-response
-                      application orchestrator listener payload)))))
+                      application orchestrator :listener listener
+                                               :payload  payload)))))
           (setf (application-task-presentation-orchestrator application)
                 orchestrator
                 (application-task-presentation-listener application)
