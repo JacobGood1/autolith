@@ -7,13 +7,13 @@
     :properties
     (("schemaVersion" (:type :integer :enum (1)))
      ("baseline"
-      (:type :object
+      (:type       :object
        :properties (("kind" (:type :string :enum ("git" "snapshot" "unknown")))
                     ("workspace" (:type :string))
                     ("revision" (:type :string)))
        :required ("kind" "workspace" "revision") :additional-properties nil))
      ("change"
-      (:type :object
+      (:type       :object
        :properties (("kind" (:type :string :enum ("patch" "commit-range" "change-set" "none")))
                     ("reference" (:type :string)))
        :required ("kind" "reference") :additional-properties nil))
@@ -86,8 +86,8 @@ contract errors. ADDITIONAL-PROPERTIES controls unlisted role-specific fields."
       schema '(:type :properties :required :additional-properties)
       :pathname pathname :source source :definition-name definition-name)
      (task-engineering-output-schema
-      :properties (getf schema :properties)
-      :required (getf schema :required)
+      :properties            (getf schema :properties)
+      :required              (getf schema :required)
       :additional-properties (getf schema :additional-properties)
       :pathname pathname :source source :definition-name definition-name))
     (t
