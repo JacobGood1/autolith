@@ -5,8 +5,8 @@
 (-> localgroup--finish-checkpoint-attachments (localgroup-session string) null)
 (defun localgroup--finish-checkpoint-attachments (session reconnect-id)
   "Deliver a checkpoint transition after queued output to every attached client."
-  (let ((terminal (terminal-ui-terminal (application-ui (localgroup-session-application session))))
-        (attachments nil)
+  (let ((terminal         (terminal-ui-terminal (application-ui (localgroup-session-application session))))
+        (attachments      nil)
         (history-position 0))
     (unless (typep terminal 'localgroup-terminal)
       (return-from localgroup--finish-checkpoint-attachments nil))
@@ -26,7 +26,7 @@
          (dolist (attachment attachments)
            (image-daemon:attachment-finish
             attachment (list :checkpoint-reconnect :id reconnect-id
-                             :history-position history-position)))
+                             :history-position     history-position)))
       (dolist (attachment attachments)
         (image-daemon:attachment-close attachment))))
   nil)
@@ -37,8 +37,8 @@
   (let ((session (application-localgroup-session application)))
     (unless session
       (return-from application-call-with-localgroup-quiesced (funcall function)))
-    (let ((token (image-daemon:daemon-runtime-token session))
-          (created-at (image-daemon:daemon-runtime-created-at session))
+    (let ((token        (image-daemon:daemon-runtime-token session))
+          (created-at   (image-daemon:daemon-runtime-created-at session))
           (reconnect-id (make-identifier))
           (detached-explicitly-p
             (with-lock-held ((image-daemon:daemon-runtime-lock session))
@@ -52,5 +52,5 @@
           (localgroup-stop application))
         (unless (application-localgroup-session application)
           (localgroup-start application :token token :created-at created-at
-                                       :detached-explicitly-p detached-explicitly-p
+                                       :detached-explicitly-p   detached-explicitly-p
                                        :checkpoint-reconnect-id reconnect-id))))))
