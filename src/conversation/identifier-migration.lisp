@@ -23,13 +23,13 @@
     (configuration stage message &key pathname cause)
   "Signal a structured migration failure at STAGE with MESSAGE and CAUSE."
   (error 'conversation-identifier-migration-error
-         :message message
+         :message  message
          :pathname (or pathname
                        (configuration-conversation-identifier-migration-path
                         configuration))
          :sequence nil
-         :stage stage
-         :cause cause))
+         :stage    stage
+         :cause    cause))
 
 (-> conversation-identifier-migration--entry-p (t) boolean)
 (defun conversation-identifier-migration--entry-p (value)
@@ -77,9 +77,9 @@
   "Return a complete migration record with STATUS and ENTRIES."
   (list :conversation-identifier-migration
         :version *conversation-identifier-migration-version*
-        :status status
+        :status     status
         :updated-at (get-universal-time)
-        :entries entries))
+        :entries    entries))
 
 (-> conversation-identifier-migration--read (configuration) (option list))
 (defun conversation-identifier-migration--read (configuration)
@@ -105,7 +105,7 @@
            (format nil "Could not read the conversation identifier migration record: ~A"
                    cause)
            :pathname pathname
-           :cause cause))))))
+           :cause    cause))))))
 
 (-> conversation-identifier-migration--write
     (configuration keyword list)
@@ -126,7 +126,7 @@
          (format nil "Could not publish the conversation identifier migration record: ~A"
                  cause)
          :pathname pathname
-         :cause cause)))))
+         :cause    cause)))))
 
 (-> conversation-identifier-migration--header (pathname) (option list))
 (defun conversation-identifier-migration--header (pathname)
@@ -135,8 +135,8 @@
     (handler-case
         (with-open-file (stream source :direction ':input :external-format ':utf-8)
           (let* ((*read-eval* nil)
-                 (end-marker (cons nil nil))
-                 (form (read stream nil end-marker)))
+                 (end-marker  (cons nil nil))
+                 (form        (read stream nil end-marker)))
             (and (listp form)
                  (eq (first form) :conversation)
                  form)))
@@ -146,7 +146,7 @@
 (-> conversation-identifier-migration--legacy-files (configuration) list)
 (defun conversation-identifier-migration--legacy-files (configuration)
   "Return stable identities for resumable conversations with legacy IDs."
-  (let ((root (configuration-conversation-root configuration))
+  (let ((root       (configuration-conversation-root configuration))
         (identities nil))
     (when (uiop:directory-exists-p root)
       (dolist (pathname (uiop:directory-files root "*.sexp"))
@@ -181,14 +181,14 @@
 (defun conversation-identifier-migration--plan
     (configuration existing-record legacy-files)
   "Return a durable mapping plan and whether migration work is required."
-  (let* ((entries (copy-tree (and existing-record
-                                  (getf (rest existing-record) :entries))))
+  (let* ((entries  (copy-tree (and existing-record
+                                   (getf (rest existing-record) :entries))))
          (reserved (mapcar (lambda (entry) (getf entry :new)) entries))
-         (root (configuration-conversation-root configuration)))
+         (root     (configuration-conversation-root configuration)))
     (dolist (legacy legacy-files)
-      (let* ((pathname (getf legacy :pathname))
-             (header (getf legacy :header))
-             (old (getf (rest header) :id))
+      (let* ((pathname   (getf legacy :pathname))
+             (header     (getf legacy :header))
+             (old        (getf (rest header) :id))
              (created-at (getf (rest header) :created-at)))
         (unless (string= (or (pathname-name pathname) "") old)
           (conversation-identifier-migration--signal
@@ -208,13 +208,13 @@
           (let ((new
                   (conversation-identifier-generate
                    root
-                   :timestamp created-at
+                   :timestamp            created-at
                    :reserved-identifiers reserved)))
             (push new reserved)
             (setf entries
                   (append entries
-                          (list (list :old old
-                                      :new new
+                          (list (list :old        old
+                                      :new        new
                                       :created-at created-at))))))))
     (values entries
             (not
@@ -308,8 +308,8 @@
    (lambda (stream)
      (with-standard-io-syntax
        (let ((*print-readably* t)
-             (*print-pretty* t)
-             (*print-circle* t))
+             (*print-pretty*   t)
+             (*print-circle*   t))
          (dolist (form forms)
            (prin1 form stream)
            (terpri stream)))))
@@ -345,10 +345,10 @@ shared structure. An incomplete final form remains ignored, as in log-read."
        (with-open-file (input source :direction ':input :external-format ':utf-8)
          (with-standard-io-syntax
            (let ((*print-readably* t)
-                 (*print-pretty* t)
-                 (*print-circle* t)
-                 (*read-eval* nil)
-                 (end-marker (cons nil nil)))
+                 (*print-pretty*   t)
+                 (*print-circle*   t)
+                 (*read-eval*      nil)
+                 (end-marker       (cons nil nil)))
              (loop for form = (handler-case
                                   (read input nil end-marker)
                                 (end-of-file () end-marker))
@@ -377,8 +377,8 @@ shared structure. An incomplete final form remains ignored, as in log-read."
 
 Read bounded text blocks before parsing durable data. This keeps startup fast for
 large conversations that contain no legacy reference."
-  (let ((identifiers (make-hash-table :test #'equal))
-        (buffer (make-string 65571))
+  (let ((identifiers  (make-hash-table :test #'equal))
+        (buffer       (make-string 65571))
         (carry-length 0))
     (dolist (entry entries)
       (setf (gethash (getf entry :old) identifiers) t))
@@ -400,7 +400,7 @@ large conversations that contain no legacy reference."
            (replace buffer buffer
                     :start1 0
                     :start2 (- end carry-length)
-                    :end2 end)))))
+                    :end2   end)))))
 
 (-> conversation-identifier-migration--rewrite-file (pathname list) boolean)
 (defun conversation-identifier-migration--rewrite-file (pathname entries)
@@ -457,7 +457,7 @@ large conversations that contain no legacy reference."
          (format nil "Conversation segment ~A could not be rewritten for ~A: ~A"
                  pathname identifier cause)
          :pathname pathname
-         :cause cause)))))
+         :cause    cause)))))
 
 (-> conversation-identifier-migration--validate-target-storage
     (configuration pathname string &key (:stage keyword))
@@ -484,7 +484,7 @@ large conversations that contain no legacy reference."
        (format nil "Conversation target ~A is not complete resumable storage: ~A"
                pathname cause)
        :pathname pathname
-       :cause cause))))
+       :cause    cause))))
 
 (-> conversation-identifier-migration--publish-conversations
     (configuration list)
@@ -493,8 +493,8 @@ large conversations that contain no legacy reference."
     (configuration entries)
   "Publish rewritten conversation segments while retaining every legacy source."
   (dolist (entry entries)
-    (let* ((old (getf entry :old))
-           (new (getf entry :new))
+    (let* ((old             (getf entry :old))
+           (new             (getf entry :new))
            (source
              (conversation-identifier-migration--conversation-path
               configuration old))
@@ -658,7 +658,7 @@ large conversations that contain no legacy reference."
         (platform-delete-directory-tree
          *platform*
          source-directory
-         :validate t
+         :validate          t
          :if-does-not-exist ':ignore))))
   nil)
 
@@ -684,7 +684,7 @@ large conversations that contain no legacy reference."
          (format nil "Could not lock conversation identifier migration: ~A"
                  cause)
          :pathname pathname
-         :cause cause)))))
+         :cause    cause)))))
 
 (-> conversation-identifier-migrate (configuration) list)
 (defun conversation-identifier-migrate (configuration)
