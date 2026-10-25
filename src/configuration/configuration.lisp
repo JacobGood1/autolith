@@ -115,492 +115,492 @@ exist yet, and is only put in directory form."
 ;;;; -- Settings --
 
 (define-setting :source-root (directory-setting)
-  :label "Source root"
-  :group :paths
-  :documentation "The tracked Autolith source root."
-  :environment "AUTOLITH_SOURCE_ROOT"
-  :visible-p nil
-  :default (lambda (configuration)
-             (declare (ignore configuration))
-             (asdf:system-source-directory :autolith)))
+  :label                     "Source root"
+  :group                     :paths
+  :documentation             "The tracked Autolith source root."
+  :environment               "AUTOLITH_SOURCE_ROOT"
+  :visible-p                 nil
+  :default                   (lambda (configuration)
+                               (declare (ignore configuration))
+                               (asdf:system-source-directory :autolith)))
 
 (define-setting :working-directory (working-directory-setting)
-  :label "Working directory"
-  :group :paths
-  :documentation "The workspace visible to the agent and Lisp worker."
-  :default (lambda (configuration)
-             (declare (ignore configuration))
-             (uiop:ensure-directory-pathname (uiop:getcwd))))
+  :label                           "Working directory"
+  :group                           :paths
+  :documentation                   "The workspace visible to the agent and Lisp worker."
+  :default                         (lambda (configuration)
+                                     (declare (ignore configuration))
+                                     (uiop:ensure-directory-pathname (uiop:getcwd))))
 
 (define-setting :config-root (directory-setting)
-  :label "Config root"
-  :group :paths
-  :documentation "The root for user-editable Autolith configuration."
-  :visible-p nil
-  :default (lambda (configuration)
-             (declare (ignore configuration))
-             (platform-application-root *platform* ':config)))
+  :label                     "Config root"
+  :group                     :paths
+  :documentation             "The root for user-editable Autolith configuration."
+  :visible-p                 nil
+  :default                   (lambda (configuration)
+                               (declare (ignore configuration))
+                               (platform-application-root *platform* ':config)))
 
 (define-setting :site-config-root (site-config-directory-setting)
-  :label "Site config root"
-  :group :paths
-  :documentation "The optional site-managed configuration root."
-  :scope :process
-  :environment "AUTOLITH_SITE_CONFIG_ROOT"
-  :default nil)
+  :label                          "Site config root"
+  :group                          :paths
+  :documentation                  "The optional site-managed configuration root."
+  :scope                          :process
+  :environment                    "AUTOLITH_SITE_CONFIG_ROOT"
+  :default                        nil)
 
 (define-setting :data-root (directory-setting)
-  :label "Data root"
-  :group :paths
-  :documentation "The root for durable user data such as conversations."
-  :visible-p nil
-  :default (lambda (configuration)
-             (declare (ignore configuration))
-             (platform-application-root *platform* ':data)))
+  :label                   "Data root"
+  :group                   :paths
+  :documentation           "The root for durable user data such as conversations."
+  :visible-p               nil
+  :default                 (lambda (configuration)
+                             (declare (ignore configuration))
+                             (platform-application-root *platform* ':data)))
 
 (define-setting :active-image-core (absolute-file-setting)
-  :label "Active image core"
-  :group :paths
-  :documentation "The preloaded active image that starts fresh Autolith processes."
-  :environment "AUTOLITH_ACTIVE_CORE"
-  :visible-p nil
-  :default (lambda (configuration)
-             (merge-pathnames "active/autolith-active.core"
-                              (config :data-root configuration))))
+  :label                           "Active image core"
+  :group                           :paths
+  :documentation                   "The preloaded active image that starts fresh Autolith processes."
+  :environment                     "AUTOLITH_ACTIVE_CORE"
+  :visible-p                       nil
+  :default                         (lambda (configuration)
+                                     (merge-pathnames "active/autolith-active.core"
+                                                      (config :data-root configuration))))
 
 (define-setting :state-root (directory-setting)
-  :label "State root"
-  :group :paths
-  :documentation "The root for mutable runtime state such as queues and journals."
-  :visible-p nil
-  :default (lambda (configuration)
-             (declare (ignore configuration))
-             (platform-application-root *platform* ':state)))
+  :label                    "State root"
+  :group                    :paths
+  :documentation            "The root for mutable runtime state such as queues and journals."
+  :visible-p                nil
+  :default                  (lambda (configuration)
+                              (declare (ignore configuration))
+                              (platform-application-root *platform* ':state)))
 
 (define-setting :cache-root (directory-setting)
-  :label "Cache root"
-  :group :paths
-  :documentation "The root for replaceable caches and temporary artifacts."
-  :visible-p nil
-  :default (lambda (configuration)
-             (declare (ignore configuration))
-             (platform-application-root *platform* ':cache)))
+  :label                    "Cache root"
+  :group                    :paths
+  :documentation            "The root for replaceable caches and temporary artifacts."
+  :visible-p                nil
+  :default                  (lambda (configuration)
+                              (declare (ignore configuration))
+                              (platform-application-root *platform* ':cache)))
 
 (define-setting :codex-auth-path (pathname-setting)
-  :label "Codex auth file"
-  :group :paths
-  :documentation "The optional Codex OAuth bootstrap file."
-  :visible-p nil
-  :default (lambda (configuration)
-             (declare (ignore configuration))
-             (merge-pathnames
-              "auth.json"
-              (environment-directory
-               "CODEX_HOME"
-               (merge-pathnames ".codex/" (user-homedir-pathname))))))
+  :label                         "Codex auth file"
+  :group                         :paths
+  :documentation                 "The optional Codex OAuth bootstrap file."
+  :visible-p                     nil
+  :default                       (lambda (configuration)
+                                   (declare (ignore configuration))
+                                   (merge-pathnames
+                                    "auth.json"
+                                    (environment-directory
+                                     "CODEX_HOME"
+                                     (merge-pathnames ".codex/" (user-homedir-pathname))))))
 
 (define-setting :grok-bootstrap-auth-path (pathname-setting)
-  :label "Grok auth file"
-  :group :paths
-  :documentation "The optional Grok Build OAuth bootstrap file."
-  :visible-p nil
-  :default (lambda (configuration)
-             (declare (ignore configuration))
-             (configuration--default-grok-bootstrap-path)))
+  :label                                  "Grok auth file"
+  :group                                  :paths
+  :documentation                          "The optional Grok Build OAuth bootstrap file."
+  :visible-p                              nil
+  :default                                (lambda (configuration)
+                                            (declare (ignore configuration))
+                                            (configuration--default-grok-bootstrap-path)))
 
 (define-setting :model-provider (string-setting)
-  :label "Model provider"
-  :group :model
-  :documentation "The selected registered provider; empty uses legacy model precedence."
-  :scope :durable
-  :visible-p nil
-  :environment "AUTOLITH_MODEL_PROVIDER"
-  :default "")
+  :label                        "Model provider"
+  :group                        :model
+  :documentation                "The selected registered provider; empty uses legacy model precedence."
+  :scope                        :durable
+  :visible-p                    nil
+  :environment                  "AUTOLITH_MODEL_PROVIDER"
+  :default                      "")
 
 (define-setting :model (choice-setting)
-  :label "Model"
-  :group :model
-  :documentation "The provider model identifier."
-  :type 'non-empty-string
-  :scope :durable
-  :environment "AUTOLITH_MODEL"
-  :deferrable-p t
-  :options (lambda (configuration)
-             (declare (ignore configuration))
-             (copy-list *supported-models*))
-  :validator 'configuration--model-problem
-  :default (lambda (configuration)
-             (declare (ignore configuration))
-             *default-model*))
+  :label               "Model"
+  :group               :model
+  :documentation       "The provider model identifier."
+  :type                'non-empty-string
+  :scope               :durable
+  :environment         "AUTOLITH_MODEL"
+  :deferrable-p        t
+  :options             (lambda (configuration)
+                         (declare (ignore configuration))
+                         (copy-list *supported-models*))
+  :validator           'configuration--model-problem
+  :default             (lambda (configuration)
+                         (declare (ignore configuration))
+                         *default-model*))
 
 (define-setting :reasoning-effort (choice-setting)
-  :label "Reasoning effort"
-  :group :model
-  :documentation "The user-visible reasoning effort."
-  :type 'non-empty-string
-  :scope :durable
-  :environment "AUTOLITH_REASONING_EFFORT"
-  :deferrable-p t
+  :label                          "Reasoning effort"
+  :group                          :model
+  :documentation                  "The user-visible reasoning effort."
+  :type                           'non-empty-string
+  :scope                          :durable
+  :environment                    "AUTOLITH_REASONING_EFFORT"
+  :deferrable-p                   t
   ;; The provider is installed before the model when selecting a pair.
-  :depends-on '(:model)
-  :options (lambda (configuration)
-             (configuration--reasoning-efforts-for
-              (config :model configuration) (config :model-provider configuration)))
-  :validator 'configuration--reasoning-effort-problem
-  :default (lambda (configuration)
-             (declare (ignore configuration))
-             *default-reasoning-effort*))
+  :depends-on                     '(:model)
+  :options                        (lambda (configuration)
+                                    (configuration--reasoning-efforts-for
+                                     (config :model configuration) (config :model-provider configuration)))
+  :validator                      'configuration--reasoning-effort-problem
+  :default                        (lambda (configuration)
+                                    (declare (ignore configuration))
+                                    *default-reasoning-effort*))
 
 (define-setting :openrouter-provider-routing (string-setting)
-  :label "OpenRouter provider routing"
-  :group :model
-  :documentation "OpenRouter provider preferences as a JSON object keyed by wire model name, with an optional wildcard entry for other models."
-  :scope :durable
-  :environment "AUTOLITH_OPENROUTER_PROVIDER_ROUTING"
-  :validator 'configuration--openrouter-provider-routing-problem
-  :default "")
+  :label                                     "OpenRouter provider routing"
+  :group                                     :model
+  :documentation                             "OpenRouter provider preferences as a JSON object keyed by wire model name, with an optional wildcard entry for other models."
+  :scope                                     :durable
+  :environment                               "AUTOLITH_OPENROUTER_PROVIDER_ROUTING"
+  :validator                                 'configuration--openrouter-provider-routing-problem
+  :default                                   "")
 
 (define-setting :codex-fast-mode-p (boolean-setting)
-  :label "Codex Fast mode"
-  :group :model
-  :documentation "Whether Codex requests opt in to the Fast service tier, which is faster and counts more heavily against plan usage."
-  :scope :durable
-  :environment "AUTOLITH_CODEX_FAST_MODE")
+  :label                           "Codex Fast mode"
+  :group                           :model
+  :documentation                   "Whether Codex requests opt in to the Fast service tier, which is faster and counts more heavily against plan usage."
+  :scope                           :durable
+  :environment                     "AUTOLITH_CODEX_FAST_MODE")
 
 (define-setting :prefer-codex-context-window-p (boolean-setting)
-  :label "Prefer Codex context window"
-  :group :model
-  :documentation "Whether built-in ChatGPT models use Codex context defaults instead of public models.dev limits. AUTOLITH_CONTEXT_WINDOW overrides either choice."
-  :scope :durable
-  :environment "AUTOLITH_PREFER_CODEX_CONTEXT_WINDOW"
-  :default t)
+  :label                                       "Prefer Codex context window"
+  :group                                       :model
+  :documentation                               "Whether built-in ChatGPT models use Codex context defaults instead of public models.dev limits. AUTOLITH_CONTEXT_WINDOW overrides either choice."
+  :scope                                       :durable
+  :environment                                 "AUTOLITH_PREFER_CODEX_CONTEXT_WINDOW"
+  :default                                     t)
 
 (define-setting :web-search-mode (web-search-mode-setting)
-  :label "Web search"
-  :group :model
-  :documentation "The provider web search mode."
-  :type 'non-empty-string
-  :environment "AUTOLITH_WEB_SEARCH"
-  :options (lambda (configuration)
-             (declare (ignore configuration))
-             (copy-list *supported-web-search-modes*))
-  :default "cached")
+  :label                         "Web search"
+  :group                         :model
+  :documentation                 "The provider web search mode."
+  :type                          'non-empty-string
+  :environment                   "AUTOLITH_WEB_SEARCH"
+  :options                       (lambda (configuration)
+                                   (declare (ignore configuration))
+                                   (copy-list *supported-web-search-modes*))
+  :default                       "cached")
 
 (define-setting :context-window (derived-setting)
-  :label "Context window"
-  :group :model
-  :documentation "The provider context window in tokens for the model."
-  :type '(integer 1)
-  :function (lambda (configuration)
-              (configuration--context-window-for
-               (config :model configuration) (config :model-provider configuration)
-               configuration)))
+  :label                        "Context window"
+  :group                        :model
+  :documentation                "The provider context window in tokens for the model."
+  :type                         '(integer 1)
+  :function                     (lambda (configuration)
+                                  (configuration--context-window-for
+                                   (config :model configuration) (config :model-provider configuration)
+                                   configuration)))
 
 (define-setting :compaction-threshold-percent (integer-setting)
-  :label "Compaction threshold"
-  :group :model
-  :documentation "The context window percentage that triggers compaction."
-  :minimum 1
-  :maximum 95
-  :environment "AUTOLITH_COMPACTION_THRESHOLD"
-  :default (lambda (configuration)
-             (declare (ignore configuration))
-             *default-compaction-threshold-percent*))
+  :label                                      "Compaction threshold"
+  :group                                      :model
+  :documentation                              "The context window percentage that triggers compaction."
+  :minimum                                    1
+  :maximum                                    95
+  :environment                                "AUTOLITH_COMPACTION_THRESHOLD"
+  :default                                    (lambda (configuration)
+                                                (declare (ignore configuration))
+                                                *default-compaction-threshold-percent*))
 
 (define-setting :provider-endpoint (derived-setting)
-  :label "Provider endpoint"
-  :group :model
-  :documentation "The streaming Responses endpoint."
-  :type 'non-empty-string
-  :visible-p nil
-  :function (lambda (configuration)
-              (configuration--provider-endpoint-for
-               (config :model configuration) (config :model-provider configuration))))
+  :label                           "Provider endpoint"
+  :group                           :model
+  :documentation                   "The streaming Responses endpoint."
+  :type                            'non-empty-string
+  :visible-p                       nil
+  :function                        (lambda (configuration)
+                                     (configuration--provider-endpoint-for
+                                      (config :model configuration) (config :model-provider configuration))))
 
 (define-setting :reasoning-traces-p (boolean-setting)
-  :label "Reasoning traces"
-  :group :transcript
-  :documentation "Whether provider reasoning summaries are requested and shown."
-  :scope :durable)
+  :label                            "Reasoning traces"
+  :group                            :transcript
+  :documentation                    "Whether provider reasoning summaries are requested and shown."
+  :scope                            :durable)
 
 (define-setting :compact-view-p (boolean-setting)
-  :label "Compact view"
-  :group :transcript
-  :documentation "Whether verbose tool calls are condensed and routine results hidden."
-  :scope :durable
-  :default t)
+  :label                        "Compact view"
+  :group                        :transcript
+  :documentation                "Whether verbose tool calls are condensed and routine results hidden."
+  :scope                        :durable
+  :default                      t)
 
 (define-setting :turn-timestamps-p (boolean-setting)
-  :label "Turn timestamps"
-  :group :transcript
-  :documentation "Whether transcript turn headers include local timestamps."
-  :scope :durable)
+  :label                           "Turn timestamps"
+  :group                           :transcript
+  :documentation                   "Whether transcript turn headers include local timestamps."
+  :scope                           :durable)
 
 (define-setting :cache-miss-notices-p (boolean-setting)
-  :label "Cache miss notices"
-  :group :transcript
-  :documentation "Whether requests that re-read uncached context are reported."
-  :scope :durable)
+  :label                              "Cache miss notices"
+  :group                              :transcript
+  :documentation                      "Whether requests that re-read uncached context are reported."
+  :scope                              :durable)
 
 (define-setting :knowledge-mode (choice-setting)
-  :label "Structured knowledge"
-  :group :behavior
-  :documentation "Whether facts and rules are used (active), only recorded from observations (passive), or neither (off). Passive and off leave model requests exactly as without them."
-  :type 'non-empty-string
-  :scope :durable
-  :environment "AUTOLITH_KNOWLEDGE"
-  :options (lambda (configuration)
-             (declare (ignore configuration))
-             (list "active" "passive" "off"))
-  :default "active")
+  :label                        "Structured knowledge"
+  :group                        :behavior
+  :documentation                "Whether facts and rules are used (active), only recorded from observations (passive), or neither (off). Passive and off leave model requests exactly as without them."
+  :type                         'non-empty-string
+  :scope                        :durable
+  :environment                  "AUTOLITH_KNOWLEDGE"
+  :options                      (lambda (configuration)
+                                  (declare (ignore configuration))
+                                  (list "active" "passive" "off"))
+  :default                      "active")
 
 (define-setting :diagnosis-p (boolean-setting)
-  :label "Diagnostic probes"
-  :group :behavior
-  :documentation "Whether the model may test hypotheses about a failure with probe tool calls (diagnosis.run). It needs active structured knowledge."
-  :scope :durable
-  :environment "AUTOLITH_DIAGNOSIS")
+  :label                     "Diagnostic probes"
+  :group                     :behavior
+  :documentation             "Whether the model may test hypotheses about a failure with probe tool calls (diagnosis.run). It needs active structured knowledge."
+  :scope                     :durable
+  :environment               "AUTOLITH_DIAGNOSIS")
 
 (define-setting :idle-compaction-p (boolean-setting)
-  :label "Idle cache compaction"
-  :group :behavior
-  :documentation "Whether idle sessions compact large histories before estimated prompt-cache expiry."
-  :scope :durable
-  :default t)
+  :label                           "Idle cache compaction"
+  :group                           :behavior
+  :documentation                   "Whether idle sessions compact large histories before estimated prompt-cache expiry."
+  :scope                           :durable
+  :default                         t)
 
 (define-setting :prompt-cache-retention-seconds (integer-setting)
-  :label "Estimated cache retention"
-  :group :behavior
-  :documentation "Estimated prompt-cache retention in seconds; zero uses the provider estimate, when available."
-  :scope :durable
-  :minimum 0
-  :maximum 86400
-  :default 0)
+  :label                                        "Estimated cache retention"
+  :group                                        :behavior
+  :documentation                                "Estimated prompt-cache retention in seconds; zero uses the provider estimate, when available."
+  :scope                                        :durable
+  :minimum                                      0
+  :maximum                                      86400
+  :default                                      0)
 
 (define-setting :simple-technical-english-p (boolean-setting)
-  :label "Simple Technical English"
-  :group :behavior
-  :documentation "Whether natural-language replies use Simple Technical English."
-  :scope :durable)
+  :label                                    "Simple Technical English"
+  :group                                    :behavior
+  :documentation                            "Whether natural-language replies use Simple Technical English."
+  :scope                                    :durable)
 
 (define-setting :session-title-generation-p (boolean-setting)
-  :label "Generated session titles"
-  :group :behavior
-  :documentation "Whether the provider may refresh locally derived session titles."
-  :scope :durable
-  :default t)
+  :label                                    "Generated session titles"
+  :group                                    :behavior
+  :documentation                            "Whether the provider may refresh locally derived session titles."
+  :scope                                    :durable
+  :default                                  t)
 
 (define-setting :hurry-up-p (boolean-setting)
-  :label "Hurry-up mode"
-  :group :behavior
-  :documentation "Whether requests carry hurry-up guidance favoring direct work."
-  :scope :session)
+  :label                    "Hurry-up mode"
+  :group                    :behavior
+  :documentation            "Whether requests carry hurry-up guidance favoring direct work."
+  :scope                    :session)
 
 (define-setting :relax-p (boolean-setting)
-  :label "Relax warning"
-  :group :behavior
-  :documentation "Whether provider requests carry a warning not to shrink scope, skip verification, or rush because of perceived context pressure."
-  :scope :session)
+  :label                 "Relax warning"
+  :group                 :behavior
+  :documentation         "Whether provider requests carry a warning not to shrink scope, skip verification, or rush because of perceived context pressure."
+  :scope                 :session)
 
 (define-setting :fullscreen-p (boolean-setting)
-  :label "Fullscreen"
-  :group :terminal
-  :documentation "Whether interactive sessions use the fullscreen terminal UI."
-  :scope :durable)
+  :label                      "Fullscreen"
+  :group                      :terminal
+  :documentation              "Whether interactive sessions use the fullscreen terminal UI."
+  :scope                      :durable)
 
 (define-setting :onboarding-p (boolean-setting)
-  :label "Onboarding"
-  :group :terminal
-  :documentation "Whether interactive launches offer unseen or revised onboarding lessons."
-  :scope :durable
-  :environment "AUTOLITH_ONBOARDING"
-  :default t)
+  :label                      "Onboarding"
+  :group                      :terminal
+  :documentation              "Whether interactive launches offer unseen or revised onboarding lessons."
+  :scope                      :durable
+  :environment                "AUTOLITH_ONBOARDING"
+  :default                    t)
 
 (define-setting :terminal-theme (choice-setting)
-  :label "Theme"
-  :group :terminal
-  :documentation "The presentation theme: autolith, or almighty for yellow on blue."
-  :scope :durable
-  :type '(member :autolith :almighty)
-  :options '(:autolith :almighty)
-  :default ':autolith)
+  :label                        "Theme"
+  :group                        :terminal
+  :documentation                "The presentation theme: autolith, or almighty for yellow on blue."
+  :scope                        :durable
+  :type                         '(member :autolith :almighty)
+  :options                      '(:autolith :almighty)
+  :default                      ':autolith)
 
 (define-setting :boot-screen-p (boolean-setting)
-  :label "Boot screen"
-  :group :terminal
-  :documentation "Whether a fullscreen start plays the boot screen before opening the listener."
-  :scope :durable
-  :environment "AUTOLITH_BOOT_SCREEN"
-  :default t)
+  :label                       "Boot screen"
+  :group                       :terminal
+  :documentation               "Whether a fullscreen start plays the boot screen before opening the listener."
+  :scope                       :durable
+  :environment                 "AUTOLITH_BOOT_SCREEN"
+  :default                     t)
 
 (define-setting :boot-screen-seconds (real-setting)
-  :label "Boot screen duration"
-  :group :terminal
-  :documentation "Total seconds of the boot animation, shared evenly by its phases."
-  :scope :durable
-  :minimum 0
-  :maximum 60
-  :environment "AUTOLITH_BOOT_DURATION"
-  :default 3.5)
+  :label                             "Boot screen duration"
+  :group                             :terminal
+  :documentation                     "Total seconds of the boot animation, shared evenly by its phases."
+  :scope                             :durable
+  :minimum                           0
+  :maximum                           60
+  :environment                       "AUTOLITH_BOOT_DURATION"
+  :default                           3.5)
 
 (define-setting :boot-screen-linger-p (boolean-setting)
-  :label "Boot screen waits for Space"
-  :group :terminal
-  :documentation "Whether the fullscreen boot screen waits for Space before opening the listener."
-  :scope :durable
-  :environment "AUTOLITH_BOOT_LINGER"
-  :default t)
+  :label                              "Boot screen waits for Space"
+  :group                              :terminal
+  :documentation                      "Whether the fullscreen boot screen waits for Space before opening the listener."
+  :scope                              :durable
+  :environment                        "AUTOLITH_BOOT_LINGER"
+  :default                            t)
 
 (define-setting :boot-screen-tip-seconds (integer-setting)
-  :label "Boot tip rotation"
-  :group :terminal
-  :documentation "Seconds between startup tips while the boot screen waits."
-  :scope :durable
-  :minimum 1
-  :maximum 3600
-  :environment "AUTOLITH_BOOT_TIP_SECONDS"
-  :default 10)
+  :label                                 "Boot tip rotation"
+  :group                                 :terminal
+  :documentation                         "Seconds between startup tips while the boot screen waits."
+  :scope                                 :durable
+  :minimum                               1
+  :maximum                               3600
+  :environment                           "AUTOLITH_BOOT_TIP_SECONDS"
+  :default                               10)
 
 (define-setting :permission-mode (choice-setting)
-  :label "Saved permission mode"
-  :group :behavior
-  :documentation "The durable command-permission mode, or unset."
-  :scope :durable
-  :type '(option (member :ask :auto))
-  :options '(:ask :auto))
+  :label                         "Saved permission mode"
+  :group                         :behavior
+  :documentation                 "The durable command-permission mode, or unset."
+  :scope                         :durable
+  :type                          '(option (member :ask :auto))
+  :options                       '(:ask :auto))
 
 (define-setting :immutable-p (boolean-setting)
-  :label "Immutable image"
-  :group :process
-  :documentation "Whether mutation-capable active-image tools are disabled.")
+  :label                     "Immutable image"
+  :group                     :process
+  :documentation             "Whether mutation-capable active-image tools are disabled.")
 
 (define-setting :management-repl-enabled-p (boolean-setting)
-  :label "Management REPL"
-  :group :management
-  :documentation "Whether the authenticated active-image management endpoint starts."
-  :environment "AUTOLITH_MANAGEMENT_REPL")
+  :label                                   "Management REPL"
+  :group                                   :management
+  :documentation                           "Whether the authenticated active-image management endpoint starts."
+  :environment                             "AUTOLITH_MANAGEMENT_REPL")
 
 (define-setting :management-repl-transport (management-transport-setting)
-  :label "Management transport"
-  :group :management
-  :documentation "The management endpoint transport."
-  :environment "AUTOLITH_MANAGEMENT_REPL_TRANSPORT"
-  :default (lambda (configuration)
-             (declare (ignore configuration))
-             (if (platform-supports-p *platform* ':local-sockets) ':unix ':tcp)))
+  :label                                   "Management transport"
+  :group                                   :management
+  :documentation                           "The management endpoint transport."
+  :environment                             "AUTOLITH_MANAGEMENT_REPL_TRANSPORT"
+  :default                                 (lambda (configuration)
+                                             (declare (ignore configuration))
+                                             (if (platform-supports-p *platform* ':local-sockets) ':unix ':tcp)))
 
 (define-setting :management-repl-unix-socket-path (absolute-file-setting)
-  :label "Management socket"
-  :group :management
-  :documentation "The private Unix management socket pathname."
-  :environment "AUTOLITH_MANAGEMENT_REPL_UNIX_SOCKET"
-  :default (lambda (configuration)
-             (merge-pathnames "management/repl.sock" (config :state-root configuration))))
+  :label                                          "Management socket"
+  :group                                          :management
+  :documentation                                  "The private Unix management socket pathname."
+  :environment                                    "AUTOLITH_MANAGEMENT_REPL_UNIX_SOCKET"
+  :default                                        (lambda (configuration)
+                                                    (merge-pathnames "management/repl.sock" (config :state-root configuration))))
 
 (define-setting :management-repl-tcp-address (string-setting)
-  :label "Management address"
-  :group :management
-  :documentation "The IPv4 loopback management listener address."
-  :type 'non-empty-string
-  :environment "AUTOLITH_MANAGEMENT_REPL_TCP_ADDRESS"
-  :default "127.0.0.1")
+  :label                                     "Management address"
+  :group                                     :management
+  :documentation                             "The IPv4 loopback management listener address."
+  :type                                      'non-empty-string
+  :environment                               "AUTOLITH_MANAGEMENT_REPL_TCP_ADDRESS"
+  :default                                   "127.0.0.1")
 
 (define-setting :management-repl-tcp-port (integer-setting)
-  :label "Management port"
-  :group :management
-  :documentation "The management TCP listener port."
-  :minimum 1
-  :maximum 65535
-  :environment "AUTOLITH_MANAGEMENT_REPL_TCP_PORT"
-  :default 4141)
+  :label                                  "Management port"
+  :group                                  :management
+  :documentation                          "The management TCP listener port."
+  :minimum                                1
+  :maximum                                65535
+  :environment                            "AUTOLITH_MANAGEMENT_REPL_TCP_PORT"
+  :default                                4141)
 
 (define-setting :management-repl-token-file-path (absolute-file-setting)
-  :label "Management token file"
-  :group :management
-  :documentation "The external owner-only authentication token file pathname."
-  :environment "AUTOLITH_MANAGEMENT_REPL_TOKEN_FILE"
-  :default (lambda (configuration)
-             (merge-pathnames "management-repl.token" (config :config-root configuration))))
+  :label                                         "Management token file"
+  :group                                         :management
+  :documentation                                 "The external owner-only authentication token file pathname."
+  :environment                                   "AUTOLITH_MANAGEMENT_REPL_TOKEN_FILE"
+  :default                                       (lambda (configuration)
+                                                   (merge-pathnames "management-repl.token" (config :config-root configuration))))
 
 (define-setting :management-repl-evaluation-timeout (integer-setting)
-  :label "Management timeout"
-  :group :management
-  :documentation "The management request deadline in seconds."
-  :minimum 1
-  :environment "AUTOLITH_MANAGEMENT_REPL_TIMEOUT"
-  :default 10)
+  :label                                            "Management timeout"
+  :group                                            :management
+  :documentation                                    "The management request deadline in seconds."
+  :minimum                                          1
+  :environment                                      "AUTOLITH_MANAGEMENT_REPL_TIMEOUT"
+  :default                                          10)
 
 (define-setting :management-repl-maximum-frame-size (integer-setting)
-  :label "Management frame size"
-  :group :management
-  :documentation "The maximum management wire frame size in octets."
-  :minimum 128
-  :environment "AUTOLITH_MANAGEMENT_REPL_MAX_FRAME"
-  :default 1048576)
+  :label                                            "Management frame size"
+  :group                                            :management
+  :documentation                                    "The maximum management wire frame size in octets."
+  :minimum                                          128
+  :environment                                      "AUTOLITH_MANAGEMENT_REPL_MAX_FRAME"
+  :default                                          1048576)
 
 (define-setting :management-repl-maximum-source-size (integer-setting)
-  :label "Management source size"
-  :group :management
-  :documentation "The maximum evaluation source size in UTF-8 octets."
-  :minimum 1
-  :environment "AUTOLITH_MANAGEMENT_REPL_MAX_SOURCE"
-  :default 262144)
+  :label                                             "Management source size"
+  :group                                             :management
+  :documentation                                     "The maximum evaluation source size in UTF-8 octets."
+  :minimum                                           1
+  :environment                                       "AUTOLITH_MANAGEMENT_REPL_MAX_SOURCE"
+  :default                                           262144)
 
 (define-setting :management-repl-maximum-output-size (integer-setting)
-  :label "Management output size"
-  :group :management
-  :documentation "The maximum captured output and value text size."
-  :minimum 1
-  :environment "AUTOLITH_MANAGEMENT_REPL_MAX_OUTPUT"
-  :default 262144)
+  :label                                             "Management output size"
+  :group                                             :management
+  :documentation                                     "The maximum captured output and value text size."
+  :minimum                                           1
+  :environment                                       "AUTOLITH_MANAGEMENT_REPL_MAX_OUTPUT"
+  :default                                           262144)
 
 (define-setting :management-repl-queue-capacity (integer-setting)
-  :label "Management queue"
-  :group :management
-  :documentation "The maximum queued management evaluations."
-  :minimum 1
-  :environment "AUTOLITH_MANAGEMENT_REPL_QUEUE_CAPACITY"
-  :default 8)
+  :label                                        "Management queue"
+  :group                                        :management
+  :documentation                                "The maximum queued management evaluations."
+  :minimum                                      1
+  :environment                                  "AUTOLITH_MANAGEMENT_REPL_QUEUE_CAPACITY"
+  :default                                      8)
 
 (define-setting :management-repl-maximum-clients (integer-setting)
-  :label "Management clients"
-  :group :management
-  :documentation "The maximum accepted management clients, including authentication."
-  :minimum 1
-  :environment "AUTOLITH_MANAGEMENT_REPL_MAX_CLIENTS"
-  :default 8)
+  :label                                         "Management clients"
+  :group                                         :management
+  :documentation                                 "The maximum accepted management clients, including authentication."
+  :minimum                                       1
+  :environment                                   "AUTOLITH_MANAGEMENT_REPL_MAX_CLIENTS"
+  :default                                       8)
 
 (define-setting :management-repl-authentication-timeout (integer-setting)
-  :label "Management auth timeout"
-  :group :management
-  :documentation "The absolute authentication deadline in seconds."
-  :minimum 1
-  :environment "AUTOLITH_MANAGEMENT_REPL_AUTH_TIMEOUT"
-  :default 10)
+  :label                                                "Management auth timeout"
+  :group                                                :management
+  :documentation                                        "The absolute authentication deadline in seconds."
+  :minimum                                              1
+  :environment                                          "AUTOLITH_MANAGEMENT_REPL_AUTH_TIMEOUT"
+  :default                                              10)
 
 (define-setting :slynk-directory (optional-directory-setting)
-  :label "Slynk directory"
-  :group :editor
-  :documentation "The slynk/ directory of the sly installation whose Slynk serves this image."
-  :scope :process
-  :environment "AUTOLITH_SLYNK_DIRECTORY"
-  :default nil)
+  :label                         "Slynk directory"
+  :group                         :editor
+  :documentation                 "The slynk/ directory of the sly installation whose Slynk serves this image."
+  :scope                         :process
+  :environment                   "AUTOLITH_SLYNK_DIRECTORY"
+  :default                       nil)
 
 (define-setting :slynk-port-file (optional-absolute-file-setting)
-  :label "Slynk port file"
-  :group :editor
-  :documentation "The file that receives the Slynk port, or the start failure, for an editor."
-  :scope :process
-  :environment "AUTOLITH_SLYNK_PORT_FILE"
-  :default nil)
+  :label                         "Slynk port file"
+  :group                         :editor
+  :documentation                 "The file that receives the Slynk port, or the start failure, for an editor."
+  :scope                         :process
+  :environment                   "AUTOLITH_SLYNK_PORT_FILE"
+  :default                       nil)
 
 (define-setting :emacs-server-socket (optional-absolute-file-setting)
-  :label "Emacs server socket"
-  :group :editor
-  :documentation "The Emacs server socket the emacs.* tools talk to; without it they are absent."
-  :scope :process
-  :environment "AUTOLITH_EMACS_SERVER"
-  :default nil)
+  :label                             "Emacs server socket"
+  :group                             :editor
+  :documentation                     "The Emacs server socket the emacs.* tools talk to; without it they are absent."
+  :scope                             :process
+  :environment                       "AUTOLITH_EMACS_SERVER"
+  :default                           nil)
 
 
 ;;;; -- Construction --
@@ -615,7 +615,7 @@ setting definition order, so a model override precedes its reasoning effort.
 PROVIDER-VALIDATION-P NIL defers model checks until the provider registry is
 known."
   (setinka:make-configuration
-   :overrides (configuration--overrides overrides '(:provider-validation-p))
+   :overrides             (configuration--overrides overrides '(:provider-validation-p))
    :validation-deferred-p (not provider-validation-p)))
 
 (-> configuration-copy (configuration &rest t) configuration)
@@ -631,7 +631,7 @@ a model the registry does not serve. Listeners stay with the original; a child
 or frame reacts to its own changes."
   (setinka:configuration-copy
    configuration
-    :overrides (configuration--overrides overrides '(:provider-validation-p) configuration)
+    :overrides            (configuration--overrides overrides '(:provider-validation-p) configuration)
    :validation-deferred-p (not provider-validation-p)))
 
 (-> configuration-create (&rest t) configuration)
@@ -646,10 +646,10 @@ than applied. DEFER-PROVIDER-VALIDATION-P leaves model checks to
 CONFIGURATION-VALIDATE-DEFERRED once executable user initialization has
 registered providers. DURABLE-P NIL skips the preferences file."
   (setinka:configuration-load
-   :overrides (configuration--overrides
-               overrides '(:defer-provider-validation-p :durable-p))
+   :overrides             (configuration--overrides
+                           overrides '(:defer-provider-validation-p :durable-p))
    :validation-deferred-p defer-provider-validation-p
-   :durable-p durable-p))
+   :durable-p             durable-p))
 
 (-> configuration--overrides (list list &optional (option configuration)) list)
 (defun configuration--overrides (arguments options &optional configuration)
@@ -657,10 +657,10 @@ registered providers. DURABLE-P NIL skips the preferences file."
 
 A copy naming its existing bare model retains its provider. A different model
 selects its own registration, rather than inheriting the previous provider."
-  (let* ((overrides (loop for (name value) on arguments by #'cddr
-                          unless (member name options)
-                            append (list name value)))
-         (model (getf overrides :model))
+  (let* ((overrides     (loop for (name value) on arguments by #'cddr
+                              unless (member name options)
+                                append (list name value)))
+         (model         (getf overrides :model))
          (provider-cell (loop for tail on overrides by #'cddr
                               when (eq (first tail) ':model-provider) return tail)))
     (when (and (stringp model) (fboundp 'provider-resolve-model)
@@ -739,38 +739,38 @@ selects its own registration, rather than inheriting the previous provider."
                  (uiop:ensure-pathname
                   (platform-pathname
                    (configuration--expanded-working-directory location))
-                  :defaults previous
-                  :ensure-absolute t
+                  :defaults         previous
+                  :ensure-absolute  t
                   :ensure-directory t
-                  :want-non-wild t))
+                  :want-non-wild    t))
                (directory (uiop:directory-exists-p candidate)))
           (unless directory
             (error 'working-directory-error
-                   :message (format nil "Working directory ~S does not exist or is not a directory."
-                                    location)
-                   :requested-path location
+                   :message            (format nil "Working directory ~S does not exist or is not a directory."
+                                               location)
+                   :requested-path     location
                    :previous-directory previous
-                   :stage ':validation
-                   :cause nil))
+                   :stage              ':validation
+                   :cause              nil))
           (uiop:ensure-directory-pathname (platform-truename *platform* directory)))
       (working-directory-error (condition)
         (error condition))
       (error (condition)
         (error 'working-directory-error
-               :message (format nil "Cannot use ~S as a working directory: ~A"
-                                location condition)
-               :requested-path location
+               :message            (format nil "Cannot use ~S as a working directory: ~A"
+                                           location condition)
+               :requested-path     location
                :previous-directory previous
-               :stage ':validation
-               :cause condition)))))
+               :stage              ':validation
+               :cause              condition)))))
 
 (-> configuration-ensure-directories (configuration) configuration)
 (defun configuration-ensure-directories (configuration)
   "Create CONFIGURATION's private config, data, state, and cache directories."
   (dolist (directory (list (config :config-root configuration)
-                            (config :data-root configuration)
-                            (config :state-root configuration)
-                            (config :cache-root configuration)))
+                           (config :data-root configuration)
+                           (config :state-root configuration)
+                           (config :cache-root configuration)))
     (multiple-value-bind (pathname created-p)
         (ensure-directories-exist directory)
       (when created-p
@@ -1005,7 +1005,7 @@ Its octets come from ironclad's operating-system random source on every host."
                 (uiop:directory-exists-p
                  (uiop:ensure-pathname site-config-root
                                        :ensure-directory t
-                                       :want-non-wild t))))
+                                       :want-non-wild    t))))
           (unless directory
             (error 'configuration-error
                    :message (format nil "Site configuration root ~S does not exist."
