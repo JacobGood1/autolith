@@ -7,7 +7,7 @@
   "Return current terminal rows and columns through Clinedi's size lookup."
   (clinedi:terminal-current-size
    :file-descriptor (terminal-standard-input-file-descriptor)
-   :default-rows *terminal-default-rows*
+   :default-rows    *terminal-default-rows*
    :default-columns *terminal-default-columns*))
 
 (defmethod terminal--write ((terminal stream-terminal) (text string))
@@ -39,16 +39,15 @@
        (columns *terminal-default-columns*))
   "Create a stream terminal using INPUT-STREAM, OUTPUT-STREAM, and a POSIX descriptor."
   (make-instance 'stream-terminal
-                 :input-stream input-stream
-                 :output-stream output-stream
+                 :input-stream          input-stream
+                 :output-stream         output-stream
                  :input-file-descriptor input-file-descriptor
-                 :rows (if (plusp rows)
-                           rows
-                           *terminal-default-rows*)
-                 :columns (if (plusp columns)
-                              columns
-                              *terminal-default-columns*)))
-
+                 :rows                  (if (plusp rows)
+                                            rows
+                                            *terminal-default-rows*)
+                 :columns               (if (plusp columns)
+                                            columns
+                                            *terminal-default-columns*)))
 
 (-> terminal--terminal-mode-or-nil (stream-terminal) t)
 (defun terminal--terminal-mode-or-nil (terminal)
