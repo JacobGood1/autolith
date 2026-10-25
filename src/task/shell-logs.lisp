@@ -4,20 +4,28 @@
 
 (defparameter *shell-log-capture-byte-limit* (* 64 1024 1024)
   "Maximum retained raw bytes per stream.")
+
 (defparameter *shell-log-retention-byte-limit* (* 1024 1024 1024)
   "Maximum reserved capture bytes across private artifacts.")
+
 (defparameter *shell-log-retention-count-limit* 256
   "Maximum artifacts containing capture files.")
+
 (defparameter *shell-log-retention-age* (* 7 24 60 60)
   "Completed logs become age-eligible after this interval; prune on next allocation.")
+
 (defparameter *shell-log-tombstone-count-limit* 512
   "Maximum retained pruned manifests; older references then report missing.")
+
 (defparameter *shell-log-tombstone-age* (* 30 24 60 60)
   "Maximum tombstone age in seconds.")
+
 (defparameter *shell-log-manifest-byte-limit* 16384
   "Maximum portable manifest bytes, separate from raw capture reservations.")
+
 (defvar *shell-log-lock* (make-lock "shell log artifacts")
   "Serialize reservation, manifest publication and pruning.")
+
 (defvar *shell-log-active* (make-hash-table :test #'equal)
   "Capture directories currently owned by running operations.")
 
@@ -95,24 +103,24 @@
 (-> shell-log--measure-captures (configuration pathname list) integer)
 (defun shell-log--measure-captures (configuration directory metadata)
   "Measure only safe regular capture files and report oversized storage truthfully."
-  (let ((total 0)
-        (active-p (eq (getf metadata :state) ':active))
+  (let ((total         0)
+        (active-p      (eq (getf metadata :state) ':active))
         (interrupted-p (eq (getf metadata :state) ':interrupted)))
     (unless (eq (getf metadata :state) ':pruned)
       (loop for captures on (getf metadata :captures)
             for capture = (first captures)
             do (unless (shell-log--capture-file-p (getf capture :file))
                  (shell-log--fail "Invalid shell capture filename in manifest."))
-               (let* ((path (shell-log--safe-path
-                             configuration (merge-pathnames (getf capture :file) directory)))
+               (let* ((path   (shell-log--safe-path
+                               configuration (merge-pathnames (getf capture :file) directory)))
                       (status (handler-case
                                   (platform-path-status *platform* path :follow-links-p nil)
                                 (platform-error (condition)
                                   (shell-log--fail
                                    (format nil "Cannot inspect shell capture: ~A" condition)
                                    path))))
-                      (size (if status (platform-file-status-size status) 0))
-                      (limit (getf metadata :capture-byte-limit)))
+                      (size   (if status (platform-file-status-size status) 0))
+                      (limit  (getf metadata :capture-byte-limit)))
                  (when (and status (not (eq (platform-file-status-kind status) ':file)))
                    (shell-log--fail "Shell capture is not a regular file." path))
                  (unless (and (integerp limit) (plusp limit))
@@ -143,7 +151,7 @@
 (defun shell-log--read-manifest (configuration directory &key (measure-p t))
   "Read bounded ownership metadata; optionally reconcile safe capture file sizes.
 Disable measurement until resource resolution has checked ancestor ownership."
-  (let* ((path (shell-log--safe-path configuration (shell-log--manifest-path directory)))
+  (let* ((path     (shell-log--safe-path configuration (shell-log--manifest-path directory)))
          (metadata (task-continuity--read path)))
     (when (and (eq (getf metadata :state) ':active)
                (not (shell-log--active-p directory)))
@@ -160,7 +168,7 @@ Disable measurement until resource resolution has checked ancestor ownership."
 (-> shell-log--write-manifest (shell-log-artifact) pathname)
 (defun shell-log--write-manifest (artifact)
   "Atomically publish ARTIFACT metadata and restrict its permissions."
-  (let* ((path (shell-log--manifest-path (shell-log-capture-directory artifact)))
+  (let* ((path     (shell-log--manifest-path (shell-log-capture-directory artifact)))
          (metadata (shell-log-artifact-metadata artifact)))
     (when (> (length (utf8-string-to-octets (task--write-readable-sexp metadata)))
              *shell-log-manifest-byte-limit*)
@@ -206,11 +214,11 @@ Disable measurement until resource resolution has checked ancestor ownership."
 (defun shell-log--sync-delivered-p (configuration metadata)
   "Require exact-owner durable tool or mission-gate evidence for terminal sync logs.
   Match execution, artifact and originating provider call, including stale manifests."
-  (let ((root (getf metadata :root-conversation))
-        (owner (getf metadata :completion-owner-conversation))
+  (let ((root      (getf metadata :root-conversation))
+        (owner     (getf metadata :completion-owner-conversation))
         (execution (getf metadata :execution-id))
-        (artifact (getf metadata :artifact-id))
-        (call-id (getf metadata :parent-call-id)))
+        (artifact  (getf metadata :artifact-id))
+        (call-id   (getf metadata :parent-call-id)))
     (labels ((delivered-logs-p (logs)
                (some (lambda (log)
                        (and (eq (getf log :state) ':closed)
@@ -230,7 +238,7 @@ Disable measurement until resource resolution has checked ancestor ownership."
                               (make-pathname :name owner :type "sexp")
                               (merge-pathnames (format nil "~A/" owner)
                                                (task--artifact-group-root configuration root))))))
-                      (header (conversation-peek-header identity))
+                      (header      (conversation-peek-header identity))
                       (delivered-p nil))
                  (when (equal owner (getf (rest header) :id))
                    (conversation--map-storage-records
@@ -266,7 +274,7 @@ Disable measurement until resource resolution has checked ancestor ownership."
            (null (getf metadata :captures))
            (shell-log--sync-delivered-p configuration metadata)
            (handler-case
-               (let* ((owner (getf metadata :completion-owner-conversation))
+               (let* ((owner        (getf metadata :completion-owner-conversation))
                       (conversation (and owner (conversation-replay-load configuration owner))))
                  (and conversation
                       (task-completion--delivered-p conversation (getf metadata :execution-id))))
@@ -339,19 +347,19 @@ Keep manifests as tombstones so old references have truthful diagnostics."
 (defun shell-log-allocate (context &key job (merge-output-p t))
   "Allocate private execution-owned storage and persist ownership BEFORE launch."
   (with-lock-held (*shell-log-lock*)
-    (let* ((configuration (tool-context-configuration context))
-           (agent (tool-context-agent context))
-           (parent-job (and (typep agent 'task-child-agent) (task-child-agent-job agent)))
-           (root (if job (session-job-root-conversation-identifier job)
-                     (if agent (task-parent-root-conversation-identifier agent)
-                         (conversation-identifier (tool-context-conversation context)))))
-           (execution (if job (session-job-execution-identifier job) (daemon-random-token)))
-           (identifier (daemon-random-token))
-           (reservation (* *shell-log-capture-byte-limit* (if merge-output-p 1 2)))
-           (directory (merge-pathnames (format nil "~A/shell-log/~A/" execution identifier)
-                                       (task--artifact-group-root configuration root)))
+    (let* ((configuration        (tool-context-configuration context))
+           (agent                (tool-context-agent context))
+           (parent-job           (and (typep agent 'task-child-agent) (task-child-agent-job agent)))
+           (root                 (if job (session-job-root-conversation-identifier job)
+                                     (if agent (task-parent-root-conversation-identifier agent)
+                                         (conversation-identifier (tool-context-conversation context)))))
+           (execution            (if job (session-job-execution-identifier job) (daemon-random-token)))
+           (identifier           (daemon-random-token))
+           (reservation          (* *shell-log-capture-byte-limit* (if merge-output-p 1 2)))
+           (directory            (merge-pathnames (format nil "~A/shell-log/~A/" execution identifier)
+                                                  (task--artifact-group-root configuration root)))
            (allocation-started-p nil)
-           (published-p nil))
+           (published-p          nil))
       (unless (every #'shell-log--component-p (list root execution identifier))
         (shell-log--fail "Invalid private shell log execution identity."))
       (unwind-protect
@@ -371,10 +379,10 @@ Keep manifests as tombstones so old references have truthful diagnostics."
                                         :metadata
                                         (list :version 1 :root-conversation root :execution-id execution
                                               :artifact-id identifier :state ':active
-                                              :created-at (get-universal-time)
-                                              :job-id (and job (session-job-identifier job))
-                                              :parent-call-id (and job (session-job-parent-call-id job))
-                                              :detached-p (and job (session-job-detached-p job))
+                                              :created-at         (get-universal-time)
+                                              :job-id             (and job (session-job-identifier job))
+                                              :parent-call-id     (and job (session-job-parent-call-id job))
+                                              :detached-p         (and job (session-job-detached-p job))
                                               :owner-execution-ids
                                               (remove-duplicates
                                                (append (when parent-job
@@ -384,9 +392,9 @@ Keep manifests as tombstones so old references have truthful diagnostics."
                                                :test #'equal)
                                               :completion-owner-conversation
                                               (and job (session-job-completion-owner-conversation job))
-                                              :merge-output-p merge-output-p
+                                              :merge-output-p     merge-output-p
                                               :capture-byte-limit *shell-log-capture-byte-limit*
-                                              :reserved-bytes reservation))))
+                                              :reserved-bytes     reservation))))
                    (shell-log--write-manifest artifact)
                    (setf (gethash (namestring directory) *shell-log-active*) (current-thread)
                          published-p t)
@@ -407,19 +415,19 @@ Keep manifests as tombstones so old references have truthful diagnostics."
 (defun shell-log--capture-metadata (artifact capture stream)
   "Project generic capture evidence without exposing model-controlled paths."
   (when capture
-    (let* ((path (cl-exec-sandbox:sandbox-capture-path capture))
+    (let* ((path      (cl-exec-sandbox:sandbox-capture-path capture))
            (directory (shell-log-capture-directory artifact)))
       (unless (equal (uiop:pathname-directory-pathname path) directory)
         (shell-log--fail "Executor returned a capture outside its private directory." path))
       (shell-log--safe-path (shell-log-artifact-configuration artifact) path)
       (when (probe-file path) (platform-make-private *platform* path))
       (list :stream stream :reference (shell-log-reference artifact stream)
-            :file (file-namestring path)
-            :byte-count (cl-exec-sandbox:sandbox-capture-byte-count capture)
+            :file                (file-namestring path)
+            :byte-count          (cl-exec-sandbox:sandbox-capture-byte-count capture)
             :observed-byte-count (cl-exec-sandbox:sandbox-capture-observed-byte-count capture)
-            :complete-p (cl-exec-sandbox:sandbox-capture-complete-p capture)
-            :truncated-p (cl-exec-sandbox:sandbox-capture-truncated-p capture)
-            :status (cl-exec-sandbox:sandbox-capture-status capture)))))
+            :complete-p          (cl-exec-sandbox:sandbox-capture-complete-p capture)
+            :truncated-p         (cl-exec-sandbox:sandbox-capture-truncated-p capture)
+            :status              (cl-exec-sandbox:sandbox-capture-status capture)))))
 
 (-> shell-log-record-capture (shell-log-artifact t &key (:closed-p boolean)) list)
 (defun shell-log-record-capture (artifact result &key (closed-p t))
@@ -484,8 +492,8 @@ handling another condition may ignore this logging failure to preserve that caus
     (shell-log--fail "Shell log manifest identity is invalid."))
   (let ((public
           (loop for key in '(:version :execution-id :artifact-id :state :created-at :closed-at
-                            :merge-output-p :capture-byte-limit :exit-code :timed-out-p
-                            :cancelled-p :status)
+                             :merge-output-p :capture-byte-limit :exit-code :timed-out-p
+                             :cancelled-p :status)
                 append (list key (getf metadata key)))))
     (setf (getf public :captures)
           (loop for capture in (getf metadata :captures)
@@ -494,13 +502,13 @@ handling another condition may ignore this logging failure to preserve that caus
                   do (shell-log--fail "Shell log manifest stream is invalid.")
                 collect
                 (append
-                 (list :stream stream
+                 (list :stream    stream
                        :reference (format nil "shell-log:~A/~A/~A/~(~A~)"
                                           (getf metadata :root-conversation)
                                           (getf metadata :execution-id)
                                           (getf metadata :artifact-id) stream))
                  (loop for key in '(:byte-count :observed-byte-count :complete-p
-                                   :truncated-p :status :oversized-p)
+                                    :truncated-p :status :oversized-p)
                        append (list key (getf capture key)))
                  (list :observed-byte-count-known-p
                        (getf capture :observed-byte-count-known-p t)))))
@@ -513,7 +521,7 @@ handling another condition may ignore this logging failure to preserve that caus
 (defun shell-log--unavailable-metadata (job &optional directory)
   "Return a bounded missing-manifest diagnostic without exposing private paths."
   (list :execution-id (session-job-execution-identifier job)
-        :artifact-id (and directory (first (last (pathname-directory directory))))
+        :artifact-id  (and directory (first (last (pathname-directory directory))))
         :state ':unavailable :diagnostic "Shell log manifest is missing or unreadable."))
 
 (-> shell-log-job-metadata (configuration session-job) list)
@@ -521,17 +529,17 @@ handling another condition may ignore this logging failure to preserve that caus
   "Return bounded public logs, preferring a terminal result over stale disk evidence.
   Reopen storage without replay when no terminal result is available."
   (let* ((result (and (job-terminal-p job) (job-result job)))
-         (logs (and (listp result) (getf result :shell-logs))))
+         (logs   (and (listp result) (getf result :shell-logs))))
     (when logs
       (return-from shell-log-job-metadata
-        (list :shell-logs (copy-tree (subseq logs 0 (min 16 (length logs))))
+        (list :shell-logs         (copy-tree (subseq logs 0 (min 16 (length logs))))
               :shell-logs-omitted (+ (getf result :shell-logs-omitted 0)
                                      (max 0 (- (length logs) 16)))))))
   (handler-case
-      (let* ((root (merge-pathnames
-                    (format nil "~A/shell-log/" (session-job-execution-identifier job))
-                    (task--artifact-group-root configuration
-                                               (session-job-root-conversation-identifier job))))
+      (let* ((root    (merge-pathnames
+                       (format nil "~A/shell-log/" (session-job-execution-identifier job))
+                       (task--artifact-group-root configuration
+                                                  (session-job-root-conversation-identifier job))))
              (entries
                (progn
                  (shell-log--safe-path configuration root)
@@ -542,9 +550,9 @@ handling another condition may ignore this logging failure to preserve that caus
                                     (shell-log--read-manifest configuration directory))
                                  (error () (shell-log--unavailable-metadata job directory))))))
              (ordered (sort entries #'> :key (lambda (entry) (or (getf entry :created-at) 0))))
-             (count (length ordered)))
-        (list :shell-logs (subseq ordered 0 (min 16 count))
+             (count   (length ordered)))
+        (list :shell-logs         (subseq ordered 0 (min 16 count))
               :shell-logs-omitted (max 0 (- count 16))))
     (error ()
-      (list :shell-logs (list (shell-log--unavailable-metadata job))
+      (list :shell-logs         (list (shell-log--unavailable-metadata job))
             :shell-logs-omitted 0))))
