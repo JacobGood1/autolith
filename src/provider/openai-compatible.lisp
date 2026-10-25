@@ -5,32 +5,32 @@
 (defclass openai-compatible-provider
     (session-preserving-provider-mixin chat-completions-provider)
   ((display-name
-    :initarg :display-name
-    :reader openai-compatible-provider-display-name
-    :type non-empty-string
+    :initarg       :display-name
+    :reader        openai-compatible-provider-display-name
+    :type          non-empty-string
     :documentation "The user-visible provider name.")
    (family
-    :initarg :family
-    :reader openai-compatible-provider-family
-    :type keyword
+    :initarg       :family
+    :reader        openai-compatible-provider-family
+    :type          keyword
     :documentation "The provider family used for conversation projection.")
    (headers
-    :initarg :headers
-    :initform nil
-    :reader openai-compatible-provider-headers
-    :type list
+    :initarg       :headers
+    :initform      nil
+    :reader        openai-compatible-provider-headers
+    :type          list
     :documentation "Additional non-secret HTTP headers for provider requests.")
    (reasoning-parameter
-    :initarg :reasoning-parameter
-    :initform nil
-    :reader openai-compatible-provider-reasoning-parameter
-    :type (option string)
+    :initarg       :reasoning-parameter
+    :initform      nil
+    :reader        openai-compatible-provider-reasoning-parameter
+    :type          (option string)
     :documentation "The optional request field receiving the reasoning effort.")
    (stream-usage-p
-    :initarg :stream-usage-p
-    :initform t
-    :reader openai-compatible-provider-stream-usage-p
-    :type boolean
+    :initarg       :stream-usage-p
+    :initform      t
+    :reader        openai-compatible-provider-stream-usage-p
+    :type          boolean
     :documentation "Whether streaming requests ask the provider to report usage."))
   (:documentation
    "A provider for the streaming OpenAI Chat Completions wire protocol."))
@@ -74,24 +74,24 @@
   "Create one OpenAI-compatible provider from registered endpoint metadata."
   (make-instance
    'openai-compatible-provider
-   :configuration configuration
+   :configuration       configuration
    :credential-manager
    (api-key-credential-manager-create
     :provider-name name
-    :pathname (configuration-api-keys-path configuration))
-   :session-id (make-identifier)
-   :display-name name
-   :family family
-   :headers (copy-tree headers)
+    :pathname      (configuration-api-keys-path configuration))
+   :session-id          (make-identifier)
+   :display-name        name
+   :family              family
+   :headers             (copy-tree headers)
    :reasoning-parameter reasoning-parameter
-   :stream-usage-p stream-usage-p))
+   :stream-usage-p      stream-usage-p))
 
 (defmethod provider-reconfiguration-initargs append
     ((provider openai-compatible-provider))
   "Preserve PROVIDER's display, family, headers, reasoning, and usage options."
   (list :display-name (openai-compatible-provider-display-name provider)
-        :family (openai-compatible-provider-family provider)
-        :headers (copy-tree (openai-compatible-provider-headers provider))
+        :family       (openai-compatible-provider-family provider)
+        :headers      (copy-tree (openai-compatible-provider-headers provider))
         :reasoning-parameter
         (openai-compatible-provider-reasoning-parameter provider)
         :stream-usage-p
@@ -105,8 +105,8 @@
 (defun openai-compatible--authenticate (provider &key stream open-browser-p)
   "Interactively store or replace PROVIDER's private API key."
   (declare (ignore open-browser-p))
-  (let* ((manager (provider-credential-manager provider))
-         (source (credential-manager-primary-source manager))
+  (let* ((manager       (provider-credential-manager provider))
+         (source        (credential-manager-primary-source manager))
          (provider-name (provider-account-label provider)))
     (call-with-secret-use
      (lambda ()
@@ -134,7 +134,7 @@
                                   &key stream open-browser-p)
   "Authenticate PROVIDER with its private API key."
   (openai-compatible--authenticate provider
-                                   :stream stream
+                                   :stream         stream
                                    :open-browser-p open-browser-p))
 
 
@@ -216,7 +216,7 @@ manager from PROVIDER-NAME."
           (or credential-manager
               (api-key-credential-manager-create
                :provider-name provider-name
-               :pathname (configuration-api-keys-path configuration)))))
+               :pathname      (configuration-api-keys-path configuration)))))
     (call-with-credentials
      manager
      (lambda (credentials)
@@ -232,37 +232,37 @@ manager from PROVIDER-NAME."
                    credentials
                    :accept "application/json"
                    :custom headers)
-                  :force-string t
+                  :force-string    t
                   :connect-timeout 10
-                  :read-timeout 30)))
+                  :read-timeout    30)))
             (sb-sys:deadline-timeout ()
               (error 'configuration-error
                      :message
                      "The model discovery endpoint could not be reached."))
-              (dexador.error:http-request-unauthorized (condition)
-                (provider--error-body-text (response-body condition))
-                (openai-compatible--signal-model-discovery-status
-                 provider-name manager 401))
-              (http-request-failed (condition)
-                (provider--error-body-text (response-body condition))
-                (let ((status (response-status condition)))
-                  (if (integerp status)
-                      (openai-compatible--signal-model-discovery-status
-                       provider-name manager status)
-                      (error 'configuration-error
-                             :message
-                             "The model discovery endpoint could not be reached."))))
-             (error ()
-               (error 'configuration-error
-                      :message
-                      "The model discovery endpoint could not be reached.")))
+            (dexador.error:http-request-unauthorized (condition)
+              (provider--error-body-text (response-body condition))
+              (openai-compatible--signal-model-discovery-status
+               provider-name manager 401))
+            (http-request-failed (condition)
+              (provider--error-body-text (response-body condition))
+              (let ((status (response-status condition)))
+                (if (integerp status)
+                    (openai-compatible--signal-model-discovery-status
+                     provider-name manager status)
+                    (error 'configuration-error
+                           :message
+                           "The model discovery endpoint could not be reached."))))
+            (error ()
+              (error 'configuration-error
+                     :message
+                     "The model discovery endpoint could not be reached.")))
          (declare (ignore response-headers))
          (unless (and (integerp status) (<= 200 status 299))
            (openai-compatible--signal-model-discovery-status
             provider-name manager status))
-          (openai-compatible--decode-model-list
-           body
-           :entry-predicate entry-predicate))))))
+         (openai-compatible--decode-model-list
+          body
+          :entry-predicate entry-predicate))))))
 
 
 ;;;; -- Provider Registration --
@@ -319,37 +319,36 @@ ask for a final usage chunk."
                   (openai-compatible--fetch-models
                    configuration
                    :provider-name name
-                   :endpoint models-endpoint
-                   :headers headers)))))
+                   :endpoint      models-endpoint
+                   :headers       headers)))))
     (register-provider
      name
-     :description description
-     :family effective-family
-     :models models
-     :model-discovery model-discovery
+     :description              description
+     :family                   effective-family
+     :models                   models
+     :model-discovery          model-discovery
      :model-discovery-endpoint models-endpoint
-     :protocol ':chat-completions
-     :endpoint endpoint
-     :authenticator #'openai-compatible--authenticate
+     :protocol                 ':chat-completions
+     :endpoint                 endpoint
+     :authenticator            #'openai-compatible--authenticate
      :factory
      (lambda (configuration &key reasoning-summaries-p)
        (declare (ignore reasoning-summaries-p))
        (openai-compatible-provider-create
         configuration
-        :name name
-        :family effective-family
-        :headers headers
+        :name                name
+        :family              effective-family
+        :headers             headers
         :reasoning-parameter reasoning-parameter
-        :stream-usage-p stream-usage-p))
-     :source source)))
-
+        :stream-usage-p      stream-usage-p))
+     :source                   source)))
 
 (defmethod provider-request-object
            ((provider openai-compatible-provider) (conversation conversation)
             (tool-namespaces vector)
             &key goal-context compaction-p)
   "Project product history and context into a Chat Completions request."
-  (let* ((configuration (provider-configuration provider))
+  (let* ((configuration   (provider-configuration provider))
          (request-namespaces
           (if compaction-p
               #()
@@ -402,9 +401,9 @@ ask for a final usage chunk."
   (declare (ignore conversation))
   (openai-compatible--authenticated-headers
    credentials
-   :accept "text/event-stream"
+   :accept       "text/event-stream"
    :content-type "application/json"
-   :custom (openai-compatible-provider-headers provider)))
+   :custom       (openai-compatible-provider-headers provider)))
 
 (defmethod provider-open-response-stream
     ((provider openai-compatible-provider)
