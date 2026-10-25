@@ -67,12 +67,12 @@ override decomposition alone and inherit the synthesis frame."
   (infer (format nil
                  "Subtask results are attached as views. Compose the answer to this task from them: ~A"
                  task)
-         :context (rlm--synthesis-views results)
-         :contract contract
-         :budget budget
-         :capabilities capabilities
-         :provider provider
-         :configuration configuration
+         :context         (rlm--synthesis-views results)
+         :contract        contract
+         :budget          budget
+         :capabilities    capabilities
+         :provider        provider
+         :configuration   configuration
          :source-registry source-registry
          :activity-callback
          (rlm--phase-activity-callback activity-callback "synthesis")))
@@ -104,31 +104,31 @@ sharing one BUDGET subtree. The third value is the settled billable
 token spend across the subtasks and the synthesis."
   (multiple-value-bind (provider configuration)
       (rlm--resolve-environment :model model :effort effort
-                                :provider provider
+                                :provider      provider
                                 :configuration configuration)
-    (let* ((views (rlm-views-materialize context))
+    (let* ((views  (rlm-views-materialize context))
            (budget (or budget (rlm-budget-create)))
            (subtasks
              (rlm-decompose-inference-task policy task views budget)))
       (if (null subtasks)
           (infer task
-                 :context views
-                 :contract contract
-                 :budget budget
-                 :capabilities capabilities
-                 :provider provider
-                 :configuration configuration
+                 :context         views
+                 :contract        contract
+                 :budget          budget
+                 :capabilities    capabilities
+                 :provider        provider
+                 :configuration   configuration
                  :source-registry source-registry
                  :activity-callback
                  (rlm--phase-activity-callback activity-callback "direct"))
           (let* ((results
                    (rlm-map subtasks
-                            :budget budget
-                            :capabilities capabilities
-                            :provider provider
-                            :configuration configuration
+                            :budget          budget
+                            :capabilities    capabilities
+                            :provider        provider
+                            :configuration   configuration
                             :source-registry source-registry
-                            :concurrency concurrency
+                            :concurrency     concurrency
                             :activity-callback
                             (rlm--phase-activity-callback activity-callback "map")))
                  (subtask-tokens
@@ -137,12 +137,12 @@ token spend across the subtasks and the synthesis."
             (multiple-value-bind (value trace-identifier synthesis-tokens)
                 (rlm-synthesize-inference-results
                  policy task results
-                 :contract contract
-                 :budget budget
-                 :capabilities capabilities
-                 :provider provider
-                 :configuration configuration
-                 :source-registry source-registry
+                 :contract          contract
+                 :budget            budget
+                 :capabilities      capabilities
+                 :provider          provider
+                 :configuration     configuration
+                 :source-registry   source-registry
                  :activity-callback activity-callback)
               (values value
                       trace-identifier
