@@ -41,16 +41,16 @@
 
 (defclass rlm-frame-tool (tool)
   ((provider
-    :initarg :provider
-    :initform nil
-    :reader rlm-frame-tool--provider
-    :type (option model-provider)
+    :initarg       :provider
+    :initform      nil
+    :reader        rlm-frame-tool--provider
+    :type          (option model-provider)
     :documentation "The frame provider, or NIL for the active application's.")
    (budget
-    :initarg :budget
-    :initform nil
-    :reader rlm-frame-tool--budget
-    :type (option rlm-budget)
+    :initarg       :budget
+    :initform      nil
+    :reader        rlm-frame-tool--budget
+    :type          (option rlm-budget)
     :documentation "The enclosing frame budget nested calls descend, when inside a frame."))
   (:documentation "A model-visible operation creating bounded inference frames."))
 
@@ -150,9 +150,9 @@
   (make-instance
    'rlm-infer-tool
    :namespace "rlm"
-   :name "infer"
-   :provider provider
-   :budget budget
+   :name      "infer"
+   :provider  provider
+   :budget    budget
    :description
    "Run one bounded inference frame: a separate model call over only the supplied read-only views, isolated from this conversation. Use it to analyze inputs without loading them here. The frame sees nothing but its views, so pass everything it needs. Its budget is small by default and a read frame gets only a handful of tool rounds, so it answers one question over a few files: it cannot audit a repository, review a whole change set, or read many files, and such open-ended investigation belongs to a task.run child instead. Returns the frame's value, its trace identifier, its settled token spend, and the remaining budget."
    :parameters
@@ -175,9 +175,9 @@
   (make-instance
    'rlm-map-tool
    :namespace "rlm"
-   :name "map"
-   :provider provider
-   :budget budget
+   :name      "map"
+   :provider  provider
+   :budget    budget
    :description
    "Fan tasks out as concurrent bounded inference frames sharing one budget, isolated from this conversation. Use it to apply one question to many snippets or files at once. Each frame is as bounded as rlm.infer, so give every task its own views instead of expecting frames to search for them. Results keep task order; a failed frame reports its error without discarding the others. Returns each frame's value, trace, and settled token spend plus the remaining budget."
    :parameters
@@ -214,9 +214,9 @@
   (make-instance
    'rlm-complete-tool
    :namespace "rlm"
-   :name "complete"
-   :provider provider
-   :budget budget
+   :name      "complete"
+   :provider  provider
+   :budget    budget
    :description
    "Run a root recursive language model over one large external context: the content stays outside the root model context, only selected bounded slices enter sub-inferences, and a dedicated Lisp environment programmatically slices it, fans sub-inferences over the pieces, and records the final value. Use it when one input, such as a long document, log, or diff, is far too large to read into this conversation and must be processed nearly in full. The run works only on the supplied context and never browses the workspace; raise calls and tokens explicitly for a very large input. Returns the recorded value, the root trace identifier, and the remaining budget."
    :parameters
@@ -264,17 +264,17 @@ rlm.distill proposes durable policy methods, so both stay with the
 primary agent."
   (tool-registry-register registry
                           (rlm-infer-tool-create :provider provider
-                                                 :budget budget))
+                                                 :budget   budget))
   (tool-registry-register registry
                           (rlm-map-tool-create :provider provider
-                                               :budget budget))
+                                               :budget   budget))
   (when complete-p
     (tool-registry-register registry
                             (rlm-complete-tool-create :provider provider
-                                                      :budget budget))
+                                                      :budget   budget))
     (tool-registry-register registry
                             (rlm-distill-tool-create :provider provider
-                                                     :budget budget)))
+                                                     :budget   budget)))
   registry)
 
 (-> rlm--frame-registry (tool-registry model-provider rlm-budget) tool-registry)
@@ -329,15 +329,18 @@ retrievable through the stored context object referenced beside it."
 
 Frame registries are fresh, so the resolvers ride on the copied
 resource.read tool when one exists."
-  (let* ((registry (tool-context-registry context))
+  (let* ((registry  (tool-context-registry context))
          (read-tool (and registry
                          (tool-registry-find registry "resource" "read"))))
     (cond
-      (read-tool (resource-tool-resource-registry read-tool))
-      (registry (tool-registry-resource-registry registry))
-      (t (error 'rlm-view-error
-                :designator "uri"
-                :message "no resource registry serves this call")))))
+      (read-tool
+       (resource-tool-resource-registry read-tool))
+      (registry
+       (tool-registry-resource-registry registry))
+      (t
+       (error 'rlm-view-error
+              :designator "uri"
+              :message    "no resource registry serves this call")))))
 
 (-> rlm--tool-resource-content (tool-context string) string)
 (defun rlm--tool-resource-content (context uri)
@@ -347,12 +350,12 @@ Resolution honors the restricted readable scheme set, so frames stay
 confined to the schemes their restriction permits."
   (let* ((resource (resource-registry-resolve
                     (rlm--tool-resource-registry context) uri context))
-         (content (resource-observation-content
-                   (resource-observe resource context))))
+         (content  (resource-observation-content
+                    (resource-observe resource context))))
     (unless (stringp content)
       (error 'rlm-view-error
              :designator uri
-             :message "the resource observation carries no text"))
+             :message    "the resource observation carries no text"))
     content))
 
 (-> rlm--tool-object-content (tool-context string) string)
@@ -378,18 +381,18 @@ filesystem paths are only a programmatic Lisp designator."
   (unless (or (null views) (vectorp views) (listp views))
     (error 'rlm-view-error
            :designator views
-           :message "expected an array of view objects"))
+           :message    "expected an array of view objects"))
   (loop for view in (coerce views 'list)
         collect
         (progn
           (unless (json-object-p view)
             (error 'rlm-view-error
                    :designator view
-                   :message "expected a view object"))
-          (let* ((label (json-get view "label"))
-                 (text (json-get view "text"))
-                 (uri (json-get view "uri"))
-                 (object (json-get view "object"))
+                   :message    "expected a view object"))
+          (let* ((label           (json-get view "label"))
+                 (text            (json-get view "text"))
+                 (uri             (json-get view "uri"))
+                 (object          (json-get view "object"))
                  (effective-label (or label (and (stringp uri) uri))))
             (unless (= (count-if #'stringp (list text uri object)) 1)
               (error 'rlm-view-error
@@ -400,7 +403,8 @@ filesystem paths are only a programmatic Lisp designator."
              (when effective-label (list ':label effective-label))
              (list ':content
                    (cond
-                     ((stringp text) text)
+                     ((stringp text)
+                      text)
                      ((stringp uri)
                       (rlm--tool-resource-content context uri))
                      (t
@@ -418,10 +422,13 @@ filesystem paths are only a programmatic Lisp designator."
 (defun rlm--tool-capabilities (capabilities)
   "Convert the tool CAPABILITIES argument to the infer capabilities keyword."
   (cond
-    ((or (null capabilities) (equal capabilities "none")) nil)
-    ((equal capabilities "read") ':read)
-    (t (error 'rlm-inference-error
-              :message "Frame capabilities must be none or read."))))
+    ((or (null capabilities) (equal capabilities "none"))
+     nil)
+    ((equal capabilities "read")
+     ':read)
+    (t
+     (error 'rlm-inference-error
+            :message "Frame capabilities must be none or read."))))
 
 (-> rlm--bounded-tool-integer
     (hash-table string (integer 0) (integer 0) (integer 0))
@@ -430,11 +437,14 @@ filesystem paths are only a programmatic Lisp designator."
   "Return the integer argument NAME clamped into [MINIMUM, MAXIMUM]."
   (let ((value (gethash name arguments)))
     (cond
-      ((null value) fallback)
-      ((integerp value) (max minimum (min maximum value)))
-      (t (error 'rlm-inference-error
-                :message (format nil "The ~A allowance must be an integer."
-                                 name))))))
+      ((null value)
+       fallback)
+      ((integerp value)
+       (max minimum (min maximum value)))
+      (t
+       (error 'rlm-inference-error
+              :message (format nil "The ~A allowance must be an integer."
+                               name))))))
 
 (-> rlm--tool-budget
     (rlm-frame-tool hash-table string
@@ -449,22 +459,22 @@ filesystem paths are only a programmatic Lisp designator."
     (if parent
         (rlm-budget-descend parent :task task)
         (rlm-budget-create
-         :calls (rlm--bounded-tool-integer
-                 arguments "calls" calls
-                 1 *rlm-tool-maximum-call-budget*)
+         :calls  (rlm--bounded-tool-integer
+                  arguments "calls" calls
+                  1 *rlm-tool-maximum-call-budget*)
          :tokens (rlm--bounded-tool-integer
                   arguments "tokens" tokens
                   1 *rlm-tool-maximum-token-budget*)
-         :depth (rlm--bounded-tool-integer
-                 arguments "depth" depth
-                 0 *rlm-tool-maximum-depth-budget*)))))
+         :depth  (rlm--bounded-tool-integer
+                  arguments "depth" depth
+                  0 *rlm-tool-maximum-depth-budget*)))))
 
 (-> rlm--tool-activity-callback (rlm-frame-tool tool-context) (option function))
 (defun rlm--tool-activity-callback (tool context)
   "Capture TOOL's job reporter and publish compact real inference progress."
-  (let ((observer (tool-context-observer context))
-        (reporter (tool-execution-activity-callback
-                   (tool-context-execution-runtime context)))
+  (let ((observer  (tool-context-observer context))
+        (reporter  (tool-execution-activity-callback
+                    (tool-context-execution-runtime context)))
         (tool-name (tool-canonical-name tool)))
     (when (or observer reporter)
       (lambda (activity)
@@ -494,14 +504,14 @@ filesystem paths are only a programmatic Lisp designator."
     (values model-provider configuration))
 (defun rlm--tool-routing (tool context arguments)
   "Resolve one tool call's validated route without widening nested authority."
-  (let ((model (rlm--tool-routing-option arguments "model"))
+  (let ((model  (rlm--tool-routing-option arguments "model"))
         (effort (rlm--tool-routing-option arguments "effort")))
     (when (and (rlm-frame-tool--budget tool) (or model effort))
       (error 'rlm-inference-error
              :message "Nested RLM calls inherit the enclosing run's model and effort."))
     (rlm--resolve-environment
      :model model :effort effort
-     :provider (or (rlm-frame-tool--provider tool) (rlm--environment))
+     :provider      (or (rlm-frame-tool--provider tool) (rlm--environment))
      :configuration (tool-context-configuration context))))
 
 (-> rlm--guarded-tool-result (function) tool-result)
@@ -521,9 +531,9 @@ filesystem paths are only a programmatic Lisp designator."
     ((or rlm-inference-error rlm-view-error task-error
          resource-scheme-unknown resource-access-denied
          resource-operation-unsupported)
-      (condition)
-      (tool-failure (format nil "~A" condition)
-                    :denied-p (typep condition 'resource-access-denied)))))
+     (condition)
+     (tool-failure (format nil "~A" condition)
+                   :denied-p (typep condition 'resource-access-denied)))))
 
 (-> rlm--tool-invoke
     (tool-context hash-table
@@ -542,53 +552,53 @@ turn, and async requests hand off at admission."
   (tool-execution-invoke
    (tool-context-execution-runtime context)
    (tool-context-agent context)
-   :tool-name tool-name
-   :summary summary
+   :tool-name          tool-name
+   :summary            summary
    :operation-function operation-function
-   :async-p (tool-boolean-argument arguments "async" :tool-name tool-name)
-   :completion-policy (tool-completion-policy-argument arguments :tool-name tool-name)
-   :parent-call-id (tool-context-call-id context)))
+   :async-p            (tool-boolean-argument arguments "async" :tool-name tool-name)
+   :completion-policy  (tool-completion-policy-argument arguments :tool-name tool-name)
+   :parent-call-id     (tool-context-call-id context)))
 
 (defmethod tool-execute
     ((tool rlm-infer-tool) (context tool-context) (arguments hash-table))
   "Run one inference frame directly or as an inspectable session job."
   (rlm--guarded-tool-result
    (lambda ()
-     (let* ((task (tool-argument arguments "task" :required t))
-            (task (if (stringp task)
-                      task
-                      (error 'rlm-inference-error
-                             :message "The frame task must be a string.")))
-            (views (rlm--tool-views (gethash "views" arguments) context))
-            (contract (let ((schema (gethash "contract" arguments)))
-                        (if schema
-                            (rlm--json-schema->contract schema)
-                            ':text)))
-            (capabilities (rlm--tool-capabilities
-                           (gethash "capabilities" arguments)))
-            (budget (rlm--tool-budget tool arguments task))
-            (routing (multiple-value-list
-                      (rlm--tool-routing tool context arguments)))
-            (provider (first routing))
-            (configuration (second routing))
+     (let* ((task            (tool-argument arguments "task" :required t))
+            (task            (if (stringp task)
+                                 task
+                                 (error 'rlm-inference-error
+                                        :message "The frame task must be a string.")))
+            (views           (rlm--tool-views (gethash "views" arguments) context))
+            (contract        (let ((schema (gethash "contract" arguments)))
+                               (if schema
+                                   (rlm--json-schema->contract schema)
+                                   ':text)))
+            (capabilities    (rlm--tool-capabilities
+                              (gethash "capabilities" arguments)))
+            (budget          (rlm--tool-budget tool arguments task))
+            (routing         (multiple-value-list
+                              (rlm--tool-routing tool context arguments)))
+            (provider        (first routing))
+            (configuration   (second routing))
             (source-registry (tool-context-registry context)))
        (rlm--tool-invoke
         context arguments
         :tool-name "rlm.infer"
-        :summary task
+        :summary   task
         :operation-function
         (lambda ()
           (rlm--guarded-tool-result
            (lambda ()
              (multiple-value-bind (value trace-identifier tokens-spent)
                  (infer task
-                        :context views
-                        :contract contract
-                        :budget budget
-                        :capabilities capabilities
-                        :provider provider
-                        :configuration configuration
-                        :source-registry source-registry
+                        :context           views
+                        :contract          contract
+                        :budget            budget
+                        :capabilities      capabilities
+                        :provider          provider
+                        :configuration     configuration
+                        :source-registry   source-registry
                         :activity-callback (rlm--tool-activity-callback tool context))
                (tool-success
                 (rlm--result-sexp
@@ -605,12 +615,12 @@ turn, and async requests hand off at admission."
   (unless (json-object-p argument)
     (error 'rlm-view-error
            :designator argument
-           :message "expected one context object"))
+           :message    "expected one context object"))
   (let ((configuration (tool-context-configuration context))
-        (label (json-get argument "label"))
-        (text (json-get argument "text"))
-        (uri (json-get argument "uri"))
-        (object (json-get argument "object")))
+        (label         (json-get argument "label"))
+        (text          (json-get argument "text"))
+        (uri           (json-get argument "uri"))
+        (object        (json-get argument "object")))
     (unless (= (count-if #'stringp (list text uri object)) 1)
       (error 'rlm-view-error
              :designator argument
@@ -633,36 +643,36 @@ turn, and async requests hand off at admission."
   "Run one root recursive language model directly or as a session job."
   (rlm--guarded-tool-result
    (lambda ()
-     (let* ((task (tool-argument arguments "task" :required t))
-            (task (if (stringp task)
-                      task
-                      (error 'rlm-inference-error
-                             :message "The run task must be a string.")))
-            (object (rlm--tool-complete-object
-                     context (gethash "context" arguments)))
-            (budget (rlm--tool-budget tool arguments task
-                                      :calls *rlm-complete-call-budget*
-                                      :tokens *rlm-complete-token-budget*
-                                      :depth *rlm-complete-depth-budget*))
-            (routing (multiple-value-list
-                      (rlm--tool-routing tool context arguments)))
-            (provider (first routing))
-            (configuration (second routing))
+     (let* ((task               (tool-argument arguments "task" :required t))
+            (task               (if (stringp task)
+                                    task
+                                    (error 'rlm-inference-error
+                                           :message "The run task must be a string.")))
+            (object             (rlm--tool-complete-object
+                                 context (gethash "context" arguments)))
+            (budget             (rlm--tool-budget tool arguments task
+                                                  :calls  *rlm-complete-call-budget*
+                                                  :tokens *rlm-complete-token-budget*
+                                                  :depth  *rlm-complete-depth-budget*))
+            (routing            (multiple-value-list
+                                 (rlm--tool-routing tool context arguments)))
+            (provider           (first routing))
+            (configuration      (second routing))
             (tool-configuration (tool-context-configuration context)))
        (rlm--tool-invoke
         context arguments
         :tool-name "rlm.complete"
-        :summary task
+        :summary   task
         :operation-function
         (lambda ()
           (rlm--guarded-tool-result
            (lambda ()
              (multiple-value-bind (value trace-identifier)
                  (rlm-complete task
-                               :context object
-                               :budget budget
-                               :provider provider
-                               :configuration configuration
+                               :context           object
+                               :budget            budget
+                               :provider          provider
+                               :configuration     configuration
                                :environment-owner tool-configuration
                                :activity-callback (rlm--tool-activity-callback tool context))
                (let* ((printed (rlm--result-sexp value))
@@ -727,40 +737,40 @@ turn, and async requests hand off at admission."
   "Fan tool tasks out as inference frames, directly or as a session job."
   (rlm--guarded-tool-result
    (lambda ()
-     (let* ((tasks (rlm--tool-map-tasks (gethash "tasks" arguments) context))
-            (contract (let ((schema (gethash "contract" arguments)))
-                        (if schema
-                            (rlm--json-schema->contract schema)
-                            ':text)))
-            (capabilities (rlm--tool-capabilities
-                           (gethash "capabilities" arguments)))
-            (budget (rlm--tool-budget tool arguments "rlm.map"))
-            (routing (multiple-value-list
-                      (rlm--tool-routing tool context arguments)))
-            (provider (first routing))
-            (configuration (second routing))
-            (concurrency (rlm--bounded-tool-integer
-                          arguments "concurrency"
-                          *rlm-map-default-concurrency*
-                          1 *rlm-map-maximum-concurrency*))
+     (let* ((tasks           (rlm--tool-map-tasks (gethash "tasks" arguments) context))
+            (contract        (let ((schema (gethash "contract" arguments)))
+                               (if schema
+                                   (rlm--json-schema->contract schema)
+                                   ':text)))
+            (capabilities    (rlm--tool-capabilities
+                              (gethash "capabilities" arguments)))
+            (budget          (rlm--tool-budget tool arguments "rlm.map"))
+            (routing         (multiple-value-list
+                              (rlm--tool-routing tool context arguments)))
+            (provider        (first routing))
+            (configuration   (second routing))
+            (concurrency     (rlm--bounded-tool-integer
+                              arguments "concurrency"
+                              *rlm-map-default-concurrency*
+                              1 *rlm-map-maximum-concurrency*))
             (source-registry (tool-context-registry context)))
        (rlm--tool-invoke
         context arguments
         :tool-name "rlm.map"
-        :summary (format nil "~D frame~:P" (length tasks))
+        :summary   (format nil "~D frame~:P" (length tasks))
         :operation-function
         (lambda ()
           (rlm--guarded-tool-result
            (lambda ()
              (let ((results
                      (rlm-map tasks
-                              :contract contract
-                              :budget budget
-                              :capabilities capabilities
-                              :provider provider
-                              :configuration configuration
-                              :source-registry source-registry
-                              :concurrency concurrency
+                              :contract          contract
+                              :budget            budget
+                              :capabilities      capabilities
+                              :provider          provider
+                              :configuration     configuration
+                              :source-registry   source-registry
+                              :concurrency       concurrency
                               :activity-callback (rlm--tool-activity-callback tool context))))
                (tool-success
                 (rlm--result-sexp
