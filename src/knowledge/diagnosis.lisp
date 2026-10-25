@@ -359,7 +359,9 @@ one hypothesis remains and names one, and :OPEN when several remain."
                view)))
       (loop for view = (weigh)
             while (and (rest hypotheses) (< (length ran) *knowledge-diagnosis-run-limit*))
-            do (let ((probe (knowledge--best-probe configuration view hypotheses available)))
+            do (let ((probe (knowledge--best-probe configuration view
+                                                   :hypotheses hypotheses
+                                                   :probes     available)))
                  (unless probe
                    (loop-finish))
                  (setf available (remove probe available))
@@ -495,8 +497,9 @@ The key arguments are OBSERVATION's; every other argument is a variable."
     (knowledge-error ()
       nil)))
 
-(-> knowledge--best-probe (configuration knowledge-view list list) (option list))
-(defun knowledge--best-probe (configuration view hypotheses probes)
+(-> knowledge--best-probe
+    (configuration knowledge-view &key (:hypotheses list) (:probes list)) (option list))
+(defun knowledge--best-probe (configuration view &key hypotheses probes)
   "Return the probe telling apart the most pairs of HYPOTHESES per unit of cost, or NIL.
 
 A pair is told apart when the two hypotheses predict differently about a fact
