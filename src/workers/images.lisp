@@ -34,7 +34,7 @@ handshake instead of misreading requests.")
                       (namestring (config :source-root configuration))
                       "rev-parse"
                       "HEAD")
-                :output ':string
+                :output       ':string
                 :error-output ':output))
              (commit
                (string-trim '(#\Space #\Tab #\Newline #\Return) output)))
@@ -49,25 +49,27 @@ handshake instead of misreading requests.")
 Each pristine start recomputes its command, so a worker boots the active core
 only while that core still matches the source."
   (sbcl-worker-environment-create
-   :sbcl-command (lisp-worker-sbcl-command)
-   :pristine-command (lambda ()
-                       (active-image-process-command configuration '("--worker")))
-   :working-directory (config :working-directory configuration)
-   :image-root (configuration-lisp-image-root configuration)
-   :evaluation-package "AUTOLITH"
-   :protocol-tag ':autolith-worker
-   :protocol-version *lisp-worker-protocol-version*
+   :sbcl-command                     (lisp-worker-sbcl-command)
+   :pristine-command                 (lambda ()
+                                       (active-image-process-command configuration '("--worker")))
+   :working-directory                (config :working-directory configuration)
+   :image-root                       (configuration-lisp-image-root configuration)
+   :evaluation-package               "AUTOLITH"
+   :protocol-tag                     ':autolith-worker
+   :protocol-version                 *lisp-worker-protocol-version*
    :source-root-environment-variable "AUTOLITH_SBCL_SOURCE_ROOT"
-   :source-revision-function (lambda ()
-                               (lisp-worker--source-commit configuration))
-   :context configuration))
+   :source-revision-function         (lambda ()
+                                       (lisp-worker--source-commit configuration))
+   :context                          configuration))
 
 (-> lisp-image--tool-name ((or string keyword null)) string)
 (defun lisp-image--tool-name (operation)
   "Return Autolith's tool name for library image OPERATION."
   (case operation
-    (:save-image "lisp.save-image")
-    (:start "lisp.start")
+    (:save-image
+     "lisp.save-image")
+    (:start
+     "lisp.start")
     (otherwise
      "lisp.images")))
 
@@ -78,11 +80,11 @@ only while that core still matches the source."
       (funcall function)
     (sbcl-worker-image-error (condition)
       (error 'lisp-image-error
-             :message (sbcl-worker-error-message condition)
+             :message  (sbcl-worker-error-message condition)
              :tool-name
              (lisp-image--tool-name (sbcl-worker-error-operation condition))
              :pathname (sbcl-worker-error-pathname condition)
-             :stage (or (sbcl-worker-error-stage condition) ':manifest)))))
+             :stage    (or (sbcl-worker-error-stage condition) ':manifest)))))
 
 (-> lisp-image-identifier (lisp-image) string)
 (defun lisp-image-identifier (image)
@@ -139,11 +141,11 @@ only while that core still matches the source."
    (lambda ()
      (sbcl-worker-image-publish-manifest
       (lisp-worker--environment configuration)
-      :identifier identifier
+      :identifier        identifier
       :parent-identifier parent-identifier
-      :note note
-      :core-pathname core-pathname
-      :source-revision source-commit))))
+      :note              note
+      :core-pathname     core-pathname
+      :source-revision   source-commit))))
 
 (-> lisp-image-compatible-p (lisp-image) boolean)
 (defun lisp-image-compatible-p (image)
