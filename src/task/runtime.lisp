@@ -238,6 +238,7 @@ A completed shutdown can be reopened only by an explicit runtime resume."
 
 ;;;; -- Listeners --
 
+(-> task-orchestrator-add-listener (task-orchestrator function) function)
 (defun task-orchestrator-add-listener (orchestrator listener)
   "Register LISTENER for portable task events and return it."
   (check-type listener function)
@@ -245,6 +246,7 @@ A completed shutdown can be reopened only by an explicit runtime resume."
     (pushnew listener (task-orchestrator-listeners orchestrator) :test #'eq))
   listener)
 
+(-> task-orchestrator-remove-listener (task-orchestrator t) null)
 (defun task-orchestrator-remove-listener (orchestrator listener)
   "Remove LISTENER from ORCHESTRATOR."
   (with-lock-held ((task-orchestrator-lock orchestrator))
@@ -253,6 +255,7 @@ A completed shutdown can be reopened only by an explicit runtime resume."
                   #'eq)))
   nil)
 
+(-> task-orchestrator-emit (task-orchestrator keyword list) null)
 (defun task-orchestrator-emit (orchestrator channel payload)
   "Deliver portable CHANNEL and PAYLOAD to a snapshot of listeners."
   (let ((listeners
@@ -265,6 +268,7 @@ A completed shutdown can be reopened only by an explicit runtime resume."
           nil))))
   nil)
 
+(-> task--identifier-fragment ((option string)) (option string))
 (defun task--identifier-fragment (value)
   "Return VALUE normalized for child identifiers and artifact names."
   (let* ((unbounded (string-downcase (task--trim (or value ""))))
@@ -338,6 +342,7 @@ identifier is what an agent uses to refer to its own children."
 
 ;;;; -- Pool Events Seen As Task Events --
 
+(-> task--pool-event-listener (keyword list) null)
 (defun task--pool-event-listener (channel payload)
   "Re-emit one pool lifecycle event in Autolith's session vocabulary."
   (let ((job (getf payload :job)))
@@ -427,10 +432,12 @@ identifier is what an agent uses to refer to its own children."
   "Remove TOOL's closed shared scheduler graph before image saving."
   (task-orchestrator-detach (task-orchestrator-tool-orchestrator tool)))
 
+(-> task--milliseconds-between (real real) integer)
 (defun task--milliseconds-between (start end)
   "Return elapsed milliseconds between internal real times START and END."
   (round (* 1000 (- end start)) internal-time-units-per-second))
 
+(-> task-progress-append-output (task-progress string) null)
 (defun task-progress-append-output (progress text)
   "Append streamed TEXT while retaining only a bounded tail.
 
@@ -460,7 +467,7 @@ under the progress lock before releasing it to other threads."
                 (and (consp entry)
                      (stringp (first entry))
                      (consp (rest entry))
-                     (null (cddr entry))))
+                     (null (nthcdr 2 entry))))
               value)))
 
 (-> task-progress--usage-summary (t) list)
@@ -480,7 +487,7 @@ retained fields, including when reading progress kept by an older image."
                        when (and (consp entry)
                                  (equal name (first entry))
                                  (consp (rest entry))
-                                 (null (cddr entry)))
+                                 (null (nthcdr 2 entry)))
                          return (second entry))))
 
            (project (object schema)
@@ -551,6 +558,7 @@ retained fields, including when reading progress kept by an older image."
           when (typep value '(integer 0 9223372036854775807))
             append (list key value))))
 
+(-> task-progress-note-status (task-job keyword list) null)
 (defun task-progress-note-status (job status details)
   "Update JOB's normalized progress from one child observer STATUS event."
   (let ((progress (task-job-progress job))
@@ -890,7 +898,6 @@ values from either side of a terminal transition."
           :cancellation-reason  (getf snapshot :cancellation-reason)
           :condition-report     (getf snapshot :condition-report))))
 
-(-> session-job-snapshot (session-job) list)
 (defgeneric session-job-snapshot (job)
   (:documentation
    "Return a coherent portable lifecycle snapshot for session JOB."))
@@ -939,7 +946,6 @@ values from either side of a terminal transition."
         :key  #'session-job-identifier
         :test #'string=))
 
-(-> session-job-live-activity (session-job) (option list))
 (defgeneric session-job-live-activity (job)
   (:documentation
    "Return JOB's lightweight live presentation, or NIL when it has none."))
@@ -1078,9 +1084,6 @@ values from either side of a terminal transition."
                :tool-name tool-name
                :task-id   identifier))))
 
-(-> session-job-cancel
-    (session-job keyword)
-    (values boolean list))
 (defgeneric session-job-cancel (job reason)
   (:documentation
    "Cancel session JOB and return whether it was accepted plus descendant IDs."))
