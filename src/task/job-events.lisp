@@ -105,12 +105,17 @@
           (:resource-uris
            (and (listp value)
                 (every (lambda (uri) (and (stringp uri) (plusp (length uri)))) value)))
-          (:status (not (null (member value *run-job-event-statuses*))))
-          (:category (or (null value) (not (null (member value *run-job-event-categories*)))))
-          (:code (not (null (member value *run-job-event-warning-codes*))))
-          (:published-p (or (null value) (eq value t)))
-          (otherwise (typep value '(integer 0 9223372036854775807))))
-          do (run-job-event--error))
+          (:status
+           (not (null (member value *run-job-event-statuses*))))
+          (:category
+           (or (null value) (not (null (member value *run-job-event-categories*)))))
+          (:code
+           (not (null (member value *run-job-event-warning-codes*))))
+          (:published-p
+           (or (null value) (eq value t)))
+          (otherwise
+           (typep value '(integer 0 9223372036854775807))))
+        do (run-job-event--error))
   (when (eq kind :run-finished)
     (unless (and (member (getf data :status) '(:succeeded :failed :timed-out :cancelled))
                  (member :published-p data)
@@ -141,9 +146,9 @@
 (-> run-job-event--snapshot (t) t)
 (defun run-job-event--snapshot (value)
   "Copy bounded proper data before validation, rejecting cycles and foreign atoms."
-  (let ((nodes 0)
+  (let ((nodes     0)
         (ancestors (make-hash-table :test #'eq))
-        (keywords (run-job-event--keywords)))
+        (keywords  (run-job-event--keywords)))
     (labels ((copy-value (value depth)
                (when (or (> (incf nodes) 256) (> depth 8))
                  (run-job-event--error))
@@ -212,18 +217,26 @@ complete form; incomplete forms, dispatch syntax and comments are rejected."
                  (run-job-event--error))
                (vector-push-extend character buffer)
                (cond
-                 (escaped (setf escaped nil))
+                 (escaped
+                  (setf escaped nil))
                  (in-string
                   (case character
-                    (#\\ (setf escaped t))
-                    (#\" (setf in-string nil))))
-                 ((char= character #\") (setf in-string t))
-                 ((find character '(#\# #\; #\' #\` #\,)) (run-job-event--error))
-                 ((char= character #\() (incf depth)
+                    (#\\
+                     (setf escaped t))
+                    (#\"
+                     (setf in-string nil))))
+                 ((char= character #\")
+                  (setf in-string t))
+                 ((find character '(#\# #\; #\' #\` #\,))
+                  (run-job-event--error))
+                 ((char= character #\()
+                  (incf depth)
                   (when (> depth 8) (run-job-event--error)))
-                 ((char= character #\)) (decf depth)))
+                 ((char= character #\))
+                  (decf depth)))
             until (zerop depth))
       (run-job-event-read-string buffer))))
+
 
 ;;;; -- Bounded Single Writer --
 
@@ -335,9 +348,9 @@ one in-flight bounded form and the disabled emitter survive until process exit."
            (loop for payload = (run-job-event--next emitter)
                  for sequence from 1
                  while payload
-                 do (let* ((text (run-job-event--serialize
-                                  (run-job-event--record (run-job-event-emitter-run-id emitter)
-                                                        sequence :kind (first payload) :data (second payload))))
+                 do (let* ((text   (run-job-event--serialize
+                                    (run-job-event--record (run-job-event-emitter-run-id emitter)
+                                                          sequence :kind (first payload) :data (second payload))))
                            (stream (run-job-event-emitter-stream emitter)))
                       (with-lock-held ((run-job-event-emitter-lock emitter))
                         (when (run-job-event-emitter-disabled-p emitter) (return))
@@ -407,7 +420,7 @@ Only FINISH can emit RUN-FINISHED. Projection callers supply safe internal IDs,
 canonical tool names and resource references, never caller/provider raw data."
   (handler-case
       (let* ((owned-data (run-job-event--snapshot data))
-             (payload (list kind owned-data)))
+             (payload    (list kind owned-data)))
         (when (eq kind :run-finished) (run-job-event--error))
         (run-job-event--serialize
          (run-job-event--record (run-job-event-emitter-run-id emitter)
