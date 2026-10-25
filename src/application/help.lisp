@@ -5,23 +5,23 @@
 (defparameter *application-help-sections*
   '((:topic :conversations :title "Conversations"
      :description "Start, resume, and manage a conversation."
-     :commands ("new" "resume" "conversations" "history" "goal" "context" "compact"))
+     :commands    ("new" "resume" "conversations" "history" "goal" "context" "compact"))
     (:topic :models :title "Models"
      :description "Choose a provider, model, and reasoning effort."
-     :commands ("auth" "model" "models" "effort" "fast" "hurry-up"))
+     :commands    ("auth" "model" "models" "effort" "fast" "hurry-up"))
     (:topic :workspace :title "Workspace"
      :description "Change directories, permissions, skills, and workspace notes."
-     :commands ("cwd" "permissions" "agenda" "skills" "mcp" "papercuts"
-                "papercut" "papercut-close"))
+     :commands    ("cwd" "permissions" "agenda" "skills" "mcp" "papercuts"
+                   "papercut" "papercut-close"))
     (:topic :display :title "Display"
      :description "Adjust settings, reasoning, timestamps, and transcript detail."
-     :commands ("onboard" "settings" "trace" "timestamps" "ste" "titles" "cache-misses"
-                "compact-tool"))
+     :commands    ("onboard" "settings" "trace" "timestamps" "ste" "titles" "cache-misses"
+                   "compact-tool"))
     (:topic :runtime :title "Runtime and recovery"
      :description "Inspect the session, save a generation, or recover queued input."
-     :commands ("info" "status" "checkpoint" "generations" "rollback" "update"
-                "fix-skipped-definitions" "vault" "vault-store" "vault-restore"
-                "vault-discard" "data.export" "data.import" "detach" "quit")))
+     :commands    ("info" "status" "checkpoint" "generations" "rollback" "update"
+                   "fix-skipped-definitions" "vault" "vault-store" "vault-restore"
+                   "vault-discard" "data.export" "data.import" "detach" "quit")))
   "Human help topics and their preferred command order; registrations supply the text.")
 
 (-> application-help-operation-notes (application-operation) string)
@@ -39,8 +39,8 @@
 
 (defmethod application-help-operation-notes ((operation application-tool-operation))
   "Describe the required and optional parameters in a tool's current schema."
-  (let* ((tool (application-operation-backend operation))
-         (schema (tool-parameters tool))
+  (let* ((tool       (application-operation-backend operation))
+         (schema     (tool-parameters tool))
          (properties (and (json-object-p schema) (json-get schema "properties"))))
     (multiple-value-bind (required optional)
         (application-operation--tool-property-names tool)
@@ -48,10 +48,10 @@
         (when (or required optional)
           (format stream "## Arguments~%~%")
           (dolist (name (append required optional))
-            (let* ((property (json-get properties name))
+            (let* ((property    (json-get properties name))
                    (description (and (json-object-p property)
                                      (json-get property "description")))
-                   (type (and (json-object-p property) (json-get property "type"))))
+                   (type        (and (json-object-p property) (json-get property "type"))))
               (format stream "- ~A **~A**~@[ · ~A~]~%~@[  ~A~%~]"
                       (application-help--inline-code
                        (application--lisp-key-token name))
@@ -70,16 +70,16 @@ commands before sections. Tool namespaces and command aliases are also accepted.
   (if (null topic)
       (application-help--overview)
       (let* ((operations (application-operation-list application))
-             (name (application-help--topic-name topic))
+             (name       (application-help--topic-name topic))
              (section-p
                (or (keywordp topic)
                    (and (stringp topic)
                         (uiop:string-prefix-p
                          ":" (string-left-trim '(#\Space #\Tab #\Newline #\Return) topic)))))
-             (operation (and name (application-help--find-operation name operations)))
-             (section (and name
-                           (or section-p (null operation))
-                           (application-help--topic-document name operations))))
+             (operation  (and name (application-help--find-operation name operations)))
+             (section    (and name
+                              (or section-p (null operation))
+                              (application-help--topic-document name operations))))
         (cond
           ((and section-p section)
            section)
@@ -103,32 +103,33 @@ commands before sections. Tool namespaces and command aliases are also accepted.
                (eq (application-command-definition-name command)
                    'application--builtin-help-command))
       (let* ((operations (application-operation-list application))
-             (topics (append (mapcar (lambda (entry) (getf entry :topic))
-                                     *application-help-sections*)
-                             '(:local :commands :tools :all)))
+             (topics     (append (mapcar (lambda (entry) (getf entry :topic))
+                                         *application-help-sections*)
+                                 '(:local :commands :tools :all)))
              (namespaces (application-help--tool-namespaces operations)))
         (remove-duplicates
          (append
           (loop for topic in topics
                 for name = (string-downcase (symbol-name topic))
-                append (list (list :name (format nil "(help :~A)" name)
+                append (list (list :name    (format nil "(help :~A)" name)
                                    :argument nil :description "browse a help section"
                                    :primary "(help")
-                             (list :name (format nil "/help ~A" name)
+                             (list :name    (format nil "/help ~A" name)
                                    :argument nil :description "browse a help section"
                                    :primary "/help")))
           (loop for name in (remove-duplicates
-                            (append namespaces
-                                    (mapcar #'application-operation-name operations))
-                            :test #'string-equal)
-                append (list (list :name (format nil "(help ~S)" name)
+                             (append namespaces
+                                     (mapcar #'application-operation-name operations))
+                             :test #'string-equal)
+                append (list (list :name    (format nil "(help ~S)" name)
                                    :argument nil :description "show help for this subject"
                                    :primary "(help")
-                             (list :name (format nil "/help ~A"
-                                                 (application-command--slash-option-token name))
+                             (list :name    (format nil "/help ~A"
+                                                    (application-command--slash-option-token name))
                                    :argument nil :description "show help for this subject"
                                    :primary "/help"))))
          :test #'string= :key (lambda (entry) (getf entry :name)))))))
+
 
 ;;;; -- Documents --
 
@@ -171,7 +172,7 @@ All commands: `(help :commands)` · Full reference: `(help :all)`")))
   "Return a named section or tool namespace document, or NIL when unknown."
   (let ((section (find name *application-help-sections*
                            :test #'string-equal
-                           :key (lambda (entry) (symbol-name (getf entry :topic))))))
+                           :key  (lambda (entry) (symbol-name (getf entry :topic))))))
     (cond
       (section
        (format nil "~A~%~%Use `(help 'NAME)` for a command's usage and details."
@@ -213,7 +214,7 @@ All commands: `(help :commands)` · Full reference: `(help :all)`")))
    (getf section :title)
    (loop for name in (getf section :commands)
          for operation = (find name operations :test #'string=
-                                              :key #'application-operation-name)
+                                              :key   #'application-operation-name)
          when (typep operation 'application-command-operation) collect operation)
    (getf section :description)))
 
@@ -221,12 +222,12 @@ All commands: `(help :commands)` · Full reference: `(help :all)`")))
 (defun application-help--command-document (operations)
   "List all commands, including registrations outside the curated topics."
   (let* ((commands (application-help--operations-of-kind operations ':command))
-         (covered (loop for section in *application-help-sections*
-                        append (getf section :commands)))
-         (other (remove-if (lambda (entry)
-                             (member (application-operation-name entry) covered
-                                     :test #'string=))
-                           commands)))
+         (covered  (loop for section in *application-help-sections*
+                         append (getf section :commands)))
+         (other    (remove-if (lambda (entry)
+                                (member (application-operation-name entry) covered
+                                        :test #'string=))
+                              commands)))
     (format nil "# Commands~%~%Use `(help 'NAME)` for usage and details.~%~%~{~A~^~%~%~}~@[~%~%~A~]"
             (loop for section in *application-help-sections*
                   collect (application-help--section-document section operations))
@@ -311,6 +312,7 @@ Choose a namespace or a tool name, for example `(help :lisp)` or `(help \"lisp.e
          :test #'string=)
         #'string<))
 
+
 ;;;; -- Subject and Text Handling --
 
 (-> application-help--topic-name (t) (option string))
@@ -336,8 +338,8 @@ Choose a namespace or a tool name, for example `(help :lisp)` or `(help \"lisp.e
 (defun application-help--summary (operation)
   "Return the first description line, bounded for a compact operation listing."
   (let* ((description (application-operation-description operation))
-         (line (subseq description 0 (position #\Newline description)))
-         (prefix (text-cell-prefix line 160)))
+         (line        (subseq description 0 (position #\Newline description)))
+         (prefix      (text-cell-prefix line 160)))
     (if (= (length prefix) (length line))
         line
         (concatenate 'string prefix "…"))))
@@ -346,7 +348,7 @@ Choose a namespace or a tool name, for example `(help :lisp)` or `(help \"lisp.e
 (defun application-help--inline-code (text)
   "Quote TEXT as a CommonMark code span, including any literal backticks."
   (let ((longest 0)
-        (run 0))
+        (run     0))
     (loop for character across text
           do (if (char= character #\`)
                  (setf longest (max longest (incf run)))
