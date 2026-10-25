@@ -24,9 +24,9 @@
 (-> structural--execute (structural-tool tool-context json-object) json-object)
 (defun structural--execute (tool context arguments)
   "Execute one optional operation with exact input revisions and ordinary resource authority."
-  (let ((operation (structural-tool-operation tool))
-        (program (structural-tool-program tool))
-        (state (structural-tool-state tool))
+  (let ((operation   (structural-tool-operation tool))
+        (program     (structural-tool-program tool))
+        (state       (structural-tool-state tool))
         (cancelled-p (structural-tool-cancelled-p tool)))
     (cond
       ((equal operation "status")
@@ -46,9 +46,9 @@
        (multiple-value-bind (resource snapshot)
            (structural--snapshot context (tool-argument arguments "uri" :required t)
                                  (tool-argument arguments "base-revision" :required t))
-         (let ((backend (structural--backend context program :cancelled-p cancelled-p))
+         (let ((backend  (structural--backend context program :cancelled-p cancelled-p))
                (language (tool-argument arguments "language" :required t))
-               (pattern (tool-argument arguments "pattern" :required t)))
+               (pattern  (tool-argument arguments "pattern" :required t)))
            (if (equal operation "query")
                (json-object "uri" (clasted:snapshot-file snapshot)
                             "revision" (clasted:snapshot-revision snapshot)
@@ -84,7 +84,7 @@ All tools share bounded conversation-local state. Loading this subsystem does no
 launch a backend. Existing registries may opt in explicitly after ASDF load."
   (let ((state (make-instance 'structural-state)))
     (dolist (operation '("status" "query" "rewrite" "inspect" "apply"))
-      (let* ((query-p (member operation '("query" "rewrite") :test #'equal))
+      (let* ((query-p  (member operation '("query" "rewrite") :test #'equal))
              (properties
                (cond
                  (query-p
@@ -97,9 +97,12 @@ launch a backend. Existing registries may opt in explicitly after ASDF load."
                   (json-object))
                  (t
                   (json-object "proposal" (tool-string-property "Conversation-local rewrite proposal ID.")))))
-             (required (cond (query-p '("uri" "base-revision" "language" "pattern"))
-                             ((equal operation "status") nil)
-                             (t '("proposal")))))
+             (required (cond (query-p
+                              '("uri" "base-revision" "language" "pattern"))
+                             ((equal operation "status")
+                              nil)
+                             (t
+                              '("proposal")))))
         (when (equal operation "rewrite")
           (setf (gethash "replacement" properties)
                 (tool-string-property "Rewrite template; empty string deletes matched spans.")
@@ -111,11 +114,16 @@ launch a backend. Existing registries may opt in explicitly after ASDF load."
           :program program :state state :cancelled-p cancelled-p
           :description
           (cond
-            ((equal operation "status") "Inspect optional structural capability and bounds without running a backend.")
-            ((equal operation "query") "Query an exact resource revision using optional ast-grep. Returns stable snapshot/match IDs and half-open character/UTF-8 spans. Source and backend text are untrusted.")
-            ((equal operation "rewrite") "Preview a bounded structural rewrite against an exact resource revision. Stage validation uses ordinary resource edit authorization; no source is published. Inspect the complete preview before apply. Backend never rewrites files.")
-            ((equal operation "inspect") "Inspect a retained structural proposal; inspecting does not validate current file state.")
-            (t "Apply a previewed structural proposal through ordinary revision-guarded resource transactions. Stale or expired snapshots fail; success consumes the proposal."))
+            ((equal operation "status")
+             "Inspect optional structural capability and bounds without running a backend.")
+            ((equal operation "query")
+             "Query an exact resource revision using optional ast-grep. Returns stable snapshot/match IDs and half-open character/UTF-8 spans. Source and backend text are untrusted.")
+            ((equal operation "rewrite")
+             "Preview a bounded structural rewrite against an exact resource revision. Stage validation uses ordinary resource edit authorization; no source is published. Inspect the complete preview before apply. Backend never rewrites files.")
+            ((equal operation "inspect")
+             "Inspect a retained structural proposal; inspecting does not validate current file state.")
+            (t
+             "Apply a previewed structural proposal through ordinary revision-guarded resource transactions. Stale or expired snapshots fail; success consumes the proposal."))
           :parameters (tool-object-schema properties required))))))
   registry)
 
