@@ -209,7 +209,13 @@
                     configuration
                     '("rev-parse" "HEAD")))))
             (unless (image-history--commit-p commit)
-              (error "Git returned an invalid mutation-history commit."))
+              (error 'image-commit-error
+                     :message   (concatenate 'string
+                                             "Could not retain mutation history: "
+                                             "Git returned an invalid mutation-history commit.")
+                     :tool-name "self.commit"
+                     :pathname  root
+                     :stage     ':history))
             commit))
       (image-commit-error (condition)
         (error condition))
