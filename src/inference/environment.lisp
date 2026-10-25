@@ -48,6 +48,7 @@ concurrent runs over one context each drive their own environment."
       ((lisp-worker-running-p (getf entry ':worker))
        (values (getf entry ':worker) nil))
       (t
+       ; mallet:suppress no-ignore-errors -- stopping a discarded worker is best-effort cleanup
        (ignore-errors (lisp-worker-stop (getf entry ':worker)))
        (values nil t)))))
 
@@ -64,6 +65,7 @@ concurrent runs over one context each drive their own environment."
         (setf evicted (first (last *rlm-environment-pool*))
               *rlm-environment-pool* (butlast *rlm-environment-pool*))))
     (when evicted
+      ; mallet:suppress no-ignore-errors -- stopping a discarded worker is best-effort cleanup
       (ignore-errors (lisp-worker-stop (getf evicted ':worker)))))
   nil)
 
@@ -73,6 +75,7 @@ concurrent runs over one context each drive their own environment."
   (let ((entries (with-lock-held (*rlm-environment-pool-lock*)
                    (shiftf *rlm-environment-pool* nil))))
     (dolist (entry entries)
+      ; mallet:suppress no-ignore-errors -- stopping a discarded worker is best-effort cleanup
       (ignore-errors (lisp-worker-stop (getf entry ':worker)))))
   nil)
 
@@ -437,6 +440,7 @@ configuration before per-call model routing, so routing copies share its pool."
                      (error ()
                        ;; A wedged reused environment falls back to a fresh
                        ;; worker instead of failing the whole run.
+                       ; mallet:suppress no-ignore-errors -- stopping a discarded worker is best-effort cleanup
                        (ignore-errors (lisp-worker-stop worker))
                        (setf worker nil
                              reused-p nil
@@ -504,5 +508,6 @@ configuration before per-call model routing, so routing copies share its pool."
                               :environment names)))))))))
         (unless parked-p
           (when worker
+            ; mallet:suppress no-ignore-errors -- stopping a discarded worker is best-effort cleanup
             (ignore-errors (lisp-worker-stop worker))))
         (rlm-endpoint-stop endpoint)))))
