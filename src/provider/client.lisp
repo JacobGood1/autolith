@@ -10,16 +10,16 @@
 (defclass codex-subscription-provider
     (session-preserving-provider-mixin responses-api-provider)
   ((reasoning-summaries-p
-    :initarg :reasoning-summaries-p
-    :initform nil
-    :accessor provider-reasoning-summaries-p
-    :type boolean
+    :initarg       :reasoning-summaries-p
+    :initform      nil
+    :accessor      provider-reasoning-summaries-p
+    :type          boolean
     :documentation "Whether requests opt in to provider-visible reasoning summaries.")
    (rate-limits
-    :initarg :rate-limits
-    :initform nil
-    :accessor provider-rate-limits
-    :type list
+    :initarg       :rate-limits
+    :initform      nil
+    :accessor      provider-rate-limits
+    :type          list
     :documentation "The most recent portable rate limit snapshot from response headers."))
   (:documentation "A direct ChatGPT subscription client for the Codex Responses service."))
 
@@ -75,7 +75,7 @@
   (let ((*chatgpt-authentication-method*
           (provider--authentication-method provider method)))
     (provider-authenticate provider
-                           :stream stream
+                           :stream         stream
                            :open-browser-p open-browser-p)))
 
 (-> provider--authentication-completion-message
@@ -108,7 +108,7 @@
          (message
            (if authenticator
                (funcall authenticator provider
-                        :stream stream
+                        :stream         stream
                         :open-browser-p open-browser-p)
                (call-next-method))))
     (provider--authentication-completion-message provider message)))
@@ -131,13 +131,13 @@
       (:browser
        (chatgpt-oauth-login
         (provider-credential-manager provider)
-        :stream stream
+        :stream         stream
         :open-browser-p open-browser-p))
       (:device-code
        (device-authentication-login
         (provider-device-authentication-client provider)
         (provider-credential-manager provider)
-        :stream stream
+        :stream         stream
         :open-browser-p open-browser-p))))
   "ChatGPT authentication was saved by Autolith.")
 
@@ -147,7 +147,7 @@
   (device-authentication-login
    (provider-device-authentication-client provider)
    (provider-credential-manager provider)
-   :stream (or stream *standard-output*)
+   :stream         (or stream *standard-output*)
    :open-browser-p open-browser-p)
   (format nil "~A authentication was saved by Autolith."
           (provider-account-label provider)))
@@ -206,7 +206,6 @@ This follows the filtered fork-history behavior in Codex
   (declare (ignore provider))
   (device-authentication-client-create))
 
-
 (-> provider-family-create
     (keyword configuration &key (:reasoning-summaries-p boolean))
     model-provider)
@@ -220,9 +219,9 @@ This follows the filtered fork-history behavior in Codex
      &key reasoning-summaries-p)
   "Create the direct ChatGPT subscription provider."
   (make-instance 'codex-subscription-provider
-                 :configuration configuration
-                 :credential-manager (credential-manager-create configuration)
-                 :session-id (make-identifier)
+                 :configuration         configuration
+                 :credential-manager    (credential-manager-create configuration)
+                 :session-id            (make-identifier)
                  :reasoning-summaries-p reasoning-summaries-p))
 
 (-> provider-create
@@ -280,8 +279,8 @@ Account adapters may skip cached wire routing while this is true.")
 Bind the authentication construction context so account adapters can recover
 credentials and model metadata independently of their cached wire routes."
   (let* ((*provider-authentication-bootstrap-p* t)
-         (canonical (provider--canonical-name name))
-         (registration (provider-registration-find canonical)))
+         (canonical                             (provider--canonical-name name))
+         (registration                          (provider-registration-find canonical)))
     (unless registration
       (error 'configuration-error
              :message
@@ -318,10 +317,10 @@ credentials and model metadata independently of their cached wire routes."
                                       (provider-registration-name registration))))
             (provider-create
              (configuration-copy configuration
-                                 :model (provider-model-name model)
+                                 :model          (provider-model-name model)
                                  :model-provider (provider-registration-name registration))
              :reasoning-summaries-p reasoning-summaries-p
-             :registration registration))))))
+             :registration          registration))))))
 
 (-> provider-authenticated-model (configuration model-provider) (option string))
 (defgeneric provider-authenticated-model (configuration provider)
@@ -345,15 +344,15 @@ credentials and model metadata independently of their cached wire routes."
 (defmethod provider-reconfiguration-initargs append
     ((provider session-preserving-provider-mixin))
   "Preserve PROVIDER's registration, credentials, and session identity."
-  (list :registration (model-provider-registration provider)
+  (list :registration       (model-provider-registration provider)
         :credential-manager (provider-credential-manager provider)
-        :session-id (provider-session-id provider)))
+        :session-id         (provider-session-id provider)))
 
 (defmethod provider-reconfiguration-initargs append
     ((provider codex-subscription-provider))
   "Preserve Codex reasoning-summary and portable rate-limit state."
   (list :reasoning-summaries-p (provider-reasoning-summaries-p provider)
-        :rate-limits (copy-tree (provider-rate-limits provider))))
+        :rate-limits           (copy-tree (provider-rate-limits provider))))
 
 (defmethod provider-with-configuration ((provider model-provider)
                                         (configuration configuration))
@@ -485,15 +484,15 @@ checkpoint summarizes history rather than continuing it."
             (list
              (let ((*system-prompt-hosted-web-search-p* nil))
                (system-prompt configuration)))))
-          (input
-            (let ((*provider-history-trimming-p* t))
-              (map 'vector
-                   (lambda (item)
-                     (provider-wire-input-item provider item))
-                   (conversation-input-items-for-family
-                    conversation
-                    (provider-family provider)
-                    :include-ephemeral-p nil)))))
+         (input
+           (let ((*provider-history-trimming-p* t))
+             (map 'vector
+                  (lambda (item)
+                    (provider-wire-input-item provider item))
+                  (conversation-input-items-for-family
+                   conversation
+                   (provider-family provider)
+                   :include-ephemeral-p nil)))))
     (apply
      #'json-object
      (append
@@ -563,8 +562,8 @@ the requests of a turn for the same reason, at commit 6f51c65958."
     (provider-post-event-stream
      (config :provider-endpoint configuration)
      (json-encode-utf8 request)
-     :headers (provider--codex-request-headers
-               provider credentials conversation :accept "text/event-stream")
+     :headers      (provider--codex-request-headers
+                    provider credentials conversation :accept "text/event-stream")
      :keep-alive-p t)))
 
 (defmethod provider-open-native-compaction
@@ -582,14 +581,14 @@ reaches the backend holding the conversation's cached prefix."
    (lambda ()
      (dexador:post
       (provider--native-compaction-endpoint provider)
-      :headers (provider--codex-request-headers
-                provider credentials conversation :accept "application/json")
-      :content (json-encode-utf8 request)
-      :force-string t
-      :keep-alive t
+      :headers             (provider--codex-request-headers
+                            provider credentials conversation :accept "application/json")
+      :content             (json-encode-utf8 request)
+      :force-string        t
+      :keep-alive          t
       :use-connection-pool t
-      :connect-timeout 30
-      :read-timeout 300))))
+      :connect-timeout     30
+      :read-timeout        300))))
 
 
 ;;;; -- Usage Limit Failures --
@@ -611,22 +610,22 @@ reaches the backend holding the conversation's cached prefix."
 A plain rate limit keeps its bounded retries. An exhausted plan allowance is
 terminal: retrying only delays the report by the whole retry ladder. The types
 and codes follow the Codex reference at commit 6f51c65958."
-  (let* ((text (cond
-                 ((stringp body)
-                  body)
-                 ((typep body '(vector (unsigned-byte 8)))
-                  (handler-case
-                      (utf8-octets-to-string body)
-                    (error ()
-                      nil)))
-                 (t
-                  nil)))
+  (let* ((text   (cond
+                   ((stringp body)
+                    body)
+                   ((typep body '(vector (unsigned-byte 8)))
+                    (handler-case
+                        (utf8-octets-to-string body)
+                      (error ()
+                        nil)))
+                   (t
+                    nil)))
          (object (and (non-empty-string-p text)
                       (handler-case
                           (json-decode text)
                         (error ()
                           nil))))
-         (error (and (json-object-p object) (json-get object "error"))))
+         (error  (and (json-object-p object) (json-get object "error"))))
     (when (and (json-object-p error)
                (or (json-string-member-p (json-get error "type")
                                          *codex-usage-limit-error-types*)
@@ -645,8 +644,8 @@ and codes follow the Codex reference at commit 6f51c65958."
 (-> provider--codex-usage-limit-message (json-object) string)
 (defun provider--codex-usage-limit-message (error)
   "Return the user-facing explanation of usage-limit ERROR."
-  (let ((type (json-get error "type"))
-        (plan (json-get error "plan_type"))
+  (let ((type      (json-get error "type"))
+        (plan      (json-get error "plan_type"))
         (resets-at (json-get error "resets_at")))
     (format nil "~A~@[ on the ~A plan~]~@[; it resets at ~A~]. The request was not retried."
             (if (json-string= type "usage_not_included")
@@ -663,10 +662,10 @@ and codes follow the Codex reference at commit 6f51c65958."
   (let ((error (and (= status 429) (provider--codex-usage-limit-error raw-body))))
     (if error
         (error 'provider-error
-               :message (provider--codex-usage-limit-message error)
-               :status status
+               :message    (provider--codex-usage-limit-message error)
+               :status     status
                :request-id (provider--response-request-id headers)
-               :response nil)
+               :response   nil)
         (provider--signal-http-status-failure
          provider status :headers headers :raw-body raw-body))))
 
@@ -689,7 +688,7 @@ and codes follow the Codex reference at commit 6f51c65958."
     (provider--codex-signal-status-failure
      provider
      (dexador.error:response-status condition)
-     :headers headers
+     :headers  headers
      :raw-body (handler-case
                    (dexador.error:response-body condition)
                  (error ()
@@ -705,6 +704,7 @@ and codes follow the Codex reference at commit 6f51c65958."
 (setf *sse-read-line-function* #'sse-read-line-within-inactivity-deadline)
 (setf *stream-limit-error-class* 'response-stream-limit-error)
 
+
 ;;;; -- Rate Limit Snapshots --
 
 (-> provider--parse-decimal (string) (option real))
@@ -712,9 +712,9 @@ and codes follow the Codex reference at commit 6f51c65958."
   "Parse non-negative decimal TEXT such as 28 or 28.5 without the Lisp reader."
   (handler-case
       (let* ((trimmed (string-trim " " text))
-             (dot (position #\. trimmed)))
+             (dot     (position #\. trimmed)))
         (if dot
-            (let ((whole (parse-integer trimmed :end dot))
+            (let ((whole    (parse-integer trimmed :end dot))
                   (fraction (subseq trimmed (1+ dot))))
               (if (zerop (length fraction))
                   whole
@@ -732,30 +732,30 @@ and codes follow the Codex reference at commit 6f51c65958."
                                (format nil "~A-used-percent" prefix))))
     (when (non-empty-string-p used)
       (let ((used-percent (provider--parse-decimal used))
-            (minutes (response-header headers
-                                      (format nil "~A-window-minutes" prefix)))
-            (resets (response-header headers
-                                     (format nil "~A-reset-at" prefix))))
+            (minutes      (response-header headers
+                                           (format nil "~A-window-minutes" prefix)))
+            (resets       (response-header headers
+                                           (format nil "~A-reset-at" prefix))))
         (when used-percent
-          (list :used-percent used-percent
+          (list :used-percent   used-percent
                 :window-minutes (and (non-empty-string-p minutes)
                                      (parse-integer minutes :junk-allowed t))
-                :resets-at (let ((seconds
-                                   (and (non-empty-string-p resets)
-                                        (parse-integer resets
-                                                       :junk-allowed t))))
-                             (and seconds
-                                  (unix-time->universal-time seconds)))))))))
+                :resets-at      (let ((seconds
+                                        (and (non-empty-string-p resets)
+                                             (parse-integer resets
+                                                            :junk-allowed t))))
+                                  (and seconds
+                                       (unix-time->universal-time seconds)))))))))
 
 (-> provider-rate-limit-snapshot (t) (option list))
 (defun provider-rate-limit-snapshot (headers)
   "Return the portable subscription rate limit snapshot carried by HEADERS."
-  (let ((primary (provider--rate-limit-window headers "x-codex-primary"))
+  (let ((primary   (provider--rate-limit-window headers "x-codex-primary"))
         (secondary (provider--rate-limit-window headers "x-codex-secondary")))
     (when (or primary secondary)
       (list :captured-at (get-universal-time)
-            :primary primary
-            :secondary secondary))))
+            :primary     primary
+            :secondary   secondary))))
 
 (-> provider-record-rate-limits (codex-subscription-provider t) (option list))
 (defun provider-record-rate-limits (provider headers)
@@ -770,34 +770,30 @@ and codes follow the Codex reference at commit 6f51c65958."
      &key (:credentials oauth-credentials)
           (:conversation conversation))
     *)
-
-
 (defun provider--open-response-stream (provider request &key credentials conversation)
   "Open an authenticated product request through portable transport normalization."
   (provider--call-with-transport-normalization
    (lambda ()
      (provider-open-response-stream provider request :credentials credentials
-                                    :conversation conversation))
+                                    :conversation                 conversation))
    :terminal-errors-p t))
 
 (-> provider--open-native-compaction
     (codex-subscription-provider json-object
      &key (:credentials oauth-credentials) (:conversation conversation))
     (values string integer t))
-
-
 (defun provider--open-native-compaction
        (provider request &key credentials conversation)
   "Open an authenticated product request through portable transport normalization."
   (provider--call-with-transport-normalization
    (lambda ()
      (provider-open-native-compaction provider request :credentials credentials
-                                      :conversation conversation))
+                                      :conversation                 conversation))
    :terminal-errors-p t))
 
 (define-condition provider-result-rejected (provider-retryable-error)
   ((result :initarg :result :reader provider-result-rejected-result
-           :type provider-result
+           :type          provider-result
            :documentation "The completed result rejected by provider-specific validation."))
   (:documentation
    "A completed provider response requires retry, while its reported usage remains valid."))
@@ -815,7 +811,6 @@ and codes follow the Codex reference at commit 6f51c65958."
      &key tool-namespaces event-callback force-refresh goal-context compaction-p)
   (:documentation
    "Perform one normalized provider attempt, optionally forcing credential refresh."))
-
 
 (-> provider-call-with-request-adapter
     (subscription-provider oauth-credentials function &key (:conversation conversation))
@@ -861,12 +856,12 @@ are request-scoped and included in transport and result redaction."))
                    (context-delivery-notify delivery event-callback))
                  (cl-llm-provider-api::provider-execute-request
                   adapter request :secrets *provider-active-credential-values*
-                  :event-callback event-callback
-                  :transport (lambda (request)
-                               (provider--open-response-stream
-                                adapter request :credentials credentials
-                                :conversation conversation))
-                  :completion (lambda () (context-delivery-complete delivery))))
+                  :event-callback          event-callback
+                  :transport               (lambda (request)
+                                             (provider--open-response-stream
+                                              adapter request :credentials credentials
+                                              :conversation                conversation))
+                  :completion              (lambda () (context-delivery-complete delivery))))
             (http-request-failed (condition)
               (provider-signal-transport-failure adapter condition)))))
        :conversation conversation))))
@@ -882,7 +877,7 @@ ATTEMPT-FUNCTION receives the credential refresh flag and the event callback
 each attempt must stream through."
   (labels ((attempt-with-authentication (event-callback)
              "Run one logical request with bounded credential recovery."
-             (let* ((manager (provider-credential-manager provider))
+             (let* ((manager       (provider-credential-manager provider))
                     (refreshable-p (credential-manager-refreshable-p manager)))
                (call-with-credential-refresh
                 (lambda (force-refresh)
@@ -909,10 +904,10 @@ each attempt must stream through."
     ((provider subscription-provider)
      (conversation conversation)
      &key
-       tool-namespaces
-       event-callback
-       goal-context
-       compaction-p)
+     tool-namespaces
+     event-callback
+     goal-context
+     compaction-p)
   "Stream one subscription turn with bounded authentication and transport retries."
   (declare (type vector tool-namespaces)
            (type function event-callback))
@@ -923,10 +918,10 @@ each attempt must stream through."
       provider
       conversation
       :tool-namespaces tool-namespaces
-      :event-callback attempt-callback
-      :force-refresh force-refresh
-      :goal-context goal-context
-      :compaction-p compaction-p))
+      :event-callback  attempt-callback
+      :force-refresh   force-refresh
+      :goal-context    goal-context
+      :compaction-p    compaction-p))
    event-callback))
 
 
@@ -939,10 +934,10 @@ each attempt must stream through."
   "Signal that Codex returned an unusable successful compaction response."
   (declare (ignore provider))
   (error 'provider-error
-         :message "The provider returned an invalid native compaction response."
-         :status status
+         :message    "The provider returned an invalid native compaction response."
+         :status     status
          :request-id (provider--response-request-id headers)
-         :response nil))
+         :response   nil))
 
 (-> provider--decode-native-compaction-response
     (codex-subscription-provider t &key (:status integer) (:headers t))
@@ -1053,7 +1048,7 @@ this endpoint is unavailable."
          (provider-attempt-native-compaction
           provider conversation
           :tool-namespaces tool-namespaces
-          :force-refresh force-refresh))
+          :force-refresh   force-refresh))
        event-callback)
     (provider-error (condition)
       (if (provider--native-compaction-unavailable-p condition)
