@@ -375,14 +375,19 @@ closes. Both carry the same styling, rendered for the terminal that shows it."
       (setf (terminal-ui-fullscreen-welcome-p ui) t))
     (labels ((close-runtime-resources ()
                "Close APPLICATION's external runtimes at most once."
+               ; mallet:suppress no-ignore-errors -- best-effort shutdown must close every runtime
                (ignore-errors (localgroup-stop application))
+               ; mallet:suppress no-ignore-errors -- best-effort shutdown must close every runtime
                (ignore-errors (management-repl-stop application))
+               ; mallet:suppress no-ignore-errors -- best-effort shutdown must close every runtime
                (ignore-errors (slynk-stop))
                (unless tool-runtimes-closed-p
                  (unwind-protect
+                      ; mallet:suppress no-ignore-errors -- best-effort shutdown must close every runtime
                       (ignore-errors
                         (tool-registry-close-runtime-state
                          (application-tool-registry application)))
+                   ; mallet:suppress no-ignore-errors -- best-effort shutdown must close every runtime
                    (ignore-errors
                      (application-disconnect-task-presentation application))
                    (setf tool-runtimes-closed-p t)))
@@ -391,6 +396,7 @@ closes. Both carry the same styling, rendered for the terminal that shows it."
                       (when worker
                         (lisp-worker-manager-stop worker))
                    (setf worker-stopped-p t)))
+               ; mallet:suppress no-ignore-errors -- best-effort shutdown must close every runtime
                (ignore-errors (rlm-environment-pool-flush))
                (telemetry--call-safely #'telemetry-shutdown)
                (conversation-picker-search-close
@@ -413,7 +419,6 @@ closes. Both carry the same styling, rendered for the terminal that shows it."
                (setf *terminal-resize-pending-p* t))))
       (unwind-protect
            (with-terminal-ui (active-ui ui)
-             (declare (ignore active-ui))
              (unwind-protect
                   (progn
                     (application-sync-window-title application)
@@ -891,6 +896,7 @@ state, including an empty list after successful or pristine startup."
                        ;; The freshly spawned session has no other owner yet, so
                        ;; a failed first attach would leak it as an idle
                        ;; detached process.
+                       ; mallet:suppress no-ignore-errors -- best-effort kill while the attach failure propagates
                        (ignore-errors (localgroup-query-record record ':kill))
                        (error condition)))))
             (localgroup-relay-exit exit ':control))
@@ -1265,6 +1271,7 @@ update through their flake or Nix profile."
      (error 'configuration-error
             :message "Run update through the installed autolith launcher."))))
 
+(-> main--uninstall-command () clingon:command)
 (defun main--uninstall-command ()
   "Describe the launcher-owned uninstall operation without starting a session."
   (make-command
