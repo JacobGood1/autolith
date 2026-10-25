@@ -44,9 +44,9 @@ readable context object instead of being cut.")
 
 (defclass conversation-resource (resource)
   ((conversation
-    :initarg :conversation
-    :reader conversation-resource-conversation
-    :type conversation
+    :initarg       :conversation
+    :reader        conversation-resource-conversation
+    :type          conversation
     :documentation "The conversation whose durable history this resource reads."))
   (:documentation "The read-only durable history of one conversation."))
 
@@ -70,9 +70,9 @@ readable context object instead of being cut.")
     (cond
       ((string= identifier *conversation-resource-current-identifier*)
        (make-instance 'conversation-resource
-                      :uri (format nil "~A:~A"
-                                   (resource-resolver-scheme resolver)
-                                   identifier)
+                      :uri          (format nil "~A:~A"
+                                            (resource-resolver-scheme resolver)
+                                            identifier)
                       :conversation (tool-context-conversation context)))
       ((and (> (length identifier) (length prefix))
             (string= prefix identifier :end2 (length prefix)))
@@ -80,16 +80,16 @@ readable context object instead of being cut.")
                (conversation-replay-load (tool-context-configuration context)
                                          (subseq identifier (length prefix)))))
          (make-instance 'conversation-resource
-                        :uri (format nil "~A:~A~A"
-                                     (resource-resolver-scheme resolver)
-                                     prefix
-                                     (conversation-identifier conversation))
+                        :uri          (format nil "~A:~A~A"
+                                              (resource-resolver-scheme resolver)
+                                              prefix
+                                              (conversation-identifier conversation))
                         :conversation conversation)))
       (t
        (error 'resource-operation-unsupported
-              :uri (format nil "~A:~A"
-                           (resource-resolver-scheme resolver)
-                           identifier)
+              :uri       (format nil "~A:~A"
+                                 (resource-resolver-scheme resolver)
+                                 identifier)
               :operation ':resolve)))))
 
 (defmethod resource-capabilities
@@ -109,8 +109,8 @@ readable context object instead of being cut.")
   (when (or (nth-value 1 (gethash "start-line" arguments))
             (nth-value 1 (gethash "line-count" arguments)))
     (error 'tool-error
-           :message "conversation: resources page by start-sequence and record-count, not line windows."
-           :code ':line-windows-unsupported
+           :message   "conversation: resources page by start-sequence and record-count, not line windows."
+           :code      ':line-windows-unsupported
            :tool-name "resource.read"))
   (let ((query          (tool-argument arguments "query"))
         (maximum        (conversation-resource--integer-argument
@@ -125,12 +125,12 @@ readable context object instead of being cut.")
       (query
        (when (or start-sequence record-count)
          (error 'tool-error
-                :message "A conversation search does not accept start-sequence or record-count; read the window around a match separately."
+                :message   "A conversation search does not accept start-sequence or record-count; read the window around a match separately."
                 :tool-name "resource.read"))
        (let ((terms (and (stringp query) (conversation-search-terms query))))
          (unless terms
            (error 'tool-error
-                  :message "Conversation resource query must contain at least one term."
+                  :message   "Conversation resource query must contain at least one term."
                   :tool-name "resource.read"))
          (tool-success
           (conversation-resource--render-search
@@ -138,15 +138,15 @@ readable context object instead of being cut.")
            (or maximum *conversation-resource-default-results*)))))
       (maximum
        (error 'tool-error
-              :message "Conversation resource max-results applies only with query."
+              :message   "Conversation resource max-results applies only with query."
               :tool-name "resource.read"))
       (t
        (tool-success
         (conversation-resource--render-window
          resource
          :start-sequence start-sequence
-         :record-count (or record-count
-                           *conversation-resource-default-record-count*)))))))
+         :record-count   (or record-count
+                             *conversation-resource-default-record-count*)))))))
 
 
 ;;;; -- Read Arguments and Rendering --
@@ -164,8 +164,8 @@ readable context object instead of being cut.")
        value)
       (t
        (error 'tool-error
-              :message (format nil "~A must be an integer between 1 and ~D."
-                               name maximum)
+              :message   (format nil "~A must be an integer between 1 and ~D."
+                                 name maximum)
               :tool-name "resource.read")))))
 
 (-> conversation-resource--label (conversation-resource) string)
