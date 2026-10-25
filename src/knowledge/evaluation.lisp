@@ -314,8 +314,11 @@ premise of a support path."
 
 ;;;; -- Building the View --
 
-(-> knowledge--view-node (knowledge-view string list memory-scope (option string)) knowledge-node)
-(defun knowledge--view-node (view identifier proposition scope workspace)
+(-> knowledge--view-node
+    (knowledge-view string
+     &key (:proposition list) (:scope memory-scope) (:workspace (option string)))
+    knowledge-node)
+(defun knowledge--view-node (view identifier &key proposition scope workspace)
   "Return VIEW's node IDENTIFIER, creating it for PROPOSITION when absent."
   (or (gethash identifier (knowledge-view-nodes view))
       (setf (gethash identifier (knowledge-view-nodes view))
@@ -370,9 +373,9 @@ second after its valid-until time, so those are the instants that change it."
     (loop for entry being the hash-values of (knowledge-base-claims base)
           when (knowledge-visible-p (getf entry :scope) (getf entry :workspace) workspace)
             do (let ((node (knowledge--view-node view (getf entry :id)
-                                                 (getf entry :proposition)
-                                                 (getf entry :scope)
-                                                 (getf entry :workspace))))
+                                                 :proposition (getf entry :proposition)
+                                                 :scope       (getf entry :scope)
+                                                 :workspace   (getf entry :workspace))))
                  (dolist (support-identifier (getf entry :supports))
                    (let ((support (knowledge-base-support base support-identifier)))
                      (knowledge--note-boundaries view support
@@ -536,7 +539,9 @@ are independent support paths even when their propositions agree."
                                            view
                                            (knowledge-claim-identifier proposition
                                                                        :scope scope :workspace workspace)
-                                           proposition scope workspace))
+                                           :proposition proposition
+                                           :scope       scope
+                                           :workspace   workspace))
                      (premise-identifiers (mapcar #'knowledge-node-identifier premises))
                      (justification
                        (knowledge-digest-identifier

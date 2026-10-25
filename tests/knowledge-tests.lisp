@@ -1937,9 +1937,10 @@
                  (loop for (scope basis) in '((:global :observation) (:workspace :model-proposal))
                        collect (let ((node (knowledge--view-node
                                             view (symbol-name scope)
-                                            '(:not ("item.blocked" "a")) scope
-                                            (and (eq scope ':workspace)
-                                                 (knowledge-view-workspace view)))))
+                                            :proposition '(:not ("item.blocked" "a"))
+                                            :scope       scope
+                                            :workspace   (and (eq scope ':workspace)
+                                                              (knowledge-view-workspace view)))))
                                  (setf (knowledge-node-supports node)
                                        (list (list :state :current :basis basis))
                                        (knowledge-node-bases node) (list (list basis)))
