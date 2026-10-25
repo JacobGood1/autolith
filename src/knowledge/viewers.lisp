@@ -45,15 +45,15 @@
   "Return the locked snapshot store of viewer state."
   (let ((pathname (configuration-knowledge-viewers-path configuration)))
     (make-instance 'sexp-store:snapshot-store
-                   :pathname pathname
-                   :lock-pathname (readable-state-lock-pathname pathname "knowledge-viewers.lock")
-                   :initial-state #'list
-                   :validator #'knowledge-viewer--form-p
-                   :decoder (lambda (form) (copy-tree (getf (rest form) :viewers)))
-                   :encoder (lambda (viewers)
-                              (list :knowledge-viewers
-                                    :version *knowledge-viewer-format-version*
-                                    :viewers viewers))
+                   :pathname           pathname
+                   :lock-pathname      (readable-state-lock-pathname pathname "knowledge-viewers.lock")
+                   :initial-state      #'list
+                   :validator          #'knowledge-viewer--form-p
+                   :decoder            (lambda (form) (copy-tree (getf (rest form) :viewers)))
+                   :encoder            (lambda (viewers)
+                                         (list :knowledge-viewers
+                                               :version *knowledge-viewer-format-version*
+                                               :viewers viewers))
                    :recover-read-error (lambda (condition)
                                          (declare (ignore condition))
                                          nil))))
@@ -82,10 +82,10 @@ result."
              (if (eq snapshot ':keep)
                  (values viewers result nil)
                  (let ((others (remove entry viewers)))
-                   (values (cons (list :viewer viewer
+                   (values (cons (list :viewer    viewer
                                        :workspace workspace
-                                       :time time
-                                       :snapshot snapshot)
+                                       :time      time
+                                       :snapshot  snapshot)
                                  (subseq others 0 (min (length others)
                                                        (1- *knowledge-viewer-limit*))))
                            result
