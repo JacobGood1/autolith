@@ -17,8 +17,8 @@
   (:documentation "An optional structural operation violates workspace adapter policy."))
 
 (defclass structural-state ()
-  ((entries :initform (make-hash-table :test #'eq :weakness :key)
-            :reader structural-state-entries
+  ((entries :initform      (make-hash-table :test #'eq :weakness :key)
+            :reader        structural-state-entries
             :documentation "Conversation-keyed bounded immutable rewrite proposals.")
    (lock :initform (make-lock "structural proposals") :reader structural-state-lock
          :documentation "Serializes proposal retention and consumption."))
@@ -55,7 +55,7 @@
       (structural--fail ':unsupported-resource "Structural queries require an existing regular text file."))
     (values resource
             (clasted:make-snapshot :file (resource-uri resource) :revision revision
-                                   :text (resource-observation-content observation)
+                                   :text          (resource-observation-content observation)
                                    :maximum-bytes *structural-maximum-bytes*))))
 
 (-> structural--backend
@@ -82,16 +82,16 @@
 (-> structural--request (structural-proposal) cl-resources:resource-change)
 (defun structural--request (proposal)
   "Build a fresh revision-guarded resource request from a retained immutable preview."
-  (let* ((plan (structural-proposal-plan proposal))
+  (let* ((plan     (structural-proposal-plan proposal))
          (snapshot (clasted:plan-snapshot plan)))
     (cl-resources:make-resource-change
      (structural-proposal-resource proposal) :base-revision (clasted:snapshot-revision snapshot)
-     :operations (list (make-instance 'workspace-content-operation :content (clasted:plan-preview plan))))))
+     :operations                                            (list (make-instance 'workspace-content-operation :content (clasted:plan-preview plan))))))
 
 (-> structural--present (structural-proposal) json-object)
 (defun structural--present (proposal)
   "Return the complete bounded preview and exact original-coordinate edit list."
-  (let* ((plan (structural-proposal-plan proposal))
+  (let* ((plan     (structural-proposal-plan proposal))
          (snapshot (clasted:plan-snapshot plan)))
     (json-object
      "proposal" (structural-proposal-identifier proposal)
@@ -107,7 +107,7 @@
   "Retain a bounded conversation-local preview without evicting active applications."
   (with-lock-held ((structural-state-lock state))
     (let* ((conversation (tool-context-conversation context))
-           (entries (gethash conversation (structural-state-entries state))))
+           (entries      (gethash conversation (structural-state-entries state))))
       (loop while (>= (length entries) *structural-maximum-proposals*)
             for oldest = (find-if-not #'structural-proposal-applying-p entries :from-end t)
             do (unless oldest
@@ -123,7 +123,6 @@
         (find identifier (gethash (tool-context-conversation context) (structural-state-entries state))
               :key #'structural-proposal-identifier :test #'equal))
       (structural--fail ':unknown-proposal "Proposal is unknown, consumed or evicted; prepare a new rewrite.")))
-
 
 (-> structural--reserve (structural-state tool-context structural-proposal) null)
 (defun structural--reserve (state context proposal)
