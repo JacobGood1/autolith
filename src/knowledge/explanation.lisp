@@ -33,32 +33,45 @@
 (-> knowledge-evidence-text (list) string)
 (defun knowledge-evidence-text (evidence)
   "Return a short description of where EVIDENCE, an evidence plist, came from."
-  (let* ((source (getf evidence :source))
+  (let* ((source     (getf evidence :source))
          (properties (rest source))
-         (quote (getf properties :quote)))
+         (quote      (getf properties :quote)))
     (format nil "~A~@[ \"~A\"~]"
             (ecase (first source)
-              (:file (getf properties :path))
-              (:url (getf properties :url))
-              (:user "you said")
-              (:tool (format nil "tool ~A" (getf properties :name)))
-              (:memory (format nil "memory ~A" (getf properties :id)))
-              (:mission (format nil "mission ~A" (getf properties :id)))
-              (:skill (format nil "skill ~A" (getf properties :id))))
+              (:file
+               (getf properties :path))
+              (:url
+               (getf properties :url))
+              (:user
+               "you said")
+              (:tool
+               (format nil "tool ~A" (getf properties :name)))
+              (:memory
+               (format nil "memory ~A" (getf properties :id)))
+              (:mission
+               (format nil "mission ~A" (getf properties :id)))
+              (:skill
+               (format nil "skill ~A" (getf properties :id))))
             quote)))
 
 (-> knowledge-applicability-text (keyword (option keyword)) string)
 (defun knowledge-applicability-text (state reason)
   "Return why evidence in STATE, refined by REASON, does or does not apply."
   (ecase state
-    (:current "holds")
-    (:changed "changed")
-    (:missing (if (eq reason ':forgotten) "was forgotten" "is missing"))
-    (:expired "expired")
-    (:retracted "was retracted")
-    (:pending "is not valid yet")
-    (:unverified "could not be checked")))
-
+    (:current
+     "holds")
+    (:changed
+     "changed")
+    (:missing
+     (if (eq reason ':forgotten) "was forgotten" "is missing"))
+    (:expired
+     "expired")
+    (:retracted
+     "was retracted")
+    (:pending
+     "is not valid yet")
+    (:unverified
+     "could not be checked")))
 
 (-> knowledge-node-json (knowledge-view knowledge-node) json-object)
 (defun knowledge-node-json (view node)
@@ -112,12 +125,12 @@ supported; a derived fact names its rule version."
   (let ((evidence (and (getf support :evidence)
                        (knowledge-base-evidence-record (knowledge-view-base view)
                                                        (getf support :evidence)))))
-    (list :support (getf support :id)
-          :basis (getf support :basis)
-          :state (getf support :state)
-          :reason (getf support :reason)
-          :evidence (and evidence (getf evidence :id))
-          :text (if evidence (knowledge-evidence-text evidence) "assumed")
+    (list :support     (getf support :id)
+          :basis       (getf support :basis)
+          :state       (getf support :state)
+          :reason      (getf support :reason)
+          :evidence    (and evidence (getf evidence :id))
+          :text        (if evidence (knowledge-evidence-text evidence) "assumed")
           :observed-at (and evidence (getf evidence :observed-at)))))
 
 (-> knowledge-explain
@@ -129,14 +142,14 @@ supported; a derived fact names its rule version."
 IDENTIFIERS is one claim identifier or a cursor returned earlier. Claims are
 expanded breadth first, at most LIMIT per page; a premise left unexpanded is
 marked :MORE and its identifier joins the returned cursor."
-  (let ((queue (if (stringp identifiers) (list identifiers) (copy-list identifiers)))
-        (trees (make-hash-table :test #'equal))
-        (roots (if (stringp identifiers) (list identifiers) (copy-list identifiers)))
+  (let ((queue    (if (stringp identifiers) (list identifiers) (copy-list identifiers)))
+        (trees    (make-hash-table :test #'equal))
+        (roots    (if (stringp identifiers) (list identifiers) (copy-list identifiers)))
         (expanded 0)
-        (cursor nil))
+        (cursor   nil))
     (loop while queue
           do (let* ((identifier (pop queue))
-                    (node (knowledge-view-node view identifier)))
+                    (node       (knowledge-view-node view identifier)))
                (cond
                  ((gethash identifier trees))
                  ((null node)
@@ -149,19 +162,19 @@ marked :MORE and its identifier joins the returned cursor."
                  (t
                   (incf expanded)
                   (setf (gethash identifier trees)
-                        (list :claim identifier
-                              :text (knowledge-node-text node)
-                              :status (knowledge-node-status view node)
+                        (list :claim         identifier
+                              :text          (knowledge-node-text node)
+                              :status        (knowledge-node-status view node)
                               :applicability (knowledge-node-applicability node)
-                              :bases (knowledge-node-bases node)
-                              :conflicts (knowledge-node-conflicts node)
-                              :supports (mapcar (lambda (support)
-                                                  (knowledge--explain-support view support))
-                                                (knowledge-node-supports node))
+                              :bases         (knowledge-node-bases node)
+                              :conflicts     (knowledge-node-conflicts node)
+                              :supports      (mapcar (lambda (support)
+                                                       (knowledge--explain-support view support))
+                                                     (knowledge-node-supports node))
                               :justifications
                               (mapcar (lambda (justification)
-                                        (list :rule (getf justification :rule)
-                                              :version (getf justification :version)
+                                        (list :rule     (getf justification :rule)
+                                              :version  (getf justification :version)
                                               :bindings (getf justification :bindings)
                                               :premises (getf justification :premises)))
                                       (knowledge-node-justifications node))))
@@ -197,12 +210,12 @@ a derived claim's first derivation, so a later withdrawal can name its cause."
   (sort
    (loop for node being the hash-values of (knowledge-view-nodes view)
          when (knowledge-node-supported-p node)
-           collect (list :claim (knowledge-node-identifier node)
-                         :text (knowledge-node-text node)
-                         :key (and (knowledge-node-schema node)
-                                   (knowledge-proposition-key (knowledge-node-proposition node)
-                                                              (knowledge-node-schema node)))
-                         :premises (getf (first (knowledge-node-justifications node)) :premises)
+           collect (list :claim      (knowledge-node-identifier node)
+                         :text       (knowledge-node-text node)
+                         :key        (and (knowledge-node-schema node)
+                                          (knowledge-proposition-key (knowledge-node-proposition node)
+                                                                     (knowledge-node-schema node)))
+                         :premises   (getf (first (knowledge-node-justifications node)) :premises)
                          :conflicted (and (knowledge-node-conflicts node) t)))
    #'string< :key (lambda (entry) (getf entry :claim))))
 
@@ -240,10 +253,10 @@ a derived claim's first derivation, so a later withdrawal can name its cause."
 Changes are plists of :KIND :CHANGED (a keyed value moved :FROM one text :TO
 another), :NEW, :WITHDRAWN (with :CAUSES), or :CONFLICT."
   (let* ((current (knowledge-view-snapshot view))
-         (before (make-hash-table :test #'equal))
-         (after (make-hash-table :test #'equal))
+         (before  (make-hash-table :test #'equal))
+         (after   (make-hash-table :test #'equal))
          (changes nil)
-         (moved (make-hash-table :test #'equal)))
+         (moved   (make-hash-table :test #'equal)))
     (dolist (entry snapshot)
       (setf (gethash (getf entry :claim) before) entry))
     (dolist (entry current)
@@ -258,10 +271,10 @@ another), :NEW, :WITHDRAWN (with :CAUSES), or :CONFLICT."
           (cond
             (replaced
              (setf (gethash (getf replaced :claim) moved) t)
-             (push (list :kind ':changed
-                         :claim (getf entry :claim)
-                         :from (getf replaced :text)
-                         :to (getf entry :text)
+             (push (list :kind   ':changed
+                         :claim  (getf entry :claim)
+                         :from   (getf replaced :text)
+                         :to     (getf entry :text)
                          :causes (knowledge--withdrawal-causes view replaced))
                    changes))
             (t
@@ -270,9 +283,9 @@ another), :NEW, :WITHDRAWN (with :CAUSES), or :CONFLICT."
     (dolist (entry snapshot)
       (unless (or (gethash (getf entry :claim) after)
                   (gethash (getf entry :claim) moved))
-        (push (list :kind ':withdrawn
-                    :claim (getf entry :claim)
-                    :text (getf entry :text)
+        (push (list :kind   ':withdrawn
+                    :claim  (getf entry :claim)
+                    :text   (getf entry :text)
                     :causes (knowledge--withdrawal-causes view entry))
               changes)))
     (dolist (entry current)
@@ -288,10 +301,14 @@ another), :NEW, :WITHDRAWN (with :CAUSES), or :CONFLICT."
   "Return one line describing each knowledge change."
   (mapcar (lambda (change)
             (ecase (getf change :kind)
-              (:new (format nil "now holds: ~A (~A)" (getf change :text) (getf change :claim)))
-              (:withdrawn (format nil "no longer holds: ~A~@[ because ~{~A~^; ~}~]"
-                                  (getf change :text) (getf change :causes)))
-              (:changed (format nil "changed: ~A, was ~A" (getf change :to) (getf change :from)))
-              (:conflict (format nil "conflicts: ~A (~A)" (getf change :text)
-                                 (getf change :claim)))))
+              (:new
+               (format nil "now holds: ~A (~A)" (getf change :text) (getf change :claim)))
+              (:withdrawn
+               (format nil "no longer holds: ~A~@[ because ~{~A~^; ~}~]"
+                       (getf change :text) (getf change :causes)))
+              (:changed
+               (format nil "changed: ~A, was ~A" (getf change :to) (getf change :from)))
+              (:conflict
+               (format nil "conflicts: ~A (~A)" (getf change :text)
+                       (getf change :claim)))))
           changes))
