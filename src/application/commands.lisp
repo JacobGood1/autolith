@@ -2197,9 +2197,6 @@ are forwarded to TERMINAL-UI-SELECT."
             (terminal-ui-start ui)
             (application--authentication-ui-resume ui)))))
 
-(-> terminal-authentication-streams
-    (terminal)
-    (values stream stream boolean boolean (option integer)))
 (defgeneric terminal-authentication-streams (terminal)
   (:documentation
    "Return authentication input, output, UI-stop, echo, and descriptor state for TERMINAL."))
