@@ -28,7 +28,7 @@
     (unless (and (non-empty-string-p access-token)
                  (jwt-payload access-token))
       (device-authentication-fail
-       :stage ':credentials
+       :stage   ':credentials
        :message "The Nous device flow did not return an access JWT."))
     (unless (nous-authentication--access-token-scope-p
              access-token
@@ -85,23 +85,23 @@
                (non-empty-string-p client-id)
                (plusp poll-timeout))
     (device-authentication-fail
-     :stage ':configuration
+     :stage   ':configuration
      :message "Nous device authentication configuration is invalid."))
   (make-instance
    'nous-device-authentication-client
-   :issuer (string-right-trim '(#\/) portal-url)
-   :client-id client-id
+   :issuer           (string-right-trim '(#\/) portal-url)
+   :client-id        client-id
    :device-code-path "/api/oauth/device/code"
-   :token-path "/api/oauth/token"
-   :scope *nous-oauth-scope*
+   :token-path       "/api/oauth/token"
+   :scope            *nous-oauth-scope*
    :request-function
    (or request-function #'device-authentication-request)
    :poll-function
    (or poll-function #'rfc8628-device-authentication-poll-for-tokens)
-   :sleep-function sleep-function
-   :clock-function clock-function
+   :sleep-function   sleep-function
+   :clock-function   clock-function
    :browser-function browser-function
-   :poll-timeout poll-timeout))
+   :poll-timeout     poll-timeout))
 
 (defmethod device-authentication-display-code
     ((client nous-device-authentication-client)
