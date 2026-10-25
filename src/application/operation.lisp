@@ -25,18 +25,23 @@ A present NIL entry records ambiguous provenance.")
   (:documentation "One immutable user-facing registered operation."))
 
 (defclass application-command-operation (application-operation)
-  ((backend :type application-command))
+  ((backend
+    :type          application-command
+    :documentation "The registered interactive command this operation invokes."))
   (:documentation "A user-facing interactive command operation."))
 
 (defclass application-local-operation (application-operation)
-  ((backend :type symbol))
+  ((backend
+    :type          symbol
+    :documentation "The symbol naming the built-in local Lisp operation."))
   (:documentation "A built-in local Lisp operation."))
 
 (defclass application-tool-operation (application-operation)
-  ((backend :type tool))
+  ((backend
+    :type          tool
+    :documentation "The registered tool this operation calls locally."))
   (:documentation "A locally callable tool operation."))
 
-(-> application-operation-kind (application-operation) keyword)
 (defgeneric application-operation-kind (operation)
   (:documentation "Return OPERATION's compatibility family keyword."))
 
@@ -55,27 +60,18 @@ A present NIL entry records ambiguous provenance.")
   (declare (ignore operation))
   ':tool)
 
-(-> application-operation-completion-argument (application-operation) (option string))
 (defgeneric application-operation-completion-argument (operation)
   (:documentation "Return OPERATION's completion argument suffix, when present."))
 
-(-> application-operation-active-turn-action
-    (application-operation (or list application-command-invocation))
-    (member :apply :cancel :execute :hold))
 (defgeneric application-operation-active-turn-action (operation arguments)
   (:documentation "Return OPERATION's active-turn admission for native arguments or a parsed command invocation."))
 
-(-> application-operation-immediate-arguments-p (application-operation list) boolean)
 (defgeneric application-operation-immediate-arguments-p (operation argument-forms)
   (:documentation "Return whether OPERATION may inspect ARGUMENT-FORMS immediately."))
 
-(-> application-operation-invoke
-    (application-operation application (or list hash-table application-command-invocation)
-     &key (:context (option tool-context))) t)
 (defgeneric application-operation-invoke (operation application arguments &key context)
   (:documentation "Invoke OPERATION with native arguments, a parsed command invocation, or a tool's JSON object and explicit CONTEXT."))
 
-(-> application-operation-binding-eligible-p (application-operation) boolean)
 (defgeneric application-operation-binding-eligible-p (operation)
   (:documentation "Return whether OPERATION receives a canonical function binding."))
 
@@ -228,10 +224,6 @@ A present NIL entry records ambiguous provenance.")
       ':invalid-content
       "PROMPT content must be a string or rich user message input."))))
 
-(-> application-submit-prompt
-    (application non-empty-string (or string user-message-input)
-     &key (:prefer-steering-p boolean))
-    list)
 (defgeneric application-submit-prompt
     (application target input &key prefer-steering-p)
   (:documentation
@@ -275,7 +267,7 @@ A present NIL entry records ambiguous provenance.")
         (target-supplied-p nil)
         (images-supplied-p nil)
         (content           (first (last arguments))))
-    (loop for (key value) on (butlast arguments) by #'cddr
+    (loop for (key value) on (butlast arguments) by (partial #'nthcdr 2)
           do (case key
                (:to
                 (when target-supplied-p
@@ -339,7 +331,6 @@ local-user override."
                   :backend     'vault-contents))
   "The built-in local forms advertised beside registered commands and tools.")
 
-(-> tool-user-callable-p (tool) boolean)
 (defgeneric tool-user-callable-p (tool)
   (:documentation "Return whether TOOL belongs to the local user's operation surface."))
 
@@ -353,7 +344,6 @@ local-user override."
   (declare (ignore tool))
   nil)
 
-(-> tool-active-turn-action (tool) (member :execute :hold))
 (defgeneric tool-active-turn-action (tool)
   (:documentation
    "Return whether an explicit local call to TOOL may overlap an active turn."))
@@ -783,7 +773,7 @@ paths that do not contain QUERY as a contiguous substring."
            :message
            "A local tool call requires alternating keyword and value arguments."))
   (let ((object (json-object)))
-    (loop for (key value) on arguments by #'cddr
+    (loop for (key value) on arguments by (partial #'nthcdr 2)
           for name = (application-operation--json-key key)
           do
              (when (nth-value 1 (gethash name object))
@@ -910,7 +900,7 @@ wait for the serialized application boundary."
            (eq (first form) 'setf)
            (rest form)
            (evenp (length (rest form)))
-           (loop for place in (rest form) by #'cddr
+           (loop for place in (rest form) by (partial #'nthcdr 2)
                  always (application-operation--vault-place-p place)))))
 
 
@@ -959,7 +949,6 @@ wait for the serialized application boundary."
       (:quit
        (error 'application-operation-loop-action :action ':quit)))))
 
-(-> application-lisp--native-tool-value (tool-result) (values t boolean))
 (defgeneric application-lisp--native-tool-value (result)
   (:documentation
    "Return RESULT's exact native value and presence flag, or NIL and NIL.
