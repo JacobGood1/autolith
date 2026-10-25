@@ -30,25 +30,25 @@ Replays and fixtures bind it to evaluate expiry deterministically.")
 
 (defclass evidence-check ()
   ((now
-    :initarg :now
-    :reader evidence-check-now
-    :type timestamp
+    :initarg       :now
+    :reader        evidence-check-now
+    :type          timestamp
     :documentation "The time the check evaluates validity and expiry against.")
    (memories
-    :initarg :memories
-    :initform (make-hash-table :test #'equal)
-    :reader evidence-check-memories
-    :type hash-table
+    :initarg       :memories
+    :initform      (make-hash-table :test #'equal)
+    :reader        evidence-check-memories
+    :type          hash-table
     :documentation "Active prose memories by identifier, for memory evidence.")
    (files
-    :initform (make-hash-table :test #'equal)
-    :reader evidence-check-files
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        evidence-check-files
+    :type          hash-table
     :documentation "Each cited file's (TEXT FAILURE STATUS-KEY), read at most once per check.")
    (results
-    :initform (make-hash-table :test #'equal)
-    :reader evidence-check-results
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        evidence-check-results
+    :type          hash-table
     :documentation "Evidence outcomes by identifier, computed at most once."))
   (:documentation "One consistent pass deciding which evidence applies now."))
 
@@ -59,9 +59,12 @@ Replays and fixtures bind it to evaluate expiry deterministically.")
 (defun knowledge-source-lifetime (source)
   "Return the seconds evidence from SOURCE stays valid, or NIL when it does not expire."
   (case (first source)
-    (:url *knowledge-url-lifetime*)
-    (:tool *knowledge-tool-lifetime*)
-    (otherwise nil)))
+    (:url
+     *knowledge-url-lifetime*)
+    (:tool
+     *knowledge-tool-lifetime*)
+    (otherwise
+     nil)))
 
 (-> knowledge-observe
     (&key (:source list) (:workspace (option string)) (:digest (option string))
@@ -106,7 +109,7 @@ Replays and fixtures bind it to evaluate expiry deterministically.")
 
 The file's status is taken before reading, so a later change to the file is
 never mistaken for the content that was read."
-  (let* ((key (namestring pathname))
+  (let* ((key   (namestring pathname))
          (entry (or (gethash key (evidence-check-files check))
                     (setf (gethash key (evidence-check-files check))
                           (let ((status (knowledge-file-status-key pathname)))
@@ -141,11 +144,11 @@ never mistaken for the content that was read."
 The first value is a KNOWLEDGE-APPLICABILITY; the second refines it, such as
 the read failure of an unverified file."
   (let* ((identifier (getf evidence :id))
-         (cached (gethash identifier (evidence-check-results check))))
+         (cached     (gethash identifier (evidence-check-results check))))
     (if cached
         (values (first cached) (second cached))
         (multiple-value-bind (state reason)
-            (let ((source (getf evidence :source))
+            (let ((source      (getf evidence :source))
                   (valid-until (getf evidence :valid-until)))
               (cond
                 ((and valid-until (> (evidence-check-now check) valid-until))
@@ -175,7 +178,7 @@ the read failure of an unverified file."
     (values keyword (option keyword)))
 (defun evidence-check-support (check base support)
   "Return whether SUPPORT, a support plist, applies at CHECK's time, and why not."
-  (let ((now (evidence-check-now check))
+  (let ((now      (evidence-check-now check))
         (evidence (and (getf support :evidence)
                        (knowledge-base-evidence-record base (getf support :evidence)))))
     (cond
@@ -201,14 +204,14 @@ correctively when the file cannot support anything."
   (let* ((observed (memory-source-observe-file pathname :quote quote :time time))
          (relative (and workspace
                         (uiop:subpathp pathname (uiop:ensure-directory-pathname workspace)))))
-    (knowledge-observe :source (list :file
-                                     :path (if relative
-                                               (uiop:unix-namestring relative)
-                                               (getf (rest observed) :path))
-                                     :relative (and relative t)
-                                     :quote quote)
+    (knowledge-observe :source    (list :file
+                                        :path (if relative
+                                                  (uiop:unix-namestring relative)
+                                                  (getf (rest observed) :path))
+                                        :relative (and relative t)
+                                        :quote    quote)
                        :workspace (and relative workspace)
-                       :digest (getf (rest observed) :digest)
-                       :excerpt quote
-                       :adapter "file/1"
-                       :time time)))
+                       :digest    (getf (rest observed) :digest)
+                       :excerpt   quote
+                       :adapter   "file/1"
+                       :time      time)))
