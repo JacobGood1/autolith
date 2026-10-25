@@ -4,65 +4,65 @@
 
 (defclass image-commit ()
   ((identifier
-    :initarg :identifier
-    :reader image-commit-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        image-commit-identifier
+    :type          non-empty-string
     :documentation "The immutable private commit identifier.")
    (directory
-    :initarg :directory
-    :reader image-commit-directory
-    :type pathname
+    :initarg       :directory
+    :reader        image-commit-directory
+    :type          pathname
     :documentation "The directory containing this commit's artifacts.")
    (manifest-pathname
-    :initarg :manifest-pathname
-    :reader image-commit-manifest-pathname
-    :type pathname
+    :initarg       :manifest-pathname
+    :reader        image-commit-manifest-pathname
+    :type          pathname
     :documentation "The portable commit manifest pathname.")
    (script-pathname
-    :initarg :script-pathname
-    :reader image-commit-script-pathname
-    :type pathname
+    :initarg       :script-pathname
+    :reader        image-commit-script-pathname
+    :type          pathname
     :documentation "The complete Lisp replay script pathname.")
    (parent-identifier
-    :initarg :parent-identifier
-    :reader image-commit-parent-identifier
-    :type (option string)
+    :initarg       :parent-identifier
+    :reader        image-commit-parent-identifier
+    :type          (option string)
     :documentation "The preceding private image commit, or NIL at the base.")
    (title
-    :initarg :title
-    :reader image-commit-title
-    :type non-empty-string
+    :initarg       :title
+    :reader        image-commit-title
+    :type          non-empty-string
     :documentation "The short reason recorded for this private commit.")
    (source-commit
-    :initarg :source-commit
-    :reader image-commit-source-commit
-    :type (option string)
+    :initarg       :source-commit
+    :reader        image-commit-source-commit
+    :type          (option string)
     :documentation "The tracked base source revision, when known.")
    (history-commit
-    :initarg :history-commit
-    :initform nil
-    :reader image-commit-history-commit
-    :type (option string)
+    :initarg       :history-commit
+    :initform      nil
+    :reader        image-commit-history-commit
+    :type          (option string)
     :documentation "The private Git commit retaining this snapshot's artifacts.")
    (entries
-    :initarg :entries
-    :reader image-commit-entries
-    :type list
+    :initarg       :entries
+    :reader        image-commit-entries
+    :type          list
     :documentation "The complete effective replay entries at this commit.")
    (consumed-mutation-identifiers
-    :initarg :consumed-mutation-identifiers
-    :reader image-commit-consumed-mutation-identifiers
-    :type list
+    :initarg       :consumed-mutation-identifiers
+    :reader        image-commit-consumed-mutation-identifiers
+    :type          list
     :documentation "Every exploratory mutation consumed by this lineage.")
    (journal-position
-    :initarg :journal-position
-    :reader image-commit-journal-position
-    :type integer
+    :initarg       :journal-position
+    :reader        image-commit-journal-position
+    :type          integer
     :documentation "The mutation journal byte position at publication.")
    (created-at
-    :initarg :created-at
-    :reader image-commit-created-at
-    :type timestamp
+    :initarg       :created-at
+    :reader        image-commit-created-at
+    :type          timestamp
     :documentation "The commit creation time as Common Lisp universal time."))
   (:documentation
    "An immutable private snapshot of reconstructible live-image mutations."))
@@ -91,11 +91,11 @@
   "Return IDENTIFIER's private commit directory beneath CONFIGURATION."
   (unless (image-commit--identifier-p identifier)
     (error 'image-commit-error
-           :message (format nil "Invalid private image commit identifier ~S."
-                            identifier)
+           :message   (format nil "Invalid private image commit identifier ~S."
+                              identifier)
            :tool-name "self.commit"
-           :pathname (configuration-image-commit-root configuration)
-           :stage ':manifest))
+           :pathname  (configuration-image-commit-root configuration)
+           :stage     ':manifest))
   (merge-pathnames (format nil "~A/" identifier)
                    (configuration-image-commit-root configuration)))
 
@@ -105,7 +105,7 @@
   (let ((journal (configuration-journal-path configuration)))
     (if (probe-file journal)
         (with-open-file (stream journal
-                                :direction ':input
+                                :direction    ':input
                                 :element-type '(unsigned-byte 8))
           (file-length stream))
         0)))
@@ -131,7 +131,7 @@
                  (namestring
                   (configuration-mutation-history-root configuration)))
            arguments)
-   :output ':string
+   :output       ':string
    :error-output ':output))
 
 (-> image-history--ensure-repository (configuration) pathname)
@@ -142,7 +142,7 @@
     (unless (uiop:directory-exists-p (merge-pathnames ".git/" root))
       (uiop:run-program
        (list "git" "init" "--quiet" (namestring root))
-       :output ':string
+       :output       ':string
        :error-output ':output))
     root))
 
@@ -170,12 +170,12 @@
 (defun image-history-commit
     (configuration &key identifier title manifest-pathname script-pathname)
   "Commit IDENTIFIER's replay artifacts to private Git history under TITLE."
-  (let* ((root (configuration-mutation-history-root configuration))
-         (directory (image-history--artifact-directory configuration
-                                                        identifier))
+  (let* ((root               (configuration-mutation-history-root configuration))
+         (directory          (image-history--artifact-directory configuration
+                                                                 identifier))
          (relative-directory (format nil "commits/~A" identifier))
-         (history-manifest (merge-pathnames "manifest.sexp" directory))
-         (history-script (merge-pathnames "reconstruct.lisp" directory)))
+         (history-manifest   (merge-pathnames "manifest.sexp" directory))
+         (history-script     (merge-pathnames "reconstruct.lisp" directory)))
     (handler-case
         (progn
           (image-history--ensure-repository configuration)
@@ -186,8 +186,8 @@
                            "Private mutation history already contains ~A."
                            identifier)
                    :tool-name "self.commit"
-                   :pathname directory
-                   :stage ':history))
+                   :pathname  directory
+                   :stage     ':history))
           (ensure-directories-exist history-manifest)
           (uiop:copy-file manifest-pathname history-manifest)
           (uiop:copy-file script-pathname history-script)
@@ -215,11 +215,11 @@
         (error condition))
       (error (condition)
         (error 'image-commit-error
-               :message (format nil "Could not retain mutation history: ~A"
-                                condition)
+               :message   (format nil "Could not retain mutation history: ~A"
+                                  condition)
                :tool-name "self.commit"
-               :pathname root
-               :stage ':history)))))
+               :pathname  root
+               :stage     ':history)))))
 
 (-> image-history--restore-artifact
     (configuration &key (:history-commit string)
@@ -240,38 +240,38 @@
                history-commit identifier artifact-name))))
     (error (condition)
       (error 'image-commit-error
-             :message (format nil "Could not restore private image commit: ~A"
-                              condition)
+             :message   (format nil "Could not restore private image commit: ~A"
+                                condition)
              :tool-name "self.commit"
-             :pathname pathname
-             :stage ':history))))
+             :pathname  pathname
+             :stage     ':history))))
 
 (-> image-history-restore (configuration string string) null)
 (defun image-history-restore (configuration identifier history-commit)
   "Restore missing canonical artifacts for IDENTIFIER from HISTORY-COMMIT."
   (unless (image-history--commit-p history-commit)
     (error 'image-commit-error
-           :message "The selected mutation-history Git identity is invalid."
+           :message   "The selected mutation-history Git identity is invalid."
            :tool-name "self.commit"
-           :pathname (configuration-current-image-commit-path configuration)
-           :stage ':selection))
-  (let* ((directory (image-commit--directory configuration identifier))
+           :pathname  (configuration-current-image-commit-path configuration)
+           :stage     ':selection))
+  (let* ((directory         (image-commit--directory configuration identifier))
          (manifest-pathname (merge-pathnames "manifest.sexp" directory))
-         (script-pathname (merge-pathnames "reconstruct.lisp" directory)))
+         (script-pathname   (merge-pathnames "reconstruct.lisp" directory)))
     (unless (probe-file manifest-pathname)
       (image-history--restore-artifact
        configuration
        :history-commit history-commit
-       :identifier identifier
-       :artifact-name "manifest.sexp"
-       :pathname manifest-pathname))
+       :identifier     identifier
+       :artifact-name  "manifest.sexp"
+       :pathname       manifest-pathname))
     (unless (probe-file script-pathname)
       (image-history--restore-artifact
        configuration
        :history-commit history-commit
-       :identifier identifier
-       :artifact-name "reconstruct.lisp"
-       :pathname script-pathname)))
+       :identifier     identifier
+       :artifact-name  "reconstruct.lisp"
+       :pathname       script-pathname)))
   nil)
 
 (-> image-commit--entry-p (t) boolean)
@@ -305,15 +305,15 @@
   "Return a complete private image-commit manifest form."
   (list :image-commit
         :version 1
-        :id identifier
-        :parent parent-identifier
-        :title title
-        :source-commit source-commit
-        :script (namestring script-pathname)
-        :entries entries
+        :id                 identifier
+        :parent             parent-identifier
+        :title              title
+        :source-commit      source-commit
+        :script             (namestring script-pathname)
+        :entries            entries
         :consumed-mutations consumed-mutation-identifiers
-        :journal-position journal-position
-        :created-at created-at))
+        :journal-position   journal-position
+        :created-at         created-at))
 
 (-> image-commit-load
     (configuration string &key (:history-commit (option string)))
@@ -334,19 +334,19 @@
   (let ((manifest-pathname (merge-pathnames "manifest.sexp" directory)))
     (unless (probe-file manifest-pathname)
       (error 'image-commit-error
-             :message (format nil "Private image commit ~A has no manifest."
-                              identifier)
+             :message   (format nil "Private image commit ~A has no manifest."
+                                identifier)
              :tool-name "self.commit"
-             :pathname manifest-pathname
-             :stage ':manifest))
-    (let* ((form (read-portable-form manifest-pathname))
-           (properties (and (listp form) (rest form)))
-           (script-value (and properties (getf properties :script)))
+             :pathname  manifest-pathname
+             :stage     ':manifest))
+    (let* ((form            (read-portable-form manifest-pathname))
+           (properties      (and (listp form) (rest form)))
+           (script-value    (and properties (getf properties :script)))
            (script-pathname (and (non-empty-string-p script-value)
                                  (pathname script-value)))
-           (entries (and properties (getf properties :entries)))
-           (consumed (and properties
-                          (getf properties :consumed-mutations))))
+           (entries         (and properties (getf properties :entries)))
+           (consumed        (and properties
+                                 (getf properties :consumed-mutations))))
       (unless (and (listp form)
                    (eq (first form) :image-commit)
                    (= (or (getf properties :version) 0) 1)
@@ -368,24 +368,24 @@
                    (not (minusp (getf properties :journal-position)))
                    (integerp (getf properties :created-at)))
         (error 'image-commit-error
-               :message (format nil "Invalid private image commit manifest at ~A."
-                                manifest-pathname)
+               :message   (format nil "Invalid private image commit manifest at ~A."
+                                  manifest-pathname)
                :tool-name "self.commit"
-               :pathname manifest-pathname
-               :stage ':manifest))
+               :pathname  manifest-pathname
+               :stage     ':manifest))
       (make-instance 'image-commit
-                     :identifier identifier
-                     :directory directory
-                     :manifest-pathname manifest-pathname
-                     :script-pathname script-pathname
-                     :parent-identifier (getf properties :parent)
-                     :title (getf properties :title)
-                     :source-commit (getf properties :source-commit)
-                     :history-commit history-commit
-                     :entries entries
+                     :identifier                    identifier
+                     :directory                     directory
+                     :manifest-pathname             manifest-pathname
+                     :script-pathname               script-pathname
+                     :parent-identifier             (getf properties :parent)
+                     :title                         (getf properties :title)
+                     :source-commit                 (getf properties :source-commit)
+                     :history-commit                history-commit
+                     :entries                       entries
                      :consumed-mutation-identifiers consumed
-                     :journal-position (getf properties :journal-position)
-                     :created-at (getf properties :created-at)))))
+                     :journal-position              (getf properties :journal-position)
+                     :created-at                    (getf properties :created-at)))))
 
 (-> image-commit--pointer-state
     (configuration)
@@ -395,8 +395,8 @@
   (let ((pathname (configuration-current-image-commit-path configuration)))
     (if (probe-file pathname)
       (let ((form (read-portable-form pathname)))
-        (let* ((properties (and (listp form) (rest form)))
-               (version (and properties (getf properties :version)))
+        (let* ((properties     (and (listp form) (rest form)))
+               (version        (and properties (getf properties :version)))
                (history-commit (and properties
                                     (getf properties :history-commit))))
           (unless (and (listp form)
@@ -406,13 +406,13 @@
                        (or (= version 1)
                            (image-history--commit-p history-commit)))
             (error 'image-commit-error
-                   :message "The current private image-commit pointer is invalid."
+                   :message   "The current private image-commit pointer is invalid."
                    :tool-name "self.commit"
-                   :pathname pathname
-                   :stage ':selection))
+                   :pathname  pathname
+                   :stage     ':selection))
           (values (getf properties :id)
                   (and (= version 2) history-commit))))
-        (values nil nil))))
+      (values nil nil))))
 
 (-> image-commit--pointer-identifier (configuration) (option string))
 (defun image-commit--pointer-identifier (configuration)
@@ -434,7 +434,6 @@
              (image-commit-load configuration identifier
                                 :history-commit history-commit)))))
 
-
 (-> image-commit-base-entries (configuration) list)
 (defun image-commit-base-entries (configuration)
   "Return a copy of the current private commit entries the image holds, or NIL.
@@ -452,7 +451,7 @@ running image holds their tracked definitions, so the next commit drops them."
   (let ((key (image-commit--entry-replay-key entry)))
     (and key
          (member key *image-replay-skips*
-                 :key #'image-replay-skip-key
+                 :key  #'image-replay-skip-key
                  :test #'string=)
          t)))
 
@@ -466,11 +465,11 @@ whose source does not read keeps its recorded target; replay never skips it."
   (let ((target (image-commit--entry-definition-target entry)))
     (and target
          (handler-case
-             (let* ((package (self-resolve-package
-                              (or (getf entry :package) "AUTOLITH")))
+             (let* ((package    (self-resolve-package
+                                 (or (getf entry :package) "AUTOLITH")))
                     (definition (self-read-form (getf entry :source)
                                                 :read-eval nil
-                                                :package package)))
+                                                :package   package)))
                (if (definition-form-p definition)
                    (let ((*package* package))
                      (definition-key definition))
@@ -559,15 +558,15 @@ The next commit leaves them out, so dropping them is a change worth committing."
   (unless (and *image-state-initialized-p*
                (non-empty-string-p *active-image-lineage-identifier*))
     (error 'image-commit-error
-           :message "The running image has not initialized its mutation lineage."
+           :message   "The running image has not initialized its mutation lineage."
            :tool-name "self.commit"
-           :pathname (configuration-current-image-commit-path configuration)
-           :stage ':selection))
-  (let* ((current (image-commit-current configuration))
-         (consumed (and current
-                        (image-commit-consumed-mutation-identifiers current)))
+           :pathname  (configuration-current-image-commit-path configuration)
+           :stage     ':selection))
+  (let* ((current               (image-commit-current configuration))
+         (consumed              (and current
+                                     (image-commit-consumed-mutation-identifiers current)))
          (records-by-identifier (make-hash-table :test #'equal))
-         (order nil))
+         (order                 nil))
     (dolist (record (mutation-journal-read-records configuration))
       (cond
         ((image-commit--record-p record *active-image-lineage-identifier*)
@@ -618,7 +617,7 @@ The next commit leaves them out, so dropping them is a change worth committing."
 (-> image-commit--same-target-p (list list) boolean)
 (defun image-commit--same-target-p (left right)
   "Return true when LEFT and RIGHT mutate the same semantic target."
-  (let ((left-properties (rest left))
+  (let ((left-properties  (rest left))
         (right-properties (rest right)))
     (and (eq (getf left-properties :kind)
              (getf right-properties :kind))
@@ -646,10 +645,10 @@ The next commit leaves them out, so dropping them is a change worth committing."
               (self-resolve-package (getf (rest record) :package))))
         (and (equal (self-read-form baseline
                                     :read-eval nil
-                                    :package package)
+                                    :package   package)
                     (self-read-form proposed
                                     :read-eval nil
-                                    :package package))
+                                    :package   package))
              t))
     (error ()
       (and (string= baseline proposed) t))))
@@ -673,11 +672,11 @@ The next commit leaves them out, so dropping them is a change worth committing."
 (defun image-commit--record->entry (record)
   "Convert one installed mutation journal RECORD to a replay entry."
   (let* ((properties (rest record))
-         (entry (list :kind (getf properties :kind)
-                      :id (getf properties :id)
-                      :target (getf properties :target)
-                      :package (or (getf properties :package) "AUTOLITH")
-                      :source (getf properties :proposed))))
+         (entry      (list :kind    (getf properties :kind)
+                           :id      (getf properties :id)
+                           :target  (getf properties :target)
+                           :package (or (getf properties :package) "AUTOLITH")
+                           :source  (getf properties :proposed))))
     (multiple-value-bind (present home-package)
         (get-properties properties '(:home-package))
       (when present
@@ -688,10 +687,10 @@ The next commit leaves them out, so dropping them is a change worth committing."
 (defun image-commit--tracked-source (configuration entry)
   "Return the tracked source that definition ENTRY shadows, or NIL for a new name."
   (handler-case
-      (let* ((package (self-resolve-package (getf entry :package)))
+      (let* ((package    (self-resolve-package (getf entry :package)))
              (definition (self-read-form (getf entry :source)
                                          :read-eval nil
-                                         :package package)))
+                                         :package   package)))
         (and (definition-form-p definition)
              (let ((*package* package))
                (self-tracked-definition-source configuration definition))))
@@ -842,8 +841,8 @@ broken commit becomes selectable."
              (format nil "The replayed image is missing core definitions: ~{~(~A~)~^, ~}."
                      missing)
              :tool-name "self.commit"
-             :pathname nil
-             :stage ':surface-battery)))
+             :pathname  nil
+             :stage     ':surface-battery)))
   nil)
 
 (-> image-commit-replay-probe-main (string string) null)
@@ -854,25 +853,25 @@ The manifest beside SCRIPT-NAME supplies the lineage the replay judges stale
 definitions against, so the probe skips exactly what a later boot skips."
   (unless (image-commit--identifier-p identifier)
     (error 'image-commit-error
-           :message "The clean replay probe received an invalid commit identity."
+           :message   "The clean replay probe received an invalid commit identity."
            :tool-name "self.commit"
-           :pathname nil
-           :stage ':replay-probe))
+           :pathname  nil
+           :stage     ':replay-probe))
   (let ((script (pathname script-name)))
     (unless (probe-file script)
       (error 'image-commit-error
-             :message "The clean replay probe script does not exist."
+             :message   "The clean replay probe script does not exist."
              :tool-name "self.commit"
-             :pathname script
-             :stage ':replay-probe))
+             :pathname  script
+             :stage     ':replay-probe))
     (let ((commit (image-commit--load-directory (uiop:pathname-directory-pathname script)
                                                 identifier)))
       (unless (uiop:pathname-equal (image-commit-script-pathname commit) script)
         (error 'image-commit-error
-               :message "The clean replay probe script is not its commit's script."
+               :message   "The clean replay probe script is not its commit's script."
                :tool-name "self.commit"
-               :pathname script
-               :stage ':replay-probe))
+               :pathname  script
+               :stage     ':replay-probe))
       (image-commit-replay (configuration-create :defer-provider-validation-p t)
                            commit)))
   (image-commit-surface-verify)
@@ -906,7 +905,7 @@ signal and the middle is the safe part to drop."
 A failing probe keeps its complete output beside SCRIPT in
 replay-probe.log and carries the output tail in the signaled error, so
 the failure stays diagnosable after the tool call ends."
-  (let* ((expected (image-commit-replay-probe-output identifier))
+  (let* ((expected     (image-commit-replay-probe-output identifier))
          (log-pathname (merge-pathnames
                         "replay-probe.log"
                         (uiop:pathname-directory-pathname script))))
@@ -918,9 +917,9 @@ the failure stays diagnosable after the tool call ends."
               (list *image-commit-replay-probe-argument*
                     (namestring script)
                     identifier))
-             :input nil
-             :output ':string
-             :error-output ':output
+             :input               nil
+             :output              ':string
+             :error-output        ':output
              :ignore-error-status t)
           (error (condition)
             (error 'image-commit-error
@@ -928,18 +927,18 @@ the failure stays diagnosable after the tool call ends."
                    (format nil "The clean private replay probe could not run: ~A"
                            condition)
                    :tool-name "self.commit"
-                   :pathname script
-                   :stage ':replay-probe)))
+                   :pathname  script
+                   :stage     ':replay-probe)))
       (declare (ignore error-output))
       (let ((output (or output "")))
         (unless (and (eql exit-code 0)
                      (search expected output :test #'char=))
           (handler-case
               (with-open-file (stream log-pathname
-                                      :direction ':output
-                                      :if-exists ':supersede
+                                      :direction         ':output
+                                      :if-exists         ':supersede
                                       :if-does-not-exist ':create
-                                      :external-format ':utf-8)
+                                      :external-format   ':utf-8)
                 (write-string output stream))
             (error ()
               nil))
@@ -953,8 +952,8 @@ the failure stays diagnosable after the tool call ends."
                          (image-commit--output-excerpt output 2000)
                          (uiop:pathname-directory-pathname script))
                  :tool-name "self.commit"
-                 :pathname script
-                 :stage ':replay-probe)))))
+                 :pathname  script
+                 :stage     ':replay-probe)))))
   nil)
 
 (defparameter *image-commit-replay-probe-function* #'image-commit-replay-probe
@@ -980,19 +979,19 @@ the failure stays diagnosable after the tool call ends."
 (defun image-commit-publish
     (configuration &key title mutation-records additional-entries identifier)
   "Publish one immutable private commit from mutations and explicit entries."
-  (let* ((identifier (or identifier (make-identifier)))
-         (parent (image-commit-current configuration))
-         (directory (image-commit--directory configuration identifier))
-         (script-pathname (merge-pathnames "reconstruct.lisp" directory))
+  (let* ((identifier        (or identifier (make-identifier)))
+         (parent            (image-commit-current configuration))
+         (directory         (image-commit--directory configuration identifier))
+         (script-pathname   (merge-pathnames "reconstruct.lisp" directory))
          (manifest-pathname (merge-pathnames "manifest.sexp" directory))
-         (record-entries (mapcar #'image-commit--record->entry
-                                 mutation-records))
-         (entries (with-tracked-definition-snapshot (configuration)
-                    (mapcar (lambda (entry)
-                              (image-commit--complete-entry configuration entry))
-                            (image-commit--merge-entries
-                             (image-commit-base-entries configuration)
-                             (append record-entries additional-entries)))))
+         (record-entries    (mapcar #'image-commit--record->entry
+                                    mutation-records))
+         (entries           (with-tracked-definition-snapshot (configuration)
+                              (mapcar (lambda (entry)
+                                        (image-commit--complete-entry configuration entry))
+                                      (image-commit--merge-entries
+                                       (image-commit-base-entries configuration)
+                                       (append record-entries additional-entries)))))
          (mutation-identifiers
            (append (and parent
                         (copy-list
@@ -1002,36 +1001,36 @@ the failure stays diagnosable after the tool call ends."
                            mutation-records)
                    (mapcar (lambda (entry) (getf entry :id))
                            additional-entries)))
-         (journal-position (image-commit--journal-position configuration))
-         (created-at (get-universal-time))
-         (source-commit (image-commit--base-source-commit parent)))
+         (journal-position  (image-commit--journal-position configuration))
+         (created-at        (get-universal-time))
+         (source-commit     (image-commit--base-source-commit parent)))
     (when (probe-file directory)
       (error 'image-commit-error
-             :message (format nil "Private image commit ~A already exists."
-                              identifier)
+             :message   (format nil "Private image commit ~A already exists."
+                                identifier)
              :tool-name "self.commit"
-             :pathname directory
-             :stage ':publish))
+             :pathname  directory
+             :stage     ':publish))
     (handler-case
         (progn
           (image-commit-write-script script-pathname
                                      :identifier identifier
-                                     :title title
-                                     :entries entries)
+                                     :title      title
+                                     :entries    entries)
           (image-commit--write-form-atomically
            manifest-pathname
            (image-commit--manifest-form
-            :identifier identifier
+            :identifier       identifier
             :parent-identifier
             (and parent (image-commit-identifier parent))
-            :title title
-            :source-commit source-commit
-            :script-pathname script-pathname
-            :entries entries
+            :title            title
+            :source-commit    source-commit
+            :script-pathname  script-pathname
+            :entries          entries
             :consumed-mutation-identifiers
             (remove-duplicates mutation-identifiers :test #'string=)
             :journal-position journal-position
-            :created-at created-at))
+            :created-at       created-at))
           (funcall *image-commit-replay-probe-function*
                    configuration
                    script-pathname
@@ -1039,10 +1038,10 @@ the failure stays diagnosable after the tool call ends."
           (let* ((history-commit
                    (image-history-commit
                     configuration
-                    :identifier identifier
-                    :title title
+                    :identifier        identifier
+                    :title             title
                     :manifest-pathname manifest-pathname
-                    :script-pathname script-pathname))
+                    :script-pathname   script-pathname))
                  (commit
                    (image-commit-load configuration identifier
                                       :history-commit history-commit)))
@@ -1050,8 +1049,8 @@ the failure stays diagnosable after the tool call ends."
              (configuration-current-image-commit-path configuration)
              (list :current-image-commit
                    :version 2
-                   :id identifier
-                   :manifest (namestring manifest-pathname)
+                   :id             identifier
+                   :manifest       (namestring manifest-pathname)
                    :history-commit history-commit))
             (setf *active-image-commit-identifier* identifier
                   *active-image-history-commit* history-commit
@@ -1068,20 +1067,20 @@ the failure stays diagnosable after the tool call ends."
         (unless (eq (image-commit-error-stage condition) ':replay-probe)
           (when (probe-file directory)
             (platform-delete-directory-tree *platform* directory
-                                            :validate t
+                                            :validate          t
                                             :if-does-not-exist ':ignore)))
         (error condition))
       (error (condition)
         (when (probe-file directory)
           (platform-delete-directory-tree *platform* directory
-                                          :validate t
+                                          :validate          t
                                           :if-does-not-exist ':ignore))
         (error 'image-commit-error
-               :message (format nil "Could not publish private image commit: ~A"
-                                condition)
+               :message   (format nil "Could not publish private image commit: ~A"
+                                  condition)
                :tool-name "self.commit"
-               :pathname directory
-               :stage ':publish)))))
+               :pathname  directory
+               :stage     ':publish)))))
 
 (-> image-commit-contains-mutation-p (configuration string) boolean)
 (defun image-commit-contains-mutation-p (configuration identifier)
@@ -1108,9 +1107,9 @@ tracked source is read once for the whole replay."
   (let ((*package* (find-package '#:autolith))
         (*image-replay-context*
           (make-instance 'image-replay-context
-                         :configuration configuration
+                         :configuration         configuration
                          :lineage-source-commit (image-commit-source-commit commit)
-                         :image-source-commit (image-commit--base-source-commit nil))))
+                         :image-source-commit   (image-commit--base-source-commit nil))))
     (with-tracked-definition-snapshot (configuration)
       (load (image-commit-script-pathname commit))))
   nil)
@@ -1164,8 +1163,8 @@ definitions the replay skipped are kept in *IMAGE-REPLAY-SKIPS* instead."
     (if (null records)
         (image-commit-current configuration)
         (let* ((identifier (make-identifier))
-               (title (format nil "Checkpoint generation ~A"
-                              generation-identifier))
+               (title      (format nil "Checkpoint generation ~A"
+                                   generation-identifier))
                (mutation-identifiers
                  (mapcar (lambda (record) (getf (rest record) :id)) records)))
           (mutation-journal-append
@@ -1173,11 +1172,11 @@ definitions the replay skipped are kept in *IMAGE-REPLAY-SKIPS* instead."
            (list :mutation
                  :kind :image-commit
                  :id identifier
-                 :parent *active-image-commit-identifier*
-                 :title title
-                 :mutations mutation-identifiers
+                 :parent     *active-image-commit-identifier*
+                 :title      title
+                 :mutations  mutation-identifiers
                  :generation generation-identifier
-                 :result ':pending))
+                 :result     ':pending))
           (handler-case
               (progn
                 (self-repair-check-mutations
@@ -1187,24 +1186,24 @@ definitions the replay skipped are kept in *IMAGE-REPLAY-SKIPS* instead."
                 (let ((commit
                         (image-commit-publish
                          configuration
-                         :title title
-                         :mutation-records records
+                         :title              title
+                         :mutation-records   records
                          :additional-entries nil
-                         :identifier identifier)))
+                         :identifier         identifier)))
                   (mutation-journal-append
                    configuration
                    (list :mutation
                          :kind :image-commit
                          :id identifier
-                         :parent (image-commit-parent-identifier commit)
-                         :title title
-                         :mutations mutation-identifiers
+                         :parent     (image-commit-parent-identifier commit)
+                         :title      title
+                         :mutations  mutation-identifiers
                          :generation generation-identifier
-                         :script (namestring
-                                  (image-commit-script-pathname commit))
+                         :script     (namestring
+                                      (image-commit-script-pathname commit))
                          :history-commit
                          (image-commit-history-commit commit)
-                         :result ':committed))
+                         :result     ':committed))
                   commit))
             (error (condition)
               (mutation-journal-append
@@ -1212,12 +1211,12 @@ definitions the replay skipped are kept in *IMAGE-REPLAY-SKIPS* instead."
                (list :mutation
                      :kind :image-commit
                      :id identifier
-                     :parent *active-image-commit-identifier*
-                     :title title
-                     :mutations mutation-identifiers
+                     :parent     *active-image-commit-identifier*
+                     :title      title
+                     :mutations  mutation-identifiers
                      :generation generation-identifier
-                     :result ':failed
-                     :condition (bounded-string condition :limit 2000)))
+                     :result     ':failed
+                     :condition  (bounded-string condition :limit 2000)))
               (error condition)))))))
 
 (-> image-commit-write-generation-script
@@ -1229,9 +1228,8 @@ definitions the replay skipped are kept in *IMAGE-REPLAY-SKIPS* instead."
   (image-commit-write-script
    pathname
    :identifier generation-identifier
-   :title "Retained generation reconstruction"
-   :entries (and commit (image-commit-entries commit))))
-
+   :title      "Retained generation reconstruction"
+   :entries    (and commit (image-commit-entries commit))))
 
 (-> image-commit-proposed-forms-check (list (option pathname)) string)
 (defun image-commit-proposed-forms-check (records pathname)
@@ -1243,13 +1241,13 @@ the actual proposed sources instead. PATHNAME only labels failures."
     (dolist (record records)
       (let* ((properties (rest record))
              (identifier (getf properties :id))
-             (proposed (getf properties :proposed)))
+             (proposed   (getf properties :proposed)))
         (when (non-empty-string-p proposed)
           (handler-case
               (with-input-from-string (stream proposed)
-                (let ((*package* (find-package '#:autolith))
+                (let ((*package*   (find-package '#:autolith))
                       (*read-eval* nil)
-                      (end-marker (cons nil nil)))
+                      (end-marker  (cons nil nil)))
                   (loop for form = (read stream nil end-marker)
                         until (eq form end-marker)
                         do (incf forms))))
@@ -1261,8 +1259,8 @@ the actual proposed sources instead. PATHNAME only labels failures."
                              (or identifier "unknown")
                              condition)
                      :tool-name "self.commit"
-                     :pathname pathname
-                     :stage ':validation))))))
+                     :pathname  pathname
+                     :stage     ':validation))))))
     (format nil "Read ~D proposed form~:P." forms)))
 
 (defmethod mutation-checker-check-active
@@ -1281,7 +1279,7 @@ the actual proposed sources instead. PATHNAME only labels failures."
 (-> image-commit-render-pending (configuration) string)
 (defun image-commit-render-pending (configuration)
   "Render the running image's effective uncommitted mutation state."
-  (let* ((records (image-commit-pending-records configuration))
+  (let* ((records   (image-commit-pending-records configuration))
          (effective (image-commit-effective-diff-records configuration)))
     (cond
       (effective
@@ -1319,37 +1317,37 @@ commit with nothing pending still drops them."
   (declare (ignore tool))
   (with-live-mutation
     (let* ((configuration (tool-context-configuration context))
-           (title (self-validate-commit-title
-                   (tool-argument arguments "title" :required t)))
-           (records (image-commit-pending-records configuration))
-           (effective (image-commit-effective-diff-records configuration))
-           (dropped (image-commit--skipped-entry-count configuration))
-           (identifier (make-identifier))
+           (title         (self-validate-commit-title
+                           (tool-argument arguments "title" :required t)))
+           (records       (image-commit-pending-records configuration))
+           (effective     (image-commit-effective-diff-records configuration))
+           (dropped       (image-commit--skipped-entry-count configuration))
+           (identifier    (make-identifier))
            (mutation-identifiers
              (mapcar (lambda (record) (getf (rest record) :id)) records)))
       (tuning-experiment-assert-settled configuration "self.commit")
       (unless (or records (plusp dropped))
         (error 'image-commit-error
-               :message "The active image has no reconstructible mutations to commit."
+               :message   "The active image has no reconstructible mutations to commit."
                :tool-name "self.commit"
-               :pathname (configuration-image-commit-root configuration)
-               :stage ':validation))
+               :pathname  (configuration-image-commit-root configuration)
+               :stage     ':validation))
       (unless (or effective (plusp dropped))
         (error 'image-commit-error
                :message
                "The pending mutations produce no effective change; discard them instead of creating an empty private commit."
                :tool-name "self.commit"
-               :pathname (configuration-image-commit-root configuration)
-               :stage ':validation))
+               :pathname  (configuration-image-commit-root configuration)
+               :stage     ':validation))
       (mutation-journal-append
        configuration
        (list :mutation
              :kind :image-commit
              :id identifier
-             :parent *active-image-commit-identifier*
-             :title title
+             :parent    *active-image-commit-identifier*
+             :title     title
              :mutations mutation-identifiers
-             :result ':pending))
+             :result    ':pending))
       (handler-case
           (progn
             (self-repair-check-mutations
@@ -1358,23 +1356,23 @@ commit with nothing pending still drops them."
              :mutations mutation-identifiers)
             (let ((commit (image-commit-publish
                            configuration
-                           :title title
-                           :mutation-records records
+                           :title              title
+                           :mutation-records   records
                            :additional-entries nil
-                           :identifier identifier)))
+                           :identifier         identifier)))
               (mutation-journal-append
                configuration
                (list :mutation
                      :kind :image-commit
                      :id identifier
-                     :parent (image-commit-parent-identifier commit)
-                     :title title
+                     :parent    (image-commit-parent-identifier commit)
+                     :title     title
                      :mutations mutation-identifiers
-                     :script (namestring
-                              (image-commit-script-pathname commit))
+                     :script    (namestring
+                                 (image-commit-script-pathname commit))
                      :history-commit
                      (image-commit-history-commit commit)
-                     :result ':committed))
+                     :result    ':committed))
               (tool-success
                (format nil
                        "Committed ~D live mutation~:P~[~:; and dropped ~:*~D skipped definition~:P~] as private image commit ~A.~%Private Git commit: ~A~%Replay script: ~A"
@@ -1389,9 +1387,9 @@ commit with nothing pending still drops them."
            (list :mutation
                  :kind :image-commit
                  :id identifier
-                 :parent *active-image-commit-identifier*
-                 :title title
+                 :parent    *active-image-commit-identifier*
+                 :title     title
                  :mutations mutation-identifiers
-                 :result ':failed
+                 :result    ':failed
                  :condition (bounded-string condition :limit 2000)))
           (error condition))))))
