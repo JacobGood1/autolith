@@ -71,10 +71,14 @@ instructions. Keep the reason to one clause of at most twelve words."
 (defun permissions--model-decision-keyword (decision)
   "Return the automatic permission keyword DECISION names, or NIL when unknown."
   (cond
-    ((equal decision "sandboxed") ':sandboxed)
-    ((equal decision "full") ':full-access)
-    ((equal decision "deny") ':deny)
-    (t nil)))
+    ((equal decision "sandboxed")
+     ':sandboxed)
+    ((equal decision "full")
+     ':full-access)
+    ((equal decision "deny")
+     ':deny)
+    (t
+     nil)))
 
 (-> permissions-model-classify-command
     (string pathname
@@ -110,18 +114,18 @@ Every unavailable grant, failure, malformed answer, or exhausted budget denies."
                                   (if sandbox-available-p
                                       "available"
                                       "unavailable; never choose sandboxed")))
-                      :contract *permissions-model-decision-contract*
-                      :budget (rlm-budget-create
-                               :calls *permissions-model-call-budget*
-                               :tokens *permissions-model-token-budget*
-                               :depth 0)
-                      :effort "low"
-                      :provider provider
+                      :contract      *permissions-model-decision-contract*
+                      :budget        (rlm-budget-create
+                                      :calls  *permissions-model-call-budget*
+                                      :tokens *permissions-model-token-budget*
+                                      :depth  0)
+                      :effort        "low"
+                      :provider      provider
                       :configuration configuration))
-             (pairs (rest value))
-             (decision (permissions--model-decision-keyword
-                        (second (assoc "decision" pairs :test #'string=))))
-             (reason (second (assoc "reason" pairs :test #'string=))))
+             (pairs                    (rest value))
+             (decision                 (permissions--model-decision-keyword
+                                        (second (assoc "decision" pairs :test #'string=))))
+             (reason                   (second (assoc "reason" pairs :test #'string=))))
         (cond
           ((and (eq decision ':sandboxed) (not sandbox-available-p))
            (values ':deny "the workspace sandbox is unavailable"))
