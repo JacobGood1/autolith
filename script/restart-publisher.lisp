@@ -1,4 +1,6 @@
-;;;; Publish one exact-heap restart envelope and exit.
+;;;; -- Restart Publisher --
+
+;;; Publish one exact-heap restart envelope and exit.
 
 (require :asdf)
 

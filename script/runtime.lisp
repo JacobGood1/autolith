@@ -1,4 +1,6 @@
-;;;; Runtime provisioning shared by the PowerShell launchers.
+;;;; -- Runtime Provisioning --
+
+;;; Runtime provisioning shared by the PowerShell launchers.
 
 ;;; bin/autolith-runtime.ps1 selects an SBCL that satisfies sbcl.version and
 ;;; runs this script in it. The script mirrors the rest of bin/autolith-runtime:

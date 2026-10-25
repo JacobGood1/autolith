@@ -1,4 +1,6 @@
-;;;; Runtime preparation shared by standalone build scripts.
+;;;; -- Runtime Requirement --
+
+;;; Runtime preparation shared by standalone build scripts.
 
 #+win32
 (load (merge-pathnames "windows-stat.lisp"

@@ -1,4 +1,6 @@
-;;;; Trace continuity shared by the standalone launcher and pristine recovery.
+;;;; -- Trace Context --
+
+;;; Trace continuity shared by the standalone launcher and pristine recovery.
 
 (defun autolith-script-ensure-trace-context ()
   "Create one nonzero W3C context and first attempt only when not inherited."

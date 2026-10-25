@@ -1,4 +1,6 @@
-;;;; Per-user directory roots shared by the standalone build scripts.
+;;;; -- Directory Roots --
+
+;;; Per-user directory roots shared by the standalone build scripts.
 
 (require :sb-posix)
 

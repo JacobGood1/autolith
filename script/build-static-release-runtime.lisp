@@ -72,8 +72,7 @@
                       (uiop:symbol-call
                        :colorlisp :colorlisp--native-include-arguments))
                     (objects
-                      (loop for source in sources
-                            for index from 0
+                      (loop for index below (length sources)
                             collect (merge-pathnames
                                      (format nil "source-~D.o" index)
                                      object-directory))))

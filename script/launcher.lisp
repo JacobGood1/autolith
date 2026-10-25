@@ -1,4 +1,6 @@
-;;;; The stable launcher for hosts without Bash.
+;;;; -- Stable Launcher --
+
+;;; The stable launcher for hosts without Bash.
 
 ;;; bin/autolith is Bash. bin/autolith.ps1 runs this script instead, through
 ;;; bin/autolith-runtime.ps1, which has already selected the runtime and set
@@ -46,6 +48,7 @@
                      :output ':string :error-output ':interactive
                      :external-format ':utf-8)))))
   nil)
+
 
 ;;;; -- Launcher Options --
 
@@ -142,7 +145,7 @@ of deleting them, as the Windows update path also hands off to the user."
     (when (launcher-request-uninstall-p request)
       ;; An uninstall is a standalone operation with one optional flag.
       (let ((operands (if (and (> (length arguments) 1)
-                               (string= (car (last arguments)) "--"))
+                               (string= (first (last arguments)) "--"))
                           (butlast arguments)
                           arguments)))
         (unless (string= (first operands) "uninstall")
@@ -162,7 +165,7 @@ of deleting them, as the Windows update path also hands off to the user."
     (when (launcher-request-update-p request)
       ;; An update is a standalone operation, never a session option.
       (let ((operands (if (and (> (length arguments) 1)
-                               (string= (car (last arguments)) "--"))
+                               (string= (first (last arguments)) "--"))
                           (butlast arguments)
                           arguments)))
         (when (or (not (member (first operands) '("update" "--update") :test #'string=))

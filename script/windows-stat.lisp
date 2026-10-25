@@ -1,4 +1,7 @@
-;;;; Safe filesystem stat for the supported Windows x86-64 SBCL runtime.
+;;;; -- Windows Stat --
+
+;;; Safe filesystem stat for the supported Windows x86-64 SBCL runtime.
+
 (in-package #:cl-user)
 
 ;; SBCL 2.6.6 wrap.c copies the UTF-8 pathname into char[MAX_PATH] with

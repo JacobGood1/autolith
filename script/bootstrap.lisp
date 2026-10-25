@@ -52,6 +52,7 @@ progress redraws collapse into their final text instead of stacking."))
     (finish-output target)))
 
 (defmethod sb-gray:stream-write-char ((stream bootstrap-rail-stream) character)
+  "Buffer CHARACTER, emitting the line at a newline and dropping it at a carriage return."
   (case character
     (#\Newline
      (bootstrap-rail--emit stream))
@@ -62,12 +63,15 @@ progress redraws collapse into their final text instead of stacking."))
   character)
 
 (defmethod sb-gray:stream-line-column ((stream bootstrap-rail-stream))
+  "Report no column, since the rail prefix shifts every line."
   nil)
 
 (defmethod sb-gray:stream-force-output ((stream bootstrap-rail-stream))
+  "Force output on the terminal STREAM writes to."
   (force-output (bootstrap-rail-target stream)))
 
 (defmethod sb-gray:stream-finish-output ((stream bootstrap-rail-stream))
+  "Finish output on the terminal STREAM writes to."
   (finish-output (bootstrap-rail-target stream)))
 
 (defun bootstrap-rail-flush (stream)

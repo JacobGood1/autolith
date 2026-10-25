@@ -130,7 +130,7 @@ every case, and the recovery checks. Selectors and --list run only cases.
   "Return true when VALUE contains each of KEYS exactly once."
   (and (check--proper-list-p value)
        (= (length value) (* 2 (length keys)))
-       (let ((actual (loop for tail on value by #'cddr collect (first tail))))
+       (let ((actual (loop for tail on value by (lambda (tail) (nthcdr 2 tail)) collect (first tail))))
          (and (= (length actual) (length (remove-duplicates actual)))
               (every (lambda (key) (member key keys)) actual)
               t))))

@@ -1,4 +1,6 @@
-;;;; Shared host-runtime probe for launchers that have not loaded Autolith.
+;;;; -- Runtime Probe --
+
+;;; Shared host-runtime probe for launchers that have not loaded Autolith.
 
 (require :asdf)
 (load (merge-pathnames "runtime-requirement.lisp"
