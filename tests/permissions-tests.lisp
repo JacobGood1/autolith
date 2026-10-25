@@ -334,8 +334,8 @@
       (handler-case
        (progn
         (application--apply-command-authorization-choice application key root
-                                                         "always" :kind
-                                                         ':external-tool)
+                                                         :choice "always"
+                                                         :kind   ':external-tool)
         nil)
        (permissions-error nil t))
       "remembered external approval cannot succeed after persistence failure")

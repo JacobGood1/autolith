@@ -3089,11 +3089,11 @@ sandbox grant is revalidated at this final authorization boundary."
                                    :reason   reason)))
 
 (-> application--apply-command-authorization-choice
-    (application string pathname (option string)
-     &key (:kind keyword) (:request (option string)))
+    (application string pathname
+     &key (:choice (option string)) (:kind keyword) (:request (option string)))
     keyword)
 (defun application--apply-command-authorization-choice
-    (application command directory choice &key (kind ':command) request)
+    (application command directory &key choice (kind ':command) request)
   "Apply a shared permission CHOICE, rejecting unavailable grants."
   (cond
     ((string= (or choice "") "auto")
@@ -3163,7 +3163,7 @@ sandbox grant is revalidated at this final authorization boundary."
                     :sandbox-available-p sandbox-available-p)
                    :resize-callback #'application-pending-terminal-size)))))
         (application--apply-command-authorization-choice
-         application command directory choice)))))
+         application command directory :choice choice)))))
 
 (-> application-authorize-command (application string pathname) keyword)
 (-> application--authorize-operation
@@ -3372,7 +3372,8 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
                                  key directory :external-tool-p t)
                :resize-callback #'application-pending-terminal-size)))))
     (application--apply-command-authorization-choice
-     application key directory choice
+     application key directory
+     :choice  choice
      :kind    ':external-tool
      :request (application--tool-authorization-request tool arguments))))
 
