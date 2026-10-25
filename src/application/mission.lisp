@@ -21,8 +21,8 @@
          :documentation "Exact goal identity, including after replacement.")
    (lock :initform (make-recursive-lock "Mission state") :reader mission-context-lock
          :documentation "Serializes counters, transitions and persistence.")
-   (request-lock :initform (make-recursive-lock "Mission requests")
-                 :reader mission-context-request-lock
+   (request-lock :initform      (make-recursive-lock "Mission requests")
+                 :reader        mission-context-request-lock
                  :documentation "Serializes provider admission and settlement.")
    (threads :initform (make-hash-table :test #'eq) :reader mission-context-threads
             :documentation "Thread identities for safe sibling cancellation.")
@@ -68,11 +68,11 @@
 (-> mission-context-inherit (t t) null)
 (defun mission-context-inherit (parent child)
   "Associate CHILD with PARENT's exact mission, including terminal missions."
-  (let* ((registered (mission-context-find parent))
+  (let* ((registered  (mission-context-find parent))
          (application (and registered (mission-context-application registered)))
-         (context (if (and application (eq parent (application-configuration application)))
-                      (mission--conversation-context (application-conversation application))
-                      registered)))
+         (context     (if (and application (eq parent (application-configuration application)))
+                          (mission--conversation-context (application-conversation application))
+                          registered)))
     (when (and context
                (or (not (eq parent (application-configuration (mission-context-application context))))
                    (mission--request-owned-p context (application-conversation (mission-context-application context)))))
@@ -102,7 +102,7 @@
 (defun mission--record (context)
   "Persist CONTEXT's exact mission without changing a replacement goal."
   (let ((application (mission-context-application context))
-        (goal (mission-context-goal context)))
+        (goal        (mission-context-goal context)))
     (when (eq goal (application-goal application))
       (conversation-append-record (application-conversation application)
                                   (cons :goal (copy-tree goal)))))
@@ -111,7 +111,7 @@
 (-> mission--evidence (mission-context keyword t) null)
 (defun mission--evidence (context kind text)
   "Append bounded durable KIND evidence TEXT while holding the mission lock."
-  (let* ((goal (mission-context-goal context))
+  (let* ((goal    (mission-context-goal context))
          (entries (append (getf goal :evidence)
                           (list (list :kind kind :time (get-universal-time)
                                       :text (mission--bounded-text text))))))
@@ -147,7 +147,7 @@
 (defun mission--admit (context &key (inference-p t))
   "Reject terminal, replaced or exhausted missions before admitting work.
 Verification may use the final model turn's evidence without another inference."
-  (let* ((goal (mission-context-goal context))
+  (let* ((goal        (mission-context-goal context))
          (application (mission-context-application context)))
     (unless (eq goal (application-goal application))
       (mission--reject ':replaced "The mission was replaced."))
@@ -170,16 +170,16 @@ Verification may use the final model turn's evidence without another inference."
   "Run FUNCTION inline through cl-jobpond under the mission's remaining deadline.
 The calling thread preserves provider bindings and authorization callbacks."
   (let* ((milliseconds (mission--remaining-milliseconds context))
-         (pool (make-job-pool :name name :maximum-concurrency 1
-                              :maximum-batch-size 1 :maximum-live-jobs 1
-                              :maximum-runtime-milliseconds
-                              (max 1 (if timeout (min milliseconds timeout) milliseconds))
-                              :terminal-retention-limit 1 :start-threads-p nil))
-         (job (first (job-pool-submit-batch
-                      pool (list (list :name name :inline-only-p t
-                                       :function (lambda (job)
-                                                   (job-check-cancellation job)
-                                                   (funcall function))))))))
+         (pool         (make-job-pool :name name :maximum-concurrency 1
+                                      :maximum-batch-size 1 :maximum-live-jobs 1
+                                      :maximum-runtime-milliseconds
+                                      (max 1 (if timeout (min milliseconds timeout) milliseconds))
+                                      :terminal-retention-limit 1 :start-threads-p nil))
+         (job          (first (job-pool-submit-batch
+                               pool (list (list :name name :inline-only-p t
+                                                :function (lambda (job)
+                                                            (job-check-cancellation job)
+                                                            (funcall function))))))))
     (unwind-protect
          (progn
            (with-recursive-lock-held ((mission-context-lock context))
@@ -190,7 +190,8 @@ The calling thread preserves provider bindings and authorization callbacks."
            (job-run-inline job)
            (let ((snapshot (job-await job)))
             (cond
-              ((eq (getf snapshot :state) ':completed) (getf snapshot :result))
+              ((eq (getf snapshot :state) ':completed)
+               (getf snapshot :result))
               ((eq (getf snapshot :cancellation-reason) ':timeout)
                (if (and timeout (< timeout milliseconds))
                    (mission--reject ':gate-timeout "Gate execution reached its deadline.")
@@ -207,13 +208,12 @@ The calling thread preserves provider bindings and authorization callbacks."
         (remhash job (mission-context-threads context)))
       (job-pool-close pool))))
 
-
 (-> mission--conversation-context (conversation) (option mission-context))
 (defun mission--conversation-context (conversation)
   "Prefer primary work's admitted identity over a replacement conversation mission."
-  (let* ((context (mission-context-find conversation))
+  (let* ((context     (mission-context-find conversation))
          (application (and context (mission-context-application context)))
-         (agent (and application (application-agent application))))
+         (agent       (and application (application-agent application))))
     (if (and agent (eq conversation (application-conversation application)))
         (or (mission-context-find agent) context)
         context)))
@@ -226,7 +226,7 @@ The calling thread preserves provider bindings and authorization callbacks."
   (let ((context (mission--conversation-context conversation)))
     (if (and context (mission--request-owned-p context conversation))
         (mission-review--account context conversation
-                                 :function #'call-next-method
+                                 :function       #'call-next-method
                                  :usage-function (lambda (results) (provider-result-usage (first results))))
         (call-next-method))))
 
@@ -249,13 +249,13 @@ The calling thread preserves provider bindings and authorization callbacks."
                (every (lambda (key) (typep (getf specification key) '(integer 1)))
                       '(:turn-limit :token-limit :wall-seconds)))
     (mission--reject ':invalid "A mission requires objective, criteria and positive turn-limit, token-limit and wall-seconds."))
-  (let* ((gates (mapcar #'mission-gate-normalize (getf specification :gates)))
-         (gate-identifiers (mapcar (lambda (gate) (getf gate :id)) gates))
-         (criteria (loop for criterion in (getf specification :criteria)
-                         collect (list :id (getf criterion :id)
-                                       :description (getf criterion :description)
-                                       :gates (copy-list (getf criterion :gates))
-                                       :evidence nil)))
+  (let* ((gates                 (mapcar #'mission-gate-normalize (getf specification :gates)))
+         (gate-identifiers      (mapcar (lambda (gate) (getf gate :id)) gates))
+         (criteria              (loop for criterion in (getf specification :criteria)
+                                      collect (list :id          (getf criterion :id)
+                                                    :description (getf criterion :description)
+                                                    :gates       (copy-list (getf criterion :gates))
+                                                    :evidence    nil)))
          (criterion-identifiers nil))
     (dolist (criterion criteria)
       (unless (and (non-empty-string-p (getf criterion :id))
@@ -270,8 +270,8 @@ The calling thread preserves provider bindings and authorization callbacks."
       (mission--reject ':invalid "Gate IDs must be unique."))
     (list :kind ':mission :version 1 :objective (getf specification :objective)
           :status ':active :continuations 0 :created-at (get-universal-time)
-          :deadline (+ (get-universal-time) (getf specification :wall-seconds))
-          :turn-limit (getf specification :turn-limit)
+          :deadline    (+ (get-universal-time) (getf specification :wall-seconds))
+          :turn-limit  (getf specification :turn-limit)
           :token-limit (getf specification :token-limit)
           :turns-used 0 :tokens-used 0 :tokens-reserved 0 :unknown-usage 0 :requests-outstanding 0
           :model-complete-p nil :criteria criteria :gates gates :evidence nil)))
@@ -315,7 +315,7 @@ The calling thread preserves provider bindings and authorization callbacks."
 (defun application-mission-resume (application)
   "Resume a paused or blocked mission without resetting its durable budgets."
   (let* ((context (mission-context-find (application-conversation application)))
-         (goal (application-goal application)))
+         (goal    (application-goal application)))
     (unless (and context (mission-goal-p goal)
                  (member (getf goal :status) '(:paused :blocked)))
       (mission--reject ':invalid "Only paused or blocked missions can resume."))
@@ -332,7 +332,6 @@ The calling thread preserves provider bindings and authorization callbacks."
     (when (mission-goal-p goal)
       (format nil "<mission_context>~%~S~%Model completion is a verification request, not proof. Use mission.verify after work is done. Use mission.stop to report a blocker. Acceptance criteria without gates require explicit user acceptance. Do not claim verified before the harness verifies.~%</mission_context>"
               goal))))
-
 
 (-> mission-restore (application) null)
 (defun mission-restore (application)
@@ -362,7 +361,8 @@ The calling thread preserves provider bindings and authorization callbacks."
             ((and (member (getf goal :status) '(:active :paused :blocked))
                   (not (plusp (mission--remaining-milliseconds context))))
              (mission--transition context ':exhausted "The durable wall-clock deadline elapsed while away."))
-            (t (mission--record context)))))))
+            (t
+             (mission--record context)))))))
   nil)
 
 (-> mission-agent-terminal-p (agent) boolean)
@@ -392,7 +392,6 @@ The calling thread preserves provider bindings and authorization callbacks."
            (mission--admit context :inference-p nil)
            (mission--supervise context (format nil "Mission ~A" tool-name) operation-function))))))
 
-
 (-> mission--request-owned-p (mission-context conversation) boolean)
 (defun mission--request-owned-p (context conversation)
   "Distinguish mission work from new interactive turns after a terminal mission."
@@ -404,7 +403,7 @@ The calling thread preserves provider bindings and authorization callbacks."
 (defmethod agent-run-user-turn :around ((agent agent) content &key &allow-other-keys)
   "Retain mission engagement throughout one turn, including its tool workers."
   (declare (ignore content))
-  (let ((context (mission-context-find (agent-conversation agent)))
+  (let ((context  (mission-context-find (agent-conversation agent)))
         (previous (mission-context-find agent)))
     (when (and context (eq (getf (mission-context-goal context) :status) ':active))
       (with-lock-held (*mission-contexts-lock*)
@@ -425,7 +424,6 @@ The calling thread preserves provider bindings and authorization callbacks."
       (remhash (application-configuration application) *mission-contexts*)
       (remhash (application-conversation application) *mission-contexts*)))
   nil)
-
 
 (-> mission-context-bind ((option mission-context) t) null)
 (defun mission-context-bind (context identity)
@@ -453,7 +451,6 @@ The calling thread preserves provider bindings and authorization callbacks."
           (mission--admit context :inference-p nil)
           (mission--supervise context "Mission child" (lambda () (task-job--run job))))
         (task-job--run job))))
-
 
 (defmethod initialize-instance :after ((job session-job) &key mission-context &allow-other-keys)
   "Capture exact mission identity before a session job can enter its worker queue."
