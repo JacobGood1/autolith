@@ -32,11 +32,16 @@
 ;;;; -- RFC 8252 Provider Adapter --
 
 
+(-> chatgpt-oauth--fail
+    (&key (:stage keyword) (:message string) (:status (option integer))
+          (:code (option string)) (:response (option string)))
+    nil)
 (defun chatgpt-oauth--fail (&key stage message status code response)
   "Signal a structured ChatGPT OAuth failure containing only safe metadata."
   (error 'chatgpt-oauth-error :message message :stage stage :status status
          :code code :response response))
 
+(-> chatgpt-oauth--state-matches-p (t string) boolean)
 (defun chatgpt-oauth--state-matches-p (actual expected)
   "Return true when ACTUAL is EXPECTED or its supported onboarding variant."
   (and (stringp actual)
@@ -44,6 +49,10 @@
            (string= actual
                     (format nil "~A.onboarding_entrypoint=life_sciences" expected)))))
 
+(-> chatgpt-oauth--rfc8252-client
+    (&key (:request-function function) (:issuer string) (:client-id string)
+          (:token-endpoint string) (:originator string))
+    browser-authentication-client)
 (defun chatgpt-oauth--rfc8252-client
     (&key (request-function #'chatgpt-oauth--request)
        (issuer *openai-oauth-issuer*) (client-id *openai-oauth-client-id*)
@@ -76,14 +85,20 @@
                  :failure-response        "ChatGPT authorization failed. Return to Autolith."
                  :mismatch-response       "ChatGPT authorization did not match this login."))
 
+(-> chatgpt-oauth-create-pkce () (values string string))
 (defun chatgpt-oauth-create-pkce ()
   "Return a fresh ChatGPT PKCE verifier and S256 challenge."
   (cl-rfc8252:browser-authentication-create-pkce :verifier-octets 64))
 
+(-> chatgpt-oauth--state () string)
 (defun chatgpt-oauth--state ()
   "Return a fresh browser OAuth state value."
   (cl-rfc8252:browser-authentication-state))
 
+(-> chatgpt-oauth-authorization-url
+    (&key (:redirect-uri string) (:state string) (:code-challenge string)
+          (:issuer string) (:client-id string) (:originator string))
+    string)
 (defun chatgpt-oauth-authorization-url
     (&key redirect-uri state code-challenge (issuer *openai-oauth-issuer*)
        (client-id *openai-oauth-client-id*) (originator *openai-oauth-originator*))
@@ -93,17 +108,20 @@
                                   :originator originator)
    :redirect-uri redirect-uri :state state :code-challenge code-challenge))
 
+(-> chatgpt-oauth-loopback-open () (values t string))
 (defun chatgpt-oauth-loopback-open ()
   "Open the ChatGPT RFC 8252 loopback listener."
   (cl-rfc8252:browser-authentication-loopback-open
    (chatgpt-oauth--rfc8252-client)))
 
+(-> chatgpt-oauth-await-loopback (t string &key (:timeout real)) string)
 (defun chatgpt-oauth-await-loopback
     (listener expected-state &key (timeout *chatgpt-oauth-callback-timeout*))
   "Await a bounded ChatGPT callback."
   (cl-rfc8252:browser-authentication-await-loopback
    (chatgpt-oauth--rfc8252-client) listener expected-state :timeout timeout))
 
+(-> chatgpt-oauth--request-wrapper (function) t)
 (defun chatgpt-oauth--request-wrapper (thunk)
   "Run an OpenAI token request under the provider response deadline."
   (handler-case
@@ -111,6 +129,7 @@
     (sb-sys:deadline-timeout ()
       (error 'authentication-error :message "OpenAI OAuth exceeded its response deadline."))))
 
+(-> chatgpt-oauth--request (&key (:url string) (:content string)) t)
 (defun chatgpt-oauth--request (&key url content)
   "POST an OAuth form with Autolith's identity and OpenAI's originator header."
   (cl-rfc8252:browser-authentication-request
@@ -119,17 +138,22 @@
                           (cons "originator" *openai-oauth-originator*))
    :request-wrapper #'chatgpt-oauth--request-wrapper))
 
+(-> chatgpt-oauth--token-document (function string list keyword) json-object)
 (defun chatgpt-oauth--token-document (request-function endpoint parameters stage)
   "Request a token document through the shared redaction and validation policy."
   (cl-rfc8252:browser-authentication-token-document
    (chatgpt-oauth--rfc8252-client :request-function request-function :token-endpoint endpoint)
    :parameters parameters :stage stage))
 
+(-> chatgpt-oauth--display-login
+    (string &key (:redirect-uri string) (:timeout real) (:stream (or stream boolean)))
+    (option string))
 (defun chatgpt-oauth--display-login (url &key redirect-uri timeout stream)
   "Print ChatGPT browser login instructions."
   (format stream "~&Sign in with ChatGPT in your browser:~%  ~A~%~%Callback: ~A~%Waiting up to ~A seconds for the local callback.~%"
           url redirect-uri timeout))
 
+(-> chatgpt-oauth--credentials-from-document (credential-manager json-object) oauth-credentials)
 (defun chatgpt-oauth--credentials-from-document (manager document)
   "Validate DOCUMENT and return persisted ChatGPT OAuth credentials."
   (let* ((id-token      (json-get document "id_token"))
@@ -147,6 +171,10 @@
                    :source-path (credential-source-pathname
                                  (credential-manager-primary-source manager)))))
 
+(-> chatgpt-oauth-exchange-code
+    (credential-manager string string string
+     &key (:request-function function) (:client-id string) (:token-endpoint string))
+    oauth-credentials)
 (defun chatgpt-oauth-exchange-code
     (manager code verifier redirect-uri &key (request-function #'chatgpt-oauth--request)
        (client-id *openai-oauth-client-id*) (token-endpoint *openai-oauth-token-endpoint*))
@@ -159,6 +187,11 @@
      (cl-rfc8252:browser-authentication-exchange-code
       client :code code :verifier verifier :redirect-uri redirect-uri))))
 
+(-> chatgpt-oauth-login
+    (credential-manager
+     &key (:stream stream) (:open-browser-p boolean) (:browser-function function)
+          (:callback-function function) (:request-function function) (:timeout real))
+    oauth-credentials)
 (defun chatgpt-oauth-login
     (manager &key (stream *standard-output*) (open-browser-p t)
        (browser-function #'device-authentication-open-browser)
