@@ -107,8 +107,8 @@ satisfied by an accepted explicit negation."
   (with-recursive-lock-held (*workspace-file-mutation-lock*)
     (mission--gate-fingerprint-unlocked gate context)))
 
-(-> mission--gate-tool-result (tool-context string string json-object) tool-result)
-(defun mission--gate-tool-result (context namespace name arguments)
+(-> mission--gate-tool-result (tool-context string string &key (:arguments json-object)) tool-result)
+(defun mission--gate-tool-result (context namespace name &key arguments)
   "Invoke an existing execution tool and await its single admitted job."
   (let ((tool (tool-registry-find (tool-context-registry context) namespace name)))
     (unless tool
@@ -129,7 +129,7 @@ satisfied by an accepted explicit negation."
                                       "timeout-seconds" timeout))
               (directory (getf gate :directory)))
          (when directory (setf (gethash "directory" arguments) directory))
-         (let* ((result (mission--gate-tool-result context "shell" "run" arguments))
+         (let* ((result (mission--gate-tool-result context "shell" "run" :arguments arguments))
                 (text   (tool-result-content result)))
            (values (and (tool-result-success-p result)
                         (uiop:string-prefix-p (format nil "exit 0~%") text))
@@ -158,7 +158,7 @@ satisfied by an accepted explicit negation."
        (let* ((code   (format nil "(assert (progn ~A))" (getf gate :predicate)))
               (result (mission--gate-tool-result
                        context "lisp" "eval"
-                       (json-object "forms" (vector code) "timeout-seconds" timeout))))
+                       :arguments (json-object "forms" (vector code) "timeout-seconds" timeout))))
          (values (tool-result-success-p result)
                  (mission--bounded-text (tool-result-content result))
                  (conversation--bounded-tool-details (tool-result-details result))))))))
