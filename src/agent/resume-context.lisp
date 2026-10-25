@@ -35,11 +35,11 @@ later user turn begins."
   (when (and (not (request-context-compaction-p request))
              (resume-context--active-p (request-context-conversation request)))
     (make-context-contribution
-     :identifier "resumed-conversation"
-     :instruction *resume-context-instruction*
-     :priority 60
-     :lifetime ':turn
-     :class ':mandatory
+     :identifier        "resumed-conversation"
+     :instruction       *resume-context-instruction*
+     :priority          60
+     :lifetime          ':turn
+     :class             ':mandatory
      :deduplication-key "resumed-conversation")))
 
 (register-context-contributor "resumed-conversation"
