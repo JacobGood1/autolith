@@ -2,6 +2,7 @@
 
 ;;;; -- Task Scheduling and Publication --
 
+(-> task-job--set-progress-state (task-job keyword) null)
 (defun task-job--set-progress-state (job state)
   "Set JOB's normalized progress STATE."
   (let ((progress (task-job-progress job))
@@ -522,8 +523,7 @@ condition report, and terminal state, as TOOL-EXECUTION-JOB--TERMINAL-RECORD doe
                             (properties-p
                               (and (proper-list-p details)
                                    (evenp (length details))
-                                   (loop for (key value) on details by #'cddr
-                                         always (keywordp key))))
+                                   (every #'keywordp (plist-keys details))))
                             (logs     (or (and properties-p (getf details :shell-logs))
                                           (getf metadata :shell-logs))))
                        ;; A final result can be stronger evidence than an unwritten
@@ -588,6 +588,7 @@ condition report, and terminal state, as TOOL-EXECUTION-JOB--TERMINAL-RECORD doe
                   "The session job runtime is shutting down."))
                :tool-name tool-name)))))
 
+(-> task-orchestrator--refuse-admission (task-orchestrator condition) nil)
 (defun task-orchestrator--refuse-admission (orchestrator condition)
   "Re-signal pool refusal CONDITION as the typed task error task.run reports."
   (error 'task-error
@@ -637,6 +638,7 @@ zero outside hurry-up mode."
     (decf (task-orchestrator-hurry-up-admission-count orchestrator) count))
   nil)
 
+(-> task-orchestrator--refuse-cancelled-parent (task-job) nil)
 (defun task-orchestrator--refuse-cancelled-parent (parent-job)
   "Signal that PARENT-JOB was cancelled before it could admit a child."
   (error 'job-aborted
@@ -645,6 +647,12 @@ zero outside hurry-up mode."
          :identifier (job-identifier parent-job)
          :reason     (or (job-cancellation-reason parent-job) :shutdown)))
 
+(-> task-orchestrator-start-jobs
+    (task-orchestrator agent list
+     &key (:parent-call-id (option string))
+       (:command-authorization-function (option function))
+       (:tool-authorization-function (option function)))
+    (values list list))
 (defun task-orchestrator-start-jobs
     (orchestrator parent-agent entries
      &key parent-call-id
