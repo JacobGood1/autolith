@@ -49,14 +49,14 @@ Active work and steering already in flight continue. A staged pending snapshot
 names the new capture before vault publication, so crash import removes either
 copy before reconstructing input. No filesystem I/O holds the controller lock."
   (let* ((application (application-input-controller-application controller))
-         (identifier (make-identifier))
-         (count 0))
+         (identifier  (make-identifier))
+         (count       0))
     (with-lock-held ((application-input-controller-publication-lock controller))
-      (let* ((captures (application-recovery-input-vault-captures application))
-             (remaining (application-vault--parked-captures
-                         captures (application-vault--represented-identifiers application)))
+      (let* ((captures    (application-recovery-input-vault-captures application))
+             (remaining   (application-vault--parked-captures
+                           captures (application-vault--represented-identifiers application)))
              (publication nil)
-             (queued nil))
+             (queued      nil))
         (with-lock-held ((application-input-controller-lock controller))
           (unless (application-input-controller-pending-persistence-enabled-p controller)
             (application-recovery-input-vault--signal
@@ -104,7 +104,7 @@ copy before reconstructing input. No filesystem I/O holds the controller lock."
             (error (condition)
               ;; Restore the drained prefix ahead of submissions accepted meanwhile.
               (with-lock-held ((application-input-controller-lock controller))
-                (let* ((work (getf queued :work-items))
+                (let* ((work       (getf queued :work-items))
                        (old-prefix (or (getf queued :steering-promotion-prefix-count) 0))
                        (new-prefix (application-input-controller-steering-promotion-prefix-count controller))
                        (edit-index (application-input-controller-follow-up-edit-index controller)))
@@ -133,7 +133,7 @@ copy before reconstructing input. No filesystem I/O holds the controller lock."
               (application-recovery-input-vault--signal
                (application-recovery-input-vault--path application) ':store
                :message "Could not store queued input; the queue was restored. Inspect the vault if storage remains unavailable."
-               :cause condition))))))
+               :cause   condition))))))
     (application-input-controller--publish-counts controller)
     count))
 
@@ -208,10 +208,10 @@ The live queue, active work and already consumed steering are not edited."
     (application-recovery-input-vault--call-with-publication-lock
      application
      (lambda ()
-       (let* ((captures (application-recovery-input-vault-captures application))
+       (let* ((captures    (application-recovery-input-vault-captures application))
               (represented (application-vault--represented-identifiers application))
-              (live (remove-if-not (lambda (capture) (member (getf capture :id) represented :test #'equal)) captures))
-              (work (if index-p (application-vault--work application) value)))
+              (live        (remove-if-not (lambda (capture) (member (getf capture :id) represented :test #'equal)) captures))
+              (work        (if index-p (application-vault--work application) value)))
          (when index-p
            (application-vault--check-index application index work)
            (setf (nth index work) value))
@@ -225,13 +225,13 @@ The live queue, active work and already consumed steering are not edited."
   value)
 
 (define-application-command application--builtin-vault-store-command
-    (:name "/vault-store"
-     :argument nil
-     :description "move queued work and unconsumed steering into the vault immediately"
-     :tip "parks queued input immediately, even during an active turn; edit it with `(setf (vault-contents 0) '(:message \"new task\"))`."
-     :busy-behavior :execute
+    (:name              "/vault-store"
+     :argument          nil
+     :description       "move queued work and unconsumed steering into the vault immediately"
+     :tip               "parks queued input immediately, even during an active turn; edit it with `(setf (vault-contents 0) '(:message \"new task\"))`."
+     :busy-behavior     :execute
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (let ((controller (application-input-controller application)))
     (unless (typep controller 'application-input-controller)
