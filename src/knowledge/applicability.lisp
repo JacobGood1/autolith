@@ -95,7 +95,10 @@ Replays and fixtures bind it to evaluate expiry deterministically.")
 (-> knowledge-file-status-key (pathname) t)
 (defun knowledge-file-status-key (pathname)
   "Return a value that changes whenever the file at PATHNAME changes, or :MISSING."
-  (let ((status (ignore-errors (platform-path-status *platform* pathname :follow-links-p t))))
+  (let ((status (handler-case
+                    (platform-path-status *platform* pathname :follow-links-p t)
+                  (platform-error ()
+                    nil))))
     (if status
         (list (platform-file-status-identity status)
               (platform-file-status-size status)
