@@ -169,7 +169,6 @@
   "Return TOOL's dotted dispatch identity."
   (format nil "~A.~A" (tool-namespace tool) (tool-name tool)))
 
-(-> tool-display-namespace (tool) string)
 (defgeneric tool-display-namespace (tool)
   (:documentation "Return TOOL's namespace label for user interfaces."))
 
@@ -177,7 +176,6 @@
   "Use the dispatch namespace for ordinary tools."
   (tool-namespace tool))
 
-(-> tool-display-name (tool) string)
 (defgeneric tool-display-name (tool)
   (:documentation "Return TOOL's complete readable identity for user interfaces."))
 
@@ -185,7 +183,6 @@
   "Use the dotted dispatch identity for ordinary tools."
   (tool-canonical-name tool))
 
-(-> tool-authorization-identity-fields (tool) list)
 (defgeneric tool-authorization-identity-fields (tool)
   (:documentation
    "Return ordered label and exact value pairs identifying TOOL for approval."))
@@ -518,11 +515,9 @@ spilling is unavailable, in which case the tail is discarded as before.")
                  :category   ':mechanics
                  :error-code code))
 
-(-> tool-execute (tool tool-context json-object) tool-result)
 (defgeneric tool-execute (tool context arguments)
   (:documentation "Execute TOOL with validated JSON ARGUMENTS inside CONTEXT."))
 
-(-> tool-decode-arguments (tool string) json-object)
 (defgeneric tool-decode-arguments (tool source)
   (:documentation
    "Decode one provider argument SOURCE according to TOOL's JSON requirements."))
@@ -532,7 +527,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
   (declare (ignore tool))
   (json-decode source))
 
-(-> tool-child-safe-p (tool) boolean)
 (defgeneric tool-child-safe-p (tool)
   (:documentation
    "Return true when TOOL may cross the ordinary child-agent boundary."))
@@ -545,7 +539,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
   "Permit disposable Lisp-worker tools inside child agents."
   t)
 
-(-> tool-storm-guard-exempt-p (tool) boolean)
 (defgeneric tool-storm-guard-exempt-p (tool)
   (:documentation
    "Return true when repeated calls to TOOL must remain available to the model."))
@@ -594,7 +587,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
   "Exempt generation inspection from the mutating-call storm guard."
   t)
 
-(-> tool-conversation-persistence (tool) tool-conversation-persistence)
 (defgeneric tool-conversation-persistence (tool)
   (:documentation
    "Return how TOOL's call and result participate in conversation persistence."))
@@ -603,7 +595,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
   "Persist ordinary tool calls and their results in durable conversation history."
   ':durable)
 
-(-> tool-provider-round-trip-barrier-p (tool) boolean)
 (defgeneric tool-provider-round-trip-barrier-p (tool)
   (:documentation
    "Return true when TOOL must finish before the provider may issue later calls."))
@@ -612,7 +603,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
   "Allow ordinary tool calls to execute in provider wire order."
   nil)
 
-(-> tool-execution-policy (tool) (member :parallel :exclusive))
 (defgeneric tool-execution-policy (tool)
   (:documentation
    "Return whether TOOL may execute beside independent calls or needs exclusivity."))
@@ -633,7 +623,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
   "Serialize active-image mutations and lifecycle operations."
   ':exclusive)
 
-(-> tool-concurrency-key (tool) t)
 (defgeneric tool-concurrency-key (tool)
   (:documentation
    "Return TOOL's shared runtime serialization key, or NIL when calls are independent."))
@@ -642,7 +631,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
   "Serialize tools sharing one declared runtime identity."
   (tool-runtime-identity tool))
 
-(-> tool-compact-result-visible-p (tool) boolean)
 (defgeneric tool-compact-result-visible-p (tool)
   (:documentation
    "Return true when TOOL's successful result remains visible in compact mode."))
@@ -656,7 +644,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
   (declare (ignore tool))
   t)
 
-(-> tool-runtime-identity (tool) t)
 (defgeneric tool-runtime-identity (tool)
   (:documentation
    "Return TOOL's shared ephemeral runtime identity, or NIL when it owns none."))
@@ -665,7 +652,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
   "Return NIL because ordinary tools own no ephemeral runtime."
   nil)
 
-(-> tool-runtime-close-priority (tool) integer)
 (defgeneric tool-runtime-close-priority (tool)
   (:documentation
    "Return TOOL runtime shutdown priority; larger values close first."))
@@ -674,7 +660,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
   "Give ordinary independent runtimes the baseline shutdown priority."
   0)
 
-(-> tool-runtime-close (tool) null)
 (defgeneric tool-runtime-close (tool)
   (:documentation "Stop TOOL's ephemeral runtime and release its resources."))
 
@@ -682,7 +667,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
   "Leave an ordinary stateless TOOL unchanged."
   nil)
 
-(-> tool-runtime-detach (tool) null)
 (defgeneric tool-runtime-detach (tool)
   (:documentation
    "Detach TOOL's inherited external resources before saving a forked image."))
@@ -761,9 +745,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
           (resource-registry-documentation (resource-tool-resource-registry tool)
                                            #'resource-resolver-edit-documentation)))
 
-(-> resource-tool-read
-    (resource resource-read-tool tool-context json-object)
-    tool-result)
 (defgeneric resource-tool-read (resource tool context arguments)
   (:documentation
    "Read RESOURCE for the model through TOOL under CONTEXT and ARGUMENTS."))
@@ -777,9 +758,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
          :uri       (resource-uri resource)
          :operation ':read))
 
-(-> resource-tool-edit
-    (resource resource-edit-tool tool-context json-object)
-    tool-result)
 (defgeneric resource-tool-edit (resource tool context arguments)
   (:documentation
    "Edit RESOURCE for the model through TOOL under CONTEXT and ARGUMENTS."))
@@ -824,7 +802,9 @@ spilling is unavailable, in which case the tail is discarded as before.")
   (let* ((uri (tool-argument arguments "uri" :required t))
          (identity
            (if (and (non-empty-string-p uri)
-                    (ignore-errors (uiop:absolute-pathname-p (uiop:parse-native-namestring uri))))
+                    (handler-case (uiop:absolute-pathname-p (uiop:parse-native-namestring uri))
+                      (parse-error ()
+                        nil)))
                (format nil "workspace:~A" (workspace-file--encode-identifier uri))
                uri)))
     (resource-registry-resolve (resource-tool-resource-registry tool) identity context)))
@@ -904,7 +884,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
                   (member name new-names :test #'string=))
                 old-names))))
 
-(-> tool-runtime-resume (tool tool-registry) null)
 (defgeneric tool-runtime-resume (tool registry)
   (:documentation
    "Restart TOOL's shared ephemeral runtime and reconcile REGISTRY."))
@@ -1025,7 +1004,6 @@ spilling is unavailable, in which case the tail is discarded as before.")
         (error first-failure))))
   nil)
 
-(-> tool-runtime-prune-checkpoint-state (tool tool-registry) null)
 (defgeneric tool-runtime-prune-checkpoint-state (tool registry)
   (:documentation
    "Remove TOOL state that must not survive in a checkpointed REGISTRY."))
@@ -1112,7 +1090,6 @@ continue also requests an automatic continuation after a detached job completes.
   (not (null (member name '("rlm.infer" "rlm.map" "rlm.complete" "rlm.distill")
                      :test #'string=))))
 
-(-> tool-execution-activity-callback (t) (option function))
 (defgeneric tool-execution-activity-callback (runtime)
   (:documentation
    "Capture the current execution's bounded activity reporter, if available.
@@ -1124,16 +1101,6 @@ nested workers and accepts only compact, content-free phase descriptions."))
   "Return no reporter when executing without a session job runtime."
   nil)
 
-(-> tool-execution-invoke
-    (t t
-     &key (:tool-name non-empty-string)
-       (:description (option string))
-       (:summary string)
-       (:operation-function function)
-       (:async-p boolean)
-       (:completion-policy keyword)
-       (:parent-call-id (option string)))
-    tool-result)
 (defgeneric tool-execution-invoke
     (runtime parent
      &key tool-name description summary operation-function async-p parent-call-id
