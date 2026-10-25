@@ -79,11 +79,13 @@ TOOL-NAME and DESCRIPTION."
         (coerce (nreverse lines) 'vector))))
 
 (-> text--numbered-line-window
-    (vector (integer 1) (integer 1) (integer 1)
-     &key (:line-anchor-function (option function)))
+    (vector &key (:start-line (integer 1))
+                 (:line-count (integer 1))
+                 (:maximum-characters (integer 1))
+                 (:line-anchor-function (option function)))
     (values string list (integer 0) boolean))
 (defun text--numbered-line-window
-    (lines start-line line-count maximum-characters &key line-anchor-function)
+    (lines &key start-line line-count maximum-characters line-anchor-function)
   "Render a bounded numbered LINES window and return its visible range and status.
 
 When LINE-ANCHOR-FUNCTION is supplied, render its short annotation beside each

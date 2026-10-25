@@ -2411,7 +2411,10 @@
                     ("notes.txt" "plain text" :plain)))
       (destructuring-bind (path source role) case
         (let* ((body   (text--numbered-line-window
-                        (vector source) 1 1 10000
+                        (vector source)
+                        :start-line           1
+                        :line-count           1
+                        :maximum-characters   10000
                         :line-anchor-function #'cl-hashline:line-anchor))
                (output (format nil "URI: workspace:~A~%Revision: Rfixture~%Kind: file~%Visible lines: 1 of 1~%Elided: none~%Content:~%~A"
                                path body))

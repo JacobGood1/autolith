@@ -791,9 +791,9 @@ already admits the path to the readable roots, so it is not asked again."
         (multiple-value-bind (body visible-ranges last-line truncated-p)
             (text--numbered-line-window
              lines
-             start-line
-             line-count
-             *workspace-file-resource-maximum-result-characters*
+             :start-line           start-line
+             :line-count           line-count
+             :maximum-characters   *workspace-file-resource-maximum-result-characters*
              :line-anchor-function #'cl-hashline:line-anchor)
           (declare (ignore last-line))
           (when (and (plusp total-lines) (null visible-ranges))
@@ -838,9 +838,9 @@ already admits the path to the readable roots, so it is not asked again."
               (multiple-value-bind (body visible-ranges last-line truncated-p)
                    (text--numbered-line-window
                     lines
-                    start-line
-                    line-count
-                    *workspace-file-resource-maximum-result-characters*
+                    :start-line           start-line
+                    :line-count           line-count
+                    :maximum-characters   *workspace-file-resource-maximum-result-characters*
                     :line-anchor-function #'cl-hashline:line-anchor)
                 (declare (ignore last-line))
                 (let* ((state

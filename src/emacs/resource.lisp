@@ -518,9 +518,12 @@ Return the new observation and the normalized operations."
   (let* ((lines       (workspace-file-observation-lines observation))
          (total-lines (length lines)))
     (multiple-value-bind (body visible-ranges last-line truncated-p)
-        (text--numbered-line-window lines start-line line-count
-                                    *workspace-file-resource-maximum-result-characters*
-                                    :line-anchor-function #'cl-hashline:line-anchor)
+        (text--numbered-line-window
+         lines
+         :start-line           start-line
+         :line-count           line-count
+         :maximum-characters   *workspace-file-resource-maximum-result-characters*
+         :line-anchor-function #'cl-hashline:line-anchor)
       (declare (ignore last-line))
       (let* ((state    (resource-observation-state-ensure
                         (tool-context-conversation context) observation
