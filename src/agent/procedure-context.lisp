@@ -10,21 +10,21 @@
 ;;; in one request; admission is the consent to run it this way.
 
 (defclass procedure-offer-contribution (context-contribution)
-  ((names :initarg :names
-          :reader procedure-offer-contribution-names
-          :type list
+  ((names :initarg       :names
+          :reader        procedure-offer-contribution-names
+          :type          list
           :documentation "The names of the offered procedures.")
-   (ran-p :initarg :ran-p
-          :initform nil
-          :reader procedure-offer-contribution-ran-p
-          :type boolean
+   (ran-p :initarg       :ran-p
+          :initform      nil
+          :reader        procedure-offer-contribution-ran-p
+          :type          boolean
           :documentation "Whether the procedures already ran for this request."))
   (:documentation "Advice offering learned procedures that fit the request, or noting they ran."))
 
 (defclass procedure-offer-event (provider-event)
-  ((names :initarg :names
-          :reader procedure-offer-event-names
-          :type list
+  ((names :initarg       :names
+          :reader        procedure-offer-event-names
+          :type          list
           :documentation "The names of the procedures offered to the model."))
   (:documentation "A presentation event for offered procedures."))
 
@@ -56,7 +56,7 @@
 
 Once one ran for this request, the model is told so instead of offered it again."
   (let ((configuration (request-context-configuration request))
-        (text (request-context-latest-user-text request)))
+        (text          (request-context-latest-user-text request)))
     (when (and (not (request-context-compaction-p request))
                (knowledge-active-p configuration)
                (non-empty-string-p text))
@@ -64,12 +64,12 @@ Once one ran for this request, the model is told so instead of offered it again.
         (if ran
             (change-class
              (make-context-contribution
-              :identifier "procedure-offers"
+              :identifier        "procedure-offers"
               :instruction
               (format nil "Learned procedure~P ~{~A~^, ~} already ran for this request; the procedure.run result reports every call it made. Answer from it, or continue with ordinary calls where it stopped."
                       (length ran) ran)
-              :priority 25
-              :lifetime ':turn
+              :priority          25
+              :lifetime          ':turn
               :deduplication-key "procedure-offers")
              'procedure-offer-contribution
              :names ran
@@ -80,12 +80,12 @@ Once one ran for this request, the model is told so instead of offered it again.
               (when offers
                 (change-class
                  (make-context-contribution
-                  :identifier "procedure-offers"
+                  :identifier        "procedure-offers"
                   :instruction
                   "A procedure Autolith learned from earlier turns fits this request. One procedure.run call with the arguments shown makes the same tool calls those turns made; check its report and answer from it. Work normally instead if the request needs something different."
-                  :evidence (format nil "~{~A~^~%~}" (mapcar #'procedure-offer-line offers))
-                  :priority 25
-                  :lifetime ':turn
+                  :evidence          (format nil "~{~A~^~%~}" (mapcar #'procedure-offer-line offers))
+                  :priority          25
+                  :lifetime          ':turn
                   :deduplication-key "procedure-offers")
                  'procedure-offer-contribution
                  :names (mapcar (lambda (offer) (getf offer :id)) offers)))))))))
@@ -125,8 +125,8 @@ word apart from its parameters, and already shown to save requests. Nothing
 runs for an automatic turn, a turn without tools or with restricted tools, or
 a child agent."
   (let ((configuration (agent-configuration agent))
-        (child-class (find-class 'task-child-agent nil))
-        (registry (agent-tool-registry agent)))
+        (child-class   (find-class 'task-child-agent nil))
+        (registry      (agent-tool-registry agent)))
     (when (and tools-p
                (not automatic-p)
                (not tool-restriction-p)
@@ -138,22 +138,22 @@ a child agent."
                      (knowledge-error ()
                        nil))))
         (when offer
-          (let* ((call (json-object "type" "function_call"
-                                    "call_id" (format nil "autolith-procedure-~A" (make-identifier))
-                                    "namespace" "procedure"
-                                    "name" "run"
-                                    "arguments" (procedure-describe-call (getf offer :procedure)
-                                                                         (getf offer :bindings))))
+          (let* ((call  (json-object "type" "function_call"
+                                     "call_id" (format nil "autolith-procedure-~A" (make-identifier))
+                                     "namespace" "procedure"
+                                     "name" "run"
+                                     "arguments" (procedure-describe-call (getf offer :procedure)
+                                                                          (getf offer :bindings))))
                  (plans (agent--tool-call-plans agent (list call)))
-                 (plan (first plans)))
+                 (plan  (first plans)))
             (conversation-append-provider-item (agent-conversation agent) call
-                                               :tool-label (tool-display-name (getf plan :tool))
+                                               :tool-label  (tool-display-name (getf plan :tool))
                                                :persistence (getf plan :persistence))
             (agent--execute-tool-calls agent plans
                                        (make-instance 'provider-result
                                                       :output-items (list call)
-                                                      :tool-calls (list call))
-                                       :observer observer
+                                                      :tool-calls   (list call))
+                                       :observer   observer
                                        :tool-round 0))))))
   nil)
 
