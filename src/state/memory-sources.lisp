@@ -8,6 +8,9 @@
 ;;; optional portable fields of the ordinary memory record, so memories without
 ;;; them keep their exact earlier form.
 
+(defparameter *memory-content-limit* 5000
+  "The maximum characters in one memory body.")
+
 (defparameter *memory-source-count-limit* 8
   "The maximum sources cited by one memory.")
 

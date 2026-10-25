@@ -8,9 +8,6 @@
 (defparameter *memory-title-limit* 200
   "The maximum characters in one memory title.")
 
-(defparameter *memory-content-limit* 5000
-  "The maximum characters in one memory body.")
-
 (defparameter *memory-tag-count-limit* 16
   "The maximum tags attached to one memory.")
 
