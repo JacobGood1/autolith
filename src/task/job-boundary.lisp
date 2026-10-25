@@ -7,9 +7,9 @@
 
 (define-condition run-job-error (autolith-error)
   ((category
-    :initarg :category
-    :reader run-job-error-category
-    :type keyword
+    :initarg       :category
+    :reader        run-job-error-category
+    :type          keyword
     :documentation "The stable machine-readable failure category."))
   (:documentation "A non-interactive single-job request failed."))
 
@@ -54,15 +54,15 @@
   "Signal a categorized RUN-JOB failure using CONTROL and ARGUMENTS."
   (error 'run-job-error
          :category category
-         :message (apply #'format nil control arguments)))
+         :message  (apply #'format nil control arguments)))
 
 (-> run-job--source-grammar () source-grammar)
 (defun run-job--source-grammar ()
   "Return RUN-JOB's bounded data-only input dialect."
   (make-source-grammar
-   :label "Job input"
-   :maximum-depth *run-job-maximum-depth*
-   :maximum-nodes *run-job-maximum-nodes*
+   :label                     "Job input"
+   :maximum-depth             *run-job-maximum-depth*
+   :maximum-nodes             *run-job-maximum-nodes*
    :maximum-string-characters *run-job-maximum-string-characters*
    :read-default-float-format 'single-float
    :allowed-atom-predicate
@@ -116,13 +116,13 @@
                (unless present-p
                  (run-job--error ':invalid-envelope "Required field ~S is missing." key))
                value)))
-      (let* ((version (required :version))
-             (identifier (required :id))
-             (role (required :role))
-             (prompt (required :prompt))
-             (input (required :input))
+      (let* ((version         (required :version))
+             (identifier      (required :id))
+             (role            (required :role))
+             (prompt          (required :prompt))
+             (input           (required :input))
              (contract-source (required :output-contract))
-             (timeout (required :timeout-seconds)))
+             (timeout         (required :timeout-seconds)))
         (unless (eql version 1)
           (run-job--error ':unsupported-version "Unsupported job version ~S." version))
         (unless (and (non-empty-string-p identifier) (<= (length identifier) 256))
@@ -144,7 +144,6 @@
                          :prompt prompt :input input :output-contract contract
                          :timeout-seconds timeout))))))
 
-
 (-> run-job--recover-identifier (t) string)
 (defun run-job--recover-identifier (form)
   "Return FORM's unique bounded identifier, or an empty string when unavailable."
@@ -165,17 +164,17 @@
 (defun run-job--definition-with-contract (definition contract)
   "Return a validated copy of DEFINITION using CONTRACT for this run only."
   (task-agent-definition-create
-   :name (task-agent-definition-name definition)
-   :description (task-agent-definition-description definition)
-   :instructions (task-agent-definition-instructions definition)
-   :tools (task-agent-definition-tools definition)
-   :spawns (task-agent-definition-spawns definition)
-   :models (task-agent-definition-models definition)
+   :name             (task-agent-definition-name definition)
+   :description      (task-agent-definition-description definition)
+   :instructions     (task-agent-definition-instructions definition)
+   :tools            (task-agent-definition-tools definition)
+   :spawns           (task-agent-definition-spawns definition)
+   :models           (task-agent-definition-models definition)
    :reasoning-effort (task-agent-definition-reasoning-effort definition)
-   :output contract
-   :blocking-p (task-agent-definition-blocking-p definition)
-   :source (task-agent-definition-source definition)
-   :pathname (task-agent-definition-pathname definition)))
+   :output           contract
+   :blocking-p       (task-agent-definition-blocking-p definition)
+   :source           (task-agent-definition-source definition)
+   :pathname         (task-agent-definition-pathname definition)))
 
 (-> run-job--write-data-sexp (t &key (:pretty-p boolean)) string)
 (defun run-job--write-data-sexp (value &key pretty-p)
@@ -206,10 +205,9 @@
            (let ((entry (assoc name (getf result :usage) :test #'string=)))
              (and entry (typep (second entry) '(integer 0))
                   (second entry)))))
-    (list :input-tokens (or (field "input_tokens") 0)
-          :output-tokens (or (field "output_tokens") 0)
+    (list :input-tokens      (or (field "input_tokens") 0)
+          :output-tokens     (or (field "output_tokens") 0)
           :provider-requests (or (getf result :request-count) 0))))
-
 
 (-> run-job--read-task-result-artifact ((or pathname string)) list)
 (defun run-job--read-task-result-artifact (pathname)
@@ -235,11 +233,11 @@
    (unless (eq status :succeeded)
      (list :failure
            (list :category (or category :unknown)
-                 :message (bounded-string (or message "The job failed.")
-                                          :limit *run-job-failure-message-limit*))))
+                 :message  (bounded-string (or message "The job failed.")
+                                           :limit *run-job-failure-message-limit*))))
    (when trace-id (list :trace-id trace-id))
-   (list :usage (or usage '(:input-tokens 0 :output-tokens 0 :provider-requests 0))
-         :started-at (run-job--timestamp started-at)
+   (list :usage       (or usage '(:input-tokens 0 :output-tokens 0 :provider-requests 0))
+         :started-at  (run-job--timestamp started-at)
          :finished-at (run-job--timestamp finished-at))))
 
 (-> run-job-write-result-atomically ((or pathname string) list) pathname)
@@ -249,10 +247,10 @@
    (pathname pathname)
    (lambda (stream)
      (let ((*print-readably* nil)
-           (*print-escape* t)
-           (*print-array* nil)
-           (*print-circle* nil)
-           (*print-pretty* t))
+           (*print-escape*   t)
+           (*print-array*    nil)
+           (*print-circle*   nil)
+           (*print-pretty*   t))
        (write result :stream stream)
        (terpri stream)))))
 
@@ -276,10 +274,10 @@
              0
              (permissions-model-classify-command
               command directory
-              :provider (application-provider application)
-              :configuration (application-configuration application)
+              :provider            (application-provider application)
+              :configuration       (application-configuration application)
               :sandbox-available-p (application--command-sandbox-available-p)
-              :user-instructions (run-job-request-prompt request))))
+              :user-instructions   (run-job-request-prompt request))))
            ':deny))
       (otherwise
        ':deny))))
@@ -335,8 +333,8 @@
         (multiple-value-bind (run token)
             (telemetry--call-safely (lambda () (telemetry--begin-run configuration :launcher-p t)))
           (let ((*run-job-telemetry-scope-p* t)
-                (*telemetry-run* run)
-                (results nil))
+                (*telemetry-run*             run)
+                (results                     nil))
             (unwind-protect
                  (values-list
                   (setf results
@@ -355,9 +353,9 @@
     (values keyword t (option string) list (option keyword) (option string)))
 (defun run-job--execute-with-application (configuration request permission-mode)
   "Execute a child while its caller owns telemetry through result publication."
-  (let ((application nil)
+  (let ((application        nil)
         (event-orchestrator nil)
-        (event-listener nil))
+        (event-listener     nil))
     (unwind-protect
          (progn
            (setf application
@@ -367,7 +365,7 @@
                     (run-job--resolve-definition
                      (application-configuration application) request))
                   (orchestrator (application--task-orchestrator application))
-                  (assignment (run-job-assignment request)))
+                  (assignment   (run-job-assignment request)))
              (unless orchestrator
                (run-job--error ':runtime-unavailable
                                "The task runtime is unavailable."))
@@ -382,11 +380,11 @@
                           (run-job-event-observer-create
                            orchestrator *run-job-event-emitter*
                            :configuration (application-configuration application)
-                           :registry (application-tool-registry application)
+                           :registry      (application-tool-registry application)
                            :root-conversation
                            (task-parent-root-conversation-identifier
                             (application-agent application))
-                           :root-name *run-job-event-root-name*)))
+                           :root-name     *run-job-event-root-name*)))
                  (serious-condition ()
                    (run-job-event-emit *run-job-event-emitter* ':warning
                                        (list :code ':invalid-event)))))
@@ -397,14 +395,14 @@
                   (list
                    (list :item
                          (append
-                          (list :agent (run-job-request-role request)
-                                :task assignment
+                          (list :agent    (run-job-request-role request)
+                                :task     assignment
                                 :blocking t)
                           (when *run-job-event-root-name*
                             (list :name *run-job-event-root-name*)))
-                         :definition definition
+                         :definition    definition
                          :telemetry-run *telemetry-run*
-                         :detached nil))
+                         :detached      nil))
                   :command-authorization-function
                   (run-job-headless-command-authorization
                    application permission-mode request)
@@ -421,7 +419,7 @@
                      (multiple-value-bind (cancelled-snapshot cancelled-terminal-p)
                          (task-job-await job 5)
                        (declare (ignore cancelled-terminal-p))
-                       (let* ((result (getf cancelled-snapshot :result))
+                       (let* ((result        (getf cancelled-snapshot :result))
                               (artifact-path (getf result :output-path))
                               (usage-result
                                 (or (and artifact-path
@@ -436,9 +434,9 @@
                             ':timeout
                             "The job exceeded its wall-clock timeout.")))))
                    (let* ((compact-result (getf snapshot :result))
-                          (trace-id (task-job-execution-identifier job))
-                          (usage (run-job--usage compact-result))
-                          (artifact-path (getf compact-result :output-path))
+                          (trace-id       (task-job-execution-identifier job))
+                          (usage          (run-job--usage compact-result))
+                          (artifact-path  (getf compact-result :output-path))
                           (result
                             (if artifact-path
                                 (handler-case
@@ -450,7 +448,7 @@
                                        (run-job-error-category condition)
                                        (princ-to-string condition)))))
                                 compact-result))
-                          (status (getf result :status)))
+                          (status         (getf result :status)))
                      (setf usage (run-job--usage result))
                      (cond
                        ((and
@@ -501,19 +499,19 @@
     (input-path output-path permission-mode
      &key (executor #'run-job-execute-with-application) configuration)
   "Execute and publish one authoritative artifact, then finish optional observation."
-  (let ((started-at (get-universal-time))
-        (identifier "")
-        (request nil)
-        (form nil)
-        (terminal-status ':failed)
-        (terminal-category ':process-failure)
-        (terminal-trace nil)
-        (terminal-recorded-p nil)
-        (publication-attempted-p nil)
-        (published-p nil)
-        (telemetry-owner nil)
+  (let ((started-at                  (get-universal-time))
+        (identifier                  "")
+        (request                     nil)
+        (form                        nil)
+        (terminal-status             ':failed)
+        (terminal-category           ':process-failure)
+        (terminal-trace              nil)
+        (terminal-recorded-p         nil)
+        (publication-attempted-p     nil)
+        (published-p                 nil)
+        (telemetry-owner             nil)
         (*run-job-telemetry-scope-p* t)
-        (*telemetry-run* nil))
+        (*telemetry-run*             nil))
     (labels ((publish (envelope)
                (setf publication-attempted-p t published-p nil)
                (run-job-write-result-atomically output-path envelope)
@@ -534,7 +532,7 @@
                       (run-job-result-envelope
                        identifier ':failed
                        :started-at started-at :finished-at (get-universal-time)
-                      :category category :message (princ-to-string condition))))))))
+                       :category category :message (princ-to-string condition))))))))
       (unwind-protect
            (handler-case
                (progn
@@ -587,14 +585,14 @@
         (telemetry--call-safely #'telemetry-shutdown)
         (when *run-job-event-emitter*
           (handler-case
-              (let* ((status (if published-p terminal-status ':failed))
+              (let* ((status   (if published-p terminal-status ':failed))
                      (category (if published-p terminal-category ':result-publication-failed))
-                     (base (append
-                            (list :status status :published-p published-p)
-                            (when (and (stringp terminal-trace)
-                                       (<= 1 (length terminal-trace) 256))
-                              (list :job-id terminal-trace))
-                            (when category (list :category category)))))
+                     (base     (append
+                                (list :status status :published-p published-p)
+                                (when (and (stringp terminal-trace)
+                                           (<= 1 (length terminal-trace) 256))
+                                  (list :job-id terminal-trace))
+                                (when category (list :category category)))))
                 (when (getf base :job-id)
                   (run-job-event-emit
                    *run-job-event-emitter* ':job-finished
@@ -659,14 +657,14 @@ Observation failure never changes execution or result publication."
   (if (null events)
       (run-job--run-artifact input-path output-path permission-mode
                              :executor executor :configuration configuration)
-      (let* ((run-id (make-identifier))
-             (diagnostics *error-output*)
-             (*standard-input* (make-string-input-stream ""))
-             (*standard-output* diagnostics)
-             (*trace-output* diagnostics)
-             (*debug-io* (make-two-way-stream *standard-input* diagnostics))
-             (*query-io* (make-two-way-stream *standard-input* diagnostics))
-             (*terminal-io* (make-two-way-stream *standard-input* diagnostics))
+      (let* ((run-id                    (make-identifier))
+             (diagnostics               *error-output*)
+             (*standard-input*          (make-string-input-stream ""))
+             (*standard-output*         diagnostics)
+             (*trace-output*            diagnostics)
+             (*debug-io*                (make-two-way-stream *standard-input* diagnostics))
+             (*query-io*                (make-two-way-stream *standard-input* diagnostics))
+             (*terminal-io*             (make-two-way-stream *standard-input* diagnostics))
              (bordeaux-threads:*default-special-bindings*
               (run-job--thread-output-bindings
                diagnostics bordeaux-threads:*default-special-bindings*))
