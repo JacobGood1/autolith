@@ -248,7 +248,11 @@ requests are not counted."
                               :calls        nil)
                traces)))
       (:provider-item
-       (let* ((item (ignore-errors (json-decode (getf properties :wire-json))))
+       (let* ((wire (getf properties :wire-json))
+              (item (and (stringp wire)
+                         (handler-case (json-decode wire)
+                           (json-error ()
+                             nil))))
               (call (and current (json-object-p item) (action-trace--call item))))
          (cond
            (call
@@ -298,7 +302,9 @@ requests are not counted."
   "Return the call plist of provider function-call ITEM, or NIL for another item."
   (when (equal (json-get item "type") "function_call")
     (list :tool              (cl-llm-provider-api:provider-call-canonical-name item)
-          :arguments         (or (ignore-errors (json-decode (or (json-get item "arguments") "{}")))
+          :arguments         (or (handler-case (json-decode (or (json-get item "arguments") "{}"))
+                                   (json-error ()
+                                     nil))
                                  (json-object))
           :status            nil
           :output            nil
