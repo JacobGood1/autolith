@@ -55,9 +55,9 @@ claims."
                (job-pool-maximum-runtime-milliseconds pool))))
     (job-pool-update-limits
      pool
-     :maximum-concurrency maximum-concurrency
-     :maximum-batch-size maximum-batch-size
-     :maximum-live-jobs maximum-live-jobs
+     :maximum-concurrency          maximum-concurrency
+     :maximum-batch-size           maximum-batch-size
+     :maximum-live-jobs            maximum-live-jobs
      :maximum-runtime-milliseconds maximum-runtime-milliseconds))
   nil)
 
@@ -74,7 +74,7 @@ claims."
       :minimum 1
       :maximum *tool-execution-maximum-concurrency*)
      :maximum-batch-size 1
-     :maximum-live-jobs *tool-execution-maximum-live-jobs*
+     :maximum-live-jobs  *tool-execution-maximum-live-jobs*
      :maximum-runtime-milliseconds
      (job-pool-maximum-runtime-milliseconds pool)))
   nil)
@@ -147,6 +147,7 @@ a no-op, preserving lazy pools before their first job."
   "Return ORCHESTRATOR's :OPEN, :CLOSING, or :CLOSED lifecycle state."
   (job-pool-lifecycle-state (task-orchestrator-pool orchestrator)))
 
+
 ;;;; -- Construction and Refresh --
 
 (-> task-orchestrator-create () task-orchestrator)
@@ -154,43 +155,43 @@ a no-op, preserving lazy pools before their first job."
   "Create an orchestrator and its lazy worker pools from the environment."
   (let* ((task-pool
            (make-job-pool
-            :name "Autolith task"
-            :job-class 'task-job
+            :name                     "Autolith task"
+            :job-class                'task-job
             :maximum-concurrency
             (task--environment-integer "AUTOLITH_TASK_MAX_CONCURRENCY"
                                        *task-default-maximum-concurrency*
                                        :minimum 1
                                        :maximum *task-maximum-concurrency*)
-            :maximum-batch-size *task-maximum-batch-size*
-            :maximum-live-jobs *task-maximum-live-jobs*
+            :maximum-batch-size       *task-maximum-batch-size*
+            :maximum-live-jobs        *task-maximum-live-jobs*
             :maximum-runtime-milliseconds
             (task--environment-integer
              "AUTOLITH_TASK_MAX_RUNTIME_MS"
              *task-default-maximum-runtime-milliseconds*
              :minimum 0)
             :terminal-retention-limit *task-terminal-retention-limit*
-            :start-threads-p nil))
+            :start-threads-p          nil))
          (execution-pool
            (make-job-pool
-            :name "Autolith execution"
-            :job-class 'tool-execution-job
+            :name                         "Autolith execution"
+            :job-class                    'tool-execution-job
             :maximum-concurrency
             (task--environment-integer
              "AUTOLITH_EXECUTION_MAX_CONCURRENCY"
              *tool-execution-default-maximum-concurrency*
              :minimum 1
              :maximum *tool-execution-maximum-concurrency*)
-            :maximum-batch-size 1
-            :maximum-live-jobs *tool-execution-maximum-live-jobs*
+            :maximum-batch-size           1
+            :maximum-live-jobs            *tool-execution-maximum-live-jobs*
             :maximum-runtime-milliseconds 0
             :terminal-retention-limit
             *tool-execution-terminal-retention-limit*
             ;; Sessions without child or asynchronous tool work stay single
             ;; threaded so they can save their own image.
-            :start-threads-p nil))
+            :start-threads-p              nil))
          (orchestrator
            (make-instance 'task-orchestrator
-                          :pool task-pool
+                          :pool           task-pool
                           :execution-pool execution-pool
                           :maximum-depth
                           (task--environment-integer "AUTOLITH_TASK_MAX_DEPTH"
@@ -207,13 +208,13 @@ a no-op, preserving lazy pools before their first job."
   "Apply current limits and refresh both reusable worker pools.
 
 A completed shutdown can be reopened only by an explicit runtime resume."
-  (let ((task-pool (task-orchestrator-pool orchestrator))
+  (let ((task-pool      (task-orchestrator-pool orchestrator))
         (execution-pool (task-orchestrator-execution-pool orchestrator)))
     (with-lock-held ((task-orchestrator-lock orchestrator))
       (when (and (task-orchestrator-closed-p orchestrator)
                  (not reopen-p))
         (error 'task-error
-               :message "The session job runtime is closed."
+               :message   "The session job runtime is closed."
                :tool-name "job.list"))
       (task-orchestrator--apply-limits-locked
        orchestrator
@@ -228,7 +229,7 @@ A completed shutdown can be reopened only by an explicit runtime resume."
             (job-pool-refresh pool)
           (job-pool-closed ()
             (error 'task-error
-                   :message "The session job runtime is still shutting down."
+                   :message   "The session job runtime is still shutting down."
                    :tool-name "job.list"))))
       (when reopen-p
         (setf (task-orchestrator-closed-p orchestrator) nil))))
@@ -267,10 +268,10 @@ A completed shutdown can be reopened only by an explicit runtime resume."
 (defun task--identifier-fragment (value)
   "Return VALUE normalized for child identifiers and artifact names."
   (let* ((unbounded (string-downcase (task--trim (or value ""))))
-         (text (subseq unbounded
-                       0
-                       (min (length unbounded)
-                            *task-identifier-maximum-characters*)))
+         (text      (subseq unbounded
+                            0
+                            (min (length unbounded)
+                                 *task-identifier-maximum-characters*)))
          (mapped
           (map 'string
                (lambda (character)
@@ -280,7 +281,7 @@ A completed shutdown can be reopened only by an explicit runtime resume."
                      character
                      #\HYPHEN-MINUS))
                text))
-         (trimmed (string-trim '(#\HYPHEN-MINUS) mapped)))
+         (trimmed   (string-trim '(#\HYPHEN-MINUS) mapped)))
     (and (non-empty-string-p trimmed) trimmed)))
 
 (-> task-orchestrator--child-name (task-orchestrator (option string)) string)
@@ -357,11 +358,11 @@ identifier is what an agent uses to refer to its own children."
            (task-orchestrator-emit
             (session-job-orchestrator job)
             :tool-execution-lifecycle
-            (list :id (session-job-identifier job)
-                  :tool (tool-execution-job-tool-name job)
-                  :status status
+            (list :id                  (session-job-identifier job)
+                  :tool                (tool-execution-job-tool-name job)
+                  :status              status
                   :parent-tool-call-id (session-job-parent-call-id job)))))))
-  nil))
+   nil))
 
 
 ;;;; -- Shutdown --
@@ -406,7 +407,7 @@ identifier is what an agent uses to refer to its own children."
   (unless (task-orchestrator-close
            (task-orchestrator-tool-orchestrator tool))
     (error 'task-error
-           :message "Task workers did not stop before the shutdown deadline."
+           :message   "Task workers did not stop before the shutdown deadline."
            :tool-name (tool-canonical-name tool)))
   nil)
 
@@ -437,7 +438,7 @@ The tail lives in one reusable growable buffer, so readers must copy it
 under the progress lock before releasing it to other threads."
   (with-lock-held ((task-progress-lock progress))
     (let ((buffer (task-progress-output-tail progress))
-          (limit *task-progress-output-limit*))
+          (limit  *task-progress-output-limit*))
       (unless (and (array-has-fill-pointer-p buffer)
                    (adjustable-array-p buffer))
         (setf buffer (text-buffer-append (text-buffer-create) buffer)
@@ -514,7 +515,7 @@ retained fields, including when reading progress kept by an older image."
                                             ("accepted_prediction_tokens")
                                             ("rejected_prediction_tokens") ("text_tokens"))
                ("cache_creation" ("ephemeral_5m_input_tokens")
-                                  ("ephemeral_1h_input_tokens"))))))
+                                 ("ephemeral_1h_input_tokens"))))))
 
 (-> task-progress--merge-usage (t t) list)
 (defun task-progress--merge-usage (aggregate usage)
@@ -522,8 +523,8 @@ retained fields, including when reading progress kept by an older image."
   (labels ((merge-counters (left right)
              "Merge already projected counter objects without retaining metadata."
              (dolist (entry right left)
-               (let* ((name (first entry))
-                      (value (second entry))
+               (let* ((name     (first entry))
+                      (value    (second entry))
                       (existing (assoc name left :test #'string=)))
                  (if existing
                      (setf (second existing)
@@ -540,11 +541,11 @@ retained fields, including when reading progress kept by an older image."
   "Project only bounded normalized numeric token counters from USAGE."
   (when (and (proper-list-p usage) (<= (length usage) 32))
     (loop for (name key) in '(("input_tokens" :input-tokens)
-                             ("output_tokens" :output-tokens)
-                             ("total_tokens" :total-tokens))
+                              ("output_tokens" :output-tokens)
+                              ("total_tokens" :total-tokens))
           for entry = (find name usage
-                            :key (lambda (entry)
-                                   (and (consp entry) (first entry)))
+                            :key  (lambda (entry)
+                                    (and (consp entry) (first entry)))
                             :test #'equal)
           for value = (and (consp (rest entry)) (second entry))
           when (typep value '(integer 0 9223372036854775807))
@@ -553,8 +554,8 @@ retained fields, including when reading progress kept by an older image."
 (defun task-progress-note-status (job status details)
   "Update JOB's normalized progress from one child observer STATUS event."
   (let ((progress (task-job-progress job))
-        (event nil)
-        (now (get-internal-real-time)))
+        (event    nil)
+        (now      (get-internal-real-time)))
     (with-lock-held ((task-progress-lock progress))
       (case status
         (:provider-request-started
@@ -580,14 +581,14 @@ retained fields, including when reading progress kept by an older image."
       (setf (task-progress-updated-at progress) now
             event
             (append
-             (list :id (job-identifier job)
-                   :status (task-progress-status progress)
+             (list :id              (job-identifier job)
+                   :status          (task-progress-status progress)
                    :observer-status status
-                   :call-id (getf details :call-id)
-                   :tool (getf details :tool)
-                   :success-p (and (getf details :success-p) t)
-                   :current-tool (task-progress-current-tool progress)
-                   :request-count (task-progress-request-count progress))
+                   :call-id         (getf details :call-id)
+                   :tool            (getf details :tool)
+                   :success-p       (and (getf details :success-p) t)
+                   :current-tool    (task-progress-current-tool progress)
+                   :request-count   (task-progress-request-count progress))
              (when (eq status :provider-request-completed)
                (task-progress--event-usage (getf details :usage))))))
     (when (member status '(:provider-request-started :provider-request-completed
@@ -649,7 +650,7 @@ name is bounded here, because only the identifier derived from it was."
 When PROMOTE-RESPONSE-P is true, durable acknowledgment reserves one FIFO token
 for JOB's next verbal response."
   (block nil
-    (let* ((copy (user-message-input-copy content))
+    (let* ((copy       (user-message-input-copy content))
            (characters (length (user-message-input-text copy))))
       (unless (or (plusp characters)
                   (user-message-input-image-pathnames copy))
@@ -685,7 +686,7 @@ for JOB's next verbal response."
           (let ((entry
                   (agent-steering-input-create
                    :identifier (make-identifier)
-                   :content copy)))
+                   :content    copy)))
             (deque-push-back (task-job-steering-items job) entry)
             (when promote-response-p
               (deque-push-back
@@ -711,7 +712,7 @@ for JOB's next verbal response."
         (deque-delete
          identifier
          (task-job-steering-in-flight-items job)
-         :key #'agent-steering-input-identifier
+         :key  #'agent-steering-input-identifier
          :test #'string=)
       (declare (ignore entry))
       (when present-p
@@ -743,12 +744,12 @@ for JOB's next verbal response."
       (task-orchestrator-emit
        (task-job-orchestrator job)
        ':task-subagent-verbal-response
-       (list :id (session-job-identifier job)
+       (list :id           (session-job-identifier job)
              :execution-id (task-job-execution-identifier job)
-             :child-name (copy-seq (task-job-display-name job))
-             :steering-id (copy-seq steering-identifier)
-             :text (copy-seq text)
-             :time timestamp)))
+             :child-name   (copy-seq (task-job-display-name job))
+             :steering-id  (copy-seq steering-identifier)
+             :text         (copy-seq text)
+             :time         timestamp)))
     (not (null steering-identifier))))
 
 (-> task-job-close-steering (task-job) (integer 0))
@@ -761,7 +762,7 @@ for JOB's next verbal response."
       (setf (task-job-steering-closed-p job) t)
       (deque-clear (task-job-steering-items job))
       (deque-clear (task-job-steering-in-flight-items job))
-       (deque-clear (task-job-response-promotion-pending-identifiers job))
+      (deque-clear (task-job-response-promotion-pending-identifiers job))
       (deque-clear (task-job-response-promotion-identifiers job))
       count)))
 
@@ -771,9 +772,9 @@ for JOB's next verbal response."
 
 The pool owns the identifier and index, so this assembles what a child session is
 handed rather than storing a second copy."
-  (list :id (job-identifier job)
+  (list :id           (job-identifier job)
         :display-name (task-job-display-name job)
-        :index (job-index job)))
+        :index        (job-index job)))
 
 (-> task-job-root-conversation-identifier (task-job) non-empty-string)
 (defun task-job-root-conversation-identifier (job)
@@ -813,10 +814,10 @@ handed rather than storing a second copy."
     (let ((progress (task-job-progress job)))
       (with-lock-held ((task-progress-lock progress))
         (let ((now (or ended-at (get-internal-real-time))))
-          (list :id (job-identifier job)
-                :agent agent-name
-                :status (task-progress-status progress)
-                :current-tool (task-progress-current-tool progress)
+          (list :id            (job-identifier job)
+                :agent         agent-name
+                :status        (task-progress-status progress)
+                :current-tool  (task-progress-current-tool progress)
                 :current-tool-duration-ms
                 (and (task-progress-current-tool-started-at progress)
                      (task--milliseconds-between
@@ -826,7 +827,7 @@ handed rather than storing a second copy."
                 (coerce (deque->vector (task-progress-recent-tools progress)) 'list)
                 :recent-output (copy-seq (task-progress-output-tail progress))
                 :request-count (task-progress-request-count progress)
-                :usage (task-progress--usage-summary (task-progress-usage progress))
+                :usage         (task-progress--usage-summary (task-progress-usage progress))
                 :duration-ms
                 (and (task-progress-started-at progress)
                      (task--milliseconds-between
@@ -846,7 +847,7 @@ handed rather than storing a second copy."
   "Return a coherent portable snapshot of JOB's current progress."
   (let ((snapshot (job-snapshot job)))
     (task-progress--snapshot job
-                             :result (getf snapshot :result)
+                             :result   (getf snapshot :result)
                              :ended-at (getf snapshot :ended-at))))
 
 (-> task-job--copy-result (list) list)
@@ -865,29 +866,29 @@ handed rather than storing a second copy."
 The lifecycle fields are read once through the pool snapshot so they cannot mix
 values from either side of a terminal transition."
   (let* ((snapshot (job-snapshot job))
-         (result (task-job--copy-result (getf snapshot :result)))
+         (result   (task-job--copy-result (getf snapshot :result)))
          (agent-name
            (with-lock-held ((cl-jobpond::job--lock job))
              (task-job-agent-name job))))
-    (list :job-id (session-job-identifier job)
-          :execution-id (task-job-execution-identifier job)
-          :owner (session-job-completion-owner-conversation job)
-          :completion-policy (session-job-completion-policy job)
-          :type :task
-          :state (getf snapshot :state)
+    (list :job-id               (session-job-identifier job)
+          :execution-id         (task-job-execution-identifier job)
+          :owner                (session-job-completion-owner-conversation job)
+          :completion-policy    (session-job-completion-policy job)
+          :type                 :task
+          :state                (getf snapshot :state)
           :pending-prompt-count (task-job-steering-pending-count job)
-          :detached (task-job-detached-p job)
-          :agent agent-name
+          :detached             (task-job-detached-p job)
+          :agent                agent-name
           :assignment
           (bounded-string (getf (task-job-item job) :task)
                           :limit *task-retained-assignment-limit*)
           :progress
           (task-progress--snapshot job
-                                   :result result
+                                   :result   result
                                    :ended-at (getf snapshot :ended-at))
-          :result result
-          :cancellation-reason (getf snapshot :cancellation-reason)
-          :condition-report (getf snapshot :condition-report))))
+          :result               result
+          :cancellation-reason  (getf snapshot :cancellation-reason)
+          :condition-report     (getf snapshot :condition-report))))
 
 (-> session-job-snapshot (session-job) list)
 (defgeneric session-job-snapshot (job)
@@ -902,21 +903,21 @@ values from either side of a terminal transition."
   "Return JOB's asynchronous tool execution snapshot."
   (let* ((snapshot (job-snapshot job))
          (progress (getf snapshot :progress)))
-    (list :job-id (session-job-identifier job)
-          :execution-id (session-job-execution-identifier job)
-          :owner (session-job-completion-owner-conversation job)
-          :completion-policy (session-job-completion-policy job)
-          :type :tool
-          :state (getf snapshot :state)
-          :detached (session-job-detached-p job)
-          :tool (tool-execution-job-tool-name job)
-           :description (tool-execution-job-description job)
-          :summary (tool-execution-job-summary job)
+    (list :job-id              (session-job-identifier job)
+          :execution-id        (session-job-execution-identifier job)
+          :owner               (session-job-completion-owner-conversation job)
+          :completion-policy   (session-job-completion-policy job)
+          :type                :tool
+          :state               (getf snapshot :state)
+          :detached            (session-job-detached-p job)
+          :tool                (tool-execution-job-tool-name job)
+           :description        (tool-execution-job-description job)
+          :summary             (tool-execution-job-summary job)
           :progress
           (list :duration-ms (getf progress :duration-milliseconds))
-          :result (copy-tree (getf snapshot :result))
+          :result              (copy-tree (getf snapshot :result))
           :cancellation-reason (getf snapshot :cancellation-reason)
-          :condition-report (getf snapshot :condition-report))))
+          :condition-report    (getf snapshot :condition-report))))
 
 (-> task-orchestrator-list-jobs (task-orchestrator) list)
 (defun task-orchestrator-list-jobs (orchestrator)
@@ -935,7 +936,7 @@ values from either side of a terminal transition."
   "Return IDENTIFIER's retained session job, or NIL when it is absent."
   (find identifier
         (task-orchestrator-list-jobs orchestrator)
-        :key #'session-job-identifier
+        :key  #'session-job-identifier
         :test #'string=))
 
 (-> session-job-live-activity (session-job) (option list))
@@ -950,14 +951,14 @@ values from either side of a terminal transition."
       (let ((progress (task-job-progress job)))
         (with-lock-held ((task-progress-lock progress))
           (let ((now (get-internal-real-time)))
-            (list :id (session-job-identifier job)
-                  :type ':task
-                  :index (session-job-order job)
-                  :agent (task-job-agent-name job)
-                  :state state
+            (list :id            (session-job-identifier job)
+                  :type          ':task
+                  :index         (session-job-order job)
+                  :agent         (task-job-agent-name job)
+                  :state         state
                   :pending-prompt-count
                   (task-job-steering-pending-count job)
-                  :current-tool (task-progress-current-tool progress)
+                  :current-tool  (task-progress-current-tool progress)
                   :current-tool-duration-ms
                   (and (task-progress-current-tool-started-at progress)
                        (task--milliseconds-between
@@ -975,7 +976,7 @@ values from either side of a terminal transition."
                   (bounded-string
                    (getf (task-job-item job) :task)
                    :limit *task-retained-assignment-limit*)
-                  :detached (task-job-detached-p job))))))))
+                  :detached      (task-job-detached-p job))))))))
 
 (defmethod tool-execution-activity-callback ((runtime task-orchestrator))
   "Capture the executing job so nested workers report to the same owner."
@@ -1006,10 +1007,10 @@ values from either side of a terminal transition."
             (with-lock-held ((cl-jobpond::job--lock job))
               (values (tool-execution-job-activity job)
                       (tool-execution-job-activity-at job)))
-          (list :id (session-job-identifier job)
-                :type ':tool
-                :index (session-job-order job)
-                :tool (tool-execution-job-tool-name job)
+          (list :id       (session-job-identifier job)
+                :type     ':tool
+                :index    (session-job-order job)
+                :tool     (tool-execution-job-tool-name job)
                 :description
                 (if (tool-recursive-inference-p (tool-execution-job-tool-name job))
                     (or activity "starting")
@@ -1021,7 +1022,7 @@ values from either side of a terminal transition."
                 (and (or activity-at (job-started-at job))
                      (task--milliseconds-between
                       (or activity-at (job-started-at job)) now))
-                :state state
+                :state    state
                 :duration-ms
                 (and (job-started-at job)
                      (task--milliseconds-between (job-started-at job) now))
@@ -1072,10 +1073,10 @@ values from either side of a terminal transition."
     (if (and job (session-job-visible-to-agent-p job viewer))
         job
         (error 'task-error
-               :message (format nil "No visible job named ~A exists."
-                                identifier)
+               :message   (format nil "No visible job named ~A exists."
+                                  identifier)
                :tool-name tool-name
-               :task-id identifier))))
+               :task-id   identifier))))
 
 (-> session-job-cancel
     (session-job keyword)
