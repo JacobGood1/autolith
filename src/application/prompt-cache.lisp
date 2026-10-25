@@ -26,71 +26,71 @@
 
 (defclass prompt-cache-episode ()
   ((conversation
-    :initarg :conversation
-    :reader prompt-cache-episode-conversation
-    :type conversation
+    :initarg       :conversation
+    :reader        prompt-cache-episode-conversation
+    :type          conversation
     :documentation "The exact conversation served by this request.")
    (provider
-    :initarg :provider
-    :reader prompt-cache-episode-provider
-    :type model-provider
+    :initarg       :provider
+    :reader        prompt-cache-episode-provider
+    :type          model-provider
     :documentation "The provider instance whose cache may contain the prompt.")
    (model
-    :initarg :model
-    :reader prompt-cache-episode-model
-    :type string
+    :initarg       :model
+    :reader        prompt-cache-episode-model
+    :type          string
     :documentation "The model selected when the request started.")
    (process-id
-    :initform (current-process-id)
-    :reader prompt-cache-episode-process-id
-    :type integer
+    :initform      (current-process-id)
+    :reader        prompt-cache-episode-process-id
+    :type          integer
     :documentation "The process that established the local monotonic cache clock.")
    (started-at
-    :initarg :started-at
-    :reader prompt-cache-episode-started-at
-    :type real
+    :initarg       :started-at
+    :reader        prompt-cache-episode-started-at
+    :type          real
     :documentation "The monotonic request start in seconds, before response generation.")
    (prompt-tokens
-    :initform nil
-    :accessor prompt-cache-episode-prompt-tokens
-    :type (option (integer 0))
+    :initform      nil
+    :accessor      prompt-cache-episode-prompt-tokens
+    :type          (option (integer 0))
     :documentation "The completed request's prompt size, or NIL while in flight.")
    (history-characters
-    :initform 0
-    :accessor prompt-cache-episode-history-characters
-    :type (integer 0)
+    :initform      0
+    :accessor      prompt-cache-episode-history-characters
+    :type          (integer 0)
     :documentation "The bounded textual history size eligible for summarization.")
    (sequence
-    :initform nil
-    :accessor prompt-cache-episode-sequence
-    :type (option (integer 0))
+    :initform      nil
+    :accessor      prompt-cache-episode-sequence
+    :type          (option (integer 0))
     :documentation "The durable conversation boundary after request completion."))
   (:documentation "One process-local cache opportunity, consumed before idle compaction."))
 
 (defclass prompt-cache-baseline ()
   ((prompt-tokens
-    :initarg :prompt-tokens
-    :reader prompt-cache-baseline-prompt-tokens
-    :type (integer 0)
+    :initarg       :prompt-tokens
+    :reader        prompt-cache-baseline-prompt-tokens
+    :type          (integer 0)
     :documentation "The previous request's full prompt size, including temporary context.")
    (cached-tokens
-    :initarg :cached-tokens
-    :initform nil
-    :reader prompt-cache-baseline-cached-tokens
-    :type (option (integer 0))
+    :initarg       :cached-tokens
+    :initform      nil
+    :reader        prompt-cache-baseline-cached-tokens
+    :type          (option (integer 0))
     :documentation "How much of that prompt the cache already served, when reported.")
    (completed-at
-    :initarg :completed-at
+    :initarg  :completed-at
     :initform nil
-    :reader prompt-cache-baseline-completed-at
-    :type (option timestamp)
+    :reader   prompt-cache-baseline-completed-at
+    :type     (option timestamp)
     :documentation
     "When that request completed, or NIL when it belongs to a resumed conversation.")
    (model
-    :initarg :model
-    :initform nil
-    :reader prompt-cache-baseline-model
-    :type (option string)
+    :initarg       :model
+    :initform      nil
+    :reader        prompt-cache-baseline-model
+    :type          (option string)
     :documentation "The model that served that request, or NIL when unknown."))
   (:documentation "Previous request measurements, not proof of a reusable prefix."))
 
@@ -105,8 +105,8 @@
                         :prompt-tokens prompt-tokens
                         :cached-tokens (conversation--usage-field
                                         usage "cached_input_tokens")
-                        :completed-at completed-at
-                        :model model))))
+                        :completed-at  completed-at
+                        :model         model))))
 
 (-> prompt-cache-baseline-from-conversation
     (conversation)
@@ -157,11 +157,11 @@ can identify a resumed session, but cannot establish why cache reads were low."
 Attribution separates instruction and tool usage when the provider reports it.
 It does not establish why those tokens were uncached. NIL means no attribution."
   (let* ((attribution (prompt-cache--usage-entry usage "attribution"))
-         (fields (and attribution
-                      (prompt-cache--usage-entry attribution "request_fields")))
-         (entry (and fields (prompt-cache--usage-entry fields field)))
-         (input (and entry (prompt-cache--usage-entry entry "input_tokens")))
-         (cached (and entry (prompt-cache--usage-entry entry "cached_tokens"))))
+         (fields      (and attribution
+                           (prompt-cache--usage-entry attribution "request_fields")))
+         (entry       (and fields (prompt-cache--usage-entry fields field)))
+         (input       (and entry (prompt-cache--usage-entry entry "input_tokens")))
+         (cached      (and entry (prompt-cache--usage-entry entry "cached_tokens"))))
     (when (and (integerp input) (integerp cached))
       (max 0 (- input cached)))))
 
@@ -173,7 +173,7 @@ It does not establish why those tokens were uncached. NIL means no attribution."
 
 This is a measurement heuristic. Temporary context, routing and other unknown
 factors can account for uncached input; these counts do not identify a cause."
-  (let ((expected (prompt-cache-baseline-prompt-tokens baseline))
+  (let ((expected        (prompt-cache-baseline-prompt-tokens baseline))
         (previous-cached (prompt-cache-baseline-cached-tokens baseline)))
     (and previous-cached
          (> prompt-tokens expected)
@@ -202,36 +202,36 @@ Requests without counters or below the reporting thresholds return NIL."
       (return nil))
     (let* ((prompt-tokens (conversation--usage-field usage "input_tokens"))
            (cached-tokens (conversation--usage-field usage "cached_input_tokens"))
-           (expected (prompt-cache-baseline-prompt-tokens baseline))
-           (miss-p (and prompt-tokens
-                        cached-tokens
-                        (>= expected *prompt-cache-miss-minimum-tokens*)
-                        (< cached-tokens (* expected *prompt-cache-miss-ratio*))))
-           (stall-p (and prompt-tokens
-                         cached-tokens
-                         (prompt-cache--stalled-p
-                          baseline prompt-tokens cached-tokens))))
+           (expected      (prompt-cache-baseline-prompt-tokens baseline))
+           (miss-p        (and prompt-tokens
+                               cached-tokens
+                               (>= expected *prompt-cache-miss-minimum-tokens*)
+                               (< cached-tokens (* expected *prompt-cache-miss-ratio*))))
+           (stall-p       (and prompt-tokens
+                               cached-tokens
+                               (prompt-cache--stalled-p
+                                baseline prompt-tokens cached-tokens))))
       (unless (or miss-p stall-p)
         (return nil))
-      (let* ((completed-at (prompt-cache-baseline-completed-at baseline))
+      (let* ((completed-at   (prompt-cache-baseline-completed-at baseline))
              (baseline-model (prompt-cache-baseline-model baseline))
              (idle-seconds
                (and completed-at
                     started-at
                     (max 0 (- started-at completed-at)))))
         (list :uncached-tokens (max 0 (- prompt-tokens cached-tokens))
-              :prompt-tokens prompt-tokens
-              :cached-tokens cached-tokens
-              :stalled-p stall-p
-              :cause (prompt-cache--miss-cause
-                      :model-changed-p (and model
-                                            baseline-model
-                                            (string/= model baseline-model)
-                                            t)
-                      :idle-seconds idle-seconds
-                      :shrunk-p (< prompt-tokens expected)
-                      :completed-at completed-at)
-              :idle-seconds idle-seconds
+              :prompt-tokens   prompt-tokens
+              :cached-tokens   cached-tokens
+              :stalled-p       stall-p
+              :cause           (prompt-cache--miss-cause
+                                :model-changed-p (and model
+                                                      baseline-model
+                                                      (string/= model baseline-model)
+                                                      t)
+                                :idle-seconds    idle-seconds
+                                :shrunk-p        (< prompt-tokens expected)
+                                :completed-at    completed-at)
+              :idle-seconds    idle-seconds
               :instructions-uncached
               (prompt-cache--attribution-uncached usage "instructions")
               :tools-uncached
