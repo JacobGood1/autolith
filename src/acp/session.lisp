@@ -14,7 +14,7 @@
     :documentation "The bootstrapped process configuration copied for each session.")
    (permission-mode
     :initarg :permission-mode :initform ':ask :reader acp-service-permission-mode
-    :type (member :ask :auto :sandboxed :full-access)
+    :type          (member :ask :auto :sandboxed :full-access)
     :documentation "The initial permission mode of new and loaded sessions.")
    (sessions
     :initform (make-hash-table :test #'equal) :reader acp-service-sessions
@@ -68,8 +68,8 @@
     :initform nil :accessor acp-session-completion-thread
     :documentation "The owned headless completion controller thread.")
    (completion-condition
-    :initform (make-condition-variable :name "ACP completion wakeup")
-    :reader acp-session-completion-condition
+    :initform      (make-condition-variable :name "ACP completion wakeup")
+    :reader        acp-session-completion-condition
     :documentation "The wakeup condition protected by the session lock.")
    (completion-wakeup-p
     :initform nil :accessor acp-session-completion-wakeup-p :type boolean
@@ -111,6 +111,7 @@
   ()
   (:default-initargs :code -32603 :message "Another primary operation is active.")
   (:documentation "Another session or setup owns the ACP process's primary operation."))
+
 (-> acp-service--call-with-operation (acp-service t function) t)
 (defun acp-service--call-with-operation (service owner function)
   "Run FUNCTION as the sole primary operation, rejecting overlapping work."
@@ -172,6 +173,7 @@
       (with-lock-held ((acp-session-lock session))
         (setf (acp-session-prompt-interruptible-p session) nil))
     (funcall function)))
+
 (-> acp-session-cancel (acp-session &key (:expected-epoch (option integer))) null)
 (defun acp-session-cancel (session &key expected-epoch)
   "Cancel owned work, optionally only if EXPECTED-EPOCH is still current."
@@ -206,14 +208,14 @@
 (-> acp-session--call-with-tool (acp-session function) t)
 (defun acp-session--call-with-tool (session function)
   "Own one tool execution and install session bindings in its worker thread."
-  (let* ((thread (current-thread))
-         (application (acp-session-application session))
-         (*active-application* application)
-         (*configuration* (application-configuration application))
+  (let* ((thread                      (current-thread))
+         (application                 (acp-session-application session))
+         (*active-application*        application)
+         (*configuration*             (application-configuration application))
          (*default-pathname-defaults* (config :working-directory *configuration*))
-         (*standard-output* *error-output*)
-         (*trace-output* *error-output*)
-         (registered-p nil))
+         (*standard-output*           *error-output*)
+         (*trace-output*              *error-output*)
+         (registered-p                nil))
     (unwind-protect
          (progn
            (with-lock-held ((acp-session-lock session))
@@ -248,9 +250,9 @@
               (sleep 0.01)))
       (acp-input-close session)
       (let* ((application (acp-session-application session))
-             (failures (application--discard-connection-resources
-                        application (application-tool-registry application)
-                        (application-worker application))))
+             (failures    (application--discard-connection-resources
+                           application (application-tool-registry application)
+                           (application-worker application))))
         (when failures
           (error 'agentcomms:acp-state-error :message "Session resource cleanup failed."))
         (acp-mcp-release-credentials
