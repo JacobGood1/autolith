@@ -43,243 +43,243 @@
 
 (defclass application-input-controller ()
   ((application
-    :initarg :application
-    :reader application-input-controller-application
-    :type application
+    :initarg       :application
+    :reader        application-input-controller-application
+    :type          application
     :documentation "The application receiving terminal events and submitted work.")
    (lock
-    :initform (make-lock "Autolith input controller")
-    :reader application-input-controller-lock
-    :type t
+    :initform      (make-lock "Autolith input controller")
+    :reader        application-input-controller-lock
+    :type          t
     :documentation "The lock protecting work, reader, and exit state.")
    (publication-lock
-    :initform (make-lock "Autolith input publication")
-    :reader application-input-controller-publication-lock
-    :type t
+    :initform      (make-lock "Autolith input publication")
+    :reader        application-input-controller-publication-lock
+    :type          t
     :documentation "The lock serializing terminal and durable pending publication.")
    (publication-generation
-    :initform 0
-    :accessor application-input-controller-publication-generation
-    :type (integer 0)
+    :initform      0
+    :accessor      application-input-controller-publication-generation
+    :type          (integer 0)
     :documentation "The latest detached external-publication generation.")
    (published-ui-generation
-    :initform 0
-    :accessor application-input-controller-published-ui-generation
-    :type (integer 0)
+    :initform      0
+    :accessor      application-input-controller-published-ui-generation
+    :type          (integer 0)
     :documentation "The newest generation admitted to terminal publication.")
    (published-pending-generation
-    :initform 0
-    :accessor application-input-controller-published-pending-generation
-    :type (integer 0)
+    :initform      0
+    :accessor      application-input-controller-published-pending-generation
+    :type          (integer 0)
     :documentation "The newest generation admitted to durable publication.")
    (condition-variable
-    :initform (make-condition-variable :name "Autolith input controller")
-    :reader application-input-controller-condition-variable
-    :type t
+    :initform      (make-condition-variable :name "Autolith input controller")
+    :reader        application-input-controller-condition-variable
+    :type          t
     :documentation "The main and reader thread wakeup condition.")
    (work-items
-    :initform (make-deque)
-    :reader application-input-controller-work-items
-    :type deque
+    :initform      (make-deque)
+    :reader        application-input-controller-work-items
+    :type          deque
     :documentation "FIFO message and command work submitted by the reader.")
    (initial-work-items
-    :initarg :initial-work-items
-    :initform (make-deque)
-    :reader application-input-controller-initial-work-items
-    :type deque
+    :initarg       :initial-work-items
+    :initform      (make-deque)
+    :reader        application-input-controller-initial-work-items
+    :type          deque
     :documentation "Ordered startup work excluded from durable pending input.")
    (steering-items
-    :initform (make-deque)
-    :reader application-input-controller-steering-items
-    :type deque
+    :initform      (make-deque)
+    :reader        application-input-controller-steering-items
+    :type          deque
     :documentation "FIFO user messages waiting for the active turn's next tool boundary.")
    (steering-in-flight-items
     :initform (make-deque)
-    :reader application-input-controller-steering-in-flight-items
-    :type deque
+    :reader   application-input-controller-steering-in-flight-items
+    :type     deque
     :documentation
     "Identified steering messages drained but not yet durably acknowledged.")
    (pending-apply-items
     :initform (make-deque)
-    :reader application-input-controller-pending-apply-items
-    :type deque
+    :reader   application-input-controller-pending-apply-items
+    :type     deque
     :documentation
     "FIFO command inputs applying at the active turn's next safe boundary.")
    (follow-up-edit-index
     :initform nil
     :accessor application-input-controller-follow-up-edit-index
-    :type (option (integer 0))
+    :type     (option (integer 0))
     :documentation
     "The recalled draft's position in the virtual queue that still includes it.")
    (follow-up-edit-work
-    :initform nil
-    :accessor application-input-controller-follow-up-edit-work
-    :type (option list)
+    :initform      nil
+    :accessor      application-input-controller-follow-up-edit-work
+    :type          (option list)
     :documentation "The queued work item currently recalled into the draft.")
    (primary-steering-p
     :initform nil
     :accessor application-input-controller-primary-steering-p
-    :type boolean
+    :type     boolean
     :documentation
     "Whether the active work consumes prose steering despite its kind.")
    (active-p
-    :initform nil
-    :accessor application-input-controller-active-p
-    :type boolean
+    :initform      nil
+    :accessor      application-input-controller-active-p
+    :type          boolean
     :documentation "Whether the main thread is processing one work item.")
-    (active-work-kind
-     :initform nil
-     :accessor application-input-controller-active-work-kind
-     :type (option keyword)
-     :documentation
-     "The kind of work currently executing, independent of durable message state.")
-   (active-work
+   (active-work-kind
     :initform nil
-    :accessor application-input-controller-active-work
-    :type (option list)
+    :accessor application-input-controller-active-work-kind
+    :type     (option keyword)
+    :documentation
+    "The kind of work currently executing, independent of durable message state.")
+   (active-work
+    :initform      nil
+    :accessor      application-input-controller-active-work
+    :type          (option list)
     :documentation "The ordinary pending work item currently being dispatched.")
    (active-work-identifier
-    :initform nil
-    :accessor application-input-controller-active-work-identifier
-    :type (option string)
+    :initform      nil
+    :accessor      application-input-controller-active-work-identifier
+    :type          (option string)
     :documentation "The durable identifier of ACTIVE-WORK, when present.")
    (active-work-interactive-p
-    :initform nil
-    :accessor application-input-controller-active-work-interactive-p
-    :type boolean
+    :initform      nil
+    :accessor      application-input-controller-active-work-interactive-p
+    :type          boolean
     :documentation "Whether ACTIVE-WORK came from the interactive prompt queue.")
    (prompt-marker-work-p
-    :initform nil
-    :accessor application-input-controller-prompt-marker-work-p
-    :type boolean
+    :initform      nil
+    :accessor      application-input-controller-prompt-marker-work-p
+    :type          boolean
     :documentation "Whether current work emitted an OSC 133 execution-start marker.")
    (prompt-marker-status
-    :initform 0
-    :accessor application-input-controller-prompt-marker-status
-    :type (integer 0)
+    :initform      0
+    :accessor      application-input-controller-prompt-marker-status
+    :type          (integer 0)
     :documentation "The completion status for current marked prompt work.")
    (prompt-marker-reopen-p
-    :initform nil
-    :accessor application-input-controller-prompt-marker-reopen-p
-    :type boolean
+    :initform      nil
+    :accessor      application-input-controller-prompt-marker-reopen-p
+    :type          boolean
     :documentation "Whether current work may open the next semantic prompt block.")
    (pending-snapshot-identifier
-    :initform nil
-    :accessor application-input-controller-pending-snapshot-identifier
-    :type (option string)
+    :initform      nil
+    :accessor      application-input-controller-pending-snapshot-identifier
+    :type          (option string)
     :documentation "The stable identifier of the current nonempty pending snapshot.")
    (vault-capture-identifiers
     :initform nil
     :accessor application-input-controller-vault-capture-identifiers
-    :type list
+    :type     list
     :documentation
     "Vault captures transactionally represented by the current pending snapshot.")
    (vault-restore-work-items
-    :initform nil
-    :accessor application-input-controller-vault-restore-work-items
-    :type list
+    :initform      nil
+    :accessor      application-input-controller-vault-restore-work-items
+    :type          list
     :documentation "Recovered work staged for durable publication before queue admission.")
    (vault-restore-capture-identifiers
-    :initform nil
-    :accessor application-input-controller-vault-restore-capture-identifiers
-    :type list
+    :initform      nil
+    :accessor      application-input-controller-vault-restore-capture-identifiers
+    :type          list
     :documentation "Vault capture identifiers staged with pending recovered work.")
    (steering-promotion-prefix-count
     :initform 0
     :accessor application-input-controller-steering-promotion-prefix-count
-    :type (integer 0)
+    :type     (integer 0)
     :documentation
     "Queued work that must remain ahead of steering submitted during active work.")
    (pending-persistence-enabled-p
-    :initarg :pending-persistence-enabled-p
+    :initarg  :pending-persistence-enabled-p
     :initform t
     :accessor application-input-controller-pending-persistence-enabled-p
-    :type boolean
+    :type     boolean
     :documentation
     "Whether this controller may replace its conversation's pending snapshot.")
    (live-vault-sync-p
     :initform nil
     :accessor application-input-controller-live-vault-sync-p
-    :type boolean
+    :type     boolean
     :documentation
     "Whether this session accepted new input that should create a live vault capture.")
    (queued-work-paused-p
     :initform nil
     :accessor application-input-controller-queued-work-paused-p
-    :type boolean
+    :type     boolean
     :documentation
     "Whether an explicit interruption is holding queued work for user review.")
    (localgroup-handoff-p
-    :initform nil
-    :accessor application-input-controller-localgroup-handoff-p
-    :type boolean
+    :initform      nil
+    :accessor      application-input-controller-localgroup-handoff-p
+    :type          boolean
     :documentation "Whether localgroup has stopped new input for process handoff.")
    (turn-cancellation-p
-    :initform nil
-    :accessor application-input-controller-turn-cancellation-p
-    :type boolean
+    :initform      nil
+    :accessor      application-input-controller-turn-cancellation-p
+    :type          boolean
     :documentation "Whether one active turn is cancelling but not yet finished.")
    (turn-cancellation-delivery-pending-p
-    :initform nil
-    :accessor application-input-controller-turn-cancellation-delivery-pending-p
-    :type boolean
+    :initform      nil
+    :accessor      application-input-controller-turn-cancellation-delivery-pending-p
+    :type          boolean
     :documentation "Whether the main thread must still receive turn cancellation.")
    (stopping-p
-    :initform nil
-    :accessor application-input-controller-stopping-p
-    :type boolean
+    :initform      nil
+    :accessor      application-input-controller-stopping-p
+    :type          boolean
     :documentation "Whether no more terminal input or work may be accepted.")
    (exit-reason
-    :initform nil
-    :accessor application-input-controller-exit-reason
-    :type (option keyword)
+    :initform      nil
+    :accessor      application-input-controller-exit-reason
+    :type          (option keyword)
     :documentation "The user-facing reason input processing stopped.")
    (input-pump
-    :reader application-input-controller-input-pump
-    :type input-pump
+    :reader        application-input-controller-input-pump
+    :type          input-pump
     :documentation "The restartable terminal reader thread and its pauses.")
    (main-thread
-    :initarg :main-thread
-    :reader application-input-controller-main-thread
-    :type t
+    :initarg       :main-thread
+    :reader        application-input-controller-main-thread
+    :type          t
     :documentation "The model and command thread interrupted for immediate exit.")
    (forced-exit-function
-    :initarg :forced-exit-function
-    :initform *application-forced-exit-function*
-    :reader application-input-controller-forced-exit-function
-    :type function
+    :initarg       :forced-exit-function
+    :initform      *application-forced-exit-function*
+    :reader        application-input-controller-forced-exit-function
+    :type          function
     :documentation "The process termination boundary captured before the reader starts.")
    (interrupt-clock-function
-    :initarg :interrupt-clock-function
-    :initform *application-interrupt-clock-function*
-    :reader application-input-controller-interrupt-clock-function
-    :type function
+    :initarg       :interrupt-clock-function
+    :initform      *application-interrupt-clock-function*
+    :reader        application-input-controller-interrupt-clock-function
+    :type          function
     :documentation "The monotonic clock used to recognize repeated Ctrl-C input.")
    (interrupt-deadline
-    :initform nil
-    :accessor application-input-controller-interrupt-deadline
-    :type (option real)
+    :initform      nil
+    :accessor      application-input-controller-interrupt-deadline
+    :type          (option real)
     :documentation "The inclusive monotonic deadline for a force-exit Ctrl-C.")
    (interrupt-hint-time
-    :initform nil
-    :accessor application-input-controller-interrupt-hint-time
-    :type (option real)
+    :initform      nil
+    :accessor      application-input-controller-interrupt-hint-time
+    :type          (option real)
     :documentation "The monotonic time at which an unshown force-exit hint is due.")
    (forced-exit-message
-    :initform (format nil "~%~A~%"
-                      (application-input-controller--forced-exit-text))
-    :accessor application-input-controller-forced-exit-message
-    :type string
+    :initform      (format nil "~%~A~%"
+                           (application-input-controller--forced-exit-text))
+    :accessor      application-input-controller-forced-exit-message
+    :type          string
     :documentation "The complete plain-text notice emitted by forced shutdown.")
    (failure
-    :initform nil
-    :accessor application-input-controller-failure
-    :type (option serious-condition)
+    :initform      nil
+    :accessor      application-input-controller-failure
+    :type          (option serious-condition)
     :documentation "A fatal terminal-reader condition awaiting main-thread handling.")
    (failure-backtrace
-    :initform nil
-    :accessor application-input-controller-failure-backtrace
-    :type (option string)
+    :initform      nil
+    :accessor      application-input-controller-failure-backtrace
+    :type          (option string)
     :documentation "The reader backtrace captured with FAILURE."))
   (:documentation
    "Ephemeral terminal input and FIFO submission state for one application run."))
@@ -289,21 +289,21 @@
   "Give CONTROLLER its stopped terminal input pump."
   (setf (slot-value controller 'input-pump)
         (make-input-pump
-         :name "Autolith terminal input"
-         :ready-function (lambda ()
-                           (application-input-controller--input-ready-p controller))
-         :step-function (lambda ()
-                          (application-input-controller--reader-step controller))
-         :tick-function (lambda ()
-                          (application-input-controller--refresh-interrupt-hint
-                           controller))
+         :name                 "Autolith terminal input"
+         :ready-function       (lambda ()
+                                 (application-input-controller--input-ready-p controller))
+         :step-function        (lambda ()
+                                 (application-input-controller--reader-step controller))
+         :tick-function        (lambda ()
+                                 (application-input-controller--refresh-interrupt-hint
+                                  controller))
          :startable-p-function (lambda ()
                                  (not (application-input-controller-exit-requested-p
                                        controller)))
-         :failure-function (lambda (condition backtrace)
-                             (application-input-controller--record-failure
-                              controller condition backtrace))
-         :backtrace-function #'application-safe-backtrace)))
+         :failure-function     (lambda (condition backtrace)
+                                 (application-input-controller--record-failure
+                                  controller condition backtrace))
+         :backtrace-function   #'application-safe-backtrace)))
 
 (defmethod application-input-controller-wake
     ((controller application-input-controller))
@@ -331,8 +331,8 @@
 Fullscreen restoration bypasses the UI lock, which may be held during shutdown."
   (unwind-protect
        (let* ((application (application-input-controller-application controller))
-              (ui (application-ui application))
-              (terminal (terminal-ui-terminal ui)))
+              (ui          (application-ui application))
+              (terminal    (terminal-ui-terminal ui)))
          (when (typep ui 'fullscreen-terminal-ui)
            (ignore-errors (terminal-ui-fullscreen-leave ui)))
          (ignore-errors (terminal-stop terminal))
@@ -385,7 +385,7 @@ The notice expires with the force-exit window itself, and a contended
 presentation lock reports no display so a later reader pass can try again."
   (let* ((application
            (application-input-controller-application controller))
-         (ui (application-ui application))
+         (ui      (application-ui application))
          (shown-p nil))
     (ignore-errors
       (setf shown-p
@@ -407,7 +407,7 @@ presentation lock reports no display so a later reader pass can try again."
 
 Waiting keeps a promptly cancelled turn from flashing an option it no longer
 offers, so the hint appears only while forcing exit is still worth explaining."
-  (let ((hint-time nil)
+  (let ((hint-time         nil)
         (remaining-seconds nil))
     (with-lock-held ((application-input-controller-lock controller))
       (let ((due (application-input-controller-interrupt-hint-time controller))
@@ -452,8 +452,8 @@ offers, so the hint appears only while forcing exit is still worth explaining."
 
 The first value reports whether a model or command turn needs cancellation. The
 second reports whether shutdown was prepared."
-  (let ((active-p nil)
-        (prepared-p nil)
+  (let ((active-p            nil)
+        (prepared-p          nil)
         (pending-publication nil)
         (message
           (application-input-controller--forced-exit-message controller reason)))
@@ -510,10 +510,11 @@ second reports whether shutdown was prepared."
        nil)
       ((uiop:string-prefix-p "//" text)
        (etypecase input
-         (string (subseq text 1))
+         (string
+          (subseq text 1))
          (user-message-input
           (user-message-input-create
-           :text (subseq text 1)
+           :text            (subseq text 1)
            :image-pathnames (user-message-input-image-pathnames input)))))
       ((or (terminal-ui--lisp-draft-p text)
            (terminal-ui--async-lisp-draft-p text))
@@ -537,7 +538,7 @@ second reports whether shutdown was prepared."
 (defun application-input-controller--input-work (input)
   "Return queued work for INPUT, or NIL when INPUT has no effective content."
   (let ((message (application--message-input input))
-        (text (user-message-input-text input)))
+        (text    (user-message-input-text input)))
     (cond
       ((or (terminal-ui--lisp-draft-p text)
            (terminal-ui--async-lisp-draft-p text))
@@ -554,11 +555,11 @@ second reports whether shutdown was prepared."
     boolean)
 (defun application-input-controller--defer-lisp-submission-p (controller input)
   "Continue incomplete Lisp INPUT or reject its image attachments in place."
-  (let* ((text (user-message-input-text input))
+  (let* ((text    (user-message-input-text input))
          (async-p (terminal-ui--async-lisp-draft-p text))
-         (source (if async-p
-                     (subseq text (terminal-ui--async-lisp-prefix-length text))
-                     text)))
+         (source  (if async-p
+                      (subseq text (terminal-ui--async-lisp-prefix-length text))
+                      text)))
     (when (or async-p (terminal-ui--lisp-draft-p text))
       (let* ((application
                (application-input-controller-application controller))
@@ -613,11 +614,11 @@ lock."
                    (rest (application-input-controller--queues controller))))
          (state
            (list
-            :active-work (application-input-controller-active-work controller)
+            :active-work              (application-input-controller-active-work controller)
             :active-work-identifier
             (application-input-controller-active-work-identifier controller)
-            :work-items (first queues)
-            :steering-items (second queues)
+            :work-items               (first queues)
+            :steering-items           (second queues)
             :steering-in-flight-items (third queues)
             :follow-up-edit-index
             (application-input-controller-follow-up-edit-index controller)
@@ -658,7 +659,7 @@ lock."
     ((and (listp form)
           (eq (first form) ':user-message-input)
           (= (or (getf (rest form) :version) 0) 1))
-     (let ((text (getf (rest form) :text))
+     (let ((text        (getf (rest form) :text))
            (image-names (getf (rest form) :image-pathnames)))
        (when (and (stringp text)
                   (listp image-names)
@@ -667,7 +668,7 @@ lock."
              (let ((image-pathnames (mapcar #'pathname image-names)))
                (when (every #'uiop:absolute-pathname-p image-pathnames)
                  (user-message-input-create
-                  :text (copy-seq text)
+                  :text            (copy-seq text)
                   :image-pathnames image-pathnames)))
            (error ()
              nil)))))
@@ -705,8 +706,8 @@ lock."
 (defun application-input-controller--pending-steering-entry-form (entry)
   "Return the durable form for identified in-flight steering ENTRY."
   (list :identifier (copy-seq (agent-steering-input-identifier entry))
-        :input (application-input--pending-form
-                (agent-steering-input-content entry))))
+        :input      (application-input--pending-form
+                     (agent-steering-input-content entry))))
 
 (-> application-input-controller--restore-steering-entry
     (t)
@@ -715,11 +716,11 @@ lock."
   "Return one validated identified steering entry restored from FORM."
   (when (listp form)
     (let ((identifier (getf form :identifier))
-          (input (application-input--restore-pending-form (getf form :input))))
+          (input      (application-input--restore-pending-form (getf form :input))))
       (when (and (non-empty-string-p identifier) input)
         (agent-steering-input-create
          :identifier (copy-seq identifier)
-         :content input)))))
+         :content    input)))))
 
 (-> application-input-controller--pending-state
     (list string)
@@ -735,7 +736,7 @@ lock."
       (case version
         (1
          (let* ((steering-forms (getf (rest form) :steering))
-                (work-forms (getf (rest form) :work))
+                (work-forms     (getf (rest form) :work))
                 (steering
                   (and (listp steering-forms)
                        (mapcar #'application-input--restore-pending-form
@@ -748,19 +749,19 @@ lock."
                       (listp work-forms)
                       (every #'identity steering)
                       (every #'identity work))
-             (list :snapshot-identifier (make-identifier)
-                   :active-work nil
-                   :active-work-identifier nil
-                   :steering-in-flight-items nil
-                   :steering-items steering
-                   :work-items work
-                   :vault-capture-identifiers nil
+             (list :snapshot-identifier             (make-identifier)
+                   :active-work                     nil
+                   :active-work-identifier          nil
+                   :steering-in-flight-items        nil
+                   :steering-items                  steering
+                   :work-items                      work
+                   :vault-capture-identifiers       nil
                    :steering-promotion-prefix-count 0
-                   :legacy-p t))))
+                   :legacy-p                        t))))
         (2
          (let* ((snapshot-identifier
                   (getf (rest form) :snapshot-identifier))
-                (active-form (getf (rest form) :active-work))
+                (active-form     (getf (rest form) :active-work))
                 (active-work
                   (and active-form
                        (application-input-controller--restore-work-item
@@ -773,12 +774,12 @@ lock."
                        (mapcar
                         #'application-input-controller--restore-steering-entry
                         in-flight-forms)))
-                (steering-forms (getf (rest form) :steering))
+                (steering-forms  (getf (rest form) :steering))
                 (steering
                   (and (listp steering-forms)
                        (mapcar #'application-input--restore-pending-form
                                steering-forms)))
-                (work-forms (getf (rest form) :work))
+                (work-forms      (getf (rest form) :work))
                 (work
                   (and (listp work-forms)
                        (mapcar #'application-input-controller--restore-work-item
@@ -805,19 +806,19 @@ lock."
                                              :test #'string=)))
                       (typep steering-promotion-prefix-count '(integer 0))
                       (<= steering-promotion-prefix-count (length work)))
-             (list :snapshot-identifier (copy-seq snapshot-identifier)
-                   :active-work active-work
+             (list :snapshot-identifier      (copy-seq snapshot-identifier)
+                   :active-work              active-work
                    :active-work-identifier
                    (and active-work-identifier
                         (copy-seq active-work-identifier))
                    :steering-in-flight-items in-flight
-                   :steering-items steering
-                   :work-items work
+                   :steering-items           steering
+                   :work-items               work
                    :vault-capture-identifiers
                    (mapcar #'copy-seq vault-capture-identifiers)
                    :steering-promotion-prefix-count
                    steering-promotion-prefix-count
-                   :legacy-p nil))))
+                   :legacy-p                 nil))))
         (otherwise
          nil)))))
 
@@ -837,7 +838,7 @@ lock."
   "Return STATE after removing input already durable in CONVERSATION."
   (let* ((persisted-identifiers
            (conversation-pending-input-identifiers conversation))
-         (active-work (getf state :active-work))
+         (active-work            (getf state :active-work))
          (active-work-identifier (getf state :active-work-identifier))
          (active-survives-p
            (and active-work
@@ -852,8 +853,8 @@ lock."
                       persisted-identifiers
                       :test #'string=))
             (getf state :steering-in-flight-items)))
-         (steering (getf state :steering-items))
-         (work (getf state :work-items))
+         (steering               (getf state :steering-items))
+         (work                   (getf state :work-items))
          (steering-promotion-prefix-count
            (min (getf state :steering-promotion-prefix-count)
                 (length work)))
@@ -865,12 +866,12 @@ lock."
             (mapcar (lambda (input)
                       (list ':message input))
                     steering))))
-    (list :snapshot-identifier (getf state :snapshot-identifier)
-          :active-work (and active-survives-p active-work)
+    (list :snapshot-identifier      (getf state :snapshot-identifier)
+          :active-work              (and active-survives-p active-work)
           :active-work-identifier
           (and active-survives-p active-work-identifier)
           :steering-in-flight-items (and active-survives-p in-flight)
-          :steering-items (and active-survives-p steering)
+          :steering-items           (and active-survives-p steering)
           :work-items
           (if active-survives-p
               work
@@ -881,18 +882,18 @@ lock."
           (getf state :vault-capture-identifiers)
           :steering-promotion-prefix-count
           (if active-survives-p steering-promotion-prefix-count 0)
-          :legacy-p (getf state :legacy-p))))
+          :legacy-p                 (getf state :legacy-p))))
 
 (-> application-input-controller--pending-state-form (list string) list)
 (defun application-input-controller--pending-state-form
     (state conversation-identifier)
   "Return the version-two durable form for normalized pending STATE."
-  (let ((active-work (getf state :active-work))
+  (let ((active-work            (getf state :active-work))
         (active-work-identifier (getf state :active-work-identifier)))
     (list :pending-inputs
           :version 2
           :snapshot-identifier (getf state :snapshot-identifier)
-          :conversation-id conversation-identifier
+          :conversation-id     conversation-identifier
           :active-work
           (and active-work
                active-work-identifier
@@ -957,8 +958,8 @@ The caller must hold CONTROLLER's lock."
                (application-input-controller-steering-promotion-prefix-count controller))
              (restore-work
                (application-input-controller-vault-restore-work-items controller))
-             (state (application-input-controller--state controller))
-             (work (application-input-controller--virtual-work-items controller))
+             (state                   (application-input-controller--state controller))
+             (work                    (application-input-controller--virtual-work-items controller))
              (pending-p
                (not
                 (null
@@ -990,19 +991,19 @@ The caller must hold CONTROLLER's lock."
                      (detached-state
                        (application-input-controller--pending-state
                         form conversation-identifier)))
-                (list :generation generation
-                      :application application
-                      :pathname pathname
-                      :pending-p t
-                      :form form
-                      :state detached-state
+                (list :generation   generation
+                      :application  application
+                      :pathname     pathname
+                      :pending-p    t
+                      :form         form
+                      :state        detached-state
                       :sync-vault-p sync-vault-p
                       :create-vault-p
                       (application-input-controller-live-vault-sync-p controller))))
-            (list :generation generation
-                  :application application
-                  :pathname pathname
-                  :pending-p nil
+            (list :generation   generation
+                  :application  application
+                  :pathname     pathname
+                  :pending-p    nil
                   :old-snapshot-identifier
                   (and old-snapshot-identifier
                        (copy-seq old-snapshot-identifier))
@@ -1022,7 +1023,7 @@ The caller must hold CONTROLLER's lock."
 The caller must hold CONTROLLER's publication lock."
   (with-lock-held ((application-input-controller-lock controller))
     (let* ((state (application-input-controller--state controller))
-           (work (application-input-controller--virtual-work-items controller))
+           (work  (application-input-controller--virtual-work-items controller))
            (pending-p
              (or (getf state :active-work)
                  (getf state :steering-in-flight-items)
@@ -1059,7 +1060,7 @@ The caller must hold CONTROLLER's publication lock."
           generation)
     (handler-case
         (let ((application (getf publication :application))
-              (pathname (getf publication :pathname)))
+              (pathname    (getf publication :pathname)))
           (if (getf publication :pending-p)
               (progn
                 (ensure-directories-exist pathname)
@@ -1140,9 +1141,12 @@ The caller must hold CONTROLLER's publication lock."
                (configuration-legacy-pending-inputs-path configuration))
              (source-pathname
                (cond
-                 ((probe-file pathname) pathname)
-                 ((probe-file legacy-pathname) legacy-pathname)
-                 (t nil))))
+                 ((probe-file pathname)
+                  pathname)
+                 ((probe-file legacy-pathname)
+                  legacy-pathname)
+                 (t
+                  nil))))
         (when source-pathname
           (handler-case
               (multiple-value-bind (form complete-p)
@@ -1156,7 +1160,7 @@ The caller must hold CONTROLLER's publication lock."
                               (application-input-controller--pending-state-filter-persisted
                                state conversation))))
                   (when filtered-state
-                    (let* ((active-work (getf filtered-state :active-work))
+                    (let* ((active-work         (getf filtered-state :active-work))
                            (steering
                              (application-input-controller-steering-items
                               controller))
@@ -1205,17 +1209,17 @@ The caller must hold CONTROLLER's publication lock."
                           (delete-file legacy-pathname)))))))
             (error ()
               nil)))))
-  nil))
+   nil))
 
 (-> application-input-controller--publish-counts
     (application-input-controller)
     null)
 (defun application-input-controller--publish-counts (controller)
   "Publish detached pending input previews and durable state in generation order."
-  (let ((generation nil)
-        (ui nil)
-        (steering-inputs nil)
-        (queued-inputs nil)
+  (let ((generation          nil)
+        (ui                  nil)
+        (steering-inputs     nil)
+        (queued-inputs       nil)
         (pending-publication nil))
     (with-lock-held ((application-input-controller-lock controller))
       (setf generation
@@ -1240,16 +1244,16 @@ The caller must hold CONTROLLER's publication lock."
             (unless (application-input-controller-stopping-p controller)
               (application-input-controller--capture-pending-publication-locked
                controller generation t))))
-      (with-lock-held ((application-input-controller-publication-lock controller))
-        (when (> generation
-                 (application-input-controller-published-ui-generation controller))
-          (setf (application-input-controller-published-ui-generation controller)
-                generation)
-          (when ui
-            (terminal-ui-set-pending-inputs ui steering-inputs queued-inputs)))
-      (when pending-publication
-        (application-input-controller--publish-pending-publication-locked
-         controller pending-publication nil))))
+    (with-lock-held ((application-input-controller-publication-lock controller))
+      (when (> generation
+               (application-input-controller-published-ui-generation controller))
+        (setf (application-input-controller-published-ui-generation controller)
+              generation)
+        (when ui
+          (terminal-ui-set-pending-inputs ui steering-inputs queued-inputs)))
+     (when pending-publication
+       (application-input-controller--publish-pending-publication-locked
+        controller pending-publication nil))))
   nil)
 
 (-> application-input-controller-turn-active-p
@@ -1390,7 +1394,7 @@ The caller must hold CONTROLLER's publication lock."
 (defun application-input-controller--record-failure
     (controller condition backtrace)
   "Record reader CONDITION, preserve pending input, and wake the main thread."
-  (let ((active-p nil)
+  (let ((active-p  nil)
         (persist-p nil))
     (with-lock-held ((application-input-controller-lock controller))
       (unless (application-input-controller-failure controller)
@@ -1413,7 +1417,7 @@ The caller must hold CONTROLLER's publication lock."
            (make-condition
             'application-input-failed
             :original-condition condition
-            :backtrace backtrace))
+            :backtrace          backtrace))
         (error ()
           nil))))
   nil)
@@ -1423,7 +1427,7 @@ The caller must hold CONTROLLER's publication lock."
     boolean)
 (defun application-input-controller--enqueue (controller kind input)
   "Append one work item of KIND carrying INPUT and report acceptance."
-  (let ((queued-p nil)
+  (let ((queued-p  nil)
         (resumed-p nil))
     (with-lock-held ((application-input-controller-lock controller))
       (unless (or (application-input-controller-stopping-p controller)
@@ -1473,8 +1477,8 @@ user's input history, pending follow-ups, or recovery vault."
     boolean)
 (defun application-input-controller--queue-input (controller input)
   "Queue INPUT, restoring a recalled follow-up to its virtual FIFO position."
-  (let ((work (application-input-controller--input-work input))
-        (queued-p nil)
+  (let ((work      (application-input-controller--input-work input))
+        (queued-p  nil)
         (resumed-p nil))
     (when work
       (with-lock-held ((application-input-controller-lock controller))
@@ -1529,7 +1533,7 @@ not steer the active primary message."
             (application-input-controller-localgroup-handoff-p controller))
     (return-from application-input-controller--admit-primary-prompt-locked nil))
   (let ((copied-input (user-message-input-copy input))
-        (work (application-input-controller-work-items controller)))
+        (work         (application-input-controller-work-items controller)))
     (cond
       ((and prefer-steering-p
             (or (eq (application-input-controller-active-work-kind controller)
@@ -1577,24 +1581,24 @@ the ordinary FIFO queue."
   (unless (application-input-controller--prompt-storage-ready-p controller)
     (return-from application-input-controller-submit-primary-prompt
       (values nil ':rejected)))
-  (let ((delivery nil)
+  (let ((delivery  nil)
         (resumed-p nil))
     (with-lock-held ((application-input-controller-lock controller))
       (setf delivery
             (application-input-controller--admit-primary-prompt-locked
              controller input :prefer-steering-p prefer-steering-p))
-        (when delivery
-          (setf resumed-p
-                (application-input-controller-queued-work-paused-p controller)
-                (application-input-controller-queued-work-paused-p controller) nil
-                (application-input-controller-live-vault-sync-p controller) t)
-        (sb-thread:condition-broadcast
-         (application-input-controller-condition-variable controller))))
-      (when resumed-p
-        (let ((ui (application-ui
-                   (application-input-controller-application controller))))
-          (when ui
-            (terminal-ui-set-notice ui nil))))
+      (when delivery
+        (setf resumed-p
+              (application-input-controller-queued-work-paused-p controller)
+              (application-input-controller-queued-work-paused-p controller) nil
+              (application-input-controller-live-vault-sync-p controller) t)
+       (sb-thread:condition-broadcast
+        (application-input-controller-condition-variable controller))))
+    (when resumed-p
+      (let ((ui (application-ui
+                 (application-input-controller-application controller))))
+        (when ui
+          (terminal-ui-set-notice ui nil))))
     (application-input-controller--publish-counts controller)
     (values (not (null delivery)) (or delivery ':rejected))))
 
@@ -1679,10 +1683,10 @@ the ordinary FIFO queue."
     nil)
 (defun application-prompt--child-admission-error (job target reason)
   "Signal a typed prompt failure for JOB's rejected steering REASON."
-  (let* ((snapshot (task-job-snapshot job))
-         (state (getf snapshot :state))
+  (let* ((snapshot            (task-job-snapshot job))
+         (state               (getf snapshot :state))
          (cancellation-reason (getf snapshot :cancellation-reason))
-         (name (task-job-display-name job)))
+         (name                (task-job-display-name job)))
     (cond
       (cancellation-reason
        (prompt--error
@@ -1751,42 +1755,41 @@ the ordinary FIFO queue."
                :target target)))
           (list :prompt
                 :accepted-p t
-                :target ':autolith
-                :delivery delivery
+                :target             ':autolith
+                :delivery           delivery
                 :content-characters (length (user-message-input-text input))
-                :image-count (length
-                              (user-message-input-image-pathnames input)))))
-        (let* ((controller (application-input-controller application))
-               (job (application-prompt--find-child application target))
-               (snapshot (task-job-snapshot job)))
-          (unless (and controller
-                       (application-input-controller--prompt-storage-ready-p
-                        controller))
-            (prompt--error
-             ':storage-unavailable
-             "Recovered input storage is unavailable. Use (vault) to inspect it or (vault-discard) to discard the preserved input before submitting more work."
-             :target target))
-          (unless (eq (getf snapshot :state) ':running)
-            (application-prompt--child-admission-error
-             job target ':not-running))
-          (application-recovery-input-vault-capture-message application input)
-          (multiple-value-bind (entry reason)
-              (task-job-enqueue-steering
-               job input :promote-response-p t)
-            (unless entry
-              (application-prompt--child-admission-error job target reason))
-            (list :prompt
-                  :accepted-p t
-                  :target ':child
-                  :child-name (task-job-display-name job)
-                  :job-id (session-job-identifier job)
-                  :execution-id (task-job-execution-identifier job)
-                  :steering-id (agent-steering-input-identifier entry)
-                  :delivery ':steering
-                  :content-characters (length (user-message-input-text input))
-                  :image-count (length
-                                (user-message-input-image-pathnames input)))))))
-
+                :image-count        (length
+                                     (user-message-input-image-pathnames input)))))
+      (let* ((controller (application-input-controller application))
+             (job        (application-prompt--find-child application target))
+             (snapshot   (task-job-snapshot job)))
+        (unless (and controller
+                     (application-input-controller--prompt-storage-ready-p
+                      controller))
+          (prompt--error
+           ':storage-unavailable
+           "Recovered input storage is unavailable. Use (vault) to inspect it or (vault-discard) to discard the preserved input before submitting more work."
+           :target target))
+        (unless (eq (getf snapshot :state) ':running)
+          (application-prompt--child-admission-error
+           job target ':not-running))
+        (application-recovery-input-vault-capture-message application input)
+        (multiple-value-bind (entry reason)
+            (task-job-enqueue-steering
+             job input :promote-response-p t)
+          (unless entry
+            (application-prompt--child-admission-error job target reason))
+          (list :prompt
+                :accepted-p t
+                :target             ':child
+                :child-name         (task-job-display-name job)
+                :job-id             (session-job-identifier job)
+                :execution-id       (task-job-execution-identifier job)
+                :steering-id        (agent-steering-input-identifier entry)
+                :delivery           ':steering
+                :content-characters (length (user-message-input-text input))
+                :image-count        (length
+                                     (user-message-input-image-pathnames input)))))))
 
 (-> application-input-controller--take-steering
     (application-input-controller)
@@ -1803,7 +1806,7 @@ the ordinary FIFO queue."
              :key (lambda (input)
                     (agent-steering-input-create
                      :identifier (make-identifier)
-                     :content input)))
+                     :content    input)))
           (declare (ignore ignored-target ignored-evicted))
           (setf entries (coerce moved 'list)))))
     (when entries
@@ -1878,7 +1881,7 @@ work receive steering as soon as possible instead of as follow-ups."
           (deque-delete
            identifier
            (application-input-controller-steering-in-flight-items controller)
-           :key #'agent-steering-input-identifier
+           :key  #'agent-steering-input-identifier
            :test #'string=)
         (declare (ignore entry))
         (when present-p
@@ -2095,7 +2098,7 @@ re-arms a window that a wedged turn may never let ordinary shutdown reach."
 (defun application-input-controller--take-pending-applies (controller)
   "Drain and return CONTROLLER's queued apply-at-boundary command inputs."
   (with-lock-held ((application-input-controller-lock controller))
-    (let ((items (application-input-controller-pending-apply-items controller))
+    (let ((items   (application-input-controller-pending-apply-items controller))
           (drained nil))
       (loop until (deque-empty-p items)
             do (push (deque-pop-front items) drained))
@@ -2104,7 +2107,6 @@ re-arms a window that a wedged turn may never let ordinary shutdown reach."
 (-> application--run-command-input
     (application string &key (:interactive-p boolean))
     keyword)
-
 (-> application-input-controller--apply-pending-commands
     (application-input-controller &key (:agent t))
     null)
@@ -2115,7 +2117,7 @@ Runs non-interactively so a boundary application never opens terminal
 pickers. AGENT, when supplied, is the loop still executing the current turn;
 it adopts a replaced configuration, provider, or tool registry so the change
 reaches the very next provider request."
-  (let ((inputs (application-input-controller--take-pending-applies controller))
+  (let ((inputs      (application-input-controller--take-pending-applies controller))
         (application (application-input-controller-application controller)))
     (when inputs
       (dolist (input inputs)
@@ -2168,9 +2170,9 @@ reaches the very next provider request."
            (application-ui
             (application-input-controller-application controller)))
          (marker-p nil)
-         (status 0)
+         (status   0)
          (reopen-p t)
-         (result nil)
+         (result   nil)
          (result-p nil))
     (application-input-controller--open-prompt-if-ready controller)
     (setf marker-p (terminal-ui-start-prompt-execution ui))
@@ -2218,9 +2220,9 @@ reaches the very next provider request."
                         selected-restart-name)
               (application-lisp-call-with-ui-debugger
                application function
-               :source source
-               :operation-kind operation-kind
-               :retry-p retry-p
+               :source          source
+               :operation-kind  operation-kind
+               :retry-p         retry-p
                :return-values-p return-values-p
                :debug-condition-p
                (lambda (condition)
@@ -2234,12 +2236,12 @@ reaches the very next provider request."
              application-turn-cancelled
              application-input-failed)
          (condition)
-          (error condition))
+         (error condition))
         ((or agent-loop-error
              conversation-invariant-error
              active-image-corruption)
          (condition)
-          (application-raise-fatal application condition signal-backtrace))
+         (application-raise-fatal application condition signal-backtrace))
         ((or autolith-error cl-llm-provider-api:provider-api-error) (condition)
           (funcall expected-error-function application condition)
           (values ':failed (princ-to-string condition)))
@@ -2288,9 +2290,9 @@ reaches the very next provider request."
                (application--call-with-command-debugger
                 application
                  function
-                :source (application-command-invocation-input invocation)
-                :operation-kind ':command
-                :retry-p t
+                :source          (application-command-invocation-input invocation)
+                :operation-kind  ':command
+                :retry-p         t
                 :return-values-p nil
                 :expected-error-function
                 (lambda (observed-application observed-condition)
@@ -2345,21 +2347,21 @@ atomic across active-turn completion races. Registered nonconflicting operations
 may execute immediately; other Lisp waits for the idle boundary."
   (let* ((application
            (application-input-controller-application controller))
-         (message (application--message-input input))
-         (text (user-message-input-text input))
+         (message      (application--message-input input))
+         (text         (user-message-input-text input))
          (lisp-input-p (terminal-ui--lisp-draft-p text))
-         (async-p (terminal-ui--async-lisp-draft-p text))
-         (work (application-input-controller--input-work input))
+         (async-p      (terminal-ui--async-lisp-draft-p text))
+         (work         (application-input-controller--input-work input))
          (invocation
            (and (null message)
                 (not lisp-input-p)
                 (not async-p)
                 (non-empty-string-p text)
-                 (or (application-input-controller--parse-responsive-command
-                      controller text)
-                     (return-from
-                         application-input-controller--handle-recalled-submission
-                       t))))
+                (or (application-input-controller--parse-responsive-command
+                     controller text)
+                    (return-from
+                        application-input-controller--handle-recalled-submission
+                      t))))
          (command
            (and invocation
                 (application-command-invocation-command invocation)))
@@ -2376,9 +2378,9 @@ may execute immediately; other Lisp waits for the idle boundary."
                   ;; An unknown command can only ever error, so report it
                   ;; immediately instead of scheduling the mistake.
                   ':execute))))
-         (handled-p nil)
-         (changed-p nil)
-         (post-action nil))
+         (handled-p    nil)
+         (changed-p    nil)
+         (post-action  nil))
     (when (and work
                (application-input-controller--follow-up-editing-p controller)
                (not
@@ -2405,7 +2407,7 @@ may execute immediately; other Lisp waits for the idle boundary."
                          controller
                          message
                          :prefer-steering-p prefer-steering-p
-                         :queue-index index)))
+                         :queue-index       index)))
                  (setf accepted-p (not (null delivery))
                        restored-p (eq delivery ':queued))))
               ((application-input-controller-active-p controller)
@@ -2476,7 +2478,7 @@ may execute immediately; other Lisp waits for the idle boundary."
         (and (terminal-ui--lisp-draft-p text)
              (handler-case
                  (let* ((*package* (find-package '#:autolith))
-                        (form (self-read-form text :read-eval nil)))
+                        (form      (self-read-form text :read-eval nil)))
                    (or (application-operation--immediate-vault-form-p form)
                        (not (null (member form
                                           '((vault) (vault-restore) (vault-discard) (vault-store))
@@ -2522,7 +2524,7 @@ may execute immediately; other Lisp waits for the idle boundary."
   (let* ((application
            (application-input-controller-application controller))
          (message (application--message-input input))
-         (text (user-message-input-text input))
+         (text    (user-message-input-text input))
          (async-p (terminal-ui--async-lisp-draft-p text)))
     (cond
       (async-p
@@ -2550,43 +2552,43 @@ may execute immediately; other Lisp waits for the idle boundary."
                             controller text)
                            ':quit)
                    (application-input-controller--request-exit controller ':quit)))
-                 (:apply
-                  (application-input-controller--schedule-apply controller text))
+                (:apply
+                 (application-input-controller--schedule-apply controller text))
                 (:hold
                  (application-input-controller--schedule-lisp controller text)))
               (application-input-controller--enqueue controller ':lisp text)))
          ((not (non-empty-string-p text))
           nil)
          ((application-input-controller-busy-p controller)
-           (let* ((invocation
-                    (application-input-controller--parse-responsive-command
-                     controller text))
-                  (command
-                    (and invocation
-                         (application-command-invocation-command invocation)))
-                  (action
-                    (when invocation
-                      (if command
-                          (application-command-busy-action command invocation)
-                          ;; Unknown commands fail immediately, without scheduling.
-                          ':execute))))
-             (when action
-              (application-localgroup-resume application)
-               (ecase action
-                 (:cancel
-                  (application-input-controller--request-exit controller ':quit))
-                 (:execute
-                  (when (eq (if command
-                                (application-input-controller--run-responsive-command
-                                 controller command invocation)
-                                (application-input-controller--run-responsive-unknown
-                                 controller text))
-                            ':quit)
-                    (application-input-controller--request-exit controller ':quit)))
-                 (:apply
-                  (application-input-controller--schedule-apply controller text))
-                 (:hold
-                  (application-input-controller--schedule-command controller text))))))
+          (let* ((invocation
+                   (application-input-controller--parse-responsive-command
+                    controller text))
+                 (command
+                   (and invocation
+                        (application-command-invocation-command invocation)))
+                 (action
+                   (when invocation
+                     (if command
+                         (application-command-busy-action command invocation)
+                         ;; Unknown commands fail immediately, without scheduling.
+                         ':execute))))
+            (when action
+             (application-localgroup-resume application)
+             (ecase action
+               (:cancel
+                (application-input-controller--request-exit controller ':quit))
+               (:execute
+                (when (eq (if command
+                              (application-input-controller--run-responsive-command
+                               controller command invocation)
+                              (application-input-controller--run-responsive-unknown
+                               controller text))
+                          ':quit)
+                  (application-input-controller--request-exit controller ':quit)))
+               (:apply
+                (application-input-controller--schedule-apply controller text))
+               (:hold
+                (application-input-controller--schedule-command controller text))))))
          (t
           (application-localgroup-resume application)
           (application-input-controller--enqueue controller ':command text))))))
@@ -2598,8 +2600,8 @@ may execute immediately; other Lisp waits for the idle boundary."
 (defun application-input-controller--handle-queue-submission (controller input)
   "Queue terminal INPUT as post-turn work through canonical prompt when prose."
   (let* ((application (application-input-controller-application controller))
-         (text (user-message-input-text input))
-         (message (application--message-input input)))
+         (text        (user-message-input-text input))
+         (message     (application--message-input input)))
     (cond
       ((terminal-ui--async-lisp-draft-p text)
        (when (application-input-controller--submission-storage-ready-p controller input)
@@ -2616,9 +2618,9 @@ may execute immediately; other Lisp waits for the idle boundary."
     boolean)
 (defun application-input-controller--recall-follow-up (controller)
   "Recall CONTROLLER's newest follow-up into the editor for revision."
-  (let ((work nil)
+  (let ((work            nil)
         (steering-inputs nil)
-        (queued-inputs nil))
+        (queued-inputs   nil))
     (with-lock-held ((application-input-controller-lock controller))
       (when (and (application-input-controller-active-p controller)
                  (null
@@ -2649,7 +2651,7 @@ may execute immediately; other Lisp waits for the idle boundary."
        (application-ui (application-input-controller-application controller))
        (second work)
        :steering-inputs steering-inputs
-       :queued-inputs queued-inputs))
+       :queued-inputs   queued-inputs))
     (not (null work))))
 
 (-> application-input-controller--cycle-follow-up
@@ -2657,10 +2659,10 @@ may execute immediately; other Lisp waits for the idle boundary."
     boolean)
 (defun application-input-controller--cycle-follow-up (controller input)
   "Move CONTROLLER's recalled draft to the previous queued follow-up, wrapping."
-  (let ((current-work (application-input-controller--input-work input))
-        (selected-work nil)
+  (let ((current-work    (application-input-controller--input-work input))
+        (selected-work   nil)
         (steering-inputs nil)
-        (queued-inputs nil))
+        (queued-inputs   nil))
     (when current-work
       (with-lock-held ((application-input-controller-lock controller))
         (let ((index
@@ -2675,12 +2677,12 @@ may execute immediately; other Lisp waits for the idle boundary."
                       (deque-position-if
                        #'application-input-controller--follow-up-work-p
                        work-items
-                       :end current-position
+                       :end      current-position
                        :from-end t)
                       (deque-position-if
                        #'application-input-controller--follow-up-work-p
                        work-items
-                       :start current-position
+                       :start    current-position
                        :from-end t))))
               (if selected-index
                   (let ((selected-position
@@ -2713,15 +2715,15 @@ may execute immediately; other Lisp waits for the idle boundary."
                         current-work))
               (sb-thread:condition-broadcast
                (application-input-controller-condition-variable controller))))))
-    (when selected-work
-      (terminal-ui-recall-follow-up
-       (application-ui (application-input-controller-application controller))
-       (second selected-work)
-       :steering-inputs steering-inputs
-       :queued-inputs queued-inputs))
-    (when current-work
-      (application-input-controller--publish-counts controller))
-    (not (null selected-work)))))
+     (when selected-work
+       (terminal-ui-recall-follow-up
+        (application-ui (application-input-controller-application controller))
+        (second selected-work)
+        :steering-inputs steering-inputs
+        :queued-inputs   queued-inputs))
+     (when current-work
+       (application-input-controller--publish-counts controller))
+     (not (null selected-work)))))
 
 (-> application-input-controller--process-event
     (application-input-controller t)
@@ -2777,7 +2779,7 @@ may execute immediately; other Lisp waits for the idle boundary."
                 ui
                 event
                 :queue-completion-p turn-active-p
-                :queue-editing-p follow-up-editing-p)
+                :queue-editing-p    follow-up-editing-p)
              (case action
                (:cleared
                 (application-input-controller--clear-follow-up-edit controller))
@@ -2814,7 +2816,7 @@ may execute immediately; other Lisp waits for the idle boundary."
                (:interrupt
                 (application-input-controller--request-exit
                  controller ':interrupt))))))))
-  nil))
+   nil))
 
 (-> application-input-controller--input-ready-p
     (application-input-controller)
@@ -3031,7 +3033,7 @@ sandbox grant is revalidated at this final authorization boundary."
       (values ':deny "no provider is available to classify operations")))
   (let* ((user-instructions
            (application--current-user-instructions application))
-         (cache (application-command-classifications application))
+         (cache  (application-command-classifications application))
          (key
            (format nil "sandbox=~:[unavailable~;available~]~%instructions=~A~%~A~%~A"
                    sandbox-available-p
@@ -3131,7 +3133,7 @@ sandbox grant is revalidated at this final authorization boundary."
         (error 'command-authorization-unavailable
                :message
                "Command approval is required, but no interactive terminal owns this session. Attach a controlling terminal or choose an explicit permission mode; the command was not run."
-               :command command
+               :command   command
                :directory directory))
       ;; Authorization always pauses the reader explicitly: immediate work on
       ;; the reader thread is refused a modal instead of blocking input there.
@@ -3256,9 +3258,9 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
 (-> application--pretty-tool-arguments (t) string)
 (defun application--pretty-tool-arguments (arguments)
   "Indent encoded JSON structurally, preserving every string and scalar."
-  (let ((source (json-encode arguments))
-        (depth 0)
-        (quoted-p nil)
+  (let ((source    (json-encode arguments))
+        (depth     0)
+        (quoted-p  nil)
         (escaped-p nil))
     (with-output-to-string (stream)
       (labels ((line-break ()
@@ -3273,9 +3275,12 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
                    (quoted-p
                     (write-char character stream)
                     (cond
-                      (escaped-p (setf escaped-p nil))
-                      ((char= character #\\) (setf escaped-p t))
-                      ((char= character #\") (setf quoted-p nil))))
+                      (escaped-p
+                       (setf escaped-p nil))
+                      ((char= character #\\)
+                       (setf escaped-p t))
+                      ((char= character #\")
+                       (setf quoted-p nil))))
                    ((char= character #\")
                     (setf quoted-p t)
                     (write-char character stream))
@@ -3335,7 +3340,6 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
        (list (terminal-span ':dim (format nil "  no arguments~%"))))
      (list (terminal-span ':dim "  External execution is not confined by the local command sandbox.")))))
 
-
 (-> application--ask-tool-permission
     (application tool json-object)
     keyword)
@@ -3344,9 +3348,9 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
   (unless (application--interactive-command-approval-p application)
     (return-from application--ask-tool-permission ':deny))
   (let* ((controller (application-input-controller application))
-         (ui (application-ui application))
-         (directory (config :working-directory (application-configuration application)))
-         (key (application--tool-permission-key tool arguments))
+         (ui         (application-ui application))
+         (directory  (config :working-directory (application-configuration application)))
+         (key        (application--tool-permission-key tool arguments))
          (choice
            (application-input-controller-call-with-reader-paused
             controller
@@ -3356,13 +3360,13 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
                (application--tool-authorization-request-entry tool arguments))
               (terminal-ui-select
                ui
-               :title (application--tool-authorization-title tool)
-               :items (application--command-authorization-items
-                       key directory :external-tool-p t)
+               :title           (application--tool-authorization-title tool)
+               :items           (application--command-authorization-items
+                                 key directory :external-tool-p t)
                :resize-callback #'application-pending-terminal-size)))))
     (application--apply-command-authorization-choice
      application key directory choice
-     :kind ':external-tool
+     :kind    ':external-tool
      :request (application--tool-authorization-request tool arguments))))
 
 (-> application-authorize-tool (application tool json-object) keyword)
@@ -3373,10 +3377,10 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
              application
              (application--tool-permission-key tool arguments)
              (config :working-directory (application-configuration application))
-             :kind ':external-tool
+             :kind    ':external-tool
              :request (application--tool-authorization-request tool arguments)
-             :ask (lambda ()
-                    (application--ask-tool-permission application tool arguments)))
+             :ask     (lambda ()
+                        (application--ask-tool-permission application tool arguments)))
             ':full-access)
         ':allow
         ':deny)))
@@ -3476,7 +3480,7 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
     (option list))
 (defun application-input-controller-take-queued-work (controller)
   "Nonblockingly take ordinary FIFO work and publish durable state first."
-  (let ((work nil)
+  (let ((work       nil)
         (promoted-p nil))
     (with-lock-held ((application-input-controller-lock controller))
       (setf promoted-p
@@ -3552,8 +3556,8 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
 (defun application-input-controller--next-work (controller)
   "Wait for and return CONTROLLER's next work item, or NIL after exit."
   (let ((application (application-input-controller-application controller))
-        (work nil)
-        (persist-p nil))
+        (work        nil)
+        (persist-p   nil))
     (with-lock-held ((application-input-controller-lock controller))
       (setf (application-input-controller-active-work-kind controller) nil
             (application-input-controller-active-work-interactive-p controller) nil)
@@ -3619,12 +3623,12 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
                                   (application-job-completions--take-maintenance controller))))
           (setf (application-input-controller-active-p controller) t)
           (return))
-        (let* ((cache-wait (application-input-controller--idle-compaction-wait controller))
-               (deadline (application-job-completions--next-time controller))
+        (let* ((cache-wait      (application-input-controller--idle-compaction-wait controller))
+               (deadline        (application-job-completions--next-time controller))
                (completion-wait (and deadline (max 1/100 (- deadline (get-universal-time)))))
-               (handoff-wait (and (application-localgroup-handoff-pending-p application) 1/10))
-               (waits (remove nil (list completion-wait handoff-wait cache-wait)))
-               (wait-seconds (and waits (apply #'min waits))))
+               (handoff-wait    (and (application-localgroup-handoff-pending-p application) 1/10))
+               (waits           (remove nil (list completion-wait handoff-wait cache-wait)))
+               (wait-seconds    (and waits (apply #'min waits))))
           (when (and cache-wait (zerop cache-wait))
             (setf work (list ':idle-compaction (application-idle-compaction-episode application))
                   (application-input-controller-active-p controller) t)
@@ -3644,7 +3648,7 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
         (error
          'application-input-failed
          :original-condition (application-input-controller-failure controller)
-         :backtrace (application-input-controller-failure-backtrace controller))))
+         :backtrace          (application-input-controller-failure-backtrace controller))))
     (when persist-p
       (application-input-controller--persist-pending controller))
     (application-input-controller--publish-counts controller)
@@ -3656,10 +3660,10 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
 (defun application-input-controller--finish-work (controller)
   "Finish current work and promote unconsumed steering at its ordered position."
   (let ((clear-notice-p nil)
-        (pause-notice nil)
-        (marker-work-p nil)
-        (marker-status 0)
-        (reopen-p nil))
+        (pause-notice   nil)
+        (marker-work-p  nil)
+        (marker-status  0)
+        (reopen-p       nil))
     (with-lock-held ((application-input-controller-lock controller))
       (unless (application-input-controller-stopping-p controller)
         (let* ((work-items
@@ -3823,11 +3827,11 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
     (conversation-append-turn-aborted
      conversation
      :turn-start-sequence turn-start-sequence
-     :reason reason
-     :condition-type (format nil "~S" (class-name (class-of condition)))
-     :message (bounded-string condition
-                              :limit
-                              *conversation-turn-aborted-message-maximum-characters*)
+     :reason              reason
+     :condition-type      (format nil "~S" (class-name (class-of condition)))
+     :message             (bounded-string condition
+                                          :limit
+                                          *conversation-turn-aborted-message-maximum-characters*)
      :request-number
      (and (typep condition 'agent-loop-error)
           (agent-loop-error-request-number condition)))))
@@ -3838,9 +3842,9 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
 (defun application--call-with-model-error-handling
     (application function &key (fatal-agent-loop-errors-p t))
   "Run model work under the expected, cancellation, and fatal condition boundary."
-  (let* ((conversation (application-conversation application))
+  (let* ((conversation        (application-conversation application))
          (turn-start-sequence (conversation-next-sequence conversation))
-         (signal-backtrace nil))
+         (signal-backtrace    nil))
     (handler-bind
         ((serious-condition
            (lambda (condition)
@@ -3854,7 +3858,7 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
           (application--record-turn-aborted
            application condition
            :turn-start-sequence turn-start-sequence
-           :reason ':cancelled)
+           :reason              ':cancelled)
           (error condition))
         (application-input-failed (condition)
           (error condition))
@@ -3862,7 +3866,7 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
           (application--record-turn-aborted
            application condition
            :turn-start-sequence turn-start-sequence
-           :reason ':agent-loop)
+           :reason              ':agent-loop)
           (if fatal-agent-loop-errors-p
               (application-raise-fatal
                application condition signal-backtrace)
@@ -3872,12 +3876,12 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
         ((or conversation-invariant-error
              active-image-corruption)
          (condition)
-          (application-raise-fatal application condition signal-backtrace))
+         (application-raise-fatal application condition signal-backtrace))
         ((or autolith-error cl-llm-provider-api:provider-api-error) (condition)
           (application--record-turn-aborted
            application condition
            :turn-start-sequence turn-start-sequence
-           :reason ':application-error)
+           :reason              ':application-error)
           (application-handle-expected-error application condition)
           ':failed)
         (serious-condition (condition)
@@ -3909,15 +3913,15 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
    (lambda ()
      (application-run-message
       application input
-      :steering-function steering-function
-      :steering-persisted-function steering-persisted-function
+      :steering-function               steering-function
+      :steering-persisted-function     steering-persisted-function
       :user-message-persisted-function user-message-persisted-function
-      :pending-operations-function pending-operations-function
-      :pending-input-identifier pending-input-identifier
-      :tools-p tools-p
-      :tool-allowlist tool-allowlist
-      :tool-restriction-p tool-restriction-p
-      :goal-continuations-p goal-continuations-p))
+      :pending-operations-function     pending-operations-function
+      :pending-input-identifier        pending-input-identifier
+      :tools-p                         tools-p
+      :tool-allowlist                  tool-allowlist
+      :tool-restriction-p              tool-restriction-p
+      :goal-continuations-p            goal-continuations-p))
    :fatal-agent-loop-errors-p fatal-agent-loop-errors-p))
 
 (defun application--run-command-input (application input &key (interactive-p t))
@@ -3937,9 +3941,9 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
                      *application-command-presentation-invocation* invocation)
                (application-handle-input
                 application input :interactive-p interactive-p))
-            :source input
-            :operation-kind ':command
-            :retry-p t
+            :source          input
+            :operation-kind  ':command
+            :retry-p         t
             :return-values-p nil)
          (application-user-operation-record-command-outcome
           application invocation :action result :condition condition)
@@ -4047,10 +4051,10 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
              (application--run-message-input
               application
               (second work)
-              :tools-p t
-              :tool-allowlist *application-recovery-diagnostic-tool-names*
-              :tool-restriction-p t
-              :goal-continuations-p nil
+              :tools-p                   t
+              :tool-allowlist            *application-recovery-diagnostic-tool-names*
+              :tool-restriction-p        t
+              :goal-continuations-p      nil
               :fatal-agent-loop-errors-p nil))
             (:lisp
              (let ((result
@@ -4083,8 +4087,8 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
                       (application--run-turn
                        application
                        (getf request :text)
-                       :operation-request (getf request :request)
-                       :steering-function take
+                       :operation-request           (getf request :request)
+                       :steering-function           take
                        :steering-persisted-function acknowledge
                        :pending-operations-function
                        (lambda (owner)
