@@ -13,29 +13,29 @@
 
 (defclass recovery-context ()
   ((source-root
-    :initarg :source-root
-    :reader recovery-context-source-root
-    :type pathname
+    :initarg       :source-root
+    :reader        recovery-context-source-root
+    :type          pathname
     :documentation "The stable Autolith source checkout containing revision history.")
    (generation-root
-    :initarg :generation-root
-    :reader recovery-context-generation-root
-    :type pathname
+    :initarg       :generation-root
+    :reader        recovery-context-generation-root
+    :type          pathname
     :documentation "The retained generation directory.")
    (worktree-root
-    :initarg :worktree-root
-    :reader recovery-context-worktree-root
-    :type pathname
+    :initarg       :worktree-root
+    :reader        recovery-context-worktree-root
+    :type          pathname
     :documentation "The directory for exact-commit recovery worktrees.")
    (state-root
-    :initarg :state-root
-    :reader recovery-context-state-root
-    :type pathname
+    :initarg       :state-root
+    :reader        recovery-context-state-root
+    :type          pathname
     :documentation "The Autolith state directory containing selection and journals.")
    (current-pathname
-    :initarg :current-pathname
-    :reader recovery-context-current-pathname
-    :type pathname
+    :initarg       :current-pathname
+    :reader        recovery-context-current-pathname
+    :type          pathname
     :documentation "The atomically selected generation record."))
   (:documentation "Stable paths available to the pristine recovery image."))
 
@@ -122,16 +122,16 @@ the library that reads a generation owns only the fields every host shares."
 
 (defclass recovery-terminal-state ()
   ((settings
-    :initarg :settings
-    :reader recovery-terminal-state-settings
-    :type (or null string)
+    :initarg       :settings
+    :reader        recovery-terminal-state-settings
+    :type          (or null string)
     :documentation "The trusted STTY settings captured before a retained core starts."))
   (:documentation "Terminal state restored between retained-generation attempts."))
 
 (serapeum:-> recovery-environment-directory (string pathname) pathname)
 (defun recovery-environment-directory (variable fallback)
   "Return absolute directory VARIABLE, or FALLBACK when it is unset or invalid."
-  (let* ((value (uiop:getenv variable))
+  (let* ((value    (uiop:getenv variable))
          (pathname (and value
                         (plusp (length value))
                         (pathname value))))
@@ -143,14 +143,14 @@ the library that reads a generation owns only the fields every host shares."
 (serapeum:-> recovery-context-create (pathname) recovery-context)
 (defun recovery-context-create (source-root)
   "Return recovery context rooted at SOURCE-ROOT and XDG user directories."
-  (let* ((data-root (autolith-application-root :data))
+  (let* ((data-root  (autolith-application-root :data))
          (state-root (autolith-application-root :state)))
     (make-instance
      'recovery-context
-     :source-root (uiop:ensure-directory-pathname source-root)
-     :generation-root (merge-pathnames "generations/" data-root)
-     :worktree-root (merge-pathnames "recovery-worktrees/" data-root)
-     :state-root state-root
+     :source-root      (uiop:ensure-directory-pathname source-root)
+     :generation-root  (merge-pathnames "generations/" data-root)
+     :worktree-root    (merge-pathnames "recovery-worktrees/" data-root)
+     :state-root       state-root
      :current-pathname (merge-pathnames "current-generation.sexp" state-root))))
 
 (serapeum:-> recovery-terminal-state-capture () recovery-terminal-state)
@@ -164,8 +164,8 @@ the library that reads a generation owns only the fields every host shares."
                (string-trim
                 '(#\Space #\Tab #\Newline #\Return)
                 (uiop:run-program '("stty" "-g")
-                                  :input ':interactive
-                                  :output ':string
+                                  :input        ':interactive
+                                  :output       ':string
                                   :error-output ':output))))
          (and (plusp (length settings)) settings))
      (error ()
@@ -178,14 +178,14 @@ the library that reads a generation owns only the fields every host shares."
     (when settings
       (ignore-errors
         (uiop:run-program (list "stty" settings)
-                          :input ':interactive
-                          :output nil
+                          :input        ':interactive
+                          :output       nil
                           :error-output nil)))
     (ignore-errors
       (with-open-file (stream #P"/dev/tty"
-                              :direction ':output
+                              :direction         ':output
                               :if-does-not-exist nil
-                              :external-format ':utf-8)
+                              :external-format   ':utf-8)
         (when stream
           (format stream "~C[?2004l~C[?25h~C[0m"
                   #\Escape #\Escape #\Escape)
@@ -234,7 +234,7 @@ the library that reads a generation owns only the fields every host shares."
   "Read exactly one portable form from PATHNAME with reader evaluation disabled."
   (with-open-file (stream pathname :direction ':input :external-format ':utf-8)
     (let ((*read-eval* nil)
-          (end-marker (cons nil nil)))
+          (end-marker  (cons nil nil)))
       (let ((form (read stream t nil)))
         (unless (eq (read stream nil end-marker) end-marker)
           (error "Recovery record ~A contains trailing forms." pathname))
@@ -285,8 +285,8 @@ the library that reads a generation owns only the fields every host shares."
   (if (probe-file pathname)
       (with-open-file (stream pathname :direction ':input :external-format ':utf-8)
         (let ((*read-eval* nil)
-              (end-marker (cons nil nil))
-              (records nil))
+              (end-marker  (cons nil nil))
+              (records     nil))
           (handler-case
               (loop for record = (read stream nil end-marker)
                     until (eq record end-marker)
@@ -299,7 +299,7 @@ the library that reads a generation owns only the fields every host shares."
 (serapeum:-> recovery-report-mutations (recovery-context) null)
 (defun recovery-report-mutations (context)
   "Print pending durable mutation identities from CONTEXT's journal."
-  (let ((latest (make-hash-table :test #'equal))
+  (let ((latest   (make-hash-table :test #'equal))
         (pathname (merge-pathnames "mutations.sexp"
                                    (recovery-context-state-root context))))
     (handler-case
@@ -357,10 +357,10 @@ wrote it may be the thing that broke. Nothing is assumed from the fact that a
 manifest parsed: the identifier must be a safe path component naming its own
 directory, every recorded identity must have the right shape, and every runtime
 field must be present."
-  (let* ((identifier (getf properties :id))
-         (version (getf properties :version))
-         (directory (uiop:pathname-directory-pathname pathname))
-         (reconstruction-value (getf properties :reconstruction))
+  (let* ((identifier              (getf properties :id))
+         (version                 (getf properties :version))
+         (directory               (uiop:pathname-directory-pathname pathname))
+         (reconstruction-value    (getf properties :reconstruction))
          (reconstruction-pathname
            (and (stringp reconstruction-value) (pathname reconstruction-value)))
          (image-commit-identifier (getf properties :image-commit))
@@ -401,11 +401,11 @@ The store keeps the library's plain-Lisp record reader rather than the active
 image's, so recovery needs no foreign-function or filesystem library to read a
 generation. Its validator carries this image's own stricter checks."
   (sbcl-generations:make-generation-store
-   :root (recovery-context-generation-root context)
-   :current-pathname (recovery-context-current-pathname context)
-   :core-name "autolith.core"
-   :temporary-core-name ".autolith.core.tmp"
-   :manifest-version 3
+   :root                       (recovery-context-generation-root context)
+   :current-pathname           (recovery-context-current-pathname context)
+   :core-name                  "autolith.core"
+   :temporary-core-name        ".autolith.core.tmp"
+   :manifest-version           3
    :accepted-manifest-versions '(1 2 3)
    :manifest-validator
    (lambda (properties manifest-pathname)
@@ -452,7 +452,7 @@ generation. Its validator carries this image's own stricter checks."
 (defun recovery-generation-list (context)
   "Return valid retained generations in CONTEXT, newest first."
   (let ((generations nil)
-        (root (recovery-context-generation-root context)))
+        (root        (recovery-context-generation-root context)))
     (when (probe-file root)
       (dolist (directory (uiop:subdirectories root))
         (let ((pathname (merge-pathnames "manifest.sexp" directory)))
@@ -677,10 +677,10 @@ generation. Its validator carries this image's own stricter checks."
           (merge-pathnames "conversation-identifier-migration.sexp"
                            (recovery-context-state-root context))))
     (if (probe-file pathname)
-        (let* ((record (recovery-read-form pathname))
+        (let* ((record     (recovery-read-form pathname))
                (properties (and (recovery-proper-list-p record)
                                 (rest record)))
-               (entries (and properties (getf properties :entries))))
+               (entries    (and properties (getf properties :entries))))
           (unless (and (recovery-proper-list-p record)
                        (= (length record) 9)
                        (eq (first record) :conversation-identifier-migration)
@@ -704,13 +704,13 @@ generation. Its validator carries this image's own stricter checks."
                            (remove-duplicates
                             entries
                             :test #'string=
-                            :key (lambda (entry) (getf entry :old)))))
+                            :key  (lambda (entry) (getf entry :old)))))
                        (= (length entries)
                           (length
                            (remove-duplicates
                             entries
                             :test #'string=
-                            :key (lambda (entry) (getf entry :new))))))
+                            :key  (lambda (entry) (getf entry :new))))))
             (error "The conversation identifier migration record is invalid."))
           entries)
         nil)))
@@ -728,8 +728,8 @@ generation. Its validator carries this image's own stricter checks."
                     (find normalized
                           (recovery-conversation-migration-entries context)
                           :test #'string=
-                          :key (lambda (candidate)
-                                 (getf candidate :old)))))
+                          :key  (lambda (candidate)
+                                  (getf candidate :old)))))
               (if entry (getf entry :new) normalized))
           (error (condition)
             (format *error-output*
@@ -745,7 +745,7 @@ generation. Its validator carries this image's own stricter checks."
 (defun recovery-normalize-forwarded-arguments (context arguments)
   "Return restart-safe application ARGUMENTS with an explicit resume ID resolved."
   (let ((normalized nil)
-        (remaining arguments))
+        (remaining  arguments))
     (loop while remaining
           for argument = (pop remaining)
           do (if (and (stringp argument)
@@ -798,15 +798,15 @@ generation. Its validator carries this image's own stricter checks."
   (when (and (stringp capsule) (plusp (length capsule)))
     (handler-case
         (let* ((capsule-pathname (pathname capsule))
-               (crash-root (merge-pathnames "crashes/"
-                                            (recovery-context-state-root context))))
+               (crash-root       (merge-pathnames "crashes/"
+                                                  (recovery-context-state-root context))))
           (unless (and (uiop:subpathp capsule-pathname crash-root)
                        (probe-file capsule-pathname))
             (error "The crash capsule is absent or outside private Autolith state."))
-          (let* ((record (recovery-read-form capsule-pathname))
-                 (properties (and (listp record) (rest record)))
-                 (conversation-id (and properties
-                                       (getf properties :conversation-id)))
+          (let* ((record            (recovery-read-form capsule-pathname))
+                 (properties        (and (listp record) (rest record)))
+                 (conversation-id   (and properties
+                                         (getf properties :conversation-id)))
                  (rendered-sequence (and properties
                                          (getf properties :rendered-sequence)))
                  (history-floor-sequence
@@ -850,17 +850,17 @@ generation. Its validator carries this image's own stricter checks."
   (let ((pointer-value (uiop:getenv "AUTOLITH_CRASH_POINTER")))
     (when (and (stringp pointer-value) (plusp (length pointer-value)))
       (let* ((pointer-pathname (pathname pointer-value))
-             (pointer-root (merge-pathnames "crash-pointers/"
-                                            (recovery-context-state-root context)))
-             (crash-root (merge-pathnames "crashes/"
-                                          (recovery-context-state-root context))))
+             (pointer-root     (merge-pathnames "crash-pointers/"
+                                                (recovery-context-state-root context)))
+             (crash-root       (merge-pathnames "crashes/"
+                                                (recovery-context-state-root context))))
         (unless (uiop:subpathp pointer-pathname pointer-root)
           (error "The crash pointer is outside private Autolith state."))
         (when (probe-file pointer-pathname)
           (with-open-file (stream pointer-pathname
-                                  :direction ':input
+                                  :direction       ':input
                                   :external-format ':utf-8)
-            (let ((capsule (read-line stream nil nil))
+            (let ((capsule       (read-line stream nil nil))
                   (trailing-line (read-line stream nil nil)))
               (unless (and (stringp capsule)
                            (plusp (length capsule))
@@ -888,7 +888,7 @@ generation. Its validator carries this image's own stricter checks."
         (unless (uiop:subpathp pointer-pathname pointer-root)
           (error "The recovery-session pointer is outside private Autolith state."))
         (when (probe-file pointer-pathname)
-          (let* ((record (recovery-read-form pointer-pathname))
+          (let* ((record     (recovery-read-form pointer-pathname))
                  (properties (and (recovery-proper-list-p record)
                                   (rest record)))
                  (conversation-id
@@ -930,8 +930,8 @@ generation. Its validator carries this image's own stricter checks."
   (handler-case
       (let ((record (recovery-read-session-pointer context)))
         (when record
-          (let* ((properties (rest record))
-                 (conversation-id (getf properties :conversation-id))
+          (let* ((properties        (rest record))
+                 (conversation-id   (getf properties :conversation-id))
                  (rendered-sequence (getf properties :rendered-sequence))
                  (history-floor-sequence
                    (getf properties :history-floor-sequence))
@@ -1012,7 +1012,7 @@ generation. Its validator carries this image's own stricter checks."
    '(#\Space #\Tab #\Newline #\Return)
    (uiop:run-program
     (append (list "git" "-C" (namestring repository)) arguments)
-    :output ':string
+    :output       ':string
     :error-output ':output)))
 
 (serapeum:-> recovery-jj-p (pathname) boolean)
@@ -1102,9 +1102,9 @@ Colocation lets older committed source use its original Git provenance code."
   (let* ((git-root
            (uiop:ensure-directory-pathname
             (recovery-jj-output source-root '("--ignore-working-copy" "git" "root"))))
-         (objects (merge-pathnames "objects/" git-root))
+         (objects         (merge-pathnames "objects/" git-root))
          (private-objects (merge-pathnames ".git/objects/" checkout))
-         (reference (merge-pathnames ".git/refs/heads/recovery-source" checkout)))
+         (reference       (merge-pathnames ".git/refs/heads/recovery-source" checkout)))
     (uiop:run-program
      (list "jj" "--no-pager" "--color" "never" "git" "init" "--colocate"
            (namestring checkout))
@@ -1126,12 +1126,12 @@ Colocation lets older committed source use its original Git provenance code."
   (unless (and (recovery-git-commit-p commit)
                (recovery-identifier-p identifier))
     (error "Invalid recovery source identity."))
-  (let* ((root (recovery-context-worktree-root context))
+  (let* ((root     (recovery-context-worktree-root context))
          (checkout (merge-pathnames (format nil "~A/" identifier) root)))
     (when (and (probe-file checkout)
                (not (recovery-source-checkout-valid-p checkout commit)))
       (uiop:delete-directory-tree checkout
-                                  :validate t
+                                  :validate          t
                                   :if-does-not-exist ':ignore))
     (unless (probe-file checkout)
       (ensure-directories-exist root)
@@ -1141,7 +1141,7 @@ Colocation lets older committed source use its original Git provenance code."
                root)))
         (when (probe-file temporary)
           (uiop:delete-directory-tree temporary
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore))
         (unwind-protect
              (progn
@@ -1162,7 +1162,7 @@ Colocation lets older committed source use its original Git provenance code."
                (rename-file temporary checkout))
           (when (probe-file temporary)
             (uiop:delete-directory-tree temporary
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore)))))
     checkout))
 
@@ -1216,7 +1216,7 @@ Colocation lets older committed source use its original Git provenance code."
     (error "Generation ~A is incompatible with this SBCL runtime."
            (recovery-sanitize-text
             (recovery-generation-identifier generation))))
-  (let* ((worktree (recovery-source-worktree context generation))
+  (let* ((worktree     (recovery-source-worktree context generation))
          (sbcl-command (or (uiop:getenv "AUTOLITH_SBCL") "sbcl")))
     (recovery-prepare-source-environment context worktree)
     (let ((process
@@ -1228,11 +1228,11 @@ Colocation lets older committed source use its original Git provenance code."
                     (namestring (recovery-generation-core-pathname generation))
                     "--end-runtime-options")
               forwarded-arguments)
-             :directory worktree
-             :input ':interactive
-             :output ':interactive
+             :directory    worktree
+             :input        ':interactive
+             :output       ':interactive
              :error-output ':interactive
-             :wait nil)))
+             :wait         nil)))
       (uiop:wait-process process))))
 
 (serapeum:-> recovery-boot-source
@@ -1240,11 +1240,11 @@ Colocation lets older committed source use its original Git provenance code."
     integer)
 (defun recovery-boot-source (context forwarded-arguments)
   "Boot clean committed source with FORWARDED-ARGUMENTS and return its status."
-  (let* ((commit (recovery-source-commit context))
-         (identifier (format nil "source-~A" commit))
-         (checkout (recovery-source-checkout context commit identifier))
-         (launcher (merge-pathnames "bin/autolith-active" checkout))
-         (sbcl-command (or (uiop:getenv "AUTOLITH_SBCL") "sbcl"))
+  (let* ((commit         (recovery-source-commit context))
+         (identifier     (format nil "source-~A" commit))
+         (checkout       (recovery-source-checkout context commit identifier))
+         (launcher       (merge-pathnames "bin/autolith-active" checkout))
+         (sbcl-command   (or (uiop:getenv "AUTOLITH_SBCL") "sbcl"))
          (terminal-state (recovery-terminal-state-capture)))
     (unless (probe-file launcher)
       (error "The clean source checkout lacks bin/autolith-active."))
@@ -1260,11 +1260,11 @@ Colocation lets older committed source use its original Git provenance code."
                                 "--script"
                                 (namestring launcher))
                           forwarded-arguments)
-                  :directory checkout
-                  :input ':interactive
-                  :output ':interactive
+                  :directory    checkout
+                  :input        ':interactive
+                  :output       ':interactive
                   :error-output ':interactive
-                  :wait nil)))
+                  :wait         nil)))
            (uiop:wait-process process))
       (recovery-terminal-state-restore terminal-state))))
 
@@ -1298,7 +1298,7 @@ Colocation lets older committed source use its original Git provenance code."
           (cons selected
                 (remove (recovery-generation-identifier selected)
                         (recovery-generation-list context)
-                        :key #'recovery-generation-identifier
+                        :key  #'recovery-generation-identifier
                         :test #'string=)))
         (terminal-state (recovery-terminal-state-capture))
         (current-capsule
@@ -1309,7 +1309,7 @@ Colocation lets older committed source use its original Git provenance code."
           do (if (recovery-generation-bootable-p
                   generation
                   :source-commit source-commit)
-                 (let ((status nil)
+                 (let ((status      nil)
                        (completed-p nil))
                    (unwind-protect
                         (handler-case
@@ -1365,15 +1365,15 @@ Colocation lets older committed source use its original Git provenance code."
           (recovery-boot-with-fallback context
                                        selected
                                        forwarded-arguments
-                                       :capsule capsule
+                                       :capsule       capsule
                                        :source-commit source-commit)
-      (error (condition)
-        (format *error-output*
-                "Retained-generation recovery failed: ~A~%"
-                (recovery-sanitize-text condition))
-        (recovery-boot-source-with-report
-         context (adjoin "--pristine" forwarded-arguments :test #'string=)
-         :capsule capsule)))
+       (error (condition)
+         (format *error-output*
+                 "Retained-generation recovery failed: ~A~%"
+                 (recovery-sanitize-text condition))
+         (recovery-boot-source-with-report
+          context (adjoin "--pristine" forwarded-arguments :test #'string=)
+          :capsule capsule)))
     (recovery-boot-source-with-report
      context (adjoin "--pristine" forwarded-arguments :test #'string=)
      :capsule capsule)))
@@ -1384,13 +1384,13 @@ Colocation lets older committed source use its original Git provenance code."
 (serapeum:-> recovery-parse-arguments (list) *)
 (defun recovery-parse-arguments (arguments)
   "Return recovery options and forwarded application arguments from ARGUMENTS."
-  (let ((generation nil)
-        (list-p nil)
-        (status nil)
-        (capsule nil)
-        (forwarded nil)
+  (let ((generation         nil)
+        (list-p             nil)
+        (status             nil)
+        (capsule            nil)
+        (forwarded          nil)
         (original-arguments nil)
-        (remaining arguments))
+        (remaining          arguments))
     (loop while remaining
           for argument = (pop remaining)
           do (cond
@@ -1437,10 +1437,10 @@ Colocation lets older committed source use its original Git provenance code."
           (let ((*print-readably* t))
             (prin1 (list :recovery-probe
                          :version *recovery-image-protocol-version*
-                         :sbcl-version (lisp-implementation-version)
-                         :operating-system (software-type)
+                         :sbcl-version             (lisp-implementation-version)
+                         :operating-system         (software-type)
                          :operating-system-version (software-version)
-                         :architecture (machine-type)))
+                         :architecture             (machine-type)))
             (terpri)
             (finish-output))
           0)
@@ -1459,8 +1459,8 @@ Colocation lets older committed source use its original Git provenance code."
                   (let ((reported-capsule
                           (recovery-report-crash
                            context
-                           :status status
-                           :capsule capsule
+                           :status             status
+                           :capsule            capsule
                            :original-arguments original-arguments)))
                     (if (or generation
                             (and status
@@ -1481,7 +1481,7 @@ Colocation lets older committed source use its original Git provenance code."
                                       :source-commit source-commit))))
                           (recovery-boot-with-source-fallback
                            context selected forwarded
-                           :capsule reported-capsule
+                           :capsule       reported-capsule
                            :source-commit source-commit))
                         (recovery-boot-source-with-report
                          context
@@ -1509,7 +1509,7 @@ Colocation lets older committed source use its original Git provenance code."
   "Save the current minimal image to PATHNAME with RECOVERY-MAIN as its entry."
   (ensure-directories-exist pathname)
   (sb-ext:save-lisp-and-die (namestring pathname)
-                            :toplevel #'recovery-main
-                            :executable nil
-                            :purify t
+                            :toplevel    #'recovery-main
+                            :executable  nil
+                            :purify      t
                             :compression nil))
