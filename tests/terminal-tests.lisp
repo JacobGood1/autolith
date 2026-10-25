@@ -1438,7 +1438,7 @@
             (let* ((command-rows   (terminal-ui--command-activity-rows-at
                                      active-ui clock width))
                    (inference-rows (terminal-ui--command-activity-rows-at
-                                     active-ui clock width t))
+                                     active-ui clock width :inference-p t))
                    (agent-rows     (terminal-ui--agent-activity-rows-at
                                      active-ui clock width))
                    (rows           (append command-rows inference-rows agent-rows)))

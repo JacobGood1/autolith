@@ -1311,9 +1311,9 @@ its parenthesis open, and are dropped once the name closes it itself."
           (nth-value 1 (terminal-ui--command-activity-selection ui t))))
 
 (-> terminal-ui--command-activity-rows-at
-    (terminal-ui real integer &optional boolean)
+    (terminal-ui real integer &key (:inference-p boolean))
     list)
-(defun terminal-ui--command-activity-rows-at (ui now row-width &optional inference-p)
+(defun terminal-ui--command-activity-rows-at (ui now row-width &key inference-p)
   "Return viewport-bounded command or RLM rows for UI at monotonic NOW."
   (multiple-value-bind
         (activities visible-activities header-row-count overflow-row-p omitted-count)
@@ -2013,7 +2013,7 @@ form keeps every speculative Markdown wrap live until the logical line commits."
                                  ui status-now row-width))
                            (and (terminal-ui--execution-activities ui t)
                                 (terminal-ui--command-activity-rows-at
-                                 ui status-now row-width t))
+                                 ui status-now row-width :inference-p t))
                            (and (terminal-ui-agent-activities ui)
                                 (terminal-ui--agent-activity-rows-at
                                  ui status-now row-width)))))
