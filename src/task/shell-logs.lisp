@@ -408,6 +408,7 @@ Keep manifests as tombstones so old references have truthful diagnostics."
           (remhash (namestring directory) *shell-log-active*)
           (when allocation-started-p
             (sb-sys:without-interrupts
+              ; mallet:suppress no-ignore-errors -- best-effort removal of an unpublished capture during unwinding
               (ignore-errors
                 (platform-delete-directory-tree *platform* directory :validate t)))))))))
 
