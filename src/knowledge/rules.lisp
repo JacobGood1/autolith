@@ -66,70 +66,93 @@
   "Add two terms whose types support addition."
   (let ((types (list (knowledge-term-type-of left) (knowledge-term-type-of right))))
     (cond
-      ((equal types '(:number :number)) (+ left right))
-      ((equal types '(:duration :duration)) (list :duration (+ (second left) (second right))))
+      ((equal types '(:number :number))
+       (+ left right))
+      ((equal types '(:duration :duration))
+       (list :duration (+ (second left) (second right))))
       ((equal types '(:instant :duration))
        (knowledge-make-instant (+ (knowledge-instant-time left) (second right))))
-      ((equal types '(:duration :instant)) (knowledge--add right left))
-      ((equal types '(:date :duration)) (knowledge--date-add (second left) (second right)))
+      ((equal types '(:duration :instant))
+       (knowledge--add right left))
+      ((equal types '(:date :duration))
+       (knowledge--date-add (second left) (second right)))
       ((equal types '(:quantity :quantity))
        (list :quantity (+ (second left) (second (knowledge--quantity-in right (third left))))
              (third left)))
-      (t (knowledge--fail ':evaluation types "Cannot add ~(~A~) and ~(~A~)."
-                          (first types) (second types))))))
+      (t
+       (knowledge--fail ':evaluation types "Cannot add ~(~A~) and ~(~A~)."
+                        (first types) (second types))))))
 
 (-> knowledge--subtract (t t) t)
 (defun knowledge--subtract (left right)
   "Subtract RIGHT from LEFT where their types support subtraction."
   (let ((types (list (knowledge-term-type-of left) (knowledge-term-type-of right))))
     (cond
-      ((equal types '(:number :number)) (- left right))
-      ((equal types '(:duration :duration)) (list :duration (- (second left) (second right))))
+      ((equal types '(:number :number))
+       (- left right))
+      ((equal types '(:duration :duration))
+       (list :duration (- (second left) (second right))))
       ((equal types '(:instant :duration))
        (knowledge-make-instant (- (knowledge-instant-time left) (second right))))
       ((equal types '(:instant :instant))
        (list :duration (- (knowledge-instant-time left) (knowledge-instant-time right))))
-      ((equal types '(:date :duration)) (knowledge--date-add (second left) (- (second right))))
+      ((equal types '(:date :duration))
+       (knowledge--date-add (second left) (- (second right))))
       ((equal types '(:date :date))
        (list :duration (- (knowledge-date-universal-time (second left))
                           (knowledge-date-universal-time (second right)))))
       ((equal types '(:quantity :quantity))
        (list :quantity (- (second left) (second (knowledge--quantity-in right (third left))))
              (third left)))
-      (t (knowledge--fail ':evaluation types "Cannot subtract ~(~A~) from ~(~A~)."
-                          (second types) (first types))))))
+      (t
+       (knowledge--fail ':evaluation types "Cannot subtract ~(~A~) from ~(~A~)."
+                        (second types) (first types))))))
 
 (-> knowledge--multiply (t t) t)
 (defun knowledge--multiply (left right)
   "Multiply a number, duration, or quantity by a number."
   (let ((types (list (knowledge-term-type-of left) (knowledge-term-type-of right))))
     (cond
-      ((equal types '(:number :number)) (* left right))
-      ((equal types '(:duration :number)) (list :duration (round (* (second left) right))))
-      ((equal types '(:number :duration)) (knowledge--multiply right left))
-      ((equal types '(:quantity :number)) (list :quantity (* (second left) right) (third left)))
-      ((equal types '(:number :quantity)) (knowledge--multiply right left))
-      (t (knowledge--fail ':evaluation types "Cannot multiply ~(~A~) by ~(~A~)."
-                          (first types) (second types))))))
+      ((equal types '(:number :number))
+       (* left right))
+      ((equal types '(:duration :number))
+       (list :duration (round (* (second left) right))))
+      ((equal types '(:number :duration))
+       (knowledge--multiply right left))
+      ((equal types '(:quantity :number))
+       (list :quantity (* (second left) right) (third left)))
+      ((equal types '(:number :quantity))
+       (knowledge--multiply right left))
+      (t
+       (knowledge--fail ':evaluation types "Cannot multiply ~(~A~) by ~(~A~)."
+                        (first types) (second types))))))
 
 (-> knowledge--divide (t t) t)
 (defun knowledge--divide (left right)
   "Divide numbers, durations, or quantities where the quotient is defined."
   (let ((types (list (knowledge-term-type-of left) (knowledge-term-type-of right))))
     (when (case (second types)
-            (:number (zerop right))
-            (:duration (zerop (second right)))
-            (:quantity (zerop (second right))))
+            (:number
+             (zerop right))
+            (:duration
+             (zerop (second right)))
+            (:quantity
+             (zerop (second right))))
       (knowledge--fail ':evaluation right "Division by zero."))
     (cond
-      ((equal types '(:number :number)) (/ left right))
-      ((equal types '(:duration :number)) (list :duration (round (second left) right)))
-      ((equal types '(:duration :duration)) (/ (second left) (second right)))
-      ((equal types '(:quantity :number)) (list :quantity (/ (second left) right) (third left)))
+      ((equal types '(:number :number))
+       (/ left right))
+      ((equal types '(:duration :number))
+       (list :duration (round (second left) right)))
+      ((equal types '(:duration :duration))
+       (/ (second left) (second right)))
+      ((equal types '(:quantity :number))
+       (list :quantity (/ (second left) right) (third left)))
       ((equal types '(:quantity :quantity))
        (/ (second left) (second (knowledge--quantity-in right (third left)))))
-      (t (knowledge--fail ':evaluation types "Cannot divide ~(~A~) by ~(~A~)."
-                          (first types) (second types))))))
+      (t
+       (knowledge--fail ':evaluation types "Cannot divide ~(~A~) by ~(~A~)."
+                        (first types) (second types))))))
 
 (-> knowledge--extreme (function t t) t)
 (defun knowledge--extreme (test left right)
@@ -161,11 +184,15 @@
          :same)
    (list "abs" (lambda (value)
                  (case (knowledge-term-type-of value)
-                   (:number (abs value))
-                   (:duration (list :duration (abs (second value))))
-                   (:quantity (list :quantity (abs (second value)) (third value)))
-                   (otherwise (knowledge--fail ':evaluation value "Cannot take abs of ~S."
-                                               value))))
+                   (:number
+                    (abs value))
+                   (:duration
+                    (list :duration (abs (second value))))
+                   (:quantity
+                    (list :quantity (abs (second value)) (third value)))
+                   (otherwise
+                    (knowledge--fail ':evaluation value "Cannot take abs of ~S."
+                                     value))))
          '(((:number) :number) ((:duration) :duration) ((:quantity) :quantity)))
    (list "date" (lambda (instant)
                   (list :date (subseq (second instant) 0 10)))
@@ -299,12 +326,18 @@ for its values, such as a division by zero."
                 (knowledge-evaluate-expression (second guard) environment)
                 (knowledge-evaluate-expression (third guard) environment))))
     (and (cond
-           ((string= (first guard) "<") (< order 0))
-           ((string= (first guard) "<=") (<= order 0))
-           ((string= (first guard) ">") (> order 0))
-           ((string= (first guard) ">=") (>= order 0))
-           ((string= (first guard) "=") (zerop order))
-           (t (/= order 0)))
+           ((string= (first guard) "<")
+            (< order 0))
+           ((string= (first guard) "<=")
+            (<= order 0))
+           ((string= (first guard) ">")
+            (> order 0))
+           ((string= (first guard) ">=")
+            (>= order 0))
+           ((string= (first guard) "=")
+            (zerop order))
+           (t
+            (/= order 0)))
          t)))
 
 
@@ -320,11 +353,11 @@ for its values, such as a division by zero."
                           "Variable ~A is used before a premise or binding gives it a value."
                           expression)))
     ((knowledge-expression-call-p expression)
-     (let* ((entry (knowledge-function (first expression)))
+     (let* ((entry          (knowledge-function (first expression)))
             (argument-types (mapcar (lambda (argument)
                                       (knowledge--expression-type argument types))
                                     (rest expression)))
-            (signatures (third entry)))
+            (signatures     (third entry)))
        (or (if (eq signatures :same)
                (and (= (length argument-types) 2)
                     (eq (first argument-types) (second argument-types))
@@ -445,9 +478,9 @@ restricted, not well typed, or exceeds its bounds."
     (knowledge--fail ':invalid-rule id
                      "Rule names are lowercase letters, digits, hyphens, and dots."))
   (let* ((premises (coerce premises 'list))
-         (guards (coerce guards 'list))
+         (guards   (coerce guards 'list))
          (bindings (coerce bindings 'list))
-         (types (make-hash-table :test #'equal)))
+         (types    (make-hash-table :test #'equal)))
     (unless (<= 1 (length premises) *knowledge-rule-premise-limit*)
       (knowledge--fail ':invalid-rule id "A rule needs 1 to ~D premises."
                        *knowledge-rule-premise-limit*))
@@ -475,7 +508,7 @@ restricted, not well typed, or exceeds its bounds."
                      (knowledge--fail ':invalid-rule guard
                                       "A guard is a comparison (~{~A~^ ~}) of two expressions."
                                       *knowledge-comparisons*))
-                   (let ((left (knowledge-expression-from-input (second items)))
+                   (let ((left  (knowledge-expression-from-input (second items)))
                          (right (knowledge-expression-from-input (third items))))
                      (list (first items) left right))))
                guards))
@@ -495,7 +528,7 @@ restricted, not well typed, or exceeds its bounds."
                      (list (first items) expression))))
                bindings)))
         (dolist (guard normalized-guards)
-          (let ((left (knowledge--expression-type (second guard) types))
+          (let ((left  (knowledge--expression-type (second guard) types))
                 (right (knowledge--expression-type (third guard) types)))
             (unless (or (knowledge--type-compatible-p left right)
                         (and (member (first guard) '("=" "/=") :test #'string=)
@@ -514,10 +547,10 @@ restricted, not well typed, or exceeds its bounds."
                              "A rule cannot conclude a predicate it reads."))
           (list :rule
                 :id id
-                :premises patterns
-                :guards normalized-guards
-                :bindings normalized-bindings
-                :conclusion conclusion-pattern
+                :premises    patterns
+                :guards      normalized-guards
+                :bindings    normalized-bindings
+                :conclusion  conclusion-pattern
                 :description description))))))
 
 (-> knowledge-rule-p (t) boolean)
@@ -545,8 +578,10 @@ restricted, not well typed, or exceeds its bounds."
                  :test #'string=)))
     (labels ((visit (predicate)
                (case (gethash predicate state)
-                 (:visiting nil)
-                 (:done t)
+                 (:visiting
+                  nil)
+                 (:done
+                  t)
                  (otherwise
                   (setf (gethash predicate state) ':visiting)
                   (prog1 (every #'visit (gethash predicate edges))
@@ -616,30 +651,30 @@ restricted, not well typed, or exceeds its bounds."
 
 Return the rule ID, its version, and whether it differs from the latest one."
   (let ((workspace (knowledge--owner configuration scope))
-        (viewer (knowledge--workspace configuration)))
+        (viewer    (knowledge--workspace configuration)))
     (values-list
      (knowledge-transact
       configuration
       (lambda (base)
-        (let* ((rule (knowledge-make-rule
-                      :id id :premises premises :guards guards :bindings bindings
-                      :conclusion conclusion :description description
-                      :schema-function
-                      (lambda (predicate)
-                        (knowledge-base-schema base predicate
-                                               :workspace (and (eq scope ':workspace) viewer)))))
-               (key (list scope workspace id))
-               (entry (gethash key (knowledge-base-rules base)))
+        (let* ((rule   (knowledge-make-rule
+                        :id id :premises premises :guards guards :bindings bindings
+                        :conclusion conclusion :description description
+                        :schema-function
+                        (lambda (predicate)
+                          (knowledge-base-schema base predicate
+                                                 :workspace (and (eq scope ':workspace) viewer)))))
+               (key    (list scope workspace id))
+               (entry  (gethash key (knowledge-base-rules base)))
                (latest (first (last (getf entry :versions)))))
           (knowledge--check-acyclic base key rule viewer)
           (if (and latest (equal (getf latest :rule) rule))
               (values nil (list id (getf latest :version) nil) nil)
               (values (list (list :rule-defined
                                   :version *knowledge-format-version*
-                                  :scope scope
-                                  :workspace workspace
-                                  :rule rule
-                                  :time (get-universal-time)
+                                  :scope               scope
+                                  :workspace           workspace
+                                  :rule                rule
+                                  :time                (get-universal-time)
                                   :source-conversation source-conversation))
                       (list id (1+ (length (getf entry :versions))) t)
                       t))))))))
@@ -651,12 +686,12 @@ Return the rule ID, its version, and whether it differs from the latest one."
 (defun knowledge--rule-transition (configuration id kind &key (scope ':workspace) version by)
   "Record admission or retirement KIND of rule ID and return the affected version."
   (let ((workspace (knowledge--owner configuration scope))
-        (viewer (knowledge--workspace configuration)))
+        (viewer    (knowledge--workspace configuration)))
     (knowledge-transact
      configuration
      (lambda (base)
-       (let* ((key (list scope workspace id))
-              (entry (gethash key (knowledge-base-rules base)))
+       (let* ((key      (list scope workspace id))
+              (entry    (gethash key (knowledge-base-rules base)))
               (selected (or version (length (getf entry :versions)))))
          (unless entry
            (knowledge--fail ':unknown-rule id "No ~(~A~) rule ~A exists." scope id))
@@ -669,13 +704,13 @@ Return the rule ID, its version, and whether it differs from the latest one."
          (if (eql (getf entry :active) (and (eq kind :rule-admitted) selected))
              (values nil selected nil)
              (values (list (list kind
-                                 :version *knowledge-format-version*
-                                 :scope scope
-                                 :workspace workspace
-                                 :id id
+                                 :version      *knowledge-format-version*
+                                 :scope        scope
+                                 :workspace    workspace
+                                 :id           id
                                  :rule-version selected
-                                 :by by
-                                 :time (get-universal-time)))
+                                 :by           by
+                                 :time         (get-universal-time)))
                      selected
                      t)))))))
 
