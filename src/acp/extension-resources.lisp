@@ -12,7 +12,6 @@
        "Parameter ~A must be an integer between ~D and ~D." name minimum maximum))
     value))
 
-(-> acp-extension-resource--read (resource tool-context hash-table) hash-table)
 (defgeneric acp-extension-resource--read (resource context params)
   (:documentation "Project an authorized resource as bounded content and exact window metadata.")
   (:method ((resource resource) (context tool-context) params)
