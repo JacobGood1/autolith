@@ -49,7 +49,7 @@
     (tool-context hash-table &key (:path-name string) (:lines-name string)) (values json-object vector))
 (defun debug--breakpoints (context arguments &key (path-name "path") (lines-name "lines"))
   "Authorize a source path and validate a bounded semantic line breakpoint set."
-  (let ((path (workspace-tool-path context (tool-argument arguments path-name :required t) :tool-name "debug"))
+  (let ((path  (workspace-tool-path context (tool-argument arguments path-name :required t) :tool-name "debug"))
         (lines (tool-argument arguments lines-name :required t)))
     (unless (and (vectorp lines) (not (stringp lines)) (<= (length lines) 100)
                  (every (lambda (line) (typep line '(integer 1 100000000))) lines))
@@ -61,7 +61,7 @@
 (defun debug--events (entry arguments &key timeout cancel-p)
   "Present finite event pages, retaining unpresented events rather than silently dropping them."
   (let ((session (debug-session-entry-session entry))
-        (name (tool-argument arguments "wait-for")))
+        (name    (tool-argument arguments "wait-for")))
     (cond
       (name
        (unless (non-empty-string-p name)
@@ -77,9 +77,9 @@
        (unless (debug-session-entry-events entry)
          (setf (debug-session-entry-events entry) (daphne:session-events session)))
        (let* ((pending (debug-session-entry-events entry))
-              (count (min (length pending) (debug--number arguments "count" :default 20 :minimum 1 :maximum 100)))
-              (page (json-object "events" (coerce (subseq pending 0 count) 'vector)
-                                 "bufferedRemaining" (- (length pending) count))))
+              (count   (min (length pending) (debug--number arguments "count" :default 20 :minimum 1 :maximum 100)))
+              (page    (json-object "events" (coerce (subseq pending 0 count) 'vector)
+                                    "bufferedRemaining" (- (length pending) count))))
          (debug--bounded-json page)
          (setf (debug-session-entry-events entry) (nthcdr count pending))
          page)))))
@@ -87,19 +87,19 @@
 (-> debug--start (debug-tool tool-context hash-table) json-object)
 (defun debug--start (tool context arguments)
   "Authorize exact launch/attach arguments, reserve admission and initialize one adapter."
-  (let* ((manager (debug-tool-manager tool))
-         (operation (debug-tool-operation tool))
-         (program (debug-tool-program tool))
-         (configuration (debug--configuration context (tool-argument arguments "configuration" :required t)))
-         (timeout (debug--number arguments "timeout" :default 10 :minimum 1 :maximum 120))
-         (source nil)
-         (breakpoints nil)
+  (let* ((manager           (debug-tool-manager tool))
+         (operation         (debug-tool-operation tool))
+         (program           (debug-tool-program tool))
+         (configuration     (debug--configuration context (tool-argument arguments "configuration" :required t)))
+         (timeout           (debug--number arguments "timeout" :default 10 :minimum 1 :maximum 120))
+         (source            nil)
+         (breakpoints       nil)
          (breakpoint-result nil))
     (when (or (gethash "breakpoint-path" arguments) (gethash "breakpoint-lines" arguments))
       (multiple-value-setq (source breakpoints)
         (debug--breakpoints context arguments :path-name "breakpoint-path" :lines-name "breakpoint-lines")))
     (unless program (debug--fail ':unavailable "Debug adapter is disabled; configure an explicit executable."))
-    (let* ((path (workspace-tool-path context program :tool-name "debug"))
+    (let* ((path      (workspace-tool-path context program :tool-name "debug"))
            (directory (config :working-directory (tool-context-configuration context))))
       (unless (uiop:file-exists-p path)
         (debug--fail ':unavailable "Configured debug adapter executable is unavailable."))
@@ -123,7 +123,7 @@
                                            :max-events 128 :max-pending 4 :stderr-limit 4096)
                    (setf (debug-session-entry-session entry) session
                          (debug-session-entry-transport entry) transport)))
-               (let ((cancel (lambda () (debug--cancel-p manager entry (debug-tool-cancel-p tool))))
+               (let ((cancel  (lambda () (debug--cancel-p manager entry (debug-tool-cancel-p tool))))
                      (session (debug-session-entry-session entry)))
                  (when (funcall cancel) (debug--fail ':cancelled "Debug startup was cancelled."))
                  (daphne:session-initialize session :timeout timeout :cancel-p cancel)
@@ -131,9 +131,9 @@
                                        configuration :timeout timeout :cancel-p cancel
                                        :configure (when source
                                                     (lambda (session)
-                                                    (setf breakpoint-result
-                                                          (daphne:session-set-breakpoints session source breakpoints
-                                                                                          :timeout timeout :cancel-p cancel)))))
+                                                     (setf breakpoint-result
+                                                           (daphne:session-set-breakpoints session source breakpoints
+                                                                                           :timeout timeout :cancel-p cancel)))))
                  (let ((result (json-object "session" (debug-session-entry-identifier entry)
                                             "state" (string-downcase (symbol-name (daphne:session-state session)))
                                           "capabilities" (daphne:session-capabilities session)
@@ -148,11 +148,11 @@
 (-> debug--operation (debug-tool tool-context hash-table &key (:entry debug-session-entry)) t)
 (defun debug--operation (tool context arguments &key entry)
   "Run one semantic operation against an exclusively reserved session."
-  (let* ((session (debug-session-entry-session entry))
+  (let* ((session   (debug-session-entry-session entry))
          (operation (debug-tool-operation tool))
-         (timeout (debug--number arguments "timeout" :default 10 :minimum 1 :maximum 120))
-         (cancel (lambda () (debug--cancel-p (debug-tool-manager tool) entry (debug-tool-cancel-p tool))))
-         (options (list :timeout timeout :cancel-p cancel)))
+         (timeout   (debug--number arguments "timeout" :default 10 :minimum 1 :maximum 120))
+         (cancel    (lambda () (debug--cancel-p (debug-tool-manager tool) entry (debug-tool-cancel-p tool))))
+         (options   (list :timeout timeout :cancel-p cancel)))
     (when (funcall cancel)
       (error 'daphne:dap-cancelled :message "Debug operation was cancelled before execution."))
     (cond
@@ -161,11 +161,12 @@
       ((equal operation "breakpoints")
        (multiple-value-bind (source breakpoints) (debug--breakpoints context arguments)
          (apply #'daphne:session-set-breakpoints session source breakpoints options)))
-      ((equal operation "threads") (apply #'daphne:session-threads session options))
+      ((equal operation "threads")
+       (apply #'daphne:session-threads session options))
       ((equal operation "stack")
        (apply #'daphne:session-stack-trace session (debug--number arguments "thread")
               :start-frame (debug--number arguments "start")
-              :levels (debug--number arguments "count" :default 20 :minimum 1 :maximum 100) options))
+              :levels      (debug--number arguments "count" :default 20 :minimum 1 :maximum 100) options))
       ((equal operation "scopes")
        (apply #'daphne:session-scopes session (debug--number arguments "frame") options))
       ((equal operation "variables")
@@ -174,7 +175,7 @@
               :count (debug--number arguments "count" :default 50 :minimum 1 :maximum 100) options))
       ((equal operation "evaluate")
        (let ((expression (tool-argument arguments "expression" :required t))
-             (frame (tool-argument arguments "frame")))
+             (frame      (tool-argument arguments "frame")))
          (unless (stringp expression) (debug--fail ':invalid-arguments "Expression must be a string."))
          (when frame (debug--number arguments "frame"))
          (debug--authorize context "evaluate" (json-object "session" (debug-session-entry-identifier entry)
@@ -189,12 +190,16 @@
          (unless (member kind '("in" "over" "out") :test #'equal)
            (debug--fail ':invalid-arguments "Step kind must be in, over or out."))
          (apply #'daphne:session-step session (debug--number arguments "thread")
-                (cond ((equal kind "in") ':in) ((equal kind "over") ':over) (t ':out)) options)))
+                (cond ((equal kind "in")
+                       ':in) ((equal kind "over")
+                              ':over) (t
+                                       ':out)) options)))
       ((equal operation "terminate")
        (apply #'daphne:session-terminate session :disconnect t
-              :terminate-debuggee (tool-boolean-argument arguments "terminate-debuggee" :default t :tool-name "debug.terminate") options)
+              :terminate-debuggee                            (tool-boolean-argument arguments "terminate-debuggee" :default t :tool-name "debug.terminate") options)
        (json-object "terminated" t))
-      (t (debug--fail ':unknown-operation "Unknown debug operation.")))))
+      (t
+       (debug--fail ':unknown-operation "Unknown debug operation.")))))
 
 (-> debug--execute (debug-tool tool-context hash-table) t)
 (defun debug--execute (tool context arguments)
@@ -205,10 +210,11 @@
        (json-object "loaded" t "configured" (if (debug-tool-program tool) t (json-false))
                     "sessionLimit" *debug-session-limit* "conversationSessionLimit" *debug-conversation-session-limit*
                     "resultByteLimit" *debug-result-byte-limit* "executionAuthority" "full-access"))
-      ((member operation '("launch" "attach") :test #'equal) (debug--start tool context arguments))
+      ((member operation '("launch" "attach") :test #'equal)
+       (debug--start tool context arguments))
       (t
        (let* ((cancel-p (equal operation "cancel"))
-              (entry (debug--find manager context (tool-argument arguments "session" :required t) :reserve-p (not cancel-p))))
+              (entry    (debug--find manager context (tool-argument arguments "session" :required t) :reserve-p (not cancel-p))))
          (if cancel-p
              (progn
                (with-lock-held ((debug-session-manager-lock manager))
@@ -300,7 +306,7 @@ another invocation; timeout or cancellation reaps the owned adapter."
   (unless (and (or (null program) (non-empty-string-p program))
                (listp arguments) (<= (length arguments) 64) (every #'stringp arguments))
     (debug--fail ':invalid-arguments "Adapter configuration requires an executable path and at most 64 literal string arguments."))
-  (let ((old (tool-registry-find registry "debug" "status"))
+  (let ((old     (tool-registry-find registry "debug" "status"))
         (manager (make-instance 'debug-session-manager)))
     (when old (tool-runtime-close old))
     (dolist (operation '("status" "launch" "attach" "breakpoints" "continue" "pause" "step" "threads" "stack"
@@ -310,7 +316,7 @@ another invocation; timeout or cancellation reaps the owned adapter."
          registry (make-instance 'debug-tool :namespace "debug" :name operation :operation operation
                                  :manager manager :program program :arguments (copy-list arguments) :cancel-p cancel-p
                                  :description (format nil "Semantic DAP ~A. Conversation-owned sessions; adapter data is untrusted. Launch, attach and evaluate require exact full-access execution approval. Cancellation or deadline closes and reaps the adapter." operation)
-                                 :parameters (tool-object-schema properties required)))))
+                                 :parameters  (tool-object-schema properties required)))))
     registry))
 
 (-> debug-register-default-tools (tool-registry) tool-registry)
