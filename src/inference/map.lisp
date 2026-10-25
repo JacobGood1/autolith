@@ -6,9 +6,12 @@
 (defun rlm-map--normalize-task (element)
   "Return ELEMENT as a validated (:task ... :context ...) plist."
   (let ((item (typecase element
-                (string (list ':task element))
-                (cons element)
-                (t nil))))
+                (string
+                 (list ':task element))
+                (cons
+                 element)
+                (t
+                 nil))))
     (unless (and item (non-empty-string-p (getf item ':task)))
       (error 'rlm-inference-error
              :message
@@ -37,15 +40,15 @@
     (handler-case
         (multiple-value-bind (value trace-identifier tokens-spent)
             (infer task
-                   :context (append (rlm--context-designators context)
-                                    (rlm--context-designators
-                                     (getf item ':context)))
-                   :contract contract
-                   :budget budget
-                   :capabilities capabilities
-                   :provider provider
-                   :configuration configuration
-                   :source-registry source-registry
+                   :context           (append (rlm--context-designators context)
+                                              (rlm--context-designators
+                                               (getf item ':context)))
+                   :contract          contract
+                   :budget            budget
+                   :capabilities      capabilities
+                   :provider          provider
+                   :configuration     configuration
+                   :source-registry   source-registry
                    :activity-callback item-activity-callback)
           (list ':task task ':value value ':trace trace-identifier
                 ':tokens tokens-spent))
@@ -63,7 +66,7 @@
       (:completed
        (getf snapshot :result))
       (otherwise
-       (list :task (getf item :task)
+       (list :task  (getf item :task)
              :error (or (getf snapshot :condition-report)
                         (format nil "Inference frame ~A (~A)."
                                 (getf snapshot :state)
@@ -77,7 +80,7 @@
       (return nil))
     (restart-case
         (error 'rlm-map-shutdown-error
-               :pool pool
+               :pool    pool
                :message "Inference map workers did not stop before the shutdown deadline.")
       (retry-close ()
         :report "Retry stopping the inference map workers."))))
@@ -121,18 +124,18 @@ return (:task ... :error ...). Finished siblings are never discarded."
                (or source-registry
                    (when (eq capabilities ':read)
                      (rlm--environment-registry))))
-             (budget (or budget (rlm-budget-create)))
+             (budget       (or budget (rlm-budget-create)))
              (worker-count (max 1 (min concurrency
                                        *rlm-map-maximum-concurrency*
                                        (length items))))
-             (pool (make-job-pool
-                    :name "Autolith inference map"
-                    :maximum-concurrency worker-count
-                    :maximum-batch-size (length items)
-                    :maximum-live-jobs (length items)
-                    :maximum-runtime-milliseconds 0
-                    :terminal-retention-limit (length items)
-                    :start-threads-p nil)))
+             (pool         (make-job-pool
+                            :name                         "Autolith inference map"
+                            :maximum-concurrency          worker-count
+                            :maximum-batch-size           (length items)
+                            :maximum-live-jobs            (length items)
+                            :maximum-runtime-milliseconds 0
+                            :terminal-retention-limit     (length items)
+                            :start-threads-p              nil)))
         (unwind-protect
              (let ((jobs
                      (job-pool-submit-batch
@@ -140,7 +143,7 @@ return (:task ... :error ...). Finished siblings are never discarded."
                       (loop for item across items
                             for index from 0
                             collect
-                            (let ((item item)
+                            (let ((item  item)
                                   (index index))
                               (list
                                :name (format nil "Inference frame ~D/~D"
@@ -151,8 +154,8 @@ return (:task ... :error ...). Finished siblings are never discarded."
                                  (rlm-map--run-item
                                   item context contract budget
                                   capabilities provider configuration source-registry
-                                  :index index
-                                  :total (length items)
+                                  :index             index
+                                  :total             (length items)
                                   :activity-callback activity-callback))))))))
                (loop for item across items
                      for job in jobs
@@ -164,9 +167,9 @@ return (:task ... :error ...). Finished siblings are never discarded."
 
 (define-condition rlm-map-shutdown-error (rlm-inference-error)
   ((pool
-    :initarg :pool
-    :reader rlm-map-shutdown-error-pool
-    :type job-pool
+    :initarg       :pool
+    :reader        rlm-map-shutdown-error-pool
+    :type          job-pool
     :documentation "The map pool still owning workers after bounded shutdown."))
   (:documentation
    "An inference map could not stop its workers; RETRY-CLOSE retries shutdown."))
