@@ -5,13 +5,11 @@
 (defparameter *terminal-path-completion-limit* 32
   "The most workspace path candidates returned for one token.")
 
-
 (-> terminal-path--whitespace-p (character) boolean)
 (defun terminal-path--whitespace-p (character)
   "Return true when CHARACTER is a whitespace token boundary."
   (and (find character '(#\Space #\Tab #\Newline #\Return #\Page))
        t))
-
 
 (-> terminal-path--boundary-p (character) boolean)
 (defun terminal-path--boundary-p (character)
@@ -19,7 +17,6 @@
   (or (terminal-path--whitespace-p character)
       (and (find character '(#\" #\' #\( #\)))
            t)))
-
 
 (-> terminal-path-token
     (string (integer 0))
@@ -41,7 +38,7 @@ token that starts with @ is returned."
                      (position-if #'terminal-path--boundary-p
                                   text
                                   :from-end t
-                                  :end cursor)))
+                                  :end      cursor)))
                (if separator
                    (1+ separator)
                    0)))
@@ -53,14 +50,12 @@ token that starts with @ is returned."
           (values start end token)
           (values nil nil nil)))))
 
-
 (-> terminal-path-token-p (string) boolean)
 (defun terminal-path-token-p (token)
   "Return true when TOKEN is an @ workspace path mention."
   (and (non-empty-string-p token)
        (char= (char token 0) #\@)
        t))
-
 
 (-> terminal-path--relative (string) string)
 (defun terminal-path--relative (token)
@@ -71,12 +66,10 @@ token that starts with @ is returned."
         (subseq body 1)
         body)))
 
-
 (-> terminal-path--unix-namestring (pathname) string)
 (defun terminal-path--unix-namestring (pathname)
   "Return PATHNAME as a slash-separated namestring."
   (substitute #\/ #\\ (namestring pathname)))
-
 
 (-> terminal-path--safe-relative-p (string) boolean)
 (defun terminal-path--safe-relative-p (relative)
@@ -84,7 +77,6 @@ token that starts with @ is returned."
   (not (or (string= relative "..")
            (uiop:string-prefix-p "../" relative)
            (search "/../" relative))))
-
 
 (-> terminal-path--child-basename (pathname boolean) string)
 (defun terminal-path--child-basename (pathname directory-p)
@@ -94,14 +86,12 @@ token that starts with @ is returned."
               (first (last (pathname-directory pathname))))
       (file-namestring pathname)))
 
-
 (-> terminal-path--hidden-name-p (string) boolean)
 (defun terminal-path--hidden-name-p (name)
   "Return true when NAME is a dotted filesystem entry."
   (and (plusp (length name))
        (char= (char name 0) #\.)
        t))
-
 
 (-> terminal-path--skip-child-p (string string) boolean)
 (defun terminal-path--skip-child-p (name prefix)
@@ -112,7 +102,6 @@ token that starts with @ is returned."
         (and (terminal-path--hidden-name-p bare)
              (not (uiop:string-prefix-p "." prefix))))))
 
-
 (-> terminal-path--under-root-p (pathname pathname) boolean)
 (defun terminal-path--under-root-p (pathname root)
   "Return true when PATHNAME is ROOT or a descendant of ROOT."
@@ -121,7 +110,6 @@ token that starts with @ is returned."
         (and (not (uiop:absolute-pathname-p enough))
              (terminal-path--safe-relative-p
               (terminal-path--unix-namestring enough))))))
-
 
 (-> terminal-path--list-children (pathname) list)
 (defun terminal-path--list-children (directory)
@@ -133,7 +121,6 @@ token that starts with @ is returned."
      (mapcar (lambda (pathname) (cons pathname nil))
              (uiop:directory-files directory)))))
 
-
 (-> terminal-path--search-entries
     (list (integer 0) (integer 0) (integer 1))
     list)
@@ -142,18 +129,17 @@ token that starts with @ is returned."
   (let ((entries
           (loop for path in paths
                 when (non-empty-string-p path)
-                  collect (list :name path
-                                :argument nil
+                  collect (list :name        path
+                                :argument    nil
                                 :description
                                 (if (uiop:string-suffix-p path "/")
                                     "directory"
                                     "file")
-                                :kind ':path
-                                :submit-p nil
+                                :kind        ':path
+                                :submit-p    nil
                                 :token-start token-start
-                                :token-end token-end))))
+                                :token-end   token-end))))
     (subseq entries 0 (min limit (length entries)))))
-
 
 (-> terminal-path-completion-entries
     (pathname string &key (:token-start (integer 0)) (:token-end (integer 0))
@@ -183,8 +169,8 @@ submit."
     ;; before children are made relative to it: a Windows temporary root spelt
     ;; with an 8.3 short name never prefixes its own long-named children.
     (setf root (uiop:ensure-directory-pathname (platform-truename *platform* root)))
-    (let* ((relative (terminal-path--relative token))
-           (slash (position #\/ relative :from-end t))
+    (let* ((relative         (terminal-path--relative token))
+           (slash            (position #\/ relative :from-end t))
            (directory-relative
              (if slash
                  (subseq relative 0 (1+ slash))
@@ -220,13 +206,13 @@ submit."
                                          (not (uiop:string-suffix-p relative-name "/")))
                                     (concatenate 'string relative-name "/")
                                     relative-name)))
-                          (list :name insert
-                                :argument nil
+                          (list :name        insert
+                                :argument    nil
                                 :description (if directory-p "directory" "file")
-                                :kind ':path
-                                :submit-p nil
+                                :kind        ':path
+                                :submit-p    nil
                                 :token-start token-start
-                                :token-end token-end))))))
+                                :token-end   token-end))))))
       (subseq
        (sort matches
              (lambda (left right)
