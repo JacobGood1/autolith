@@ -4,14 +4,14 @@
 
 (define-condition fatal-control-path-error (autolith-error)
   ((cause
-    :initarg :cause
-    :reader fatal-control-path-error-cause
-    :type serious-condition
+    :initarg       :cause
+    :reader        fatal-control-path-error-cause
+    :type          serious-condition
     :documentation "The unexpected condition that made the active path untrustworthy.")
    (capsule-pathname
-    :initarg :capsule-pathname
-    :reader fatal-control-path-error-capsule-pathname
-    :type pathname
+    :initarg       :capsule-pathname
+    :reader        fatal-control-path-error-capsule-pathname
+    :type          pathname
     :documentation "The best-effort crash capsule written before recovery."))
   (:documentation "An unexpected active-agent failure requiring stable recovery."))
 
@@ -32,7 +32,7 @@
   "Publish CAPSULE-PATHNAME to this launcher's private pointer, when configured."
   (let ((pointer-value (uiop:getenv "AUTOLITH_CRASH_POINTER")))
     (when (non-empty-string-p pointer-value)
-      (let ((configuration (application-configuration application))
+      (let ((configuration    (application-configuration application))
             (pointer-pathname (pathname pointer-value)))
         (when (uiop:subpathp pointer-pathname
                              (config :state-root configuration))
@@ -51,11 +51,11 @@
     (application condition &key (backtrace (application-safe-backtrace)))
   "Write a secret-free crash capsule for CONDITION and return its pathname."
   (let* ((configuration (application-configuration application))
-         (identifier (make-identifier))
-         (pathname (merge-pathnames
-                    (make-pathname :name identifier :type "sexp")
-                    (merge-pathnames "crashes/"
-                                     (config :state-root configuration))))
+         (identifier    (make-identifier))
+         (pathname      (merge-pathnames
+                         (make-pathname :name identifier :type "sexp")
+                         (merge-pathnames "crashes/"
+                                          (config :state-root configuration))))
          (commit
            (handler-case
                (source-revision
@@ -72,13 +72,13 @@
      pathname
      (list :crash
            :version 1
-           :id identifier
-           :time (get-universal-time)
-           :condition-type (bounded-string (type-of condition) :limit 300)
+           :id                identifier
+           :time              (get-universal-time)
+           :condition-type    (bounded-string (type-of condition) :limit 300)
            :condition
             (bounded-string (application-crash-condition-report condition)
                             :limit 2000)
-           :backtrace safe-backtrace
+           :backtrace         safe-backtrace
            :conversation-id
            (let ((conversation (application-conversation application)))
              (and (conversation-persisted-p conversation)
@@ -86,18 +86,19 @@
            :rendered-sequence (application-rendered-sequence application)
            :history-floor-sequence
            (application-history-floor-sequence application)
-           :git-commit commit
+           :git-commit        commit
            :journal-position
            (let ((journal (configuration-journal-path configuration)))
              (if (probe-file journal)
                  (with-open-file (stream journal
-                                         :direction ':input
+                                         :direction    ':input
                                          :element-type '(unsigned-byte 8))
                    (file-length stream))
                  0))))
     (platform-make-private *platform* pathname)
     (application-publish-crash-pointer application pathname)
     pathname))
+
 
 ;;;; -- Recovered Diagnosis --
 
@@ -119,7 +120,7 @@
   "Return true when PATHNAME names a file no larger than LIMIT bytes."
   (handler-case
       (with-open-file (stream pathname
-                              :direction ':input
+                              :direction    ':input
                               :element-type '(unsigned-byte 8))
         (<= (file-length stream) limit))
     (error ()
@@ -137,15 +138,15 @@
 (defun application--crash-capsule-record-p (record)
   "Return true when RECORD is one bounded version-one crash capsule."
   (handler-case
-      (let* ((properties (and (proper-list-p record)
-                              (rest record)))
-             (keys '(:version :id :time :condition-type :condition
-                     :backtrace :conversation-id :rendered-sequence
-                     :history-floor-sequence :git-commit
-                     :journal-position))
+      (let* ((properties      (and (proper-list-p record)
+                                   (rest record)))
+             (keys            '(:version :id :time :condition-type :condition
+                                :backtrace :conversation-id :rendered-sequence
+                                :history-floor-sequence :git-commit
+                                :journal-position))
              (conversation-id (and properties
                                    (getf properties :conversation-id)))
-             (commit (and properties (getf properties :git-commit))))
+             (commit          (and properties (getf properties :git-commit))))
         (and properties
              (= (length record) 23)
              (eq (first record) :crash)
@@ -188,7 +189,7 @@
 (defun application--recovery-crash-capsule-pathname (configuration)
   "Return this recovered launcher's contained crash capsule, when available."
   (handler-case
-      (let ((recovered (uiop:getenv "AUTOLITH_RECOVERED"))
+      (let ((recovered     (uiop:getenv "AUTOLITH_RECOVERED"))
             (pointer-value (uiop:getenv "AUTOLITH_CRASH_POINTER")))
         (when (and (non-empty-string-p recovered)
                    (non-empty-string-p pointer-value))
@@ -206,9 +207,9 @@
                         pointer-pathname
                         *application-recovery-pointer-byte-limit*))
               (with-open-file (stream pointer-pathname
-                                      :direction ':input
+                                      :direction       ':input
                                       :external-format ':utf-8)
-                (let ((capsule (read-line stream nil nil))
+                (let ((capsule       (read-line stream nil nil))
                       (trailing-line (read-line stream nil nil)))
                   (when (and (stringp capsule)
                              (plusp (length capsule))
@@ -270,8 +271,8 @@
               (unless (and complete-p
                            (proper-list-p record))
                 (return (values nil nil nil)))
-              (let* ((properties (rest record))
-                     (conversation-id (getf properties :conversation-id))
+              (let* ((properties        (rest record))
+                     (conversation-id   (getf properties :conversation-id))
                      (resolved-conversation-id
                        (and
                         (application--bounded-string-p conversation-id 128)
@@ -344,8 +345,8 @@
           (application--recovery-crash-capsule-record configuration)))
     (when record
       (let* ((properties (rest record))
-             (backtrace (getf properties :backtrace))
-             (commit (getf properties :git-commit)))
+             (backtrace  (getf properties :backtrace))
+             (commit     (getf properties :git-commit)))
         (format
          nil
          "Autolith recovered this conversation after its active process ~
@@ -380,6 +381,6 @@
   (let ((capsule (application-write-crash-capsule
                   application condition :backtrace backtrace)))
     (error 'fatal-control-path-error
-           :message "The active agent path failed unexpectedly."
-           :cause condition
+           :message          "The active agent path failed unexpectedly."
+           :cause            condition
            :capsule-pathname capsule)))
