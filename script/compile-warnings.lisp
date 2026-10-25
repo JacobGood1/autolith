@@ -54,6 +54,9 @@
        (result-file    (pathname (third arguments)))
        (warnings       nil))
   (load (merge-pathnames ".qlot/setup.lisp" source-root))
+  ;; Select registered ASDF before loading dependencies so a later upgrade
+  ;; cannot reset their load state and redefine installed structures.
+  (asdf:load-system "asdf")
   (asdf:initialize-output-translations
    `(:output-translations (,(uiop:native-namestring source-root)
                            ,(uiop:native-namestring fasl-directory))
