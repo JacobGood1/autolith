@@ -26,14 +26,14 @@
 
 (defclass conversation-search-match ()
   ((record
-    :initarg :record
-    :reader conversation-search-match-record
-    :type list
+    :initarg       :record
+    :reader        conversation-search-match-record
+    :type          list
     :documentation "The projected replay record that matched.")
    (text
-    :initarg :text
-    :reader conversation-search-match-text
-    :type string
+    :initarg       :text
+    :reader        conversation-search-match-text
+    :type          string
     :documentation "The searchable text in which every query term occurs."))
   (:documentation "One durable conversation record matching a search."))
 
@@ -128,7 +128,7 @@
                 ((json-string= type "function_call")
                  (strings item "arguments"))
                 ((json-string= type "web_search_call")
-                 (let* ((action (json-get item "action"))
+                 (let* ((action  (json-get item "action"))
                         (queries (and (json-object-p action)
                                       (json-get action "queries"))))
                    (append (strings action "query" "url" "pattern")
@@ -205,7 +205,7 @@ each block, so a fragment spanning two blocks is still found."
          (buffer (make-array (max *conversation-search-buffer-octets*
                                   (* 2 length))
                              :element-type '(unsigned-byte 8)))
-         (shift (conversation-search--shift-table fragment)))
+         (shift  (conversation-search--shift-table fragment)))
     (with-open-file (stream pathname :element-type '(unsigned-byte 8))
       (loop with kept = 0
             for end = (read-sequence buffer stream :start kept)
@@ -223,7 +223,7 @@ each block, so a fragment spanning two blocks is still found."
 (defun conversation-search--shift-table (fragment)
   "Return the Horspool shift for each octet that ends a window over FRAGMENT."
   (let* ((length (length fragment))
-         (table (make-array 256 :element-type 'fixnum :initial-element length)))
+         (table  (make-array 256 :element-type 'fixnum :initial-element length)))
     (loop for index from 0 below (1- length)
           do (setf (aref table (aref fragment index)) (- length 1 index)))
     table))
@@ -281,7 +281,7 @@ each block, so a fragment spanning two blocks is still found."
                    (when projected
                      (push (make-instance 'conversation-search-match
                                           :record projected
-                                          :text text)
+                                          :text   text)
                            segment-matches)))))))
           (loop for match in segment-matches
                 while (< found limit)
