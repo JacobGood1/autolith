@@ -26,16 +26,16 @@
   (when (or (nth-value 1 (gethash "byteOffset" params))
             (nth-value 1 (gethash "byteCount" params)))
     (agentcomms:acp-invalid-params "Workspace resources require line windows."))
-  (let* ((start (acp-extension-resource--integer
-                 params "startLine" :default 1 :minimum 1 :maximum most-positive-fixnum))
-         (count (acp-extension-resource--integer
-                 params "lineCount" :default 400 :minimum 1 :maximum 1000))
+  (let* ((start       (acp-extension-resource--integer
+                       params "startLine" :default 1 :minimum 1 :maximum most-positive-fixnum))
+         (count       (acp-extension-resource--integer
+                       params "lineCount" :default 400 :minimum 1 :maximum 1000))
          (observation (resource-observe resource context))
-         (lines (workspace-file-observation-lines observation))
-         (total (length lines))
-         (first (min total (1- start)))
-         (last first)
-         (characters 0))
+         (lines       (workspace-file-observation-lines observation))
+         (total       (length lines))
+         (first       (min total (1- start)))
+         (last        first)
+         (characters  0))
     (unless (eq (workspace-file-observation-kind observation) ':file)
       (error 'acp-extension-unavailable :reason "ACP workspace reads require a regular text file."))
     ;; Whole lines preserve paging semantics. Reject a single oversized line
@@ -62,13 +62,13 @@
   (when (or (nth-value 1 (gethash "startLine" params))
             (nth-value 1 (gethash "lineCount" params)))
     (agentcomms:acp-invalid-params "Shell logs require byte windows."))
-  (let* ((offset (acp-extension-resource--integer
-                  params "byteOffset" :default 0 :minimum 0 :maximum most-positive-fixnum))
-         (count (acp-extension-resource--integer
-                 params "byteCount" :default 4096 :minimum 1 :maximum 4096))
+  (let* ((offset   (acp-extension-resource--integer
+                    params "byteOffset" :default 0 :minimum 0 :maximum most-positive-fixnum))
+         (count    (acp-extension-resource--integer
+                    params "byteCount" :default 4096 :minimum 1 :maximum 4096))
          (metadata (shell-log-resource-metadata resource))
-         (capture (shell-log-resource--capture resource))
-         (file (getf capture :file)))
+         (capture  (shell-log-resource--capture resource))
+         (file     (getf capture :file)))
     (unless (shell-log--authorized-p metadata context)
       (error 'resource-access-denied :uri (resource-uri resource) :operation ':read))
     (when (or (member (getf metadata :state) '(:missing :pruned)) (null file))
@@ -93,7 +93,7 @@
 (-> acp-extension-resource (acp-session hash-table) hash-table)
 (defun acp-extension-resource (session params)
   "Return bounded structured content after ordinary resource ownership checks."
-  (let ((uri (gethash "uri" params))
+  (let ((uri     (gethash "uri" params))
         (context (acp-extension-tool-context session)))
     (unless (and (stringp uri) (plusp (length uri)))
       (agentcomms:acp-invalid-params "Resource uri must be a nonempty string."))
