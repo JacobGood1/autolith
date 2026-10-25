@@ -40,9 +40,6 @@
   (declare (ignore provider))
   t)
 
-(-> openai-compatible-provider-output-ceiling-field
-    (openai-compatible-provider)
-    non-empty-string)
 (defgeneric openai-compatible-provider-output-ceiling-field (provider)
   (:documentation "Return the request field carrying PROVIDER's output limit."))
 
