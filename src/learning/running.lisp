@@ -29,14 +29,14 @@ contract requirements do not hold signal KNOWLEDGE-ERROR before any call. Otherw
 :FAILED), :VERSION, :STEPS (each :TOOL, :ARGUMENTS, :SUCCESS-P, :OUTPUT),
 :TOTAL, and :FAILURE, after recording the run in the ledger."
   (let* ((configuration (tool-context-configuration context))
-         (entry (procedure--runnable-entry context identifier caller))
-         (version (procedure-entry-version entry (getf entry :admitted)))
-         (procedure (getf version :procedure))
-         (bindings (procedure--checked-bindings procedure parameters))
-         (steps (getf (rest procedure) :steps))
-         (outputs nil)
-         (reports nil)
-         (failure nil))
+         (entry         (procedure--runnable-entry context identifier caller))
+         (version       (procedure-entry-version entry (getf entry :admitted)))
+         (procedure     (getf version :procedure))
+         (bindings      (procedure--checked-bindings procedure parameters))
+         (steps         (getf (rest procedure) :steps))
+         (outputs       nil)
+         (reports       nil)
+         (failure       nil))
     (procedure--check-contracts configuration procedure bindings)
     (loop for step in steps
           for index from 0
@@ -49,11 +49,11 @@ contract requirements do not hold signal KNOWLEDGE-ERROR before any call. Otherw
                                                          tool-name
                                                          (autolith-error-message condition)))
                                    (loop-finish))))
-                    (result (procedure--call context tool-name arguments index)))
-               (push (list :tool tool-name
+                    (result    (procedure--call context tool-name arguments index)))
+               (push (list :tool      tool-name
                            :arguments arguments
                            :success-p (tool-result-success-p result)
-                           :output (tool-result-content result))
+                           :output    (tool-result-content result))
                      reports)
                (unless (tool-result-success-p result)
                  (setf failure (format nil "~A failed: ~A" tool-name
@@ -63,14 +63,14 @@ contract requirements do not hold signal KNOWLEDGE-ERROR before any call. Otherw
                (setf outputs (append outputs
                                      (list (procedure--decode-output
                                             (tool-result-content result)))))))
-    (let ((status (if failure ':failed ':ok))
+    (let ((status    (if failure ':failed ':ok))
           (completed (count-if (lambda (report) (getf report :success-p)) reports)))
       (procedure-record-run configuration identifier
-                            :version (getf version :version)
-                            :status status
-                            :steps completed
-                            :caller caller
-                            :failure failure
+                            :version      (getf version :version)
+                            :status       status
+                            :steps        completed
+                            :caller       caller
+                            :failure      failure
                             :conversation (and (tool-context-conversation context)
                                                (conversation-identifier
                                                 (tool-context-conversation context))))
@@ -80,11 +80,11 @@ contract requirements do not hold signal KNOWLEDGE-ERROR before any call. Otherw
          (tool-context-conversation context)
          (list :procedure-run :call-id (tool-context-call-id context)
                :id identifier :procedure-version (getf version :version)
-               :procedure procedure)))
-      (list :status status
+               :procedure     procedure)))
+      (list :status  status
             :version (getf version :version)
-            :steps (nreverse reports)
-            :total (length steps)
+            :steps   (nreverse reports)
+            :total   (length steps)
             :failure failure))))
 
 (-> procedure-run-report (string list) string)
@@ -112,13 +112,13 @@ contract requirements do not hold signal KNOWLEDGE-ERROR before any call. Otherw
 (defun procedure-parameters-from-json (object)
   "Return the parameter alist JSON OBJECT names, or signal KNOWLEDGE-ERROR when it is not an object."
   (cond
-    ((null object) nil)
+    ((null object)
+     nil)
     ((json-object-p object)
      (loop for name being the hash-keys of object using (hash-value value)
            collect (cons name value)))
     (t
      (knowledge--fail ':invalid-parameters object "Parameters are an object of names and values."))))
-
 
 (-> procedure-offers (configuration string) list)
 (defun procedure-offers (configuration text)
@@ -146,10 +146,10 @@ are not."
                                    t)
                           (knowledge-error ()
                             nil))
-                        (list (list :id (getf entry :id)
-                                    :status status
+                        (list (list :id        (getf entry :id)
+                                    :status    status
                                     :procedure procedure
-                                    :bindings (reverse bindings)))))))
+                                    :bindings  (reverse bindings)))))))
 
 (-> procedure-savings (configuration string) (option list))
 (defun procedure-savings (configuration identifier)
@@ -157,19 +157,19 @@ are not."
 
 The plist holds :TURNS and average :REQUESTS and :TOKENS. Runs without exact
 version and definition provenance or complete usage measurements do not count."
-  (let* ((entry (knowledge-base-procedure (knowledge-base-read configuration)
-                                          (knowledge--workspace configuration) identifier))
+  (let* ((entry   (knowledge-base-procedure (knowledge-base-read configuration)
+                                            (knowledge--workspace configuration) identifier))
          (version (and entry (procedure-entry-runnable-version entry)))
-         (traces (and version
-                      (action-traces configuration
-                                     :predicate (lambda (trace)
-                                                  (procedure--ran-p trace identifier version))))))
+         (traces  (and version
+                       (action-traces configuration
+                                      :predicate (lambda (trace)
+                                                   (procedure--ran-p trace identifier version))))))
     (and traces
-         (list :turns (length traces)
+         (list :turns    (length traces)
                :requests (round (reduce #'+ traces :key #'action-trace-requests)
                                 (length traces))
-               :tokens (round (reduce #'+ traces :key #'action-trace-tokens)
-                              (length traces))))))
+               :tokens   (round (reduce #'+ traces :key #'action-trace-tokens)
+                                (length traces))))))
 
 (-> procedure-automatic-offer (configuration string) (option list))
 (defun procedure-automatic-offer (configuration text)
@@ -209,9 +209,9 @@ less is an offer the model may decline."
 
 The user's own run admits it; the model's run asks command authorization."
   (let* ((configuration (tool-context-configuration context))
-         (workspace (knowledge--workspace configuration))
-         (entry (knowledge-base-procedure (knowledge-base-read configuration)
-                                          workspace identifier)))
+         (workspace     (knowledge--workspace configuration))
+         (entry         (knowledge-base-procedure (knowledge-base-read configuration)
+                                                  workspace identifier)))
     (unless entry
       (knowledge--fail ':unknown-procedure identifier
                        "No procedure is named ~A; memory:procedures lists them." identifier))
@@ -228,7 +228,7 @@ The user's own run admits it; the model's run asks command authorization."
                         (or (getf entry :last-failure) "unknown")
                         identifier))
       (:candidate
-       (let* ((version (procedure-entry-version entry))
+       (let* ((version  (procedure-entry-version entry))
               (decision (if (eq caller ':user)
                             ':full-access
                             (tool-context-authorize-command
@@ -247,7 +247,7 @@ The user's own run admits it; the model's run asks command authorization."
   "Return PARAMETERS as bindings after checking they are exactly PROCEDURE's, each of its type.
 
 Numbers and booleans given as text are read as such first."
-  (let ((declared (getf (rest procedure) :parameters))
+  (let ((declared   (getf (rest procedure) :parameters))
         (parameters (mapcar (lambda (binding)
                               (let ((parameter (procedure-parameter procedure (first binding))))
                                 (cons (first binding)
@@ -273,10 +273,14 @@ Numbers and booleans given as text are read as such first."
                            "Parameter ~A must be ~(~A~)~@[ ending in ~A~]."
                            (getf parameter :name)
                            (ecase (getf parameter :type)
-                             (:string "a non-empty string")
-                             (:integer "an integer")
-                             (:number "a number")
-                             (:boolean "true or false"))
+                             (:string
+                              "a non-empty string")
+                             (:integer
+                              "an integer")
+                             (:number
+                              "a number")
+                             (:boolean
+                              "true or false"))
                            (getf parameter :suffix)))))
     parameters))
 
@@ -288,7 +292,7 @@ All requirements must have a joint proof on accepted current facts, applicable
 earlier productions, or admitted derivations. Future values stay symbolic and
 are checked again against actual results by the ordinary call dispatch."
   (when (knowledge-active-p configuration)
-    (let ((view (knowledge-view-current configuration))
+    (let ((view     (knowledge-view-current configuration))
           (unknowns (make-hash-table :test #'equal))
           (produced nil))
       (labels ((result-variable (index path)
@@ -351,11 +355,11 @@ are checked again against actual results by the ordinary call dispatch."
 (-> procedure--demonstrated-p (configuration string) boolean)
 (defun procedure--demonstrated-p (configuration identifier)
   "Return true when completed runs of IDENTIFIER's admitted definition saved requests and tokens."
-  (let* ((entry (knowledge-base-procedure (knowledge-base-read configuration)
-                                          (knowledge--workspace configuration)
-                                          identifier))
+  (let* ((entry    (knowledge-base-procedure (knowledge-base-read configuration)
+                                             (knowledge--workspace configuration)
+                                             identifier))
          (baseline (getf (procedure-entry-version entry (getf entry :admitted)) :baseline))
-         (savings (procedure-savings configuration identifier)))
+         (savings  (procedure-savings configuration identifier)))
     (and baseline savings
          (realp (getf baseline :requests)) (realp (getf baseline :tokens))
          (< (getf savings :requests) (getf baseline :requests))
@@ -391,9 +395,12 @@ are checked again against actual results by the ordinary call dispatch."
            (if (realp number) number value)))
         (:boolean
          (cond
-           ((string-equal value "true") t)
-           ((string-equal value "false") :json-false)
-           (t value)))
+           ((string-equal value "true")
+            t)
+           ((string-equal value "false")
+            :json-false)
+           (t
+            value)))
         (otherwise
          value))
       value))
