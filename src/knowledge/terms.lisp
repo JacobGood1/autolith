@@ -331,6 +331,7 @@ VALUE cannot be a TYPE."
       (:number
        (or (knowledge--number value)
            (and (stringp value)
+                ; mallet:suppress no-ignore-errors -- reading free text signals many error types
                 (let ((parsed (ignore-errors
                                (let ((*read-eval* nil))
                                  (read-from-string value)))))
