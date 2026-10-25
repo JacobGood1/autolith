@@ -32,8 +32,8 @@
   (task--validate-json-fields object '("baseline" "dirtyPolicy" "artifactKind")
                               "task isolation")
   (let ((baseline (or (json-get object "baseline") "HEAD"))
-        (dirty (or (json-get object "dirtyPolicy") "reject"))
-        (kind (or (json-get object "artifactKind") "patch")))
+        (dirty    (or (json-get object "dirtyPolicy") "reject"))
+        (kind     (or (json-get object "artifactKind") "patch")))
     (unless (non-empty-string-p baseline)
       (task-worktree--error "isolation.baseline must be a non-empty revision."))
     (unless (member dirty '("reject" "ignore") :test #'equal)
@@ -74,8 +74,8 @@ Sandbox temporary paths take precedence without changing the host environment."
   "Return an argv runner using AUTHORIZE and the ordinary command execution policy."
   (lambda (argv &key directory input)
     (let* ((directory (uiop:ensure-directory-pathname directory))
-           (command (format nil "task.worktree Git argv ~S" argv))
-           (decision (funcall authorize command directory)))
+           (command   (format nil "task.worktree Git argv ~S" argv))
+           (decision  (funcall authorize command directory)))
       (unless (member decision '(:sandboxed :full-access))
         (task-worktree--error "Worktree Git command was denied." :code ':authority))
       (labels ((run (policy environment)
@@ -83,11 +83,11 @@ Sandbox temporary paths take precedence without changing the host environment."
                          (run-sandboxed
                           (first argv) (rest argv) :policy policy
                           :working-directory directory :input (and input (make-string-input-stream input))
-                          :environment (task-worktree--environment :overrides environment)
+                          :environment                     (task-worktree--environment :overrides environment)
                           :clear-environment-p t :timeout *task-worktree-command-timeout*
-                          :output-limit (if (member "diff" argv :test #'equal)
-                                            *task-worktree-artifact-limit* 65536)
-                          :error-output-limit 65536)))
+                          :output-limit                    (if (member "diff" argv :test #'equal)
+                                                               *task-worktree-artifact-limit* 65536)
+                          :error-output-limit              65536)))
                    (when (or (sandbox-result-timed-out-p result)
                              (sandbox-result-output-truncated-p result)
                              (cl-exec-sandbox:sandbox-result-error-output-truncated-p result))
@@ -96,7 +96,8 @@ Sandbox temporary paths take precedence without changing the host environment."
                            (cl-exec-sandbox:sandbox-result-error-output result)
                            (sandbox-result-exit-code result)))))
         (ecase decision
-          (:full-access (run (external-sandbox-policy) nil))
+          (:full-access
+           (run (external-sandbox-policy) nil))
           (:sandboxed
            (platform-call-with-command-sandbox
             *platform* (config :working-directory configuration) #'run
@@ -118,14 +119,14 @@ Sandbox temporary paths take precedence without changing the host environment."
   "Make a manager over the private durable ownership registry."
   (cl-worktree:make-manager
    :registry (merge-pathnames "task-worktrees/registry/" (config :data-root configuration))
-   :runner (task-worktree--runner configuration authorize :writable-roots writable-roots)))
+   :runner   (task-worktree--runner configuration authorize :writable-roots writable-roots)))
 
 (-> task-worktree--git-admin-roots (pathname) list)
 (defun task-worktree--git-admin-roots (source)
   "Resolve SOURCE's private and shared Git administrative directories."
-  (let* ((source (uiop:ensure-directory-pathname source))
+  (let* ((source  (uiop:ensure-directory-pathname source))
          (dot-git (merge-pathnames ".git" source))
-         (status (platform-path-status *platform* dot-git :follow-links-p t))
+         (status  (platform-path-status *platform* dot-git :follow-links-p t))
          (git-dir
            (when status
              (case (platform-file-status-kind status)
@@ -141,8 +142,8 @@ Sandbox temporary paths take precedence without changing the host environment."
                (otherwise
                 (task-worktree--error "Git administrative path is not a file or directory."))))))
     (when git-dir
-      (let* ((git-dir (uiop:ensure-directory-pathname
-                      (platform-truename *platform* git-dir)))
+      (let* ((git-dir   (uiop:ensure-directory-pathname
+                         (platform-truename *platform* git-dir)))
              (commondir (merge-pathnames "commondir" git-dir))
              (common-dir
                (if (uiop:file-exists-p commondir)
@@ -161,9 +162,9 @@ Sandbox temporary paths take precedence without changing the host environment."
 (-> task-worktree-command-writable-roots (tool-context) list)
 (defun task-worktree-command-writable-roots (context)
   "Return shell write scopes for the exact isolated checkout owned by CONTEXT."
-  (let* ((agent (tool-context-agent context))
-         (job (and (typep agent 'task-child-agent) (task-child-agent-job agent)))
-         (metadata (and job (getf (task-job-item job) :worktree)))
+  (let* ((agent     (tool-context-agent context))
+         (job       (and (typep agent 'task-child-agent) (task-child-agent-job agent)))
+         (metadata  (and job (getf (task-job-item job) :worktree)))
          (workspace (config :working-directory (tool-context-configuration context))))
     (when metadata
       (unless (and (equal (getf metadata :owner) (task-worktree--owner job))
@@ -182,9 +183,9 @@ Sandbox temporary paths take precedence without changing the host environment."
 (defun task-worktree--metadata (handle kind metadata-path)
   "Return the portable task identity needed for extraction and recovery."
   (list :version 1 :id (cl-worktree:worktree-id handle)
-        :owner (cl-worktree:worktree-owner handle)
-        :source (namestring (cl-worktree:worktree-source handle))
-        :path (namestring (cl-worktree:worktree-path handle))
+        :owner    (cl-worktree:worktree-owner handle)
+        :source   (namestring (cl-worktree:worktree-source handle))
+        :path     (namestring (cl-worktree:worktree-path handle))
         :baseline (cl-worktree:worktree-baseline handle)
         :artifact-kind kind :metadata-path metadata-path))
 
@@ -199,26 +200,26 @@ The source is never reset or stashed, and child cleanup is always explicit."
       ;; Defer asynchronous cancellation until both Git ownership records and the
       ;; task identity exist. Git commands retain their own bounded deadlines.
       (sb-sys:without-interrupts
-        (let* ((source (config :working-directory configuration))
-               (owner (task-worktree--owner job))
-               (path (merge-pathnames
-                      (format nil "task-worktrees/checkouts/~A/workspace/"
-                              (task-job-execution-identifier job))
-                      (config :data-root configuration)))
-               (container (uiop:pathname-parent-directory-pathname path))
+        (let* ((source         (config :working-directory configuration))
+               (owner          (task-worktree--owner job))
+               (path           (merge-pathnames
+                                (format nil "task-worktrees/checkouts/~A/workspace/"
+                                        (task-job-execution-identifier job))
+                                (config :data-root configuration)))
+               (container      (uiop:pathname-parent-directory-pathname path))
                (writable-roots (cons container (task-worktree--git-admin-roots source)))
-               (manager (task-worktree--manager
-                         configuration (task-job-command-authorization-function job)
-                         :writable-roots writable-roots))
-               (handle (progn
-                         (ensure-directories-exist (merge-pathnames "probe" container))
-                         (cl-worktree:create-worktree
-                          manager :source source :path path :owner owner
-                          :baseline (getf policy :baseline)
-                          :dirty-policy (getf policy :dirty-policy))))
-               (metadata-path (merge-pathnames "worktree.sexp" (task--artifact-root configuration job)))
-               (metadata (task-worktree--metadata handle (getf policy :artifact-kind)
-                                                  (namestring metadata-path))))
+               (manager        (task-worktree--manager
+                                configuration (task-job-command-authorization-function job)
+                                :writable-roots writable-roots))
+               (handle         (progn
+                                 (ensure-directories-exist (merge-pathnames "probe" container))
+                                 (cl-worktree:create-worktree
+                                  manager :source source :path path :owner owner
+                                  :baseline     (getf policy :baseline)
+                                  :dirty-policy (getf policy :dirty-policy))))
+               (metadata-path  (merge-pathnames "worktree.sexp" (task--artifact-root configuration job)))
+               (metadata       (task-worktree--metadata handle (getf policy :artifact-kind)
+                                                        (namestring metadata-path))))
           (setf (getf (task-job-item job) :worktree) metadata)
           (snapshot-write metadata-path metadata :require-absent t)
           (configuration-copy configuration :working-directory (cl-worktree:worktree-path handle)))))))
@@ -228,7 +229,7 @@ The source is never reset or stashed, and child cleanup is always explicit."
   "Recover a matching owned handle and verify all retained identity fields."
   (let ((handles (multiple-value-list
                   (cl-worktree:discover-worktrees manager :owner (getf metadata :owner)
-                                                 :source (getf metadata :source)))))
+                                                 :source         (getf metadata :source)))))
     (or (find-if
          (lambda (handle)
            (and (equal (cl-worktree:worktree-id handle) (getf metadata :id))
@@ -269,14 +270,14 @@ a successful child is downgraded rather than claiming an absent artifact."
     (handler-case
         (with-lock-held (*task-worktree-lock*)
           (let* ((configuration (agent-configuration (task-job-parent-agent job)))
-                 (manager (task-worktree--manager
-                           configuration (task-job-command-authorization-function job)
-                           :writable-roots
-                           (cons (pathname (getf metadata :path))
-                                 (task-worktree--git-admin-roots
-                                  (pathname (getf metadata :source))))))
-                 (artifact (task-worktree--extract manager metadata))
-                 (path (merge-pathnames "worktree-artifact.sexp" (task--artifact-root configuration job))))
+                 (manager       (task-worktree--manager
+                                 configuration (task-job-command-authorization-function job)
+                                 :writable-roots
+                                 (cons (pathname (getf metadata :path))
+                                       (task-worktree--git-admin-roots
+                                        (pathname (getf metadata :source))))))
+                 (artifact      (task-worktree--extract manager metadata))
+                 (path          (merge-pathnames "worktree-artifact.sexp" (task--artifact-root configuration job))))
             (task-worktree--write-artifact path artifact :require-absent t)
             (setf (getf result :worktree-artifact-path) (namestring path))))
       (error (condition)
@@ -289,9 +290,9 @@ a successful child is downgraded rather than claiming an absent artifact."
 (-> task-worktree--read-artifact (list) cl-worktree:artifact)
 (defun task-worktree--read-artifact (metadata)
   "Read and validate the durable artifact at the fixed metadata sibling path."
-  (let* ((path (merge-pathnames "worktree-artifact.sexp" (pathname (getf metadata :metadata-path))))
+  (let* ((path     (merge-pathnames "worktree-artifact.sexp" (pathname (getf metadata :metadata-path))))
          (artifact (cl-worktree:plist->artifact
-                    (snapshot-read path :grammar (task--result-grammar)
+                    (snapshot-read path :grammar        (task--result-grammar)
                                         :maximum-octets *task-worktree-artifact-limit*))))
     (unless (and (equal (cl-worktree:artifact-worktree-id artifact) (getf metadata :id))
                  (equal (cl-worktree:artifact-owner artifact) (getf metadata :owner))
@@ -305,10 +306,10 @@ a successful child is downgraded rather than claiming an absent artifact."
 (defun task-worktree--visible-metadata (tool context identifier)
   "Resolve terminal metadata through existing job visibility or durable task lookup."
   (let* ((viewer (tool-context-agent context))
-         (job (find identifier
-                    (task-orchestrator-list-visible-jobs
-                     (task-orchestrator-tool-orchestrator tool) viewer)
-                    :key #'session-job-identifier :test #'equal))
+         (job    (find identifier
+                       (task-orchestrator-list-visible-jobs
+                        (task-orchestrator-tool-orchestrator tool) viewer)
+                       :key #'session-job-identifier :test #'equal))
          (result (if job (getf (session-job-snapshot job) :result)
                      (task--durable-job-result viewer identifier "task.worktree"))))
     (unless (and result (getf result :worktree))
@@ -331,15 +332,15 @@ a successful child is downgraded rather than claiming an absent artifact."
     (task-worktree--error "Worktree integration and cleanup belong to the primary parent." :code ':authority))
   (task--validate-tool-arguments arguments '("action" "id" "source" "target" "discardDirty")
                                  "task.worktree")
-  (let* ((action (tool-argument arguments "action" :required t))
+  (let* ((action        (tool-argument arguments "action" :required t))
          (configuration (tool-context-configuration context))
-         (authorize (lambda (command directory)
-                      (tool-context-authorize-command context command directory)))
+         (authorize     (lambda (command directory)
+                          (tool-context-authorize-command context command directory)))
          (writable-roots
            (when (member action '("apply" "commits" "abort") :test #'equal)
              (list (workspace-tool-path context (tool-argument arguments "target" :required t)
                                         :tool-name "task.worktree"))))
-         (manager (task-worktree--manager configuration authorize :writable-roots writable-roots)))
+         (manager       (task-worktree--manager configuration authorize :writable-roots writable-roots)))
     (with-lock-held (*task-worktree-lock*)
       (let ((answer
               (cond
@@ -357,7 +358,7 @@ a successful child is downgraded rather than claiming an absent artifact."
                 ((equal action "cleanup-orphan")
                  (let* ((source (workspace-tool-path context (tool-argument arguments "source" :required t)
                                                      :tool-name "task.worktree"))
-                        (id (tool-argument arguments "id" :required t))
+                        (id     (tool-argument arguments "id" :required t))
                         (handle (find id (task-worktree--owned-discovery manager context source)
                                       :key #'cl-worktree:worktree-id :test #'equal)))
                    (unless handle
@@ -380,8 +381,8 @@ a successful child is downgraded rather than claiming an absent artifact."
                                   (task-worktree--git-admin-roots source)))))
                      (list :removed (cl-worktree:cleanup-worktree
                                      cleanup-manager handle :owner (cl-worktree:worktree-owner handle)
-                                     :discard-dirty (tool-boolean-argument arguments "discardDirty"
-                                                                          :tool-name "task.worktree"))))))
+                                     :discard-dirty                (tool-boolean-argument arguments "discardDirty"
+                                                                                         :tool-name "task.worktree"))))))
                 ((member action '("conflicts" "abort") :test #'equal)
                  (let ((target (workspace-tool-path context (tool-argument arguments "target" :required t)
                                                     :tool-name "task.worktree")))
@@ -390,7 +391,7 @@ a successful child is downgraded rather than claiming an absent artifact."
                        (list :conflicts (cl-worktree:integration-conflicts manager target)))))
                 (t
                  (let* ((identifier (tool-argument arguments "id" :required t))
-                        (metadata (task-worktree--visible-metadata tool context identifier))
+                        (metadata   (task-worktree--visible-metadata tool context identifier))
                         (manager
                           (task-worktree--manager
                            configuration authorize
@@ -404,13 +405,13 @@ a successful child is downgraded rather than claiming an absent artifact."
                       (list :removed
                             (cl-worktree:cleanup-worktree
                              manager (task-worktree--find-handle manager metadata)
-                             :owner (getf metadata :owner)
+                             :owner         (getf metadata :owner)
                              :discard-dirty (tool-boolean-argument arguments "discardDirty"
                                                                   :tool-name "task.worktree"))))
                      ((equal action "extract")
                       (let* ((artifact (task-worktree--extract manager metadata))
-                             (path (merge-pathnames "worktree-artifact.sexp"
-                                                    (pathname (getf metadata :metadata-path)))))
+                             (path     (merge-pathnames "worktree-artifact.sexp"
+                                                        (pathname (getf metadata :metadata-path)))))
                         (task-worktree--write-artifact path artifact)
                         (list :artifact-path (namestring path) :baseline (cl-worktree:artifact-baseline artifact)
                               :paths (cl-worktree:artifact-paths artifact))))
@@ -429,8 +430,10 @@ a successful child is downgraded rather than claiming an absent artifact."
                                        (cl-worktree:check-patch manager target (cl-worktree:artifact-patch artifact)))
                                       ((equal action "apply")
                                        (cl-worktree:apply-patch manager target (cl-worktree:artifact-patch artifact)))
-                                      (t (cl-worktree:apply-commit-range manager target artifact))))))))
-                     (t (task-worktree--error "Unknown task.worktree action."))))))))
+                                      (t
+                                       (cl-worktree:apply-commit-range manager target artifact))))))))
+                     (t
+                      (task-worktree--error "Unknown task.worktree action."))))))))
         (task-tool-result (bounded-string (task--write-readable-sexp answer :pretty-p t)
                                           :limit *task-tool-content-limit*) answer)))))
 
