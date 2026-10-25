@@ -47,7 +47,7 @@ context and without starting another model turn."
                    (non-empty-string-p submission-identifier))
                (or (null result) submission-identifier))
     (error 'conversation-invariant-error
-           :message "Async Lisp requires source text and an explicit identifier for results."
+           :message  "Async Lisp requires source text and an explicit identifier for results."
            :pathname (conversation-pathname conversation)
            :sequence (conversation-next-sequence conversation)))
   (with-recursive-lock-held ((conversation-append-lock conversation))
@@ -58,8 +58,8 @@ context and without starting another model turn."
               (list :async-lisp-event
                     :source (copy-seq source)
                     :submission-identifier identifier
-                    :kind (if result ':result ':source)
-                    :result (and result (copy-seq result))))))
+                    :kind                  (if result ':result ':source)
+                    :result                (and result (copy-seq result))))))
       (conversation--project-record ':async-lisp-event conversation (rest record))
       (copy-seq identifier))))
 
@@ -88,8 +88,8 @@ context and without starting another model turn."
     ((kind (eql :async-lisp-delivered)) (conversation conversation) properties)
   "Replay one durable delivery and remove exactly its matching pending event."
   (let* ((record (list* kind properties))
-         (queue (conversation-pending-async-lisp-events conversation))
-         (event (first (deque->list queue))))
+         (queue  (conversation-pending-async-lisp-events conversation))
+         (event  (first (deque->list queue))))
     (unless (and (conversation-async-lisp--event-p record)
                  event
                  (equal (getf (rest event) :submission-identifier)
@@ -120,8 +120,8 @@ that event pending for retry; replay reconstructs the same messages and queue."
                    (list :async-lisp-delivered
                          :source (getf properties :source)
                          :submission-identifier (getf properties :submission-identifier)
-                         :kind (getf properties :kind)
-                         :result (getf properties :result)))
+                         :kind                  (getf properties :kind)
+                         :result                (getf properties :result)))
                 do (conversation--project-record
                     ':async-lisp-delivered conversation (rest record))
                 count t)))))
