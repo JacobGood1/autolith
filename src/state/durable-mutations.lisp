@@ -26,9 +26,9 @@ so it is opt-in rather than the default commit gate."))
 
 (defclass callback-mutation-checker (mutation-checker)
   ((active-callback
-    :initarg :active-callback
-   :reader callback-mutation-checker-active-callback
-   :type function
+    :initarg       :active-callback
+    :reader        callback-mutation-checker-active-callback
+    :type          function
     :documentation "The injected active-image check callback."))
   (:documentation "A mutation checker backed by explicit boundary callbacks."))
 
@@ -58,10 +58,10 @@ so it is opt-in rather than the default commit gate."))
   "Run Autolith's ASDF tests against the installed active-image definition."
   (declare (ignore checker configuration definition-source))
   (with-output-to-string (stream)
-    (let ((*standard-output* stream)
-          (*error-output* stream)
-          (*trace-output* stream)
-           (*skill-logical-turn-state* nil))
+    (let ((*standard-output*          stream)
+          (*error-output*             stream)
+          (*trace-output*             stream)
+          (*skill-logical-turn-state* nil))
       (asdf:test-system :autolith))))
 
 (defmethod mutation-checker-check-active
@@ -79,7 +79,7 @@ so it is opt-in rather than the default commit gate."))
 (defun self-repair-check-mutations (configuration checker source &key mutations)
   "Run the configured active-state checker and journal its result for MUTATIONS."
   (let ((identifier (make-identifier))
-        (scope (mutation-checker-verification-scope checker)))
+        (scope      (mutation-checker-verification-scope checker)))
     (handler-case
         (multiple-value-prog1
             (mutation-checker-check-active checker configuration source)
@@ -105,45 +105,45 @@ so it is opt-in rather than the default commit gate."))
 
 (defclass durable-mutation ()
   ((identifier
-    :initarg :identifier
-    :reader durable-mutation-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        durable-mutation-identifier
+    :type          non-empty-string
     :documentation "The stable identifier joining this mutation's journal records.")
    (target
-    :initarg :target
-    :reader durable-mutation-target
-    :type non-empty-string
+    :initarg       :target
+    :reader        durable-mutation-target
+    :type          non-empty-string
     :documentation "The semantic definition signature being changed.")
    (pathname
-    :initarg :pathname
-    :reader durable-mutation-pathname
-    :type non-empty-string
+    :initarg       :pathname
+    :reader        durable-mutation-pathname
+    :type          non-empty-string
     :documentation "The private reconstruction artifact receiving the change.")
    (previous-source
-    :initarg :previous-source
-    :reader durable-mutation-previous-source
-    :type string
+    :initarg       :previous-source
+    :reader        durable-mutation-previous-source
+    :type          string
     :documentation "The complete source definition preceding this mutation.")
    (proposed-source
-    :initarg :proposed-source
-    :reader durable-mutation-proposed-source
-    :type string
+    :initarg       :proposed-source
+    :reader        durable-mutation-proposed-source
+    :type          string
     :documentation "The complete proposed source definition.")
    (base-commit
-    :initarg :base-commit
-    :initform nil
-    :reader durable-mutation-base-commit
-    :type (option string)
+    :initarg       :base-commit
+    :initform      nil
+    :reader        durable-mutation-base-commit
+    :type          (option string)
     :documentation "The tracked base revision preceding the mutation, when known.")
    (phase
-    :initarg :phase
-    :accessor durable-mutation-phase
-    :type keyword
+    :initarg       :phase
+    :accessor      durable-mutation-phase
+    :type          keyword
     :documentation "The latest journaled transaction phase.")
    (git-commit
-    :initform nil
-    :accessor durable-mutation-git-commit
-    :type (option string)
+    :initform      nil
+    :accessor      durable-mutation-git-commit
+    :type          (option string)
     :documentation "A legacy Git commit recorded by an older journal format."))
   (:documentation "One checked live-to-private-reconstruction transaction."))
 
@@ -161,12 +161,12 @@ so it is opt-in rather than the default commit gate."))
     (list :mutation
           :kind :durable-definition
           :id (durable-mutation-identifier mutation)
-          :target (durable-mutation-target mutation)
-          :pathname (durable-mutation-pathname mutation)
-          :previous (durable-mutation-previous-source mutation)
-          :proposed (durable-mutation-proposed-source mutation)
+          :target      (durable-mutation-target mutation)
+          :pathname    (durable-mutation-pathname mutation)
+          :previous    (durable-mutation-previous-source mutation)
+          :proposed    (durable-mutation-proposed-source mutation)
           :base-commit (durable-mutation-base-commit mutation)
-          :result (durable-mutation-phase mutation))
+          :result      (durable-mutation-phase mutation))
     (when (durable-mutation-git-commit mutation)
       (list :git-commit (durable-mutation-git-commit mutation)))
     (when detail
@@ -178,11 +178,16 @@ so it is opt-in rather than the default commit gate."))
   (and (member
         to-phase
         (case from-phase
-          (:pending '(:installed :failed :superseded))
-          (:installed '(:checked :failed :superseded))
-          (:checked '(:source-written :failed :superseded))
-          (:source-written '(:durable :failed :superseded))
-          (otherwise nil))
+          (:pending
+           '(:installed :failed :superseded))
+          (:installed
+           '(:checked :failed :superseded))
+          (:checked
+           '(:source-written :failed :superseded))
+          (:source-written
+           '(:durable :failed :superseded))
+          (otherwise
+           nil))
         :test #'eq)
        t))
 
@@ -196,11 +201,11 @@ so it is opt-in rather than the default commit gate."))
            (durable-mutation-phase mutation)
            phase)
       (error 'source-mutation-error
-             :message (format nil "Invalid durable mutation transition from ~S to ~S."
-                              (durable-mutation-phase mutation)
-                              phase)
+             :message   (format nil "Invalid durable mutation transition from ~S to ~S."
+                                (durable-mutation-phase mutation)
+                                phase)
              :tool-name "self.persist-definition"
-             :pathname (durable-mutation-pathname mutation)))
+             :pathname  (durable-mutation-pathname mutation)))
   (setf (durable-mutation-phase mutation) phase)
   (when git-commit
     (setf (durable-mutation-git-commit mutation) git-commit))
@@ -221,16 +226,16 @@ so it is opt-in rather than the default commit gate."))
   (let* ((target (definition-key definition))
          (mutation
            (make-instance 'durable-mutation
-                          :identifier (make-identifier)
-                          :target target
-                          :pathname relative-pathname
+                          :identifier      (make-identifier)
+                          :target          target
+                          :pathname        relative-pathname
                           :previous-source previous-source
                           :proposed-source proposed-source
                           :base-commit
                           (source-revision
                            (make-source-provenance
                             (config :source-root configuration)))
-                          :phase :pending)))
+                          :phase           :pending)))
     (maphash
      (lambda (identifier existing)
        (declare (ignore identifier))
@@ -290,9 +295,9 @@ so it is opt-in rather than the default commit gate."))
               records)
           (store-error (condition)
             (error 'source-mutation-error
-                   :message (format nil "Malformed mutation journal: ~A" condition)
+                   :message   (format nil "Malformed mutation journal: ~A" condition)
                    :tool-name "self.status"
-                   :pathname pathname)))
+                   :pathname  pathname)))
         nil)))
 
 (-> durable-mutation-journal-record-p (t) boolean)
@@ -363,13 +368,13 @@ records resolves once."
         (unless (durable-mutation-record-p configuration record
                                            :source-root source-root)
           (error 'source-mutation-error
-                 :message "A durable mutation journal record is invalid."
+                 :message   "A durable mutation journal record is invalid."
                  :tool-name "self.status"
-                 :pathname (configuration-journal-path configuration)))
+                 :pathname  (configuration-journal-path configuration)))
         (let* ((properties (rest record))
                (identifier (getf properties :id))
-               (phase (getf properties :result))
-               (existing (gethash identifier *durable-mutations*)))
+               (phase      (getf properties :result))
+               (existing   (gethash identifier *durable-mutations*)))
           (if existing
               (progn
                 (unless (and (durable-mutation-record-matches-p existing properties)
@@ -377,31 +382,30 @@ records resolves once."
                               (durable-mutation-phase existing)
                               phase))
                   (error 'source-mutation-error
-                         :message "A durable mutation journal transition is invalid."
+                         :message   "A durable mutation journal transition is invalid."
                          :tool-name "self.status"
-                         :pathname (configuration-journal-path configuration)))
+                         :pathname  (configuration-journal-path configuration)))
                 (setf (durable-mutation-phase existing) phase
                       (durable-mutation-git-commit existing)
                       (getf properties :git-commit)))
               (progn
                 (unless (eq phase :pending)
                   (error 'source-mutation-error
-                         :message "A durable mutation journal begins after its pending state."
+                         :message   "A durable mutation journal begins after its pending state."
                          :tool-name "self.status"
-                         :pathname (configuration-journal-path configuration)))
+                         :pathname  (configuration-journal-path configuration)))
                 (let ((mutation
                         (make-instance 'durable-mutation
-                                       :identifier identifier
-                                       :target (getf properties :target)
-                                       :pathname (getf properties :pathname)
+                                       :identifier      identifier
+                                       :target          (getf properties :target)
+                                       :pathname        (getf properties :pathname)
                                        :previous-source (getf properties :previous)
                                        :proposed-source (getf properties :proposed)
-                                       :base-commit (getf properties :base-commit)
-                                       :phase phase)))
+                                       :base-commit     (getf properties :base-commit)
+                                       :phase           phase)))
                   (setf (gethash identifier *durable-mutations*) mutation))))))))
   (durable-mutations-reconcile configuration)
   *durable-mutations*)
-
 
 (-> durable-mutation--fallback-source (configuration list) (option string))
 (defun durable-mutation--fallback-source (configuration definition)
@@ -425,27 +429,27 @@ records resolves once."
     (let* ((definition-source
              (tool-argument arguments "definition" :required t))
            (configuration (tool-context-configuration context))
-           (definition (self-read-form definition-source :read-eval nil)))
+           (definition    (self-read-form definition-source :read-eval nil)))
       (tuning-experiment-assert-settled
        configuration "self.persist-definition")
       (unless (definition-form-p definition)
         (error 'source-mutation-error
-               :message "The durable source is not a supported complete definition."
+               :message   "The durable source is not a supported complete definition."
                :tool-name "self.persist-definition"
-               :pathname (configuration-image-commit-root configuration)))
-      (let* ((target (definition-key definition))
-             (home-package (definition-home-package-name definition))
+               :pathname  (configuration-image-commit-root configuration)))
+      (let* ((target            (definition-key definition))
+             (home-package      (definition-home-package-name definition))
              (commit-identifier (make-identifier))
              (commit-directory
                (image-commit--directory configuration commit-identifier))
-             (commit-script (merge-pathnames "reconstruct.lisp"
-                                             commit-directory))
-             (previous-source (or (image-commit-definition-source
-                                   configuration target)
-                                  (durable-mutation--fallback-source
-                                   configuration
-                                   definition)
-                                  ""))
+             (commit-script     (merge-pathnames "reconstruct.lisp"
+                                                 commit-directory))
+             (previous-source   (or (image-commit-definition-source
+                                     configuration target)
+                                    (durable-mutation--fallback-source
+                                     configuration
+                                     definition)
+                                    ""))
              (undo-action
                (self--definition-state-undo-action
                 definition
@@ -458,14 +462,14 @@ records resolves once."
                                         (namestring commit-script)
                                         :previous-source previous-source
                                         :proposed-source definition-source))
-             (checker (tool-context-effective-mutation-checker context))
-             (published-p nil))
+             (checker           (tool-context-effective-mutation-checker context))
+             (published-p       nil))
         (handler-case
             (progn
               (self-call-with-restarts
                (lambda ()
                  (self--install-definition definition definition-source))
-               :restart-name (tool-argument arguments "restart")
+               :restart-name         (tool-argument arguments "restart")
                :restart-value-source (tool-argument arguments "restart-value"))
               (durable-mutation-transition configuration mutation :installed)
               (self-repair-check-mutations
@@ -475,16 +479,16 @@ records resolves once."
               (let ((commit
                       (image-commit-publish
                        configuration
-                       :title (format nil "Persist definition ~A" target)
+                       :title            (format nil "Persist definition ~A" target)
                        :mutation-records nil
                        :additional-entries
-                       (list (list :kind ':definition
-                                   :id (durable-mutation-identifier mutation)
-                                   :target target
-                                   :package "AUTOLITH"
+                       (list (list :kind         ':definition
+                                   :id           (durable-mutation-identifier mutation)
+                                   :target       target
+                                   :package      "AUTOLITH"
                                    :home-package home-package
-                                   :source definition-source))
-                       :identifier commit-identifier)))
+                                   :source       definition-source))
+                       :identifier       commit-identifier)))
                 (setf published-p t)
                 (durable-mutation-transition configuration mutation
                                              :source-written)
@@ -545,6 +549,6 @@ records resolves once."
                (null (find #\Newline title))
                (null (find #\Return title)))
     (error 'tool-error
-           :message "A commit title must be one non-empty line under 72 characters."
+           :message   "A commit title must be one non-empty line under 72 characters."
            :tool-name "self.commit"))
   title)
