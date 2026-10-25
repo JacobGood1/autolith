@@ -11,7 +11,6 @@
   ()
   (:documentation "Attach one local image to the model for visual inspection."))
 
-
 (defclass shell-run-tool (workspace-tool)
   ()
   (:documentation "Run one authorized external command in the workspace."))
@@ -23,7 +22,6 @@
 (defmethod tool-storm-guard-exempt-p ((tool fs-view-image-tool))
   "Exempt local image inspection from the mutating-call storm guard."
   t)
-
 
 (defmethod tool-child-safe-p ((tool shell-run-tool))
   "Permit authorized workspace commands inside child agents."
@@ -63,9 +61,9 @@ resources may extend or replace that boundary dynamically.")
       (funcall function)
     (file-operation-failed (condition)
       (error 'tool-error
-             :message (format nil "Could not resolve workspace path ~A: ~A"
-                              path condition)
-             :code (tool-failure-code condition)
+             :message   (format nil "Could not resolve workspace path ~A: ~A"
+                                path condition)
+             :code      (tool-failure-code condition)
              :tool-name "resource"))))
 
 (-> workspace-tool--canonical-path (pathname) pathname)
@@ -86,11 +84,11 @@ or filesystem failures as absence."
 The components come from the parsed pathname, so the identifier reads the same
 on every host: names keep their literal characters, a directory keeps its
 trailing slash, and the separator is a slash whatever the host writes natively."
-  (let* ((relative (uiop:enough-pathname path root))
+  (let* ((relative    (uiop:enough-pathname path root))
          (directories (rest (pathname-directory relative)))
-         (file (uiop:native-namestring
-                (make-pathname :host nil :device nil :directory nil
-                               :defaults relative))))
+         (file        (uiop:native-namestring
+                       (make-pathname :host nil :device nil :directory nil
+                                      :defaults relative))))
     (if (and (null directories) (string= file ""))
         "."
         (format nil "~{~A/~}~A" directories file))))
@@ -109,7 +107,7 @@ trailing slash, and the separator is a slash whatever the host writes natively."
 (-> workspace-tool-resolve-path (tool-context (option string)) pathname)
 (defun workspace-tool-resolve-path (context path)
   "Return PATH resolved against CONTEXT's working directory without confinement."
-  (let* ((configuration (tool-context-configuration context))
+  (let* ((configuration     (tool-context-configuration context))
          (working-directory (config :working-directory configuration))
          (resolved
            (if (non-empty-string-p path)
@@ -138,7 +136,7 @@ workspace and source roots. Otherwise use the dynamically supplied roots. Resolv
 existing symlinks and the nearest existing parent before checking the boundary.
 Only callers that cannot work elsewhere, such as the command sandbox, or that
 already authorized the path, use this instead of WORKSPACE-TOOL-PATH."
-  (let* ((roots (workspace-tool-readable-roots context))
+  (let* ((roots     (workspace-tool-readable-roots context))
          (canonical (workspace-tool-resolve-path context path)))
     (unless (workspace-tool--read-path-allowed-p canonical roots)
       (error 'tool-authority-denied
@@ -203,7 +201,7 @@ with full permissions never refuses one."
        (round value))
       (t
        (error 'tool-error
-              :message (format nil "Tool argument ~S must be an integer." name)
+              :message   (format nil "Tool argument ~S must be an integer." name)
               :tool-name name)))))
 
 (-> workspace-tool-shell-timeout (json-object) (integer 1))
@@ -220,9 +218,9 @@ with full permissions never refuses one."
                          (context tool-context)
                          (arguments hash-table))
   "Return a local image as native provider image content."
-  (let* ((path (workspace-tool-path
-                context
-                (tool-argument arguments "path" :required t)))
+  (let* ((path         (workspace-tool-path
+                        context
+                        (tool-argument arguments "path" :required t)))
          (conversation (tool-context-conversation context))
          (attachment
            (image-input-prepare
@@ -236,18 +234,17 @@ with full permissions never refuses one."
              (image-attachment-mime-type attachment))
      :image-attachments (list attachment))))
 
-
 (defmethod tool-execute ((tool shell-run-tool)
                          (context tool-context)
                          (arguments hash-table))
   "Authorize one command, then run it once directly or as an inspectable job."
-  (let* ((command (tool-argument arguments "command" :required t))
+  (let* ((command            (tool-argument arguments "command" :required t))
          (description
            (let ((value (tool-argument arguments "description")))
              (and (non-empty-string-p value) value)))
          (directory-argument (tool-argument arguments "directory"))
-         (directory (workspace-tool-resolve-path context directory-argument))
-         (timeout (workspace-tool-shell-timeout arguments))
+         (directory          (workspace-tool-resolve-path context directory-argument))
+         (timeout            (workspace-tool-shell-timeout arguments))
          (merge-output-p
            (not (tool-boolean-argument
                  arguments "separate-output" :tool-name "shell.run")))
@@ -258,7 +255,7 @@ with full permissions never refuses one."
            (tool-completion-policy-argument arguments :tool-name "shell.run")))
     (unless (non-empty-string-p command)
       (error 'tool-error
-             :message "shell.run requires a non-empty command."
+             :message   "shell.run requires a non-empty command."
              :tool-name "shell.run"))
     (let ((authorization
             (handler-case
@@ -269,16 +266,16 @@ with full permissions never refuses one."
       (if (eq authorization ':deny)
           (tool-failure "The user denied this command." :denied-p t)
           (let ((configuration (tool-context-configuration context))
-                (output-limit *shell-maximum-output-characters*))
+                (output-limit  *shell-maximum-output-characters*))
             (when (eq authorization ':sandboxed)
               (workspace-tool-confined-path context directory-argument
                                             :tool-name "shell.run"))
             (tool-execution-invoke
              (tool-context-execution-runtime context)
              (tool-context-agent context)
-             :tool-name "shell.run"
-             :description description
-             :summary (format nil "~A in ~A" command directory)
+             :tool-name         "shell.run"
+             :description       description
+             :summary           (format nil "~A in ~A" command directory)
              :operation-function
              (lambda ()
                (flet ((run (policy environment)
@@ -293,6 +290,6 @@ with full permissions never refuses one."
                       :writable-roots (task-worktree-command-writable-roots context)))
                    (:full-access
                     (run (external-sandbox-policy) nil)))))
-             :async-p async-p
+             :async-p           async-p
              :completion-policy completion-policy
-             :parent-call-id (tool-context-call-id context)))))))
+             :parent-call-id    (tool-context-call-id context)))))))
