@@ -36,11 +36,11 @@
   "Create the Mistral API key provider for CONFIGURATION."
   (make-instance
    'mistral-api-key-provider
-   :configuration configuration
+   :configuration      configuration
    :credential-manager (mistral-credential-manager-create configuration)
-   :session-id (make-identifier)
-   :display-name "Mistral"
-   :family ':mistral))
+   :session-id         (make-identifier)
+   :display-name       "Mistral"
+   :family             ':mistral))
 
 (defmethod provider-authenticate ((provider mistral-api-key-provider)
                                   &key stream open-browser-p)
@@ -74,7 +74,7 @@
   "Discover Mistral models that support Chat Completions."
   (openai-compatible--fetch-models
    configuration
-   :provider-name "Mistral"
-   :endpoint (mistral-models-endpoint)
+   :provider-name      "Mistral"
+   :endpoint           (mistral-models-endpoint)
    :credential-manager (mistral-credential-manager-create configuration)
-   :entry-predicate #'mistral--chat-model-p))
+   :entry-predicate    #'mistral--chat-model-p))
