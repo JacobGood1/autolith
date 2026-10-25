@@ -74,8 +74,8 @@
 A workspace memory may be derived from global memories, which may in turn rely
 on other global memories, so premises are followed until none are new."
   (let ((histories (data-transfer--histories records))
-        (links (copy-list linked))
-        (changed t))
+        (links     (copy-list linked))
+        (changed   t))
     (loop while changed
           do (setf changed nil)
              (dolist (history histories)
@@ -95,8 +95,10 @@ on other global memories, so premises are followed until none are new."
 (defun data-transfer--session-root (configuration kind)
   "Return the durable log root for a conversation or inference KIND."
   (ecase kind
-    (:conversation (configuration-conversation-root configuration))
-    (:inference (configuration-inference-root configuration))))
+    (:conversation
+     (configuration-conversation-root configuration))
+    (:inference
+     (configuration-inference-root configuration))))
 
 (-> data-transfer--session-identities (pathname) list)
 (defun data-transfer--session-identities (root)
@@ -117,21 +119,21 @@ on other global memories, so premises are followed until none are new."
 (-> data-transfer--session (configuration keyword string &key (:root (option pathname))) list)
 (defun data-transfer--session (configuration kind identifier &key root)
   "Read one session's complete ordered segments, omitting regenerable sidecars."
-  (let* ((root (or root (data-transfer--session-root configuration kind)))
+  (let* ((root     (or root (data-transfer--session-root configuration kind)))
          (identity (conversation-identifier--pathname root identifier))
          (segments
            (loop for pathname in (conversation-storage-pathnames identity)
                  do (data-transfer--check-path root pathname)
-                 collect (list :name (unless (equal pathname identity)
-                                        (file-namestring pathname))
+                 collect (list :name    (unless (equal pathname identity)
+                                           (file-namestring pathname))
                                :records (log-read pathname))))
-         (header (first (getf (first segments) :records))))
+         (header   (first (getf (first segments) :records))))
     (unless (and header (eq (first header) ':conversation)
                  (equal (getf (rest header) :id) identifier))
       (data-transfer--fail identity ':invalid "Session has no valid identity header."))
     (list :kind kind :id identifier
           :directory (getf (rest header) :directory)
-          :segments segments)))
+          :segments  segments)))
 
 (-> data-transfer--child-root (configuration string string) pathname)
 (defun data-transfer--child-root (configuration owner identifier)
@@ -146,20 +148,20 @@ on other global memories, so premises are followed until none are new."
     (dolist (session sessions)
       (when (eq (getf session :kind) ':conversation)
         (let* ((owner (getf session :id))
-               (root (merge-pathnames (format nil "tasks/~A/" owner)
-                                      (config :data-root configuration))))
+               (root  (merge-pathnames (format nil "tasks/~A/" owner)
+                                       (config :data-root configuration))))
           (when (uiop:directory-exists-p root)
             (dolist (directory (uiop:subdirectories root))
-              (let* ((identifier (first (last (pathname-directory directory))))
-                     (identity (conversation-identifier--pathname directory identifier))
+              (let* ((identifier  (first (last (pathname-directory directory))))
+                     (identity    (conversation-identifier--pathname directory identifier))
                      (result-path (merge-pathnames "result.sexp" directory)))
                 (when (conversation-storage-active-pathname identity)
                   (let ((result (when (probe-file result-path) (snapshot-read result-path))))
                     (when (getf result :conversation-file)
                       (setf (getf result :conversation-file) (format nil "task:~A/~A" owner identifier)))
-                    (push (list :owner owner
+                    (push (list :owner   owner
                                 :session (data-transfer--session configuration ':conversation identifier :root directory)
-                                :result result) children))
+                                :result  result) children))
                   (setf excluded (append (conversation-storage-pathnames identity)
                                          (conversation-picker-sidecar-pathnames identity)
                                          (list result-path) excluded)))))))))
@@ -187,11 +189,16 @@ on other global memories, so premises are followed until none are new."
   "Map one validated asset AREA and OWNER to its private root."
   (merge-pathnames
    (ecase area
-     (:images (format nil "conversation-images/~A/" owner))
-     (:input (format nil "conversation-inputs/~A/" owner))
-     (:scratchpad (format nil "scratchpads/~A/" owner))
-     (:tasks (format nil "tasks/~A/" owner))
-     (:context "inferences/objects/"))
+     (:images
+      (format nil "conversation-images/~A/" owner))
+     (:input
+      (format nil "conversation-inputs/~A/" owner))
+     (:scratchpad
+      (format nil "scratchpads/~A/" owner))
+     (:tasks
+      (format nil "tasks/~A/" owner))
+     (:context
+      "inferences/objects/"))
    (config :data-root configuration)))
 
 (-> data-transfer--assets (configuration keyword string) list)
@@ -200,10 +207,10 @@ on other global memories, so premises are followed until none are new."
   (let ((root (data-transfer--asset-root configuration area owner)))
     (data-transfer--check-path (config :data-root configuration) root)
     (loop for pathname in (data-transfer--walk-files
-                          root :excluded-directory-names
-                          (when (eq area ':tasks) '("shell-log")))
+                           root :excluded-directory-names
+                           (when (eq area ':tasks) '("shell-log")))
           collect (list :area area :owner owner
-                        :path (data-transfer--relative-components pathname root)
+                        :path  (data-transfer--relative-components pathname root)
                         :bytes (data-transfer--bytes pathname)))))
 
 (-> data-transfer--map-input-images (t function) t)
@@ -234,8 +241,8 @@ on other global memories, so premises are followed until none are new."
                  (data-transfer--map-input-images
                   (getf state :form)
                   (lambda (name)
-                    (let* ((path (image-input-validate-pathname name))
-                           (bytes (data-transfer--bytes path))
+                    (let* ((path     (image-input-validate-pathname name))
+                           (bytes    (data-transfer--bytes path))
                            (basename (format nil "~A.image" (data-transfer--digest bytes))))
                       (pushnew (list :area ':input :owner owner
                                      :path (list basename) :bytes bytes)
@@ -249,8 +256,10 @@ on other global memories, so premises are followed until none are new."
   (let ((pending (list object)) (strings nil))
     (loop while pending for value = (pop pending) do
       (cond
-        ((stringp value) (push value strings))
-        ((consp value) (push (first value) pending) (push (rest value) pending))))
+        ((stringp value)
+         (push value strings))
+        ((consp value)
+         (push (first value) pending) (push (rest value) pending))))
     strings))
 
 (-> data-transfer--referenced-p (string list) boolean)
@@ -283,7 +292,7 @@ on other global memories, so premises are followed until none are new."
 (-> data-transfer--plans (configuration t) list)
 (defun data-transfer--plans (configuration workspace)
   "Collect workspace plan snapshots, including a surviving legacy plan."
-  (let* ((root (merge-pathnames "plans/" (config :state-root configuration)))
+  (let* ((root  (merge-pathnames "plans/" (config :state-root configuration)))
          (paths (append (when (uiop:directory-exists-p root)
                           (uiop:directory-files root "*.sexp"))
                         (when (probe-file (configuration-legacy-plan-path configuration))
@@ -309,42 +318,42 @@ on other global memories, so premises are followed until none are new."
               (or (null workspace)
                   (equal workspace (workspace-agenda-directory record))))
             (agenda-state-records (agenda--read configuration :lock-held-p t))))
-         (agenda-forms (mapcar #'agenda--record->form agendas))
-         (linked (loop for agenda in agendas append
-                   (loop for item in (workspace-agenda-items agenda)
-                         append (agenda-item-memory-identifiers item))))
+         (agenda-forms   (mapcar #'agenda--record->form agendas))
+         (linked         (loop for agenda in agendas append
+                           (loop for item in (workspace-agenda-items agenda)
+                                 append (agenda-item-memory-identifiers item))))
          (memory-records (data-transfer--log-records
                           (configuration-memory-path configuration) ':memories))
-         (memories (data-transfer--filter-histories
-                    memory-records ':memory
-                    :workspace workspace
-                    :linked (data-transfer--memory-links memory-records
-                                                         :workspace workspace
-                                                         :linked linked)))
-         (papercuts (data-transfer--filter-histories
-                     (data-transfer--log-records (configuration-papercut-path configuration)
-                                                 ':papercuts)
-                     ':papercut :workspace workspace))
+         (memories       (data-transfer--filter-histories
+                          memory-records ':memory
+                          :workspace workspace
+                          :linked    (data-transfer--memory-links memory-records
+                                                                  :workspace workspace
+                                                                  :linked    linked)))
+         (papercuts      (data-transfer--filter-histories
+                          (data-transfer--log-records (configuration-papercut-path configuration)
+                                                      ':papercuts)
+                          ':papercut :workspace workspace))
          (candidates
            (loop for kind in '(:conversation :inference) append
              (loop for identifier in (data-transfer--session-identities
                                        (data-transfer--session-root configuration kind))
                    collect (data-transfer--session configuration kind identifier))))
-         (sessions (remove-if-not
-                    (lambda (session)
-                      (or (null workspace) (equal workspace (getf session :directory))))
-                    candidates))
-         (child-data (multiple-value-list (data-transfer--children configuration sessions)))
-         (children (first child-data))
-         (excluded (second child-data))
-         (files nil)
-         (plans (data-transfer--plans configuration workspace))
-         (states (data-transfer--states configuration sessions)))
+         (sessions       (remove-if-not
+                          (lambda (session)
+                            (or (null workspace) (equal workspace (getf session :directory))))
+                          candidates))
+         (child-data     (multiple-value-list (data-transfer--children configuration sessions)))
+         (children       (first child-data))
+         (excluded       (second child-data))
+         (files          nil)
+         (plans          (data-transfer--plans configuration workspace))
+         (states         (data-transfer--states configuration sessions)))
     (dolist (session sessions)
       (when (eq (getf session :kind) ':conversation)
         (dolist (area '(:images :scratchpad :tasks))
           (setf files (append files (data-transfer--assets
-                                    configuration area (getf session :id)))))))
+                                     configuration area (getf session :id)))))))
     (setf files
           (remove-if (lambda (file)
                        (and (eq (getf file :area) ':tasks)
@@ -353,7 +362,7 @@ on other global memories, so premises are followed until none are new."
                                      (getf file :path)) excluded :test #'equal))) files))
     (dolist (child children)
       (setf files (append files (data-transfer--assets
-                                configuration ':scratchpad (getf (getf child :session) :id)))))
+                                 configuration ':scratchpad (getf (getf child :session) :id)))))
     (let ((strings (append
                     (data-transfer--strings
                      (list sessions children memories papercuts agenda-forms plans states))
@@ -361,14 +370,14 @@ on other global memories, so premises are followed until none are new."
                           for text = (ignore-errors
                                        (utf8-octets-to-string (getf file :bytes)))
                           when text collect text)))
-          (root (merge-pathnames "inferences/objects/" (config :data-root configuration))))
+          (root    (merge-pathnames "inferences/objects/" (config :data-root configuration))))
       (when (uiop:directory-exists-p root)
         (dolist (path (uiop:directory-files root "*.txt"))
           (when (or (null workspace)
                     (data-transfer--referenced-p (pathname-name path) strings))
             (data-transfer--check-path (config :data-root configuration) path)
             (push (list :area ':context :owner (pathname-name path)
-                        :path (list (file-namestring path))
+                        :path  (list (file-namestring path))
                         :bytes (data-transfer--bytes path)) files)))))
     (let* ((workspaces
              (remove-duplicates
@@ -384,7 +393,7 @@ on other global memories, so premises are followed until none are new."
           (data-transfer--collect-inputs states)
         (let ((knowledge (data-transfer--collect-knowledge configuration workspace)))
           (list :format ':autolith-data :version *data-transfer-version*
-                :workspace workspace
+                :workspace  workspace
                 :workspaces (sort (remove-duplicates
                                    (append workspaces
                                            (data-transfer--knowledge-workspaces
