@@ -204,9 +204,9 @@
       base-revision))))
 
 (-> scratchpad-resource--delete
-    (scratchpad-resource tool-context non-empty-string list)
+    (scratchpad-resource tool-context &key (:base-revision non-empty-string) (:operations list))
     workspace-file-observation)
-(defun scratchpad-resource--delete (resource context base-revision operations)
+(defun scratchpad-resource--delete (resource context &key base-revision operations)
   "Delete RESOURCE after exact BASE-REVISION validation and return its new state."
   (unless (= (length operations) 1)
     (error 'tool-error
@@ -284,8 +284,9 @@
          (error 'tool-error
                 :message   "Operation scratchpad-delete must be the only resource edit operation."
                 :tool-name "resource.edit"))
-       (scratchpad-resource--delete
-        resource context base-revision operations))
+       (scratchpad-resource--delete resource context
+                                    :base-revision base-revision
+                                    :operations    operations))
       (t
        (let ((base-observation
                (scratchpad-resource--base-observation
