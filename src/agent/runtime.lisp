@@ -1700,6 +1700,10 @@ loop, so compaction ahead of the user message shares the turn's budget."
          :messages       (peer-message-take-context agent)
          :request-number (1+ request-number))
         (setf first-request-p nil))
+      (conversation-prepare-provider-request
+       (agent-conversation agent)
+       :identity (list (provider-family (agent-provider agent))
+                       (config :model (agent-configuration agent))))
       (incf request-number)
       (let ((output-limit
               (agent-observer-status

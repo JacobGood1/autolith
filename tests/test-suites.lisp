@@ -586,6 +586,10 @@
   test-conversation-identifier-migration-validation
   test-conversation-identifier-migration-resumption)
 
+(define-test-suite precompaction
+  test-precompaction-drops-failed-exchanges
+  test-precompaction-cold-requests)
+
 (define-test-suite conversation
   test-conversation-image-input
   test-conversation-inherited-reference

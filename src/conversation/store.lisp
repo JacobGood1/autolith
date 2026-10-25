@@ -260,6 +260,21 @@
     :type     list
     :documentation
     "Process-local context identities and history boundaries, without instruction bodies.")
+   (failed-call-ids
+    :initform      (make-hash-table :test #'equal)
+    :reader        conversation-failed-call-ids
+    :type          hash-table
+    :documentation "The call identifiers whose durable tool result failed, for mechanical precompaction.")
+   (request-identity
+    :initform      nil
+    :accessor      conversation-request-identity
+    :type          list
+    :documentation "The provider family and model of the latest provider request in this process.")
+   (request-started-at
+    :initform      nil
+    :accessor      conversation-request-started-at
+    :type          (option integer)
+    :documentation "When the latest provider request in this process started, as universal time.")
    (image-artifact-names
     :initform      (make-hash-table :test #'equal)
     :reader        conversation-image-artifact-names
@@ -2046,6 +2061,8 @@ transcript show automatic INPUT as a short notice."
                     (list :wire-json (json-encode item)))))
                 (conversation--remember-image-attachments conversation attachments)
                 (setf retained-p t)
+                (when (eq category ':failure)
+                  (conversation-note-failed-call conversation call-id))
                 (conversation--append-input-item conversation item))
                (:next-response
                 (conversation--append-ephemeral-input-item
@@ -2794,6 +2811,8 @@ later picker searches read it without scanning the log."
        conversation picker-search-message))
     (when (eq kind :goal)
       (setf (conversation-latest-goal-record conversation) record))
+    (when (and (eq kind :tool-result) (eq (getf properties :status) ':error))
+      (conversation-note-failed-call conversation (getf properties :call-id)))
     (when (integerp sequence)
       (setf (conversation-next-sequence conversation)
             (max (conversation-next-sequence conversation) (1+ sequence))))
