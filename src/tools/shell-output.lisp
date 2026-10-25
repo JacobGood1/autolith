@@ -4,9 +4,9 @@
 
 (defclass shell-command-tool-result (tool-result)
   ((details
-    :initarg :details
-    :reader tool-result-details
-    :type list
+    :initarg       :details
+    :reader        tool-result-details
+    :type          list
     :documentation "Portable execution and retained-log metadata, without log contents."))
   (:documentation "A bounded shell preview with independently readable retained output."))
 
@@ -16,15 +16,15 @@
 (defun shell-command-result (content details success-p &key code denied-p)
   "Return a bounded shell outcome without spilling command output to context storage."
   (make-instance 'shell-command-tool-result
-                 :content (bounded-string content :limit 8000)
-                 :details details
+                 :content    (bounded-string content :limit 8000)
+                 :details    details
                  :error-code (or code
                                  (when (and (not success-p)
                                             (integerp (getf details :exit-code))
                                             (not (zerop (getf details :exit-code))))
                                    ':nonzero-exit))
-                 :denied-p denied-p
-                 :success-p success-p))
+                 :denied-p   denied-p
+                 :success-p  success-p))
 
 (-> shell-output--render-capture
     (cl-exec-sandbox:sandbox-capture string string &key (:budget (integer 0))) string)
@@ -53,10 +53,10 @@
      &key (:diagnostic (option string))) string)
 (defun shell-output--render-result (result artifact budget &key diagnostic)
   "Render RESULT with bounded samples, giving separate stderr most of BUDGET."
-  (let* ((output (cl-exec-sandbox:sandbox-result-output-capture result))
-         (error-output (cl-exec-sandbox:sandbox-result-error-capture result))
-         (separate-p (and error-output t))
-         (budget (min 6000 budget))
+  (let* ((output        (cl-exec-sandbox:sandbox-result-output-capture result))
+         (error-output  (cl-exec-sandbox:sandbox-result-error-capture result))
+         (separate-p    (and error-output t))
+         (budget        (min 6000 budget))
          (output-budget (if separate-p (floor budget 3) budget)))
     (with-output-to-string (stream)
       (if (sandbox-result-exit-code result)
@@ -93,7 +93,7 @@
      &key environment context (merge-output-p t))
   "Run one authorized command after allocating its private execution-owned capture."
   (sb-sys:without-interrupts
-    (let* ((job *tool-execution-current-job*)
+    (let* ((job      *tool-execution-current-job*)
            (artifact (shell-log-allocate context :job job :merge-output-p merge-output-p)))
       (unwind-protect
            (sb-sys:with-local-interrupts
@@ -107,10 +107,10 @@
                              :policy policy :working-directory directory :environment environment
                              :timeout timeout :merge-output-p merge-output-p
                              :output-limit 0 :error-output-limit 0
-                             :capture-directory (shell-log-capture-directory artifact)
-                             :retain-output-p t
+                             :capture-directory  (shell-log-capture-directory artifact)
+                             :retain-output-p    t
                              :capture-byte-limit (shell-log-capture-byte-limit artifact)
-                             :cancel-function (when job (lambda () (job-cancellation-requested-p job)))
+                             :cancel-function    (when job (lambda () (job-cancellation-requested-p job)))
                              :capture-created-function
                              (lambda (capture-result)
                                (shell-log-record-capture artifact capture-result :closed-p nil))
@@ -128,10 +128,10 @@
                                 (tool-failure diagnostic)))))))
                (shell-command-result
                 (shell-output--render-result result artifact output-limit :diagnostic diagnostic)
-                (list :exit-code (sandbox-result-exit-code result)
-                      :execution-status (cl-exec-sandbox:sandbox-result-status result)
-                      :shell-logs (list (shell-log--public-metadata
-                                         (shell-log-artifact-metadata artifact)))
+                (list :exit-code          (sandbox-result-exit-code result)
+                      :execution-status   (cl-exec-sandbox:sandbox-result-status result)
+                      :shell-logs         (list (shell-log--public-metadata
+                                                 (shell-log-artifact-metadata artifact)))
                       :capture-diagnostic diagnostic)
                 (and (null diagnostic)
                      (eql (sandbox-result-exit-code result) 0)
