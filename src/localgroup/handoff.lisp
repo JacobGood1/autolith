@@ -98,9 +98,12 @@
   "Return true when VALUE is NIL or a valid conversation identifier."
   (or (null value)
       (and (stringp value)
-           (ignore-errors
-             (conversation-identifier-validate-path-component value)
-             t))))
+           (handler-case
+               (progn
+                 (conversation-identifier-validate-path-component value)
+                 t)
+             (conversation-identifier-error ()
+               nil)))))
 
 (-> localgroup-handoff--record-p (t) boolean)
 (defun localgroup-handoff--record-p (record)
@@ -446,6 +449,7 @@ detach is immediate and never interrupts session work."
              session-id)
         (unless completed-p
           (when process
+            ; mallet:suppress no-ignore-errors -- best-effort stop of a failed launch before deleting its ticket
             (ignore-errors
               (funcall *localgroup-handoff-stop-function* process pathname)))
           (image-daemon:handoff-ticket-delete pathname))))))
@@ -510,17 +514,21 @@ detach is immediate and never interrupts session work."
           (platform-process-alive-p *platform* pid))
     (error () nil)))
 
+(-> localgroup-handoff--process-object-pid (t) (option integer))
 (defun localgroup-handoff--process-object-pid (process)
   "Return PROCESS's adapter PID."
   (platform-process-object-pid *platform* process))
 
+(-> localgroup-handoff--process-object-alive-p (t) boolean)
 (defun localgroup-handoff--process-object-alive-p (process)
   "Return whether PROCESS is alive through its platform adapter."
-  (platform-process-object-alive-p *platform* process))
+  (and (platform-process-object-alive-p *platform* process) t))
 
+(-> localgroup-handoff--terminate-process-object (t t) null)
 (defun localgroup-handoff--terminate-process-object (process force-p)
-  "Terminate PROCESS through its platform adapter."
-  (platform-terminate-process-object *platform* process :force force-p))
+  "Terminate PROCESS through its platform adapter, forcefully when FORCE-P."
+  (platform-terminate-process-object *platform* process :force force-p)
+  nil)
 
 (-> localgroup-handoff--stop-replacement (t pathname) boolean)
 (defun localgroup-handoff--stop-replacement (process handoff-pathname)
