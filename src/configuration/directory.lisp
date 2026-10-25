@@ -11,7 +11,6 @@
 (defparameter *directory-configuration-path-maximum-characters* 4096
   "The maximum character length of one trusted directory pathname.")
 
-
 (-> configuration-directory-mcp-path (pathname) pathname)
 (defun configuration-directory-mcp-path (directory)
   "Return the inherited native MCP pathname beneath trusted DIRECTORY."
@@ -35,25 +34,25 @@
     (mcp-configuration--error
      "A trusted directory must be a bounded non-empty pathname string."
      :pathname manifest-pathname
-     :field ':directories))
+     :field    ':directories))
   (let ((expanded (configuration--expanded-working-directory value)))
     (unless (uiop:absolute-pathname-p expanded)
       (mcp-configuration--error
        (format nil "Trusted directory ~S must be absolute or begin with ~~/."
                value)
        :pathname manifest-pathname
-       :field ':directories))
+       :field    ':directories))
     (handler-case
         (let ((directory
                 (uiop:directory-exists-p
                  (uiop:ensure-pathname (platform-pathname expanded)
                                        :ensure-directory t
-                                       :want-non-wild t))))
+                                       :want-non-wild    t))))
           (unless directory
             (mcp-configuration--error
              (format nil "Trusted directory ~S does not exist." value)
              :pathname manifest-pathname
-             :field ':directories))
+             :field    ':directories))
           (uiop:ensure-directory-pathname (platform-truename *platform* directory)))
       (mcp-configuration-error (condition)
         (error condition))
@@ -62,8 +61,8 @@
          (format nil "Could not resolve trusted directory ~S: ~A"
                  value cause)
          :pathname manifest-pathname
-         :field ':directories
-         :cause cause)))))
+         :field    ':directories
+         :cause    cause)))))
 
 (-> directory-configuration-read-trusted-directories (configuration) list)
 (defun directory-configuration-read-trusted-directories (configuration)
@@ -82,7 +81,7 @@
          (format nil "Directory scopes must use version ~D."
                  *directory-configuration-version*)
          :pathname pathname
-         :field ':version))
+         :field    ':version))
       (let ((directories
               (mcp-configuration--property
                form :directories :required-p t :pathname pathname)))
@@ -90,22 +89,22 @@
           (mcp-configuration--error
            "Directory-scope :DIRECTORIES must be a proper list."
            :pathname pathname
-           :field ':directories))
+           :field    ':directories))
         (when (> (length directories)
                  *directory-configuration-maximum-directories*)
           (mcp-configuration--error
            (format nil "Directory-scope :DIRECTORIES exceeds the limit of ~D."
                    *directory-configuration-maximum-directories*)
            :pathname pathname
-           :field ':directories))
+           :field    ':directories))
         (let ((result nil)
-              (seen (make-hash-table :test #'equal)))
+              (seen   (make-hash-table :test #'equal)))
           (dolist (value directories)
             (unless (stringp value)
               (mcp-configuration--error
                "Every trusted directory must be a pathname string."
                :pathname pathname
-               :field ':directories))
+               :field    ':directories))
             (let* ((directory
                      (directory-configuration--canonical-directory value pathname))
                    (key (namestring directory)))
@@ -113,7 +112,7 @@
                 (mcp-configuration--error
                  (format nil "Duplicate trusted directory ~S." value)
                  :pathname pathname
-                 :field ':directories))
+                 :field    ':directories))
               (setf (gethash key seen) t)
               (setf result (append result (list directory)))))
           result)))))
@@ -159,7 +158,7 @@ Anchors are ordered from the outermost directory to the nearest directory."
            (position
              (position name definitions
                        :test #'string=
-                       :key #'mcp-server-configuration-name)))
+                       :key  #'mcp-server-configuration-name)))
       (if position
           (setf (nth position definitions) addition)
           (setf definitions (append definitions (list addition)))))))
@@ -182,7 +181,7 @@ Anchors are ordered from the outermost directory to the nearest directory."
    (lambda (definition)
      (make-instance 'mcp-server-registration
                     :configuration definition
-                    :source source))
+                    :source        source))
    definitions))
 
 (-> configuration-site-mcp-path (configuration) (option pathname))
@@ -199,7 +198,7 @@ Anchors are ordered from the outermost directory to the nearest directory."
             (let ((pathname (configuration-site-mcp-path configuration)))
               (when pathname
                 (mcp-configuration-read-path pathname))))
-          (global-definitions (mcp-configuration-read configuration))
+          (global-definitions    (mcp-configuration-read configuration))
           (directory-definitions (directory-configuration-read-mcp configuration)))
       (with-lock-held (*mcp-server-registry-lock*)
         (let ((candidate
