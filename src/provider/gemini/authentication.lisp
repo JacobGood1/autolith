@@ -54,12 +54,17 @@
 
 ;;;; -- Shared Browser OAuth Adapter --
 
+(-> gemini-oauth--fail
+    (&key (:stage keyword) (:message string) (:status (option integer))
+          (:code (option string)) (:response (option string)))
+    nil)
 (defun gemini-oauth--fail (&key stage message status code response)
   "Signal a structured Gemini OAuth failure containing only safe metadata."
   (error 'gemini-oauth-error
          :message message :stage stage :status status :code code
          :response response))
 
+(-> gemini-oauth--request-wrapper (function) t)
 (defun gemini-oauth--request-wrapper (thunk)
   "Run a Gemini token request under the provider response deadline."
   (handler-case
@@ -69,6 +74,10 @@
        :stage   ':token-request
        :message "Google OAuth exceeded its response deadline."))))
 
+(-> gemini-oauth--client
+    (&key (:request-function function) (:client-id string) (:authorization-endpoint string)
+          (:token-endpoint string) (:token-parameters list))
+    browser-authentication-client)
 (defun gemini-oauth--client
     (&key (request-function #'gemini-oauth--request)
           (client-id (gemini-oauth-client-id))
@@ -114,15 +123,18 @@
                          :client-id client-id :token-parameters nil)
    :redirect-uri redirect-uri :state state :code-challenge code-challenge))
 
+(-> gemini-oauth-loopback-open () (values t string))
 (defun gemini-oauth-loopback-open ()
   "Open an ephemeral IPv4 loopback listener and return it with its redirect URI."
   (browser-authentication-loopback-open
    (gemini-oauth--client :token-parameters nil)))
 
+(-> gemini-oauth-loopback-close (t) (values))
 (defun gemini-oauth-loopback-close (listener)
   "Close a Gemini OAuth loopback listener."
   (browser-authentication-loopback-close listener))
 
+(-> gemini-oauth-await-loopback (t string &key (:timeout real)) string)
 (defun gemini-oauth-await-loopback (listener expected-state &key
                                                    (timeout *gemini-oauth-callback-timeout*))
   "Wait at most TIMEOUT seconds for a valid Gemini loopback callback."
@@ -132,6 +144,7 @@
 
 ;;;; -- Token Exchange and Refresh --
 
+(-> gemini-oauth--request (&key (:url string) (:content string)) t)
 (defun gemini-oauth--request (&key url content)
   "POST one form-encoded request to Google's OAuth token endpoint."
   (browser-authentication-request
@@ -139,12 +152,14 @@
    :headers         (list (cons "User-Agent" (provider-user-agent)))
    :request-wrapper #'gemini-oauth--request-wrapper))
 
+(-> gemini-oauth--token-document (function string list keyword) json-object)
 (defun gemini-oauth--token-document (request-function endpoint parameters stage)
   "POST PARAMETERS and validate the JSON token response for STAGE."
   (browser-authentication-token-document
    (gemini-oauth--client :request-function request-function :token-parameters nil)
    :endpoint endpoint :parameters parameters :stage stage))
 
+(-> gemini-oauth--credentials-from-document (credential-manager json-object) oauth-credentials)
 (defun gemini-oauth--credentials-from-document (manager document)
   "Validate login token DOCUMENT and return persisted Gemini credentials."
   (let* ((access-token  (json-get document "access_token"))
@@ -169,6 +184,11 @@
                    (credential-source-pathname
                     (credential-manager-primary-source manager)))))
 
+(-> gemini-oauth-exchange-code
+    (credential-manager string string string
+     &key (:request-function function) (:client-id string)
+          (:client-secret (option string)) (:token-endpoint string))
+    oauth-credentials)
 (defun gemini-oauth-exchange-code
     (manager code verifier redirect-uri &key
              (request-function #'gemini-oauth--request)
@@ -207,12 +227,20 @@
 
 ;;;; -- Public Login Flow --
 
+(-> gemini-oauth--display-login
+    (string &key (:redirect-uri string) (:timeout real) (:stream (or stream boolean)))
+    (option string))
 (defun gemini-oauth--display-login (url &key redirect-uri timeout stream)
   "Print Gemini browser login instructions."
   (declare (ignore redirect-uri))
   (format stream "~&Sign in with Gemini in your browser:~%  ~A~%~%Waiting up to ~A seconds for the local callback.~%"
           url timeout))
 
+(-> gemini-oauth-login
+    (credential-manager
+     &key (:stream stream) (:open-browser-p boolean) (:browser-function function)
+          (:callback-function function) (:request-function function) (:timeout real))
+    oauth-credentials)
 (defun gemini-oauth-login
     (manager &key (stream *standard-output*) (open-browser-p t)
              (browser-function #'device-authentication-open-browser)
