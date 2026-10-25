@@ -451,8 +451,10 @@ Conflicted facts come first, then the rest by predicate and text."
   '("entity" "string" "number" "boolean" "instant" "date" "duration" "quantity")
   "The argument type names a predicate definition accepts.")
 
-(-> memory-knowledge--fields (hash-table string list list) null)
-(defun memory-knowledge--fields (operation name allowed required)
+(-> memory-knowledge--fields
+    (hash-table string &key (:allowed list) (:required list))
+    null)
+(defun memory-knowledge--fields (operation name &key allowed required)
   "Require OPERATION, a NAME operation, to use only ALLOWED and all REQUIRED fields."
   (loop for field being the hash-keys of operation
         unless (member field allowed :test #'string=)
@@ -486,8 +488,8 @@ Conflicted facts come first, then the rest by predicate and text."
 (defun memory-knowledge--define (configuration operation)
   "Apply one predicate-define OPERATION and describe the result."
   (memory-knowledge--fields operation "predicate-define"
-                            '("op" "predicate" "arguments" "key" "template" "description" "scope")
-                            '("predicate" "arguments"))
+                            :allowed  '("op" "predicate" "arguments" "key" "template" "description" "scope")
+                            :required '("predicate" "arguments"))
   (let ((schema
           (knowledge-make-schema
            :predicate   (gethash "predicate" operation)
@@ -565,9 +567,9 @@ Conflicted facts come first, then the rest by predicate and text."
 (defun memory-knowledge--assert (context operation)
   "Apply one fact-assert OPERATION, one support per source, and describe the result."
   (memory-knowledge--fields operation "fact-assert"
-                            '("op" "predicate" "arguments" "negated" "sources" "basis"
-                              "valid-from" "valid-until" "scope")
-                            '("predicate" "arguments"))
+                            :allowed  '("op" "predicate" "arguments" "negated" "sources" "basis"
+                                        "valid-from" "valid-until" "scope")
+                            :required '("predicate" "arguments"))
   (let* ((configuration (tool-context-configuration context))
          (conversation  (tool-context-conversation context))
          (predicate     (gethash "predicate" operation))
@@ -729,7 +731,9 @@ never the time a later assertion cites it."
 (-> memory-knowledge--retract (tool-context hash-table) string)
 (defun memory-knowledge--retract (context operation)
   "Apply one fact-retract OPERATION and describe the result."
-  (memory-knowledge--fields operation "fact-retract" '("op" "id" "reason") '("id"))
+  (memory-knowledge--fields operation "fact-retract"
+                            :allowed  '("op" "id" "reason")
+                            :required '("id"))
   (let ((retracted (knowledge-retract (tool-context-configuration context)
                                       (gethash "id" operation)
                                       :reason (gethash "reason" operation)
@@ -742,9 +746,9 @@ never the time a later assertion cites it."
 (defun memory-knowledge--propose (context operation)
   "Apply one rule-propose OPERATION and describe the result."
   (memory-knowledge--fields operation "rule-propose"
-                            '("op" "id" "premises" "guards" "bindings" "conclusion"
-                              "description" "scope")
-                            '("id" "premises" "conclusion"))
+                            :allowed  '("op" "id" "premises" "guards" "bindings" "conclusion"
+                                        "description" "scope")
+                            :required '("id" "premises" "conclusion"))
   (let ((configuration (tool-context-configuration context))
         (scope         (memory-knowledge--scope operation)))
     (multiple-value-bind (identifier version new-p)
@@ -832,8 +836,8 @@ never the time a later assertion cites it."
 (defun memory-knowledge--define-method (context operation)
   "Apply one method-define OPERATION and describe the result."
   (memory-knowledge--fields operation "method-define"
-                            '("op" "id" "task" "when" "steps" "description" "scope")
-                            '("id" "task" "steps"))
+                            :allowed  '("op" "id" "task" "when" "steps" "description" "scope")
+                            :required '("id" "task" "steps"))
   (multiple-value-bind (identifier changed-p)
       (knowledge-define-method (tool-context-configuration context)
                                :id                  (gethash "id" operation)
@@ -850,9 +854,9 @@ never the time a later assertion cites it."
 (defun memory-knowledge--define-contract (context operation)
   "Propose a contract and admit its exact content only after command authorization."
   (memory-knowledge--fields operation "contract-define"
-                            '("op" "id" "tool" "when" "requires" "effects" "observes"
-                              "accepts" "description" "scope")
-                            '("id" "tool"))
+                            :allowed  '("op" "id" "tool" "when" "requires" "effects" "observes"
+                                        "accepts" "description" "scope")
+                            :required '("id" "tool"))
   (let* ((configuration (tool-context-configuration context))
          (scope         (memory-knowledge--scope operation))
          (workspace     (knowledge--owner configuration scope)))
