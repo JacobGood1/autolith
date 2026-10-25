@@ -197,7 +197,7 @@
                 --no-sysinit \
                 --no-userinit \
                 --non-interactive \
-                --eval '(require :asdf)' \
+                --load "${autolith.runtime.asdfFasl}/asdf.${autolith.runtime.faslExt}" \
                 --eval '(asdf:load-system :colorlisp)' \
                 --eval '(unless (find :number (colorlisp:highlight-spans "fn main() { 42 }" :language :rust) :key (function colorlisp:span-category)) (error "Packaged ColorLisp failed to classify a Rust number."))'
               touch "$out"
@@ -212,7 +212,7 @@
               mkdir -p "$HOME"
               "${autolith.runtime}/bin/sbcl" \
                 --noinform --no-sysinit --no-userinit --non-interactive \
-                --eval '(require :asdf)' \
+                --load "${autolith.runtime.asdfFasl}/asdf.${autolith.runtime.faslExt}" \
                 --eval '(asdf:load-system :autolith/tests)' \
                 --eval '(let ((result (autolith::acp-launcher-tests--initialize "${autolith}/bin/autolith" :arguments (quote ("acp")) :directory (uiop:ensure-directory-pathname (uiop:getenv "TMPDIR"))))) (assert (equal "autolith" (agentcomms:json-get (agentcomms:json-get result "agentInfo") "name"))) (assert (agentcomms:acp-capability-enabled-p (agentcomms:json-get result "agentCapabilities") "loadSession")))'
               touch "$out"

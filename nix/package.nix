@@ -675,6 +675,8 @@ let
       mkdir -p "$out/.qlot"
       cat > "$out/.qlot/setup.lisp" <<'LISP'
       (require :asdf)
+      ;; Match the ASDF used to compile the Nix-provided dependency FASLs.
+      (load (uiop:getenv "ASDF"))
       (let* ((source-root (uiop:getenv "AUTOLITH_NIX_SOURCE_ROOT"))
              (cache-root  (uiop:getenv "AUTOLITH_ASDF_CACHE")))
         (when (and source-root cache-root)
