@@ -146,9 +146,9 @@
 (-> memory-manager--query-line (memory-manager integer) string)
 (defun memory-manager--query-line (manager width)
   "Show the query's editable tail without splitting a grapheme."
-  (let* ((query (clinedi:selection-session-query (memory-manager-session manager)))
+  (let* ((query     (clinedi:selection-session-query (memory-manager-session manager)))
          (available (max 1 (- width 9)))
-         (shown query))
+         (shown     query))
     (when (> (text-cell-width query) available)
       (let ((start (length query)))
         (loop while (plusp start)
@@ -169,15 +169,15 @@
             (when item
               (application-memory-manager-detail
                (memory-manager-application manager) item))))
-    (let* ((rows (memory-manager--wrap
-                  terminal
-                  (or (memory-manager-detail manager)
-                      (list (terminal-span ':hint "No matching memories.
+    (let* ((rows        (memory-manager--wrap
+                         terminal
+                         (or (memory-manager-detail manager)
+                             (list (terminal-span ':hint "No matching memories.
 Use / to search, Tab to change kind, or n to create a note.")))
-                  width))
+                         width))
            (body-height (max 1 (1- height)))
-           (offset (min (max 0 (memory-manager-scroll manager))
-                        (max 0 (- (length rows) body-height)))))
+           (offset      (min (max 0 (memory-manager-scroll manager))
+                             (max 0 (- (length rows) body-height)))))
       (setf (memory-manager-scroll manager) offset
             (memory-manager-detail-height manager) body-height)
       (cons (memory-manager--line
@@ -194,7 +194,7 @@ Use / to search, Tab to change kind, or n to create a note.")))
 (defun memory-manager--list-rows (manager terminal &key width height)
   "Render a window of compact two-row items, not a transcript dump."
   (let* ((selector (clinedi:selection-session-selector (memory-manager-session manager)))
-         (visible (max 1 (floor (1- height) 2))))
+         (visible  (max 1 (floor (1- height) 2))))
     (unless (= visible (selector-visible-count selector))
       (reinitialize-instance selector :visible-count visible))
     (multiple-value-bind (items start selected) (clinedi:selector-window selector)
@@ -222,15 +222,18 @@ Use / to search, Tab to change kind, or n to create a note.")))
                            (memory-manager-item-kind item) (memory-manager-item-scope item)
                            (memory-manager-item-status item))
                    width :style (case (memory-manager-item-status item)
-                                  ((:current :supported) ':dim)
-                                  ((:stale :conflicted :expired) ':notice)
-                                  (otherwise ':hint)))))
+                                  ((:current :supported)
+                                   ':dim)
+                                  ((:stale :conflicted :expired)
+                                   ':notice)
+                                  (otherwise
+                                   ':hint)))))
            (list (memory-manager--line terminal "No matches" width :style ':hint)))))))
 
 (-> memory-manager--browse-frame (memory-manager terminal &key (:width integer) (:height integer)) list)
 (defun memory-manager--browse-frame (manager terminal &key width height)
   "Compose a split browser on wide screens and a list/detail stack on narrow ones."
-  (let* ((legend (memory-manager--legend manager terminal width))
+  (let* ((legend      (memory-manager--legend manager terminal width))
          (header
            (list
             (memory-manager--line
@@ -243,9 +246,12 @@ Use / to search, Tab to change kind, or n to create a note.")))
              terminal
              (format nil "Kind  ~A"
                      (ecase (memory-manager-kind manager)
-                       (:all "[All] Notes Facts")
-                       (:note "All [Notes] Facts")
-                       (:fact "All Notes [Facts]")))
+                       (:all
+                        "[All] Notes Facts")
+                       (:note
+                        "All [Notes] Facts")
+                       (:fact
+                        "All Notes [Facts]")))
              width :style ':strong)
             (memory-manager--line
              terminal (format nil "Scope  ~A" (string-downcase (symbol-name (memory-manager-scope manager))))
@@ -255,21 +261,21 @@ Use / to search, Tab to change kind, or n to create a note.")))
              (memory-manager--query-line manager width)
              width :style (if (eq (memory-manager-focus manager) ':search) ':code ':dim))))
          (body-height (max 1 (- height (length header) (length legend) 1)))
-         (split-p (>= width 76))
-         (list-width (min 40 (floor (* width 0.4))))
+         (split-p     (>= width 76))
+         (list-width  (min 40 (floor (* width 0.4))))
          (body
            (if split-p
-              (let ((left (memory-manager--list-rows manager terminal :width list-width :height body-height))
+              (let ((left  (memory-manager--list-rows manager terminal :width list-width :height body-height))
                     (right (memory-manager--detail-rows manager terminal :width (- width list-width 3) :height body-height)))
                  (loop for index below body-height
                        collect (concatenate 'string
                                             (memory-manager--pad (or (nth index left) "") list-width)
                                             (terminal--render-spans terminal (list (terminal-span ':dim " │ ")))
                                             (or (nth index right) ""))))
-               (let ((rows (if (eq (memory-manager-focus manager) ':detail)
-                              (memory-manager--detail-rows manager terminal :width width :height body-height)
-                              (memory-manager--list-rows manager terminal :width width :height body-height))))
-                 (loop for index below body-height collect (or (nth index rows) ""))))))
+              (let ((rows (if (eq (memory-manager-focus manager) ':detail)
+                             (memory-manager--detail-rows manager terminal :width width :height body-height)
+                             (memory-manager--list-rows manager terminal :width width :height body-height))))
+                (loop for index below body-height collect (or (nth index rows) ""))))))
     (append header body
             (list (if (memory-manager-message manager)
                       (first (memory-manager--wrap terminal (memory-manager-message manager) width))
@@ -297,7 +303,7 @@ Use / to search, Tab to change kind, or n to create a note.")))
 (-> memory-manager--begin-edit (memory-manager &key (:new-p boolean)) null)
 (defun memory-manager--begin-edit (manager &key new-p)
   "Open a separate note form without touching the conversation composer."
-  (let* ((item (unless new-p (memory-manager--selected manager)))
+  (let* ((item   (unless new-p (memory-manager--selected manager)))
          (memory (and item (memory-manager-item-data item))))
     (cond
       ((and item (not (application-memory-manager-editable-p item)))
@@ -336,20 +342,20 @@ Use / to search, Tab to change kind, or n to create a note.")))
                    (push (memory-manager--line terminal
                                               (string-downcase (symbol-name (memory-manager-edit-scope manager)))
                                               width :style ':code) rows))
-                 (let* ((editor (nth (if (= field 3) 2 field) (memory-manager-editors manager)))
-                        (text (sanitize-text (line-editor-text editor)))
+                 (let* ((editor  (nth (if (= field 3) 2 field) (memory-manager-editors manager)))
+                        (text    (sanitize-text (line-editor-text editor)))
                         (display (terminal--render-spans terminal (list (terminal-span ':code text)))))
                    (multiple-value-bind (wrapped row column)
                        (clinedi:wrap-styled-editor-rows text display
-                                                       :cursor (min (length text) (line-editor-cursor editor))
+                                                       :cursor  (min (length text) (line-editor-cursor editor))
                                                        :columns width)
                      (when (= field (memory-manager-field manager))
                        (setf cursor-row (+ (length rows) row) cursor-column column))
                      (dolist (line wrapped) (push (second line) rows))))))
-    (let* ((ordered (nreverse rows))
+    (let* ((ordered   (nreverse rows))
            (available (max 1 (- height (length legend) 1)))
-           (offset (max 0 (- cursor-row (1- available))))
-           (visible (subseq ordered offset (min (length ordered) (+ offset available)))))
+           (offset    (max 0 (- cursor-row (1- available))))
+           (visible   (subseq ordered offset (min (length ordered) (+ offset available)))))
       (values
        (append visible (make-list (max 0 (- available (length visible))) :initial-element "")
                (list (if (memory-manager-message manager)
@@ -362,14 +368,14 @@ Use / to search, Tab to change kind, or n to create a note.")))
   "Save a complete validated note, keeping the draft on any recoverable failure."
   (destructuring-bind (title tags content scope) (memory-manager--form-values manager)
     (let* ((arguments (list :title title :content content
-                            :tags (remove "" (mapcar (lambda (tag) (string-trim '(#\Space #\Tab) tag))
+                            :tags  (remove "" (mapcar (lambda (tag) (string-trim '(#\Space #\Tab) tag))
                                                       (uiop:split-string tags :separator '(#\,)))
-                                          :test #'string=)
+                                           :test #'string=)
                             :scope scope))
-           (memory (if (memory-manager-edit-item manager)
-                       (apply #'application-memory-manager-save
-                              (memory-manager-application manager) (memory-manager-edit-item manager) arguments)
-                       (apply #'application-memory-manager-create (memory-manager-application manager) arguments))))
+           (memory    (if (memory-manager-edit-item manager)
+                          (apply #'application-memory-manager-save
+                                 (memory-manager-application manager) (memory-manager-edit-item manager) arguments)
+                          (apply #'application-memory-manager-create (memory-manager-application manager) arguments))))
       (setf (memory-manager-mode manager) ':browse
             (memory-manager-focus manager) ':list
             (memory-manager-kind manager) ':note
@@ -387,12 +393,18 @@ Use / to search, Tab to change kind, or n to create a note.")))
   "Apply line or page movement to the detail pane."
   (let ((page (memory-manager-detail-height manager)))
     (case event
-      ((:up :scroll-up) (decf (memory-manager-scroll manager) 1))
-      ((:down :scroll-down) (incf (memory-manager-scroll manager) 1))
-      (:page-up (decf (memory-manager-scroll manager) page))
-      (:page-down (incf (memory-manager-scroll manager) page))
-      (:home (setf (memory-manager-scroll manager) 0))
-      (:end (setf (memory-manager-scroll manager) most-positive-fixnum))))
+      ((:up :scroll-up)
+       (decf (memory-manager-scroll manager) 1))
+      ((:down :scroll-down)
+       (incf (memory-manager-scroll manager) 1))
+      (:page-up
+       (decf (memory-manager-scroll manager) page))
+      (:page-down
+       (incf (memory-manager-scroll manager) page))
+      (:home
+       (setf (memory-manager-scroll manager) 0))
+      (:end
+       (setf (memory-manager-scroll manager) most-positive-fixnum))))
   nil)
 
 (-> memory-manager--edit-event (memory-manager t) null)
@@ -422,7 +434,7 @@ Use / to search, Tab to change kind, or n to create a note.")))
 (defun memory-manager--browse-event (manager event)
   "Handle browser navigation and actions; return NIL only when closing."
   (let ((session (memory-manager-session manager))
-        (focus (memory-manager-focus manager)))
+        (focus   (memory-manager-focus manager)))
     (cond
       ((eq focus ':search)
        (if (member event '(:escape :submit))
@@ -444,9 +456,12 @@ Use / to search, Tab to change kind, or n to create a note.")))
          (setf (memory-manager-focus manager) ':detail)))
       ((and (consp event) (eq (first event) ':insert))
        (cond
-         ((string= (second event) "/") (setf (memory-manager-focus manager) ':search))
-         ((string-equal (second event) "n") (memory-manager--begin-edit manager :new-p t))
-         ((string-equal (second event) "e") (memory-manager--begin-edit manager))
+         ((string= (second event) "/")
+          (setf (memory-manager-focus manager) ':search))
+         ((string-equal (second event) "n")
+          (memory-manager--begin-edit manager :new-p t))
+         ((string-equal (second event) "e")
+          (memory-manager--begin-edit manager))
          ((string-equal (second event) "r")
           (memory-manager--reload manager)
           (memory-manager--notice manager ':success "Memories reloaded."))
@@ -511,8 +526,8 @@ Use / to search, Tab to change kind, or n to create a note.")))
 (defun memory-manager--frame (manager)
   "Return a bounded manager frame and its cursor without changing the transcript."
   (let* ((terminal (terminal-ui-terminal (application-ui (memory-manager-application manager))))
-         (width (max 1 (terminal-columns terminal)))
-         (height (max 1 (terminal-rows terminal))))
+         (width    (max 1 (terminal-columns terminal)))
+         (height   (max 1 (terminal-rows terminal))))
     (cond
       ((or (< width 24) (< height 12))
        (let ((rows (memory-manager--wrap
@@ -524,18 +539,18 @@ Use / to search, Tab to change kind, or n to create a note.")))
          (values rows row column (/= (memory-manager-field manager) 2))))
       ((member (memory-manager-mode manager) '(:confirm-delete :confirm-discard))
        (let* ((legend (memory-manager--legend manager terminal width))
-              (rows (memory-manager--wrap
-                     terminal
-                     (if (eq (memory-manager-mode manager) ':confirm-delete)
-                         (list (terminal-span
-                                ':failure
-                                (format nil "FORGET ~A?~2%"
-                                        (sanitize-text
-                                         (memory-manager-item-title (memory-manager--selected manager))
-                                         :single-line-p t)))
-                               (terminal-span ':plain "Dependent memories may become stale. Derived facts may stop holding."))
-                         (list (terminal-span ':notice "Discard unsaved note changes?")))
-                     width)))
+              (rows   (memory-manager--wrap
+                       terminal
+                       (if (eq (memory-manager-mode manager) ':confirm-delete)
+                           (list (terminal-span
+                                  ':failure
+                                  (format nil "FORGET ~A?~2%"
+                                          (sanitize-text
+                                           (memory-manager-item-title (memory-manager--selected manager))
+                                           :single-line-p t)))
+                                 (terminal-span ':plain "Dependent memories may become stale. Derived facts may stop holding."))
+                           (list (terminal-span ':notice "Discard unsaved note changes?")))
+                       width)))
          (values (append (subseq rows 0 (min (length rows) (max 1 (- height (length legend) 1))))
                          (list "") legend)
                  0 0 nil)))
@@ -551,14 +566,14 @@ Use / to search, Tab to change kind, or n to create a note.")))
 
 The transcript, scroll anchor, composer, attachments, and pending input are not
 used as manager state. Restore the ordinary fullscreen frame on every exit."
-  (let* ((ui (application-ui application))
+  (let* ((ui       (application-ui application))
          (terminal (terminal-ui-terminal ui))
-         (manager (make-instance
-                   'memory-manager :application application
-                   :session (clinedi:make-selection-session
-                             :identity-key #'memory-manager-item-key :identity-test #'string=
-                             :search-key #'memory-manager-item-search-text :search-p t :visible-count 8)))
-         (painter (clinedi:make-frame-painter)))
+         (manager  (make-instance
+                    'memory-manager :application application
+                    :session                     (clinedi:make-selection-session
+                                                  :identity-key #'memory-manager-item-key :identity-test #'string=
+                                                  :search-key #'memory-manager-item-search-text :search-p t :visible-count 8)))
+         (painter  (clinedi:make-frame-painter)))
     (memory-manager--reload manager)
     (when (non-empty-string-p query)
       (clinedi:selection-session-handle-event (memory-manager-session manager) (list ':insert query)))
@@ -581,7 +596,7 @@ used as manager state. Restore the ordinary fullscreen frame on every exit."
     (terminal-ui-call-with-exclusive-input
      ui
      (lambda ()
-       (let ((suspended-p (terminal-ui-live-output-suspended-p ui))
+       (let ((suspended-p      (terminal-ui-live-output-suspended-p ui))
              (cursor-visible-p (fullscreen-terminal-ui-cursor-visible-p ui)))
          (unwind-protect
               (progn
