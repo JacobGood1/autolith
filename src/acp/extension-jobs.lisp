@@ -117,7 +117,9 @@
   "Return owned jobs in stable order with bounded offset paging."
   (let* ((cursor (agentcomms:acp-field params "cursor" :type ':string))
          (offset (if cursor
-                     (or (ignore-errors (parse-integer cursor :junk-allowed nil))
+                     (or (handler-case (parse-integer cursor :junk-allowed nil)
+                           (parse-error ()
+                             nil))
                          (agentcomms:acp-invalid-params "Invalid jobs cursor."))
                      0))
          (limit  (or (agentcomms:acp-field params "limit" :type ':integer) 100)))
