@@ -8,118 +8,118 @@
 
 (defclass callback-agent-observer (agent-observer)
   ((text-callback
-    :initarg :text-callback
-    :initform nil
-    :reader callback-agent-observer-text-callback
-    :type (option function)
+    :initarg       :text-callback
+    :initform      nil
+    :reader        callback-agent-observer-text-callback
+    :type          (option function)
     :documentation "The optional function called with each assistant text delta.")
    (reasoning-callback
-    :initarg :reasoning-callback
-    :initform nil
-    :reader callback-agent-observer-reasoning-callback
-    :type (option function)
+    :initarg       :reasoning-callback
+    :initform      nil
+    :reader        callback-agent-observer-reasoning-callback
+    :type          (option function)
     :documentation "The optional function called with each visible reasoning delta.")
    (status-callback
-    :initarg :status-callback
-    :initform nil
-    :reader callback-agent-observer-status-callback
-    :type (option function)
+    :initarg       :status-callback
+    :initform      nil
+    :reader        callback-agent-observer-status-callback
+    :type          (option function)
     :documentation "The optional function called with a status keyword and portable details.")
    (steering-callback
-    :initarg :steering-callback
-    :initform nil
-    :reader callback-agent-observer-steering-callback
-    :type (option function)
+    :initarg       :steering-callback
+    :initform      nil
+    :reader        callback-agent-observer-steering-callback
+    :type          (option function)
     :documentation "The optional function that drains user messages waiting for a tool boundary.")
    (steering-persisted-callback
-    :initarg :steering-persisted-callback
+    :initarg  :steering-persisted-callback
     :initform nil
-    :reader callback-agent-observer-steering-persisted-callback
-    :type (option function)
+    :reader   callback-agent-observer-steering-persisted-callback
+    :type     (option function)
     :documentation
     "The optional function acknowledging one identified durable steering message.")
    (pending-operations-callback
-    :initarg :pending-operations-callback
+    :initarg  :pending-operations-callback
     :initform nil
-    :reader callback-agent-observer-pending-operations-callback
-    :type (option function)
+    :reader   callback-agent-observer-pending-operations-callback
+    :type     (option function)
     :documentation
     "The optional function applying queued user operations at a safe boundary.")
    (command-authorization-callback
-    :initarg :command-authorization-callback
-    :initform nil
-    :reader callback-agent-observer-command-authorization-callback
-    :type (option function)
+    :initarg       :command-authorization-callback
+    :initform      nil
+    :reader        callback-agent-observer-command-authorization-callback
+    :type          (option function)
     :documentation "The optional function authorizing one external command.")
    (tool-authorization-callback
-    :initarg :tool-authorization-callback
-    :initform nil
-    :reader callback-agent-observer-tool-authorization-callback
-    :type (option function)
+    :initarg       :tool-authorization-callback
+    :initform      nil
+    :reader        callback-agent-observer-tool-authorization-callback
+    :type          (option function)
     :documentation "The optional function authorizing one external tool call."))
   (:documentation "An agent observer implemented by ordinary terminal-facing callbacks."))
 
 (defclass serialized-agent-observer (agent-observer)
   ((delegate
-    :initarg :delegate
-    :reader serialized-agent-observer-delegate
-    :type agent-observer
+    :initarg       :delegate
+    :reader        serialized-agent-observer-delegate
+    :type          agent-observer
     :documentation "The observer receiving callbacks under the serialization lock.")
    (lock
-    :initform (make-recursive-lock "Autolith agent observer callbacks")
-    :reader serialized-agent-observer-lock
+    :initform      (make-recursive-lock "Autolith agent observer callbacks")
+    :reader        serialized-agent-observer-lock
     :documentation "The recursive lock serializing callbacks from tool workers."))
   (:documentation
    "An observer wrapper serializing callbacks made by concurrent tool workers."))
 
 (defclass agent-steering-input ()
   ((identifier
-    :initarg :identifier
-    :reader agent-steering-input-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        agent-steering-input-identifier
+    :type          non-empty-string
     :documentation "The durable pending-input identifier for this steering message.")
    (content
-    :initarg :content
-    :reader agent-steering-input-content
-    :type (or string user-message-input)
+    :initarg       :content
+    :reader        agent-steering-input-content
+    :type          (or string user-message-input)
     :documentation "The user message to append at the next tool boundary."))
   (:documentation "One identified steering message awaiting durable conversation append."))
 
 (defclass agent ()
   ((configuration
-    :initarg :configuration
-    :accessor agent-configuration
-    :type configuration
+    :initarg       :configuration
+    :accessor      agent-configuration
+    :type          configuration
     :documentation "The paths and model choices governing this agent.")
    (provider
-    :initarg :provider
-    :accessor agent-provider
-    :type model-provider
+    :initarg       :provider
+    :accessor      agent-provider
+    :type          model-provider
     :documentation "The replaceable streaming model provider.")
    (conversation
-    :initarg :conversation
-    :reader agent-conversation
-    :type conversation
+    :initarg       :conversation
+    :reader        agent-conversation
+    :type          conversation
     :documentation "The durable conversation owned by this agent.")
    (tool-registry
-    :initarg :tool-registry
-    :accessor agent-tool-registry
-    :type tool-registry
+    :initarg       :tool-registry
+    :accessor      agent-tool-registry
+    :type          tool-registry
     :documentation "The namespaced tool schemas and dispatch table.")
    (worker
-    :initarg :worker
-    :reader agent-worker
-    :type t
+    :initarg       :worker
+    :reader        agent-worker
+    :type          t
     :documentation "The disposable Lisp worker supplied to lisp.* calls.")
    (hurry-up-p
-    :initarg :hurry-up-p
-    :initform nil
-    :accessor agent-hurry-up-p
-    :type boolean
+    :initarg       :hurry-up-p
+    :initform      nil
+    :accessor      agent-hurry-up-p
+    :type          boolean
     :documentation "Whether provider requests use the urgent execution profile.")
    (turn-lock
-    :initform (make-lock "Autolith agent turn")
-    :reader agent-turn-lock
+    :initform      (make-lock "Autolith agent turn")
+    :reader        agent-turn-lock
     :documentation "The lock preventing concurrent mutation of conversation turn state."))
   (:documentation "A model-driven conversation loop with namespaced Common Lisp tools."))
 
@@ -157,14 +157,14 @@ needs the few most recent calls to recognize an oscillation."
 
 (define-condition agent-loop-error (autolith-error)
   ((conversation-id
-    :initarg :conversation-id
-    :reader agent-loop-error-conversation-id
-    :type (option string)
+    :initarg       :conversation-id
+    :reader        agent-loop-error-conversation-id
+    :type          (option string)
     :documentation "The conversation whose turn could not continue.")
    (request-number
-    :initarg :request-number
-    :reader agent-loop-error-request-number
-    :type (option integer)
+    :initarg       :request-number
+    :reader        agent-loop-error-request-number
+    :type          (option integer)
     :documentation "The provider request number within the user turn, if known."))
   (:documentation "A malformed response or invariant violation in the main agent loop."))
 
@@ -417,7 +417,7 @@ needs the few most recent calls to recognize an oscillation."
   "Create one identified steering message carrying CONTENT."
   (make-instance 'agent-steering-input
                  :identifier identifier
-                 :content content))
+                 :content    content))
 
 (-> callback-agent-observer-create
     (&key
@@ -436,10 +436,10 @@ needs the few most recent calls to recognize an oscillation."
       command-authorization-callback tool-authorization-callback)
   "Create an observer backed by optional presentation callbacks."
   (make-instance 'callback-agent-observer
-                 :text-callback text-callback
-                 :reasoning-callback reasoning-callback
-                 :status-callback status-callback
-                 :steering-callback steering-callback
+                 :text-callback               text-callback
+                 :reasoning-callback          reasoning-callback
+                 :status-callback             status-callback
+                 :steering-callback           steering-callback
                  :steering-persisted-callback steering-persisted-callback
                  :pending-operations-callback pending-operations-callback
                  :command-authorization-callback
@@ -468,15 +468,15 @@ needs the few most recent calls to recognize an oscillation."
     (error 'configuration-error
            :message "AGENT-CREATE requires a CONFIGURATION instance."))
   (make-instance 'agent
-                 :configuration configuration
-                 :provider (or provider (provider-create configuration))
-                 :conversation (or conversation
-                                   (conversation-create configuration))
+                 :configuration   configuration
+                 :provider        (or provider (provider-create configuration))
+                 :conversation    (or conversation
+                                      (conversation-create configuration))
                    :tool-registry (or tool-registry
                                       (make-default-tool-registry
                                        :configuration configuration))
-                 :hurry-up-p hurry-up-p
-                 :worker (or worker (lisp-worker-pool-create configuration))))
+                 :hurry-up-p      hurry-up-p
+                 :worker          (or worker (lisp-worker-pool-create configuration))))
 
 (-> agent-run-user-turn
     (agent (or string user-message-input)
@@ -531,14 +531,14 @@ request that carries its expansion."
   "Normalize a textual user turn before running it through AGENT."
   (agent-run-user-turn agent
                        (user-message-input-create :text content)
-                       :observer observer
-                       :goal-context goal-context
-                       :tools-p tools-p
-                       :tool-allowlist tool-allowlist
-                       :tool-restriction-p tool-restriction-p
+                       :observer                 observer
+                       :goal-context             goal-context
+                       :tools-p                  tools-p
+                       :tool-allowlist           tool-allowlist
+                       :tool-restriction-p       tool-restriction-p
                        :pending-input-identifier pending-input-identifier
-                       :automatic-p automatic-p
-                       :operation-request operation-request))
+                       :automatic-p              automatic-p
+                       :operation-request        operation-request))
 
 (defmethod agent-run-user-turn
     ((agent agent) (content user-message-input)
@@ -549,9 +549,9 @@ request that carries its expansion."
   (unless (or (non-empty-string-p (user-message-input-text content))
               (user-message-input-image-pathnames content))
     (error 'agent-loop-error
-           :message "A user turn requires text or an image."
+           :message         "A user turn requires text or an image."
            :conversation-id (conversation-identifier (agent-conversation agent))
-           :request-number nil))
+           :request-number  nil))
   (call-with-skill-logical-turn
    content
    (lambda ()
@@ -565,7 +565,7 @@ request that carries its expansion."
                  (if (agent-should-compact-p agent)
                      (agent-compact-conversation
                       agent observer
-                      :tool-allowlist tool-allowlist
+                      :tool-allowlist     tool-allowlist
                       :tool-restriction-p tool-restriction-p)
                      0)))
             (when (conversation-async-lisp--safe-boundary-p conversation)
@@ -575,31 +575,31 @@ request that carries its expansion."
                 conversation
                 content
                 :pending-input-identifier pending-input-identifier
-                :automatic-p automatic-p
-                :operation-request operation-request)
+                :automatic-p              automatic-p
+                :operation-request        operation-request)
              (declare (ignore item))
              (agent-observer-status
               observer
               :user-message-persisted
               (append
                (list :sequence (getf (rest record) :seq)
-                     :time (getf (rest record) :time))
+                     :time     (getf (rest record) :time))
                (when pending-input-identifier
                  (list :pending-input-identifier pending-input-identifier)))))
            (unwind-protect
                 (progn
                   (agent-run-fitting-procedure agent observer
                                                (or (user-message-input-text content) "")
-                                               :automatic-p automatic-p
-                                               :tools-p tools-p
+                                               :automatic-p        automatic-p
+                                               :tools-p            tools-p
                                                :tool-restriction-p tool-restriction-p)
                   (agent--run-provider-loop
                    agent observer
-                   :goal-context goal-context
-                   :tools-p tools-p
-                   :tool-allowlist tool-allowlist
+                   :goal-context       goal-context
+                   :tools-p            tools-p
+                   :tool-allowlist     tool-allowlist
                    :tool-restriction-p tool-restriction-p
-                   :request-number compaction-requests))
+                   :request-number     compaction-requests))
              (conversation-clear-ephemeral-input-items conversation)
              (setf (conversation-turn-state conversation) nil))))))))
 
@@ -662,7 +662,7 @@ retries stay auditable next to the request they belong to."
       (provider-attempt-failed-event
        (let ((details
                (list :request-number request-number
-                     :attempt (provider-attempt-failed-event-attempt event)
+                     :attempt        (provider-attempt-failed-event-attempt event)
                      :elapsed-seconds
                      (provider-attempt-failed-event-elapsed-seconds event)
                      :output-received-p
@@ -682,7 +682,7 @@ retries stay auditable next to the request they belong to."
         (list :attempt (provider-retry-event-attempt event)
               :maximum-attempts
               (provider-retry-event-maximum-attempts event)
-              :delay (provider-retry-event-delay event))))
+              :delay   (provider-retry-event-delay event))))
       (assistant-delta-event
        (agent-observer-status observer :provider-progress nil)
        (agent-observer-text observer (assistant-delta-event-text event)))
@@ -721,16 +721,16 @@ commit 6f51c65958."
     (dolist (item (provider-result-output-items result))
       (unless (json-object-p item)
         (error 'agent-loop-error
-               :message "The provider returned a completed item that is not a JSON object."
+               :message         "The provider returned a completed item that is not a JSON object."
                :conversation-id (conversation-identifier conversation)
-               :request-number request-number))
+               :request-number  request-number))
       (let ((plan
               (and
                (function-call-item-p item)
                (find (json-get item "call_id")
                      call-plans
-                     :key (lambda (entry)
-                            (json-get (getf entry :call) "call_id"))
+                     :key  (lambda (entry)
+                             (json-get (getf entry :call) "call_id"))
                      :test #'equal))))
         (when (and plan (getf plan :argument-error))
           (setf (gethash "arguments" item) "{}"))
@@ -746,10 +746,10 @@ commit 6f51c65958."
     (conversation-append-provider-metadata
      conversation
      (list :request-number request-number
-           :response-id (provider-result-response-id result)
-           :usage (agent--portable-value
-                   (provider-usage-normalize
-                    (provider-result-usage result))))))
+           :response-id    (provider-result-response-id result)
+           :usage          (agent--portable-value
+                            (provider-usage-normalize
+                             (provider-result-usage result))))))
   nil)
 
 (-> agent--answer-tool-searches
@@ -763,13 +763,13 @@ every later request and the server keeps those tools loaded without another
 search. The search covers exactly the namespaces the request advertised, so a
 restricted turn cannot discover tools outside its allowlist."
   (let ((conversation (agent-conversation agent))
-        (provider (agent-provider agent)))
+        (provider     (agent-provider agent)))
     (dolist (call (provider-result-tool-search-calls result))
       (unless (non-empty-string-p (json-get call "call_id"))
         (error 'agent-loop-error
-               :message "The provider returned a tool search without a call_id."
+               :message         "The provider returned a tool search without a call_id."
                :conversation-id (conversation-identifier conversation)
-               :request-number request-number))
+               :request-number  request-number))
       (conversation-append-provider-item
        conversation
        (provider-answer-tool-search provider call tool-namespaces))))
@@ -789,9 +789,9 @@ restricted turn cannot discover tools outside its allowlist."
        observer
        ':assistant-response-persisted
        (list :request-number request-number
-             :response-id (provider-result-response-id result)
-             :text text
-             :time (get-universal-time)))))
+             :response-id    (provider-result-response-id result)
+             :text           text
+             :time           (get-universal-time)))))
   nil)
 
 (-> agent--sanitize-tool-call-arguments (json-object) (option string))
@@ -835,8 +835,8 @@ restricted turn cannot discover tools outside its allowlist."
     (option string))
 (defun agent--tool-storm-note-call (state signature tool-name)
   "Record SIGNATURE in STATE and return a mechanics message when it storms."
-  (let* ((history (agent-tool-storm-state-signatures state))
-         (repetitions (agent-tool-storm-state-repetitions state))
+  (let* ((history        (agent-tool-storm-state-signatures state))
+         (repetitions    (agent-tool-storm-state-repetitions state))
          (identical-p
            (>= (gethash signature repetitions 0)
                (1- *agent-tool-storm-identical-call-limit*)))
@@ -886,8 +886,8 @@ restricted turn cannot discover tools outside its allowlist."
 (defun agent--tool-call-plans (agent calls &key storm-state)
   "Return CALLS annotated with tools, persistence, barriers, and storm guards."
   (let ((barrier-seen-p nil)
-        (plans nil)
-        (registry (agent-tool-registry agent)))
+        (plans          nil)
+        (registry       (agent-tool-registry agent)))
     (dolist (call calls)
       (let* ((namespace (json-get call "namespace"))
              (name      (json-get call "name"))
@@ -920,13 +920,13 @@ restricted turn cannot discover tools outside its allowlist."
                    (if tool
                        (tool-conversation-persistence tool)
                        ':durable))))
-         (push (list :call call
-                     :tool tool
-                     :persistence persistence
-                     :blocked-p blocked-p
-                     :argument-error argument-error
-                     :signature call-signature
-                     :storm-state storm-state
+         (push (list :call            call
+                     :tool            tool
+                     :persistence     persistence
+                     :blocked-p       blocked-p
+                     :argument-error  argument-error
+                     :signature       call-signature
+                     :storm-state     storm-state
                      :withheld-reason withheld-reason)
               plans)
         (when (and tool
@@ -938,15 +938,15 @@ restricted turn cannot discover tools outside its allowlist."
 (-> agent--provider-error-metadata (provider-error) list)
 (defun agent--provider-error-metadata (condition)
   "Return portable terminal failure metadata for provider CONDITION."
-  (list :message (bounded-string (format nil "~A" condition) :limit 2000)
-        :status (provider-error-status condition)
-        :code (provider-error-code condition)
+  (list :message     (bounded-string (format nil "~A" condition) :limit 2000)
+        :status      (provider-error-status condition)
+        :code        (provider-error-code condition)
         :incomplete-reason
         (and (typep condition 'provider-incomplete-response)
              (provider-incomplete-response-reason condition))
-        :request-id (provider-error-request-id condition)
+        :request-id  (provider-error-request-id condition)
         :response-id (provider-error-response-id condition)
-        :response (provider-error-response condition)
+        :response    (provider-error-response condition)
         :retryable-p (typep condition 'provider-retryable-error)))
 
 (-> agent--validate-tool-call-identifiers
@@ -957,26 +957,26 @@ restricted turn cannot discover tools outside its allowlist."
     (agent calls &key seen-call-identifiers request-number)
   "Validate CALLS and reserve their unique call identifiers for this user turn."
   (let ((round-identifiers (make-hash-table :test #'equal))
-        (conversation (agent-conversation agent)))
+        (conversation      (agent-conversation agent)))
     (dolist (call calls)
       (unless (json-object-p call)
         (error 'agent-loop-error
-               :message "The provider returned a tool call that is not a JSON object."
+               :message         "The provider returned a tool call that is not a JSON object."
                :conversation-id (conversation-identifier conversation)
-               :request-number request-number))
+               :request-number  request-number))
       (let ((call-id (json-get call "call_id")))
         (unless (non-empty-string-p call-id)
           (error 'agent-loop-error
-                 :message "The provider returned a function call without a call_id."
+                 :message         "The provider returned a function call without a call_id."
                  :conversation-id (conversation-identifier conversation)
-                 :request-number request-number))
+                 :request-number  request-number))
         (when (or (gethash call-id seen-call-identifiers)
                   (gethash call-id round-identifiers))
           (error 'agent-loop-error
-                 :message (format nil "The provider repeated function call identifier ~S."
-                                  call-id)
+                 :message         (format nil "The provider repeated function call identifier ~S."
+                                          call-id)
                  :conversation-id (conversation-identifier conversation)
-                 :request-number request-number))
+                 :request-number  request-number))
         (setf (gethash call-id round-identifiers) t)))
     (maphash (lambda (call-id present-p)
                (declare (ignore present-p))
@@ -1028,27 +1028,27 @@ restricted turn cannot discover tools outside its allowlist."
       (when *telemetry-run*
         (telemetry--call-safely
          (lambda ()
-           (telemetry-note-tool :run *telemetry-run*
-                                :tool tool-name
+           (telemetry-note-tool :run       *telemetry-run*
+                                :tool      tool-name
                                 :arguments (json-get call "arguments")
                                 :outcome ':error :error-code ':rejected-plan :duration-ms 0))))
       (conversation-append-tool-result
        (agent-conversation agent)
        call-id
-       :tool-name tool-name
-       :tool-label (when (getf plan :tool)
-                     (tool-display-name (getf plan :tool)))
-       :output message
-       :success-p nil
+       :tool-name   tool-name
+       :tool-label  (when (getf plan :tool)
+                      (tool-display-name (getf plan :tool)))
+       :output      message
+       :success-p   nil
        :persistence (getf plan :persistence))
       (agent-observer-status
        observer
        ':tool-call-completed
        (list :tool-round tool-round
-             :call-id call-id
-             :tool tool-name
-             :success-p nil
-             :output message))))
+             :call-id    call-id
+             :tool       tool-name
+             :success-p  nil
+             :output     message))))
   nil)
 
 (-> agent--execute-tool-plan
@@ -1057,19 +1057,19 @@ restricted turn cannot discover tools outside its allowlist."
 (defun agent--execute-tool-plan
     (agent plan observer tool-restriction-p record-timings-p)
   "Execute one PLAN body and return its result, timings, or fatal condition."
-  (let* ((call      (getf plan :call))
-         (call-id   (json-get call "call_id"))
-         (argument-error (getf plan :argument-error))
+  (let* ((call                                 (getf plan :call))
+         (call-id                              (json-get call "call_id"))
+         (argument-error                       (getf plan :argument-error))
          (context
            (make-instance
             'tool-context
             :configuration (agent-configuration agent)
-            :worker (agent-worker agent)
-            :conversation (agent-conversation agent)
-            :registry (agent-tool-registry agent)
-            :agent agent
-            :observer observer
-            :call-id call-id
+            :worker        (agent-worker agent)
+            :conversation  (agent-conversation agent)
+            :registry      (agent-tool-registry agent)
+            :agent         agent
+            :observer      observer
+            :call-id       call-id
             :command-authorization-function
             (lambda (command directory)
               (agent-observer-authorize-command observer command directory))
@@ -1085,13 +1085,13 @@ restricted turn cannot discover tools outside its allowlist."
          (*resource-readable-schemes*
            (and tool-restriction-p '("workspace")))
          (*telemetry-tool-corrects-previous-p* nil)
-         (*telemetry-tool-arguments* nil)
-         (*telemetry-tool-capture-p* (not (null *telemetry-run*)))
-         (*telemetry-tool-name* (function-call-canonical-name call))
-         (real-start (get-internal-real-time))
-         (cpu-start  (get-internal-run-time))
-         (result nil)
-         (condition nil))
+         (*telemetry-tool-arguments*           nil)
+         (*telemetry-tool-capture-p*           (not (null *telemetry-run*)))
+         (*telemetry-tool-name*                (function-call-canonical-name call))
+         (real-start                           (get-internal-real-time))
+         (cpu-start                            (get-internal-run-time))
+         (result                               nil)
+         (condition                            nil))
     (handler-case
         (setf result
               (cond
@@ -1111,14 +1111,14 @@ restricted turn cannot discover tools outside its allowlist."
       ((or autolith-control-condition
            serious-condition)
        (failure)
-        (setf condition failure)))
+       (setf condition failure)))
     (list
-     :plan plan
-     :result result
-     :condition condition
+     :plan                          plan
+     :result                        result
+     :condition                     condition
      :telemetry-corrects-previous-p *telemetry-tool-corrects-previous-p*
-     :telemetry-arguments *telemetry-tool-arguments*
-     :telemetry-duration-ms (telemetry--elapsed-milliseconds real-start)
+     :telemetry-arguments           *telemetry-tool-arguments*
+     :telemetry-duration-ms         (telemetry--elapsed-milliseconds real-start)
      :cpu-microseconds
      (and record-timings-p
           (round (* (- (get-internal-run-time) cpu-start) 1000000)
@@ -1173,8 +1173,8 @@ worker results become explicit unknown outcomes so provider history stays valid.
         (setf condition
               (make-condition
                'agent-loop-error
-               :message (format nil "Tool ~A ended without returning a result."
-                                tool-name)
+               :message        (format nil "Tool ~A ended without returning a result."
+                                       tool-name)
                :conversation-id
                (conversation-identifier (agent-conversation agent))
                :request-number nil)
@@ -1192,45 +1192,45 @@ worker results become explicit unknown outcomes so provider history stays valid.
           (telemetry--call-safely
            (lambda ()
              (telemetry-note-tool
-              :run *telemetry-run*
-              :tool tool-name
-              :arguments (or (getf execution :telemetry-arguments) (json-get call "arguments"))
+              :run               *telemetry-run*
+              :tool              tool-name
+              :arguments         (or (getf execution :telemetry-arguments) (json-get call "arguments"))
               :corrects-previous (getf execution :telemetry-corrects-previous-p)
-              :error-code (tool-result-error-code effective-result)
-              :error-type error-type
-              :exit-code (getf (tool-result-details effective-result) :exit-code)
-              :outcome (telemetry--outcome
-                        :success-p (tool-result-success-p effective-result)
-                        :error-type error-type
-                        :denied-p (tool-result-denied-p effective-result)
-                        :error-code (tool-result-error-code effective-result))
-              :duration-ms (getf execution :telemetry-duration-ms)))))
+              :error-code        (tool-result-error-code effective-result)
+              :error-type        error-type
+              :exit-code         (getf (tool-result-details effective-result) :exit-code)
+              :outcome           (telemetry--outcome
+                                  :success-p  (tool-result-success-p effective-result)
+                                  :error-type error-type
+                                  :denied-p   (tool-result-denied-p effective-result)
+                                  :error-code (tool-result-error-code effective-result))
+              :duration-ms       (getf execution :telemetry-duration-ms)))))
         (conversation-append-tool-result
          (agent-conversation agent)
          call-id
-         :tool-name tool-name
-         :tool-label (when (getf plan :tool)
-                       (tool-display-name (getf plan :tool)))
-         :output output
-         :details (tool-result-details effective-result)
-         :content-blocks (tool-result-content-blocks effective-result)
-         :success-p (tool-result-success-p effective-result)
-         :category (tool-result-category effective-result)
-         :cpu-microseconds (getf execution :cpu-microseconds)
+         :tool-name         tool-name
+         :tool-label        (when (getf plan :tool)
+                              (tool-display-name (getf plan :tool)))
+         :output            output
+         :details           (tool-result-details effective-result)
+         :content-blocks    (tool-result-content-blocks effective-result)
+         :success-p         (tool-result-success-p effective-result)
+         :category          (tool-result-category effective-result)
+         :cpu-microseconds  (getf execution :cpu-microseconds)
          :real-microseconds (getf execution :real-microseconds)
-         :persistence (getf plan :persistence))
+         :persistence       (getf plan :persistence))
         (agent-observer-status
          observer
          ':tool-call-completed
-         (list :tool-round tool-round
-               :call-id call-id
-               :tool tool-name
-               :success-p (tool-result-success-p effective-result)
-               :category (tool-result-category effective-result)
-               :cpu-microseconds (getf execution :cpu-microseconds)
+         (list :tool-round        tool-round
+               :call-id           call-id
+               :tool              tool-name
+               :success-p         (tool-result-success-p effective-result)
+               :category          (tool-result-category effective-result)
+               :cpu-microseconds  (getf execution :cpu-microseconds)
                :real-microseconds (getf execution :real-microseconds)
-               :output output
-               :details (tool-result-details effective-result))))))
+               :output            output
+               :details           (tool-result-details effective-result))))))
   (let ((failure
           (find-if (lambda (execution)
                      (getf execution :condition))
@@ -1243,12 +1243,12 @@ worker results become explicit unknown outcomes so provider history stays valid.
 (defun agent--tool-thread-function (function)
   "Return FUNCTION wrapped with the current turn-scoped tool bindings."
   (let ((skill-logical-turn-state *skill-logical-turn-state*)
-        (worker-host-tool-policy (copy-tree *worker-host-tool-policy*))
-        (telemetry-run *telemetry-run*))
+        (worker-host-tool-policy  (copy-tree *worker-host-tool-policy*))
+        (telemetry-run            *telemetry-run*))
     (lambda ()
       (let ((*skill-logical-turn-state* skill-logical-turn-state)
-            (*worker-host-tool-policy* worker-host-tool-policy)
-            (*telemetry-run* telemetry-run))
+            (*worker-host-tool-policy*  worker-host-tool-policy)
+            (*telemetry-run*            telemetry-run))
         (funcall function)))))
 
 (-> agent--run-tool-wave
@@ -1263,9 +1263,9 @@ worker results become explicit unknown outcomes so provider history stays valid.
        observer
        :tool-call-started
        (list :tool-round tool-round
-             :call-id (json-get call "call_id")
-             :tool (function-call-canonical-name call)))))
-  (let* ((count (length plans))
+             :call-id    (json-get call "call_id")
+             :tool       (function-call-canonical-name call)))))
+  (let* ((count            (length plans))
          (executions
            (map 'vector (lambda (plan) (list :plan plan)) plans))
          (record-timings-p (= count 1)))
@@ -1273,11 +1273,11 @@ worker results become explicit unknown outcomes so provider history stays valid.
         (setf (aref executions 0)
               (agent--execute-tool-plan
                agent (first plans) observer tool-restriction-p t))
-        (let ((next-index 0)
-              (claim-lock (make-lock "Autolith tool wave claims"))
-              (threads nil)
+        (let ((next-index                0)
+              (claim-lock                (make-lock "Autolith tool wave claims"))
+              (threads                   nil)
               (thread-creation-condition nil)
-              (thread-join-condition nil))
+              (thread-join-condition     nil))
           (flet ((work ()
                    (loop
                      (let ((index
@@ -1350,7 +1350,7 @@ worker results become explicit unknown outcomes so provider history stays valid.
   "Execute planned calls in independent waves while respecting barriers."
   (let ((serialized-observer
           (make-instance 'serialized-agent-observer :delegate observer))
-        (wave nil)
+        (wave      nil)
         (wave-keys (make-hash-table :test #'eql))
         (*worker-host-tool-policy*
           (list :restricted-p tool-restriction-p :allowlist (copy-list tool-allowlist))))
@@ -1430,7 +1430,7 @@ tool registry reaches the very next provider request."
     (task-completion-deliver agent))
   (agent--persist-steering-input
    agent observer
-   :messages (agent-observer-take-steering observer)
+   :messages       (agent-observer-take-steering observer)
    :request-number request-number))
 
 (-> agent--persist-steering-input
@@ -1441,14 +1441,16 @@ tool registry reaches the very next provider request."
   (let ((conversation (agent-conversation agent)))
     (unless (listp messages)
       (error 'agent-loop-error
-             :message "The agent observer returned malformed steering input."
+             :message         "The agent observer returned malformed steering input."
              :conversation-id (conversation-identifier conversation)
-             :request-number request-number))
+             :request-number  request-number))
     (dolist (entry messages)
       (let* ((message
                (etypecase entry
-                 (agent-steering-input (agent-steering-input-content entry))
-                 ((or string user-message-input) entry)))
+                 (agent-steering-input
+                  (agent-steering-input-content entry))
+                 ((or string user-message-input)
+                  entry)))
              (identifier
                (and (typep entry 'agent-steering-input)
                     (agent-steering-input-identifier entry))))
@@ -1458,9 +1460,9 @@ tool registry reaches the very next provider request."
                               (user-message-input-text message))
                              (user-message-input-image-pathnames message))))
           (error 'agent-loop-error
-                 :message "The agent observer returned an empty steering message."
+                 :message         "The agent observer returned an empty steering message."
                  :conversation-id (conversation-identifier conversation)
-                 :request-number request-number))
+                 :request-number  request-number))
         (conversation-append-user-message
          conversation
          message
@@ -1500,10 +1502,10 @@ request generates output under the configured effort, so both stay visible
 to usage accounting instead of hiding behind the compaction record."
   (let ((details
           (list :request-number request-number
-                :compaction kind
-                :response-id response-id
-                :usage (agent--portable-value
-                        (provider-usage-normalize usage)))))
+                :compaction     kind
+                :response-id    response-id
+                :usage          (agent--portable-value
+                                 (provider-usage-normalize usage)))))
     (conversation-append-provider-metadata (agent-conversation agent) details)
     (agent-observer-status observer :compaction-request-completed details))
   nil)
@@ -1522,23 +1524,23 @@ to usage accounting instead of hiding behind the compaction record."
   (dolist (item (provider-result-output-items result))
     (unless (json-object-p item)
       (error 'provider-protocol-error
-             :message "Compaction produced a malformed output item."
-             :status nil
-             :code nil
-             :request-id nil
+             :message     "Compaction produced a malformed output item."
+             :status      nil
+             :code        nil
+             :request-id  nil
              :response-id (provider-result-response-id result)
-             :response nil))
+             :response    nil))
     (conversation--append-input-item conversation item))
   (dolist (call (provider-result-tool-calls result))
     (let ((call-id (json-get call "call_id")))
       (unless (non-empty-string-p call-id)
         (error 'provider-protocol-error
-               :message "Compaction produced a tool call without an identifier."
-               :status nil
-               :code nil
-               :request-id nil
+               :message     "Compaction produced a tool call without an identifier."
+               :status      nil
+               :code        nil
+               :request-id  nil
                :response-id (provider-result-response-id result)
-               :response nil))
+               :response    nil))
       (conversation--append-input-item
        conversation
        (function-call-output-item
@@ -1564,13 +1566,13 @@ Each provider request is metered under the next number after REQUEST-NUMBER
 once the summary is known to be usable. Capture the durable cutoff before
 native or portable requests and retain arrivals at checkpoint publication.
 Return the number of requests issued so the turn's request count covers them."
-  (let* ((conversation (agent-conversation agent))
-         (compaction (conversation-compaction-capture conversation))
-         (captured-view (conversation-compaction-view compaction))
-         (unfinished-work nil)
+  (let* ((conversation                 (agent-conversation agent))
+         (compaction                   (conversation-compaction-capture conversation))
+         (captured-view                (conversation-compaction-view compaction))
+         (unfinished-work              nil)
          (*request-context-hurry-up-p* (agent-hurry-up-p agent))
-         (issued 0)
-         (native-usage nil))
+         (issued                       0)
+         (native-usage                 nil))
     ;; Announce compaction before reading job storage, which can take a while.
     (agent-observer-status
      observer
@@ -1578,7 +1580,7 @@ Return the number of requests issued so the turn's request count covers them."
      (list :total-tokens (conversation-last-total-tokens conversation)))
     (setf unfinished-work (task-unfinished-work-snapshot agent))
     (let* ((*provider-hosted-tools-enabled-p* (not tool-restriction-p))
-           (provider (agent-provider agent))
+           (provider                          (agent-provider agent))
            (native-item
              (multiple-value-bind (item usage)
                  (provider-native-compact-conversation
@@ -1598,29 +1600,29 @@ Return the number of requests issued so the turn's request count covers them."
                (when item
                  (setf native-usage usage))
                item))
-            (family (provider-family provider))
-            (summary-conversation
-              (conversation-compaction-summary-view
-               captured-view
-               (if native-item
-                   (list native-item)
-                   (conversation-input-items-for-family
-                    captured-view family :include-ephemeral-p nil))
-               family))
-            (summary-results nil)
-            (summary nil))
+           (family                            (provider-family provider))
+           (summary-conversation
+             (conversation-compaction-summary-view
+              captured-view
+              (if native-item
+                  (list native-item)
+                  (conversation-input-items-for-family
+                   captured-view family :include-ephemeral-p nil))
+              family))
+           (summary-results                   nil)
+           (summary                           nil))
       (loop for attempt from 1 to *agent-compaction-maximum-summary-requests*
             for result =
               (let ((*telemetry-request-role* ':compaction))
                 (provider-stream-turn
-               provider
-               summary-conversation
-               :tool-namespaces #()
-               :event-callback
-               (lambda (event)
-                 (declare (ignore event))
-                 (agent-observer-status observer :provider-progress nil))
-               :compaction-p t))
+                 provider
+                 summary-conversation
+                 :tool-namespaces #()
+                 :event-callback
+                 (lambda (event)
+                   (declare (ignore event))
+                   (agent-observer-status observer :provider-progress nil))
+                 :compaction-p    t))
             do (push result summary-results)
                (setf summary (provider-result-assistant-text result))
                (when (non-empty-string-p summary)
@@ -1628,12 +1630,12 @@ Return the number of requests issued so the turn's request count covers them."
                (unless (and (< attempt *agent-compaction-maximum-summary-requests*)
                             (agent--compaction-follow-up-p result))
                  (error 'provider-protocol-error
-                        :message "Compaction produced no summary text."
-                        :status nil
-                        :code nil
-                        :request-id nil
+                        :message     "Compaction produced no summary text."
+                        :status      nil
+                        :code        nil
+                        :request-id  nil
                         :response-id (provider-result-response-id result)
-                        :response nil))
+                        :response    nil))
                (agent--advance-compaction-summary-view
                 summary-conversation result))
       (when native-item
@@ -1641,34 +1643,34 @@ Return the number of requests issued so the turn's request count covers them."
         (agent--note-compaction-request
          agent observer
          :request-number (+ request-number issued)
-         :kind ':native
-         :usage native-usage))
+         :kind           ':native
+         :usage          native-usage))
       (dolist (result (nreverse summary-results))
         (incf issued)
         (agent--note-compaction-request
          agent observer
          :request-number (+ request-number issued)
-         :kind ':summary
-         :usage (provider-result-usage result)
-         :response-id (provider-result-response-id result)))
+         :kind           ':summary
+         :usage          (provider-result-usage result)
+         :response-id    (provider-result-response-id result)))
       (with-recursive-lock-held ((conversation-append-lock conversation))
         (setf unfinished-work (task-unfinished-work-snapshot agent))
         (if native-item
             (conversation-append-native-compaction
              conversation native-item
-             :family (provider-family provider)
-             :summary summary
-             :compaction compaction
+             :family          (provider-family provider)
+             :summary         summary
+             :compaction      compaction
              :unfinished-work unfinished-work)
             (conversation-append-summary
              conversation summary :compaction compaction
-             :unfinished-work unfinished-work)))
+             :unfinished-work                 unfinished-work)))
       (agent-observer-status
        observer
        :compaction-completed
        (list :summary-characters (length summary)
-             :native-p (not (null native-item))
-             :provider-requests issued)))
+             :native-p           (not (null native-item))
+             :provider-requests  issued)))
     issued))
 
 (-> agent--run-provider-loop
@@ -1687,12 +1689,12 @@ Return the number of requests issued so the turn's request count covers them."
 REQUEST-NUMBER counts provider requests the turn already issued before the
 loop, so compaction ahead of the user message shares the turn's budget."
   (let ((*task-unfinished-work-agent* agent)
-        (seen-call-identifiers (make-hash-table :test #'equal))
-        (storm-state (agent-tool-storm-state-create))
-        (tool-rounds 0)
-        (tool-calls 0)
-        (first-request-p t)
-        (maximum-output-tokens nil))
+        (seen-call-identifiers        (make-hash-table :test #'equal))
+        (storm-state                  (agent-tool-storm-state-create))
+        (tool-rounds                  0)
+        (tool-calls                   0)
+        (first-request-p              t)
+        (maximum-output-tokens        nil))
     (declare (special *task-unfinished-work-agent*))
     (loop
       (when (>= request-number *agent-maximum-provider-requests-per-turn*)
@@ -1708,9 +1710,9 @@ loop, so compaction ahead of the user message shares the turn's budget."
         (incf request-number
               (agent-compact-conversation
                agent observer
-               :tool-allowlist tool-allowlist
+               :tool-allowlist     tool-allowlist
                :tool-restriction-p tool-restriction-p
-               :request-number request-number)))
+               :request-number     request-number)))
       (when (and tools-p (not tool-restriction-p))
         (mcp-tool-registry-refresh
          (agent-tool-registry agent)
@@ -1718,7 +1720,7 @@ loop, so compaction ahead of the user message shares the turn's budget."
       (when first-request-p
         (agent--persist-steering-input
          agent observer
-         :messages (peer-message-take-context agent)
+         :messages       (peer-message-take-context agent)
          :request-number (1+ request-number))
         (setf first-request-p nil))
       (incf request-number)
@@ -1727,7 +1729,7 @@ loop, so compaction ahead of the user message shares the turn's budget."
                observer
                :provider-request-started
                (list :request-number request-number
-                     :tool-rounds tool-rounds))))
+                     :tool-rounds    tool-rounds))))
         (setf maximum-output-tokens
               (and (integerp output-limit)
                    (plusp output-limit)
@@ -1752,14 +1754,14 @@ loop, so compaction ahead of the user message shares the turn's budget."
                    (let ((*provider-hosted-tools-enabled-p*
                             (not tool-restriction-p))
                          (*provider-maximum-output-tokens* maximum-output-tokens)
-                          (*request-context-hurry-up-p*
-                            (agent-hurry-up-p agent))
-                          (*context-request-contributions*
-                           (and
-                            tools-p
-                            (not tool-restriction-p)
-                            (mcp-tool-registry-context-contributions
-                             (agent-tool-registry agent)))))
+                         (*request-context-hurry-up-p*
+                           (agent-hurry-up-p agent))
+                         (*context-request-contributions*
+                          (and
+                           tools-p
+                           (not tool-restriction-p)
+                           (mcp-tool-registry-context-contributions
+                            (agent-tool-registry agent)))))
                      (provider-stream-turn
                       (agent-provider agent)
                       conversation
@@ -1767,9 +1769,9 @@ loop, so compaction ahead of the user message shares the turn's budget."
                       :event-callback
                       (agent--provider-event-callback
                        observer
-                       :conversation conversation
+                       :conversation   conversation
                        :request-number request-number)
-                      :goal-context goal-context))
+                      :goal-context    goal-context))
                  (provider-error (condition)
                    (conversation-append-provider-metadata
                     conversation
@@ -1777,36 +1779,36 @@ loop, so compaction ahead of the user message shares the turn's budget."
                           :failure
                           (agent--provider-error-metadata condition)))
                    (error condition))))
-             (calls (provider-result-tool-calls result))
+             (calls        (provider-result-tool-calls result))
              (completion-details
-               (list :request-number request-number
-                     :response-id (provider-result-response-id result)
-                     :usage (agent--portable-value
-                             (provider-usage-normalize (provider-result-usage result)))
+               (list :request-number    request-number
+                     :response-id       (provider-result-response-id result)
+                     :usage             (agent--portable-value
+                                         (provider-usage-normalize (provider-result-usage result)))
                      :output-item-count (length (provider-result-output-items result))
-                     :tool-call-count (length calls)
-                     :turn-completion (provider-result-turn-completion result))))
+                     :tool-call-count   (length calls)
+                     :turn-completion   (provider-result-turn-completion result))))
         (handler-case
             (progn
               (when (and calls (not tools-p))
                 (error 'agent-loop-error
-                       :message "A tool-free model turn returned function calls."
+                       :message         "A tool-free model turn returned function calls."
                        :conversation-id (conversation-identifier conversation)
-                       :request-number request-number))
+                       :request-number  request-number))
               (when (and calls tool-restriction-p (not tool-schemas-p))
                 (error 'agent-loop-error
                        :message
                        (format nil "A restricted turn exceeded its ~D tool-round limit."
                                *agent-restricted-maximum-tool-rounds*)
                        :conversation-id (conversation-identifier conversation)
-                       :request-number request-number))
+                       :request-number  request-number))
               (when (and calls tool-restriction-p)
                 (agent--validate-tool-call-allowlist
                  agent calls tool-allowlist :request-number request-number))
               (conversation-clear-ephemeral-input-items conversation)
               (agent--validate-tool-call-identifiers
                agent calls :seen-call-identifiers seen-call-identifiers
-                           :request-number request-number))
+                           :request-number        request-number))
           (agent-loop-error (condition)
             ;; Rejected calls still carry billable provider usage.
             (agent-observer-status observer :provider-request-completed completion-details)
@@ -1817,7 +1819,7 @@ loop, so compaction ahead of the user message shares the turn's budget."
            agent
            result
            :request-number request-number
-           :call-plans call-plans)
+           :call-plans     call-plans)
           (agent--answer-tool-searches
            agent result tool-namespaces :request-number request-number)
           (agent--note-persisted-assistant-response
@@ -1833,9 +1835,9 @@ loop, so compaction ahead of the user message shares the turn's budget."
              :turn-completed
              (append
               (list :provider-requests request-number
-                    :tool-rounds tool-rounds
-                    :tool-calls tool-calls
-                    :response-id (provider-result-response-id result))
+                    :tool-rounds       tool-rounds
+                    :tool-calls        tool-calls
+                    :response-id       (provider-result-response-id result))
               (agent-turn-completion-details agent)))
             (agent-learn-procedures agent observer tool-calls)
             (return result))
@@ -1851,9 +1853,9 @@ loop, so compaction ahead of the user message shares the turn's budget."
              (incf tool-rounds)
              (incf tool-calls (length calls))
              (agent--execute-tool-calls agent call-plans result
-                                        :observer observer
-                                        :tool-round tool-rounds
-                                        :tool-allowlist tool-allowlist
+                                        :observer           observer
+                                        :tool-round         tool-rounds
+                                        :tool-allowlist     tool-allowlist
                                         :tool-restriction-p tool-restriction-p)
              (if (or (agent-turn-complete-p agent result)
                      (mission-agent-terminal-p agent))
@@ -1863,9 +1865,9 @@ loop, so compaction ahead of the user message shares the turn's budget."
                     :turn-completed
                     (append
                      (list :provider-requests request-number
-                           :tool-rounds tool-rounds
-                           :tool-calls tool-calls
-                           :response-id (provider-result-response-id result))
+                           :tool-rounds       tool-rounds
+                           :tool-calls        tool-calls
+                           :response-id       (provider-result-response-id result))
                      (agent-turn-completion-details agent)))
                    (agent-learn-procedures agent observer tool-calls)
                    (return result))
