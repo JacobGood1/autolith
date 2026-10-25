@@ -34,79 +34,79 @@ names such as release-prod or config.toml keep their inner punctuation.")
 
 (defclass memory ()
   ((identifier
-    :initarg :identifier
-    :reader memory-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        memory-identifier
+    :type          non-empty-string
     :documentation "The stable identifier shared by replacement records.")
    (created-at
-    :initarg :created-at
-    :reader memory-created-at
-    :type timestamp
+    :initarg       :created-at
+    :reader        memory-created-at
+    :type          timestamp
     :documentation "The creation time as Common Lisp universal time.")
    (updated-at
-    :initarg :updated-at
-    :reader memory-updated-at
-    :type timestamp
+    :initarg       :updated-at
+    :reader        memory-updated-at
+    :type          timestamp
     :documentation "The newest replacement time as Common Lisp universal time.")
    (scope
-    :initarg :scope
-    :reader memory-scope
-    :type memory-scope
+    :initarg       :scope
+    :reader        memory-scope
+    :type          memory-scope
     :documentation "Whether the memory is global or local to one workspace.")
    (workspace
-    :initarg :workspace
-    :reader memory-workspace
-    :type (option string)
+    :initarg       :workspace
+    :reader        memory-workspace
+    :type          (option string)
     :documentation "The workspace owning a workspace-scoped memory.")
    (title
-    :initarg :title
-    :reader memory-title
-    :type non-empty-string
+    :initarg       :title
+    :reader        memory-title
+    :type          non-empty-string
     :documentation "A short retrieval-oriented description.")
    (content
-    :initarg :content
-    :reader memory-content
-    :type non-empty-string
+    :initarg       :content
+    :reader        memory-content
+    :type          non-empty-string
     :documentation "The durable fact, preference, decision, or guidance.")
    (tags
-    :initarg :tags
-    :reader memory-tags
-    :type list
+    :initarg       :tags
+    :reader        memory-tags
+    :type          list
     :documentation "Short retrieval terms associated with the memory.")
    (source-conversation
-    :initarg :source-conversation
-    :reader memory-source-conversation
-    :type (option string)
+    :initarg       :source-conversation
+    :reader        memory-source-conversation
+    :type          (option string)
     :documentation "The conversation that most recently wrote the memory.")
    (sources
-    :initarg :sources
-    :initform nil
-    :reader memory-sources
-    :type list
+    :initarg       :sources
+    :initform      nil
+    :reader        memory-sources
+    :type          list
     :documentation "Portable records of the evidence the memory was written from.")
    (premises
-    :initarg :premises
-    :initform nil
-    :reader memory-premises
-    :type list
+    :initarg       :premises
+    :initform      nil
+    :reader        memory-premises
+    :type          list
     :documentation "The memories this one was derived from, with their observed digests."))
   (:documentation "One active persistent memory reconstructed from the memory log."))
 
 (defclass memory-match ()
   ((memory
-    :initarg :memory
-    :reader memory-match-memory
-    :type memory
+    :initarg       :memory
+    :reader        memory-match-memory
+    :type          memory
     :documentation "The persistent memory selected by one relevance query.")
    (score
-    :initarg :score
-    :reader memory-match-score
-    :type (integer 1)
+    :initarg       :score
+    :reader        memory-match-score
+    :type          (integer 1)
     :documentation "The deterministic weighted lexical relevance score.")
    (terms
-    :initarg :terms
-    :reader memory-match-terms
-    :type list
+    :initarg       :terms
+    :reader        memory-match-terms
+    :type          list
     :documentation "The normalized query terms found in this memory."))
   (:documentation "One ranked persistent-memory search result."))
 
@@ -118,15 +118,15 @@ names such as release-prod or config.toml keep their inner punctuation.")
   "Return non-empty string VALUE after validating FIELD and LIMIT."
   (unless (non-empty-string-p value)
     (error 'memory-error
-           :message (format nil "Memory ~A must be a non-empty string." field)
-           :pathname #P"memories.sexp"
+           :message    (format nil "Memory ~A must be a non-empty string." field)
+           :pathname   #P"memories.sexp"
            :identifier nil))
   (when (> (length value) limit)
     (error 'memory-error
-           :message (format nil "Memory ~A exceeds the ~:D-character limit."
-                            field
-                            limit)
-           :pathname #P"memories.sexp"
+           :message    (format nil "Memory ~A exceeds the ~:D-character limit."
+                               field
+                               limit)
+           :pathname   #P"memories.sexp"
            :identifier nil))
   value)
 
@@ -139,14 +139,14 @@ names such as release-prod or config.toml keep their inner punctuation.")
             (type-error ()
               nil))
     (error 'memory-error
-           :message "Memory tags must be a proper, non-circular list of strings."
-           :pathname #P"memories.sexp"
+           :message    "Memory tags must be a proper, non-circular list of strings."
+           :pathname   #P"memories.sexp"
            :identifier nil))
   (when (> (length tags) *memory-tag-count-limit*)
     (error 'memory-error
-           :message (format nil "A memory may have at most ~:D tags."
-                            *memory-tag-count-limit*)
-           :pathname #P"memories.sexp"
+           :message    (format nil "A memory may have at most ~:D tags."
+                               *memory-tag-count-limit*)
+           :pathname   #P"memories.sexp"
            :identifier nil))
   (dolist (tag tags)
     (memory--validate-text tag "tag" *memory-tag-limit*))
@@ -161,14 +161,14 @@ them, so other memories keep their exact earlier record form."
   (append
    (list :memory
          :version *memory-format-version*
-         :id (memory-identifier memory)
-         :created-at (memory-created-at memory)
-         :updated-at (memory-updated-at memory)
-         :scope (memory-scope memory)
-         :workspace (memory-workspace memory)
-         :title (memory-title memory)
-         :content (memory-content memory)
-         :tags (memory-tags memory)
+         :id                  (memory-identifier memory)
+         :created-at          (memory-created-at memory)
+         :updated-at          (memory-updated-at memory)
+         :scope               (memory-scope memory)
+         :workspace           (memory-workspace memory)
+         :title               (memory-title memory)
+         :content             (memory-content memory)
+         :tags                (memory-tags memory)
          :source-conversation (memory-source-conversation memory))
    (when (memory-sources memory)
      (list :sources (copy-tree (memory-sources memory))))
@@ -178,18 +178,18 @@ them, so other memories keep their exact earlier record form."
 (-> memory--record->memory (pathname list) memory)
 (defun memory--record->memory (pathname record)
   "Validate and convert one portable memory RECORD from PATHNAME."
-  (let ((version (getf (rest record) :version))
-        (identifier (getf (rest record) :id))
-        (created-at (getf (rest record) :created-at))
-        (updated-at (getf (rest record) :updated-at))
-        (scope (getf (rest record) :scope))
-        (workspace (getf (rest record) :workspace))
-        (title (getf (rest record) :title))
-        (content (getf (rest record) :content))
-        (tags (getf (rest record) :tags))
+  (let ((version             (getf (rest record) :version))
+        (identifier          (getf (rest record) :id))
+        (created-at          (getf (rest record) :created-at))
+        (updated-at          (getf (rest record) :updated-at))
+        (scope               (getf (rest record) :scope))
+        (workspace           (getf (rest record) :workspace))
+        (title               (getf (rest record) :title))
+        (content             (getf (rest record) :content))
+        (tags                (getf (rest record) :tags))
         (source-conversation (getf (rest record) :source-conversation))
-        (sources (getf (rest record) :sources))
-        (premises (getf (rest record) :premises)))
+        (sources             (getf (rest record) :sources))
+        (premises            (getf (rest record) :premises)))
     (unless (and (eql version *memory-format-version*)
                  (non-empty-string-p identifier)
                  (typep created-at 'timestamp)
@@ -204,31 +204,31 @@ them, so other memories keep their exact earlier record form."
                  (memory-sources-valid-p sources scope)
                  (memory-premises-valid-p premises)
                  (not (find identifier premises
-                            :key (lambda (premise) (getf premise :id))
+                            :key  (lambda (premise) (getf premise :id))
                             :test #'equal)))
       (error 'memory-error
-             :message "A persistent memory record has invalid metadata."
-             :pathname pathname
+             :message    "A persistent memory record has invalid metadata."
+             :pathname   pathname
              :identifier (and (stringp identifier) identifier)))
     (handler-case
         (make-instance 'memory
-                       :identifier identifier
-                       :created-at created-at
-                       :updated-at updated-at
-                       :scope scope
-                       :workspace workspace
-                       :title (memory--validate-text
-                               title "title" *memory-title-limit*)
-                       :content (memory--validate-text
-                                 content "content" *memory-content-limit*)
-                       :tags (memory--validate-tags tags)
+                       :identifier          identifier
+                       :created-at          created-at
+                       :updated-at          updated-at
+                       :scope               scope
+                       :workspace           workspace
+                       :title               (memory--validate-text
+                                             title "title" *memory-title-limit*)
+                       :content             (memory--validate-text
+                                             content "content" *memory-content-limit*)
+                       :tags                (memory--validate-tags tags)
                        :source-conversation source-conversation
-                       :sources (copy-tree sources)
-                       :premises (copy-tree premises))
+                       :sources             (copy-tree sources)
+                       :premises            (copy-tree premises))
       (memory-error (condition)
         (error 'memory-error
-               :message (autolith-error-message condition)
-               :pathname pathname
+               :message    (autolith-error-message condition)
+               :pathname   pathname
                :identifier identifier)))))
 
 
@@ -240,18 +240,18 @@ them, so other memories keep their exact earlier record form."
   (let ((pathname (configuration-memory-path configuration)))
     (make-instance
      'sexp-store:log-store
-     :pathname pathname
+     :pathname      pathname
      :lock-pathname (readable-state-lock-pathname pathname "memories.lock")
-     :header (list :memories :version *memory-format-version*)
+     :header        (list :memories :version *memory-format-version*)
      :header-validator
      (lambda (form)
        (sexp-store:record-check form :tag ':memories
-                               :versions (list *memory-format-version*)))
-     :validator (lambda (form) (keywordp (first form)))
+                               :versions  (list *memory-format-version*)))
+     :validator     (lambda (form) (keywordp (first form)))
      :initial-state (lambda () (make-hash-table :test #'equal))
-     :reducer (lambda (active record)
-                (memory--reduce-record pathname active record))
-     :finalizer #'memory--sort-active)))
+     :reducer       (lambda (active record)
+                      (memory--reduce-record pathname active record))
+     :finalizer     #'memory--sort-active)))
 
 (-> memory--reduce-record (pathname hash-table list) hash-table)
 (defun memory--reduce-record (pathname active record)
@@ -261,7 +261,7 @@ them, so other memories keep their exact earlier record form."
      (let ((memory (memory--record->memory pathname record)))
        (setf (gethash (memory-identifier memory) active) memory)))
     (:memory-forgotten
-     (let ((identifier (getf (rest record) :id))
+     (let ((identifier          (getf (rest record) :id))
            (source-conversation (getf (rest record) :source-conversation)))
        (unless (and (eql (getf (rest record) :version) *memory-format-version*)
                     (non-empty-string-p identifier)
@@ -269,15 +269,15 @@ them, so other memories keep their exact earlier record form."
                     (or (null source-conversation)
                         (non-empty-string-p source-conversation)))
          (error 'memory-error
-                :message "A memory tombstone has invalid metadata."
-                :pathname pathname
+                :message    "A memory tombstone has invalid metadata."
+                :pathname   pathname
                 :identifier (and (stringp identifier) identifier)))
        (remhash identifier active)))
     (otherwise
      (error 'memory-error
-            :message (format nil "Unsupported persistent memory record ~S."
-                             (first record))
-            :pathname pathname
+            :message    (format nil "Unsupported persistent memory record ~S."
+                                (first record))
+            :pathname   pathname
             :identifier nil)))
   active)
 
@@ -298,8 +298,8 @@ them, so other memories keep their exact earlier record form."
       (sexp-store:store-transact (memory--store configuration) update)
     (sexp-store:store-error (cause)
       (error 'memory-error
-             :message (sexp-store:store-error-message cause)
-             :pathname (sexp-store:store-error-pathname cause)
+             :message    (sexp-store:store-error-message cause)
+             :pathname   (sexp-store:store-error-pathname cause)
              :identifier nil))))
 
 
@@ -345,7 +345,7 @@ them, so other memories keep their exact earlier record form."
   (find identifier
         (memory-list configuration :visibility ':all)
         :test #'string=
-        :key #'memory-identifier))
+        :key  #'memory-identifier))
 
 (-> memory--premise-visible-p (memory memory-scope (option string)) boolean)
 (defun memory--premise-visible-p (premise scope workspace)
@@ -369,7 +369,7 @@ them, so other memories keep their exact earlier record form."
                   (setf (gethash identifier visited) t)
                   (let ((memory (find identifier active
                                       :test #'string=
-                                      :key #'memory-identifier)))
+                                      :key  #'memory-identifier)))
                     (and memory
                          (some (lambda (premise)
                                  (visit (getf premise :id)))
@@ -391,8 +391,8 @@ SCOPE and WORKSPACE, and no premise memory may depend on the memory IDENTIFIER
 being written."
   (flet ((fail (premise control &rest arguments)
            (error 'memory-error
-                  :message (apply #'format nil control arguments)
-                  :pathname (configuration-memory-path configuration)
+                  :message    (apply #'format nil control arguments)
+                  :pathname   (configuration-memory-path configuration)
                   :identifier premise)))
     (unless (and (proper-list-p premises)
                  (every #'non-empty-string-p premises))
@@ -401,19 +401,19 @@ being written."
       (fail nil "A memory may have at most ~D premises." *memory-premise-count-limit*))
     (loop with view = nil
           for premise-identifier in (remove-duplicates premises
-                                                       :test #'string=
+                                                       :test     #'string=
                                                        :from-end t)
           for premise = (find premise-identifier active
                               :test #'string=
-                              :key #'memory-identifier)
+                              :key  #'memory-identifier)
           for claim = (and (null premise)
                            (knowledge-view-node
                             (or view
                                 (setf view (knowledge-evaluate
                                             (knowledge-base-read configuration)
                                             :workspace (knowledge--workspace configuration)
-                                            :check (evidence-check-create
-                                                    :memories active))))
+                                            :check     (evidence-check-create
+                                                        :memories active))))
                             premise-identifier))
           when claim
             do (unless (knowledge-visible-p (knowledge-node-scope claim)
@@ -422,26 +422,26 @@ being written."
                  (fail premise-identifier
                        "Premise claim ~A belongs to another workspace; a global memory may rely only on global claims."
                        premise-identifier))
-            and collect (list :id premise-identifier
+            and collect (list :id     premise-identifier
                               :digest (memory-source-text-digest premise-identifier)
-                              :kind ':claim
-                              :text (knowledge-node-text claim))
+                              :kind   ':claim
+                              :text   (knowledge-node-text claim))
           else
             do (cond
-               ((null premise)
-                (fail premise-identifier
-                      "Premise memory or claim ~A does not exist." premise-identifier))
-               ((and identifier (string= premise-identifier identifier))
-                (fail premise-identifier
-                      "A memory cannot be its own premise."))
-               ((not (memory--premise-visible-p premise scope workspace))
-                (fail premise-identifier
-                      "Premise memory ~A belongs to another workspace; a global memory may rely only on global memories."
-                      premise-identifier))
-               ((and identifier (memory--reaches-p active premise-identifier identifier))
-                (fail premise-identifier
-                      "Premise memory ~A already relies on this memory." premise-identifier)))
-            and collect (list :id premise-identifier
+                ((null premise)
+                 (fail premise-identifier
+                       "Premise memory or claim ~A does not exist." premise-identifier))
+                ((and identifier (string= premise-identifier identifier))
+                 (fail premise-identifier
+                       "A memory cannot be its own premise."))
+                ((not (memory--premise-visible-p premise scope workspace))
+                 (fail premise-identifier
+                       "Premise memory ~A belongs to another workspace; a global memory may rely only on global memories."
+                       premise-identifier))
+                ((and identifier (memory--reaches-p active premise-identifier identifier))
+                 (fail premise-identifier
+                       "Premise memory ~A already relies on this memory." premise-identifier)))
+            and collect (list :id     premise-identifier
                               :digest (memory-content-digest (memory-title premise)
                                                              (memory-content premise))))))
 
@@ -457,12 +457,12 @@ stale. A premise forgotten since then stays recorded and keeps it stale."
     (dolist (premise premises)
       (let* ((memory (find (getf premise :id) active
                            :test #'string=
-                           :key #'memory-identifier))
-             (claim (and (eq (getf premise :kind) ':claim)
-                         (knowledge-base-claim
-                          (or knowledge
-                              (setf knowledge (knowledge-base-read configuration)))
-                          (getf premise :id)))))
+                           :key  #'memory-identifier))
+             (claim  (and (eq (getf premise :kind) ':claim)
+                          (knowledge-base-claim
+                           (or knowledge
+                               (setf knowledge (knowledge-base-read configuration)))
+                           (getf premise :id)))))
         ;; A derived claim premise has no stored owner; only global memories
         ;; are restricted, and they may cite only global stored claims.
         (when (or (and memory (not (memory--premise-visible-p memory scope workspace)))
@@ -470,9 +470,9 @@ stale. A premise forgotten since then stays recorded and keeps it stale."
                        (eq (getf premise :kind) ':claim)
                        (not (and claim (eq (getf claim :scope) ':global)))))
           (error 'memory-error
-                 :message (format nil "Premise ~A belongs to another workspace; a global memory may rely only on global premises."
-                                  (getf premise :id))
-                 :pathname (configuration-memory-path configuration)
+                 :message    (format nil "Premise ~A belongs to another workspace; a global memory may rely only on global premises."
+                                     (getf premise :id))
+                 :pathname   (configuration-memory-path configuration)
                  :identifier (getf premise :id))))))
   (copy-tree premises))
 
@@ -486,8 +486,8 @@ Relative paths are resolved from workspace FROM. A file inside TO becomes
 relative to it; every other file path becomes absolute."
   (unless (memory-sources-valid-p sources ':workspace)
     (error 'memory-error
-           :message "Memory sources are invalid."
-           :pathname (configuration-memory-path configuration)
+           :message    "Memory sources are invalid."
+           :pathname   (configuration-memory-path configuration)
            :identifier nil))
   (mapcar
    (lambda (source)
@@ -496,7 +496,7 @@ relative to it; every other file path becomes absolute."
                 (relative (and to
                                (uiop:subpathp pathname
                                               (uiop:ensure-directory-pathname to))))
-                (placed (copy-list source)))
+                (placed   (copy-list source)))
            (setf (getf (rest placed) :path)
                  (if relative
                      (uiop:unix-namestring relative)
@@ -519,16 +519,16 @@ relative to it; every other file path becomes absolute."
 
 The second value is :FOUND, :MISSING, or :AMBIGUOUS; the third lists the
 matching memories when the prefix is ambiguous."
-  (let* ((text (string-trim '(#\Space #\Tab) identifier))
+  (let* ((text     (string-trim '(#\Space #\Tab) identifier))
          (memories (if (non-empty-string-p text)
                        (memory-list configuration :visibility ':relevant)
                        nil))
-         (exact (find text memories :key #'memory-identifier :test #'string-equal))
-         (matches (remove-if-not (lambda (memory)
-                                   (uiop:string-prefix-p
-                                    (string-downcase text)
-                                    (string-downcase (memory-identifier memory))))
-                                 memories)))
+         (exact    (find text memories :key #'memory-identifier :test #'string-equal))
+         (matches  (remove-if-not (lambda (memory)
+                                    (uiop:string-prefix-p
+                                     (string-downcase text)
+                                     (string-downcase (memory-identifier memory))))
+                                  memories)))
     (cond
       (exact
        (values exact ':found nil))
@@ -569,13 +569,13 @@ memory to the evidence as it is now."
         (validated-tags (memory--validate-tags tags)))
     (unless (or (null identifier) (non-empty-string-p identifier))
       (error 'memory-error
-             :message "A replacement memory identifier must be non-empty."
-             :pathname (configuration-memory-path configuration)
+             :message    "A replacement memory identifier must be non-empty."
+             :pathname   (configuration-memory-path configuration)
              :identifier nil))
     (unless (or (null scope) (typep scope 'memory-scope))
       (error 'memory-error
-             :message "Memory scope must be GLOBAL or WORKSPACE."
-             :pathname (configuration-memory-path configuration)
+             :message    "Memory scope must be GLOBAL or WORKSPACE."
+             :pathname   (configuration-memory-path configuration)
              :identifier identifier))
     (with-recursive-lock-held (*memory-lock*)
       (memory--transact
@@ -584,13 +584,13 @@ memory to the evidence as it is now."
          (let ((existing (and identifier
                               (find identifier active
                                     :test #'string=
-                                    :key #'memory-identifier))))
+                                    :key  #'memory-identifier))))
            (when (and identifier (null existing))
              (error 'memory-error
-                    :message (format nil "Memory ~A does not exist." identifier)
-                    :pathname (configuration-memory-path configuration)
+                    :message    (format nil "Memory ~A does not exist." identifier)
+                    :pathname   (configuration-memory-path configuration)
                     :identifier identifier))
-           (let* ((now (get-universal-time))
+           (let* ((now            (get-universal-time))
                   (selected-scope (or scope
                                       (and existing (memory-scope existing))
                                       :workspace))
@@ -616,7 +616,7 @@ memory to the evidence as it is now."
                      :from (if sources-p
                                workspace
                                (and existing (memory-workspace existing)))
-                     :to workspace))
+                     :to   workspace))
                   (premise-records
                     (cond
                       (premises-p
@@ -636,17 +636,17 @@ memory to the evidence as it is now."
                   (memory
                     (make-instance
                      'memory
-                     :identifier (or identifier (make-identifier))
-                     :created-at (if existing (memory-created-at existing) now)
-                     :updated-at now
-                     :scope selected-scope
-                     :workspace workspace
-                     :title validated-title
-                     :content validated-content
-                     :tags validated-tags
+                     :identifier          (or identifier (make-identifier))
+                     :created-at          (if existing (memory-created-at existing) now)
+                     :updated-at          now
+                     :scope               selected-scope
+                     :workspace           workspace
+                     :title               validated-title
+                     :content             validated-content
+                     :tags                validated-tags
                      :source-conversation source-conversation
-                     :sources placed-sources
-                     :premises premise-records)))
+                     :sources             placed-sources
+                     :premises            premise-records)))
              (values (list (memory--record memory)) memory t))))))))
 
 (-> memory-forget
@@ -657,8 +657,8 @@ memory to the evidence as it is now."
   (unless (or (null source-conversation)
               (non-empty-string-p source-conversation))
     (error 'memory-error
-           :message "Memory source conversation must be non-empty when supplied."
-           :pathname (configuration-memory-path configuration)
+           :message    "Memory source conversation must be non-empty when supplied."
+           :pathname   (configuration-memory-path configuration)
            :identifier identifier))
   (with-recursive-lock-held (*memory-lock*)
     (memory--transact
@@ -666,17 +666,17 @@ memory to the evidence as it is now."
      (lambda (active)
        (let ((memory (find identifier active
                            :test #'string=
-                           :key #'memory-identifier)))
+                           :key  #'memory-identifier)))
          (unless memory
            (error 'memory-error
-                  :message (format nil "Memory ~A does not exist." identifier)
-                  :pathname (configuration-memory-path configuration)
+                  :message    (format nil "Memory ~A does not exist." identifier)
+                  :pathname   (configuration-memory-path configuration)
                   :identifier identifier))
          (values
           (list (list :memory-forgotten
                       :version *memory-format-version*
-                      :id identifier
-                      :time (get-universal-time)
+                      :id                  identifier
+                      :time                (get-universal-time)
                       :source-conversation source-conversation))
           memory t))))))
 
@@ -687,8 +687,8 @@ memory to the evidence as it is now."
 Punctuation surrounding a term is ignored."
   (unless (non-empty-string-p query)
     (error 'memory-error
-           :message "A memory search query must be non-empty."
-           :pathname #P"memories.sexp"
+           :message    "A memory search query must be non-empty."
+           :pathname   #P"memories.sexp"
            :identifier nil))
   (let ((terms
           (remove-duplicates
@@ -702,7 +702,7 @@ Punctuation surrounding a term is ignored."
                     (uiop:split-string
                      query
                      :separator '(#\Space #\Tab #\Newline #\Return))))
-           :test #'string=
+           :test     #'string=
            :from-end t)))
     (subseq terms 0 (min *memory-search-term-limit* (length terms)))))
 
@@ -727,7 +727,7 @@ Punctuation surrounding a term is ignored."
          (matched
            (remove-if-not #'plusp term-scores :key #'rest)))
     (when matched
-      (let* ((phrase (string-trim '(#\Space #\Tab #\Newline #\Return) query))
+      (let* ((phrase      (string-trim '(#\Space #\Tab #\Newline #\Return) query))
              (all-terms-p (= (length matched) (length terms)))
              (phrase-title-p
                (search phrase (memory-title memory) :test #'char-equal))
@@ -741,13 +741,13 @@ Punctuation surrounding a term is ignored."
                   (if phrase-content-p 5 0))))
         (make-instance 'memory-match
                        :memory memory
-                       :score score
-                       :terms (mapcar #'first matched))))))
+                       :score  score
+                       :terms  (mapcar #'first matched))))))
 
 (-> memory--match-before-p (memory-match memory-match) boolean)
 (defun memory--match-before-p (left right)
   "Return true when LEFT ranks before RIGHT deterministically."
-  (let ((left-memory (memory-match-memory left))
+  (let ((left-memory  (memory-match-memory left))
         (right-memory (memory-match-memory right)))
     (or (> (memory-match-score left) (memory-match-score right))
         (and (= (memory-match-score left) (memory-match-score right))
