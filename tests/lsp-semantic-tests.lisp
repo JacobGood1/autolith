@@ -360,7 +360,7 @@
              (test-call-with-function-replacements
               (list
                (list 'lsp-tool--call-for-file
-                     (lambda (manager context selected function)
+                     (lambda (manager context selected &key function)
                        (declare (ignore manager context selected))
                        (vector (json-object "server" "fixture" "result" (funcall function client document)))))
                (list 'lsp-transport-request

@@ -48,6 +48,7 @@
          (state     (lsp-semantic-tool-state tool)))
     (lsp-tool--call-for-file
      (lsp-tool-manager tool) context path
+     :function
      (lambda (client document)
        (let* ((snapshots (make-hash-table :test #'equal))
               (snapshot  (lsp-semantic--snapshot-function context client snapshots)))

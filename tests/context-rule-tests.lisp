@@ -165,7 +165,7 @@
                                             :conversation conversation :registry registry :agent agent)))
              (test-call-with-function-replacements
               (list (list 'lsp-tool--call-for-file
-                          (lambda (manager context path function)
+                          (lambda (manager context path &key function)
                             (declare (ignore manager context path function))
                             (when reset-during-query-p
                               (context-rule-start-turn agent))

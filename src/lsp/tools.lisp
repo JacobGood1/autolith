@@ -57,8 +57,10 @@ an authorized file elsewhere, as an editor opening that file would search."
         (make-pathname :directory '(:absolute) :name nil :type nil :version nil
                        :defaults path))))
 
-(-> lsp-tool--call-for-file (lsp-manager tool-context pathname function) vector)
-(defun lsp-tool--call-for-file (manager context path function)
+(-> lsp-tool--call-for-file
+    (lsp-manager tool-context pathname &key (:function function))
+    vector)
+(defun lsp-tool--call-for-file (manager context path &key function)
   "Run FUNCTION for each matching server and return independent success or failure rows."
   (with-recursive-lock-held ((lsp-manager-lock manager))
     (unless (lsp-configurations-for-path
@@ -172,7 +174,7 @@ clip JSON. Truncated documents retain a bounded result plus an explicit note."
    (lsp-tool--render
     (lsp-tool--call-for-file
      (lsp-tool-manager tool) context (lsp-tool--path context (tool-argument arguments "path" :required t))
-     (lambda (client document) (lsp-tool--query client document arguments))))))
+     :function (lambda (client document) (lsp-tool--query client document arguments))))))
 
 (defmethod tool-execute ((tool lsp-diagnostics-tool) (context tool-context) (arguments hash-table))
   "Return settled diagnostics without equating an unreported file with a clean file."
@@ -180,7 +182,7 @@ clip JSON. Truncated documents retain a bounded result plus an explicit note."
           (lsp-tool--call-for-file
            (lsp-tool-manager tool) context
            (lsp-tool--path context (tool-argument arguments "path" :required t))
-           (lambda (client document) (lsp-client-diagnostics client document)))))
+           :function (lambda (client document) (lsp-client-diagnostics client document)))))
     (context-rule-note-diagnostics (tool-context-conversation context) reports
                                    :generation (tool-context-rule-generation context))
     (tool-success (lsp-tool--render reports))))
@@ -275,6 +277,7 @@ Explicit LSP tools use the configured server timeout; failed startup also reaps 
                        path)
                       (let ((reports (lsp-tool--call-for-file
                                       manager context path
+                                      :function
                                       (lambda (client document)
                                         (lsp-client-diagnostics client document :wait-seconds 0.5)))))
                         (context-rule-note-diagnostics
