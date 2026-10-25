@@ -27,8 +27,8 @@
 (defun data-transfer--slash-arguments (text &key export-p)
   "Parse archive paths and text options at the slash-command boundary."
   (let* ((arguments (application-command--tokens text))
-         (pathname (first arguments))
-         (options (rest arguments)))
+         (pathname  (first arguments))
+         (options   (rest arguments)))
     (unless pathname
       (error 'configuration-error :message "Data transfer requires an archive pathname."))
     (cond
@@ -87,35 +87,35 @@
                              (length (getf report :workspaces))))))))))
 
 (define-application-command application--builtin-data-export-command
-    (:name "/data.export"
-     :argument "FILE [--all|--workspace DIRECTORY]"
-     :description "export all portable user data or one workspace"
-     :tip "Use `(data.export pathname :workspace directory)` to export one workspace."
-     :busy-behavior :hold
+    (:name              "/data.export"
+     :argument          "FILE [--all|--workspace DIRECTORY]"
+     :description       "export all portable user data or one workspace"
+     :tip               "Use `(data.export pathname :workspace directory)` to export one workspace."
+     :busy-behavior     :hold
      :terminal-behavior :shared
-     :callable t
-     :slash-parser data-transfer--export-slash-arguments)
+     :callable          t
+     :slash-parser      data-transfer--export-slash-arguments)
     (application pathname &key workspace all)
   (let* ((configuration (application-configuration application))
-         (workspace (data-transfer--command-workspace configuration :workspace workspace :all all))
-         (report (data-export (data-transfer--command-path pathname configuration)
-                              :workspace workspace :configuration configuration)))
+         (workspace     (data-transfer--command-workspace configuration :workspace workspace :all all))
+         (report        (data-export (data-transfer--command-path pathname configuration)
+                                     :workspace workspace :configuration configuration)))
     (application-present application (data-transfer-report-entry "Exported" report)))
   ':continue)
 
 (define-application-command application--builtin-data-import-command
-    (:name "/data.import"
-     :argument "FILE [--workspace DIRECTORY]"
-     :description "import portable user data, optionally relocating a workspace"
-     :tip "Use `(data.import pathname :workspace directory)` to relocate an imported workspace."
-     :busy-behavior :hold
+    (:name              "/data.import"
+     :argument          "FILE [--workspace DIRECTORY]"
+     :description       "import portable user data, optionally relocating a workspace"
+     :tip               "Use `(data.import pathname :workspace directory)` to relocate an imported workspace."
+     :busy-behavior     :hold
      :terminal-behavior :shared
-     :callable t
-     :slash-parser data-transfer--import-slash-arguments)
+     :callable          t
+     :slash-parser      data-transfer--import-slash-arguments)
     (application pathname &key workspace)
   (let* ((configuration (application-configuration application))
-         (workspace (data-transfer--command-workspace configuration :workspace workspace))
-         (report (data-import (data-transfer--command-path pathname configuration)
-                              :workspace workspace :configuration configuration)))
+         (workspace     (data-transfer--command-workspace configuration :workspace workspace))
+         (report        (data-import (data-transfer--command-path pathname configuration)
+                                     :workspace workspace :configuration configuration)))
     (application-present application (data-transfer-report-entry "Imported" report)))
   ':continue)
