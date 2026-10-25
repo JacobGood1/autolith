@@ -240,6 +240,7 @@ BODY never waits for it to compile, and stops when BODY exits by any means."
                       (princ-to-string condition))
                   (slynk-endpoint-state endpoint) ':failed
                   (slynk-endpoint-wanted-p endpoint) nil)
+            ; mallet:suppress no-ignore-errors -- best-effort failure report; the state already records it
             (ignore-errors
               (slynk--publish endpoint
                               (format nil "error: ~A~%"
