@@ -23,9 +23,9 @@
     (loop for octet across
           (utf8-string-to-octets value)
           do
-             (if (funcall literal-octet-p octet)
-                 (write-char (code-char octet) stream)
-                 (format stream "%~2,'0X" octet)))))
+          (if (funcall literal-octet-p octet)
+              (write-char (code-char octet) stream)
+              (format stream "%~2,'0X" octet)))))
 
 (-> resource-uri-decode
     (string string &key (:literal-character-p (option function)))
@@ -35,7 +35,7 @@
   (let ((octets
           (make-array (length encoded)
                       :element-type '(unsigned-byte 8)
-                      :adjustable t
+                      :adjustable   t
                       :fill-pointer 0)))
     (labels ((malformed (reason)
                (error 'resource-uri-malformed :uri uri :reason reason))
@@ -163,16 +163,16 @@
         unless (member name allowed :test #'string=)
           do
              (error 'tool-error
-                    :message (format nil
-                                     "~A resource operation does not accept field ~A."
-                                     noun name)
+                    :message   (format nil
+                                       "~A resource operation does not accept field ~A."
+                                       noun name)
                     :tool-name "resource.edit"))
   (dolist (name required)
     (unless (nth-value 1 (gethash name operation))
       (error 'tool-error
-             :message (format nil
-                              "~A resource operation requires ~A."
-                              noun name)
+             :message   (format nil
+                                "~A resource operation requires ~A."
+                                noun name)
              :tool-name "resource.edit")))
   nil)
 
