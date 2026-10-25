@@ -338,7 +338,7 @@ are checked again against actual results by the ordinary call dispatch."
   nil)
 
 (-> procedure--call
-    (tool-context string &key (:arguments json-object) (:index integer))
+    (tool-context string &key (:arguments (satisfies argo:json-object-p)) (:index integer))
     tool-result)
 (defun procedure--call (context tool-name &key arguments index)
   "Make call number INDEX of a run: TOOL-NAME with ARGUMENTS through CONTEXT's registry."

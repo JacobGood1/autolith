@@ -48,6 +48,8 @@
               :documentation "URI-keyed resource, proposal-owned observation state and exact document version."))
   (:documentation "An immutable proposed transformation against exact retained snapshots."))
 
+(declaim (inline lsp-semantic--fail))
+
 (-> lsp-semantic--fail (string) null)
 (defun lsp-semantic--fail (message)
   "Signal a policy failure with a bounded actionable MESSAGE."

@@ -562,6 +562,8 @@ not yet been told that work from the previous process is gone.")
   (merge-pathnames "conversation-leases.lock"
                    (config :state-root configuration)))
 
+(declaim (inline conversation--lease-in-use))
+
 (-> conversation--lease-in-use (string pathname pathname) null)
 (defun conversation--lease-in-use
     (identifier conversation-pathname lease-pathname)
