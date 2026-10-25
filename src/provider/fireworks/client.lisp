@@ -42,10 +42,10 @@
 (defun fireworks-provider-create (configuration)
   "Create the Fireworks API key provider for CONFIGURATION."
   (make-instance 'fireworks-api-key-provider
-                 :configuration configuration
+                 :configuration      configuration
                  :credential-manager (fireworks-credential-manager-create
                                       configuration)
-                 :session-id (make-identifier)))
+                 :session-id         (make-identifier)))
 
 
 ;;;; -- Fireworks Protocol Specializations --
@@ -65,7 +65,6 @@ object entirely; see PROVIDER-RESPONSES-WIRE-EFFORT.")
   "Return true when MODEL accepts a reasoning effort parameter."
   (not (member model *fireworks-reasoning-effort-models-blacklist*
                :test #'string=)))
-
 
 (defmethod provider-responses-wire-effort
     ((provider fireworks-api-key-provider) (configuration configuration))
