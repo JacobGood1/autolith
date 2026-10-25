@@ -18,14 +18,14 @@
   (declare (ignore tool))
   (handler-case
       (let* ((identifier (tool-argument arguments "id" :required t))
-             (run (procedure-run context identifier
-                                 :parameters (procedure-parameters-from-json
-                                              (tool-argument arguments "parameters"))
-                                 :caller ':model))
-             (report (procedure-run-report identifier run)))
+             (run        (procedure-run context identifier
+                                        :parameters (procedure-parameters-from-json
+                                                     (tool-argument arguments "parameters"))
+                                        :caller     ':model))
+             (report     (procedure-run-report identifier run)))
         (if (eq (getf run :status) ':ok)
             (tool-success report)
             (tool-failure report :code ':procedure-failed)))
     (knowledge-error (condition)
-      (error 'tool-error :message (autolith-error-message condition)
+      (error 'tool-error :message   (autolith-error-message condition)
                          :tool-name "procedure.run"))))
