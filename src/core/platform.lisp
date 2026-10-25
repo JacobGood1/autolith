@@ -31,48 +31,48 @@
 
 (defclass platform-file-status ()
   ((kind
-    :initarg :kind
-    :reader platform-file-status-kind
-    :type platform-file-kind
+    :initarg       :kind
+    :reader        platform-file-status-kind
+    :type          platform-file-kind
     :documentation "The kind of filesystem object observed.")
    (identity
     :initarg :identity
-    :reader platform-file-status-identity
-    :type t
+    :reader  platform-file-status-identity
+    :type    t
     :documentation
     "An EQUAL-comparable value naming the object, such as a device and inode pair.")
    (size
-    :initarg :size
-    :reader platform-file-status-size
-    :type (integer 0)
+    :initarg       :size
+    :reader        platform-file-status-size
+    :type          (integer 0)
     :documentation "The object's size in octets.")
    (modification-time
     :initarg :modification-time
-    :reader platform-file-status-modification-time
-    :type integer
+    :reader  platform-file-status-modification-time
+    :type    integer
     :documentation
     "The content modification time in platform units, compared only for equality.")
    (change-time
     :initarg :change-time
-    :reader platform-file-status-change-time
-    :type integer
+    :reader  platform-file-status-change-time
+    :type    integer
     :documentation
     "The metadata change time in platform units, compared only for equality.")
    (owned-p
-    :initarg :owned-p
-    :reader platform-file-status-owned-p
-    :type boolean
+    :initarg       :owned-p
+    :reader        platform-file-status-owned-p
+    :type          boolean
     :documentation "Whether the current user owns the object.")
    (private-p
     :initarg :private-p
-    :reader platform-file-status-private-p
-    :type boolean
+    :reader  platform-file-status-private-p
+    :type    boolean
     :documentation
     "Whether the current user owns the object and no other user may access it.")
    (read-only-p
-    :initarg :read-only-p
-    :reader platform-file-status-read-only-p
-    :type boolean
+    :initarg       :read-only-p
+    :reader        platform-file-status-read-only-p
+    :type          boolean
     :documentation "Whether the owner may not write the object's content."))
   (:documentation
    "One observation of a filesystem object's kind, identity, size, times, and privacy."))
@@ -430,8 +430,8 @@ validate that URL is an http or https URL before asking."))
   (handler-case
       (progn
         (uiop:launch-program command
-                             :input nil
-                             :output nil
+                             :input        nil
+                             :output       nil
                              :error-output nil)
         t)
     (error ()
@@ -459,7 +459,7 @@ and must wait for its command and descendants before returning."))
         (unwind-protect
              (funcall function
                       (workspace-write-sandbox-policy
-                       :workspace-roots (append writable-roots (list temporary))
+                       :workspace-roots          (append writable-roots (list temporary))
                        :protected-metadata-names '(".agents" ".codex")
                        :write-tmpdir-p nil :write-slash-tmp-p nil)
                       (loop for name in '("TMPDIR" "TMP" "TEMP")
@@ -509,35 +509,35 @@ nothing is listening there, and PLATFORM-CAPABILITY-UNAVAILABLE without the
 (defun platform--file-status (information)
   "Return the platform file status ls-compat observation INFORMATION describes."
   (make-instance 'platform-file-status
-                 :kind (file-information-kind information)
-                 :identity (file-information-identity information)
-                 :size (file-information-size information)
+                 :kind              (file-information-kind information)
+                 :identity          (file-information-identity information)
+                 :size              (file-information-size information)
                  :modification-time (file-information-modification-time information)
-                 :change-time (file-information-change-time information)
-                 :owned-p (file-information-owned-p information)
-                 :private-p (file-information-private-p information)
-                 :read-only-p (file-information-read-only-p information)))
+                 :change-time       (file-information-change-time information)
+                 :owned-p           (file-information-owned-p information)
+                 :private-p         (file-information-private-p information)
+                 :read-only-p       (file-information-read-only-p information)))
 
 (-> platform--file-failure (keyword t file-error) nil)
 (defun platform--file-failure (operation pathname condition)
   "Signal PLATFORM-ERROR for ls-compat file CONDITION raised by OPERATION on PATHNAME."
   (error 'platform-error
-         :message (princ-to-string condition)
+         :message   (princ-to-string condition)
          :operation operation
-         :pathname (and pathname (pathname pathname))
-         :reason (typecase condition
-                   (file-operation-failed
-                    (file-operation-failed-reason condition))
-                   (not-regular-file
-                    (if (eq (not-regular-file-kind condition) ':symbolic-link)
-                        ':symbolic-link
-                        ':not-regular))
-                   (link-target-exists
-                    ':exists)
-                   (t
-                    ':failed))
-         :code (and (typep condition 'file-operation-failed)
-                    (file-operation-failed-code condition))))
+         :pathname  (and pathname (pathname pathname))
+         :reason    (typecase condition
+                      (file-operation-failed
+                       (file-operation-failed-reason condition))
+                      (not-regular-file
+                       (if (eq (not-regular-file-kind condition) ':symbolic-link)
+                           ':symbolic-link
+                           ':not-regular))
+                      (link-target-exists
+                       ':exists)
+                      (t
+                       ':failed))
+         :code      (and (typep condition 'file-operation-failed)
+                         (file-operation-failed-code condition))))
 
 (defmethod platform-path-status ((platform platform) pathname &key follow-links-p)
   "Observe PATHNAME through ls-compat, reporting a missing object as NIL."
@@ -623,34 +623,34 @@ owns the response stream and must bound its body before allocating it."))
 
 (define-condition platform-error (autolith-error)
   ((operation
-    :initarg :operation
-    :reader platform-error-operation
-    :type keyword
+    :initarg       :operation
+    :reader        platform-error-operation
+    :type          keyword
     :documentation "The platform operation that failed, such as :OPEN or :PUBLISH.")
    (pathname
-    :initarg :pathname
-    :initform nil
-    :reader platform-error-pathname
-    :type (option pathname)
+    :initarg       :pathname
+    :initform      nil
+    :reader        platform-error-pathname
+    :type          (option pathname)
     :documentation "The pathname involved, when the operation named one.")
    (reason
-    :initarg :reason
-    :initform ':failed
-    :reader platform-error-reason
-    :type platform-failure-reason
+    :initarg       :reason
+    :initform      ':failed
+    :reader        platform-error-reason
+    :type          platform-failure-reason
     :documentation "The portable discriminator callers recover on.")
    (code
-    :initarg :code
-    :initform nil
-    :reader platform-error-code
-    :type (option integer)
+    :initarg       :code
+    :initform      nil
+    :reader        platform-error-code
+    :type          (option integer)
     :documentation "The operating-system error number, when one was reported."))
   (:documentation "A platform operation failed in a way callers distinguish by reason."))
 
 (define-condition platform-capability-unavailable (autolith-error)
   ((capability
-    :initarg :capability
-    :reader platform-capability-unavailable-capability
-    :type keyword
+    :initarg       :capability
+    :reader        platform-capability-unavailable-capability
+    :type          keyword
     :documentation "The capability this host withholds."))
   (:documentation "A capability is withheld on this host for a user-visible reason."))
