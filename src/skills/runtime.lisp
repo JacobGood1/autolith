@@ -19,14 +19,14 @@
 
 (defclass skill-logical-turn-state ()
   ((selection-names
-    :initform nil
-    :accessor skill-logical-turn-state-selection-names
-    :type list
+    :initform      nil
+    :accessor      skill-logical-turn-state-selection-names
+    :type          list
     :documentation "Exact skill names selected during this logical user turn.")
    (lock
-    :initform (make-lock "Autolith skill logical turn")
-    :reader skill-logical-turn-state-lock
-    :type t
+    :initform      (make-lock "Autolith skill logical turn")
+    :reader        skill-logical-turn-state-lock
+    :type          t
     :documentation "The lock serializing selection updates and snapshots."))
   (:documentation "Shared request-local Skill selection state for one logical turn."))
 
@@ -49,20 +49,21 @@
 
 (define-condition skill-selection-error (autolith-error)
   ((name
-    :initarg :name
-    :reader skill-selection-error-name
-    :type string
+    :initarg       :name
+    :reader        skill-selection-error-name
+    :type          string
     :documentation "The exact case-sensitive skill name that was requested.")
    (reason
-    :initarg :reason
-    :reader skill-selection-error-reason
-    :type (member :inactive-turn :unknown-skill :selection-limit)
+    :initarg       :reason
+    :reader        skill-selection-error-reason
+    :type          (member :inactive-turn :unknown-skill :selection-limit)
     :documentation "The machine-readable reason selection could not proceed."))
   (:documentation "A skill could not be selected for the active logical turn."))
 
 (defmethod tool-failure-code ((condition skill-selection-error))
   "Expose the structured selection reason as the tool failure code."
   (skill-selection-error-reason condition))
+
 
 ;;;; -- Logical-Turn Selection --
 
@@ -86,7 +87,7 @@ survive."
       (error 'skill-selection-error
              :message
              "A skill can be selected only while an agent turn is active."
-             :name (skill-metadata-name metadata)
+             :name   (skill-metadata-name metadata)
              :reason ':inactive-turn))
     (let ((name (skill-metadata-name metadata)))
       (with-lock-held ((skill-logical-turn-state-lock state))
@@ -102,7 +103,7 @@ survive."
                          (format nil
                                  "A logical turn may select at most ~D distinct skills."
                                  *skill-selection-count-limit*)
-                         :name name
+                         :name   name
                          :reason ':selection-limit))
                 (setf (skill-logical-turn-state-selection-names state)
                       (append selection-names (list name)))
@@ -126,7 +127,7 @@ SKILL.LOAD selects a skill; catalog text and durable conversation text do not."
     (error 'skill-selection-error
            :message
            "A skill can be selected only while an agent turn is active."
-           :name name
+           :name   name
            :reason ':inactive-turn))
   (let ((metadata
           (skill-catalog-find
@@ -138,10 +139,9 @@ SKILL.LOAD selects a skill; catalog text and durable conversation text do not."
              (format nil
                      "No discovered skill has the exact case-sensitive name ~S."
                      name)
-             :name name
+             :name   name
              :reason ':unknown-skill))
     (values metadata (skill--logical-turn-record metadata))))
-
 
 
 ;;;; -- Model-Visible Catalog Adapter --
@@ -167,8 +167,9 @@ SKILL.LOAD selects a skill; catalog text and durable conversation text do not."
   (cl-skills:skill-catalog-render
    catalog
    :character-budget character-budget
-   :prefix (skill--catalog-prefix)
-   :guidance (skill--catalog-guidance)))
+   :prefix           (skill--catalog-prefix)
+   :guidance         (skill--catalog-guidance)))
+
 
 ;;;; -- Autolith Skill Roots --
 
@@ -201,7 +202,7 @@ discovered without copying."
           (merge-pathnames "skills/" site-root)))
       (merge-pathnames "skills/"
                        (config :source-root configuration))))
-   :test #'equal
+   :test     #'equal
    :from-end t))
 
 (-> skill-catalog-for-configuration (configuration) skill-catalog)
@@ -210,7 +211,6 @@ discovered without copying."
   (skill-catalog-discover
    (skill-roots configuration)
    :cache-root (config :cache-root configuration)))
-
 
 (-> skill-global-root (configuration) pathname)
 (defun skill-global-root (configuration)
@@ -247,7 +247,7 @@ discovered without copying."
                    :key #'skill-diagnostic-kind))
          (counts nil))
     (dolist (diagnostic diagnostics)
-      (let* ((kind (skill-diagnostic-kind diagnostic))
+      (let* ((kind  (skill-diagnostic-kind diagnostic))
              (entry (assoc kind counts)))
         (if entry
             (incf (rest entry))
@@ -301,8 +301,8 @@ discovered without copying."
    :identifier
    (skill--context-identifier "skill-warning" (skill-metadata-name metadata))
    :instruction (skill--bounded-warning warning)
-   :priority 910
-   :class ':mandatory
+   :priority    910
+   :class       ':mandatory
    :deduplication-key
    (skill--context-identifier "skill-warning" (skill-metadata-name metadata))))
 
@@ -311,16 +311,15 @@ discovered without copying."
   "Return a request-local warning when selected skill NAME disappeared."
   (let ((identifier (skill--context-identifier "skill-warning" name)))
     (make-context-contribution
-     :identifier identifier
+     :identifier        identifier
      :instruction
       (skill--bounded-warning
        (format nil
                "Skill ~A was selected for this request but its valid source definition is no longer discoverable. Continue with the best fallback and do not claim that its instructions were applied."
                name))
-     :priority 910
-     :class ':mandatory
+     :priority          910
+     :class             ':mandatory
      :deduplication-key identifier)))
-
 
 (-> skill--warning-contribution-p (context-contribution) boolean)
 (defun skill--warning-contribution-p (contribution)
@@ -338,7 +337,7 @@ discovered without copying."
   "Return one bounded mandatory warning for OMITTED-COUNT collapsed warnings."
   (let ((identifier "skill-warning-overflow"))
     (make-context-contribution
-     :identifier identifier
+     :identifier        identifier
      :instruction
      (skill--truncate-string
       (format nil
@@ -346,8 +345,8 @@ discovered without copying."
               omitted-count
               *skill-warning-aggregate-character-limit*)
       character-limit)
-     :priority 910
-     :class ':mandatory
+     :priority          910
+     :class             ':mandatory
      :deduplication-key identifier)))
 
 (-> skill--bound-warning-contributions (list) list)
@@ -363,8 +362,8 @@ discovered without copying."
                       (context-contribution-instruction warning)))))
     (if (<= total *skill-warning-aggregate-character-limit*)
         contributions
-        (let ((kept nil)
-              (used 0)
+        (let ((kept      nil)
+              (used      0)
               (remaining (length warnings)))
           (dolist (warning warnings)
             (let* ((warning-length
@@ -415,7 +414,7 @@ discovered without copying."
            (let* ((instructions (skill-metadata-read metadata))
                   (instruction
                     (skill--explicit-instruction metadata instructions))
-                  (next-total (+ selected-characters (length instruction))))
+                  (next-total   (+ selected-characters (length instruction))))
              (if (> next-total *skill-selection-character-limit*)
                  (values
                   (append
@@ -439,8 +438,8 @@ discovered without copying."
                        "skill-selected"
                        (skill-metadata-name metadata))
                       :instruction instruction
-                      :priority 920
-                      :class ':mandatory
+                      :priority    920
+                      :class       ':mandatory
                       :deduplication-key
                       (skill--context-identifier
                        "skill-selected"
@@ -463,16 +462,16 @@ discovered without copying."
 (defun skill--request-contributions-for-catalog (catalog conversation)
   "Return request-local contributions selected from metadata CATALOG."
   (declare (ignore conversation))
-  (let* ((skills (skill-catalog-skills catalog))
+  (let* ((skills          (skill-catalog-skills catalog))
          (selection-names (skill-logical-turn-selection-names)))
     (when (or skills selection-names)
       (let ((contributions
               (list (change-class
                      (make-context-contribution
-                      :identifier "skill-catalog"
-                      :instruction (skill--catalog-instruction catalog)
-                      :priority 900
-                      :class ':mandatory
+                      :identifier        "skill-catalog"
+                      :instruction       (skill--catalog-instruction catalog)
+                      :priority          900
+                      :class             ':mandatory
                       :deduplication-key "skill-catalog")
                      'anchored-context-contribution)))
             (selected-characters 0))
@@ -560,8 +559,8 @@ discovered without copying."
 (-> skill-status (configuration) string)
 (defun skill-status (configuration)
   "Return discovered skills and diagnostics for CONFIGURATION."
-  (let* ((catalog (skill-catalog-for-configuration configuration))
-         (skills (skill-catalog-skills catalog))
+  (let* ((catalog        (skill-catalog-for-configuration configuration))
+         (skills         (skill-catalog-skills catalog))
          (diagnostics
            (remove ':missing-root
                    (skill-catalog-diagnostics catalog)
