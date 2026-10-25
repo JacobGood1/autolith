@@ -319,13 +319,13 @@ and the slowest cases. Worker failures, invalid results, and timeouts fail the
 command; worker process groups are terminated and reaped on exit.
 
 A complete run also checks the source and its compiler warnings. While the
-cases run, a separate process compiles every system from scratch into a private
-FASL directory and records each warning SBCL would print. Every warning nobody
-silenced on purpose, style warnings included, fails the check; silence one only
-where its reason is visible in the source. The rules in `checks/` enforce the
-mechanical parts of this file: layout and alignment, section headers,
-documentation strings, `->` declarations, keyword parameters, list accessors,
-`format` percent signs, constants, the project package, TODO and FIXME
+cases run, a separate process compiles every system supported on the host from
+scratch into a private FASL directory and records each warning SBCL would print.
+Every warning nobody silenced on purpose, style warnings included, fails the
+check; silence one only where its reason is visible in the source. The rules
+in `checks/` enforce the mechanical parts of this file: layout and alignment,
+section headers, documentation strings, `->` declarations, keyword parameters,
+list accessors, `format` percent signs, constants, the project package, TODO and FIXME
 comments, and em dashes. They also require every Lisp file to be a fixed point
 of parinfer-rust's paren mode, so editors running parinfer never reindent
 committed source. The bootstrap builds the private parinfer library from the

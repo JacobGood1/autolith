@@ -1,7 +1,7 @@
 ;;;; -- Clean Compile Warnings --
 
-;;; Compile and load every Autolith system from scratch into a private FASL
-;;; directory and record each warning the compiler or loader would print.
+;;; Compile and load every supported Autolith system from scratch into a private
+;;; FASL directory and record each warning the compiler or loader would print.
 ;;; Warnings SBCL already muffles by policy, such as uninteresting
 ;;; redefinitions, are not recorded, nor are those of dependencies or ASDF's
 ;;; per-file summaries of them. The parent check reports what this records.
@@ -11,10 +11,11 @@
 (require :asdf)
 
 (defparameter *compile-warnings-systems*
-  '("autolith" "autolith/checks" "autolith/tests" "autolith/release-server"
+  '("autolith" "autolith/checks" "autolith/tests"
+    #-win32 "autolith/release-server"
     "autolith/structural" "autolith/structural/tests" "autolith/debug"
     "autolith/debug/tests")
-  "Every system autolith.asd defines.")
+  "Every system autolith.asd defines for this host.")
 
 (defun compile-warnings--source-path (source-root fasl-directory)
   "Return the repository-relative source path of the file being compiled or loaded, or NIL."

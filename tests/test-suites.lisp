@@ -1505,4 +1505,5 @@
   test-source-check-repository-run
   test-source-parinfer-missing-library
   test-source-mallet-findings
-  test-source-warning-run)
+  test-source-warning-run
+  test-source-system-platform-support)

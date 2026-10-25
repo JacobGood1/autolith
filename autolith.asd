@@ -368,6 +368,7 @@
                                           (:file "startup/active-image"))))
   :in-order-to             ((asdf:test-op (asdf:test-op #:autolith/tests))))
 
+#-win32
 (asdf:defsystem #:autolith/release-server
   :description             "The Autolith installer and binary release service."
   :depends-on              (#:autolith
