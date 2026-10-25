@@ -39,12 +39,10 @@
       (and (listp value)
            (let ((length (list-length value)))
              (and length (evenp length)
-                  (loop for tail on value by #'cddr
-                        always (keywordp (first tail)))
-                  (= (/ length 2)
-                     (length (remove-duplicates
-                              (loop for tail on value by #'cddr
-                                    collect (first tail)))))))
+                  (let ((keys (plist-keys value)))
+                    (and (every #'keywordp keys)
+                         (= (length keys)
+                            (length (remove-duplicates keys)))))))
            t)
     (type-error ()
       nil)))
@@ -128,7 +126,7 @@ strings in chronological order from the current durable provider projection."
 (defun context-rule--validate (rule)
   "Return a detached validated rule without executing its declarative predicates."
   (unless (and (context-rule--plist-p rule)
-               (loop for tail on rule by #'cddr
+               (loop for tail on rule by (partial #'nthcdr 2)
                      always (member (first tail)
                                     '(:id :when :instruction :priority :lifetime :workspace))))
     (context-rule--reject ':rule "A rule accepts only id, when, instruction, priority, lifetime and workspace."))
@@ -136,12 +134,12 @@ strings in chronological order from the current durable provider projection."
         (workspace  (getf rule :workspace)))
     (context--validate-identifier (getf rule :id) "Context rule ID")
     (unless (and predicates (context-rule--plist-p predicates)
-                 (loop for tail on predicates by #'cddr
+                 (loop for tail on predicates by (partial #'nthcdr 2)
                        always (member (first tail)
                                       '(:paths :languages :tools :namespaces :roles
                                         :diagnostics :events :output-contains))))
       (context-rule--reject ':when "A rule requires at least one recognized metadata or output predicate."))
-    (loop for (field values) on predicates by #'cddr
+    (loop for (field values) on predicates by (partial #'nthcdr 2)
           do (unless (context-rule--values field values)
                (context-rule--reject field "A rule predicate requires at least one value.")))
     (when (and workspace
@@ -230,7 +228,7 @@ ignored. Metadata never grants tool authority."
         (unless (and generation-p (not (equal generation (getf facts :generation))))
           (unless (getf facts :generation)
             (setf (getf facts :generation) (make-identifier)))
-          (loop for (field values) on additions by #'cddr
+          (loop for (field values) on additions by (partial #'nthcdr 2)
                 for merged = (remove-duplicates (append values (getf facts field))
                                                 :test #'equal :from-end t)
                 do (setf (getf facts field)
@@ -258,7 +256,7 @@ ignored. Metadata never grants tool authority."
                (with-lock-held (*context-lock*)
                  (copy-tree (gethash (conversation-identifier (request-context-conversation request))
                                      *context-rule-facts*)))))
-          (loop for (field values) on (getf rule :when) by #'cddr
+          (loop for (field values) on (getf rule :when) by (partial #'nthcdr 2)
                 always
                 (if (eq field ':output-contains)
                     (context-rule-output-matches-p
