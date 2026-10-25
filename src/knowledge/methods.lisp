@@ -53,9 +53,12 @@
               (every (lambda (step)
                        (and (proper-list-p step)
                             (case (first step)
-                              (:task (knowledge--task-call-p (second step)))
-                              (:step (non-empty-string-p (second step)))
-                              (otherwise nil))))
+                              (:task
+                               (knowledge--task-call-p (second step)))
+                              (:step
+                               (non-empty-string-p (second step)))
+                              (otherwise
+                               nil))))
                      (getf properties :steps))))
        t))
 
@@ -69,11 +72,15 @@
     (cons (first items)
           (mapcar (lambda (item)
                     (cond
-                      ((knowledge-variable-p item) item)
-                      ((or (stringp item) (rationalp item)) item)
-                      ((floatp item) (rationalize item))
-                      (t (knowledge--fail ':invalid-method item
-                                          "Task arguments are variables, text, or numbers."))))
+                      ((knowledge-variable-p item)
+                       item)
+                      ((or (stringp item) (rationalp item))
+                       item)
+                      ((floatp item)
+                       (rationalize item))
+                      (t
+                       (knowledge--fail ':invalid-method item
+                                        "Task arguments are variables, text, or numbers."))))
                   (rest items)))))
 
 (-> knowledge--pattern-variables (list) list)
@@ -94,16 +101,16 @@ condition; plain steps may introduce variables their requirements bind."
   (unless (knowledge-rule-name-p id)
     (knowledge--fail ':invalid-method id
                      "Method names are lowercase letters, digits, hyphens, and dots."))
-  (let* ((task (knowledge--task-from-input task))
+  (let* ((task       (knowledge--task-from-input task))
          (conditions (mapcar (lambda (pattern)
                                (knowledge--pattern-from-input pattern schema-function
                                                               :negatable t))
                              (coerce when 'list)))
-         (bound (append (remove-if-not #'knowledge-variable-p (rest task))
-                        (loop for pattern in conditions
-                              unless (knowledge-negation-p pattern)
-                                append (knowledge--pattern-variables pattern))))
-         (items (coerce steps 'list)))
+         (bound      (append (remove-if-not #'knowledge-variable-p (rest task))
+                             (loop for pattern in conditions
+                                   unless (knowledge-negation-p pattern)
+                                     append (knowledge--pattern-variables pattern))))
+         (items      (coerce steps 'list)))
     (unless (<= 1 (length items) *knowledge-method-step-limit*)
       (knowledge--fail ':invalid-method id "A method lists 1 to ~D steps and subtasks."
                        *knowledge-method-step-limit*))
@@ -115,8 +122,8 @@ condition; plain steps may introduce variables their requirements bind."
                              "~A in a negated condition must be bound first." variable)))))
     (list :method
           :id id
-          :task task
-          :when conditions
+          :task        task
+          :when        conditions
           :steps
           (mapcar
            (lambda (item)
@@ -187,26 +194,26 @@ condition; plain steps may introduce variables their requirements bind."
 
 Return its ID and whether the definition changed."
   (let ((workspace (knowledge--owner configuration scope))
-        (viewer (knowledge--workspace configuration)))
+        (viewer    (knowledge--workspace configuration)))
     (values-list
      (knowledge-transact
       configuration
       (lambda (base)
-        (let* ((method (knowledge-make-method
-                        :id id :task task :when when :steps steps :description description
-                        :schema-function
-                        (lambda (predicate)
-                          (knowledge-base-schema base predicate
-                                                 :workspace (and (eq scope ':workspace) viewer)))))
+        (let* ((method   (knowledge-make-method
+                          :id id :task task :when when :steps steps :description description
+                          :schema-function
+                          (lambda (predicate)
+                            (knowledge-base-schema base predicate
+                                                   :workspace (and (eq scope ':workspace) viewer)))))
                (existing (gethash (list scope workspace id) (knowledge-base-methods-table base))))
           (if (equal (getf existing :method) method)
               (values nil (list id nil) nil)
               (values (list (list :method-defined
                                   :version *knowledge-format-version*
-                                  :scope scope
-                                  :workspace workspace
-                                  :method method
-                                  :time (get-universal-time)
+                                  :scope               scope
+                                  :workspace           workspace
+                                  :method              method
+                                  :time                (get-universal-time)
                                   :source-conversation source-conversation))
                       (list id t)
                       t))))))))
@@ -257,12 +264,12 @@ when no method describes a task, naming it; :NO-PLAN when methods exist but
 none applies to the current facts, naming the unmet conditions; or :EXHAUSTED
 when the depth or task budget ran out first. Each step is a plist of :TEXT,
 :ID, :REQUIRES, and :VERIFY ready for a plan."
-  (let ((base (knowledge-view-base view))
-        (workspace (knowledge-view-workspace view))
-        (nodes 0)
+  (let ((base        (knowledge-view-base view))
+        (workspace   (knowledge-view-workspace view))
+        (nodes       0)
         (exhausted-p nil)
-        (unknown nil)
-        (unmet nil))
+        (unknown     nil)
+        (unmet       nil))
     (labels ((expand (call depth path)
                (incf nodes)
                (cond
@@ -286,7 +293,7 @@ when the depth or task budget ran out first. Each step is a plist of :TEXT,
                                                 (knowledge-view-solve view conditions)
                                                 (list (list nil)))))
                             (unless solutions
-                              (push (list :method (getf (rest method) :id)
+                              (push (list :method     (getf (rest method) :id)
                                           :conditions (mapcar #'knowledge-pattern-text conditions))
                                     unmet))
                             (dolist (solution solutions)
@@ -317,15 +324,15 @@ when the depth or task budget ran out first. Each step is a plist of :TEXT,
                                      steps
                                      (list
                                       (append
-                                       (list :text (plan-step-text-with
-                                                    (make-instance 'plan-step :text (second item)
-                                                                              :status ':pending)
-                                                    environment)
+                                       (list :text   (plan-step-text-with
+                                                      (make-instance 'plan-step :text   (second item)
+                                                                                :status ':pending)
+                                                      environment)
                                              :status "pending"
-                                             :id (format nil "~{~A~^/~}"
-                                                         (append path
-                                                                 (list (getf (rest method) :id)
-                                                                       index))))
+                                             :id     (format nil "~{~A~^/~}"
+                                                             (append path
+                                                                     (list (getf (rest method) :id)
+                                                                           index))))
                                        (when (getf (rest (rest item)) :requires)
                                          (list :requires
                                                (mapcar (lambda (pattern)
@@ -339,7 +346,11 @@ when the depth or task budget ran out first. Each step is a plist of :TEXT,
                  (values steps t))))
       (multiple-value-bind (steps planned-p) (expand task 0 nil)
         (cond
-          (planned-p (values steps ':planned nil))
-          (exhausted-p (values nil ':exhausted (list :nodes nodes)))
-          ((and unknown (null unmet)) (values nil ':unknown-task (list :tasks unknown)))
-          (t (values nil ':no-plan (list :unmet (reverse unmet) :tasks unknown))))))))
+          (planned-p
+           (values steps ':planned nil))
+          (exhausted-p
+           (values nil ':exhausted (list :nodes nodes)))
+          ((and unknown (null unmet))
+           (values nil ':unknown-task (list :tasks unknown)))
+          (t
+           (values nil ':no-plan (list :unmet (reverse unmet) :tasks unknown))))))))
