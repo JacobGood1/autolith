@@ -149,7 +149,7 @@
   "Return FORM's unique bounded identifier, or an empty string when unavailable."
   (if (and (proper-list-p form) (eq (first form) ':autolith-job))
       (let ((identifiers nil))
-        (loop for tail = (rest form) then (cddr tail)
+        (loop for tail = (rest form) then (nthcdr 2 tail)
               while (and (consp tail) (consp (rest tail)))
               when (and (eq (first tail) ':id)
                         (non-empty-string-p (second tail))
@@ -527,6 +527,7 @@
                            ':result-publication-failed
                            (run-job-event--category category)))
                  (unless publication-failed-p
+                   ; mallet:suppress no-ignore-errors -- best-effort failure envelope; the terminal state is already recorded
                    (ignore-errors
                      (publish
                       (run-job-result-envelope
