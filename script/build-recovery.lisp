@@ -6,7 +6,7 @@
 
 (defun build-recovery--environment-directory (variable fallback)
   "Return absolute directory VARIABLE, or FALLBACK when it is unset or invalid."
-  (let* ((value (uiop:getenv variable))
+  (let* ((value    (uiop:getenv variable))
          (pathname (and value
                         (plusp (length value))
                         (pathname value))))
@@ -15,13 +15,13 @@
          pathname
          fallback))))
 
-(let* ((script-path (truename *load-truename*))
+(let* ((script-path      (truename *load-truename*))
        (script-directory (uiop:pathname-directory-pathname script-path))
-       (source-root (uiop:pathname-parent-directory-pathname script-directory))
+       (source-root      (uiop:pathname-parent-directory-pathname script-directory))
        (version-pathname (merge-pathnames "sbcl.version" source-root))
-       (arguments (uiop:command-line-arguments))
-       (child-p (and arguments (string= (first arguments) "--child")))
-       (home (user-homedir-pathname))
+       (arguments        (uiop:command-line-arguments))
+       (child-p          (and arguments (string= (first arguments) "--child")))
+       (home             (user-homedir-pathname))
        (default-core
          (merge-pathnames "recovery/autolith-recovery.core"
                           (autolith-application-root :data)))
@@ -29,11 +29,11 @@
          (pathname
           (or (if child-p (second arguments) (first arguments))
               default-core)))
-       (project-setup (merge-pathnames ".qlot/setup.lisp" source-root))
-       (user-setup (merge-pathnames "quicklisp/setup.lisp" home))
-       (quicklisp-setup (if (probe-file project-setup)
-                           project-setup
-                           user-setup)))
+       (project-setup    (merge-pathnames ".qlot/setup.lisp" source-root))
+       (user-setup       (merge-pathnames "quicklisp/setup.lisp" home))
+       (quicklisp-setup  (if (probe-file project-setup)
+                            project-setup
+                            user-setup)))
   (load (merge-pathnames "script/runtime-requirement.lisp" source-root))
   (autolith-require-minimum-runtime version-pathname)
   (unless (probe-file quicklisp-setup)
@@ -52,23 +52,23 @@
 
            (source-identity ()
              "Return exact provenance for inputs controlling the recovery image."
-             (let* ((paths '("script/build-recovery"
-                             "script/build-recovery.lisp"
-                             "script/runtime-requirement.lisp"
-                             "script/windows-stat.lisp"
-                             "recovery/runtime.lisp"
-                             "script/trace-context.lisp"
-                             "recovery/launcher.lisp"
-                             "bin/autolith"
-                             "bin/autolith-active"
-                             "bin/autolith-runtime"
-                             "script/check"
-                             "script/check.lisp"
-                             "qlfile.lock"
-                             "sbcl.version"))
-                    (source (uiop:symbol-call '#:sbcl-generations
-                                              '#:make-source-provenance
-                                              source-root))
+             (let* ((paths      '("script/build-recovery"
+                                  "script/build-recovery.lisp"
+                                  "script/runtime-requirement.lisp"
+                                  "script/windows-stat.lisp"
+                                  "recovery/runtime.lisp"
+                                  "script/trace-context.lisp"
+                                  "recovery/launcher.lisp"
+                                  "bin/autolith"
+                                  "bin/autolith-active"
+                                  "bin/autolith-runtime"
+                                  "script/check"
+                                  "script/check.lisp"
+                                  "qlfile.lock"
+                                  "sbcl.version"))
+                    (source     (uiop:symbol-call '#:sbcl-generations
+                                                  '#:make-source-provenance
+                                                  source-root))
                     (identities (uiop:symbol-call '#:sbcl-generations
                                                   '#:source-file-identities
                                                   source paths)))
@@ -79,21 +79,21 @@
                        :source-clean-p
                        (uiop:symbol-call '#:sbcl-generations '#:source-clean-p
                                          source :paths paths)
-                       :runtime-blob (file-identity "recovery/runtime.lisp")
+                       :runtime-blob                (file-identity "recovery/runtime.lisp")
                        :trace-context-source-blob
                        (file-identity "script/trace-context.lisp")
-                       :builder-blob (file-identity "script/build-recovery")
-                       :builder-source-blob (file-identity "script/build-recovery.lisp")
-                       :runtime-requirement-blob (file-identity "script/runtime-requirement.lisp")
-                       :windows-stat-blob (file-identity "script/windows-stat.lisp")
-                       :source-launcher-blob (file-identity "recovery/launcher.lisp")
-                       :stable-launcher-blob (file-identity "bin/autolith")
+                       :builder-blob                (file-identity "script/build-recovery")
+                       :builder-source-blob         (file-identity "script/build-recovery.lisp")
+                       :runtime-requirement-blob    (file-identity "script/runtime-requirement.lisp")
+                       :windows-stat-blob           (file-identity "script/windows-stat.lisp")
+                       :source-launcher-blob        (file-identity "recovery/launcher.lisp")
+                       :stable-launcher-blob        (file-identity "bin/autolith")
                        :active-source-launcher-blob (file-identity "bin/autolith-active")
-                       :runtime-adapter-blob (file-identity "bin/autolith-runtime")
-                       :check-blob (file-identity "script/check")
-                       :check-source-blob (file-identity "script/check.lisp")
-                       :dependency-lock-blob (file-identity "qlfile.lock")
-                       :sbcl-version-blob (file-identity "sbcl.version")))))
+                       :runtime-adapter-blob        (file-identity "bin/autolith-runtime")
+                       :check-blob                  (file-identity "script/check")
+                       :check-source-blob           (file-identity "script/check.lisp")
+                       :dependency-lock-blob        (file-identity "qlfile.lock")
+                       :sbcl-version-blob           (file-identity "sbcl.version")))))
 
            (probe-core (pathname sbcl-command)
              "Require PATHNAME to boot and report the current recovery protocol."
@@ -105,13 +105,13 @@
                              "--end-runtime-options"
                              (namestring source-root)
                              "--probe")
-                       :output ':string
+                       :output       ':string
                        :error-output ':output))
                     (*read-eval* nil)
-                    (stream (make-string-input-stream output))
-                    (end-marker (gensym "RECOVERY-PROBE-END-"))
-                    (form (read stream nil end-marker))
-                    (trailing (read stream nil end-marker)))
+                    (stream      (make-string-input-stream output))
+                    (end-marker  (gensym "RECOVERY-PROBE-END-"))
+                    (form        (read stream nil end-marker))
+                    (trailing    (read stream nil end-marker)))
                (unless (and (listp form)
                             (eq (first form) :recovery-probe)
                             (= (or (getf (rest form) :version) 0) 2)
@@ -132,29 +132,29 @@
            (write-manifest (pathname identity)
              "Write the installed recovery core identity beside PATHNAME."
              (let* ((directory (uiop:pathname-directory-pathname pathname))
-                    (manifest (merge-pathnames "manifest.sexp" directory))
+                    (manifest  (merge-pathnames "manifest.sexp" directory))
                     (temporary
                       (merge-pathnames
                        (format nil ".manifest.~D.tmp" (sb-posix:getpid))
                        directory)))
                (with-open-file (stream temporary
-                                       :direction ':output
-                                       :if-exists ':supersede
+                                       :direction         ':output
+                                       :if-exists         ':supersede
                                        :if-does-not-exist ':create
-                                       :external-format ':utf-8)
-                 (let ((*print-circle* t)
-                       (*print-pretty* nil)
+                                       :external-format   ':utf-8)
+                 (let ((*print-circle*   t)
+                       (*print-pretty*   nil)
                        (*print-readably* t))
                    (prin1 (append (list :recovery-image
                                         :version 2
-                                        :core (namestring pathname)
+                                        :core             (namestring pathname)
                                         :sbcl-version
                                         (lisp-implementation-version)
                                         :operating-system (software-type)
                                         :operating-system-version
                                         (software-version)
-                                        :architecture (machine-type)
-                                        :built-at (get-universal-time))
+                                        :architecture     (machine-type)
+                                        :built-at         (get-universal-time))
                                   identity)
                           stream)
                    (terpri stream)
@@ -165,12 +165,12 @@
         (progn
           (load-recovery-source)
           (uiop:symbol-call '#:autolith '#:recovery-image-save core-pathname))
-        (let* ((directory (uiop:pathname-directory-pathname core-pathname))
+        (let* ((directory       (uiop:pathname-directory-pathname core-pathname))
                (temporary
                  (merge-pathnames
                   (format nil ".autolith-recovery.~D.core" (sb-posix:getpid))
                   directory))
-               (sbcl-command (or (uiop:getenv "AUTOLITH_SBCL") "sbcl"))
+               (sbcl-command    (or (uiop:getenv "AUTOLITH_SBCL") "sbcl"))
                (identity-before (source-identity)))
           (ensure-directories-exist core-pathname)
           (when (probe-file temporary)
@@ -182,8 +182,8 @@
                  (namestring script-path)
                  "--child"
                  (namestring temporary))
-           :input ':interactive
-           :output ':interactive
+           :input        ':interactive
+           :output       ':interactive
            :error-output ':interactive)
           (unless (probe-file temporary)
             (error "The recovery child did not publish its temporary core."))

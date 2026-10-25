@@ -39,9 +39,9 @@
                                   (error-output ':interactive))
              "Run one runtime build COMMAND with visible diagnostics."
              (uiop:run-program command
-                               :directory directory
-                               :input input
-                               :output output
+                               :directory    directory
+                               :input        input
+                               :output       output
                                :error-output error-output))
 
            (command-available-p (name)
@@ -65,53 +65,53 @@
                          (first
                           (uiop:split-string
                            (run (list "sha256sum" (namestring archive))
-                                :output ':string
+                                :output       ':string
                                 :error-output ':output
-                                :directory temporary-root)
+                                :directory    temporary-root)
                            :separator '(#\Space #\Tab))))
                         ((command-available-p "shasum")
                          (first
                           (uiop:split-string
                            (run (list "shasum" "-a" "256"
                                       (namestring archive))
-                                :output ':string
+                                :output       ':string
                                 :error-output ':output
-                                :directory temporary-root)
+                                :directory    temporary-root)
                            :separator '(#\Space #\Tab))))
                         ((command-available-p "sha256")
                          (run (list "sha256" "-q" (file-namestring archive))
-                              :output ':string
+                              :output       ':string
                               :error-output ':output
-                              :directory temporary-root))
+                              :directory    temporary-root))
                         (t
                          (fail "sha256sum, shasum, or sha256 is required."))))))
                (unless (string-equal actual expected-sha256)
                  (fail "~A does not match the expected SHA-256."
                        (file-namestring archive)))))
 
-             (runtime-version (command)
-               "Return the implementation version reported by SBCL COMMAND."
-               (string-trim
-                '(#\Space #\Tab #\Newline #\Return)
-                (run (list "env" "-u" "SBCL_HOME" (namestring command)
-                           "--noinform" "--no-userinit" "--no-sysinit"
-                           "--non-interactive" "--eval"
-                           "(write-string (lisp-implementation-version))")
-                     :output ':string
-                     :error-output ':output)))
+           (runtime-version (command)
+             "Return the implementation version reported by SBCL COMMAND."
+             (string-trim
+              '(#\Space #\Tab #\Newline #\Return)
+              (run (list "env" "-u" "SBCL_HOME" (namestring command)
+                         "--noinform" "--no-userinit" "--no-sysinit"
+                         "--non-interactive" "--eval"
+                         "(write-string (lisp-implementation-version))")
+                   :output       ':string
+                   :error-output ':output)))
 
-             (runtime-thread-support-p (command)
-               "Return true when SBCL COMMAND was built with :SB-THREAD."
-               (string-equal
-                (string-trim
-                 '(#\Space #\Tab #\Newline #\Return)
-                 (run (list "env" "-u" "SBCL_HOME" (namestring command)
-                            "--noinform" "--no-userinit" "--no-sysinit"
-                            "--non-interactive" "--eval"
-                            "(write (and (find :sb-thread *features*) t))")
-                      :output ':string
-                      :error-output ':output))
-                "T")))
+           (runtime-thread-support-p (command)
+             "Return true when SBCL COMMAND was built with :SB-THREAD."
+             (string-equal
+              (string-trim
+               '(#\Space #\Tab #\Newline #\Return)
+               (run (list "env" "-u" "SBCL_HOME" (namestring command)
+                          "--noinform" "--no-userinit" "--no-sysinit"
+                          "--non-interactive" "--eval"
+                          "(write (and (find :sb-thread *features*) t))")
+                    :output       ':string
+                    :error-output ':output))
+              "T")))
     (handler-case
         (progn
           (unless (and (= (length arguments) 4)
@@ -124,10 +124,10 @@
                                      "aarch64" "arm64")
                                    :test #'string=))
                       (and (string-equal (software-type) "Darwin")
-                             (member (string-downcase (machine-type))
-                                     '("x86-64" "x86_64" "amd64"
-                                       "arm64" "aarch64")
-                                     :test #'string=))
+                           (member (string-downcase (machine-type))
+                                   '("x86-64" "x86_64" "amd64"
+                                     "arm64" "aarch64")
+                                   :test #'string=))
                       (and (member (software-type)
                                    '("FreeBSD" "NetBSD" "OpenBSD")
                                    :test #'string-equal)
@@ -185,8 +185,8 @@
               (with-open-file
                   (stream (merge-pathnames "src/runtime/Config.generic-openbsd"
                                            runtime-source)
-                          :direction ':output
-                          :if-exists ':append
+                          :direction         ':output
+                          :if-exists         ':append
                           :if-does-not-exist ':error)
                 (format stream "~%LINKFLAGS += -Wl,-z,nobtcfi~%")))
             (run
@@ -227,7 +227,7 @@
                 (unless (probe-file builder-runtime)
                   (fail "the dynamic builder runtime was not preserved."))))
             (let* ((installed (merge-pathnames "bin/sbcl" installation))
-                   (actual (runtime-version installed)))
+                   (actual    (runtime-version installed)))
               (unless (string= actual runtime-version)
                 (fail "the release runtime reports ~A." actual))
               (unless (runtime-thread-support-p installed)

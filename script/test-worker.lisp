@@ -51,10 +51,10 @@
    '#:sbcl-generations '#:image-save pathname
    (uiop:symbol-call '#:sbcl-generations '#:image-build-record
                      source-root :inputs #'test-worker-source-paths)
-   :inputs #'test-worker-source-paths
-   :toplevel #'test-worker--toplevel
-   :prepare (lambda ()
-              (uiop:symbol-call '#:autolith '#:active-image--prepare-saver))
+   :inputs         #'test-worker-source-paths
+   :toplevel       #'test-worker--toplevel
+   :prepare        (lambda ()
+                     (uiop:symbol-call '#:autolith '#:active-image--prepare-saver))
    :probe-argument *test-worker-probe-argument*))
 
 (defun test-worker--report-live-threads ()
@@ -71,7 +71,7 @@
       (let ((seconds (handler-case (parse-integer value)
                        (parse-error ()
                          (check--fail "AUTOLITH_TEST_STACK_AFTER must be a positive integer."))))
-            (output *error-output*))
+            (output  *error-output*))
         (unless (plusp seconds)
           (check--fail "AUTOLITH_TEST_STACK_AFTER must be a positive integer."))
         (sb-thread:make-thread
@@ -99,8 +99,8 @@
       (progn
         (unless (= (length arguments) 2)
           (check--fail "Usage: test-worker.lisp REQUEST RESULT"))
-        (let* ((request (check--read-single-form (first arguments)))
-               (result-path (pathname (second arguments)))
+        (let* ((request      (check--read-single-form (first arguments)))
+               (result-path  (pathname (second arguments)))
                (staging-path (make-pathname :type "pending" :defaults result-path)))
           (unless (and (check--plist-p request '(:version :cases :temporary-root))
                        (eql (getf request :version) 1)
@@ -137,7 +137,7 @@
       2)))
 
 (unless *check-script-library-mode*
-  (let ((arguments (uiop:command-line-arguments))
+  (let ((arguments   (uiop:command-line-arguments))
         (source-root (uiop:pathname-parent-directory-pathname
                       (uiop:pathname-directory-pathname (truename *load-truename*)))))
     (if (and (= (length arguments) 2) (string= (first arguments) "--save-core"))

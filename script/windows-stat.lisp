@@ -29,12 +29,12 @@
                      "GetModuleHandleA"
                      (function sb-alien:system-area-pointer sb-alien:c-string))
                     "ucrtbase.dll"))
-           (entry (sb-alien:alien-funcall
-                   (sb-alien:extern-alien
-                    "GetProcAddress"
-                    (function sb-alien:system-area-pointer
-                              sb-alien:system-area-pointer sb-alien:c-string))
-                   module name)))
+           (entry  (sb-alien:alien-funcall
+                    (sb-alien:extern-alien
+                     "GetProcAddress"
+                     (function sb-alien:system-area-pointer
+                               sb-alien:system-area-pointer sb-alien:c-string))
+                    module name)))
       (when (zerop (sb-sys:sap-int entry))
         (error "UCRT entry point ~S is unavailable." name))
       entry))
@@ -61,7 +61,7 @@
   (defun autolith-windows--full-path (name)
     "Expand NAME with Windows drive/UNC rules. Return NIL and errno on failure."
     (let ((input (sb-ext:string-to-octets name :external-format ':utf-16le
-                                             :null-terminate t)))
+                                             :null-terminate    t)))
       (sb-sys:with-pinned-objects (input)
         (loop with capacity = 512
               for output = (make-array (* 2 capacity)
@@ -91,8 +91,8 @@
     (if (and (>= (length native) 8)
              (string-equal native "\\\\?\\UNC\\" :end1 8))
         (let* ((server-end (position #\\ native :start 8))
-               (share-end (and server-end
-                               (position #\\ native :start (1+ server-end)))))
+               (share-end  (and server-end
+                                (position #\\ native :start (1+ server-end)))))
           (if share-end
               (1+ share-end)
               (length native)))
@@ -105,7 +105,7 @@
     "Return a wide-API pathname without imposing MAX_PATH.
 Ordinary paths undergo Windows absolute-path normalization before adding the
 extended prefix. Already extended/device paths retain their native semantics."
-    (let* ((name (substitute #\\ #\/ name))
+    (let* ((name   (substitute #\\ #\/ name))
            (native (if (or (and (>= (length name) 4)
                                 (string= name "\\\\?\\" :end1 4))
                            (and (>= (length name) 4)
@@ -122,7 +122,7 @@ extended prefix. Already extended/device paths retain their native semantics."
                              (concatenate 'string "\\\\?\\" full))))))
       ;; Match SBCL's directory separator tolerance without removing the
       ;; separator required by a drive, volume GUID or UNC share root.
-      (let ((end (length native))
+      (let ((end      (length native))
             (root-end (autolith-windows--path-root-end native)))
         (loop while (and (> end root-end)
                          (char= (char native (1- end)) #\\))
@@ -157,8 +157,8 @@ inode, uid, gid, block-size and block-count results are zero."
         (autolith-windows--extended-path name)
       (unless native
         (return-from autolith-windows--unix-stat (values nil errno)))
-      (let ((wide (sb-ext:string-to-octets native :external-format ':utf-16le
-                                                :null-terminate t))
+      (let ((wide  (sb-ext:string-to-octets native :external-format ':utf-16le
+                                                 :null-terminate    t))
             (entry (autolith-windows--crt-entry "_wstat64")))
         (sb-alien:with-alien ((result autolith-windows--stat64))
           (let ((status

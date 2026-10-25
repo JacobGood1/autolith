@@ -146,13 +146,13 @@
 
 (defun runtime-publish-private-file (pathname content)
   "Write CONTENT to PATHNAME through a temporary file, replacing any earlier file."
-  (let ((temporary (make-pathname :name (format nil ".~A.~D" (pathname-name pathname)
-                                                (sb-posix:getpid))
-                                  :type (pathname-type pathname)
+  (let ((temporary (make-pathname :name     (format nil ".~A.~D" (pathname-name pathname)
+                                                    (sb-posix:getpid))
+                                  :type     (pathname-type pathname)
                                   :defaults pathname)))
     (with-open-file (stream temporary :direction :output :if-exists :supersede
                                       :if-does-not-exist :create
-                                      :external-format :utf-8)
+                                      :external-format   :utf-8)
       (write-line content stream))
     (autolith-script-replace-file temporary pathname)))
 
@@ -168,11 +168,11 @@
     (unless (runtime-command-available-p program)
       (runtime-fail "automatic source installation needs ~A." program)))
   (ensure-directories-exist runtime-root)
-  (let* ((temporary (uiop:ensure-directory-pathname
-                     (merge-pathnames (format nil ".source.~D/" (sb-posix:getpid))
-                                      runtime-root)))
+  (let* ((temporary    (uiop:ensure-directory-pathname
+                        (merge-pathnames (format nil ".source.~D/" (sb-posix:getpid))
+                                         runtime-root)))
          (archive-name (format nil "sbcl-~A-source.tar.bz2" version))
-         (archive (merge-pathnames archive-name temporary))
+         (archive      (merge-pathnames archive-name temporary))
          (distribution (merge-pathnames (format nil "sbcl-~A/" version) temporary)))
     (unwind-protect
          (progn
@@ -220,9 +220,9 @@
         (runtime-set-tree-writable temporary t)
         (uiop:delete-directory-tree temporary :validate t :if-does-not-exist :ignore)))))
 
-(let* ((arguments (uiop:command-line-arguments))
-       (install-p nil)
-       (script nil)
+(let* ((arguments        (uiop:command-line-arguments))
+       (install-p        nil)
+       (script           nil)
        (script-arguments nil))
   (loop while arguments
         do (let ((argument (pop arguments)))
@@ -241,13 +241,13 @@
     (runtime-fail "no Lisp script was provided."))
   (unless (probe-file script)
     (runtime-fail "Lisp script ~A does not exist." script))
-  (let* ((source-root (uiop:pathname-parent-directory-pathname
-                       (uiop:pathname-directory-pathname (truename *load-truename*))))
-         (version-pathname (merge-pathnames "sbcl.version" source-root))
+  (let* ((source-root        (uiop:pathname-parent-directory-pathname
+                              (uiop:pathname-directory-pathname (truename *load-truename*))))
+         (version-pathname   (merge-pathnames "sbcl.version" source-root))
          (checksums-pathname (merge-pathnames "sbcl-source-releases.sha256" source-root))
-         (version (lisp-implementation-version))
-         (runtimes-root (merge-pathnames "runtimes/" (autolith-application-root :data)))
-         (runtime-command (uiop:native-namestring sb-ext:*runtime-pathname*)))
+         (version            (lisp-implementation-version))
+         (runtimes-root      (merge-pathnames "runtimes/" (autolith-application-root :data)))
+         (runtime-command    (uiop:native-namestring sb-ext:*runtime-pathname*)))
     (handler-case
         (autolith-require-minimum-runtime version-pathname)
       (error (condition)
@@ -256,11 +256,11 @@
       (runtime-fail "sbcl-source-releases.sha256 is unavailable."))
     (ensure-directories-exist runtimes-root)
     (runtime-publish-private-file (merge-pathnames "command" runtimes-root) runtime-command)
-    (let* ((runtime-root (merge-pathnames (format nil "~A/" version) runtimes-root))
-           (managed-source (merge-pathnames "source/" runtime-root))
+    (let* ((runtime-root      (merge-pathnames (format nil "~A/" version) runtimes-root))
+           (managed-source    (merge-pathnames "source/" runtime-root))
            (identity-pathname (merge-pathnames "source.identity" runtime-root))
-           (expected-sha256 (and (autolith-version-components version)
-                                 (runtime-source-checksum checksums-pathname version))))
+           (expected-sha256   (and (autolith-version-components version)
+                                   (runtime-source-checksum checksums-pathname version))))
       (when (and install-p
                  (not (runtime-source-available-p managed-source identity-pathname
                                                   version expected-sha256)))

@@ -47,7 +47,6 @@
                      :external-format ':utf-8)))))
   nil)
 
-
 ;;;; -- Launcher Options --
 
 (defparameter *launcher-value-options*
@@ -96,11 +95,11 @@ of deleting them, as the Windows update path also hands off to the user."
 
 (defun launcher-parse (arguments)
   "Return the LAUNCHER-REQUEST for ARGUMENTS, exiting on a malformed update or uninstall."
-  (let ((request (make-launcher-request))
-        (command-seen-p nil)
-        (take-value-p nil)
+  (let ((request         (make-launcher-request))
+        (command-seen-p  nil)
+        (take-value-p    nil)
         (options-ended-p nil)
-        (remaining nil))
+        (remaining       nil))
     (dolist (argument arguments)
       (cond
         (take-value-p
@@ -241,10 +240,10 @@ of deleting them, as the Windows update path also hands off to the user."
   (let ((input (launcher-console-mode *launcher-standard-input-handle*))
         (output (launcher-console-mode *launcher-standard-output-handle*)))
     (when (or input output)
-      (list :input input
-            :output output
-            :error (launcher-console-mode *launcher-standard-error-handle*)
-            :input-code-page (launcher--get-console-cp)
+      (list :input            input
+            :output           output
+            :error            (launcher-console-mode *launcher-standard-error-handle*)
+            :input-code-page  (launcher--get-console-cp)
             :output-code-page (launcher--get-console-output-cp))))
   #-win32
   (let ((state (ignore-errors
@@ -326,7 +325,7 @@ of deleting them, as the Windows update path also hands off to the user."
 
 (defun launcher-context (source-root)
   "Return the LAUNCHER-CONTEXT for SOURCE-ROOT and the current environment."
-  (let* ((data-root (autolith-application-root :data))
+  (let* ((data-root  (autolith-application-root :data))
          (state-root (autolith-application-root :state))
          (recovery-core
            (launcher-environment-pathname
@@ -338,17 +337,17 @@ of deleting them, as the Windows update path also hands off to the user."
             (merge-pathnames "active/autolith-active.core" data-root)))
          (process-id (sb-posix:getpid)))
     (make-launcher-context
-     :source-root source-root
-     :sbcl (or (uiop:getenvp "AUTOLITH_SBCL")
-               (uiop:native-namestring sb-ext:*runtime-pathname*))
-     :data-root data-root
-     :state-root state-root
-     :recovery-core recovery-core
+     :source-root       source-root
+     :sbcl              (or (uiop:getenvp "AUTOLITH_SBCL")
+                            (uiop:native-namestring sb-ext:*runtime-pathname*))
+     :data-root         data-root
+     :state-root        state-root
+     :recovery-core     recovery-core
      :recovery-manifest (merge-pathnames "manifest.sexp" recovery-core)
-     :active-core active-core
-     :active-manifest (merge-pathnames "manifest.sexp" active-core)
-     :crash-pointer (merge-pathnames (format nil "crash-pointers/launcher-~D.path" process-id)
-                                     state-root)
+     :active-core       active-core
+     :active-manifest   (merge-pathnames "manifest.sexp" active-core)
+     :crash-pointer     (merge-pathnames (format nil "crash-pointers/launcher-~D.path" process-id)
+                                         state-root)
      :recovery-session-pointer
      (merge-pathnames (format nil "recovery-session-pointers/launcher-~D.sexp" process-id)
                       state-root)
@@ -360,10 +359,10 @@ of deleting them, as the Windows update path also hands off to the user."
   "Run COMMAND sharing this console and return its exit status."
   (let ((process (sb-ext:run-program (first command) (rest command)
                                      :search t
-                                     :input t
+                                     :input  t
                                      :output output
-                                     :error error-output
-                                     :wait t)))
+                                     :error  error-output
+                                     :wait   t)))
     (or (sb-ext:process-exit-code process) 1)))
 
 (defun launcher-run-diagnostic (command)
@@ -436,10 +435,10 @@ of deleting them, as the Windows update path also hands off to the user."
   "Adopt the runtime the bootstrap recorded, when it recorded one."
   (let* ((command-pathname (merge-pathnames "runtimes/command"
                                             (launcher-context-data-root context)))
-         (recorded (with-open-file (stream command-pathname :direction :input
-                                                            :if-does-not-exist nil
-                                                            :external-format :utf-8)
-                     (and stream (read-line stream nil nil)))))
+         (recorded         (with-open-file (stream command-pathname :direction         :input
+                                                                    :if-does-not-exist nil
+                                                                    :external-format   :utf-8)
+                             (and stream (read-line stream nil nil)))))
     (when (and recorded
                (plusp (length recorded))
                (uiop:absolute-pathname-p (uiop:parse-native-namestring recorded))
@@ -475,7 +474,7 @@ of deleting them, as the Windows update path also hands off to the user."
     (format *error-output* "~A fast startup image is missing or stale. Run ~A now? [Y/n] "
             (launcher-style "35;1" "Autolith")
             (launcher-style "2" (format nil "\"~A\"" (launcher-bootstrap-command-name
-                                                     (launcher-context-source-root context)))))
+                                                      (launcher-context-source-root context)))))
     (finish-output *error-output*)
     (let ((answer (string-trim '(#\Space #\Tab #\Return) (or (read-line *standard-input* nil nil) "n"))))
       (cond
@@ -507,14 +506,15 @@ of deleting them, as the Windows update path also hands off to the user."
         ((and (interactive-stream-p *standard-input*)
               (interactive-stream-p *error-output*))
          (ecase (launcher-offer-bootstrap context)
-           (:ready (run-core))
-           (:failed 64)
+           (:ready
+            (run-core))
+           (:failed
+            64)
            (:declined
             (launcher-note "~A" (launcher-style "2" "Loading Autolith from source."))
             (run-source))))
         (t
          (run-source))))))
-
 
 (defun launcher-restart-pending-p (context)
   "Return true when the active process left an exact-heap restart envelope."
@@ -527,9 +527,9 @@ of deleting them, as the Windows update path also hands off to the user."
       (handler-case
           (with-open-file (stream pointer :direction :input :external-format :utf-8)
             (let* ((*read-eval* nil)
-                   (end (list :end))
-                   (record (read stream nil end))
-                   (extra (read stream nil end)))
+                   (end         (list :end))
+                   (record      (read stream nil end))
+                   (extra       (read stream nil end)))
               (when (and (not (eq record end))
                          (eq extra end)
                          (consp record)
@@ -585,6 +585,7 @@ boot therefore leaves the generation identity available to recovery."
              (t
               (return status)))))
 
+
 ;;;; -- Crash Pointers --
 
 (defun launcher-prepare-pointers (context)
@@ -617,7 +618,7 @@ boot therefore leaves the generation identity available to recovery."
   "Return the crash capsule the session recorded, when it is a real capsule file."
   (let ((pointer (launcher-context-crash-pointer context)))
     (when (probe-file pointer)
-      (let* ((capsule (with-open-file (stream pointer :direction :input
+      (let* ((capsule (with-open-file (stream pointer :direction       :input
                                                       :external-format :utf-8)
                         (read-line stream nil nil)))
              (crashes (namestring (merge-pathnames "crashes/"
@@ -647,9 +648,9 @@ boot therefore leaves the generation identity available to recovery."
   (autolith-script-ensure-trace-context)
   (let* ((source-root (uiop:pathname-parent-directory-pathname
                        (uiop:pathname-directory-pathname (truename *load-truename*))))
-         (request (launcher-parse arguments))
-         (context (launcher-context source-root))
-         (console (launcher-enable-console-styling (launcher-capture-console))))
+         (request     (launcher-parse arguments))
+         (context     (launcher-context source-root))
+         (console     (launcher-enable-console-styling (launcher-capture-console))))
     (unwind-protect
          (cond
            ((and (launcher-request-acp-p request)

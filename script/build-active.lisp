@@ -11,7 +11,7 @@
 
 (defun build-active--environment-directory (variable fallback)
   "Return absolute directory VARIABLE, or FALLBACK when it is unset or invalid."
-  (let* ((value (uiop:getenv variable))
+  (let* ((value    (uiop:getenv variable))
          (pathname (and value
                         (plusp (length value))
                         (pathname value))))
@@ -20,15 +20,15 @@
          pathname
          fallback))))
 
-(let* ((script-path (truename *load-truename*))
+(let* ((script-path      (truename *load-truename*))
        (script-directory (uiop:pathname-directory-pathname script-path))
-       (source-root (uiop:pathname-parent-directory-pathname script-directory))
+       (source-root      (uiop:pathname-parent-directory-pathname script-directory))
        (version-pathname (merge-pathnames "sbcl.version" source-root))
-       (project-setup (merge-pathnames ".qlot/setup.lisp" source-root))
+       (project-setup    (merge-pathnames ".qlot/setup.lisp" source-root))
        (default-core
          (merge-pathnames "active/autolith-active.core"
                           (autolith-application-root :data)))
-       (arguments (uiop:command-line-arguments))
+       (arguments        (uiop:command-line-arguments))
        ;; ACTIVE-IMAGE-INSTALL starts this script again with --child on hosts
        ;; without fork; that process loads the system and saves itself.
        (child-core

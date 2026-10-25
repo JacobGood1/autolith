@@ -23,7 +23,7 @@ Some Quicklisp releases carry test fixtures named with characters such as
 the first such entry. On Windows those entries are consumed and reported
 instead, so the rest of the release installs; the skipped files are never
 loaded by Autolith."
-  (let* ((package (find-package "QL-MINITAR"))
+  (let* ((package   (find-package "QL-MINITAR"))
          (save-file (and package (find-symbol "SAVE-FILE" package))))
     (unless (and save-file (fboundp save-file))
       (error "The Quicklisp client does not expose QL-MINITAR::SAVE-FILE."))
@@ -38,11 +38,11 @@ loaded by Autolith."
                     (qlot-install--skip-tar-entry size stream))
                   (funcall original file size stream)))))))
 
-(let* ((script-path (truename *load-truename*))
+(let* ((script-path      (truename *load-truename*))
        (script-directory (uiop:pathname-directory-pathname script-path))
-       (source-root (uiop:pathname-parent-directory-pathname script-directory))
-       (quicklisp-setup (merge-pathnames "quicklisp/setup.lisp"
-                                         (user-homedir-pathname))))
+       (source-root      (uiop:pathname-parent-directory-pathname script-directory))
+       (quicklisp-setup  (merge-pathnames "quicklisp/setup.lisp"
+                                          (user-homedir-pathname))))
   (unless (probe-file quicklisp-setup)
     (error "Autolith bootstrap needs Quicklisp at ~A" quicklisp-setup))
   (load quicklisp-setup)
@@ -58,11 +58,11 @@ loaded by Autolith."
   (uiop:symbol-call '#:ql '#:quickload :qlot :silent t)
   (when (uiop:os-windows-p)
     (qlot-install--tolerate-windows-unsafe-tar-entries))
-    (let ((qlot-project-root (find-symbol "*PROJECT-ROOT*" "QLOT")))
-      (unless qlot-project-root
-        (error "The loaded Qlot does not expose its project root."))
-      (progv (list qlot-project-root) (list source-root)
-        (uiop:with-current-directory (source-root)
-          (if (member :bsd *features*)
-              (uiop:symbol-call '#:qlot '#:install :jobs 1)
-                (uiop:symbol-call '#:qlot '#:install))))))
+  (let ((qlot-project-root (find-symbol "*PROJECT-ROOT*" "QLOT")))
+    (unless qlot-project-root
+      (error "The loaded Qlot does not expose its project root."))
+    (progv (list qlot-project-root) (list source-root)
+      (uiop:with-current-directory (source-root)
+        (if (member :bsd *features*)
+            (uiop:symbol-call '#:qlot '#:install :jobs 1)
+            (uiop:symbol-call '#:qlot '#:install))))))

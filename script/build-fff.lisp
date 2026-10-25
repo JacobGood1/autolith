@@ -4,7 +4,7 @@
 
 (defun fff--environment-directory (variable fallback)
   "Return absolute directory VARIABLE, or FALLBACK when it is unset or invalid."
-  (let* ((value (uiop:getenv variable))
+  (let* ((value    (uiop:getenv variable))
          (pathname (and value
                         (plusp (length value))
                         (pathname value))))
@@ -19,7 +19,7 @@
   (let ((sdk (handler-case
                  (string-trim '(#\Space #\Tab #\Newline #\Return)
                               (uiop:run-program '("xcrun" "--show-sdk-path")
-                                                :output ':string
+                                                :output              ':string
                                                 :ignore-error-status t))
                (error ()
                  nil))))
@@ -59,32 +59,32 @@
   (fff--prepare-darwin-build-environment)
   nil)
 
-(let* ((script-path (truename *load-truename*))
-       (script-directory (uiop:pathname-directory-pathname script-path))
-       (source-root (uiop:pathname-parent-directory-pathname script-directory))
-       (commit-pathname (merge-pathnames "native/fff/commit" source-root))
-       (commit (string-trim '(#\Space #\Tab #\Newline #\Return)
-                            (uiop:read-file-string commit-pathname)))
+(let* ((script-path         (truename *load-truename*))
+       (script-directory    (uiop:pathname-directory-pathname script-path))
+       (source-root         (uiop:pathname-parent-directory-pathname script-directory))
+       (commit-pathname     (merge-pathnames "native/fff/commit" source-root))
+       (commit              (string-trim '(#\Space #\Tab #\Newline #\Return)
+                                         (uiop:read-file-string commit-pathname)))
        (checkout
          (merge-pathnames (format nil "build/fff/~A/" commit)
                           (autolith-application-root :cache)))
-       (install-root (merge-pathnames "native/fff/"
-                                      (autolith-application-root :data)))
+       (install-root        (merge-pathnames "native/fff/"
+                                             (autolith-application-root :data)))
        (library-name #+darwin "libfff_c.dylib"
                      #+win32 "fff_c.dll"
                      #-(or darwin win32) "libfff_c.so")
-       (library (merge-pathnames library-name install-root))
+       (library             (merge-pathnames library-name install-root))
        (static-build-p
          (equal (uiop:getenv "AUTOLITH_BUILD_STATIC_NATIVE") "1"))
        (static-library-name "libfff_c.a")
-       (static-library (merge-pathnames static-library-name install-root))
-       (manifest (merge-pathnames "manifest.sexp" install-root)))
+       (static-library      (merge-pathnames static-library-name install-root))
+       (manifest            (merge-pathnames "manifest.sexp" install-root)))
   (labels ((run (command &key directory)
              "Run one build COMMAND, preserving its output."
              (uiop:run-program command
-                               :directory directory
-                               :input ':interactive
-                               :output ':interactive
+                               :directory    directory
+                               :input        ':interactive
+                               :output       ':interactive
                                :error-output ':interactive))
 
            ;; This script runs standalone, before any library is loaded, so it
@@ -97,7 +97,7 @@
                   (probe-file manifest)
                   (handler-case
                       (with-open-file (stream manifest
-                                              :direction ':input
+                                              :direction       ':input
                                               :external-format ':utf-8)
                         (let ((*read-eval* nil))
                           (equal (read stream nil nil)
@@ -111,10 +111,10 @@
              "Atomically copy SOURCE over TARGET."
              (let ((temporary
                      (make-pathname
-                      :name (format nil ".~A.~D"
-                                    (pathname-name target)
-                                    (sb-posix:getpid))
-                      :type (pathname-type target)
+                      :name     (format nil ".~A.~D"
+                                        (pathname-name target)
+                                        (sb-posix:getpid))
+                      :type     (pathname-type target)
                       :defaults target)))
                (unwind-protect
                     (progn
@@ -149,15 +149,15 @@
                     :output ':string))))
             (unless (string= actual commit)
               (error "Fetched fff commit ~A instead of ~A." actual commit)))
-            (format t "~&Building fff's C library. The first build can take several minutes.~%")
-            (finish-output)
-            (fff--prepare-build-environment)
-            (run (list "cargo" "build" "--locked" "--release" "-p" "fff-c")
-                 :directory checkout)
-            (when static-build-p
-              (run (list "cargo" "rustc" "--locked" "--release"
-                         "-p" "fff-c" "--crate-type" "staticlib")
-                   :directory checkout))
+          (format t "~&Building fff's C library. The first build can take several minutes.~%")
+          (finish-output)
+          (fff--prepare-build-environment)
+          (run (list "cargo" "build" "--locked" "--release" "-p" "fff-c")
+               :directory checkout)
+          (when static-build-p
+            (run (list "cargo" "rustc" "--locked" "--release"
+                       "-p" "fff-c" "--crate-type" "staticlib")
+                 :directory checkout))
           (let ((built (merge-pathnames
                         (format nil "target/release/~A" library-name)
                         checkout)))
@@ -175,16 +175,16 @@
                 (publish-file built-static static-library)))
             (let ((temporary
                     (make-pathname
-                     :name (format nil ".manifest.~D" (sb-posix:getpid))
-                     :type "sexp"
+                     :name     (format nil ".manifest.~D" (sb-posix:getpid))
+                     :type     "sexp"
                      :defaults manifest)))
               (unwind-protect
                    (progn
                      (with-open-file (stream temporary
-                                             :direction ':output
-                                             :if-exists ':supersede
+                                             :direction         ':output
+                                             :if-exists         ':supersede
                                              :if-does-not-exist ':create
-                                             :external-format ':utf-8)
+                                             :external-format   ':utf-8)
                        (prin1 (list :fff-library
                                     :version 1
                                     :commit commit)

@@ -31,12 +31,12 @@
 
 (defclass bootstrap-rail-stream (sb-gray:fundamental-character-output-stream)
   ((target
-    :initarg :target
-    :reader bootstrap-rail-target
+    :initarg       :target
+    :reader        bootstrap-rail-target
     :documentation "The real stream receiving railed lines.")
    (buffer
-    :initform (make-string-output-stream)
-    :reader bootstrap-rail-buffer
+    :initform      (make-string-output-stream)
+    :reader        bootstrap-rail-buffer
     :documentation "The pending characters of the current output line."))
   (:documentation
    "A character stream prefixing each completed line with a section rail.
@@ -47,7 +47,7 @@ progress redraws collapse into their final text instead of stacking."))
 (defun bootstrap-rail--emit (stream)
   "Write STREAM's pending line under the rail and clear the buffer."
   (let ((pending (get-output-stream-string (bootstrap-rail-buffer stream)))
-        (target (bootstrap-rail-target stream)))
+        (target  (bootstrap-rail-target stream)))
     (format target "~&~A~A~%" (bootstrap-style "2" "│ ") pending)
     (finish-output target)))
 
@@ -90,8 +90,8 @@ BOOTSTRAP-RUN-RAILED, whose pipe captures every writer."
                              :target *standard-output*)))
     (unwind-protect
          (let ((*standard-output* rail)
-               (*error-output* rail)
-               (*trace-output* rail))
+               (*error-output*    rail)
+               (*trace-output*    rail))
            (funcall function))
       (bootstrap-rail-flush rail))))
 
@@ -110,10 +110,10 @@ BOOTSTRAP-RUN-RAILED, whose pipe captures every writer."
 The subprocess writes into a pipe, so threads, captured streams, and
 grandchild processes all land under the rail."
   (let* ((process (uiop:launch-program command
-                                       :input nil
-                                       :output ':stream
+                                       :input        nil
+                                       :output       ':stream
                                        :error-output ':output))
-         (output (uiop:process-info-output process)))
+         (output  (uiop:process-info-output process)))
     (loop for line = (read-line output nil nil)
           while line
           do (bootstrap-note (bootstrap-clean-line line)))
@@ -125,13 +125,13 @@ grandchild processes all land under the rail."
 
 ;;;; -- Bootstrap Steps --
 
-(let* ((script-path (truename *load-truename*))
+(let* ((script-path      (truename *load-truename*))
        (script-directory (uiop:pathname-directory-pathname script-path))
-       (source-root (uiop:pathname-parent-directory-pathname script-directory))
+       (source-root      (uiop:pathname-parent-directory-pathname script-directory))
        (version-pathname (merge-pathnames "sbcl.version" source-root))
-       (sbcl-command (or (uiop:getenv "AUTOLITH_SBCL") "sbcl"))
-       (quicklisp-setup (merge-pathnames "quicklisp/setup.lisp"
-                                         (user-homedir-pathname))))
+       (sbcl-command     (or (uiop:getenv "AUTOLITH_SBCL") "sbcl"))
+       (quicklisp-setup  (merge-pathnames "quicklisp/setup.lisp"
+                                          (user-homedir-pathname))))
   (load (merge-pathnames "script/runtime-requirement.lisp" source-root))
   (autolith-require-minimum-runtime version-pathname)
   (unless (probe-file quicklisp-setup)

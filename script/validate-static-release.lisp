@@ -4,7 +4,7 @@
        (source-root
          (and (first arguments)
               (uiop:ensure-directory-pathname (first arguments))))
-       (library (uiop:getenv "AUTOLITH_FFF_LIBRARY"))
+       (library   (uiop:getenv "AUTOLITH_FFF_LIBRARY"))
        (cache-root
          (merge-pathnames
           (format nil "autolith-static-smoke-~D/" (get-universal-time))
@@ -30,7 +30,7 @@
           (load-project)
           (unless (find ':number
                         (uiop:symbol-call
-                         :colorlisp :highlight-spans
+                         :colorlisp                   :highlight-spans
                          "fn main() { 42 }" :language ':rust)
                         :key (lambda (span)
                                (uiop:symbol-call
@@ -39,18 +39,18 @@
           (uiop:ensure-all-directories-exist (list cache-root))
           (let ((engine
                   (uiop:symbol-call
-                   :clifff :make-engine
-                   :library-path (pathname library)
-                   :base-path source-root
-                   :cache-directory cache-root
+                   :clifff                    :make-engine
+                   :library-path              (pathname library)
+                   :base-path                 source-root
+                   :cache-directory           cache-root
                    :scan-timeout-milliseconds 30000)))
             (unwind-protect
                  (let ((result
                          (uiop:symbol-call
-                          :clifff :engine-search-files
+                          :clifff                          :engine-search-files
                           engine "autolith.asd" :page-size 1)))
                    (unless (find "autolith.asd" (getf result :items)
-                                 :key (lambda (item) (getf item :path))
+                                 :key  (lambda (item) (getf item :path))
                                  :test #'string=)
                      (fail "FFF did not find autolith.asd.")))
               (uiop:symbol-call :clifff :engine-close engine)))
@@ -62,5 +62,5 @@
       (:no-error (&rest values)
         (declare (ignore values))
         (uiop:delete-directory-tree cache-root
-                                    :validate t
+                                    :validate          t
                                     :if-does-not-exist ':ignore)))))

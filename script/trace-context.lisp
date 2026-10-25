@@ -17,7 +17,7 @@
 (defun autolith-script-advance-run-attempt ()
   "Retain the launcher trace and advance the bounded attempt for a recovered child."
   (autolith-script-ensure-trace-context)
-  (let* ((text (uiop:getenv "AUTOLITH_RUN_ATTEMPT"))
+  (let* ((text    (uiop:getenv "AUTOLITH_RUN_ATTEMPT"))
          (valid-p (and text (<= 1 (length text) 5)
                        (every (lambda (character) (find character "0123456789")) text)
                        (<= 1 (parse-integer text) 65535)))

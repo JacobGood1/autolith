@@ -50,7 +50,7 @@ hosts have no such attribute and return at once."
   (when (and (uiop:os-windows-p) (probe-file pathname))
     (let ((get-address (sb-sys:find-foreign-symbol-address "GetFileAttributesW"))
           (set-address (sb-sys:find-foreign-symbol-address "SetFileAttributesW"))
-          (native (uiop:native-namestring pathname)))
+          (native      (uiop:native-namestring pathname)))
       (when (and get-address set-address)
         (let ((attributes
                 (sb-alien:alien-funcall
@@ -102,10 +102,14 @@ next build performs."
   "Return Autolith's per-user directory of KIND, one of :config, :data, :state, or :cache."
   (let ((xdg (autolith-script-environment-directory
               (ecase kind
-                (:config "XDG_CONFIG_HOME")
-                (:data "XDG_DATA_HOME")
-                (:state "XDG_STATE_HOME")
-                (:cache "XDG_CACHE_HOME")))))
+                (:config
+                 "XDG_CONFIG_HOME")
+                (:data
+                 "XDG_DATA_HOME")
+                (:state
+                 "XDG_STATE_HOME")
+                (:cache
+                 "XDG_CACHE_HOME")))))
     (cond
       (xdg
        (merge-pathnames "autolith/" xdg))
@@ -113,15 +117,22 @@ next build performs."
        (merge-pathnames "autolith/" (autolith-script-known-folder "APPDATA")))
       ((uiop:os-windows-p)
        (merge-pathnames (ecase kind
-                          (:data "autolith/data/")
-                          (:state "autolith/state/")
-                          (:cache "autolith/cache/"))
+                          (:data
+                           "autolith/data/")
+                          (:state
+                           "autolith/state/")
+                          (:cache
+                           "autolith/cache/"))
                         (autolith-script-known-folder "LOCALAPPDATA")))
       (t
        (merge-pathnames "autolith/"
                         (merge-pathnames (ecase kind
-                                           (:config ".config/")
-                                           (:data ".local/share/")
-                                           (:state ".local/state/")
-                                           (:cache ".cache/"))
+                                           (:config
+                                            ".config/")
+                                           (:data
+                                            ".local/share/")
+                                           (:state
+                                            ".local/state/")
+                                           (:cache
+                                            ".cache/"))
                                          (user-homedir-pathname)))))))

@@ -11,8 +11,8 @@ nonempty dot, hyphen, or plus suffix containing letters, digits, dots, underscor
 hyphens, and plus signs. The complete host identity is preserved by callers."
   (block invalid
     (let ((components nil)
-          (start 0)
-          (length (length version)))
+          (start      0)
+          (length     (length version)))
       (dotimes (index 3)
         (let ((end (or (position-if-not #'digit-char-p version :start start) length)))
           (when (= end start)
@@ -37,7 +37,7 @@ hyphens, and plus signs. The complete host identity is preserved by callers."
 (defun autolith-version-at-least-p (candidate minimum)
   "Compare a host SBCL CANDIDATE's numeric version with the strict release MINIMUM."
   (let ((candidate-components (autolith-version-components candidate :allow-suffix-p t))
-        (minimum-components (autolith-version-components minimum)))
+        (minimum-components   (autolith-version-components minimum)))
     (and candidate-components
          minimum-components
          (loop for candidate-component in candidate-components

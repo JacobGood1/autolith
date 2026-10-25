@@ -5,8 +5,8 @@
   "Read exactly one portable manifest from PATHNAME."
   (with-open-file (stream pathname :external-format ':utf-8)
     (let* ((*read-eval* nil)
-           (end (gensym "END"))
-           (record (read stream nil end)))
+           (end         (gensym "END"))
+           (record      (read stream nil end)))
       (unless (and (consp record) (eq (read stream nil end) end))
         (error "Invalid image manifest at ~A." pathname))
       record)))
@@ -30,7 +30,7 @@
                                 (namestring (merge-pathnames relative destination)))
                           (cons manifest record)))))
     (dolist (update updates)
-      (let* ((manifest (first update))
+      (let* ((manifest  (first update))
              (temporary (make-pathname :name ".manifest-relocation" :type "tmp" :defaults manifest)))
         (unwind-protect
              (progn
@@ -47,7 +47,7 @@
 (let ((arguments (uiop:command-line-arguments)))
   (unless (= (length arguments) 2)
     (error "Usage: relocate-image-manifests.lisp STAGE DESTINATION"))
-  (let ((stage (uiop:ensure-directory-pathname (first arguments)))
+  (let ((stage       (uiop:ensure-directory-pathname (first arguments)))
         (destination (uiop:ensure-directory-pathname (second arguments))))
     (unless (and (uiop:absolute-pathname-p stage) (uiop:absolute-pathname-p destination))
       (error "Image publication directories must be absolute."))

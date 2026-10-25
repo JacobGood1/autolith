@@ -29,11 +29,11 @@ then the online CPU count from getconf or sysctl."
     (when (typep environment-count '(integer 1 *))
       (return-from check--processor-count environment-count)))
   (loop for command in '(("nproc") ("getconf" "_NPROCESSORS_ONLN")
-                        ("sysctl" "-n" "hw.ncpu"))
+                         ("sysctl" "-n" "hw.ncpu"))
         for count = (handler-case
                         (multiple-value-bind (output diagnostics status)
-                            (uiop:run-program command :output ':string
-                                                      :error-output nil
+                            (uiop:run-program command :output              ':string
+                                                      :error-output        nil
                                                       :ignore-error-status t)
                           (declare (ignore diagnostics))
                           (and (eql status 0) (parse-integer output)))
@@ -105,7 +105,7 @@ every case, and the recovery checks. Selectors and --list run only cases.
   "Read PATHNAME's only form with reader evaluation disabled."
   (let ((*read-eval* nil))
     (with-open-file (stream pathname :external-format ':utf-8)
-      (let ((form (read stream t nil))
+      (let ((form       (read stream t nil))
             (end-marker (gensym "CHECK-END-")))
         (unless (eq (read stream nil end-marker) end-marker)
           (check--fail "Check data at ~A contains trailing forms." pathname))
@@ -159,7 +159,7 @@ every case, and the recovery checks. Selectors and --list run only cases.
                       (getf result :failures))
                (= (length (getf result :failures))
                   (length (remove-duplicates (getf result :failures)
-                                             :key (lambda (failure) (getf failure :test))
+                                             :key  (lambda (failure) (getf failure :test))
                                              :test #'string=))))
     (check--fail "Worker result has an invalid schema or case coverage."))
   result)
@@ -293,27 +293,27 @@ from this runner's heap."
 
 (defun check--build-worker-core (source-root temporary-root)
   "Build and probe one source-matched test image before admitting worker processes."
-  (let* ((script (merge-pathnames "script/test-worker.lisp" source-root))
-         (core (merge-pathnames "test-worker/autolith-tests.core" temporary-root))
+  (let* ((script                      (merge-pathnames "script/test-worker.lisp" source-root))
+         (core                        (merge-pathnames "test-worker/autolith-tests.core" temporary-root))
          (*check-script-library-mode* t))
     (load script)
     (format t "~&Building this run's preloaded test image.~%")
     (finish-output)
     (uiop:symbol-call
      '#:sbcl-generations '#:image-install source-root core
-     :inputs (symbol-function 'test-worker-source-paths)
-     :toplevel (symbol-function 'test-worker--toplevel)
-     :prepare (lambda ()
-                (uiop:symbol-call '#:autolith '#:active-image--prepare-saver))
-     :saver ':fresh-process
+     :inputs         (symbol-function 'test-worker-source-paths)
+     :toplevel       (symbol-function 'test-worker--toplevel)
+     :prepare        (lambda ()
+                       (uiop:symbol-call '#:autolith '#:active-image--prepare-saver))
+     :saver          ':fresh-process
      :fresh-process-command
      (lambda (temporary)
        (append (check--runtime-command source-root)
                (list (uiop:native-namestring script) "--save-core"
                      (uiop:native-namestring temporary))))
-     :probe-runner (uiop:symbol-call
-                    '#:sbcl-generations '#:make-sbcl-core-probe-runner
-                    :command (uiop:native-namestring sb-ext:*runtime-pathname*))
+     :probe-runner   (uiop:symbol-call
+                      '#:sbcl-generations '#:make-sbcl-core-probe-runner
+                      :command (uiop:native-namestring sb-ext:*runtime-pathname*))
      :probe-argument (symbol-value (find-symbol "*TEST-WORKER-PROBE-ARGUMENT*" '#:cl-user)))))
 
 (defun check--worker-command (&key source-root worker-core request result)
@@ -350,9 +350,9 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
                     (check--write-form request (list :version 1 :cases names
                                                     :temporary-root fixture-root))
                     (push (make-check-process
-                           :label (format nil "Test worker ~D" index)
+                           :label       (format nil "Test worker ~D" index)
                            :names names :result-path result
-                           :output (merge-pathnames "output.log" directory)
+                           :output      (merge-pathnames "output.log" directory)
                            ;; Give default-root configurations private preferences,
                            ;; state and model caches. Share data for the runtime launcher.
                            :environment (check--environment-with
@@ -366,9 +366,9 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
                                             (list (format nil "AUTOLITH_TEST_WORKER_CORE=~A"
                                                           (uiop:native-namestring worker-core))))))
                            ;; Leave TMPDIR alone: native Unix-domain sockets need short paths.
-                           :command (check--worker-command :source-root source-root
-                                                          :worker-core worker-core
-                                                          :request request :result result))
+                           :command     (check--worker-command :source-root source-root
+                                                              :worker-core  worker-core
+                                                              :request request :result result))
                           entries))
            (setf entries (nreverse entries))
            (format t "~&Running ~D cases in ~D isolated workers.~%" (length cases) (length entries))
@@ -391,16 +391,16 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
              (when (or (check-process-problem entry) (not (zerop (check-process-status entry))))
                (setf successful-p nil)
                (check--print-process-log entry)))
-           (let* ((timings (loop for result in results append (getf result :timings)))
-                  (aggregate (list :version 1
-                                   :cases (loop for result in results sum (getf result :cases))
-                                   :checks (loop for result in results sum (getf result :checks))
+           (let* ((timings   (loop for result in results append (getf result :timings)))
+                  (aggregate (list :version  1
+                                   :cases    (loop for result in results sum (getf result :cases))
+                                   :checks   (loop for result in results sum (getf result :checks))
                                    :failures (loop for result in (reverse results)
                                                    append (getf result :failures))
-                                   :timings (loop for case in cases
-                                                  for timing = (assoc (string-downcase case) timings
-                                                                      :test #'string=)
-                                                  when timing collect timing))))
+                                   :timings  (loop for case in cases
+                                                   for timing = (assoc (string-downcase case) timings
+                                                                       :test #'string=)
+                                                   when timing collect timing))))
              (and (uiop:symbol-call '#:autolith '#:tests-report aggregate) successful-p)))
       (dolist (root fixture-roots)
         (check--delete-temporary-root root)))))
@@ -424,14 +424,14 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
 
 (defun check--run-recovery (&key source-root temporary-root quicklisp-setup jobs timeout)
   "Run the pristine probe, listing, and fallback checks with bounded processes."
-  (let* ((data-root (autolith-application-root :data))
-         (core (pathname (or (uiop:getenv "AUTOLITH_RECOVERY_CORE")
-                             (merge-pathnames "recovery/autolith-recovery.core" data-root))))
-         (manifest-path (merge-pathnames "manifest.sexp" core))
+  (let* ((data-root      (autolith-application-root :data))
+         (core           (pathname (or (uiop:getenv "AUTOLITH_RECOVERY_CORE")
+                                       (merge-pathnames "recovery/autolith-recovery.core" data-root))))
+         (manifest-path  (merge-pathnames "manifest.sexp" core))
          (temporary-home (merge-pathnames "home/" temporary-root))
-         (command (list (or (uiop:getenv "AUTOLITH_SBCL") "sbcl")
-                        "--noinform" "--core" (namestring core)
-                        "--end-runtime-options" (namestring source-root))))
+         (command        (list (or (uiop:getenv "AUTOLITH_SBCL") "sbcl")
+                               "--noinform" "--core" (namestring core)
+                               "--end-runtime-options" (namestring source-root))))
     (unless (and (probe-file core) (probe-file manifest-path))
       (check--fail "Autolith's pristine recovery image is missing; run ./script/bootstrap."))
     (let ((manifest (check--read-single-form manifest-path)))
@@ -445,8 +445,8 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
              "state/autolith/current-image-commit.sexp" temporary-root)))
       (ensure-directories-exist pointer)
       (with-open-file (stream pointer
-                              :direction :output
-                              :if-exists :supersede
+                              :direction         :output
+                              :if-exists         :supersede
                               :if-does-not-exist :create)
         (write-line "This is not a private commit pointer." stream)))
     (let ((entries
@@ -469,7 +469,7 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
                   collect (make-check-process
                            :label label :command arguments
                            :environment environment
-                           :output (merge-pathnames filename temporary-root)))))
+                           :output      (merge-pathnames filename temporary-root)))))
       (check--run-processes entries :jobs jobs :timeout timeout)
       (let ((failed-p nil))
         (dolist (entry entries)
@@ -478,7 +478,7 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
             (check--print-process-log entry)))
         (when failed-p
           (check--fail "Recovery subprocess checks failed.")))
-      (let ((probe (check--read-single-form (check-process-output (first entries))))
+      (let ((probe    (check--read-single-form (check-process-output (first entries))))
             (fallback (uiop:read-file-string (check-process-output (third entries)))))
         (unless (and (listp probe) (eq (first probe) :recovery-probe)
                      (eql (getf (rest probe) :version) 2))
@@ -518,7 +518,7 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
     (when build-sandbox
       (load (merge-pathnames "script/build-sandbox.lisp" source-root)))
     (uiop:symbol-call '#:ql '#:quickload :cffi :silent t)
-    (let ((directory (merge-pathnames ".guix-profile/lib/" (user-homedir-pathname)))
+    (let ((directory   (merge-pathnames ".guix-profile/lib/" (user-homedir-pathname)))
           (directories (find-symbol "*FOREIGN-LIBRARY-DIRECTORIES*" "CFFI")))
       (when (probe-file directory)
         (pushnew directory (symbol-value directories) :test #'equal)))
@@ -630,11 +630,11 @@ and warning last."
 (defun check--delete-temporary-root (pathname)
   "Delete PATHNAME through Autolith's host-specific directory-tree adapter."
   (let ((platform-symbol (find-symbol "*PLATFORM*" "AUTOLITH"))
-        (delete-symbol (find-symbol "PLATFORM-DELETE-DIRECTORY-TREE" "AUTOLITH")))
+        (delete-symbol   (find-symbol "PLATFORM-DELETE-DIRECTORY-TREE" "AUTOLITH")))
     (funcall (symbol-function delete-symbol)
              (symbol-value platform-symbol)
              pathname
-             :validate t
+             :validate          t
              :if-does-not-exist ':ignore)))
 
 (defun check-main (arguments source-root)
