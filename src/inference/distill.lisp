@@ -196,7 +196,7 @@ pipeline; nothing is evaluated or installed here."
                                      :message
                                      (format nil "Distillation planning failed: ~A"
                                              problem)))
-              (declare (ignore attempt))
+              (declare (ignorable attempt))
               (multiple-value-bind (plan-value plan-trace)
                   (infer *rlm-distill-plan-task*
                          :context           (append
