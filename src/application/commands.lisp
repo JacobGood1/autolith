@@ -1263,9 +1263,9 @@ skipped definition grouped by reason."
      :image-source-commit (image-commit--base-source-commit nil))))
 
 (-> application--skipped-definition-section
-    (stream image-replay-skip integer (option configuration))
+    (stream image-replay-skip &key (:index integer) (:configuration (option configuration)))
     null)
-(defun application--skipped-definition-section (stream skip index configuration)
+(defun application--skipped-definition-section (stream skip &key index configuration)
   "Write the numbered repair section for SKIP to STREAM.
 
 The section carries the persisted override, the tracked source recorded when
@@ -1348,7 +1348,7 @@ it was published, and the tracked definition CONFIGURATION's source holds now."
              (loop for skip in skips
                    for index from 1
                    do (application--skipped-definition-section
-                       stream skip index configuration))))
+                       stream skip :index index :configuration configuration))))
       (if configuration
           (with-tracked-definition-snapshot (configuration)
             (write-sections))
