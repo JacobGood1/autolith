@@ -25,8 +25,10 @@
                        (terminal-styled-p direct-terminal)
                        (not (null (getf startup-values :styled-p)))))))
 
-(-> localgroup-terminal-resize (localgroup-terminal integer integer t) null)
-(defun localgroup-terminal-resize (terminal rows columns styled-p)
+(-> localgroup-terminal-resize
+    (localgroup-terminal &key (:rows integer) (:columns integer) (:styled-p t))
+    null)
+(defun localgroup-terminal-resize (terminal &key rows columns styled-p)
   "Adopt client styling and relay client dimensions to the interactive reader.
 
 Dimensions are deliberately not applied here: writing them directly

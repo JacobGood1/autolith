@@ -366,7 +366,9 @@
     (let ((localgroup-terminal (make-instance 'localgroup-terminal
                                               :columns 60
                                               :rows    20)))
-      (localgroup-terminal-resize localgroup-terminal 24 120 t)
+      (localgroup-terminal-resize localgroup-terminal :rows     24
+                                                      :columns  120
+                                                      :styled-p t)
       (test-assert (= (terminal-columns localgroup-terminal) 60)
                    "a relayed resize packet does not poke dimension slots")
       (test-assert (equal *terminal-relayed-resize* '(24 . 120))
