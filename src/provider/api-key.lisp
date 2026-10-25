@@ -186,7 +186,9 @@
 (defun api-key--input-file-descriptor (input configured)
   "Return INPUT's configured or direct file descriptor."
   (or configured
-      (ignore-errors (sb-sys:fd-stream-fd input))))
+      (handler-case (sb-sys:fd-stream-fd input)
+        (type-error ()
+          nil))))
 
 (-> api-key--read-concealed (stream stream (option integer)) (option string))
 (defun api-key--read-concealed (input output configured-descriptor)
