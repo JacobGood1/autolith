@@ -618,7 +618,9 @@ known."
    :overrides             (configuration--overrides overrides '(:provider-validation-p))
    :validation-deferred-p (not provider-validation-p)))
 
-(-> configuration-copy (configuration &rest t) configuration)
+(-> configuration-copy
+    (configuration &rest t &key (:provider-validation-p t) &allow-other-keys)
+    configuration)
 (defun configuration-copy
     (configuration &rest overrides
      &key (provider-validation-p
@@ -631,7 +633,7 @@ a model the registry does not serve. Listeners stay with the original; a child
 or frame reacts to its own changes."
   (setinka:configuration-copy
    configuration
-    :overrides            (configuration--overrides overrides '(:provider-validation-p) configuration)
+   :overrides             (configuration--overrides overrides '(:provider-validation-p) configuration)
    :validation-deferred-p (not provider-validation-p)))
 
 (-> configuration-create (&rest t) configuration)
@@ -657,11 +659,11 @@ registered providers. DURABLE-P NIL skips the preferences file."
 
 A copy naming its existing bare model retains its provider. A different model
 selects its own registration, rather than inheriting the previous provider."
-  (let* ((overrides     (loop for (name value) on arguments by #'cddr
+  (let* ((overrides     (loop for (name value) on arguments by (partial #'nthcdr 2)
                               unless (member name options)
                                 append (list name value)))
          (model         (getf overrides :model))
-         (provider-cell (loop for tail on overrides by #'cddr
+         (provider-cell (loop for tail on overrides by (partial #'nthcdr 2)
                               when (eq (first tail) ':model-provider) return tail)))
     (when (and (stringp model) (fboundp 'provider-resolve-model)
                (or (null provider-cell) (stringp (second provider-cell))))
