@@ -218,7 +218,7 @@
                   (shell-p
                    (shell-command-result content '(:fixture t) nil :code code :denied-p denied-p))
                   ((equal kind "details")
-                   (task-tool-result content '(:fixture t) nil :code code :denied-p denied-p))
+                   (task-tool-result content '(:fixture t) :success-p nil :code code :denied-p denied-p))
                   (t
                    refusal)))))))
     (test-assert (and (tool-result-denied-p result)

@@ -278,9 +278,9 @@ The primary blocking field and legacy inverse async field are mutually exclusive
      items)))
 
 (-> task-tool-result
-    (t t &optional t &key (:code (option keyword)) (:denied-p t))
+    (t t &key (:success-p t) (:code (option keyword)) (:denied-p t))
     task-tool-result)
-(defun task-tool-result (content details &optional (success-p t) &key code denied-p)
+(defun task-tool-result (content details &key (success-p t) code denied-p)
   "Return readable CONTENT, portable DETAILS and retained failure classification."
   (unless (and (stringp content)
                (<= (length content) *task-tool-content-limit*))
@@ -996,7 +996,7 @@ poll a job whose completion will wake it."
                     :artifact-root         artifact-root
                     :success-p             success-p)
                  (setf completed-p t)
-                 (task-tool-result content form success-p))))
+                 (task-tool-result content form :success-p success-p))))
            (unless completed-p
              (task-run--cancel-synchronous-jobs jobs)))))))
 

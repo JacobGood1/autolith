@@ -465,8 +465,10 @@ start under a cancelled ancestor, and hands over to the child."
         (let ((result (if success-p (tool-success content)
                           (tool-failure content :code error-code :denied-p denied-p))))
           (if details
-              (task-tool-result (tool-result-content result) details success-p
-                                :code error-code :denied-p denied-p)
+              (task-tool-result (tool-result-content result) details
+                                :success-p success-p
+                                :code      error-code
+                                :denied-p  denied-p)
               result)))))
 
 (-> task-orchestrator-start-execution-job
