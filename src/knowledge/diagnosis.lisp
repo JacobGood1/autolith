@@ -437,9 +437,11 @@ result will supply are NIL."
                                                            (t
                                                             argument))
                                              collect (and value
-                                                          (ignore-errors
-                                                           (knowledge-term-from-input
-                                                            value (getf definition :type))))))))))
+                                                          (handler-case
+                                                              (knowledge-term-from-input
+                                                               value (getf definition :type))
+                                                            (knowledge-error ()
+                                                              nil)))))))))
 
 (-> knowledge--probe-arguments (list) hash-table)
 (defun knowledge--probe-arguments (probe)
