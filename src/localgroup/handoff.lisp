@@ -711,10 +711,10 @@ recalled draft lives only in this editor, not in the snapshot."
   nil)
 
 (-> localgroup-handoff--remove-replacement-registry
-    (configuration string string integer)
+    (configuration string &key (:token string) (:old-pid integer))
     null)
 (defun localgroup-handoff--remove-replacement-registry
-       (configuration session-id token old-pid)
+       (configuration session-id &key token old-pid)
   "Remove a failed replacement registry record without deleting the old endpoint."
   (let* ((pathname (localgroup-registry-pathname configuration session-id))
          (record   (image-daemon:daemon-registry-read pathname)))
@@ -854,7 +854,8 @@ recalled draft lives only in this editor, not in the snapshot."
                                                                     (error condition))))
                                                                 (localgroup-handoff--remove-replacement-registry
                                                                  configuration session-id
-                                                                 token old-pid)
+                                                                 :token   token
+                                                                 :old-pid old-pid)
                                                                 (when lease-released-p
                                                                   (localgroup-handoff--restore-lease
                                                                    application
