@@ -108,10 +108,10 @@ starting with a letter, with at least two segments."
   (and (proper-list-p schema)
        (eq (first schema) :schema)
        (evenp (length (rest schema)))
-       (let* ((properties (rest schema))
-              (arguments (getf properties :arguments))
-              (key (getf properties :key))
-              (template (getf properties :template))
+       (let* ((properties  (rest schema))
+              (arguments   (getf properties :arguments))
+              (key         (getf properties :key))
+              (template    (getf properties :template))
               (description (getf properties :description)))
          (and (knowledge-predicate-name-p (getf properties :predicate))
               (proper-list-p arguments)
@@ -149,7 +149,7 @@ supported claims that agree on them and differ elsewhere conflict."
                      (if (integerp entry)
                          entry
                          (or (position entry arguments
-                                       :key (lambda (argument) (getf argument :name))
+                                       :key  (lambda (argument) (getf argument :name))
                                        :test #'equal)
                              (knowledge--fail ':invalid-schema entry
                                               "Key argument ~S is not an argument of ~A."
@@ -157,15 +157,15 @@ supported claims that agree on them and differ elsewhere conflict."
                    key))
          (schema (list :schema
                        :predicate predicate
-                       :arguments (mapcar (lambda (argument)
-                                            (append (list :name (getf argument :name)
-                                                          :type (getf argument :type))
-                                                    (when (getf argument :unit)
-                                                      (list :unit
-                                                            (getf argument :unit)))))
-                                          arguments)
-                       :key positions
-                       :template template
+                       :arguments   (mapcar (lambda (argument)
+                                              (append (list :name (getf argument :name)
+                                                            :type (getf argument :type))
+                                                      (when (getf argument :unit)
+                                                        (list :unit
+                                                              (getf argument :unit)))))
+                                            arguments)
+                       :key         positions
+                       :template    template
                        :description description)))
     (unless (knowledge-predicate-name-p predicate)
       (knowledge--fail ':invalid-schema predicate
@@ -256,16 +256,16 @@ argument's type. NEGATED makes an explicit negation."
                                  (format nil "~A (~(~A~))"
                                          (getf argument :name) (getf argument :type)))
                                arguments)))
-    (let* ((atom (cons (knowledge-schema-predicate schema)
-                       (mapcar (lambda (input argument)
-                                 (let ((term (knowledge--argument-term
-                                              schema input argument)))
-                                   (when (knowledge-variable-p term)
-                                     (knowledge--fail ':invalid-claim term
-                                                      "Claim arguments cannot be rule variables such as ~A."
-                                                      term))
-                                   term))
-                               inputs arguments)))
+    (let* ((atom        (cons (knowledge-schema-predicate schema)
+                              (mapcar (lambda (input argument)
+                                        (let ((term (knowledge--argument-term
+                                                     schema input argument)))
+                                          (when (knowledge-variable-p term)
+                                            (knowledge--fail ':invalid-claim term
+                                                             "Claim arguments cannot be rule variables such as ~A."
+                                                             term))
+                                          term))
+                                      inputs arguments)))
            (proposition (if negated (list :not atom) atom)))
       (unless (knowledge-proposition-valid-p proposition schema)
         (knowledge--fail ':invalid-claim (knowledge-schema-predicate schema)
@@ -313,7 +313,7 @@ Claims of the same canonical proposition in the same scope share it."
 (defun knowledge-proposition-display (proposition schema)
   "Return PROPOSITION as a sentence using SCHEMA's template when it has one."
   (let* ((arguments (knowledge-proposition-arguments proposition))
-         (template (and schema (getf (rest schema) :template)))
+         (template  (and schema (getf (rest schema) :template)))
          (text
            (if template
                (let ((result template))
