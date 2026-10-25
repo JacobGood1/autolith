@@ -4,9 +4,9 @@
 
 (define-condition memory-resource-not-found (autolith-error)
   ((identifier
-    :initarg :identifier
-    :reader memory-resource-not-found-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        memory-resource-not-found-identifier
+    :type          non-empty-string
     :documentation "The stable memory identifier that has no active value."))
   (:default-initargs :message "The persistent memory does not exist.")
   (:documentation "A memory: URI names a missing or forgotten persistent memory.")
@@ -31,17 +31,17 @@
 
 (defclass memory-resource (resource)
   ((identifier
-    :initarg :identifier
-    :reader memory-resource-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        memory-resource-identifier
+    :type          non-empty-string
     :documentation "The collection name or stable memory identifier in this resource URI."))
   (:documentation "A revisioned persistent-memory collection or active item resource."))
 
 (defclass memory-collection-resource (memory-resource)
   ((visibility
-    :initarg :visibility
-    :reader memory-collection-resource-visibility
-    :type memory-visibility
+    :initarg       :visibility
+    :reader        memory-collection-resource-visibility
+    :type          memory-visibility
     :documentation "The existing persistent-memory visibility selected by this collection."))
   (:documentation "A scoped collection of active persistent memories."))
 
@@ -51,30 +51,30 @@
 
 (defclass memory-resolver (resource-resolver)
   ((knowledge-p
-    :initarg :knowledge-p
-    :initform t
-    :reader memory-resolver-knowledge-p
-    :type boolean
+    :initarg       :knowledge-p
+    :initform      t
+    :reader        memory-resolver-knowledge-p
+    :type          boolean
     :documentation "Whether structured knowledge views resolve and are documented."))
   (:documentation "Resolve scoped memory collections, exact active memories, and knowledge views."))
 
 (defclass memory-observation (resource-observation)
   ((identifier
-    :initarg :identifier
-    :reader memory-observation-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        memory-observation-identifier
+    :type          non-empty-string
     :documentation "The collection name or stable memory identifier observed.")
    (kind
-    :initarg :kind
-    :reader memory-observation-kind
-    :type keyword
+    :initarg       :kind
+    :reader        memory-observation-kind
+    :type          keyword
     :documentation "Whether the observation represents a collection or exact item.")
-    (snapshot
-     :initarg :snapshot
-     :reader memory-observation-snapshot
-     :type list
-     :documentation "The exact detached readable memory snapshot, including empty state."))
-    (:documentation "An exact rendered and structural persistent-memory snapshot."))
+   (snapshot
+    :initarg       :snapshot
+    :reader        memory-observation-snapshot
+    :type          list
+    :documentation "The exact detached readable memory snapshot, including empty state."))
+  (:documentation "An exact rendered and structural persistent-memory snapshot."))
 
 (defclass memory-observation-state (resource-observation-state)
   ()
@@ -115,10 +115,14 @@
 (defun memory-resource--collection-visibility (identifier)
   "Return the reserved collection visibility named by IDENTIFIER, or NIL."
   (cond
-    ((string= identifier "relevant") ':relevant)
-    ((string= identifier "workspace") ':workspace)
-    ((string= identifier "global") ':global)
-    ((string= identifier "all") ':all)
+    ((string= identifier "relevant")
+     ':relevant)
+    ((string= identifier "workspace")
+     ':workspace)
+    ((string= identifier "global")
+     ':global)
+    ((string= identifier "all")
+     ':all)
     (t
      nil)))
 
@@ -144,8 +148,8 @@
   "Resolve reserved collections or one canonical or compatible exact identifier."
   (declare (ignore context))
   (let ((visibility (memory-resource--collection-visibility identifier))
-        (knowledge (and (memory-resolver-knowledge-p resolver)
-                        (memory-knowledge-resolve identifier))))
+        (knowledge  (and (memory-resolver-knowledge-p resolver)
+                         (memory-knowledge-resolve identifier))))
     (cond
       (knowledge
        knowledge)
@@ -197,9 +201,9 @@
 (-> memory-resource--source-line (list) string)
 (defun memory-resource--source-line (outcome)
   "Return one rendered source line for a source OUTCOME plist."
-  (let* ((source (getf outcome :source))
+  (let* ((source     (getf outcome :source))
          (properties (rest source))
-         (quote (getf properties :quote)))
+         (quote      (getf properties :quote)))
     (format nil "  - ~A~@[ \"~A\"~]~A~%"
             (ecase (first source)
               (:file
@@ -210,36 +214,50 @@
                "user said"))
             quote
             (case (getf (getf outcome :reason) :kind)
-              ((nil) "")
-              (:file-changed " (changed)")
-              (:file-missing " (missing)")
-              (otherwise " (could not be checked)")))))
+              ((nil)
+               "")
+              (:file-changed
+               " (changed)")
+              (:file-missing
+               " (missing)")
+              (otherwise
+               " (could not be checked)")))))
 
 (-> memory-resource--premise-line (list) string)
 (defun memory-resource--premise-line (outcome)
   "Return one rendered premise line for a premise OUTCOME plist."
   (let ((memory (getf outcome :memory))
-        (claim (getf outcome :claim))
+        (claim  (getf outcome :claim))
         (reason (getf outcome :reason)))
     (format nil "  - ~A~@[ \"~A\"~]~@[ (~A)~]~%"
             (if (or claim (eq (getf reason :kind) ':premise-claim))
                 (format nil "memory:claim/~A" (getf outcome :id))
                 (resource-item-uri "memory" (getf outcome :id)))
             (cond
-              (memory (memory-title memory))
-              (claim (knowledge-node-text claim))
-              (t (getf reason :title)))
+              (memory
+               (memory-title memory))
+              (claim
+               (knowledge-node-text claim))
+              (t
+               (getf reason :title)))
             (and reason
                  (ecase (getf reason :kind)
-                   (:premise-changed "changed since this memory was written")
-                   (:premise-forgotten "forgotten")
-                   (:premise-stale "stale")
-                   (:premise-unverified "unverified")
-                   (:premise-cycle "relies on this memory")
-                   (:premise-too-deep "too deep to check")
-                   (:premise-claim (if (eq (getf reason :applicability) ':unknown)
-                                       "no longer holds"
-                                       (format nil "~(~A~)" (getf reason :applicability)))))))))
+                   (:premise-changed
+                    "changed since this memory was written")
+                   (:premise-forgotten
+                    "forgotten")
+                   (:premise-stale
+                    "stale")
+                   (:premise-unverified
+                    "unverified")
+                   (:premise-cycle
+                    "relies on this memory")
+                   (:premise-too-deep
+                    "too deep to check")
+                   (:premise-claim
+                    (if (eq (getf reason :applicability) ':unknown)
+                        "no longer holds"
+                        (format nil "~(~A~)" (getf reason :applicability)))))))))
 
 (-> memory-resource--render-item (memory-assessment list) string)
 (defun memory-resource--render-item (assessment dependents)
@@ -354,33 +372,33 @@ returns a fresh observation instead of the earlier rendering."
              (if maximum-results
                  (subseq available 0 (min maximum-results (length available)))
                  available))
-         (snapshot
-           (list :kind ':collection
-                 :identifier (memory-resource-identifier resource)
-                 :workspace workspace-identity
-                 :records (mapcar #'memory--record snapshot-memories))))
-    (let* ((assessor (memory-assessor-create configuration))
-           (assessments (mapcar (lambda (memory)
-                                  (memory-assess assessor memory))
-                                memories)))
-      (make-instance 'memory-observation
-                     :uri        (resource-uri resource)
-                     :revision   (resource-readable-snapshot-digest
-                                  *memory-resource-digest-key*
-                                  snapshot)
-                     :content    (memory-resource--render-collection
-                                  (memory-resource-identifier resource)
-                                  assessments)
-                     :metadata   (list :visibility visibility
-                                       :workspace workspace-identity
-                                       :query query
-                                       :maximum-results maximum-results
-                                       :count (length memories)
-                                       :status (memory-resource--status-metadata
-                                                assessments))
-                     :identifier (memory-resource-identifier resource)
-                     :kind       ':collection
-                     :snapshot   snapshot))))
+           (snapshot
+             (list :kind       ':collection
+                   :identifier (memory-resource-identifier resource)
+                   :workspace  workspace-identity
+                   :records    (mapcar #'memory--record snapshot-memories))))
+     (let* ((assessor    (memory-assessor-create configuration))
+            (assessments (mapcar (lambda (memory)
+                                   (memory-assess assessor memory))
+                                 memories)))
+       (make-instance 'memory-observation
+                      :uri        (resource-uri resource)
+                      :revision   (resource-readable-snapshot-digest
+                                   *memory-resource-digest-key*
+                                   snapshot)
+                      :content    (memory-resource--render-collection
+                                   (memory-resource-identifier resource)
+                                   assessments)
+                      :metadata   (list :visibility      visibility
+                                        :workspace       workspace-identity
+                                        :query           query
+                                        :maximum-results maximum-results
+                                        :count           (length memories)
+                                        :status          (memory-resource--status-metadata
+                                                          assessments))
+                      :identifier (memory-resource-identifier resource)
+                      :kind       ':collection
+                      :snapshot   snapshot))))
 
 (-> memory-resource--item-observation
     (memory-item-resource tool-context)
@@ -390,13 +408,13 @@ returns a fresh observation instead of the earlier rendering."
   (let* ((identifier (memory-resource-identifier resource))
          (assessor
            (memory-assessor-create (tool-context-configuration context)))
-         (memory (memory-assessor-find assessor identifier)))
+         (memory     (memory-assessor-find assessor identifier)))
     (unless memory
       (error 'memory-resource-not-found :identifier identifier))
     (let ((snapshot
-            (list :kind ':item
+            (list :kind       ':item
                   :identifier identifier
-                  :record (memory--record memory)))
+                  :record     (memory--record memory)))
           (assessment (memory-assess assessor memory))
           (dependents (memory-assessor-dependents assessor identifier)))
       (make-instance 'memory-observation
@@ -405,9 +423,9 @@ returns a fresh observation instead of the earlier rendering."
                                   *memory-resource-digest-key*
                                   snapshot)
                      :content    (memory-resource--render-item assessment dependents)
-                     :metadata   (list :scope (memory-scope memory)
-                                       :status (memory-resource--status-metadata
-                                                (list assessment))
+                     :metadata   (list :scope      (memory-scope memory)
+                                       :status     (memory-resource--status-metadata
+                                                    (list assessment))
                                        :dependents (mapcar #'memory-identifier
                                                            dependents))
                      :identifier identifier
@@ -428,7 +446,6 @@ returns a fresh observation instead of the earlier rendering."
 ;;;; -- Conversation Observation State --
 
 
-
 ;;;; -- Memory Operations --
 
 (-> memory-resource--operation-tags (json-object) list)
@@ -443,7 +460,7 @@ returns a fresh observation instead of the earlier rendering."
        (memory--validate-tags (coerce tags 'list)))
       (t
        (error 'tool-error
-              :message "Memory resource tags must be an array of strings."
+              :message   "Memory resource tags must be an array of strings."
               :tool-name "resource.edit")))))
 
 (-> memory-resource--operation-scope (json-object) (option memory-scope))
@@ -460,14 +477,14 @@ returns a fresh observation instead of the earlier rendering."
        ':workspace)
       (t
        (error 'tool-error
-              :message "Memory resource scope must be global or workspace."
+              :message   "Memory resource scope must be global or workspace."
               :tool-name "resource.edit")))))
 
 (-> memory-resource--fail (string &rest t) nil)
 (defun memory-resource--fail (control &rest arguments)
   "Signal a corrective memory resource edit failure."
   (error 'tool-error
-         :message (apply #'format nil control arguments)
+         :message   (apply #'format nil control arguments)
          :tool-name "resource.edit"))
 
 (-> memory-resource--source-request (t) list)
@@ -561,17 +578,17 @@ in one of the user's own inputs to this conversation."
        (handler-case
            (memory-source-observe-file pathname
                                        :quote (getf (rest request) :quote)
-                                       :time time)
+                                       :time  time)
          (memory-error (condition)
            (memory-resource--fail "~A" (autolith-error-message condition))))))
     (:url
      (list :url
            :url (getf (rest request) :url)
-           :quote (getf (rest request) :quote)
+           :quote       (getf (rest request) :quote)
            :observed-at time))
     (:user
      (let ((conversation (tool-context-conversation context))
-           (quote (getf (rest request) :quote)))
+           (quote        (getf (rest request) :quote)))
        (unless (some (lambda (input)
                        (memory-source-quote-found-p quote input))
                      (conversation-input-history conversation))
@@ -579,24 +596,24 @@ in one of the user's own inputs to this conversation."
        (list :user
              :quote quote
              :conversation (conversation-identifier conversation)
-             :observed-at time)))))
+             :observed-at  time)))))
 
 (-> memory-resource--normalize-operation (t) list)
 (defun memory-resource--normalize-operation (operation)
   "Return one completely validated normalized memory resource OPERATION."
   (unless (hash-table-p operation)
     (error 'tool-error
-           :message "Memory resource operations must be JSON objects."
+           :message   "Memory resource operations must be JSON objects."
            :tool-name "resource.edit"))
   (let ((name (tool-argument operation "op" :required t)))
     (unless (stringp name)
       (error 'tool-error
-             :message "Memory resource operation op must be a string."
+             :message   "Memory resource operation op must be a string."
              :tool-name "resource.edit"))
     (cond
       ((string= name "memory-remember")
        (resource-item-validate-operation-fields
-     "Memory"
+        "Memory"
         operation
         '("op" "title" "content" "tags" "sources" "premises")
         '("op" "title" "content"))
@@ -604,23 +621,23 @@ in one of the user's own inputs to this conversation."
            (memory-resource--operation-sources operation)
          (multiple-value-bind (premises premises-p)
              (memory-resource--operation-premises operation)
-           (list :kind ':remember
-                 :title (memory--validate-text
-                         (tool-argument operation "title" :required t)
-                         "title"
-                         *memory-title-limit*)
-                 :content (memory--validate-text
-                           (tool-argument operation "content" :required t)
-                           "content"
-                           *memory-content-limit*)
-                 :tags (memory-resource--operation-tags operation)
-                 :sources sources
-                 :sources-p sources-p
-                 :premises premises
+           (list :kind       ':remember
+                 :title      (memory--validate-text
+                              (tool-argument operation "title" :required t)
+                              "title"
+                              *memory-title-limit*)
+                 :content    (memory--validate-text
+                              (tool-argument operation "content" :required t)
+                              "content"
+                              *memory-content-limit*)
+                 :tags       (memory-resource--operation-tags operation)
+                 :sources    sources
+                 :sources-p  sources-p
+                 :premises   premises
                  :premises-p premises-p))))
       ((string= name "memory-replace")
        (resource-item-validate-operation-fields
-     "Memory"
+        "Memory"
         operation
         '("op" "title" "content" "tags" "scope" "sources" "premises")
         '("op" "title" "content"))
@@ -628,24 +645,24 @@ in one of the user's own inputs to this conversation."
            (memory-resource--operation-sources operation)
          (multiple-value-bind (premises premises-p)
              (memory-resource--operation-premises operation)
-           (list :kind ':replace
-                 :title (memory--validate-text
-                         (tool-argument operation "title" :required t)
-                         "title"
-                         *memory-title-limit*)
-                 :content (memory--validate-text
-                           (tool-argument operation "content" :required t)
-                           "content"
-                           *memory-content-limit*)
-                 :tags (memory-resource--operation-tags operation)
-                 :scope (memory-resource--operation-scope operation)
-                 :sources sources
-                 :sources-p sources-p
-                 :premises premises
+           (list :kind       ':replace
+                 :title      (memory--validate-text
+                              (tool-argument operation "title" :required t)
+                              "title"
+                              *memory-title-limit*)
+                 :content    (memory--validate-text
+                              (tool-argument operation "content" :required t)
+                              "content"
+                              *memory-content-limit*)
+                 :tags       (memory-resource--operation-tags operation)
+                 :scope      (memory-resource--operation-scope operation)
+                 :sources    sources
+                 :sources-p  sources-p
+                 :premises   premises
                  :premises-p premises-p))))
       ((string= name "memory-forget")
        (resource-item-validate-operation-fields
-     "Memory"
+        "Memory"
         operation '("op") '("op"))
        (list :kind ':forget))
       (t
@@ -663,14 +680,14 @@ in one of the user's own inputs to this conversation."
                   (member (memory-collection-resource-visibility resource)
                           '(:workspace :global)))
        (error 'tool-error
-              :message "Only memory:workspace and memory:global accept memory-remember."
-              :code ':operation-unsupported
+              :message   "Only memory:workspace and memory:global accept memory-remember."
+              :code      ':operation-unsupported
               :tool-name "resource.edit")))
     (memory-item-resource
      (unless (member (getf operation :kind) '(:replace :forget))
        (error 'tool-error
-              :message "Exact memory item URIs accept only memory-replace or memory-forget."
-              :code ':operation-unsupported
+              :message   "Exact memory item URIs accept only memory-replace or memory-forget."
+              :code      ':operation-unsupported
               :tool-name "resource.edit"))))
   nil)
 
@@ -691,7 +708,7 @@ in one of the user's own inputs to this conversation."
 (defun memory-resource--forgotten-observation (resource memory)
   "Return a revisioned terminal observation for forgotten MEMORY."
   (let* ((identifier (memory-identifier memory))
-         (snapshot (list :kind ':forgotten :identifier identifier)))
+         (snapshot   (list :kind ':forgotten :identifier identifier)))
     (make-instance 'memory-observation
                    :uri        (resource-uri resource)
                    :revision   (resource-readable-snapshot-digest
@@ -735,13 +752,13 @@ them, so a replacement that omits them keeps the recorded versions."
   "Apply exactly one revision-gated append-only mutation to RESOURCE."
   (unless (and (listp operations) (= (length operations) 1))
     (error 'tool-error
-           :message "memory: resources require exactly one operation per resource.edit call."
+           :message   "memory: resources require exactly one operation per resource.edit call."
            :tool-name "resource.edit"))
   (let ((operation (memory-resource--normalize-operation (first operations))))
     (memory-resource--validate-operation-target resource operation)
-    (let* ((conversation (tool-context-conversation context))
+    (let* ((conversation  (tool-context-conversation context))
            (configuration (tool-context-configuration context))
-           (now (get-universal-time))
+           (now           (get-universal-time))
            ;; Evidence is checked, and outside paths authorized, before the
            ;; memory lock is taken.
            (evidence-arguments
@@ -783,15 +800,17 @@ them, so a replacement that omits them keeps the recorded versions."
               (:remember
                (let* ((scope
                         (ecase (memory-collection-resource-visibility resource)
-                          (:workspace ':workspace)
-                          (:global ':global)))
+                          (:workspace
+                           ':workspace)
+                          (:global
+                           ':global)))
                       (memory
                         (memory-resource--remember
                          configuration
-                         :title (getf operation :title)
-                         :content (getf operation :content)
-                         :scope scope
-                         :tags (getf operation :tags)
+                         :title              (getf operation :title)
+                         :content            (getf operation :content)
+                         :scope              scope
+                         :tags               (getf operation :tags)
                          :source-conversation
                          (conversation-identifier conversation)
                          :evidence-arguments evidence-arguments))
@@ -806,11 +825,11 @@ them, so a replacement that omits them keeps the recorded versions."
               (:replace
                (memory-resource--remember
                 configuration
-                :identifier (memory-resource-identifier resource)
-                :title (getf operation :title)
-                :content (getf operation :content)
-                :scope (getf operation :scope)
-                :tags (getf operation :tags)
+                :identifier         (memory-resource-identifier resource)
+                :title              (getf operation :title)
+                :content            (getf operation :content)
+                :scope              (getf operation :scope)
+                :tags               (getf operation :tags)
                 :source-conversation
                 (conversation-identifier conversation)
                 :evidence-arguments evidence-arguments)
@@ -851,25 +870,25 @@ them, so a replacement that omits them keeps the recorded versions."
   (when (or (nth-value 1 (gethash "start-line" arguments))
             (nth-value 1 (gethash "line-count" arguments)))
     (error 'tool-error
-           :message "memory: resources are always read in full and do not accept line windows."
-           :code ':line-windows-unsupported
+           :message   "memory: resources are always read in full and do not accept line windows."
+           :code      ':line-windows-unsupported
            :tool-name "resource.read"))
-  (let* ((query (tool-argument arguments "query"))
+  (let* ((query             (tool-argument arguments "query"))
          (requested-maximum (tool-argument arguments "max-results")))
     (when (and query (not (non-empty-string-p query)))
       (error 'tool-error
-             :message "Memory resource query must be a non-empty string."
+             :message   "Memory resource query must be a non-empty string."
              :tool-name "resource.read"))
     (when (and requested-maximum
                (not (and (integerp requested-maximum)
                          (plusp requested-maximum))))
       (error 'tool-error
-             :message "Memory resource max-results must be a positive integer."
+             :message   "Memory resource max-results must be a positive integer."
              :tool-name "resource.read"))
     (when (and (typep resource 'memory-item-resource)
                (or query requested-maximum))
       (error 'tool-error
-             :message "Exact memory item resources do not accept query or max-results."
+             :message   "Exact memory item resources do not accept query or max-results."
              :tool-name "resource.read"))
     (let* ((observation
              (etypecase resource
@@ -885,8 +904,8 @@ them, so a replacement that omits them keeps the recorded versions."
                 (resource-observe resource context))))
            (state
               (resource-observation-state-ensure
-              (tool-context-conversation context)
-              observation)))
+               (tool-context-conversation context)
+               observation)))
       (tool-success (resource-item-read-result state)))))
 
 (defmethod resource-tool-edit
@@ -894,26 +913,26 @@ them, so a replacement that omits them keeps the recorded versions."
      (context tool-context) (arguments hash-table))
   "Apply one revision-gated memory operation and return a fresh exact observation."
   (declare (ignore tool))
-  (let* ((uri (tool-argument arguments "uri" :required t))
-         (base-revision (tool-argument arguments "base-revision" :required t))
+  (let* ((uri             (tool-argument arguments "uri" :required t))
+         (base-revision   (tool-argument arguments "base-revision" :required t))
          (operation-array (tool-argument arguments "operations" :required t)))
     (unless (non-empty-string-p base-revision)
       (error 'tool-error
-             :message "Resource edit base-revision must be a non-empty string."
+             :message   "Resource edit base-revision must be a non-empty string."
              :tool-name "resource.edit"))
     (unless (and (vectorp operation-array) (= (length operation-array) 1))
       (error 'tool-error
-             :message "memory: resources require exactly one operation per resource.edit call."
+             :message   "memory: resources require exactly one operation per resource.edit call."
              :tool-name "resource.edit"))
     (handler-case
         (multiple-value-bind (observation summary exact-uri)
             (resource-apply-operations resource context
                                        :base-revision base-revision
-                                       :operations (coerce operation-array 'list))
+                                       :operations    (coerce operation-array 'list))
           (let ((state
                    (resource-observation-state-ensure
-                   (tool-context-conversation context)
-                   observation)))
+                    (tool-context-conversation context)
+                    observation)))
             (tool-success
              (format nil "~A~@[~%Exact URI: ~A~]~%~A"
                      summary
@@ -927,6 +946,6 @@ them, so a replacement that omits them keeps the recorded versions."
                        (resource-revision-stale-uri condition)
                        (resource-revision-stale-actual-revision condition)
                        uri)
-                (format nil "Resource revision ~A is stale, expired, for another memory URI, or was not observed in this conversation. Reread ~A with resource.read and retry against the returned revision."
-                        base-revision
-                        uri)))))))
+               (format nil "Resource revision ~A is stale, expired, for another memory URI, or was not observed in this conversation. Reread ~A with resource.read and retry against the returned revision."
+                       base-revision
+                       uri)))))))
