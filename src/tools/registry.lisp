@@ -4,24 +4,24 @@
 
 (defclass tool ()
   ((namespace
-    :initarg :namespace
-    :reader tool-namespace
-    :type non-empty-string
+    :initarg       :namespace
+    :reader        tool-namespace
+    :type          non-empty-string
     :documentation "The Responses namespace containing this tool.")
    (name
-    :initarg :name
-    :reader tool-name
-    :type non-empty-string
+    :initarg       :name
+    :reader        tool-name
+    :type          non-empty-string
     :documentation "The function name inside the namespace.")
    (description
-    :initarg :description
-    :reader tool-description
-    :type non-empty-string
+    :initarg       :description
+    :reader        tool-description
+    :type          non-empty-string
     :documentation "The model-visible operation documentation.")
    (parameters
-    :initarg :parameters
-    :reader tool-parameters
-    :type json-object
+    :initarg       :parameters
+    :reader        tool-parameters
+    :type          json-object
     :documentation "The JSON Schema accepted by this tool.")
    (correction-metadata-p
     :initarg :correction-metadata-p :initform nil :reader tool-correction-metadata-p
@@ -30,9 +30,9 @@
 
 (defclass resource-tool (tool)
   ((resource-registry
-    :initarg :resource-registry
-    :reader resource-tool-resource-registry
-    :type resource-registry
+    :initarg       :resource-registry
+    :reader        resource-tool-resource-registry
+    :type          resource-registry
     :documentation "The exact per-agent resolver registry owning this tool."))
   (:documentation "A model-facing tool resolving resources in one agent registry."))
 
@@ -63,7 +63,6 @@
 (defclass lisp-eval-tool (lisp-tool)
   ()
   (:documentation "Evaluate a sequence of Common Lisp forms in the worker."))
-
 
 (defclass lisp-load-system-tool (lisp-tool)
   ()
@@ -108,7 +107,6 @@
 (defclass lisp-save-image-tool (lisp-tool)
   ()
   (:documentation "Save one named REPL as an immutable worker image."))
-
 
 (defclass self-eval-tool (mutable-self-tool)
   ()
@@ -257,68 +255,68 @@
 
 (defclass tool-context ()
   ((configuration
-    :initarg :configuration
-    :reader tool-context-configuration
-    :type configuration
+    :initarg       :configuration
+    :reader        tool-context-configuration
+    :type          configuration
     :documentation "The active process configuration.")
    (worker
-    :initarg :worker
-    :reader tool-context-worker
-    :type t
+    :initarg       :worker
+    :reader        tool-context-worker
+    :type          t
     :documentation "The named Lisp worker manager.")
    (conversation
-    :initarg :conversation
-    :reader tool-context-conversation
-    :type conversation
+    :initarg       :conversation
+    :reader        tool-context-conversation
+    :type          conversation
     :documentation "The conversation requesting the operation.")
    (context-rule-generation
-    :initarg :context-rule-generation
-    :initform nil
-    :reader tool-context-rule-generation
-    :type (option string)
+    :initarg       :context-rule-generation
+    :initform      nil
+    :reader        tool-context-rule-generation
+    :type          (option string)
     :documentation "The originating logical-turn identity for advisory metadata.")
    (mutation-checker
-    :initarg :mutation-checker
-    :initform nil
-    :reader tool-context-mutation-checker
-    :type t
+    :initarg       :mutation-checker
+    :initform      nil
+    :reader        tool-context-mutation-checker
+    :type          t
     :documentation "The optional durable-mutation check strategy.")
    (registry
-    :initarg :registry
-    :initform nil
-    :reader tool-context-registry
-    :type t
+    :initarg       :registry
+    :initform      nil
+    :reader        tool-context-registry
+    :type          t
     :documentation "The registry dispatching this execution, when available.")
    (command-authorization-function
-    :initarg :command-authorization-function
-    :initform nil
-    :reader tool-context-command-authorization-function
-    :type (option function)
+    :initarg       :command-authorization-function
+    :initform      nil
+    :reader        tool-context-command-authorization-function
+    :type          (option function)
     :documentation "The callback deciding whether and how shell commands may run.")
    (tool-authorization-function
-    :initarg :tool-authorization-function
+    :initarg  :tool-authorization-function
     :initform nil
-    :reader tool-context-tool-authorization-function
-    :type (option function)
+    :reader   tool-context-tool-authorization-function
+    :type     (option function)
     :documentation
     "The callback deciding whether one externally implemented tool may run.")
    (agent
-    :initarg :agent
-    :initform nil
-    :reader tool-context-agent
-    :type t
+    :initarg       :agent
+    :initform      nil
+    :reader        tool-context-agent
+    :type          t
     :documentation "The agent whose provider call requested this tool.")
    (observer
-    :initarg :observer
-    :initform nil
-    :reader tool-context-observer
-    :type t
+    :initarg       :observer
+    :initform      nil
+    :reader        tool-context-observer
+    :type          t
     :documentation "The observer presenting the parent tool lifecycle.")
    (call-id
-    :initarg :call-id
-    :initform nil
-    :reader tool-context-call-id
-    :type (option string)
+    :initarg       :call-id
+    :initform      nil
+    :reader        tool-context-call-id
+    :type          (option string)
     :documentation "The provider function call identifier for this execution."))
   (:documentation "The explicit capabilities supplied to one tool execution."))
 
@@ -340,8 +338,8 @@
                        ':deny)))
     (unless (member decision '(:deny :sandboxed :full-access))
       (error 'tool-error
-             :message (format nil "Command authorization returned invalid decision ~S."
-                              decision)
+             :message   (format nil "Command authorization returned invalid decision ~S."
+                                decision)
              :tool-name "shell.run"))
     decision))
 
@@ -364,48 +362,47 @@
 
 (defclass tool-result ()
   ((content
-    :initarg :content
-    :reader tool-result-content
-    :type string
+    :initarg       :content
+    :reader        tool-result-content
+    :type          string
     :documentation "The bounded model-visible result.")
    (image-attachments
-    :initarg :image-attachments
+    :initarg  :image-attachments
     :initform nil
-    :reader tool-result-image-attachments
-    :type list
+    :reader   tool-result-image-attachments
+    :type     list
     :documentation
     "Provider-visible local images returned by a successful tool operation.")
    (content-blocks
-    :initarg :content-blocks
+    :initarg  :content-blocks
     :initform nil
-    :reader tool-result-content-blocks
-    :type list
+    :reader   tool-result-content-blocks
+    :type     list
     :documentation
     "Ordered provider-visible strings and image attachments, when multimodal.")
-    (success-p
-     :initarg :success-p
-     :reader tool-result-success-p
-     :type boolean
-     :documentation "True when the tool operation succeeded.")
-    (category
-     :initarg :category
-     :reader tool-result-category
-     :type (member :success :failure :neutral :mechanics)
-     :documentation "The semantic outcome category independent of progress or retry policy.")
-    (denied-p
-     :initarg :denied-p
-     :initform nil
-     :reader tool-result-denied-p
-     :type boolean
-     :documentation "True when this terminal failure refused user or policy authority.")
-    (error-code
-     :initarg :error-code
-     :initform nil
-     :reader tool-result-error-code
-     :type (option keyword)
-     :documentation "The failure's machine-readable code, when one exists."))
+   (success-p
+    :initarg       :success-p
+    :reader        tool-result-success-p
+    :type          boolean
+    :documentation "True when the tool operation succeeded.")
+   (category
+    :initarg       :category
+    :reader        tool-result-category
+    :type          (member :success :failure :neutral :mechanics)
+    :documentation "The semantic outcome category independent of progress or retry policy.")
+   (denied-p
+    :initarg       :denied-p
+    :initform      nil
+    :reader        tool-result-denied-p
+    :type          boolean
+    :documentation "True when this terminal failure refused user or policy authority.")
+   (error-code
+    :initarg       :error-code
+    :initform      nil
+    :reader        tool-result-error-code
+    :type          (option keyword)
+    :documentation "The failure's machine-readable code, when one exists."))
   (:documentation "The model-visible outcome of exactly one tool call."))
-
 
 (defmethod initialize-instance :after ((result tool-result) &key)
   "Derive a compatible default outcome category for specialized result classes."
@@ -426,7 +423,7 @@
 (-> tool-result--normalize-content-blocks (list) list)
 (defun tool-result--normalize-content-blocks (blocks)
   "Validate BLOCKS and bound their aggregate model-visible text."
-  (let ((remaining 8000)
+  (let ((remaining  8000)
         (normalized nil))
     (dolist (block blocks)
       (etypecase block
@@ -446,6 +443,7 @@
 Bound per dispatched call. It receives the full result text and returns
 a resource URI where the complete text stays readable, or NIL when
 spilling is unavailable, in which case the tail is discarded as before.")
+
 (-> tool-success
     (t &key (:image-attachments list) (:content-blocks list))
     tool-result)
@@ -460,7 +458,7 @@ spilling is unavailable, in which case the tail is discarded as before.")
                    (typep attachment 'image-attachment))
                  image-attachments)
     (error 'tool-error
-           :message "Tool image results must contain image attachments."
+           :message   "Tool image results must contain image attachments."
            :tool-name "unknown"))
   (let* ((raw-blocks
            (or content-blocks
@@ -476,15 +474,14 @@ spilling is unavailable, in which case the tail is discarded as before.")
               (typep block 'image-attachment))
             blocks)))
     (make-instance 'tool-result
-                   :content (bounded-string
-                             content
-                             :overflow-uri-function
-                             *tool-result-overflow-function*)
+                   :content           (bounded-string
+                                       content
+                                       :overflow-uri-function
+                                       *tool-result-overflow-function*)
                    :image-attachments attachments
-                   :content-blocks blocks
-                   :success-p t
-                   :category ':success)))
-
+                   :content-blocks    blocks
+                   :success-p         t
+                   :category          ':success)))
 
 (-> tool--spill-result-text (tool-context string string) (option string))
 (defun tool--spill-result-text (context tool-name text)
@@ -502,23 +499,23 @@ spilling is unavailable, in which case the tail is discarded as before.")
 (defun tool-failure (content &key code denied-p)
   "Return a bounded terminal failure with optional CODE and authority refusal DENIED-P."
   (make-instance 'tool-result
-                 :content (bounded-string
-                           content
-                           :overflow-uri-function *tool-result-overflow-function*)
-                 :success-p nil
-                 :category ':failure
+                 :content    (bounded-string
+                              content
+                              :overflow-uri-function *tool-result-overflow-function*)
+                 :success-p  nil
+                 :category   ':failure
                  :error-code code
-                 :denied-p denied-p))
+                 :denied-p   denied-p))
 
 (-> tool-mechanics (t &key (:code (option keyword))) tool-result)
 (defun tool-mechanics (content &key code)
   "Return a bounded non-executed tool result caused by call mechanics."
   (make-instance 'tool-result
-                 :content (bounded-string
-                           content
-                           :overflow-uri-function *tool-result-overflow-function*)
-                 :success-p nil
-                 :category ':mechanics
+                 :content    (bounded-string
+                              content
+                              :overflow-uri-function *tool-result-overflow-function*)
+                 :success-p  nil
+                 :category   ':mechanics
                  :error-code code))
 
 (-> tool-execute (tool tool-context json-object) tool-result)
@@ -701,7 +698,7 @@ spilling is unavailable, in which case the tail is discarded as before.")
       (json-get-present arguments name)
     (when (and required (not present-p))
       (error 'tool-error
-             :message (format nil "Required tool argument ~S is missing." name)
+             :message   (format nil "Required tool argument ~S is missing." name)
              :tool-name "unknown"))
     value))
 
@@ -723,7 +720,7 @@ spilling is unavailable, in which case the tail is discarded as before.")
        nil)
       (t
        (error 'tool-error
-              :message (format nil "Tool argument ~S must be a boolean." name)
+              :message   (format nil "Tool argument ~S must be a boolean." name)
               :tool-name (or tool-name name))))))
 
 (-> tool-forms-argument (json-object string) list)
@@ -735,7 +732,7 @@ spilling is unavailable, in which case the tail is discarded as before.")
                  (plusp (length forms))
                  (every #'stringp forms))
       (error 'tool-error
-             :message "Tool argument \"forms\" must be a non-empty array of strings, each holding one Common Lisp form."
+             :message   "Tool argument \"forms\" must be a non-empty array of strings, each holding one Common Lisp form."
              :tool-name tool-name))
     (coerce forms 'list)))
 
@@ -858,26 +855,26 @@ spilling is unavailable, in which case the tail is discarded as before.")
 (defclass tool-registry ()
   ((tools
     :initform (make-ordered-map :test #'equal)
-    :reader tool-registry-tool-map
-    :type ordered-map
+    :reader   tool-registry-tool-map
+    :type     ordered-map
     :documentation
     "Canonical dotted tool names mapped to tools in presentation order.")
    (namespace-descriptions
     :initform (make-hash-table :test #'equal)
-    :reader tool-registry-namespace-descriptions
-    :type hash-table
+    :reader   tool-registry-namespace-descriptions
+    :type     hash-table
     :documentation
     "Model-visible namespace descriptions recorded at registration.")
    (runtime-bindings
     :initform (make-hash-table :test #'eq)
-    :reader tool-registry-runtime-bindings
-    :type hash-table
+    :reader   tool-registry-runtime-bindings
+    :type     hash-table
     :documentation
     "Subsystem-specific bindings used to reconcile shared dynamic runtimes.")
    (resource-registry
-    :initform (make-resource-registry)
-    :reader tool-registry-resource-registry
-    :type resource-registry
+    :initform      (make-resource-registry)
+    :reader        tool-registry-resource-registry
+    :type          resource-registry
     :documentation "The per-agent registry of authority-neutral resource resolvers."))
   (:documentation "The model-visible tools and their active dispatch objects."))
 
@@ -936,8 +933,8 @@ spilling is unavailable, in which case the tail is discarded as before.")
           (remove-if-not #'tool-runtime-identity
                          (tool-registry-tools registry))))
     (remove-duplicates (if reverse-p (nreverse tools) tools)
-                       :key #'tool-runtime-identity
-                       :test #'eq
+                       :key      #'tool-runtime-identity
+                       :test     #'eq
                        :from-end t)))
 
 (-> tool-registry--ordered-runtime-representatives
@@ -958,7 +955,7 @@ spilling is unavailable, in which case the tail is discarded as before.")
     (values list (option serious-condition)))
 (defun tool-registry--attempt-runtime-operation (tools function)
   "Apply FUNCTION to TOOLS, returning successful tools and the first failure."
-  (let ((completed nil)
+  (let ((completed     nil)
         (first-failure nil))
     (dolist (tool tools)
       (handler-case
@@ -980,7 +977,7 @@ spilling is unavailable, in which case the tail is discarded as before.")
       (tool-registry--attempt-runtime-operation
        (tool-registry--ordered-runtime-representatives
         registry
-        :reverse-p reverse-p
+        :reverse-p  reverse-p
         :priority-p priority-p)
        function)
     (declare (ignore completed))
@@ -1098,7 +1095,7 @@ continue also requests an automatic continuation after a detached job completes.
           (t
            (error 'tool-error
                   :tool-name tool-name
-                  :message "completion-policy must be notify or continue.")))
+                  :message   "completion-policy must be notify or continue.")))
         default)))
 
 (-> tool-completion-policy-property () hash-table)
@@ -1170,8 +1167,8 @@ nested workers and accepts only compact, content-free phase descriptions."))
           (member (tool-canonical-name tool) canonical-names :test #'string=))
         (tool-registry-tools registry))
        (tool-registry-tools registry))
-   :namespace-function #'tool-namespace
-   :schema-function #'tool-provider-schema
+   :namespace-function   #'tool-namespace
+   :schema-function      #'tool-provider-schema
    :description-function (lambda (namespace)
                            (tool-namespace-description registry namespace))))
 
@@ -1179,7 +1176,6 @@ nested workers and accepts only compact, content-free phase descriptions."))
 (defun function-call-canonical-name (call)
   "Return the dotted or bare canonical name carried by function CALL."
   (cl-llm-provider-api:provider-call-canonical-name call))
-
 
 (-> tool--missing-required-names (tool json-object) list)
 (defun tool--missing-required-names (tool arguments)
@@ -1190,11 +1186,11 @@ nested workers and accepts only compact, content-free phase descriptions."))
 (-> tool--missing-arguments-result (tool json-object list) tool-result)
 (defun tool--missing-arguments-result (tool arguments missing-names)
   "Return a mechanics result with a concrete retry skeleton for MISSING-NAMES."
-  (let* ((one-of-p (eq (first missing-names) ':one-of))
-         (names (if one-of-p (rest missing-names) missing-names))
-         (skeleton-names (if one-of-p (list (first names)) names))
+  (let* ((one-of-p           (eq (first missing-names) ':one-of))
+         (names              (if one-of-p (rest missing-names) missing-names))
+         (skeleton-names     (if one-of-p (list (first names)) names))
          (skeleton-arguments (json-object))
-         (properties (json-get (tool-parameters tool) "properties")))
+         (properties         (json-get (tool-parameters tool) "properties")))
     (maphash
      (lambda (name value)
        (setf (gethash name skeleton-arguments) value))
@@ -1232,19 +1228,21 @@ signals with the candidate canonical names."
                                   (string= (tool-name tool) name))
                                 (tool-registry-tools registry))))
     (cond
-      ((null matches) nil)
+      ((null matches)
+       nil)
       ((rest matches)
        (error 'tool-error
               :message
               (format nil "Ambiguous tool name ~A: use one of ~{~A~^, ~}."
                       name (mapcar #'tool-canonical-name matches))
               :tool-name name))
-      (t (first matches)))))
+      (t
+       (first matches)))))
 
 (defun tool-registry-execute-call (registry call context)
   "Validate and execute one Responses function CALL through REGISTRY."
-  (let* ((namespace (json-get call "namespace"))
-         (name (json-get call "name"))
+  (let* ((namespace      (json-get call "namespace"))
+         (name           (json-get call "name"))
          (canonical-name (function-call-canonical-name call))
          (*tool-result-overflow-function*
            (lambda (text)
@@ -1253,44 +1251,44 @@ signals with the candidate canonical names."
         (progn
           (unless (non-empty-string-p name)
             (error 'tool-error
-                   :message "The provider returned a function call without a tool name."
+                   :message   "The provider returned a function call without a tool name."
                    :tool-name canonical-name))
           (let ((tool (if (non-empty-string-p namespace)
                           (tool-registry-find registry namespace name)
                           (tool-registry--only-named registry name))))
             (unless tool
               (error 'tool-error
-                     :message (format nil "Unknown tool ~A." canonical-name)
+                     :message   (format nil "Unknown tool ~A." canonical-name)
                      :tool-name canonical-name))
-             (let ((arguments
-                     (tool-decode-arguments
-                      tool
-                      (or (json-get call "arguments") "{}"))))
-               (unless (json-object-p arguments)
-                 (error 'tool-error
-                        :message (format nil "Arguments for ~A are not a JSON object."
-                                         canonical-name)
-                        :tool-name canonical-name))
-               (let ((missing-names
-                       (tool--missing-required-names tool arguments)))
-                 (if missing-names
-                     (tool--missing-arguments-result
-                      tool arguments missing-names)
-                     (progn
-                       (when (tool-correction-metadata-p tool)
-                         (multiple-value-bind (value present-p) (gethash "corrects_previous" arguments)
-                           (when (and present-p (not (or (json-true-p value) (json-false-p value))))
-                             (error 'tool-error :tool-name canonical-name
-                                               :message "corrects_previous must be a boolean."))
-                           (when *telemetry-tool-capture-p*
-                             (setf *telemetry-tool-corrects-previous-p* (and present-p (json-true-p value))))
-                           (remhash "corrects_previous" arguments)))
-                       (when *telemetry-tool-capture-p* (setf *telemetry-tool-arguments* arguments))
-                       (tool-execute-with-contracts tool context arguments)))))))
+            (let ((arguments
+                    (tool-decode-arguments
+                     tool
+                     (or (json-get call "arguments") "{}"))))
+              (unless (json-object-p arguments)
+                (error 'tool-error
+                       :message   (format nil "Arguments for ~A are not a JSON object."
+                                          canonical-name)
+                       :tool-name canonical-name))
+              (let ((missing-names
+                      (tool--missing-required-names tool arguments)))
+                (if missing-names
+                    (tool--missing-arguments-result
+                     tool arguments missing-names)
+                    (progn
+                      (when (tool-correction-metadata-p tool)
+                        (multiple-value-bind (value present-p) (gethash "corrects_previous" arguments)
+                          (when (and present-p (not (or (json-true-p value) (json-false-p value))))
+                            (error 'tool-error :tool-name canonical-name
+                                              :message    "corrects_previous must be a boolean."))
+                          (when *telemetry-tool-capture-p*
+                            (setf *telemetry-tool-corrects-previous-p* (and present-p (json-true-p value))))
+                          (remhash "corrects_previous" arguments)))
+                      (when *telemetry-tool-capture-p* (setf *telemetry-tool-arguments* arguments))
+                      (tool-execute-with-contracts tool context arguments)))))))
       (active-image-corruption (condition)
         (error condition))
       (error (condition)
         (tool-failure
          (format nil "~A failed: ~A" canonical-name condition)
-         :code (tool-failure-code condition)
+         :code     (tool-failure-code condition)
          :denied-p (typep condition '(or tool-authority-denied command-authorization-unavailable)))))))
