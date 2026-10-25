@@ -2239,12 +2239,6 @@ removes it."
            (terminal-ui-command-pending-completions ui))))
   nil)
 
-(-> terminal-ui--present-live
-    (terminal-ui &key (:status-now (option real))
-     (:appended-text string)
-     (:appended-display string)
-     (:appended-regions list))
-    null)
 (defmethod terminal-ui--present-live
     ((ui terminal-ui) &key status-now (appended-text "") (appended-display "")
                         appended-regions)
@@ -2528,7 +2522,6 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
                                             (terminal-ui-selector-hint ui) nil)
                                       (terminal-ui--repaint-live ui)))))))
           (if (stringp selected) selected (value selected)))))))
-
 
 
 ;;; Semantic prompt blocks
