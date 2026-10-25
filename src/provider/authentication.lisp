@@ -98,9 +98,9 @@ its protocol-level close operation."
 
 (defclass credential-source (cl-rfc8628:credential-source)
   ((pathname
-    :initarg :pathname
-    :reader credential-source-pathname
-    :type pathname
+    :initarg       :pathname
+    :reader        credential-source-pathname
+    :type          pathname
     :documentation "The credential file read by this source."))
   (:documentation "A replaceable source of OAuth credentials."))
 
@@ -156,45 +156,45 @@ The file belongs to another tool, so a symbolic link to it is followed."
           (error 'authentication-error
                  :message (format nil "Invalid Autolith credential record at ~A." pathname)))
         (let ((access-token (getf (rest record) :access-token))
-              (account-id (getf (rest record) :account-id)))
+              (account-id   (getf (rest record) :account-id)))
           (when (and (non-empty-string-p access-token)
                      (non-empty-string-p account-id))
             (make-instance 'oauth-credentials
-                           :access-token access-token
+                           :access-token  access-token
                            :refresh-token (getf (rest record) :refresh-token)
-                           :id-token (getf (rest record) :id-token)
-                           :account-id account-id
-                           :expires-at (or (getf (rest record) :expires-at)
-                                           (jwt-expiration access-token))
-                           :source-path pathname)))))))
+                           :id-token      (getf (rest record) :id-token)
+                           :account-id    account-id
+                           :expires-at    (or (getf (rest record) :expires-at)
+                                              (jwt-expiration access-token))
+                           :source-path   pathname)))))))
 
 (defmethod credential-source-load ((source codex-bootstrap-credential-source))
   "Load one non-renewable ChatGPT bootstrap credential without modifying Codex."
   (let ((pathname (credential-source-pathname source)))
     (when (probe-file pathname)
       (handler-case
-          (let* ((document (read-json-file-with-retry pathname))
-                 (auth-mode (json-get document "auth_mode"))
-                 (tokens (json-get document "tokens"))
+          (let* ((document     (read-json-file-with-retry pathname))
+                 (auth-mode    (json-get document "auth_mode"))
+                 (tokens       (json-get document "tokens"))
                  (access-token (and (json-object-p tokens)
                                     (json-get tokens "access_token")))
-                 (id-token (and (json-object-p tokens)
-                                (json-get tokens "id_token")))
-                 (account-id (and (json-object-p tokens)
-                                  (or (json-get tokens "account_id")
-                                      (and id-token (jwt-account-id id-token))
-                                      (and access-token (jwt-account-id access-token))))))
+                 (id-token     (and (json-object-p tokens)
+                                    (json-get tokens "id_token")))
+                 (account-id   (and (json-object-p tokens)
+                                    (or (json-get tokens "account_id")
+                                        (and id-token (jwt-account-id id-token))
+                                        (and access-token (jwt-account-id access-token))))))
             (when (and (stringp auth-mode)
                        (string-equal auth-mode "chatgpt")
                        (non-empty-string-p access-token)
                        (non-empty-string-p account-id))
               (make-instance 'oauth-credentials
-                             :access-token access-token
+                             :access-token  access-token
                              :refresh-token nil
-                             :id-token nil
-                             :account-id account-id
-                             :expires-at (jwt-expiration access-token)
-                             :source-path pathname)))
+                             :id-token      nil
+                             :account-id    account-id
+                             :expires-at    (jwt-expiration access-token)
+                             :source-path   pathname)))
         (error ()
           nil)))))
 
@@ -202,13 +202,13 @@ The file belongs to another tool, so a symbolic link to it is followed."
                                    (credentials oauth-credentials))
   "Atomically save CREDENTIALS to Autolith's private store with mode 0600."
   (let* ((pathname (credential-source-pathname source))
-         (record (list :oauth
-                       :version 1
-                       :access-token (oauth-credentials-access-token credentials)
-                       :refresh-token (oauth-credentials-refresh-token credentials)
-                       :id-token (oauth-credentials-id-token credentials)
-                       :account-id (oauth-credentials-account-id credentials)
-                       :expires-at (oauth-credentials-expires-at credentials))))
+         (record   (list :oauth
+                         :version 1
+                         :access-token  (oauth-credentials-access-token credentials)
+                         :refresh-token (oauth-credentials-refresh-token credentials)
+                         :id-token      (oauth-credentials-id-token credentials)
+                         :account-id    (oauth-credentials-account-id credentials)
+                         :expires-at    (oauth-credentials-expires-at credentials))))
     (snapshot-write pathname record)
     credentials))
 
@@ -219,7 +219,6 @@ The file belongs to another tool, so a symbolic link to it is followed."
   (error 'authentication-error
          :message (format nil "The Codex bootstrap store ~A is read-only."
                           (credential-source-pathname source))))
-
 
 (defclass credential-manager (cl-rfc8628:managed-credential-manager)
   ()
@@ -243,9 +242,9 @@ The file belongs to another tool, so a symbolic link to it is followed."
                 response-headers))
     (sb-sys:deadline-timeout ()
       (error 'token-refresh-failed
-             :message (format nil "~A OAuth token refresh exceeded its response deadline."
-                              (credential-manager-provider-label manager))
-             :status nil
+             :message  (format nil "~A OAuth token refresh exceeded its response deadline."
+                               (credential-manager-provider-label manager))
+             :status   nil
              :response nil))))
 
 (defclass chatgpt-credential-manager (oauth-credential-manager)
@@ -267,9 +266,9 @@ The file belongs to another tool, so a symbolic link to it is followed."
 (defun credential-manager-create (configuration)
   "Create the ChatGPT credential manager for CONFIGURATION's private paths."
   (make-instance 'chatgpt-credential-manager
-                 :primary-source (make-instance
-                                  'autolith-credential-source
-                                  :pathname (configuration-auth-path configuration))
+                 :primary-source   (make-instance
+                                    'autolith-credential-source
+                                    :pathname (configuration-auth-path configuration))
                  :bootstrap-source (make-instance
                                     'codex-bootstrap-credential-source
                                     :pathname (config :codex-auth-path configuration))))
@@ -302,7 +301,6 @@ The file belongs to another tool, so a symbolic link to it is followed."
 (-> call-with-credentials
     (credential-manager function &key (:force-refresh boolean))
     t)
-
 (defun call-with-credentials (manager function &key force-refresh)
   "Call FUNCTION inside Autolith's credential request scope."
   (let ((*credentials-in-request-scope* t))
