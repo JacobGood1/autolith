@@ -44,7 +44,7 @@
   "Validate a bounded PAGE identity, and its exact durable shape if persisted."
   (and (sexp-store:plist-schema-p
         page :required-keys (if persisted-p '(:id :version :status) '(:id :version))
-        :maximum-length 128)
+        :maximum-length     128)
        (or (not persisted-p)
            (and (= (length page) 6)
                 (typep (getf page :status) 'onboarding-state-status)))
@@ -85,15 +85,15 @@
 RESET-ONBOARDING-STATE treats an unreadable snapshot as empty for this operation.
 A read alone never publishes that reset; a successful record replaces the file."
   (let ((pathname (onboarding-state-path configuration))
-        (reset-p nil))
+        (reset-p  nil))
     (make-instance
      'sexp-store:snapshot-store
-     :pathname pathname
+     :pathname      pathname
      :lock-pathname (readable-state-lock-pathname pathname "onboarding.lock")
      :initial-state #'list
-     :validator #'onboarding-state--form-p
-     :decoder #'fifth
-     :encoder (lambda (pages) (list ':onboarding ':version 1 ':pages pages))
+     :validator     #'onboarding-state--form-p
+     :decoder       #'fifth
+     :encoder       (lambda (pages) (list ':onboarding ':version 1 ':pages pages))
      :recover-read-error
      (lambda (cause)
        (unless reset-p
@@ -116,10 +116,10 @@ A read alone never publishes that reset; a successful record replaces the file."
               (funcall function (onboarding-state--store configuration))
             (sexp-store:store-error (cause)
               (error 'onboarding-state-error
-                     :message (sexp-store:store-error-message cause)
-                     :pathname (onboarding-state-path configuration)
+                     :message   (sexp-store:store-error-message cause)
+                     :pathname  (onboarding-state-path configuration)
                      :operation (sexp-store:store-error-operation cause)
-                     :cause cause))))
+                     :cause     cause))))
       (retry-onboarding-state ()
         :report "Retry the onboarding state operation from disk."))))
 
@@ -145,7 +145,7 @@ acknowledges nothing. Invalid or unsupported state signals ONBOARDING-STATE-ERRO
        (remove-if
         (lambda (page)
           (let ((previous (find (getf page :id) acknowledged
-                                :key (lambda (entry) (getf entry :id))
+                                :key  (lambda (entry) (getf entry :id))
                                 :test #'string=)))
             (and previous (>= (getf previous :version) (getf page :version)))))
         pages)))))
@@ -169,9 +169,9 @@ Record completed slides individually during onboarding; interruptions need no ma
       (lambda (current)
         (dolist (page pages)
           (let* ((identifier (getf page :id))
-                 (version (getf page :version))
-                 (previous (find identifier current :test #'string=
-                                 :key (lambda (entry) (getf entry :id)))))
+                 (version    (getf page :version))
+                 (previous   (find identifier current :test #'string=
+                                   :key                     (lambda (entry) (getf entry :id)))))
             (when (or (not previous)
                       (> version (getf previous :version))
                       (and (= version (getf previous :version))
