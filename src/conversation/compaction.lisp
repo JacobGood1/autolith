@@ -231,7 +231,7 @@ boundary, including arrivals encoded in CARRY-FORWARD, as required by chunks."
       (dolist (row (getf properties :carry-forward))
        (unless (and (listp row) (list-length row) (evenp (length row))
                     (stringp (getf row :wire-json))
-                    (let ((keys (loop for (key value) on row by #'cddr collect key)))
+                    (let ((keys (plist-keys row)))
                       (and (= (length keys) (length (remove-duplicates keys)))
                            (every (lambda (key)
                                     (member key '(:wire-json :family :handoff-family))) keys))))
