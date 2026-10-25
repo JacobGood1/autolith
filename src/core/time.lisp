@@ -24,18 +24,24 @@
     (cond
       ((member designator '(#\Z #\z))
        (unless (= (1+ start) (length text))
-         (error "Trailing content follows the UTC designator."))
+         (error 'rfc3339-syntax-error
+                :text    text
+                :message "Trailing content follows the UTC designator."))
        0)
       ((member designator '(#\+ #\-))
        (unless (and (= (+ start 6) (length text))
                     (char= (char text (+ start 3)) #\:))
-         (error "The RFC 3339 numeric offset is malformed."))
+         (error 'rfc3339-syntax-error
+                :text    text
+                :message "The RFC 3339 numeric offset is malformed."))
        (let ((hours   (rfc3339--field text (+ start 1) (+ start 3)))
              (minutes (rfc3339--field text (+ start 4) (+ start 6)))
              (sign    (if (char= designator #\-) -1 1)))
          (* sign (+ (* hours 3600) (* minutes 60)))))
       (t
-       (error "An RFC 3339 timestamp requires a timezone suffix.")))))
+       (error 'rfc3339-syntax-error
+              :text    text
+              :message "An RFC 3339 timestamp requires a timezone suffix.")))))
 
 (-> rfc3339->universal-time (string) (option timestamp))
 (defun rfc3339->universal-time (text)
@@ -50,7 +56,9 @@ Fractional seconds are truncated toward zero."
                      (member (char text 10) '(#\T #\t #\Space))
                      (char= (char text 13) #\:)
                      (char= (char text 16) #\:))
-          (error "The RFC 3339 timestamp layout is malformed."))
+          (error 'rfc3339-syntax-error
+                 :text    text
+                 :message "The RFC 3339 timestamp layout is malformed."))
         (let* ((year           (rfc3339--field text 0 4))
                (month          (rfc3339--field text 5 7))
                (day            (rfc3339--field text 8 10))
@@ -62,7 +70,9 @@ Fractional seconds are truncated toward zero."
                      (let ((position (position-if-not #'digit-char-p text
                                                       :start 20)))
                        (unless (and position (> position 20))
-                         (error "The RFC 3339 fraction is malformed."))
+                         (error 'rfc3339-syntax-error
+                                :text    text
+                                :message "The RFC 3339 fraction is malformed."))
                        position)
                      19))
                (offset-seconds (rfc3339--offset-seconds text suffix-start)))
@@ -70,3 +80,14 @@ Fractional seconds are truncated toward zero."
              offset-seconds)))
     (error ()
       nil)))
+
+
+;;;; -- Conditions --
+
+(define-condition rfc3339-syntax-error (autolith-error)
+  ((text
+    :initarg       :text
+    :reader        rfc3339-syntax-error-text
+    :type          string
+    :documentation "The text that failed to parse as an RFC 3339 timestamp."))
+  (:documentation "Text does not have the RFC 3339 timestamp shape Autolith accepts."))
