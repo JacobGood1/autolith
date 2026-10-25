@@ -113,8 +113,10 @@
                                  name maximum)
               :tool-name "resource.read")))))
 
-(-> rlm--window-render (list (integer 0) (integer 0) (integer 0)) string)
-(defun rlm--window-render (lines start end total)
+(-> rlm--window-render
+    (list &key (:start (integer 0)) (:end (integer 0)) (:total (integer 0)))
+    string)
+(defun rlm--window-render (lines &key start end total)
   "Return numbered LINES as the bounded window START to END of TOTAL lines."
   (let ((window
           (with-output-to-string (stream)
@@ -149,7 +151,9 @@ count, so a follow-up read can target any region, including the tail."
     (rlm--window-render
      (loop for line-number from start to end
            collect (aref lines (1- line-number)))
-     start end total)))
+     :start start
+     :end   end
+     :total total)))
 
 (-> rlm--window-line (string) string)
 (defun rlm--window-line (line)
@@ -235,7 +239,9 @@ requested window rather than the complete trace."
                 (list newest))
                (t
                 lines))
-         start end total)))))
+         :start start
+         :end   end
+         :total total)))))
 
 (-> rlm--index-timestamp ((integer 0)) string)
 (defun rlm--index-timestamp (universal)
