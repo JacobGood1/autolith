@@ -3222,7 +3222,6 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
           (mapcar (lambda (field) (sanitize-text (second field) :single-line-p t))
                   (tool-authorization-identity-fields tool))))
 
-(-> application--tool-authorization-request-entry (tool json-object) list)
 (-> application--tool-authorization-request
     (tool json-object) string)
 (defun application--tool-authorization-request (tool arguments)
