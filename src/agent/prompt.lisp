@@ -102,15 +102,15 @@ prompt instead of the full Autolith persona.")
 (-> system-prompt--context-value ((option string)) string)
 (defun system-prompt--context-value (value)
   "Return VALUE as a bounded JSON string literal for untrusted prompt context."
-  (let* ((text (if (non-empty-string-p value) value "unknown"))
-         (marker *system-prompt-context-truncation-marker*)
+  (let* ((text         (if (non-empty-string-p value) value "unknown"))
+         (marker       *system-prompt-context-truncation-marker*)
          (prefix-limit (- *system-prompt-context-value-limit*
                           (length marker)))
-         (bounded (if (<= (length text) *system-prompt-context-value-limit*)
-                      text
-                      (concatenate 'string
-                                   (subseq text 0 prefix-limit)
-                                   marker))))
+         (bounded      (if (<= (length text) *system-prompt-context-value-limit*)
+                           text
+                           (concatenate 'string
+                                        (subseq text 0 prefix-limit)
+                                        marker))))
     (json-encode bounded)))
 
 (-> system-prompt--environment-value (string) string)
@@ -189,23 +189,23 @@ prompt instead of the full Autolith persona.")
   "Return the stable org-templater bindings for CONFIGURATION."
   (dict 'eq
         :hosted-web-search-p *system-prompt-hosted-web-search-p*
-        :web-run-p (system-prompt--web-run-p configuration)
-        :rlm-available t
-        :user (system-prompt--environment-value "USER")
-        :os (system-prompt--context-value (software-type))
-        :os-version (system-prompt--context-value (software-version))
-        :arch (system-prompt--context-value (string-downcase (machine-type)))
-        :shell (system-prompt--environment-value "SHELL")
-        :term (system-prompt--environment-value "TERM")
-        :lisp (system-prompt--context-value (lisp-implementation-type))
-        :lisp-version (system-prompt--context-value (lisp-implementation-version))
-        :lang (system-prompt--environment-value "LANG")
-        :immutable-p (config :immutable-p configuration)
-        :source-root (system-prompt--context-value
-                      (namestring (config :source-root configuration)))
-        :workspace (system-prompt--context-value
-                    (namestring (config :working-directory configuration)))
-        :current-date (system-prompt--current-date)
+        :web-run-p           (system-prompt--web-run-p configuration)
+        :rlm-available       t
+        :user                (system-prompt--environment-value "USER")
+        :os                  (system-prompt--context-value (software-type))
+        :os-version          (system-prompt--context-value (software-version))
+        :arch                (system-prompt--context-value (string-downcase (machine-type)))
+        :shell               (system-prompt--environment-value "SHELL")
+        :term                (system-prompt--environment-value "TERM")
+        :lisp                (system-prompt--context-value (lisp-implementation-type))
+        :lisp-version        (system-prompt--context-value (lisp-implementation-version))
+        :lang                (system-prompt--environment-value "LANG")
+        :immutable-p         (config :immutable-p configuration)
+        :source-root         (system-prompt--context-value
+                              (namestring (config :source-root configuration)))
+        :workspace           (system-prompt--context-value
+                              (namestring (config :working-directory configuration)))
+        :current-date        (system-prompt--current-date)
         :workspace-instructions
         (system-prompt--workspace-instructions configuration)))
 
@@ -214,13 +214,13 @@ prompt instead of the full Autolith persona.")
   "Bound TEXT to LIMIT without splitting a line, adding a truncation marker."
   (if (<= (length text) limit)
       text
-      (let* ((marker *system-prompt-context-truncation-marker*)
+      (let* ((marker       *system-prompt-context-truncation-marker*)
              (prefix-limit (- limit (length marker) 1))
              (boundary
                (and (plusp prefix-limit)
                     (position #\Newline text
                               :from-end t
-                              :end (1+ prefix-limit)))))
+                              :end      (1+ prefix-limit)))))
         (if boundary
             (concatenate 'string
                          (subseq text 0 boundary)
@@ -241,12 +241,12 @@ prompt instead of the full Autolith persona.")
     (dict 'eq
           :simple-technical-english-p
           (config :simple-technical-english-p configuration)
-          :hurry-up-p hurry-up-p
+          :hurry-up-p         hurry-up-p
           :lisp-image-entries image-entries
           :agenda
           (request-context--bounded-complete-lines
            agenda *request-context-agenda-limit*)
-          :agenda-p (plusp (length agenda)))))
+          :agenda-p           (plusp (length agenda)))))
 
 (-> request-context-session-state
     (configuration &key (:hurry-up-p boolean))
@@ -259,7 +259,7 @@ prompt instead of the full Autolith persona.")
    (system-prompt--drop-org-keyword-lines
     (org-templater:render
      :template (request-context--template)
-     :config (request-context--config configuration :hurry-up-p hurry-up-p)))))
+     :config   (request-context--config configuration :hurry-up-p hurry-up-p)))))
 
 (-> system-prompt (configuration) string)
 (defun system-prompt (configuration)
@@ -274,7 +274,7 @@ Append the enabled relax warning to ordinary and overridden system prompts."
                (system-prompt--drop-org-keyword-lines
                 (org-templater:render
                  :template (system-prompt--template)
-                 :config (system-prompt--config configuration)))))))
+                 :config   (system-prompt--config configuration)))))))
     (if (config :relax-p configuration)
         (format nil "~A~2%WARNING: ~A" prompt *system-prompt-relax-warning*)
         prompt)))
