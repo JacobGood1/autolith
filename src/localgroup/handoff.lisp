@@ -118,20 +118,20 @@
       (:indicator :mode :required t :validate localgroup-handoff--mode-p)
       (:indicator :state :required t :validate localgroup-handoff--state-p)
       (:indicator :fresh-conversation-p
-       :validate ,(lambda (value) (typep value 'boolean)))
+       :validate  ,(lambda (value) (typep value 'boolean)))
       (:indicator :attach-expected-p
-       :validate ,(lambda (value) (typep value 'boolean)))
+       :validate  ,(lambda (value) (typep value 'boolean)))
       (:indicator :resume-command-p
-       :validate ,(lambda (value) (typep value 'boolean)))
+       :validate  ,(lambda (value) (typep value 'boolean)))
       (:indicator :styled-p
-       :validate ,(lambda (value) (typep value 'boolean)))
+       :validate  ,(lambda (value) (typep value 'boolean)))
       (:indicator :rows :validate localgroup-handoff--positive-integer-p)
       (:indicator :columns :validate localgroup-handoff--positive-integer-p)
       (:indicator :recovery-diagnosis)
       (:indicator :old-pid :required t
        :validate localgroup-handoff--positive-integer-p)
       (:indicator :replacement-pid
-       :validate localgroup-handoff--optional-positive-integer-p)
+       :validate  localgroup-handoff--optional-positive-integer-p)
       (:indicator :conversation-id :validate localgroup-handoff--conversation-id-p)
       (:indicator :draft :validate ,(lambda (value) (or (null value) (stringp value))))))
    ;; Client-first launches use a private nonce until a conversation exists.
@@ -155,19 +155,18 @@
 (-> localgroup-handoff--write
     (application localgroup-session keyword)
     pathname)
-
 (defun localgroup-handoff--write (application session mode)
   "Publish APPLICATION's detached-process handoff for SESSION and MODE."
   (let ((conversation (application-conversation application)))
     (unless (conversation-persisted-p conversation)
       (conversation-append-record conversation (list :localgroup-handoff :mode mode))))
   (let* ((configuration (application-configuration application))
-         (conversation (application-conversation application))
+         (conversation  (application-conversation application))
          (pathname
           (localgroup-handoff--pathname configuration
                                         (image-daemon:daemon-runtime-identifier
                                          session)))
-         (draft (line-editor-text (terminal-ui-editor (application-ui application))))
+         (draft         (line-editor-text (terminal-ui-editor (application-ui application))))
          (record
           (list :localgroup-handoff :version *localgroup-handoff-version* :session-id
                 (image-daemon:daemon-runtime-identifier session) :token
@@ -187,25 +186,25 @@
              (root
                (and (probe-file root-pathname)
                     (uiop:ensure-directory-pathname (platform-truename *platform* root-pathname))))
-             (canonical (and (probe-file pathname) (platform-truename *platform* pathname))))
+             (canonical     (and (probe-file pathname) (platform-truename *platform* pathname))))
         (unless (and root canonical (uiop:subpathp canonical root))
           (error 'localgroup-error
-                 :message "The localgroup handoff path is unavailable or outside private state."
+                 :message   "The localgroup handoff path is unavailable or outside private state."
                  :operation ':handoff))
         (multiple-value-bind (record complete-p)
             (snapshot-read canonical)
           (unless (and complete-p (localgroup-handoff--record-p record))
             (error 'localgroup-error
-                   :message "The localgroup handoff record is malformed."
+                   :message   "The localgroup handoff record is malformed."
                    :operation ':handoff))
           (append record (list :pathname canonical))))
     (localgroup-error (condition)
       (error condition))
     (error (condition)
       (error 'localgroup-error
-             :message "The localgroup handoff record could not be read."
+             :message   "The localgroup handoff record could not be read."
              :operation ':handoff
-             :cause condition))))
+             :cause     condition))))
 
 (-> localgroup-handoff-selection (configuration (option string)) (option list))
 (defun localgroup-handoff-selection (configuration pathname-value)
@@ -213,14 +212,14 @@
   (when pathname-value
     (unless (non-empty-string-p pathname-value)
       (error 'localgroup-error
-             :message "The internal localgroup handoff option requires a pathname."
+             :message   "The internal localgroup handoff option requires a pathname."
              :operation ':arguments))
     (let ((record
             (localgroup-handoff--read configuration (pathname pathname-value))))
       (unless (eq (getf (rest record) :state) ':pending)
         (error 'localgroup-error
-               :message "The localgroup handoff is no longer pending."
-               :operation ':handoff
+               :message    "The localgroup handoff is no longer pending."
+               :operation  ':handoff
                :session-id (getf (rest record) :session-id)))
       record)))
 
@@ -237,23 +236,23 @@
         (funcall *localgroup-handoff-setsid-function*)
       (error (condition)
         (error 'localgroup-error
-               :message "The detached localgroup replacement could not create a new session."
-               :operation ':handoff
+               :message    "The detached localgroup replacement could not create a new session."
+               :operation  ':handoff
                :session-id (getf (rest record) :session-id)
-               :cause condition))))
+               :cause      condition))))
   nil)
 
 (-> localgroup-handoff-assert-startup-active () null)
 (defun localgroup-handoff-assert-startup-active ()
   "Require the current replacement to retain its claimed handoff record."
   (when *localgroup-startup-record*
-    (let* ((expected (rest *localgroup-startup-record*))
+    (let* ((expected         (rest *localgroup-startup-record*))
            (pending-pathname (getf expected :pending-pathname))
            (record
              (and pending-pathname
                   (image-daemon:handoff-ticket-owned-record
                    pending-pathname
-                   :token (getf expected :token)
+                   :token    (getf expected :token)
                    :validate #'localgroup-handoff--record-p))))
       (unless (and record
                    (equal (or (getf (rest record) :launch-id)
@@ -261,8 +260,8 @@
                           (or (getf expected :launch-id)
                               (getf expected :session-id))))
         (error 'localgroup-error
-               :message "The localgroup handoff was cancelled during startup."
-               :operation ':handoff
+               :message    "The localgroup handoff was cancelled during startup."
+               :operation  ':handoff
                :session-id (getf expected :session-id)))))
   nil)
 
@@ -286,11 +285,14 @@
 (defun localgroup-handoff-permission-string (mode)
   "Return permission MODE as the launcher --permissions argument."
   (ecase mode
-    (:ask "ask")
-    (:auto "auto")
-    (:sandboxed "sandbox")
-    (:full-access "full")))
-
+    (:ask
+     "ask")
+    (:auto
+     "auto")
+    (:sandboxed
+     "sandbox")
+    (:full-access
+     "full")))
 
 (-> localgroup-handoff--launch-supervised
     (&key (:arguments list)
@@ -307,11 +309,11 @@ before any shell is involved."
   (unless (platform-supports-p *platform* ':detached-sessions)
     (error 'platform-capability-unavailable
            :capability ':detached-sessions
-           :message "This host cannot supervise a detached session process, so localgroup handoff is withheld."))
+           :message    "This host cannot supervise a detached session process, so localgroup handoff is withheld."))
   (platform-launch-detached-process *platform* arguments
                                     :directory directory
-                                    :output output
-                                    :ticket handoff-pathname))
+                                    :output    output
+                                    :ticket    handoff-pathname))
 
 (-> localgroup-handoff--arguments
     (configuration pathname &key (:permission-argument string) (:immutable-p boolean))
@@ -335,7 +337,6 @@ before any shell is involved."
    (list "--localgroup-handoff" (namestring handoff-pathname))))
 
 (-> localgroup-handoff--launch (application pathname) t)
-
 (defun localgroup-handoff--launch (application handoff-pathname)
   "Launch APPLICATION's detached replacement from HANDOFF-PATHNAME."
   (localgroup-handoff--launch-for (application-configuration application)
@@ -356,21 +357,21 @@ before any shell is involved."
           (localgroup-handoff--arguments
            configuration handoff-pathname
            :permission-argument permission-argument
-           :immutable-p immutable-p))
+           :immutable-p         immutable-p))
         (log-pathname
           (localgroup-handoff-log-pathname configuration session-id)))
     (ensure-directories-exist log-pathname)
     (with-open-file (output log-pathname
-                            :direction ':output
-                            :if-exists ':append
+                            :direction         ':output
+                            :if-exists         ':append
                             :if-does-not-exist ':create
-                            :external-format ':utf-8)
+                            :external-format   ':utf-8)
       (platform-make-private *platform* log-pathname)
       (localgroup-handoff--launch-supervised
-       :arguments arguments
+       :arguments        arguments
        :handoff-pathname handoff-pathname
-       :directory (config :working-directory configuration)
-       :output output))))
+       :directory        (config :working-directory configuration)
+       :output           output))))
 
 (-> localgroup-handoff-spawn-fresh
     (configuration &key (:permission-mode keyword) (:immutable-p boolean)
@@ -391,33 +392,33 @@ from the outset, so the calling terminal can attach as a thin relay whose
 detach is immediate and never interrupts session work."
   (multiple-value-bind (rows columns)
       (terminal-current-size)
-    (let* ((created-at (get-universal-time))
-           (launch-id (daemon-random-nonce))
-           (token (daemon-random-token))
-           (pathname (localgroup-handoff--pathname configuration launch-id))
+    (let* ((created-at  (get-universal-time))
+           (launch-id   (daemon-random-nonce))
+           (token       (daemon-random-token))
+           (pathname    (localgroup-handoff--pathname configuration launch-id))
            (record
              (list :localgroup-handoff
                    :version *localgroup-handoff-version*
-                   :launch-id launch-id
-                   :token token
-                   :created-at created-at
-                   :mode ':detach
-                   :state ':pending
-                   :attach-expected-p t
+                   :launch-id            launch-id
+                   :token                token
+                   :created-at           created-at
+                   :mode                 ':detach
+                   :state                ':pending
+                   :attach-expected-p    t
                    :fresh-conversation-p (and (null conversation-id)
                                               (not resume-command-p))
-                   :resume-command-p (not (null resume-command-p))
-                   :old-pid (current-process-id)
-                   :replacement-pid nil
-                   :conversation-id conversation-id
-                    :recovery-diagnosis recovery-diagnosis
-                   :draft ""
-                   :rows rows
-                   :columns columns
-                   :styled-p (not (null (terminal-environment-styling-p)))))
+                   :resume-command-p     (not (null resume-command-p))
+                   :old-pid              (current-process-id)
+                   :replacement-pid      nil
+                   :conversation-id      conversation-id
+                    :recovery-diagnosis  recovery-diagnosis
+                   :draft                ""
+                   :rows                 rows
+                   :columns              columns
+                   :styled-p             (not (null (terminal-environment-styling-p)))))
            (completed-p nil)
-           (process nil)
-           (session-id nil))
+           (process     nil)
+           (session-id  nil))
       (localgroup-handoff--write-record pathname record)
       (unwind-protect
            (progn
@@ -438,7 +439,7 @@ detach is immediate and never interrupts session work."
                               (namestring
                                (localgroup-handoff-log-pathname
                                 configuration launch-id)))
-                      :operation ':spawn
+                      :operation  ':spawn
                       :session-id session-id))
              (platform-release-process *platform* process)
              (setf completed-p t)
@@ -453,7 +454,7 @@ detach is immediate and never interrupts session work."
     (list string integer) (option string))
 (defun localgroup-handoff--ready-conversation-id (record token old-pid)
   "Return RECORD's authenticated active conversation ID for a new process."
-  (let* ((status (image-daemon:daemon-endpoint-status record token old-pid))
+  (let* ((status     (image-daemon:daemon-endpoint-status record token old-pid))
          (identifier (and (consp status) (getf (rest status) :session-id))))
     (when (and (stringp identifier)
                (equal identifier (getf (rest status) :conversation-id))
@@ -525,16 +526,16 @@ detach is immediate and never interrupts session work."
 (defun localgroup-handoff--stop-replacement (process handoff-pathname)
   "Cancel, terminate, and positively reap PROCESS and its replacement session."
   (localgroup-handoff--cancel handoff-pathname)
-  (let* ((root-pid (localgroup-handoff--process-object-pid process))
+  (let* ((root-pid   (localgroup-handoff--process-object-pid process))
          (known-pids nil)
          (started-at (get-internal-real-time))
          (kill-at
            (+ started-at
               (* *localgroup-handoff-stop-grace-seconds*
                  internal-time-units-per-second)))
-         (deadline (+ started-at (* 5 internal-time-units-per-second))))
+         (deadline   (+ started-at (* 5 internal-time-units-per-second))))
     (loop
-      (let* ((now (get-internal-real-time))
+      (let* ((now     (get-internal-real-time))
              (force-p (>= now kill-at))
              (launcher-pid
                (image-daemon:handoff-ticket-launcher-pid handoff-pathname))
@@ -580,7 +581,7 @@ detach is immediate and never interrupts session work."
             (return t)))
         (when (>= now deadline)
           (error 'localgroup-error
-                 :message "The failed detached replacement could not be terminated safely."
+                 :message   "The failed detached replacement could not be terminated safely."
                  :operation ':handoff))
         (sleep 0.05)))))
 
@@ -588,7 +589,6 @@ detach is immediate and never interrupts session work."
 ;;;; -- Main-Thread Handoff --
 
 (-> application-localgroup-request-handoff (application keyword) list)
-
 (defun application-localgroup-request-handoff (application mode)
   "Schedule MODE process handoff without disturbing the running agent.
 
@@ -597,8 +597,8 @@ observes it. Queued work and steering stay in the durable snapshot the
 replacement restores, so detaching changes nothing about the session."
   (unless (member mode '(:detach :take-over))
     (error 'localgroup-error :message "The localgroup handoff mode is invalid."
-           :operation ':handoff))
-  (let ((session (application-localgroup-session application))
+           :operation                 ':handoff))
+  (let ((session    (application-localgroup-session application))
         (controller (application-input-controller application)))
     (unless (and session controller)
       (error 'localgroup-error :message
@@ -607,10 +607,10 @@ replacement restores, so detaching changes nothing about the session."
       (setf (localgroup-session-paused-p session) nil)
       (unless (localgroup-session-handoff-running-p session)
         (setf (localgroup-session-handoff-mode session)
-                (if (or (eq mode ':take-over)
-                        (null (localgroup-session-handoff-mode session)))
-                    mode
-                    (localgroup-session-handoff-mode session)))))
+              (if (or (eq mode ':take-over)
+                      (null (localgroup-session-handoff-mode session)))
+                  mode
+                  (localgroup-session-handoff-mode session)))))
     (with-lock-held ((application-input-controller-lock controller))
       (sb-thread:condition-broadcast
        (application-input-controller-condition-variable controller)))
@@ -618,7 +618,6 @@ replacement restores, so detaching changes nothing about the session."
           (image-daemon:daemon-runtime-identifier session) :old-pid (current-process-id))))
 
 (-> application-localgroup-handoff-pending-p (application) boolean)
-
 (defun application-localgroup-handoff-pending-p (application)
   "Return true while APPLICATION has pending or running process handoff."
   (let ((session (application-localgroup-session application)))
@@ -630,7 +629,6 @@ replacement restores, so detaching changes nothing about the session."
                  (localgroup-session-handoff-running-p session))))))))
 
 (-> application-localgroup-ready-handoff-p (application) boolean)
-
 (defun application-localgroup-ready-handoff-p (application)
   "Return true when a scheduled handoff could be taken right now.
 
@@ -649,7 +647,6 @@ scheduler tests that must not disturb the armed mode."
                   (localgroup-session-handoff-mode session))))))))
 
 (-> application-localgroup-take-ready-handoff (application) (option keyword))
-
 (defun application-localgroup-take-ready-handoff (application)
   "Consume APPLICATION's pending handoff when no child jobs remain."
   (let ((session (application-localgroup-session application)))
@@ -694,21 +691,20 @@ recalled draft lives only in this editor, not in the snapshot."
           (conversation-in-use (condition)
             (when (>= (get-internal-real-time) deadline)
               (error 'localgroup-error
-                     :message "The failed replacement still owns the conversation lease."
+                     :message   "The failed replacement still owns the conversation lease."
                      :operation ':handoff
-                     :cause condition))
+                     :cause     condition))
             (sleep 0.05))))))
   nil)
 
 (-> localgroup-handoff--remove-replacement-registry
     (configuration string string integer)
     null)
-
 (defun localgroup-handoff--remove-replacement-registry
        (configuration session-id token old-pid)
   "Remove a failed replacement registry record without deleting the old endpoint."
   (let* ((pathname (localgroup-registry-pathname configuration session-id))
-         (record (image-daemon:daemon-registry-read pathname)))
+         (record   (image-daemon:daemon-registry-read pathname)))
     (when
         (and record (/= (getf (rest record) :pid) old-pid)
              (string= (getf (rest record) :token) token))
@@ -716,7 +712,6 @@ recalled draft lives only in this editor, not in the snapshot."
   nil)
 
 (-> application-localgroup-run-handoff (application keyword t) null)
-
 (defun application-localgroup-run-handoff (application mode controller)
   "Launch APPLICATION's detached replacement and stop after authenticated readiness."
   (application-input-controller-call-with-reader-paused controller
@@ -740,7 +735,7 @@ recalled draft lives only in this editor, not in the snapshot."
                                                                  (old-pid
                                                                   (current-process-id))
                                                                  (handoff-pathname nil)
-                                                                 (process nil)
+                                                                 (process          nil)
                                                                  (lease-released-p nil)
                                                                  (held-lease-p
                                                                   (and
@@ -749,9 +744,9 @@ recalled draft lives only in this editor, not in the snapshot."
                                                                     'conversation-lease)
                                                                    (application-conversation-lease
                                                                     application)))
-                                                                 (gate-p nil)
-                                                                 (completed-p nil)
-                                                                 (primary-ready-p nil))
+                                                                 (gate-p           nil)
+                                                                 (completed-p      nil)
+                                                                 (primary-ready-p  nil))
                                                             (with-lock-held ((application-input-controller-lock
                                                                               controller))
                                                               (setf primary-ready-p
@@ -760,7 +755,7 @@ recalled draft lives only in this editor, not in the snapshot."
                                                               (when primary-ready-p
                                                                 (setf (application-input-controller-localgroup-handoff-p
                                                                        controller)
-                                                                        t
+                                                                      t
                                                                       gate-p t)))
                                                             (unless primary-ready-p
                                                               (application-localgroup-request-handoff
@@ -778,7 +773,7 @@ recalled draft lives only in this editor, not in the snapshot."
                                                                                   controller))
                                                                   (setf (application-input-controller-localgroup-handoff-p
                                                                          controller)
-                                                                          nil
+                                                                        nil
                                                                         gate-p nil))
                                                                 (application-localgroup-request-handoff
                                                                  application mode)
@@ -789,7 +784,7 @@ recalled draft lives only in this editor, not in the snapshot."
                                                                               session))
                                                               (setf (localgroup-session-handoff-running-p
                                                                      session)
-                                                                      t))
+                                                                    t))
                                                             (unwind-protect
                                                                 (progn
                                                                  (setf handoff-pathname
@@ -858,13 +853,13 @@ recalled draft lives only in this editor, not in the snapshot."
                                                                                   session))
                                                                   (setf (localgroup-session-handoff-running-p
                                                                          session)
-                                                                          nil))
+                                                                        nil))
                                                                 (when gate-p
                                                                   (with-lock-held ((application-input-controller-lock
                                                                                     controller))
                                                                     (setf (application-input-controller-localgroup-handoff-p
                                                                            controller)
-                                                                            nil))))))))
+                                                                          nil))))))))
   nil)
 
 (-> localgroup-handoff-finish-startup (application) null)
