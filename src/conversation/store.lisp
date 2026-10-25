@@ -1342,10 +1342,10 @@ a crash may leave one that a later lease acquisition can reuse safely."
   nil)
 
 (-> conversation--published-title-record
-    (conversation (integer 1) non-empty-string keyword)
+    (conversation &key (:sequence (integer 1)) (:title non-empty-string) (:source keyword))
     (option list))
 (defun conversation--published-title-record
-    (conversation sequence title source)
+    (conversation &key sequence title source)
   "Return the expected final title record when it was durably published."
   (handler-case
       (multiple-value-bind (forms incomplete-tail-p)
@@ -1410,8 +1410,10 @@ a crash may leave one that a later lease acquisition can reuse safely."
                (list :title :value normalized :source source))
             (error (condition)
               (let ((published-record
-                      (conversation--published-title-record
-                       conversation sequence normalized source)))
+                      (conversation--published-title-record conversation
+                                                            :sequence sequence
+                                                            :title    normalized
+                                                            :source   source)))
                 (if published-record
                     (progn
                       (setf (conversation-next-sequence conversation) (1+ sequence)
