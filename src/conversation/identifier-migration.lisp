@@ -40,7 +40,7 @@
         (getf value :old))
        (identifier-p (getf value :new))
        (typep (getf value :created-at) 'timestamp)
-       (loop for key in value by #'cddr
+       (loop for key in value by (partial #'nthcdr 2)
              always (member key '(:old :new :created-at) :test #'eq))))
 
 (-> conversation-identifier-migration--record-p (t) boolean)
@@ -55,7 +55,7 @@
                '(:prepared :conversations :references :artifacts :complete)
                :test #'eq)
        (typep (getf (rest value) :updated-at) 'timestamp)
-       (loop for key in (rest value) by #'cddr
+       (loop for key in (rest value) by (partial #'nthcdr 2)
              always (member key '(:version :status :updated-at :entries)
                             :test #'eq))
        (let ((entries (getf (rest value) :entries)))
@@ -441,7 +441,9 @@ large conversations that contain no legacy reference."
     (handler-case
         (progn
           (unless (string= (or (pathname-name identity) "") identifier)
-            (error "The target segment belongs to another storage identity."))
+            (error 'conversation-identifier-error
+                   :value   identifier
+                   :message "The target segment belongs to another storage identity."))
           (conversation--map-segment-records
            identity
            pathname
@@ -469,7 +471,9 @@ large conversations that contain no legacy reference."
       (progn
         (unless (and (string= (or (pathname-name pathname) "") identifier)
                      (conversation-storage-active-pathname pathname))
-          (error "The target conversation has no active storage segment."))
+          (error 'conversation-identifier-error
+                 :value   identifier
+                 :message "The target conversation has no active storage segment."))
         (conversation--map-storage-records
          pathname
          (lambda (record)
