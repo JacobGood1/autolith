@@ -103,9 +103,9 @@
 User messages, tool results and reasoning are excluded. Values are detached
 strings in chronological order from the current durable provider projection."
   (let ((outputs nil)
-        (count 0))
+        (count   0))
     (dolist (item (reverse (conversation-input-items-for-request
-                           conversation :include-ephemeral-p nil)))
+                            conversation :include-ephemeral-p nil)))
       (when (= count limit)
         (return))
       (when (json-object-p item)
@@ -133,7 +133,7 @@ strings in chronological order from the current durable provider projection."
                                     '(:id :when :instruction :priority :lifetime :workspace))))
     (context-rule--reject ':rule "A rule accepts only id, when, instruction, priority, lifetime and workspace."))
   (let ((predicates (getf rule :when))
-        (workspace (getf rule :workspace)))
+        (workspace  (getf rule :workspace)))
     (context--validate-identifier (getf rule :id) "Context rule ID")
     (unless (and predicates (context-rule--plist-p predicates)
                  (loop for tail on predicates by #'cddr
@@ -149,10 +149,10 @@ strings in chronological order from the current durable provider projection."
                          (uiop:absolute-pathname-p (pathname workspace)))))
       (context-rule--reject ':workspace "Rule workspace scope must be an absolute directory namestring."))
     ;; Use the ordinary contribution constructor for all delivery policy validation.
-    (make-context-contribution :identifier (getf rule :id)
+    (make-context-contribution :identifier  (getf rule :id)
                                :instruction (getf rule :instruction)
-                               :priority (getf rule :priority 0)
-                               :lifetime (getf rule :lifetime ':while-relevant))
+                               :priority    (getf rule :priority 0)
+                               :lifetime    (getf rule :lifetime ':while-relevant))
     (labels ((detach (value)
                (typecase value
                  (string
@@ -189,7 +189,7 @@ strings in chronological order from the current durable provider projection."
   "Capture the current metadata generation, creating an identity when needed."
   (with-lock-held (*context-lock*)
     (let* ((identifier (conversation-identifier conversation))
-           (facts (copy-tree (gethash identifier *context-rule-facts*))))
+           (facts      (copy-tree (gethash identifier *context-rule-facts*))))
       (unless (getf facts :generation)
         (setf (getf facts :generation) (make-identifier))
         (context-rule--remember identifier facts))
@@ -217,13 +217,13 @@ Values are exact strings, except :paths predicates match workspace-relative
 prefixes. Supply a captured GENERATION for asynchronous work; stale facts are
 ignored. Metadata never grants tool authority."
   (let ((additions
-          (list :paths (context-rule--values ':paths paths)
-                :languages (context-rule--values ':languages languages)
-                :tools (context-rule--values ':tools tools)
-                :namespaces (context-rule--values ':namespaces namespaces)
-                :roles (context-rule--values ':roles roles)
+          (list :paths       (context-rule--values ':paths paths)
+                :languages   (context-rule--values ':languages languages)
+                :tools       (context-rule--values ':tools tools)
+                :namespaces  (context-rule--values ':namespaces namespaces)
+                :roles       (context-rule--values ':roles roles)
                 :diagnostics (context-rule--values ':diagnostics diagnostics)
-                :events (context-rule--values ':events events)))
+                :events      (context-rule--values ':events events)))
         (identifier (conversation-identifier conversation)))
     (with-lock-held (*context-lock*)
       (let ((facts (copy-tree (gethash identifier *context-rule-facts*))))
@@ -279,7 +279,7 @@ ignored. Metadata never grants tool authority."
 
 Fields within :when are conjunctive; values within a field are alternatives.
 Registration replaces the same rule ID using existing context registry semantics."
-  (let* ((validated (context-rule--validate rule))
+  (let* ((validated  (context-rule--validate rule))
          (identifier (concatenate 'string "rule/" (getf validated :id))))
     (register-context-contributor
      identifier
@@ -313,7 +313,7 @@ Registration replaces the same rule ID using existing context registry semantics
   (with-lock-held (*context-lock*)
     (context-rule--remember (conversation-identifier (agent-conversation agent))
                             (list :generation (make-identifier)
-                                  :roles (remove nil (list (context-rule--agent-role agent))))))
+                                  :roles      (remove nil (list (context-rule--agent-role agent))))))
   nil)
 
 (-> context-rule--note-tool (tool tool-context json-object) null)
@@ -337,10 +337,10 @@ Registration replaces the same rule ID using existing context registry semantics
     (context-rule-note (tool-context-conversation context)
                        :generation (tool-context-rule-generation context)
                        :paths paths :languages languages
-                       :tools (list (tool-canonical-name tool))
+                       :tools      (list (tool-canonical-name tool))
                        :namespaces (list (tool-namespace tool))
-                       :roles (remove nil (list (context-rule--agent-role (tool-context-agent context))))
-                       :events '("tool-start")))
+                       :roles      (remove nil (list (context-rule--agent-role (tool-context-agent context))))
+                       :events     '("tool-start")))
   nil)
 
 (defmethod tool-execute :around ((tool tool) (context tool-context) (arguments hash-table))
@@ -353,13 +353,13 @@ Registration replaces the same rule ID using existing context registry semantics
                (typep (tool-context-conversation context) 'conversation))
       (context-rule-note (tool-context-conversation context)
                          :generation (tool-context-rule-generation context)
-                         :events (list (if (tool-result-success-p result) "tool-success" "tool-failure"))))
+                         :events     (list (if (tool-result-success-p result) "tool-success" "tool-failure"))))
     result))
 
 (-> context-rule-note-diagnostics (conversation t &key (:generation (option string))) null)
 (defun context-rule-note-diagnostics (conversation reports &key (generation nil generation-p))
   "Extract bounded LSP severity metadata from structured REPORTS, never diagnostic prose."
-  (let ((remaining 256)
+  (let ((remaining  256)
         (severities nil))
     (labels ((visit (value depth)
                (when (and (plusp remaining) (< depth 8))
