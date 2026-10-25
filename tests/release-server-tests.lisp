@@ -654,10 +654,7 @@
             :public-root  public-root
             :repository   "https://github.com/lambda-symbolics/autolith.git"
             :poll-seconds 30))
-         (tag         "v0.32.2")
-         (source-tag
-           (release-server-tests--source-tag
-            tag "0123456789abcdef0123456789abcdef01234567")))
+         (tag         "v0.32.2"))
     (unwind-protect
          (progn
            (uiop:ensure-all-directories-exist

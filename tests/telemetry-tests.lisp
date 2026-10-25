@@ -2,6 +2,8 @@
 
 ;;;; -- Consent and Schema Boundaries --
 
+(-> test-telemetry--call
+    (function &key (:telemetry-defaults-p boolean) (:background-uploads-p boolean)) t)
 (defun test-telemetry--call (function &key telemetry-defaults-p background-uploads-p)
   "Run a private telemetry fixture; projection tests use deterministic upload scheduling.
 BACKGROUND-UPLOADS-P selects the real scheduler for upload lifecycle tests."
@@ -23,6 +25,7 @@ BACKGROUND-UPLOADS-P selects the real scheduler for upload lifecycle tests."
         (telemetry-shutdown)
         (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))))
 
+(-> test-telemetry--spans (string) vector)
 (defun test-telemetry--spans (body)
   "Decode the projected spans of a captured mock upload."
   (let* ((envelope (json-decode body))
@@ -30,6 +33,7 @@ BACKGROUND-UPLOADS-P selects the real scheduler for upload lifecycle tests."
          (scope    (aref (json-get resource "scopeSpans") 0)))
     (json-get scope "spans")))
 
+(-> test-telemetry--attribute (hash-table string) t)
 (defun test-telemetry--attribute (span name)
   "Return a captured OTLP scalar attribute."
   (let* ((attribute (find name (json-get span "attributes")
@@ -39,6 +43,7 @@ BACKGROUND-UPLOADS-P selects the real scheduler for upload lifecycle tests."
       (or (json-get value "stringValue") (json-get value "intValue")
           (json-get value "boolValue")))))
 
+(-> test-telemetry--collector-fixture (string t) null)
 (defun test-telemetry--collector-fixture (name value)
   "Optionally emit actual native OTLP for the collector's cross-repository contract tests."
   (let ((directory (uiop:getenv "AUTOLITH_TELEMETRY_FIXTURE_DIRECTORY")))
@@ -97,6 +102,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                   (let ((buffer (make-string 4096)))
                     (subseq buffer 0 (read-sequence buffer stream)))))))))
 
+(-> test-telemetry-span-applicability () null)
 (defun test-telemetry-span-applicability ()
   "Keep non-applicable model, tool, role and error metadata absent on the wire."
   (test-telemetry--call
@@ -143,6 +149,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                                 "Failed model requests keep their applicable error type.")))))))
   nil)
 
+(-> test-telemetry-run-finalization-once () null)
 (defun test-telemetry-run-finalization-once ()
   "Claim root finalization before upload, including reentrant failure cleanup."
   (test-telemetry--call
@@ -169,6 +176,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                     "A later finalizer cannot overwrite the first terminal outcome."))))
   nil)
 
+(-> test-telemetry-category-projection () null)
 (defun test-telemetry-category-projection ()
   "Omit unavailable categories and normalize observed reasons at the wire boundary."
   (test-telemetry--call
@@ -225,6 +233,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                              "Explicit protocol categories retain their meaning.")))))
   nil)
 
+(-> test-telemetry-verification-scope () null)
 (defun test-telemetry-verification-scope ()
   "Assert verification only for passing checks with focused or full scope."
   (test-telemetry--call
@@ -256,7 +265,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                          (coerce (test-telemetry--spans body) 'list))))
        (test-assert (= (length spans) (length cases)) "Every verification case exports a span.")
        (loop for span in spans
-             for (kind scope outcome verified expected) in cases
+             for (kind scope nil nil expected) in cases
              do (test-assert (eq (json-true-p (test-telemetry--attribute span "autolith.repair.verified"))
                                 expected)
                              "Verification requires a passing check, an explicit verdict and real scope.")
@@ -272,6 +281,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
        (test-telemetry--collector-fixture "native-verification-scope.json" (json-decode body)))))
   nil)
 
+(-> test-telemetry-catalog-reload () null)
 (defun test-telemetry-catalog-reload ()
   "Export the current catalog after replacement without reloading the exporter."
   (test-telemetry--call
@@ -295,6 +305,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                              "Changed, added and removed categories use the current catalog.")))))
   nil)
 
+(-> test-telemetry-model-collector-contract () null)
 (defun test-telemetry-model-collector-contract ()
   "Export private model names as categories with independent public-membership flags."
   (test-telemetry--call
@@ -348,6 +359,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
        (test-telemetry--collector-fixture "native-models.json" (coerce (nreverse fixtures) 'vector)))))
   nil)
 
+(-> test-telemetry-public-models () null)
 (defun test-telemetry-public-models ()
   "Export exact public names, explicit aliases, and categories for unlisted IDs."
   (test-telemetry--call
@@ -407,6 +419,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                                  "Public membership and explicit aliases determine the known flags.")))))))
   nil)
 
+(-> test-telemetry-run-model-identity () null)
 (defun test-telemetry-run-model-identity ()
   "Populate root identities from agent calls while preserving mixed and missing values."
   (test-telemetry--call
@@ -440,6 +453,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                                "Root metadata describes primary attempts, including mixed identities."))))))
   nil)
 
+(-> test-telemetry-model-attributes-golden () null)
 (defun test-telemetry-model-attributes-golden ()
   "Pin complete typed model and run attributes, including zero and omitted usage."
   (test-telemetry--call
@@ -506,6 +520,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                  "Complete ordered attribute names, scalar types and values match the golden export.")))))
   nil)
 
+(-> test-telemetry-default-on () null)
 (defun test-telemetry-default-on ()
   "Default telemetry exports metadata; diagnostics and persisted opt-outs stay disabled."
   (test-telemetry--call
@@ -538,8 +553,10 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
            (telemetry-shutdown)
            (telemetry-attach loaded)
            (test-assert (null (telemetry--begin-run loaded)) "A saved opt-out prevents new runs.")))))
-   :telemetry-defaults-p t))
+   :telemetry-defaults-p t)
+  nil)
 
+(-> test-telemetry-disabled () null)
 (defun test-telemetry-disabled ()
   "An opt-out does not allocate IDs, inspect text, invoke native work or upload."
   (test-telemetry--call
@@ -576,8 +593,10 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
        (dolist (endpoint '("http://example.org/v1/traces" "https://u:p@example.org/v1/traces"
                            "https://example.org/v1/traces?token=fixture" "https://example.org/v1/traces#x"
                            "https://example.org/traces" "file:///v1/traces"))
-         (test-assert (not (telemetry--endpoint-p endpoint)) "Rejected unsafe endpoint."))))))
+         (test-assert (not (telemetry--endpoint-p endpoint)) "Rejected unsafe endpoint.")))))
+  nil)
 
+(-> test-telemetry-schema-and-runs () null)
 (defun test-telemetry-schema-and-runs ()
   "Metadata export has public aliases, exact counters, random roots and no raw payloads."
   (test-telemetry--call
@@ -604,10 +623,9 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                                   :usage (json-object "input_tokens" 17 "output_tokens" 3
                                                       "cached_input_tokens" 4 "provider_secret" "usage-fixture"))
             (telemetry-note-model :provider "private-provider" :usage '(:output-tokens 7))
-            (dotimes (i 2)
-              (declare (ignore i))
-              (telemetry-note-tool :tool "external.private-tool" :outcome "success" :duration-ms 2
-                                   :arguments (json-object "secret" "private-argument")))
+            (loop repeat 2
+                  do (telemetry-note-tool :tool "external.private-tool" :outcome "success" :duration-ms 2
+                                          :arguments (json-object "secret" "private-argument")))
             (telemetry-note-report :report-id report-id :tool "shell.run" :issue-kind "broken_tool"
                                  :summary-function (lambda () (incf reads) "raw-summary-fixture"))
             (telemetry-note-repair :report-id report-id :target "self.redefine" :repair-kind "redefine_function" :outcome "applied")))
@@ -657,8 +675,10 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
          (dolist (private '("private-local-model" "private-provider"
                             "external.private-tool" "private-argument" "usage-fixture" "raw-summary-fixture"))
            (test-assert (notany (lambda (body) (search private body)) bodies) "Private metadata never reaches wire.")))
-       (test-assert (null (telemetry-run-previous-digest first-run)) "Run-end disposes equality state.")))))
+       (test-assert (null (telemetry-run-previous-digest first-run)) "Run-end disposes equality state."))))
+  nil)
 
+(-> test-telemetry-revocation () null)
 (defun test-telemetry-revocation ()
   "Owner revocation invalidates copied configuration, inflight results and old roots."
   (test-telemetry--call
@@ -719,8 +739,10 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
          (test-assert run "Parent resumes fresh admissions after checkpoint.")
          (telemetry-quiesce)
          (telemetry-detach)
-         (test-assert (null *telemetry-controller*) "Checkpoint child detaches process-owned state."))))))
+         (test-assert (null *telemetry-controller*) "Checkpoint child detaches process-owned state.")))))
+  nil)
 
+(-> test-telemetry-redaction-failures () null)
 (defun test-telemetry-redaction-failures ()
   "Native failure drops text, preserves numerical events, and bounds queue overflow."
   (test-telemetry--call
@@ -741,9 +763,8 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
          (telemetry-call-with-run
           configuration
           (lambda ()
-            (dotimes (i 4)
-              (declare (ignore i))
-              (telemetry-note-tool :tool "shell.run" :arguments (json-object) :outcome "error"))
+            (loop repeat 4
+                  do (telemetry-note-tool :tool "shell.run" :arguments (json-object) :outcome "error"))
             (telemetry-note-report :summary-function (lambda () (incf reads) "private summary"))
             (telemetry-note-repair :target "self.redefine" :repair-kind "redefine_function" :outcome "failed"
                                    :summary-function (lambda () (incf reads) "private replacement")))))
@@ -770,8 +791,10 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
        (test-assert (search "autolith.redaction.engine" body) "Successful native output has its marker.")
        (test-assert (not (search "fixture@example.org" body)) "Post-redaction defense masks email.")
        (test-assert (not (search "fixture-token" body)) "Post-redaction defense masks credentials.")
-       (test-assert (not (search "/private/home" body)) "Post-redaction defense masks paths.")))))
+       (test-assert (not (search "/private/home" body)) "Post-redaction defense masks paths."))))
+  nil)
 
+(-> test-telemetry-worker-redactor-contract () null)
 (defun test-telemetry-worker-redactor-contract ()
   "Exercise the native binding boundary, status filtering and context cleanup."
   (with-test-configuration (configuration root)
@@ -829,11 +852,13 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
            (test-assert (handler-case (progn (telemetry--worker-redact request) nil)
                           (simple-error () t))
                         "Native conditions unwind through context cleanup.")
-           (test-assert (= loads closes 7) "Every created context closes on success or failure.")))))))
+           (test-assert (= loads closes 7) "Every created context closes on success or failure."))))))
+  nil)
 
 
 ;;;; -- Supervision and Authentication --
 
+(-> test-telemetry-subprocess-deadlines () null)
 (defun test-telemetry-subprocess-deadlines ()
   "Deadline and revocation terminate an actual isolated child, without HTTP or native FFI."
   (with-test-environment (("AUTOLITH_TEST_SUPERVISED_SECRET" "fixture-secret"))
@@ -924,8 +949,10 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                            (when stream
                              (let ((buffer (make-string 4096)))
                                (subseq buffer 0 (read-sequence buffer stream))))))))
-           (when (probe-file stderr-path) (delete-file stderr-path))))))))
+           (when (probe-file stderr-path) (delete-file stderr-path)))))))
+  nil)
 
+(-> test-telemetry-anonymous-upload () null)
 (defun test-telemetry-anonymous-upload ()
   "Upload without credentials while preserving transport and consent boundaries."
   (test-telemetry--call
@@ -957,8 +984,10 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                    (test-assert (= (length request) 3) "Upload IPC has no credential field.")
                    (setf uploaded (third request))) t)))
          (telemetry-call-with-run configuration (lambda () :done)))
-       (test-assert (stringp uploaded) "Consent-admitted runs upload without token configuration.")))))
+       (test-assert (stringp uploaded) "Consent-admitted runs upload without token configuration."))))
+  nil)
 
+(-> test-telemetry-real-redactor () null)
 (defun test-telemetry-real-redactor ()
   "Explicit opt-in actual-model test; uploads are always mocked."
   (when (equal (uiop:getenv "AUTOLITH_TEST_TELEMETRY_MODEL") "1")
@@ -990,4 +1019,5 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
          (let ((report (find "report" (test-telemetry--spans body) :test #'equal
                              :key                                        (lambda (span) (test-telemetry--attribute span "autolith.event.kind")))))
            (test-assert (> (length (test-telemetry--attribute report "autolith.diagnostic.summary")) 1024)
-                        "The actual native pipeline exports a complete long explanation.")))))))
+                        "The actual native pipeline exports a complete long explanation."))))))
+  nil)

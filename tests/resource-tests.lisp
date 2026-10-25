@@ -177,6 +177,7 @@ variant must therefore declare its object type explicitly."
                  "the agenda-update operation requires one of text, status, or memory-ids"))
   nil)
 
+(-> test-resource-tool-descriptions-follow-registry () null)
 (defun test-resource-tool-descriptions-follow-registry ()
   "Resource tool descriptions document exactly the schemes their registry resolves."
   (let* ((registry (make-resource-registry))

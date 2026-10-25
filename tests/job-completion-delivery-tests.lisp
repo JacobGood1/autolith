@@ -230,10 +230,9 @@
     (job-completion-tests--fixture
      (lambda (parent runtime configuration)
        (let ((jobs nil))
-         (dotimes (index 40)
-           (declare (ignore index))
-           (push (job-completion-tests--start parent runtime) jobs)
-           (task-completion-deliver parent))
+         (loop repeat 40
+               do (push (job-completion-tests--start parent runtime) jobs)
+                  (task-completion-deliver parent))
          (let ((service (task-completion--service parent)))
            (test-assert (null (task-completion--messages service))
                         "receipt-backed pruning frees the bounded mailbox history"))
@@ -260,14 +259,13 @@
     (job-completion-tests--fixture
      (lambda (parent runtime configuration)
        (let ((executions 0))
-         (dotimes (index 6)
-           (declare (ignore index))
-           (let ((job (task-orchestrator-start-execution-job
-                       runtime parent :tool-name "completion.fixture" :summary "overflow"
-                       :operation-function (lambda () (incf executions) (tool-success "done"))
-                       :detached-p         t)))
-             (task-completion-watch job parent)
-             (session-job-await job 5)))
+         (loop repeat 6
+               do (let ((job (task-orchestrator-start-execution-job
+                              runtime parent :tool-name "completion.fixture" :summary "overflow"
+                              :operation-function (lambda () (incf executions) (tool-success "done"))
+                              :detached-p         t)))
+                    (task-completion-watch job parent)
+                    (session-job-await job 5)))
          (let ((fresh (job-completion-tests--fresh-agent parent configuration)))
            (unwind-protect
                 (progn

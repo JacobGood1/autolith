@@ -61,9 +61,10 @@
                                (list :mode mode :rows 31 :columns 91 :styled-p styled-p)))
     (values socket stream (test-localgroup--read-packet stream))))
 
+(-> test-localgroup-orphan-reconciliation () null)
 (defun test-localgroup-orphan-reconciliation ()
   "Verify server and client startup reconcile their configured registry root."
-  (with-test-configuration (configuration root)
+  (with-test-configuration (configuration)
     (let ((application nil) (controller nil) (session nil) (directories nil))
       (unwind-protect
            (progn
@@ -1013,6 +1014,7 @@
                                              ':ignore)))
   nil)
 
+(-> test-localgroup-attachments () null)
 (defun test-localgroup-attachments ()
   "Test read-only observation and controlling terminal handoff over the endpoint."
   (let* ((configuration (test-configuration))

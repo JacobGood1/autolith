@@ -47,7 +47,6 @@
                           :conversation  conversation
                           :ui            (terminal-ui-create :terminal terminal))))
     (with-terminal-ui (active-ui (application-ui application))
-      (declare (ignore active-ui))
       (application-maybe-offer-project-adaptation application))
     (recording-terminal-output terminal)))
 

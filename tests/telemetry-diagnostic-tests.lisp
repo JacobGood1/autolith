@@ -2,6 +2,7 @@
 
 ;;;; -- Explicit Incident Explanations --
 
+(-> test-telemetry-incident-diagnostics () null)
 (defun test-telemetry-incident-diagnostics ()
   "Export explicit explanations across repair attempts and restart, with consent and real outcomes."
   (dolist (consent '(nil t))
@@ -101,6 +102,7 @@
                                  "Disabled diagnostics do not acquire or send narratives."))))))))))
   nil)
 
+(-> test-telemetry-diagnostic-redactor-pieces () null)
 (defun test-telemetry-diagnostic-redactor-pieces ()
   "Retain the entire narrative through the bounded native API, or discard it all."
   (let* ((text    (apply #'concatenate 'string (make-list 200 :initial-element "Check the retry result. ")))
@@ -125,6 +127,7 @@
                     "A later native failure discards earlier successful pieces."))))
   nil)
 
+(-> test-telemetry-resource-diagnostics () null)
 (defun test-telemetry-resource-diagnostics ()
   "Resource reports, assessments and closure use explicit text and preserve event phases."
   (test-telemetry--call
@@ -191,6 +194,7 @@
            (test-assert (not (search "PRIVATE_RESOURCE" body)) "Private resource notes stay off the wire."))))))
   nil)
 
+(-> test-telemetry-diagnostic-upload-bounds () null)
 (defun test-telemetry-diagnostic-upload-bounds ()
   "Split escaped long narratives by actual UTF-8 request bytes without losing events."
   (test-telemetry--call
@@ -211,9 +215,8 @@
          (telemetry-call-with-run
           configuration
           (lambda ()
-            (dotimes (index 100)
-              (declare (ignore index))
-              (telemetry-note-report :summary-function (lambda () text)))))
+            (loop repeat 100
+                  do (telemetry-note-report :summary-function (lambda () text)))))
          (loop while (telemetry-controller-queue *telemetry-controller*)
                do (telemetry--upload-batch (telemetry--upload-context *telemetry-controller*))))
        (test-assert (> (length bodies) 1) "Expanded JSON is split into several requests.")
@@ -227,6 +230,7 @@
 
 ;;;; -- Native Narrative Boundary --
 
+(-> test-telemetry-worker-narratives () null)
 (defun test-telemetry-worker-narratives ()
   "Reject incomplete native narratives and close one context across all chunks."
   (with-test-configuration (configuration root)

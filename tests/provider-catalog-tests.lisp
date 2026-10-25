@@ -2,6 +2,7 @@
 
 ;;;; -- Provider Catalog Integration --
 
+(-> test-provider-catalog--fixture () string)
 (defun test-provider-catalog--fixture ()
   "Provide a new public model plus a non-tool model that must not enter the picker."
   (json-encode
@@ -21,6 +22,7 @@
                    "modalities" (json-object "output" #("image"))
                    "limit" (json-object "context" 4096)))))))
 
+(-> test-provider-catalog-picker () null)
 (defun test-provider-catalog-picker ()
   "Refresh models.dev into the real registry, picker, wire route and offline startup."
   (with-test-configuration (configuration)
@@ -74,6 +76,7 @@
         (provider--registry-restore snapshot))))
   nil)
 
+(-> test-provider-catalog-failures () null)
 (defun test-provider-catalog-failures ()
   "Cold and malformed sources preserve built-ins; extension providers retain their discovery."
   (with-test-configuration (configuration)
@@ -101,6 +104,7 @@
         (provider--registry-restore snapshot))))
   nil)
 
+(-> test-provider-catalog-subscriptions () null)
 (defun test-provider-catalog-subscriptions ()
   "Choose subscription budgets per configuration without expanding account access."
   (with-test-configuration (configuration)

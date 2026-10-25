@@ -126,6 +126,7 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
 
 ;;;; -- Lifecycle --
 
+(-> test-slynk-start-uses-configured-directory () null)
 (defun test-slynk-start-uses-configured-directory ()
   "Slynk loads from the exact asd, turns its global hooks off and publishes the port."
   (with-test-configuration (base root)
@@ -153,8 +154,10 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
       (test-assert (equal asdf:*central-registry* registry)
                    "No directory joins the ASDF search path.")
       (test-assert (eq (slynk-start configuration) endpoint)
-                   "Starting again returns the running endpoint."))))
+                   "Starting again returns the running endpoint.")))
+  nil)
 
+(-> test-slynk-start-without-directory () null)
 (defun test-slynk-start-without-directory ()
   "Without a Slynk directory nothing starts and the status stays stopped."
   (with-test-configuration (base root)
@@ -168,8 +171,10 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
       (test-assert (eq (getf (slynk-status) :state) ':stopped)
                    "The status reports stopped.")
       (test-assert (null (slynk-test-port-file configuration))
-                   "No port file is written."))))
+                   "No port file is written.")))
+  nil)
 
+(-> test-slynk-start-failure-reports-port-file () null)
 (defun test-slynk-start-failure-reports-port-file ()
   "A failed bind leaves a :FAILED endpoint and tells the editor why."
   (with-test-configuration (base root)
@@ -186,8 +191,10 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
         (test-assert (search "address already in use" (slynk-endpoint-message endpoint))
                      "The endpoint keeps the bind failure.")
         (test-assert (uiop:string-prefix-p "error: " (slynk-test-port-file configuration))
-                     "The port file tells the editor the start failed.")))))
+                     "The port file tells the editor the start failed."))))
+  nil)
 
+(-> test-slynk-missing-system-fails () null)
 (defun test-slynk-missing-system-fails ()
   "A directory without slynk.asd fails with a reason instead of loading anything."
   (with-test-configuration (base root)
@@ -200,8 +207,10 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
         (test-assert (eq (slynk-endpoint-state endpoint) ':failed)
                      "A missing slynk.asd fails the endpoint.")
         (test-assert (search "No slynk.asd" (slynk-endpoint-message endpoint))
-                     "The failure names the missing system.")))))
+                     "The failure names the missing system."))))
+  nil)
 
+(-> test-slynk-quiesce-restarts-same-port () null)
 (defun test-slynk-quiesce-restarts-same-port ()
   "Quiescing closes connections, runs the function stopped and serves the same port again."
   (with-test-configuration (base root)
@@ -222,8 +231,10 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
       (test-assert (equal (subseq (slynk-test-stub-value "*CALLS*") 0 2)
                           (list (list :create 4711 t "127.0.0.1")
                                 (list :stop 4711)))
-                   "Slynk stops and binds the same port again."))))
+                   "Slynk stops and binds the same port again.")))
+  nil)
 
+(-> test-slynk-load-reentrant-cancellation () null)
 (defun test-slynk-load-reentrant-cancellation ()
   "A loading hook that stops or replaces startup cannot bind the cancelled endpoint."
   (with-test-configuration (base root)
@@ -255,8 +266,10 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
              (when replace-p
                (test-assert (eq *slynk-endpoint* replacement)
                             "Loading preserves the replacement endpoint.")))))
-        (slynk-stop)))))
+        (slynk-stop))))
+  nil)
 
+(-> test-slynk-independent-listener-stop () null)
 (defun test-slynk-independent-listener-stop ()
   "An independently stopped registered listener can be drained and checkpointed."
   (with-test-configuration (base root)
@@ -273,8 +286,10 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
       (slynk--call "STOP-SERVER" (slynk-endpoint-port endpoint))
       (slynk-stop)
       (test-assert (eq (slynk-endpoint-state endpoint) ':stopped)
-                   "Shutdown also handles an independently stopped listener."))))
+                   "Shutdown also handles an independently stopped listener.")))
+  nil)
 
+(-> test-slynk-partial-load-does-not-block-checkpoints () null)
 (defun test-slynk-partial-load-does-not-block-checkpoints ()
   "A package created by a failed load does not imply a working shutdown protocol."
   (with-test-configuration (base root)
@@ -299,7 +314,8 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
       (asdf:load-system "slynk" :force t)
       (test-assert (eq (slynk-endpoint-state (slynk-start configuration)) ':running)
                    "Serving can be retried once the library has been repaired.")
-      (slynk-stop))))
+      (slynk-stop)))
+  nil)
 
 (-> slynk-test-wait (sb-thread:semaphore) null)
 (defun slynk-test-wait (semaphore)
@@ -381,6 +397,7 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
            (slynk-stop))))))
   nil)
 
+(-> test-slynk-startup-races () null)
 (defun test-slynk-startup-races ()
   "Loading and binding are serialized against shutdown and checkpoints."
   (with-test-configuration (base root)
@@ -389,8 +406,10 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
            (configuration    (slynk-test-configuration root (slynk-test-write-stub root))))
       (dolist (stage '(slynk--load slynk--create-server))
         (dolist (checkpoint-p '(nil t))
-          (slynk-test-start-race configuration stage checkpoint-p))))))
+          (slynk-test-start-race configuration stage checkpoint-p)))))
+  nil)
 
+(-> test-slynk-scope-cancels-queued-start () null)
 (defun test-slynk-scope-cancels-queued-start ()
   "An endpoint scope that exits before its startup acquires the lock cancels binding."
   (with-test-configuration (base root)
@@ -414,8 +433,10 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
                         "Scope unwind cancels startup before releasing the lock."))
          (slynk-test-wait finished)
          (test-assert (null (slynk-test-port-file configuration))
-                      "The cancelled worker never loads or publishes a port."))))))
+                      "The cancelled worker never loads or publishes a port.")))))
+  nil)
 
+(-> test-slynk-checkpoint-defers-start-and-restarts-after-unwind () null)
 (defun test-slynk-checkpoint-defers-start-and-restarts-after-unwind ()
   "Reentrant starts defer and concurrent starts wait, including a checkpoint unwind."
   (with-test-configuration (base root)
@@ -463,8 +484,10 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
              (test-assert (eq (getf (slynk-status) :state) ':stopped)
                           "An explicit reentrant stop suppresses checkpoint restart."))
         (when contender (join-thread contender))
-        (slynk-stop)))))
+        (slynk-stop))))
+  nil)
 
+(-> test-slynk-publication-failure-drains-listener () null)
 (defun test-slynk-publication-failure-drains-listener ()
   "A port-file failure after binding does not leak the newly created listener."
   (with-test-configuration (base root)
@@ -484,8 +507,10 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
            (test-assert (null (slynk-test-stub-value "*SERVERS*"))
                         "The bound listener was stopped.")
            (test-assert (not (slynk-endpoint-bound-p endpoint))
-                        "The endpoint records completed listener cleanup.")))))))
+                        "The endpoint records completed listener cleanup."))))))
+  nil)
 
+(-> test-slynk-quiescence-timeout-and-closed-channel () null)
 (defun test-slynk-quiescence-timeout-and-closed-channel ()
   "Observe disconnected workers, closed channels and workers removed before final unwind."
   (with-test-configuration (base root)
@@ -544,8 +569,10 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
             (sb-thread:signal-semaphore release)
             (join-thread worker)
             (setf (symbol-value (slynk--symbol "*WORKER*")) nil))))
-      (slynk-stop))))
+      (slynk-stop)))
+  nil)
 
+(-> test-slynk-unsupported-shutdown-protocol () null)
 (defun test-slynk-unsupported-shutdown-protocol ()
   "An incompatible Slynk fails before any listener can bind."
   (with-test-configuration (base root)
@@ -562,7 +589,8 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
            (test-assert (eq (slynk-endpoint-state endpoint) ':failed)
                         "An incompatible close protocol fails startup.")
            (test-assert (null (slynk-test-stub-value "*SERVERS*"))
-                        "Protocol incompatibility is detected before binding.")))))))
+                        "Protocol incompatibility is detected before binding."))))))
+  nil)
 
 (defvar *slynk-test-real-entered* nil
   "Rendezvous signalled by a real Slynk evaluation in the lifecycle test.")
@@ -570,6 +598,7 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
 (defvar *slynk-test-real-release* nil
   "Rendezvous releasing the real Slynk evaluation in the lifecycle test.")
 
+(-> test-slynk-real-evaluation-quiescence () null)
 (defun test-slynk-real-evaluation-quiescence ()
   "A real disconnected Slynk evaluation blocks checkpointing until it has exited."
   (let ((directory (test-slynk-directory)))
@@ -629,8 +658,10 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
               (sb-thread:signal-semaphore *slynk-test-real-release*)
               (when stream (ignore-errors (close stream)))
               (ignore-errors (sb-bsd-sockets:socket-close socket))
-              (slynk-stop)))))))
+              (slynk-stop))))))
+  nil)
 
+(-> test-slynk-real-server () null)
 (defun test-slynk-real-server ()
   "The host's real Slynk accepts a loopback connection and stops serving when asked."
   (let ((directory (test-slynk-directory)))
@@ -657,11 +688,13 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
                        (sb-bsd-sockets:socket-close socket))))
               (slynk-stop))
             (test-assert (eq (getf (slynk-status) :state) ':stopped)
-                         "Stopping reports stopped."))))))
+                         "Stopping reports stopped.")))))
+  nil)
 
 
 ;;;; -- Request Context --
 
+(-> test-slynk-context-note () null)
 (defun test-slynk-context-note ()
   "The agent hears about the shared image only while Slynk serves."
   (with-test-configuration (base root)
@@ -681,4 +714,5 @@ AUTOLITH_TEST_SLYNK_DIRECTORY wins; otherwise the newest Quicklisp sly release."
                      "The note points at the active-image tools."))
       (slynk-stop)
       (test-assert (null (slynk-shared-image nil))
-                   "The note disappears once Slynk stops."))))
+                   "The note disappears once Slynk stops.")))
+  nil)

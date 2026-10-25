@@ -2,6 +2,7 @@
 
 ;;;; -- Papercut Reports and Failure Correlation --
 
+(-> test-telemetry-duplicate-flushed-tool-report-link () null)
 (defun test-telemetry-duplicate-flushed-tool-report-link ()
   "Link duplicate incidents once through queued tool rows or exported references."
   (dolist (case '((queued-failure nil) (flushed-failure t)))
@@ -52,6 +53,7 @@
                           (format nil "~A: A queued failed attempt carries the duplicate's link directly." (first case))))))))
   nil)
 
+(-> test-telemetry-duplicate-consent-transition () null)
 (defun test-telemetry-duplicate-consent-transition ()
   "Persist a previously private duplicate before linking queued or exported failures."
   (dolist (case '((queued-consent nil) (flushed-consent t)))
@@ -114,6 +116,7 @@
                           (format nil "~A: Later incident events retain the first link's identity after restart." (first case)))))))))
   nil)
 
+(-> test-telemetry-tool-report-link () null)
 (defun test-telemetry-tool-report-link ()
   "Link a report to the latest matching failure without joining unrelated attempts."
   (test-telemetry--call
@@ -153,6 +156,7 @@
        (test-telemetry--collector-fixture "native-tool-report.json" (json-decode body)))))
   nil)
 
+(-> test-telemetry-flushed-tool-report-link () null)
 (defun test-telemetry-flushed-tool-report-link ()
   "Join a real papercut to an exported tool failure without rewriting that row."
   (test-telemetry--call
@@ -208,6 +212,7 @@
                                           (map 'vector #'json-decode bodies)))))
   nil)
 
+(-> test-telemetry-role-papercut-report () null)
 (defun test-telemetry-role-papercut-report ()
   "Grant papercut reporting to a role and export a report from its restricted agent."
   (test-telemetry--call
@@ -237,6 +242,7 @@
                       "The report preserves its structured affected tool.")))))
   nil)
 
+(-> test-telemetry-papercut-metadata-hooks () null)
 (defun test-telemetry-papercut-metadata-hooks ()
   "Classified reports and resource edits retain metadata through durable replay."
   (test-telemetry--call
@@ -293,6 +299,7 @@
                        "Assessment and closure retain the affected tool.")))))
   nil)
 
+(-> test-telemetry-issue-correlation () null)
 (defun test-telemetry-issue-correlation ()
   "Separate issues in one run and preserve their own IDs across runs and controller restarts."
   (test-telemetry--call

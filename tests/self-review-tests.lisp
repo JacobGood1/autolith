@@ -17,13 +17,12 @@
 (-> test-self-review-reminder () null)
 (defun test-self-review-reminder ()
   "Test the turn and working-time gates of the periodic review reminder."
-  (let* ((configuration                    (test-configuration))
-         (root                             (test-configuration-root configuration))
-         (*self-review-receipts*           (make-hash-table :test #'equal))
-         (*context-contributors*           nil)
-         (*context-next-request-delivered* (make-hash-table :test #'equal))
-         (*context-last-deliveries*        (make-hash-table :test #'equal))
-         (*context-last-delivery-order*    nil))
+  (let* ((configuration                 (test-configuration))
+         (root                          (test-configuration-root configuration))
+         (*self-review-receipts*        (make-hash-table :test #'equal))
+         (*context-contributors*        nil)
+         (*context-last-deliveries*     (make-hash-table :test #'equal))
+         (*context-last-delivery-order* nil))
     (unwind-protect
          (let ((conversation (conversation-create configuration
                                                   :identifier "review")))

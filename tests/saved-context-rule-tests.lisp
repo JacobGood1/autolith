@@ -2,10 +2,13 @@
 
 ;;;; -- Persistent Saved Context Rule Boundaries --
 
+(-> saved-context-rule-tests--rule (string string) list)
 (defun saved-context-rule-tests--rule (id instruction)
+  "Return a primary-role, turn-lifetime saved rule plist with ID and INSTRUCTION."
   (list :id id :when '(:roles ("primary")) :instruction instruction
         :priority 10 :lifetime ':turn))
 
+(-> test-saved-context-rule-persistence-and-replacement () null)
 (defun test-saved-context-rule-persistence-and-replacement ()
   "Exercise detached persistence, reload, conflict, replacement, and validation."
   (with-test-configuration (configuration root)
@@ -35,8 +38,10 @@
       (test-assert (handler-case
                        (progn (context-rule-save configuration rule :scope :invalid) nil)
                      (context-rule-error () t))
-                   "unsupported scopes are rejected strictly"))))
+                   "unsupported scopes are rejected strictly")))
+  nil)
 
+(-> test-saved-context-rule-scope-and-precedence () null)
 (defun test-saved-context-rule-scope-and-precedence ()
   "Exercise global/workspace isolation and workspace ID precedence."
   (with-test-configuration (configuration root)
@@ -54,11 +59,13 @@
                    "workspace rules override global IDs")
       (test-assert (string= "Global"
                             (getf (first (context-rule-saved other)) ':instruction))
-                   "workspace files are isolated by canonical directory"))))
+                   "workspace files are isolated by canonical directory")))
+  nil)
 
+(-> test-saved-context-rule-corruption-is-reported () null)
 (defun test-saved-context-rule-corruption-is-reported ()
   "Reject malformed existing data without treating it as an empty collection."
-  (with-test-configuration (configuration root)
+  (with-test-configuration (configuration)
     (let ((path (context-rule-saved-path configuration ':global)))
       (ensure-directories-exist path)
       (with-open-file (stream path :direction ':output :if-exists ':supersede
@@ -67,7 +74,8 @@
       (test-assert (handler-case
                        (progn (context-rule-saved configuration) nil)
                      (context-rule-corruption-error () t))
-                   "corrupt saved data signals a typed error"))))
+                   "corrupt saved data signals a typed error")))
+  nil)
 
 (defparameter *saved-context-rule-tests-read-evaluated-p* nil
   "Whether an unsafe persisted reader form ran during a storage test.")

@@ -425,7 +425,7 @@
 
                     (field-present-p (record field)
                       "Return true when FIELD occurs as a key in RECORD."
-                      (loop for tail on record by #'cddr
+                      (loop for tail on record by (partial #'nthcdr 2)
                             thereis (eq (first tail) field)))
 
                     (run-report (viewer selected-registry agent-name)

@@ -719,6 +719,7 @@
                                              ':ignore)))
   nil)
 
+(-> test-localgroup-conversation-identity () null)
 (defun test-localgroup-conversation-identity ()
   "Test active IDs through resume selection, new, fork, reconnect and conflicts."
   (with-test-configuration (configuration)

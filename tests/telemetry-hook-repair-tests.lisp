@@ -5,6 +5,7 @@
 (defvar *test-telemetry-repair-setting* :baseline
   "Dedicated setting for real repair lifecycle calls.")
 
+(-> test-telemetry-hooks--repair-fixture (configuration function) t)
 (defun test-telemetry-hooks--repair-fixture (configuration function)
   "Call FUNCTION with a real registry and an isolated image-state identity."
   (let ((*test-telemetry-repair-setting*   :baseline)
@@ -19,6 +20,7 @@
              (make-instance 'tool-context :configuration configuration :worker nil
                             :conversation (conversation-create configuration)))))
 
+(-> test-telemetry-hooks--latest-set (configuration) list)
 (defun test-telemetry-hooks--latest-set (configuration)
   "Return the last installed setting mutation from the durable journal."
   (find-if (lambda (record)
@@ -26,6 +28,7 @@
                   (eq (getf (rest record) :result) ':installed)))
            (reverse (mutation-journal-read-records configuration))))
 
+(-> test-telemetry-evaluation-repair-intent () null)
 (defun test-telemetry-evaluation-repair-intent ()
   "Export evaluation repairs only for calls linked to an incident."
   (test-telemetry--call
@@ -91,6 +94,7 @@
          "All six evaluations retain their proposal and result audit records.")))))
   nil)
 
+(-> test-telemetry-incident-repair-lifecycle () null)
 (defun test-telemetry-incident-repair-lifecycle ()
   "Exercise repair attempts, durable linkage, check verdicts and closure."
   (test-telemetry--call
@@ -223,6 +227,7 @@
                   (test-assert (not (search private body)) "Source, values, notes and local IDs stay private."))))))))))
   nil)
 
+(-> test-telemetry-invalid-incident-link () null)
 (defun test-telemetry-invalid-incident-link ()
   "Reject unknown and conflicting incidents before mutation; allocate nothing without consent."
   (test-telemetry--call
@@ -269,6 +274,7 @@
                                  "Conflicting links fail before source evaluation or journal writes."))))))))))))
   nil)
 
+(-> test-telemetry-repair-hook-projections () null)
 (defun test-telemetry-repair-hook-projections ()
   "Journal transitions expose scalar verification; duplicate papercuts do not add reports."
   (test-telemetry--call

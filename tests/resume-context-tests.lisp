@@ -16,13 +16,12 @@
 (-> test-resume-context () null)
 (defun test-resume-context ()
   "Test the one-turn notice that pre-restart background work is gone."
-  (let* ((configuration                    (test-configuration))
-         (conversation                     (conversation-create configuration
-                                                                :identifier "resume-note"))
-         (*context-contributors*           nil)
-         (*context-next-request-delivered* (make-hash-table :test #'equal))
-         (*context-last-deliveries*        (make-hash-table :test #'equal))
-         (*context-last-delivery-order*    nil))
+  (let* ((configuration                 (test-configuration))
+         (conversation                  (conversation-create configuration
+                                                             :identifier "resume-note"))
+         (*context-contributors*        nil)
+         (*context-last-deliveries*     (make-hash-table :test #'equal))
+         (*context-last-delivery-order* nil))
     (register-context-contributor "resumed-conversation"
                                   'resume-context
                                   :source ':built-in)

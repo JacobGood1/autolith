@@ -2,6 +2,7 @@
 
 ;;;; -- Non-interactive Job Boundary Tests --
 
+(-> test-run-job-relative-paths () null)
 (defun test-run-job-relative-paths ()
   "Resolve both artifact paths against the caller's cwd, including event URIs."
   (with-test-configuration (configuration root)

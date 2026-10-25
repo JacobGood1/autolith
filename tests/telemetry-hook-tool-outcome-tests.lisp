@@ -7,10 +7,12 @@
 
 (defmethod tool-execute :before ((tool telemetry-test-correction-tool)
                                  (context tool-context) (arguments hash-table))
+  "Assert that the registry stripped correction metadata from ARGUMENTS."
   (declare (ignore tool context))
   (test-assert (not (nth-value 1 (gethash "corrects_previous" arguments)))
                "The registry consumes correction metadata before invoking the tool."))
 
+(-> test-telemetry-explicit-correction-hook () null)
 (defun test-telemetry-explicit-correction-hook ()
   "An explicit correction reaches telemetry without changing arguments or leaking between calls."
   (test-telemetry--call
@@ -43,6 +45,7 @@
        (test-assert (null *telemetry-tool-arguments*) "Decoded arguments do not escape their execution binding."))))
   nil)
 
+(-> test-telemetry-shell-exit-hook () null)
 (defun test-telemetry-shell-exit-hook ()
   "Export actual shell failures and exit status through the agent completion path."
   (test-telemetry--call
@@ -78,6 +81,7 @@
            "The structured failure code reaches export."))))))
   nil)
 
+(-> test-telemetry-tool-failure-categories () null)
 (defun test-telemetry-tool-failure-categories ()
   "Export real worker, missing-resource and yield failures through agent completion."
   (test-telemetry--call
@@ -94,7 +98,7 @@
             (provider                                (make-instance
                                                       'scripted-provider :configuration configuration
                                                       :results                          (append
-                                                                                         (loop for (namespace name arguments code) in cases
+                                                                                         (loop for (namespace name arguments nil) in cases
                                                                                                for index from 1
                                                                                                collect (agent-test-result
                                                                                                         (format nil "failure-~D" index)
@@ -134,6 +138,7 @@
          (lisp-worker-pool-stop-all worker)))))
   nil)
 
+(-> test-telemetry-outside-resource-failures () null)
 (defun test-telemetry-outside-resource-failures ()
   "Export missing absolute resource failures after real out-of-root authorization."
   (test-telemetry--call
@@ -185,6 +190,7 @@
   (declare (ignore context arguments))
   (tool-failure "Private extension failure." :code (telemetry-test-failure-code tool)))
 
+(-> test-telemetry-tool-error-code-boundary () null)
 (defun test-telemetry-tool-error-code-boundary ()
   "Bound extension keyword codes at the real agent-to-export boundary."
   (test-telemetry--call
@@ -221,7 +227,7 @@
             (agent    (agent-create :configuration configuration :provider provider
                                     :conversation (conversation-create configuration)
                                     :tool-registry registry :worker :unused)))
-       (loop for (code expected) in cases for index from 1
+       (loop for (code nil) in cases for index from 1
              do (tool-registry-register
                  registry (make-instance 'telemetry-test-failure-tool :code code
                                          :namespace "fixture" :name (format nil "failure~D" index)
@@ -249,15 +255,20 @@
   nil)
 
 (defclass telemetry-test-concurrent-tool (agent-test-concurrent-tool)
-  ((runs :initform nil :accessor telemetry-test-concurrent-runs))
+  ((runs
+    :initform      nil
+    :accessor      telemetry-test-concurrent-runs
+    :documentation "Telemetry runs observed by each parallel invocation, newest first."))
   (:documentation "Record ambient telemetry identity inside a real parallel tool worker."))
 
 (defmethod tool-execute :before ((tool telemetry-test-concurrent-tool)
                                  (context tool-context) (arguments hash-table))
+  "Record the telemetry run that is ambient inside the parallel tool worker."
   (declare (ignore context arguments))
   (with-lock-held ((agent-test-concurrency-state-lock (agent-test-concurrent-tool-state tool)))
     (push *telemetry-run* (telemetry-test-concurrent-runs tool))))
 
+(-> test-telemetry-parallel-tool-hooks () null)
 (defun test-telemetry-parallel-tool-hooks ()
   "Parallel workers share one run and export in wire order, independently of completion order."
   (test-telemetry--call

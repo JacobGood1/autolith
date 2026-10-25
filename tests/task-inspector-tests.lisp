@@ -232,7 +232,7 @@
 (defun test-task-inspector-bounded-usage ()
   "Inspect live and restored children without serializing provider attribution."
   (let ((cyclic (list '("input_tokens" 0) '("output_tokens" -1))))
-    (setf (cddr cyclic) cyclic)
+    (setf (rest (rest cyclic)) cyclic)
     (test-assert
      (equal '(("input_tokens" 0)) (task-progress--usage-summary cyclic))
      "Cyclic usage retains zero counters without scanning indefinitely"))

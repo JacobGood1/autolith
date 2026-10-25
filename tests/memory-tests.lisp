@@ -153,8 +153,7 @@
              (let* ((conversation
                       (conversation-create configuration
                                            :identifier "memory-corruption"))
-                    (*context-contributors*  nil)
-                    (*context-last-delivery* nil))
+                    (*context-contributors* nil))
                (conversation-append-user-message conversation "repository script")
                (register-context-contributor "related-memories"
                                              'memory-related-context

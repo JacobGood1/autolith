@@ -983,7 +983,7 @@ exactly that race."
                         2)
                        "terminal publication reaches its post-claim artifact phase")
                       (dotimes (index 32)
-                        (declare (ignore index))
+                        (declare (ignorable index))
                         (let ((snapshot (task-job-snapshot job)))
                           (test-assert
                            (and (eq (getf snapshot :state) :queued)
@@ -2021,7 +2021,7 @@ exactly that race."
     (unwind-protect
          (progn
            (dotimes (index *task-job-page-maximum*)
-             (declare (ignore index))
+             (declare (ignorable index))
              (task-tests--register-job
               orchestrator primary definition :name requested-name))
            (let* ((result
@@ -2183,7 +2183,6 @@ exactly that race."
                 (parent-result
                   (task-tests--terminal-result
                    parent :status ':success :output "parent complete"))
-                (parent-id (job-identifier parent))
                 (viewer
                   (task-tests--child-viewer configuration parent))
                 (descendant
@@ -2334,7 +2333,7 @@ exactly that race."
                   "each retained job publishes exactly once")))
              (setf identifiers (nreverse identifiers))
              (let ((first-id (first identifiers))
-                   (last-id  (car (last identifiers)))
+                   (last-id  (first (last identifiers)))
                    (live-id  (job-identifier live)))
                (test-assert
                 (and (= (length
@@ -2903,7 +2902,7 @@ exactly that race."
                   (results           (getf (rest form) :results))
                   (artifacts         (getf observation :artifact-forms))
                   (first-result      (first results))
-                  (last-result       (car (last results)))
+                  (last-result       (first (last results)))
                   (last-result-value (getf last-result :result)))
              (test-assert
               (and (not (getf observation :success-p))
@@ -2947,7 +2946,7 @@ exactly that race."
              (test-assert
               (and (> (length (getf (first artifacts) :output)) 90000)
                    (string=
-                    (getf (car (last artifacts)) :error)
+                    (getf (first (last artifacts)) :error)
                     "AUTOLITH-LAST-MANIFEST-CHILD-FAILED")
                    (every #'listp artifacts))
               "every child artifact remains exactly one readable native result")))

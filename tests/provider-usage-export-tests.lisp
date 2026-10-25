@@ -124,10 +124,9 @@
            (threads      (loop repeat 4 collect
                                (make-thread
                                 (lambda ()
-                                  (dotimes (index 5)
-                                    (declare (ignore index))
-                                    (llm-usage--export conversation result
-                                                       :destination path :wall-seconds 1d0)))))))
+                                  (loop repeat 5
+                                        do (llm-usage--export conversation result
+                                                              :destination path :wall-seconds 1d0)))))))
       (unwind-protect
            (progn
              (mapc #'join-thread threads)

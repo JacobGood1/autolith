@@ -9,6 +9,7 @@
 
 (defmethod provider-stream-turn ((provider telemetry-test-stream-provider) conversation
                                  &key tool-namespaces event-callback goal-context compaction-p)
+  "Consume PROVIDER's synthetic Responses SSE body through the real stream parser."
   (declare (ignore conversation tool-namespaces goal-context compaction-p))
   (with-input-from-string (stream (telemetry-test-stream-data provider))
     (provider-consume-stream provider stream nil event-callback)))
@@ -21,6 +22,7 @@
   (:documentation "Supply real terminal protocol streams without a network request."))
 
 (defmethod provider-configuration ((provider telemetry-test-terminal-stream))
+  "Return the private fixture configuration of PROVIDER."
   (telemetry-test-terminal-configuration provider))
 
 (defclass telemetry-test-anthropic-stream (telemetry-test-terminal-stream anthropic-messages-provider) ()
@@ -34,10 +36,12 @@
 
 (defmethod provider-stream-turn ((provider telemetry-test-terminal-stream) conversation
                                  &key tool-namespaces event-callback goal-context compaction-p)
+  "Consume PROVIDER's synthetic terminal SSE events through its pinned parser."
   (declare (ignore conversation tool-namespaces goal-context compaction-p))
   (with-input-from-string (stream (telemetry-test-terminal-data provider))
     (provider-consume-stream provider stream nil event-callback)))
 
+(-> test-telemetry-context-window-streams () null)
 (defun test-telemetry-context-window-streams ()
   "Keep observed terminal context-window reasons when the real parsers signal failure."
   (test-telemetry--call
@@ -71,8 +75,10 @@
           (if (eq (first case) 'telemetry-test-anthropic-stream)
               "native-terminal-anthropic.json" "native-terminal-gemini.json")
           (json-object "finish_reason" (string-downcase (second case))
-                       "envelope" (json-decode (first bodies)))))))))
+                       "envelope" (json-decode (first bodies))))))))
+  nil)
 
+(-> test-telemetry-returned-model-hook () null)
 (defun test-telemetry-returned-model-hook ()
   "Read wire metadata, project aliases and public snapshots, and clear absent models."
   (test-telemetry--call
@@ -129,6 +135,7 @@
                         "Neither raw response model nor response identity is exported."))))))
   nil)
 
+(-> test-telemetry-cache-write-usage () null)
 (defun test-telemetry-cache-write-usage ()
   "Read cache creation through real streaming parsers, preserving reported zero and omission."
   (test-telemetry--call
@@ -180,6 +187,7 @@
        (test-telemetry--collector-fixture "native-cache-usage.json" (coerce (nreverse fixtures) 'vector)))))
   nil)
 
+(-> test-telemetry-unlisted-provider-model () null)
 (defun test-telemetry-unlisted-provider-model ()
   "Resolve an unlisted custom model and export its real missing-credential failure."
   (test-telemetry--call
@@ -216,6 +224,7 @@
          (provider--registry-restore snapshot)))))
   nil)
 
+(-> test-telemetry-chatgpt-cache-write-usage () null)
 (defun test-telemetry-chatgpt-cache-write-usage ()
   "Preserve unknown cache writes through the real ChatGPT Responses request path."
   (test-telemetry--call
@@ -272,6 +281,7 @@
                              (format nil "~A: Positive reported writes survive; omitted or unsupported writes stay unknown." case-name))))))))))
   nil)
 
+(-> test-telemetry-compaction-roles () null)
 (defun test-telemetry-compaction-roles ()
   "Classify native checkpoint and summary requests at the actual compaction entry point."
   (test-telemetry--call
@@ -300,6 +310,7 @@
          (test-telemetry--collector-fixture "native-compaction.json" (json-decode (first bodies)))))))
   nil)
 
+(-> test-telemetry-request-roles () null)
 (defun test-telemetry-request-roles ()
   "Distinguish real permission, inference, title, and ordinary provider requests."
   (test-telemetry--call

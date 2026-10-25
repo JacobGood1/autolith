@@ -315,7 +315,7 @@
                        :name "race-closed-review"))
                     (job-count
                       (length (task-orchestrator-list-jobs orchestrator))))
-               (declare (ignore duplicate-one duplicate-two hidden))
+               (declare (ignore queued duplicate-one duplicate-two hidden))
                (mapc (lambda (job) (mark-state job ':running))
                      (list named blocking identifier-target closing-job closed-job
                            race-closing race-closed))

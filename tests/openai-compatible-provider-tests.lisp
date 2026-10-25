@@ -1258,7 +1258,7 @@
                             (test-assert
                              (and (string= endpoint "https://api.openai.com/v1/models")
                                   (equal "Bearer discovery-fixture-key"
-                                         (cdr (assoc "Authorization" headers :test #'string-equal))))
+                                         (rest (assoc "Authorization" headers :test #'string-equal))))
                              "model discovery uses the private key without account identity")
                             (values "{\"data\":[{\"id\":\"gpt-4.1\"},{\"id\":\"gpt-6-astra\"},{\"id\":\"gpt-6.1-sol\"}]}"
                                     200 nil))))
@@ -1340,7 +1340,7 @@
                               (test-assert
                                (and (string= endpoint "https://api.openai.com/v1/responses")
                                     (equal "Bearer public-fixture-key"
-                                           (cdr (assoc "Authorization" headers :test #'string-equal)))
+                                           (rest (assoc "Authorization" headers :test #'string-equal)))
                                     (not (assoc "ChatGPT-Account-Id" headers :test #'string-equal))
                                     (not (assoc "OpenAI-Beta" headers :test #'string-equal)))
                                "transport uses public bearer auth without subscription headers")

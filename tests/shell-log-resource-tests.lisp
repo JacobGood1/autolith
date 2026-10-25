@@ -265,28 +265,27 @@
              (task-tests--make-job orchestrator :identifier "preflight-job"
                                   :root-identifier "shell-preflight" :detached-p nil)))
       (unwind-protect
-           (dotimes (attempt 2)
-             (declare (ignore attempt))
-             (test-assert
-              (handler-case
-                  (progn
-                    (workspace-tool-run-shell-command
-                     (test-fixture-shell-command *platform* "exit 0" "exit 0")
-                     (config :working-directory configuration) ':invalid-policy 1 32
-                     :context context)
-                    nil)
-                (error () t))
-              "Policy validation fails before the executor can launch")
-             (test-assert (zerop (hash-table-count *shell-log-active*))
-                          "A live worker releases the abandoned artifact pin")
-             (let* ((metadata
-                      (loop for directory in (shell-log--directories configuration)
-                            for item = (shell-log--read-manifest configuration directory)
-                            when (eq (getf item :state) ':closed) return item)))
-               (test-assert (and metadata (eq ':interrupted (getf metadata :status))
-                                 (zerop (getf metadata :reserved-bytes))
-                                 (null (getf metadata :captures)))
-                            "Pre-executor failures free quota without inventing captures")))
+           (loop repeat 2
+                 do (test-assert
+                     (handler-case
+                         (progn
+                           (workspace-tool-run-shell-command
+                            (test-fixture-shell-command *platform* "exit 0" "exit 0")
+                            (config :working-directory configuration) ':invalid-policy 1 32
+                            :context context)
+                           nil)
+                       (error () t))
+                     "Policy validation fails before the executor can launch")
+                    (test-assert (zerop (hash-table-count *shell-log-active*))
+                                 "A live worker releases the abandoned artifact pin")
+                    (let* ((metadata
+                             (loop for directory in (shell-log--directories configuration)
+                                   for item = (shell-log--read-manifest configuration directory)
+                                   when (eq (getf item :state) ':closed) return item)))
+                      (test-assert (and metadata (eq ':interrupted (getf metadata :status))
+                                        (zerop (getf metadata :reserved-bytes))
+                                        (null (getf metadata :captures)))
+                                   "Pre-executor failures free quota without inventing captures")))
         (task-orchestrator-close orchestrator))))
   nil)
 

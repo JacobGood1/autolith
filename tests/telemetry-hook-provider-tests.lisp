@@ -2,6 +2,7 @@
 
 ;;;; -- Provider Attempts and Recovery --
 
+(-> test-telemetry-provider-retry-hooks () null)
 (defun test-telemetry-provider-retry-hooks ()
   "Exercise inherited subscription streaming, authentication refresh and transport retry."
   (test-telemetry--call
@@ -29,11 +30,12 @@
            (dolist (span (butlast models))
              (test-assert (null (test-telemetry--attribute span "gen_ai.usage.input_tokens"))
                           "Failed attempts omit unknown usage, rather than recording zero."))
-           (test-assert (equal (test-telemetry--attribute (car (last models))
+           (test-assert (equal (test-telemetry--attribute (first (last models))
                                                         "gen_ai.usage.input_tokens") "1")
                         "The successful attempt retains normalized usage."))))))
   nil)
 
+(-> test-telemetry-grok-empty-response-hooks () null)
 (defun test-telemetry-grok-empty-response-hooks ()
   "Record empty and reasoning-only Grok retries as failed attempts before a valid response."
   (test-telemetry--call
@@ -103,6 +105,7 @@
                              "Observed wire completion remains distinct from accepted attempt outcome.")))))))))
   nil)
 
+(-> test-telemetry-provider-transport-hooks () null)
 (defun test-telemetry-provider-transport-hooks ()
   "Classify normalized connection failures and SSE inactivity as transport attempts."
   (test-telemetry--call
@@ -161,6 +164,7 @@
                                "Unavailable transport usage remains absent."))))))))))
   nil)
 
+(-> test-telemetry-provider-failure-hooks () null)
 (defun test-telemetry-provider-failure-hooks ()
   "Failed refresh and cancellation during backoff preserve their conditions and counts."
   (test-telemetry--call
@@ -214,15 +218,18 @@
   (:documentation "Custom provider bypassing the per-attempt protocol."))
 
 (defmethod provider-configuration ((provider telemetry-test-values-provider))
+  "Return the scripted configuration of PROVIDER."
   (scripted-provider-configuration provider))
 
 (defmethod provider-family ((provider telemetry-test-values-provider))
+  "Fail, simulating broken optional provider metadata."
   (declare (ignore provider))
   (error "Injected optional provider metadata failure."))
 
 (defmethod provider-stream-turn
     ((provider telemetry-test-values-provider) (conversation conversation)
      &key tool-namespaces event-callback goal-context compaction-p)
+  "Return the next scripted result with an extra secondary value, bypassing attempts."
   (declare (ignore conversation tool-namespaces event-callback goal-context compaction-p))
   (values (pop (scripted-provider-results provider)) :secondary 17))
 
@@ -232,9 +239,11 @@
 (defmethod provider-native-compact-conversation
     ((provider telemetry-test-mission-provider) (conversation conversation)
      &key tool-namespaces event-callback)
+  "Return a compacted marker, fixed usage and an extra secondary value."
   (declare (ignore provider conversation tool-namespaces event-callback))
   (values :compacted (json-object "input_tokens" 2 "output_tokens" 3) :secondary))
 
+(-> test-telemetry-hooks--mission-accounting () null)
 (defun test-telemetry-hooks--mission-accounting ()
   "Compose enabled telemetry with mission admission and both usage protocols."
   (test-telemetry--call
@@ -282,6 +291,7 @@
                       "Rejected inference does not consume a scripted response.")))))
   nil)
 
+(-> test-telemetry-provider-fallback-hooks () null)
 (defun test-telemetry-provider-fallback-hooks ()
   "Custom providers get one standalone event despite broken metadata, with all values intact."
   (test-telemetry--call

@@ -3,14 +3,20 @@
 ;;;; -- ACP Session Wire Tests --
 
 (defclass acp-session-test-client (agentcomms:acp-client)
-  ((updates :initform nil :accessor acp-session-test-updates)
-   (wire-events :initform nil :accessor acp-session-test-wire-events
-                :documentation "Chronological boundary, stream and permission evidence, newest first.")
-   (permission-choice :initform "once" :accessor acp-session-test-permission-choice))
+  ((updates           :initform      nil
+                      :accessor      acp-session-test-updates
+                      :documentation "Session updates received from the agent, newest first.")
+   (wire-events       :initform      nil
+                      :accessor      acp-session-test-wire-events
+                      :documentation "Chronological boundary, stream and permission evidence, newest first.")
+   (permission-choice :initform      "once"
+                      :accessor      acp-session-test-permission-choice
+                      :documentation "Permission option identifier; the request method always selects \"once\"."))
   (:documentation "A deterministic ACP client for session lifecycle tests."))
 
 (defmethod agentcomms:client-session-update
     ((client acp-session-test-client) session-id update params)
+  "Record UPDATE as both a received update and an ordered wire event."
   (declare (ignore session-id params))
   (push update (acp-session-test-updates client))
   (push (cons ':update update) (acp-session-test-wire-events client))
@@ -60,10 +66,12 @@
 
 (defmethod agentcomms:client-request-permission
     ((client acp-session-test-client) session-id tool-call options params)
+  "Record the permission request for TOOL-CALL and allow it once."
   (declare (ignore session-id options params))
   (push (cons ':permission tool-call) (acp-session-test-wire-events client))
   (values ':selected "once"))
 
+(-> acp-session-test-connect (agentcomms:acp-agent acp-session-test-client) acp-session-test-client)
 (defun acp-session-test-connect (service client)
   "Connect CLIENT to SERVICE over an in-memory ACP channel pair."
   (multiple-value-bind (server client-channel) (agentcomms:make-acp-channel-pair)
@@ -72,6 +80,7 @@
     (agentcomms:client-initialize client)
     client))
 
+(-> acp-session-test-text-result (string) provider-result)
 (defun acp-session-test-text-result (text)
   "Return a deterministic provider result containing TEXT."
   (agent-test-result "acp-test-response" (list (agent-test-message text))))
@@ -107,11 +116,18 @@
            (when failure (error failure))))))))
 
 (defclass acp-session-test-gated-provider (scripted-provider)
-  ((lock :initform (make-lock "ACP gated provider") :reader acp-session-test-gated-lock)
-   (condition :initform (make-condition-variable :name "ACP gated provider")
-              :reader   acp-session-test-gated-condition)
-   (entered-p :initform nil :accessor acp-session-test-gated-entered-p)
-   (released-p :initform nil :accessor acp-session-test-gated-released-p))
+  ((lock       :initform      (make-lock "ACP gated provider")
+               :reader        acp-session-test-gated-lock
+               :documentation "Lock guarding the gate state.")
+   (condition  :initform      (make-condition-variable :name "ACP gated provider")
+               :reader        acp-session-test-gated-condition
+               :documentation "Condition variable signaled when the gate state changes.")
+   (entered-p  :initform      nil
+               :accessor      acp-session-test-gated-entered-p
+               :documentation "True once the first provider request has reached the gate.")
+   (released-p :initform      nil
+               :accessor      acp-session-test-gated-released-p
+               :documentation "True once the test has released the gated request."))
   (:documentation "A provider that waits at a deterministic cancellation boundary."))
 
 (defmethod provider-stream-turn :around
@@ -127,6 +143,7 @@
                                (acp-session-test-gated-lock provider)))))
   (apply #'call-next-method provider conversation options))
 
+(-> acp-session-test-gated-wait (acp-session-test-gated-provider) null)
 (defun acp-session-test-gated-wait (provider)
   "Wait until PROVIDER has entered its blocking request."
   (with-lock-held ((acp-session-test-gated-lock provider))
@@ -134,11 +151,13 @@
           do (condition-wait (acp-session-test-gated-condition provider)
                              (acp-session-test-gated-lock provider)))))
 
+(-> acp-session-test-gated-release (acp-session-test-gated-provider) null)
 (defun acp-session-test-gated-release (provider)
   "Release PROVIDER's blocking request."
   (with-lock-held ((acp-session-test-gated-lock provider))
     (setf (acp-session-test-gated-released-p provider) t)
-    (condition-notify (acp-session-test-gated-condition provider))))
+    (condition-notify (acp-session-test-gated-condition provider)))
+  nil)
 
 (-> test-acp-session-wire-new-prompt-replay-close () null)
 (defun test-acp-session-wire-new-prompt-replay-close ()
@@ -587,6 +606,7 @@
       (acp-session-test--call-with-client
        configuration
        (lambda (service client)
+         (declare (ignore service))
          (agentcomms:client-load-session client identifier (namestring root))
          (let* ((updates (reverse (acp-session-test-updates client)))
                 (user-messages

@@ -83,7 +83,7 @@
 (defun mission-inference-test--join (cells release count)
   "Release COUNT calls and join CELLS, returning their result cells."
   (dotimes (i count)
-    (declare (ignore i))
+    (declare (ignorable i))
     (bordeaux-threads:signal-semaphore release))
   (dolist (cell cells)
     (test-assert

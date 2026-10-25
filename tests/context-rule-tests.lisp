@@ -9,6 +9,7 @@
           (context-delivery-contributions
            (context-resolve-request configuration conversation #()))))
 
+(-> test-context-rule-selection () null)
 (defun test-context-rule-selection ()
   "Exercise conjunctive metadata predicates, alternatives and project/conversation scope."
   (with-test-configuration (configuration root)
@@ -51,6 +52,7 @@
                        "project rule scope excludes another workspace")))))
   nil)
 
+(-> test-context-rule-validation-and-budget () null)
 (defun test-context-rule-validation-and-budget ()
   "Validate declarative values and exercise the existing advisory budget and replacement semantics."
   (with-test-configuration (configuration)
@@ -89,6 +91,7 @@
                        "caller mutation cannot change a registered predicate")))))
   nil)
 
+(-> test-context-rule-tool-events () null)
 (defun test-context-rule-tool-events ()
   "Capture real authorized resource operations and preserve bounded metadata lifecycle."
   (with-test-configuration (configuration root)
@@ -135,6 +138,7 @@
                      "trigger reset does not remove configured rules"))))
   nil)
 
+(-> test-context-rule-generation-and-diagnostics () null)
 (defun test-context-rule-generation-and-diagnostics ()
   "Reject old-turn completions and capture structured diagnostics at the registry boundary."
   (with-test-configuration (configuration root)

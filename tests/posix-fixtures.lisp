@@ -14,12 +14,10 @@
          (file (merge-pathnames "permission-probe" root)))
     (unwind-protect
          (progn
-           (with-open-file (stream file :direction ':output :if-exists ':error)
-             (declare (ignore stream)))
+           (with-open-file (stream file :direction ':output :if-exists ':error))
            (test-fixture-set-file-mode platform file 0)
            (handler-case
                (with-open-file (stream file)
-                 (declare (ignore stream))
                  nil)
              (file-error () t)))
       (when (probe-file file)

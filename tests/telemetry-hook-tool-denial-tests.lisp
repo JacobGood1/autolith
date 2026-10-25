@@ -7,10 +7,12 @@
 
 (defmethod tool-execute ((tool telemetry-test-authorized-tool)
                          (context tool-context) (arguments hash-table))
+  "Deny when the authorization decision is :DENY; otherwise echo as usual."
   (if (eq (tool-context-authorize-tool context tool arguments) :deny)
       (tool-failure "Denied fixture request." :code ':permission-denied)
       (call-next-method)))
 
+(-> test-telemetry-tool-denial-hooks () null)
 (defun test-telemetry-tool-denial-hooks ()
   "An explicit authorization decision is distinguishable from an ordinary failure string."
   (test-telemetry--call
@@ -88,6 +90,7 @@
       (t
        (tool-success "Recovered with an allowed fallback.")))))
 
+(-> test-telemetry-recovered-denial-hook () null)
 (defun test-telemetry-recovered-denial-hook ()
   "Terminal success, ordinary failure, OS failure and cancellation win over a denied probe."
   (test-telemetry--call
@@ -137,6 +140,7 @@
                           "Only the terminal failure determines the exported error category.")))))))
   nil)
 
+(-> test-telemetry-mcp-policy-denial-hook () null)
 (defun test-telemetry-mcp-policy-denial-hook ()
   "Execute the MCP server-policy refusal through an actual agent turn."
   (test-telemetry--call
@@ -162,6 +166,7 @@
          (mcp-manager-close manager)))))
   nil)
 
+(-> test-telemetry-emacs-buffer-denial-hook () null)
 (defun test-telemetry-emacs-buffer-denial-hook ()
   "Read a non-file buffer with sandbox-only approval through resource.read."
   (test-telemetry--call
@@ -223,6 +228,7 @@
       (test-assert (getf (tool-result-details result) :fixture) "Specialized result details survive retention."))
     result))
 
+(-> test-telemetry-managed-denial-hook () null)
 (defun test-telemetry-managed-denial-hook ()
   "Keep real shell denials through job retention, reconstruction and agent export."
   (test-telemetry--call
@@ -257,6 +263,7 @@
          (task-orchestrator-close orchestrator)))))
   nil)
 
+(-> test-telemetry-outside-path-denial-hooks () null)
 (defun test-telemetry-outside-path-denial-hooks ()
   "Refused, sandbox-only and unavailable approvals deny paths without changing replies."
   (dolist (decision '(:deny :sandboxed :unavailable))
@@ -312,6 +319,7 @@
            (test-assert (not (search "outside-missing" body)) "Denied paths stay out of telemetry."))))))
   nil)
 
+(-> test-telemetry-resource-policy-denial-hooks () null)
 (defun test-telemetry-resource-policy-denial-hooks ()
   "Actual scheme and ownership policy failures retain access-denied and count as denials."
   (dolist (case '((restricted-scheme t "memory:relevant")

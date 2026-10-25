@@ -121,7 +121,7 @@
                                (run-job-event-read-stream stream))))
                  "incremental framing rejects unsafe or incomplete syntax"))
   (let ((cycle (list :count 1)))
-    (setf (cddr cycle) cycle)
+    (setf (rest (rest cycle)) cycle)
     (test-assert (run-job-event-tests--rejected-p
                   (lambda () (run-job-event--data-validate ':progress cycle)))
                  "cycles are rejected before printing"))
@@ -159,7 +159,7 @@
                         "bounded mutable payload is accepted")
            (fill identifier #\x)
            (fill uri #\x)
-           (setf (cddr data) data)
+           (setf (rest (rest data)) data)
            (test-assert (not (run-job-event-emit emitter ':tool-finished data))
                         "a cyclic producer value is rejected through public admission")
            (run-job-event-emit emitter ':progress '(:count 1))

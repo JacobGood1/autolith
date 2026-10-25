@@ -18,7 +18,6 @@
                             :provider nil :worker nil :agent nil
                             :tool-registry (make-default-tool-registry) :ui ui)))
       (with-terminal-ui (active-ui ui)
-        (declare (ignore active-ui))
         (let ((controller (application-input-controller-create
                            application :start-reader-p start-reader-p :load-pending-p nil)))
           (unwind-protect
@@ -410,7 +409,7 @@ its native method dispatch, terminal ownership, and the tour presenter real."
                         (test-assert (string= url "https://api.openai.com/v1/models")
                                      "the official API model endpoint is queried")
                         (test-assert
-                         (equal (cdr (assoc "Authorization" headers :test #'string-equal))
+                         (equal (rest (assoc "Authorization" headers :test #'string-equal))
                                 "Bearer onboarding-fixture-key")
                          "model discovery uses the privately saved key")
                         (incf requests)

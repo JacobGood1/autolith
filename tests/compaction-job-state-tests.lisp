@@ -9,7 +9,7 @@
    (lambda (parent runtime configuration)
      (declare (ignore configuration))
      (dotimes (index 24)
-       (declare (ignore index))
+       (declare (ignorable index))
        (job-completion-tests--start
         parent runtime :operation (lambda () (tool-success "output must not enter job context"))))
      (let* ((snapshot (task-unfinished-work-snapshot parent :limit 3))

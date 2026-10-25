@@ -17,12 +17,14 @@
 
 (defmethod agentcomms:client-session-update
     ((client acp-observer-test-client) session-id update params)
+  "Record UPDATE so tests can inspect the notifications the client received."
   (declare (ignore session-id params))
   (push update (acp-observer-test-client-updates client))
   nil)
 
 (defmethod agentcomms:client-request-permission
     ((client acp-observer-test-client) session-id tool-call options params)
+  "Snapshot the updates seen so far and select the client's configured permission choice."
   (declare (ignore session-id tool-call options params))
   (setf (acp-observer-test-client-permission-updates client)
         (reverse (acp-observer-test-client-updates client)))
@@ -35,6 +37,7 @@
       (agentcomms:json-object)
       (call-next-method)))
 
+(-> acp-observer-test-service (configuration) acp-service)
 (defun acp-observer-test-service (configuration)
   "Create a service suitable for direct observer protocol tests."
   (make-instance 'acp-service :configuration configuration))
@@ -42,7 +45,7 @@
 (-> test-acp-observer-streams-one-response () null)
 (defun test-acp-observer-streams-one-response ()
   "Exercise test-acp-observer-streams-one-response."
-  (with-test-configuration (configuration root)
+  (with-test-configuration (configuration)
     (let* ((service  (acp-observer-test-service configuration))
            (session
             (make-instance 'acp-session :service service :identifier "observer" :application
@@ -50,7 +53,6 @@
            (observer (make-instance 'acp-observer :session session :turn-sequence 7))
            (client   (make-instance 'acp-observer-test-client))
            (updates  nil))
-      (declare (ignore root))
       (multiple-value-bind (server client-channel)
           (agentcomms:make-acp-channel-pair)
         (unwind-protect

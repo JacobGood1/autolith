@@ -2417,7 +2417,6 @@ Resize tests drive size changes through COLUMNS and LINES."
     (let ((prompt-start    (expected-marker "A;redraw=0"))
           (input-start     (expected-marker "B"))
           (execution-start (expected-marker "C"))
-          (success         (expected-marker "D;0"))
           (failure         (expected-marker "D;7")))
       (let ((terminal
               (make-instance 'prompt-recording-terminal
@@ -2685,6 +2684,7 @@ Resize tests drive size changes through COLUMNS and LINES."
   (incf (prompt-recording-terminal-flush-count terminal))
   nil)
 
+(-> prompt-recording-terminal-write-count (prompt-recording-terminal) (integer 0))
 (defun prompt-recording-terminal-write-count (terminal)
   "Return the number of captured prompt marker writes."
   (length (prompt-recording-terminal-chunks terminal)))

@@ -2,6 +2,7 @@
 
 ;;;; -- Supervised Operation Retirement --
 
+(-> test-telemetry-concurrent-process-retirement () null)
 (defun test-telemetry-concurrent-process-retirement ()
   "Concurrent revokers wait through native teardown and the owner's final I/O cleanup."
   (test-telemetry--call
@@ -52,18 +53,16 @@
                         :name "test telemetry cleanup owner"))
                  (test-assert (bt:wait-on-semaphore stopping :timeout 2)
                               "The owner is paused during native teardown.")
-                 (dotimes (index 2)
-                   (declare (ignore index))
-                   (push (bt:make-thread
-                          (lambda ()
-                            (telemetry-quiesce)
-                            (bt:signal-semaphore retired))
-                          :name "test concurrent telemetry revoker")
-                         revokers))
-                 (dotimes (index 2)
-                   (declare (ignore index))
-                   (test-assert (bt:wait-on-semaphore retiring :timeout 2)
-                                "Each revoker finds the operation during owner cleanup."))
+                 (loop repeat 2
+                       do (push (bt:make-thread
+                                 (lambda ()
+                                   (telemetry-quiesce)
+                                   (bt:signal-semaphore retired))
+                                 :name "test concurrent telemetry revoker")
+                                revokers))
+                 (loop repeat 2
+                       do (test-assert (bt:wait-on-semaphore retiring :timeout 2)
+                                       "Each revoker finds the operation during owner cleanup."))
                  (test-assert (not (bt:wait-on-semaphore retired :timeout 0.05))
                               "Revocation waits for native teardown.")
                  (let ((lock (telemetry-controller-lock controller)))
@@ -77,18 +76,19 @@
                  (test-assert (not (bt:wait-on-semaphore retired :timeout 0.05))
                               "All revokers also wait for the owner's I/O cleanup.")
                  (bt:signal-semaphore release-completion)
-                 (dotimes (index 2)
-                   (declare (ignore index))
-                   (test-assert (bt:wait-on-semaphore retired :timeout 2)
-                                "Every simultaneous revoker observes operation completion.")))
+                 (loop repeat 2
+                       do (test-assert (bt:wait-on-semaphore retired :timeout 2)
+                                       "Every simultaneous revoker observes operation completion.")))
             (bt:signal-semaphore release-stop)
             (bt:signal-semaphore release-completion)
             (when owner (bt:join-thread owner))
             (dolist (thread revokers) (bt:join-thread thread)))
           (test-assert (= stops 1) "Concurrent retirement reaps the child exactly once.")
           (test-assert (null (telemetry-controller-processes controller))
-                       "The registry is empty only after complete teardown.")))))))
+                       "The registry is empty only after complete teardown."))))))
+  nil)
 
+(-> test-telemetry-process-admission-retirement () null)
 (defun test-telemetry-process-admission-retirement ()
   "Revocation covers the gap between child launch and successful or failed I/O-thread creation."
   (dolist (fail-p '(nil t))

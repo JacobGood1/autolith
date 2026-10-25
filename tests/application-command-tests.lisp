@@ -636,7 +636,10 @@
     (test-assert
      (handler-case
          (progn
-           (application--builtin-help-command application :extra :more)
+           ;; Call the registered handler so the compiler leaves the arity
+           ;; mismatch to the run-time check this case exercises.
+           (funcall (application-command-handler (application-command-find "/help"))
+                    application ':extra ':more)
            nil)
        (program-error ()
          t))

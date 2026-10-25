@@ -214,9 +214,9 @@
   "Test that discriminating probes find each remote-service fault, replacing speculative repairs."
   (let ((speculative 0)
         (diagnosed   0))
-    (loop for (fault expected-probes) in '(("unavailable" ("service.ping"))
-                                           ("stale-endpoint" ("service.ping" "service.config"))
-                                           ("credentials" ("service.ping" "service.config")))
+    (loop for (fault nil) in '(("unavailable" ("service.ping"))
+                               ("stale-endpoint" ("service.ping" "service.config"))
+                               ("credentials" ("service.ping" "service.config")))
           do (diagnosis-tests--call-with
               fault
               (lambda (configuration)

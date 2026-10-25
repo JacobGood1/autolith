@@ -2286,6 +2286,7 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
+(-> test-provider-stream-retries () null)
 (defun test-provider-stream-retries ()
   "Test bounded stream reconnection, observer events, and final failure."
   (let* ((configuration (test-configuration))

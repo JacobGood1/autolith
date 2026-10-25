@@ -1007,7 +1007,6 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                         '("alpha" "beta" "gamma explode" "delta"))
                  "map results keep the task order")
     (test-assert (loop for result in results
-                       for task in '("alpha" "beta" "delta")
                        always (or (getf result ':error)
                                   (search (getf result ':task)
                                           (getf result ':value))))

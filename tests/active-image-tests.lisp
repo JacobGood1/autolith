@@ -77,7 +77,7 @@
                                      :built-at (get-universal-time)
                                      :record   record))))
         (test-assert (and (member "--script" (command) :test #'string=)
-                          (string= "--worker" (car (last (command)))))
+                          (string= "--worker" (first (last (command)))))
                      "without an installed core the process loads from source")
         (install record)
         (test-assert (equal (rest (command))

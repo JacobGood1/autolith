@@ -558,10 +558,6 @@
          (root               (test-configuration-root base-configuration))
          (project            (merge-pathnames "project/" root))
          (skills             (merge-pathnames ".autolith/skills/" project))
-         (lower-skills
-           (merge-pathnames
-            "skills/"
-            (config :config-root base-configuration)))
          (configuration
            (progn
              (ensure-directories-exist

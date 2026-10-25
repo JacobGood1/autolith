@@ -2,6 +2,7 @@
 
 ;;;; -- Run Lifecycle and Consent Ownership --
 
+(-> test-telemetry-terminal-outcomes () null)
 (defun test-telemetry-terminal-outcomes ()
   "Classify every job state and boundary override with one outcome function."
   (dolist (case '((nil :error :internal "unfinished-run")
@@ -26,6 +27,7 @@
                  (format nil "Terminal classification: ~S" (first case))))
   nil)
 
+(-> test-telemetry-run-owner-token () null)
 (defun test-telemetry-run-owner-token ()
   "A borrowed run cannot finish; late reports and repeated finishes are harmless."
   (test-telemetry--call
@@ -52,6 +54,7 @@
        (test-assert (search "DEBUG" (get-output-stream-string diagnostics)) "Late reporting logs at debug level."))))
   nil)
 
+(-> test-telemetry-run-unwind () null)
 (defun test-telemetry-run-unwind ()
   "Non-local exits and errors close and flush their owner roots before propagating."
   (dolist (exit '(:throw :error))
@@ -79,6 +82,7 @@
          (test-assert (null (telemetry-controller-runs *telemetry-controller*)) "No root remains open.")))))
   nil)
 
+(-> test-telemetry-borrower-outcomes () null)
 (defun test-telemetry-borrower-outcomes ()
   "Borrower ordering is stable and a successful owner can handle child failures."
   (dolist (reports '(((:state :failed :error-type :provider) (:state :cancelled) (:state :completed))
@@ -109,6 +113,7 @@
                         "Equal outcomes select the same error type in either order."))))))
   nil)
 
+(-> test-telemetry-finish-freezes-counters () null)
 (defun test-telemetry-finish-freezes-counters ()
   "Completions during root upload cannot exceed the snapshotted counters."
   (test-telemetry--call
@@ -131,6 +136,7 @@
                          "Finalization freezes child admission and counters together.")))))))
   nil)
 
+(-> test-telemetry-detached-run-lifetime () null)
 (defun test-telemetry-detached-run-lifetime ()
   "A real pool child finishes and exports after the parent's run has closed."
   (test-telemetry--call
@@ -196,6 +202,7 @@
          (task-orchestrator-close orchestrator)))))
   nil)
 
+(-> test-telemetry-scheduler-run-ownership () null)
 (defun test-telemetry-scheduler-run-ownership ()
   "Scheduler owners finish through execution and publication unwinds; borrowers report only."
   (dolist (borrow-p '(nil t))
@@ -260,6 +267,7 @@
              (task-orchestrator-close orchestrator)))))))
   nil)
 
+(-> test-telemetry-headless-run-unwind () null)
 (defun test-telemetry-headless-run-unwind ()
   "A non-local headless executor exit still flushes its root before leaving."
   (test-telemetry--call
@@ -283,6 +291,7 @@
                       "An unreported boundary exit cannot claim success.")))))
   nil)
 
+(-> test-telemetry-recovered-process-trace () null)
 (defun test-telemetry-recovered-process-trace ()
   "Two fresh saved-core workers export one launcher trace with distinct attempt roots."
   (test-telemetry--call
@@ -373,6 +382,7 @@
                         "An unrelated child is never a recovered attempt."))))))
   nil)
 
+(-> test-telemetry-shell-context-isolation () null)
 (defun test-telemetry-shell-context-isolation ()
   "Full-access shell.run inherits no context after startup consumes it."
   (with-test-fixture (':posix-shell "ordinary child trace isolation")
@@ -405,6 +415,7 @@
              (tool-registry-close-runtime-state registry)))))))
   nil)
 
+(-> test-telemetry-launch-context-validation () null)
 (defun test-telemetry-launch-context-validation ()
   "Strictly validate external context and bounded decimal attempts without crashing."
   (let ((valid "00-11111111111111111111111111111111-2222222222222222-01"))
@@ -448,6 +459,7 @@
           (test-assert (search "WARNING" (get-output-stream-string *error-output*)) "Malformed attempts warn.")))))
   nil)
 
+(-> test-telemetry-launch-context-lifetime () null)
 (defun test-telemetry-launch-context-lifetime ()
   "Interactive turns never claim context; headless claims survive owner replacement."
   (test-telemetry--call
@@ -486,6 +498,7 @@
                              "Only the first headless owner adopts the launcher trace.")))))
   nil)
 
+(-> test-telemetry-scheduler-cancellation-publication () null)
 (defun test-telemetry-scheduler-cancellation-publication ()
   "An escaping cancellation finishes after the real pool's artifact publication."
   (dolist (case '((:cancelled nil "cancelled" "cancelled")
@@ -542,6 +555,7 @@
                         "Failure metadata includes publication status."))))))
   nil)
 
+(-> test-telemetry-launch-context-atomic-claim () null)
 (defun test-telemetry-launch-context-atomic-claim ()
   "Concurrent headless claimants consume the process context exactly once."
   (let ((previous *telemetry-launch-claimed-p*)
@@ -566,6 +580,7 @@
       (setf *telemetry-launch-claimed-p* previous)))
   nil)
 
+(-> test-telemetry-run-job-publication-outcomes () null)
 (defun test-telemetry-run-job-publication-outcomes ()
   "Finalize real headless traces only after contract checking and result publication."
   (dolist (case '(:success :missing-data :invalid-data :artifact-failure :result-publication-failed))
@@ -647,6 +662,7 @@
                              (format nil "~A: Invalid output is protocol failure; persistence failures are internal." case))))))))))
   nil)
 
+(-> test-telemetry-run-job-zero-request-failure () null)
 (defun test-telemetry-run-job-zero-request-failure ()
   "Respect a published provider failure even when no provider request started."
   (test-telemetry--call
@@ -677,6 +693,7 @@
                         "The terminal category, rather than request count, determines the root error."))))))
   nil)
 
+(-> test-telemetry-run-job-provider-failure () null)
 (defun test-telemetry-run-job-provider-failure ()
   "Export exactly one failed root for a real unlisted-model headless job."
   (test-telemetry--call
@@ -714,6 +731,7 @@
          (provider--registry-restore snapshot)))))
   nil)
 
+(-> test-telemetry-run-job-unregistered-model () null)
 (defun test-telemetry-run-job-unregistered-model ()
   "Classify real deferred unknown-model rejection honestly before any provider request."
   (test-telemetry--call
@@ -743,6 +761,7 @@
                       "A local configuration failure is not relabelled as a provider rejection.")))))
   nil)
 
+(-> test-telemetry-run-job-terminal-yields () null)
 (defun test-telemetry-run-job-terminal-yields ()
   "Use the published job state even when its agent turn returned normally."
   (dolist (case '(("success" :succeeded "success" nil)
@@ -777,6 +796,7 @@
                           "The terminal state determines the root category.")))))))
   nil)
 
+(-> test-telemetry-run-job-terminal-failures () null)
 (defun test-telemetry-run-job-terminal-failures ()
   "Export errors for publication failure and deadline cancellation after successful work."
   (dolist (case '((publication-failure nil :failed "internal")
@@ -820,6 +840,7 @@
                              (format nil "~A: The final job error retains its applicable category." (first case)))))))))))
   nil)
 
+(-> test-telemetry-run-protocol-failure () null)
 (defun test-telemetry-run-protocol-failure ()
   "Classify a real duplicate-call invariant failure at the root boundary."
   (test-telemetry--call
@@ -848,6 +869,7 @@
        (test-telemetry--collector-fixture "native-run-protocol.json" (json-decode (first bodies))))))
   nil)
 
+(-> test-telemetry-job-cancellation-hooks () null)
 (defun test-telemetry-job-cancellation-hooks ()
   "Preserve typed job timeout and cancellation at the root boundary."
   (test-telemetry--call
@@ -883,6 +905,7 @@
                       "Cancellation reports and job identifiers stay private.")))))
   nil)
 
+(-> test-telemetry-configuration-owner-hook () null)
 (defun test-telemetry-configuration-owner-hook ()
   "Replacing the owning application's configuration invalidates old runs and consent."
   (test-telemetry--call
@@ -911,6 +934,7 @@
        (test-assert (not (telemetry-controller-enabled *telemetry-controller*)) "The new default-off owner is authoritative."))))
   nil)
 
+(-> test-telemetry-secondary-root-settings () null)
 (defun test-telemetry-secondary-root-settings ()
   "Interactive ACP and application settings use the process consent authority."
   (test-telemetry--call

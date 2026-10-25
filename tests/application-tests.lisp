@@ -575,7 +575,6 @@
                      (search "Choose whether to install" text))
                 "a packaged release receives the cached banner warning")
                (with-terminal-ui (active-ui ui)
-                 (declare (ignore active-ui))
                  (application--offer-startup-update application))
                (test-assert
                 (application-update-availability application)
@@ -587,7 +586,6 @@
                (test-assert
                 (handler-case
                     (with-terminal-ui (active-ui ui)
-                      (declare (ignore active-ui))
                       (application--offer-startup-update application)
                       nil)
                   (update-requested (condition)
@@ -602,7 +600,6 @@
                        (list :history-next :history-next :submit)))
                     (ui (application-ui application)))
                (with-terminal-ui (active-ui ui)
-                 (declare (ignore active-ui))
                  (application--offer-startup-update application))
                (test-assert
                 (and (null (application-update-availability application))
@@ -1091,7 +1088,6 @@
            (setf (application-input-controller application) controller
                  (application-input-controller-active-p controller) t)
            (with-terminal-ui (active-ui ui)
-             (declare (ignore active-ui))
              (application-input-controller--process-event controller ':interrupt)
              (test-assert
               (application-input-controller-turn-cancellation-p controller)
@@ -1137,7 +1133,6 @@
     (setf (application-input-controller application) controller
           (application-input-controller-active-p controller) t)
     (with-terminal-ui (active-ui ui)
-      (declare (ignore active-ui))
       (application-input-controller--process-event controller ':interrupt)
       (application-input-controller--process-event controller ':interrupt)
       (test-assert (= forced-status *application-forced-interrupt-status*)
@@ -1164,7 +1159,6 @@
            (controller    nil))
       (unwind-protect
            (with-terminal-ui (active-ui ui)
-             (declare (ignore active-ui))
              (let ((*application-forced-exit-function*
                      (lambda (status)
                        (with-lock-held (status-lock)
@@ -1472,7 +1466,6 @@
                                        :ui            ui))
                       (controller nil))
                  (with-terminal-ui (active-ui ui)
-                   (declare (ignore active-ui))
                    (setf controller
                          (application-input-controller-create
                           application
@@ -4445,7 +4438,6 @@
                                              :agent         agent
                                              :ui            ui)))
            (with-terminal-ui (active-ui ui)
-             (declare (ignore active-ui))
              (recording-terminal-reset terminal)
              (application--run-turn application "hello")
              (test-assert
@@ -4596,7 +4588,6 @@
                 :continuations 0
                 :created-at    (get-universal-time)))
     (with-terminal-ui (active-ui ui)
-      (declare (ignore active-ui))
       (setf controller (application-input-controller-create application))
       (unwind-protect
            (progn
@@ -4738,7 +4729,6 @@
                 :continuations 0
                 :created-at    (get-universal-time)))
     (with-terminal-ui (active-ui ui)
-      (declare (ignore active-ui))
       (setf controller (application-input-controller-create application))
       (unwind-protect
            (progn
@@ -4861,7 +4851,6 @@
          (application (make-instance 'application :ui ui))
          (controller  nil))
     (with-terminal-ui (active-ui ui)
-      (declare (ignore active-ui))
       (setf controller
             (application-input-controller-create
              application
@@ -4895,7 +4884,6 @@
            (ui          (terminal-ui-create :terminal terminal))
            (application (make-instance 'application :ui ui)))
       (with-terminal-ui (active-ui ui)
-        (declare (ignore active-ui))
         (let ((controller (application-input-controller-create
                            application :start-reader-p start-reader-p :load-pending-p nil)))
           (unwind-protect
@@ -4985,7 +4973,6 @@
          (application (make-instance 'application :ui ui))
          (controller  nil))
     (with-terminal-ui (active-ui ui)
-      (declare (ignore active-ui))
       (setf controller
             (application-input-controller-create
              application
@@ -5047,7 +5034,6 @@
                     (application (make-instance 'application :ui ui))
                     (controller  nil))
                (with-terminal-ui (active-ui ui)
-                 (declare (ignore active-ui))
                  (setf controller
                        (application-input-controller-create
                         application
@@ -5108,7 +5094,7 @@
                                  "[Image #1] steer active message")
                         (equal (user-message-input-image-pathnames observed-input)
                                (list (truename image)))
-                        (getf (cdddr observed) :prefer-steering-p)
+                        (getf (nthcdr 3 observed) :prefer-steering-p)
                       (string=
                        (user-message-input-text steering-input)
                        "[Image #1] steer active message")
@@ -5141,7 +5127,7 @@
             (application-input-controller--process-event controller ':complete)))
          (test-assert
            (and (equal (third observed) "ordinary during local Lisp")
-                (null (getf (cdddr observed) :prefer-steering-p))
+                (null (getf (nthcdr 3 observed) :prefer-steering-p))
                (null (application-input-controller--state
                       controller :steering-items))
                (equal (application-input-controller--state controller :work-items)
@@ -5328,7 +5314,6 @@
          (application (make-instance 'application :ui ui))
          (controller  nil))
     (with-terminal-ui (active-ui ui)
-      (declare (ignore active-ui))
       (setf controller (application-input-controller-create application))
       (unwind-protect
            (progn
@@ -5361,7 +5346,6 @@
                                        (uiop:temporary-directory)))
          (controller  nil))
     (with-terminal-ui (active-ui ui)
-      (declare (ignore active-ui))
       (setf controller (application-input-controller-create application))
       (unwind-protect
            (progn
@@ -5477,7 +5461,6 @@
          (application (make-instance 'application :ui ui))
          (controller  nil))
     (with-terminal-ui (active-ui ui)
-      (declare (ignore active-ui))
       (setf controller (application-input-controller-create application))
       (unwind-protect
            (progn
@@ -5507,7 +5490,6 @@
          (application (make-instance 'application :ui ui))
          (controller  nil))
     (with-terminal-ui (active-ui ui)
-      (declare (ignore active-ui))
       (setf controller (application-input-controller-create application))
       (unwind-protect
            (progn
@@ -5555,7 +5537,6 @@
          (waiter-started-p nil)
          (waited-work      ':waiting))
     (with-terminal-ui (active-ui ui)
-      (declare (ignore active-ui))
       (setf controller (application-input-controller-create application))
       (unwind-protect
            (progn
@@ -5959,90 +5940,89 @@
                (set-activity other-newer 20)
                (set-activity current-older 30)
                (set-activity other-older 40)))
-           (let ((items (application--conversation-items application)))
-             (terminal-ui-start (application-ui application))
+           (terminal-ui-start (application-ui application))
+           (recording-terminal-reset terminal)
+           (setf (scripted-terminal-events terminal)
+                 (list '(:insert "d") :escape))
+           (test-assert (null (application--pick-conversation application))
+                        "escape cancels after refusing active deletion")
+           (test-assert
+             (and (conversation-storage-occupied-p
+                   (conversation-pathname active))
+                 (search "Cannot delete the active conversation."
+                         (recording-terminal-output terminal)))
+            "the resume picker refuses to delete its active conversation")
+           (let* ((failed
+                    (conversation-create
+                     configuration
+                     :identifier "cleanup-failure"))
+                  (failed-image-root
+                    (merge-pathnames
+                     "conversation-images/cleanup-failure/"
+                     (config :data-root configuration))))
+             (conversation-append-user-message failed "temporary")
+             (platform-set-file-times
+              *platform*
+              (conversation-log-pathname failed)
+              (- (get-universal-time) 25))
+             (snapshot-write
+              (merge-pathnames "image.sexp" failed-image-root)
+              '(:image))
              (recording-terminal-reset terminal)
              (setf (scripted-terminal-events terminal)
-                   (list '(:insert "d") :escape))
-             (test-assert (null (application--pick-conversation application))
-                          "escape cancels after refusing active deletion")
+                   (list :history-next '(:insert "d") :submit :escape))
+             (let ((*conversation-delete-directory-tree-function*
+                     (lambda (root &key validate if-does-not-exist)
+                       (declare (ignore root validate if-does-not-exist))
+                       (error "simulated cleanup failure"))))
+               (test-assert
+                (null (application--pick-conversation application))
+                "cleanup failure returns to browsing until escape"))
              (test-assert
-               (and (conversation-storage-occupied-p
-                     (conversation-pathname active))
-                   (search "Cannot delete the active conversation."
+               (and (not (conversation-storage-occupied-p
+                          (conversation-pathname failed)))
+                   (probe-file failed-image-root)
+                   (search "was deleted, but private artifacts remain"
                            (recording-terminal-output terminal)))
-              "the resume picker refuses to delete its active conversation")
-             (let* ((failed
-                      (conversation-create
-                       configuration
-                       :identifier "cleanup-failure"))
-                    (failed-image-root
-                      (merge-pathnames
-                       "conversation-images/cleanup-failure/"
-                       (config :data-root configuration))))
-               (conversation-append-user-message failed "temporary")
-               (platform-set-file-times
-                *platform*
-                (conversation-log-pathname failed)
-                (- (get-universal-time) 25))
-               (snapshot-write
-                (merge-pathnames "image.sexp" failed-image-root)
-                '(:image))
-               (recording-terminal-reset terminal)
-               (setf (scripted-terminal-events terminal)
-                     (list :history-next '(:insert "d") :submit :escape))
-               (let ((*conversation-delete-directory-tree-function*
-                       (lambda (root &key validate if-does-not-exist)
-                         (declare (ignore root validate if-does-not-exist))
-                         (error "simulated cleanup failure"))))
-                 (test-assert
-                  (null (application--pick-conversation application))
-                  "cleanup failure returns to browsing until escape"))
-               (test-assert
-                 (and (not (conversation-storage-occupied-p
-                            (conversation-pathname failed)))
-                     (probe-file failed-image-root)
-                     (search "was deleted, but private artifacts remain"
-                             (recording-terminal-output terminal)))
-                "the resume picker reports cleanup failure after committed deletion"))
+              "the resume picker reports cleanup failure after committed deletion"))
+           (setf (scripted-terminal-events terminal)
+                 (list :history-next
+                       '(:insert "d")
+                       :history-next
+                       :submit
+                       :escape))
+           (test-assert (null (application--pick-conversation application))
+                        "keeping a conversation returns to the browse picker")
+           (test-assert
+            (conversation-storage-occupied-p
+             (conversation-pathname current-older))
+            "the keep confirmation preserves the conversation")
+           (let ((image-root
+                   (merge-pathnames "conversation-images/current-older/"
+                                    (config :data-root configuration)))
+                 (task-root
+                   (merge-pathnames "tasks/current-older/"
+                                    (config :data-root configuration))))
+             (snapshot-write (merge-pathnames "image.sexp" image-root)
+                             '(:image))
+             (snapshot-write (merge-pathnames "task/result.sexp" task-root)
+                             '(:task))
+             (recording-terminal-reset terminal)
              (setf (scripted-terminal-events terminal)
-                   (list :history-next
-                         '(:insert "d")
-                         :history-next
-                         :submit
-                         :escape))
+                   (list :history-next '(:insert "d") :submit :escape))
              (test-assert (null (application--pick-conversation application))
-                          "keeping a conversation returns to the browse picker")
+                          "deletion returns to browsing until escape")
              (test-assert
-              (conversation-storage-occupied-p
-               (conversation-pathname current-older))
-              "the keep confirmation preserves the conversation")
-             (let ((image-root
-                     (merge-pathnames "conversation-images/current-older/"
-                                      (config :data-root configuration)))
-                   (task-root
-                     (merge-pathnames "tasks/current-older/"
-                                      (config :data-root configuration))))
-               (snapshot-write (merge-pathnames "image.sexp" image-root)
-                               '(:image))
-               (snapshot-write (merge-pathnames "task/result.sexp" task-root)
-                               '(:task))
-               (recording-terminal-reset terminal)
-               (setf (scripted-terminal-events terminal)
-                     (list :history-next '(:insert "d") :submit :escape))
-               (test-assert (null (application--pick-conversation application))
-                            "deletion returns to browsing until escape")
-               (test-assert
-                 (and (not (conversation-storage-occupied-p
-                            (conversation-pathname current-older)))
-                     (not (probe-file image-root))
-                     (not (probe-file task-root)))
-                "confirmed picker deletion removes the conversation and artifacts")
-               (test-assert
-                 (search "Deleted conversation Older saved conversation."
-                         (recording-terminal-output terminal))
-                "confirmed picker deletion reports the removed conversation"))
-             (terminal-ui-stop (application-ui application))))
+               (and (not (conversation-storage-occupied-p
+                          (conversation-pathname current-older)))
+                   (not (probe-file image-root))
+                   (not (probe-file task-root)))
+              "confirmed picker deletion removes the conversation and artifacts")
+             (test-assert
+               (search "Deleted conversation Older saved conversation."
+                       (recording-terminal-output terminal))
+              "confirmed picker deletion reports the removed conversation"))
+           (terminal-ui-stop (application-ui application)))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   (let ((application (application-tests--ui-application :columns 60)))
     (test-assert (handler-case
@@ -6076,7 +6056,6 @@
           (not (application-sync-window-title application)))
      "an unstarted UI writes no window title")
     (with-terminal-ui (ui (application-ui application))
-      (declare (ignore ui))
       (recording-terminal-reset terminal)
       (test-assert
        (and (application-sync-window-title application)
@@ -6672,323 +6651,322 @@
     (ensure-directories-exist workspace-two)
     (application-connect-task-presentation application)
     (unwind-protect
-         (progn
-           (let* ((old-orchestrator
-                    (application--task-orchestrator application))
-                  (workspace-registry
-                    (application-tests--replacement-registry
-                     "workspace-new"
-                     (lambda () (incf workspace-close-count))
-                     :resume-function
-                     (lambda () (incf workspace-resume-count)))))
-             (push workspace-registry owned-registries)
-             (test-call-with-function-replacements
-              (list
-               (list
-                'application--create-tool-registry
-                (lambda (configuration)
-                  (declare (ignore configuration))
-                  workspace-registry))
-               (list
-                'lisp-worker-manager-change-working-directory
-                (lambda (manager configuration)
-                  (declare (ignore manager configuration))
-                  nil)))
-              (lambda ()
-                (application-set-working-directory
-                 application workspace-one)))
-             (let ((workspace-orchestrator
-                     (application--task-orchestrator application)))
-               (test-assert
-                (and
-                 (= old-close-count 1)
-                 (eq (application-tool-registry application)
-                     workspace-registry)
-                 (eq
-                  (agent-tool-registry (application-agent application))
-                  workspace-registry)
-                 (tool-registry-find
-                  workspace-registry "transition" "workspace-new")
-                 (null
-                  (tool-registry-find
-                   workspace-registry "transition" "old"))
-                 (search
-                  "workspace-new"
-                  (json-encode
-                   (tool-registry-provider-schemas workspace-registry))))
-                "a workspace switch advertises only the fresh tool schema")
-               (test-assert
-                (and old-orchestrator
-                     workspace-orchestrator
-                     (not (eq old-orchestrator workspace-orchestrator))
-                     (eq
-                      (job-pool-lifecycle-state (task-orchestrator-pool old-orchestrator))
-                      ':closed)
-                     (eq
-                      (job-pool-lifecycle-state
-                       (task-orchestrator-pool workspace-orchestrator))
-                      ':open))
-                "a workspace switch replaces and restarts task runtimes")
-               (let ((active-configuration
-                       (application-configuration application))
-                     (active-conversation
-                       (application-conversation application))
-                     (active-provider
-                       (application-provider application))
-                     (active-agent
-                       (application-agent application))
-                     (active-process-directory (uiop:getcwd)))
-                 (test-call-with-function-replacements
-                  (list
-                   (list
-                    'application--create-tool-registry
-                    (lambda (configuration)
-                      (declare (ignore configuration))
-                      (error
-                       'mcp-server-startup-error
-                       :message     "Required MCP server failed."
-                       :server-name "required"
-                       :required-p  t
-                       :cause       nil))))
-                  (lambda ()
-                    (test-assert
-                     (handler-case
-                         (progn
-                           (application-set-working-directory
-                            application workspace-two)
-                           nil)
-                       (working-directory-error (condition)
-                         (eq
-                          (working-directory-error-stage condition)
-                          ':tools)))
-                     "required MCP failure aborts workspace preparation")))
-                 (test-assert
-                  (and
-                   (eq (application-configuration application)
-                       active-configuration)
-                   (eq (application-conversation application)
-                       active-conversation)
-                   (eq (application-provider application)
-                       active-provider)
-                   (eq (application-tool-registry application)
-                       workspace-registry)
-                   (eq (application-agent application) active-agent)
-                   (equal (uiop:getcwd) active-process-directory)
-                   (= workspace-close-count 1)
-                   (= workspace-resume-count 1)
+         (let* ((old-orchestrator
+                  (application--task-orchestrator application))
+                (workspace-registry
+                  (application-tests--replacement-registry
+                   "workspace-new"
+                   (lambda () (incf workspace-close-count))
+                   :resume-function
+                   (lambda () (incf workspace-resume-count)))))
+           (push workspace-registry owned-registries)
+           (test-call-with-function-replacements
+            (list
+             (list
+              'application--create-tool-registry
+              (lambda (configuration)
+                (declare (ignore configuration))
+                workspace-registry))
+             (list
+              'lisp-worker-manager-change-working-directory
+              (lambda (manager configuration)
+                (declare (ignore manager configuration))
+                nil)))
+            (lambda ()
+              (application-set-working-directory
+               application workspace-one)))
+           (let ((workspace-orchestrator
+                   (application--task-orchestrator application)))
+             (test-assert
+              (and
+               (= old-close-count 1)
+               (eq (application-tool-registry application)
+                   workspace-registry)
+               (eq
+                (agent-tool-registry (application-agent application))
+                workspace-registry)
+               (tool-registry-find
+                workspace-registry "transition" "workspace-new")
+               (null
+                (tool-registry-find
+                 workspace-registry "transition" "old"))
+               (search
+                "workspace-new"
+                (json-encode
+                 (tool-registry-provider-schemas workspace-registry))))
+              "a workspace switch advertises only the fresh tool schema")
+             (test-assert
+              (and old-orchestrator
+                   workspace-orchestrator
+                   (not (eq old-orchestrator workspace-orchestrator))
+                   (eq
+                    (job-pool-lifecycle-state (task-orchestrator-pool old-orchestrator))
+                    ':closed)
                    (eq
                     (job-pool-lifecycle-state
                      (task-orchestrator-pool workspace-orchestrator))
-                    ':open)
-                   (tool-registry-find
-                    workspace-registry "transition" "workspace-new"))
-                  "failed workspace preparation leaves the old application live"))
-              (let* ((conversation-registry
-                       (application-tests--replacement-registry
-                        "conversation-new"
-                        (lambda () (incf conversation-close-count))))
-                     (workspace-orchestrator
-                       (application--task-orchestrator application)))
-                (push conversation-registry owned-registries)
-                (conversation-append-user-message
-                 second-conversation "second conversation history")
-                (terminal-ui-load-history ui '("workspace history"))
-                (terminal-ui-set-input ui "draft before install")
-                (test-call-with-function-replacements
+                    ':open))
+              "a workspace switch replaces and restarts task runtimes")
+             (let ((active-configuration
+                     (application-configuration application))
+                   (active-conversation
+                     (application-conversation application))
+                   (active-provider
+                     (application-provider application))
+                   (active-agent
+                     (application-agent application))
+                   (active-process-directory (uiop:getcwd)))
+               (test-call-with-function-replacements
+                (list
                  (list
-                  (list
-                   'application--create-tool-registry
-                   (lambda (configuration)
-                     (declare (ignore configuration))
-                     conversation-registry))
-                  (list
-                   'application-publish-recovery-session
-                   (lambda (installed-application)
+                  'application--create-tool-registry
+                  (lambda (configuration)
+                    (declare (ignore configuration))
+                    (error
+                     'mcp-server-startup-error
+                     :message     "Required MCP server failed."
+                     :server-name "required"
+                     :required-p  t
+                     :cause       nil))))
+                (lambda ()
+                  (test-assert
+                   (handler-case
+                       (progn
+                         (application-set-working-directory
+                          application workspace-two)
+                         nil)
+                     (working-directory-error (condition)
+                       (eq
+                        (working-directory-error-stage condition)
+                        ':tools)))
+                   "required MCP failure aborts workspace preparation")))
+               (test-assert
+                (and
+                 (eq (application-configuration application)
+                     active-configuration)
+                 (eq (application-conversation application)
+                     active-conversation)
+                 (eq (application-provider application)
+                     active-provider)
+                 (eq (application-tool-registry application)
+                     workspace-registry)
+                 (eq (application-agent application) active-agent)
+                 (equal (uiop:getcwd) active-process-directory)
+                 (= workspace-close-count 1)
+                 (= workspace-resume-count 1)
+                 (eq
+                  (job-pool-lifecycle-state
+                   (task-orchestrator-pool workspace-orchestrator))
+                  ':open)
+                 (tool-registry-find
+                  workspace-registry "transition" "workspace-new"))
+                "failed workspace preparation leaves the old application live"))
+            (let* ((conversation-registry
+                     (application-tests--replacement-registry
+                      "conversation-new"
+                      (lambda () (incf conversation-close-count))))
+                   (workspace-orchestrator
+                     (application--task-orchestrator application)))
+              (push conversation-registry owned-registries)
+              (conversation-append-user-message
+               second-conversation "second conversation history")
+              (terminal-ui-load-history ui '("workspace history"))
+              (terminal-ui-set-input ui "draft before install")
+              (test-call-with-function-replacements
+               (list
+                (list
+                 'application--create-tool-registry
+                 (lambda (configuration)
+                   (declare (ignore configuration))
+                   conversation-registry))
+                (list
+                 'application-publish-recovery-session
+                 (lambda (installed-application)
+                   (test-assert
+                    (eq installed-application application)
+                    "the late installation hook receives the active application")
+                   (terminal-ui-set-input ui "concurrent draft")
+                   (terminal-ui-process-event ui :left)
+                   nil)))
+               (lambda ()
+                 (application-install-conversation
+                  application second-conversation)))
+              (let ((conversation-orchestrator
+                      (application--task-orchestrator application)))
+                (test-assert
+                 (and
+                  (= workspace-close-count 2)
+                  (eq (application-conversation application)
+                      second-conversation)
+                  (eq (application-tool-registry application)
+                      conversation-registry)
+                  (eq
+                   (agent-tool-registry
+                    (application-agent application))
+                   conversation-registry)
+                  (tool-registry-find
+                   conversation-registry
+                   "transition"
+                   "conversation-new")
+                  (null
+                   (tool-registry-find
+                    conversation-registry
+                    "transition"
+                    "workspace-new"))
+                  (conversation-lease-matches-p
+                   (application-conversation-lease application)
+                   (conversation-identifier second-conversation))
+                  (search
+                   "conversation-new"
+                   (json-encode
+                    (tool-registry-provider-schemas
+                     conversation-registry))))
+                 "conversation installation advertises only fresh tool schemas")
+                (test-assert
+                 (and
+                  (equalp
+                   (line-editor-history editor)
+                   #("second conversation history"))
+                  (string= (line-editor-text editor) "concurrent draft")
+                  (= (line-editor-cursor editor) 15)
+                  (not (terminal-ui--editor-history-navigating-p editor)))
+                 "conversation installation preserves input entered before its final history commit")
+                (test-assert
+                 (and
+                  (eq
+                   (job-pool-lifecycle-state
+                    (task-orchestrator-pool workspace-orchestrator))
+                   ':closed)
+                  (eq
+                   (job-pool-lifecycle-state
+                    (task-orchestrator-pool conversation-orchestrator))
+                   ':open)
+                  (not
+                   (eq workspace-orchestrator
+                       conversation-orchestrator)))
+                 "conversation installation replaces and restarts task runtimes")
+                (terminal-ui-load-history ui '("old one" "old two"))
+                (terminal-ui-set-input ui "draft before failed install")
+                (terminal-ui-process-event ui :left)
+                (let* ((expected-history
+                         (copy-seq (line-editor-history editor)))
+                       (failed-close-count 0)
+                       (failed-registry
+                         (application-tests--replacement-registry
+                          "conversation-failed"
+                          (lambda () (incf failed-close-count)))))
+                  (push failed-registry owned-registries)
+                  (conversation-append-user-message
+                   third-conversation "replacement history")
+                  (test-call-with-function-replacements
+                   (list
+                    (list
+                     'application--create-tool-registry
+                     (lambda (configuration)
+                       (declare (ignore configuration))
+                       failed-registry))
+                    (list
+                     'context-runtime-reset
+                     (lambda ()
+                       (terminal-ui-set-input
+                        ui "input during failed install")
+                       (terminal-ui-process-event ui :left)
+                       (error "late conversation install failure"))))
+                   (lambda ()
                      (test-assert
-                      (eq installed-application application)
-                      "the late installation hook receives the active application")
-                     (terminal-ui-set-input ui "concurrent draft")
-                     (terminal-ui-process-event ui :left)
-                     nil)))
-                 (lambda ()
-                   (application-install-conversation
-                    application second-conversation)))
-                (let ((conversation-orchestrator
-                        (application--task-orchestrator application)))
+                      (handler-case
+                          (progn
+                            (application-install-conversation
+                             application third-conversation)
+                            nil)
+                        (application-runtime-replacement-error (condition)
+                          (eq
+                           (application-runtime-replacement-error-stage condition)
+                           ':install)))
+                      "late conversation failure enters installation rollback")))
                   (test-assert
                    (and
-                    (= workspace-close-count 2)
+                    (= failed-close-count 1)
+                    (equalp (line-editor-history editor) expected-history)
+                    (string=
+                     (line-editor-text editor)
+                     "input during failed install")
+                    (= (line-editor-cursor editor)
+                       (1- (length "input during failed install")))
+                    (not (terminal-ui--editor-history-navigating-p editor)))
+                   "conversation rollback leaves history and concurrent input untouched"))
+                (let ((active-configuration
+                        (application-configuration application))
+                      (active-provider
+                        (application-provider application))
+                      (active-registry
+                        (application-tool-registry application))
+                      (active-agent
+                        (application-agent application))
+                      (active-rendered-sequence
+                        (application-rendered-sequence application))
+                      (active-close-count conversation-close-count)
+                      (attempted-lease    nil)
+                      (lease-acquire-function
+                        (symbol-function 'conversation-lease-acquire)))
+                  (test-call-with-function-replacements
+                   (list
+                    (list
+                     'conversation-lease-acquire
+                     (lambda (replacement-configuration identifier)
+                       (setf attempted-lease
+                             (funcall
+                              lease-acquire-function
+                              replacement-configuration
+                              identifier))))
+                    (list
+                     'application--create-tool-registry
+                     (lambda (configuration)
+                       (declare (ignore configuration))
+                       (error
+                        'mcp-server-startup-error
+                        :message     "Required MCP server failed."
+                        :server-name "required"
+                        :required-p  t
+                        :cause       nil))))
+                   (lambda ()
+                     (test-assert
+                      (handler-case
+                          (progn
+                            (application-install-conversation
+                             application third-conversation)
+                            nil)
+                        (mcp-server-startup-error (condition)
+                          (mcp-server-startup-error-required-p condition)))
+                      "required MCP failure aborts conversation preparation")))
+                  (test-assert
+                   (and
+                    (eq (application-configuration application)
+                        active-configuration)
                     (eq (application-conversation application)
                         second-conversation)
+                    (eq (application-provider application)
+                        active-provider)
                     (eq (application-tool-registry application)
-                        conversation-registry)
-                    (eq
-                     (agent-tool-registry
-                      (application-agent application))
-                     conversation-registry)
-                    (tool-registry-find
-                     conversation-registry
-                     "transition"
-                     "conversation-new")
-                    (null
-                     (tool-registry-find
-                      conversation-registry
-                      "transition"
-                      "workspace-new"))
+                        active-registry)
+                    (eq (application-agent application) active-agent)
+                    (= (application-rendered-sequence application)
+                       active-rendered-sequence)
                     (conversation-lease-matches-p
                      (application-conversation-lease application)
                      (conversation-identifier second-conversation))
-                    (search
-                     "conversation-new"
-                     (json-encode
-                      (tool-registry-provider-schemas
-                       conversation-registry))))
-                   "conversation installation advertises only fresh tool schemas")
-                  (test-assert
-                   (and
-                    (equalp
-                     (line-editor-history editor)
-                     #("second conversation history"))
-                    (string= (line-editor-text editor) "concurrent draft")
-                    (= (line-editor-cursor editor) 15)
-                    (not (terminal-ui--editor-history-navigating-p editor)))
-                   "conversation installation preserves input entered before its final history commit")
-                  (test-assert
-                   (and
-                    (eq
-                     (job-pool-lifecycle-state
-                      (task-orchestrator-pool workspace-orchestrator))
-                     ':closed)
+                    attempted-lease
+                    (not (conversation-lease-held-p attempted-lease))
+                    (= conversation-close-count active-close-count)
                     (eq
                      (job-pool-lifecycle-state
                       (task-orchestrator-pool conversation-orchestrator))
                      ':open)
-                    (not
-                     (eq workspace-orchestrator
-                         conversation-orchestrator)))
-                   "conversation installation replaces and restarts task runtimes")
-                  (terminal-ui-load-history ui '("old one" "old two"))
-                  (terminal-ui-set-input ui "draft before failed install")
-                  (terminal-ui-process-event ui :left)
-                  (let* ((expected-history
-                           (copy-seq (line-editor-history editor)))
-                         (failed-close-count 0)
-                         (failed-registry
-                           (application-tests--replacement-registry
-                            "conversation-failed"
-                            (lambda () (incf failed-close-count)))))
-                    (push failed-registry owned-registries)
-                    (conversation-append-user-message
-                     third-conversation "replacement history")
-                    (test-call-with-function-replacements
-                     (list
-                      (list
-                       'application--create-tool-registry
-                       (lambda (configuration)
-                         (declare (ignore configuration))
-                         failed-registry))
-                      (list
-                       'context-runtime-reset
-                       (lambda ()
-                         (terminal-ui-set-input
-                          ui "input during failed install")
-                         (terminal-ui-process-event ui :left)
-                         (error "late conversation install failure"))))
-                     (lambda ()
-                       (test-assert
-                        (handler-case
-                            (progn
-                              (application-install-conversation
-                               application third-conversation)
-                              nil)
-                          (application-runtime-replacement-error (condition)
-                            (eq
-                             (application-runtime-replacement-error-stage condition)
-                             ':install)))
-                        "late conversation failure enters installation rollback")))
-                    (test-assert
-                     (and
-                      (= failed-close-count 1)
-                      (equalp (line-editor-history editor) expected-history)
-                      (string=
-                       (line-editor-text editor)
-                       "input during failed install")
-                      (= (line-editor-cursor editor)
-                         (1- (length "input during failed install")))
-                      (not (terminal-ui--editor-history-navigating-p editor)))
-                     "conversation rollback leaves history and concurrent input untouched"))
-                  (let ((active-configuration
-                          (application-configuration application))
-                        (active-provider
-                          (application-provider application))
-                        (active-registry
-                          (application-tool-registry application))
-                        (active-agent
-                          (application-agent application))
-                        (active-rendered-sequence
-                          (application-rendered-sequence application))
-                        (active-close-count conversation-close-count)
-                        (attempted-lease    nil)
-                        (lease-acquire-function
-                          (symbol-function 'conversation-lease-acquire)))
-                    (test-call-with-function-replacements
-                     (list
-                      (list
-                       'conversation-lease-acquire
-                       (lambda (replacement-configuration identifier)
-                         (setf attempted-lease
-                               (funcall
-                                lease-acquire-function
-                                replacement-configuration
-                                identifier))))
-                      (list
-                       'application--create-tool-registry
-                       (lambda (configuration)
-                         (declare (ignore configuration))
-                         (error
-                          'mcp-server-startup-error
-                          :message     "Required MCP server failed."
-                          :server-name "required"
-                          :required-p  t
-                          :cause       nil))))
-                     (lambda ()
-                       (test-assert
-                        (handler-case
-                            (progn
-                              (application-install-conversation
-                               application third-conversation)
-                              nil)
-                          (mcp-server-startup-error (condition)
-                            (mcp-server-startup-error-required-p condition)))
-                        "required MCP failure aborts conversation preparation")))
-                    (test-assert
-                     (and
-                      (eq (application-configuration application)
-                          active-configuration)
-                      (eq (application-conversation application)
-                          second-conversation)
-                      (eq (application-provider application)
-                          active-provider)
-                      (eq (application-tool-registry application)
-                          active-registry)
-                      (eq (application-agent application) active-agent)
-                      (= (application-rendered-sequence application)
-                         active-rendered-sequence)
-                      (conversation-lease-matches-p
-                       (application-conversation-lease application)
-                       (conversation-identifier second-conversation))
-                      attempted-lease
-                      (not (conversation-lease-held-p attempted-lease))
-                      (= conversation-close-count active-close-count)
-                      (eq
-                       (job-pool-lifecycle-state
-                        (task-orchestrator-pool conversation-orchestrator))
-                       ':open)
-                      (tool-registry-find
-                       conversation-registry
-                       "transition"
-                       "conversation-new"))
-                     "failed conversation preparation leaves the old application live")))))))
+                    (tool-registry-find
+                     conversation-registry
+                     "transition"
+                     "conversation-new"))
+                   "failed conversation preparation leaves the old application live"))))))
       (ignore-errors
         (application-disconnect-task-presentation application))
       (application-release-conversation-lease application)
@@ -8202,7 +8180,6 @@
                                 "gpt-5.6-luna")))))
              (unwind-protect
                   (with-terminal-ui (active-ui ui)
-                    (declare (ignore active-ui))
                     (test-assert
                      (eq (application-command application
                                               "/model gpt-5.6-luna")
@@ -9324,7 +9301,6 @@
                                :summary   "Rebuild or drop the 1 private definition skipped at startup.")))
       (conversation-append-user-message conversation "typed by the user")
       (with-terminal-ui (active-ui ui)
-        (declare (ignore active-ui))
         (recording-terminal-reset terminal)
         (application--run-turn application text :operation-request request)
         (let ((output (recording-terminal-output terminal))

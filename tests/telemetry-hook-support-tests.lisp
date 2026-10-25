@@ -11,6 +11,7 @@
                    (format nil "~A: ~A" name message))))
   nil)
 
+(-> test-telemetry-hooks--capture (configuration function) (values list list))
 (defun test-telemetry-hooks--capture (configuration function)
   "Capture offline uploads while exercising the actual lifecycle wrappers."
   (setf (config :telemetry-enabled-p configuration) t)
@@ -30,6 +31,7 @@
           (when thread (bt:join-thread thread)))
         (values (nreverse bodies) results)))))
 
+(-> test-telemetry-hooks--kind (string string) list)
 (defun test-telemetry-hooks--kind (body kind)
   "Select spans by their fixed public event kind."
   (remove-if-not
@@ -37,6 +39,7 @@
      (equal (test-telemetry--attribute span "autolith.event.kind") kind))
    (coerce (test-telemetry--spans body) 'list)))
 
+(-> test-telemetry-hooks--merge-bodies (list) (option string))
 (defun test-telemetry-hooks--merge-bodies (bodies)
   "Combine batches from one captured turn for projection assertions and collector fixtures."
   (when bodies
@@ -47,6 +50,10 @@
             (coerce (loop for body in bodies append (coerce (test-telemetry--spans body) 'list)) 'vector))
       (json-encode envelope))))
 
+(-> test-telemetry-hooks--run-job
+    (configuration model-provider
+     &key (:timeout-seconds (integer 1)) (:publish-p boolean) (:tools list))
+    (values list list))
 (defun test-telemetry-hooks--run-job (configuration provider &key (timeout-seconds 30) publish-p tools)
   "Run a real headless child with offline uploads and deterministic application wiring."
   (let* ((application (mission-test--application configuration))
@@ -94,6 +101,7 @@
                   append (coerce (test-telemetry--spans body) 'list))
             results)))
 
+(-> test-telemetry-hooks--assert-attempts (string (integer 0)) null)
 (defun test-telemetry-hooks--assert-attempts (body count)
   "Require one span per actual attempt and an exact root counter."
   (let ((models (test-telemetry-hooks--kind body "model"))
@@ -101,8 +109,18 @@
     (test-assert (= (length models) count) "Every attempted request has one model span.")
     (test-assert (equal (test-telemetry--attribute root "autolith.run.model_calls")
                         (write-to-string count))
-                 "The root counts real attempts, without an outer fallback duplicate.")))
+                 "The root counts real attempts, without an outer fallback duplicate."))
+  nil)
 
+(-> test-telemetry-hooks--tool-attempts
+    (configuration list
+     &key
+     (:observer agent-observer)
+     (:restricted-p boolean)
+     (:conversation conversation)
+     (:registry tool-registry)
+     (:agent (option agent)))
+    (values list list (option string)))
 (defun test-telemetry-hooks--tool-attempts
     (configuration calls &key (observer (make-instance 'agent-observer)) restricted-p
                               (conversation (conversation-create configuration))
@@ -133,10 +151,12 @@
               (agent-test-tool-outputs conversation)
               body))))
 
+(-> test-telemetry-hooks--assert-failure (hash-table string string) null)
 (defun test-telemetry-hooks--assert-failure (span outcome code)
   "Assert the exported failure OUTCOME and CODE for one real emitter's SPAN."
   (test-assert (and (equal outcome (test-telemetry--attribute span "autolith.tool.outcome"))
                     (equal code (test-telemetry--attribute span "autolith.tool.error_code"))
                     (equal (if (equal outcome "permission_denied") "permission" "tool")
                            (test-telemetry--attribute span "error.type")))
-               (format nil "Expected ~A with ~A from the real refusal." outcome code)))
+               (format nil "Expected ~A with ~A from the real refusal." outcome code))
+  nil)

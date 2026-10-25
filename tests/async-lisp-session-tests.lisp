@@ -2,6 +2,7 @@
 
 ;;;; -- Async Lisp Session Persistence --
 
+(-> test-conversation-async-lisp-session-durable-append-reload () null)
 (defun test-conversation-async-lisp-session-durable-append-reload ()
   "Persist queued events and once-only deliveries, including a failed append retry."
   (with-test-configuration (configuration root)
@@ -39,8 +40,10 @@
         (test-assert
          (equal (mapcar #'json-encode (conversation-input-items conversation))
                 (mapcar #'json-encode (conversation-input-items reloaded)))
-         "replay preserves the exact delivered model messages")))))
+         "replay preserves the exact delivered model messages"))))
+  nil)
 
+(-> test-conversation-async-lisp-session-delayed-projection () null)
 (defun test-conversation-async-lisp-session-delayed-projection ()
   "Wait for every call in a parallel batch, then deliver at the agent boundary."
   (with-test-configuration (configuration root)
@@ -65,8 +68,10 @@
       (test-assert (= 5 (length (conversation-input-items conversation)))
                    "the safe agent boundary delivers the pending submission")
       (test-assert (zerop (conversation-flush-async-lisp-events conversation))
-                   "the boundary delivers each event once"))))
+                   "the boundary delivers each event once")))
+  nil)
 
+(-> test-conversation-async-lisp-session-repeated-source-identifiers () null)
 (defun test-conversation-async-lisp-session-repeated-source-identifiers ()
   "Keep explicit identities when identical forms finish in reverse order."
   (with-test-configuration (configuration root)
@@ -97,4 +102,5 @@
            (progn (conversation--project-record ':async-lisp-event conversation
                                                  '(:source "? x" :kind :result)) nil)
          (conversation-invariant-error () t))
-       "malformed persisted async events are rejected"))))
+       "malformed persisted async events are rejected")))
+  nil)

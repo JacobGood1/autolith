@@ -2,6 +2,7 @@
 
 ;;;; -- LSP Integration Tests --
 
+(-> lsp-client-tests--configuration (&key (:name string) (:command string)) lsp-server-configuration)
 (defun lsp-client-tests--configuration (&key (name "test") (command "test-lsp"))
   "Build a small server configuration for client tests."
   (make-instance 'lsp-server-configuration :name name :command command :arguments nil
@@ -9,6 +10,7 @@
                  :initialization-options (json-object) :settings (json-object)
                  :timeout-seconds 1 :disabled-p nil))
 
+(-> lsp-client-tests--client ((or pathname string) &key (:capabilities t) (:transport t)) lsp-client)
 (defun lsp-client-tests--client (root &key capabilities transport)
   "Build a client without starting a process."
   (let ((client (make-instance 'lsp-client
@@ -26,6 +28,7 @@
   "Run BODY while temporarily replacing the listed functions."
   `(test-call-with-function-replacements ,replacements (lambda () ,@body)))
 
+(-> lsp-client-tests--write (configuration string string) pathname)
 (defun lsp-client-tests--write (configuration name text)
   "Write TEXT beneath CONFIGURATION's temporary workspace."
   (let ((path (merge-pathnames name (test-configuration-root configuration))))
@@ -58,6 +61,7 @@
                         (not (json-get decoded "truncated")))
                    "complete small results preserve their structured values"))))
 
+(-> test-lsp-tool-position-and-query () null)
 (defun test-lsp-tool-position-and-query ()
   "Test one-based UTF-16 tool positions and read-only query dispatch."
   (with-test-configuration (configuration)
@@ -79,7 +83,8 @@
                      (setf observed (list method params))
                      (json-object "contents" "ok"))))
        (lsp-client-tests--assert (string= (json-get (lsp-tool--query client document arguments) "contents") "ok"))
-       (lsp-client-tests--assert (string= (first observed) "textDocument/hover"))))))
+       (lsp-client-tests--assert (string= (first observed) "textDocument/hover")))))
+  nil)
 
 (-> test-lsp-tool-conditional-registration () null)
 (defun test-lsp-tool-conditional-registration ()

@@ -2,6 +2,7 @@
 
 ;;;; -- Real Background Upload Lifecycle --
 
+(-> test-telemetry-background-completion () null)
 (defun test-telemetry-background-completion ()
   "A blocked or failing uploader cannot delay run completion or replace its values/errors."
   (test-telemetry--call
@@ -41,8 +42,10 @@
            (when thread (bt:join-thread thread)))
          (test-assert (= (length bodies) 2) "Each finalized run is attempted once despite upload failure.")
          (test-assert (null (telemetry-controller-queue *telemetry-controller*)) "Failures discard their batches."))))
-   :background-uploads-p t))
+   :background-uploads-p t)
+  nil)
 
+(-> test-telemetry-background-progress () null)
 (defun test-telemetry-background-progress ()
   "An open goal uploads completed events periodically, with one uploader and a bounded queue."
   (test-telemetry--call
@@ -76,7 +79,7 @@
                                     (coerce (test-telemetry--spans (first bodies)) 'list))
                               "An open goal does not invent a final outcome or root summary.")
                  (dotimes (index 10)
-                   (declare (ignore index))
+                   (declare (ignorable index))
                    (telemetry-note-tool :tool "shell.run" :outcome "success"))
                  (test-assert (eq thread (telemetry-controller-upload-thread *telemetry-controller*))
                               "An in-flight upload never creates another uploader.")
@@ -89,8 +92,10 @@
            (test-assert (= (count "run" spans :test #'equal
                                  :key               (lambda (span) (test-telemetry--attribute span "autolith.event.kind"))) 1)
                         "The final summary is exported exactly once after completion.")))))
-   :background-uploads-p t))
+   :background-uploads-p t)
+  nil)
 
+(-> test-telemetry-background-retirement () null)
 (defun test-telemetry-background-retirement ()
   "Revocation, checkpointing and immediate shutdown kill an actual stalled upload child."
   (dolist (action '(:revoke :checkpoint :shutdown :replace-owner :clean-exit))
@@ -151,6 +156,7 @@
      :background-uploads-p t))
   nil)
 
+(-> test-telemetry-background-shutdown () null)
 (defun test-telemetry-background-shutdown ()
   "Clean exit delivers a queued final summary before joining its background uploader."
   (test-telemetry--call
@@ -189,6 +195,7 @@
    :background-uploads-p t)
   nil)
 
+(-> test-telemetry-background-handoff () null)
 (defun test-telemetry-background-handoff ()
   "Rapid successive completions cannot strand a queue or leave uploader threads in a checkpoint."
   (test-telemetry--call
@@ -204,7 +211,7 @@
                  (bt:signal-semaphore uploaded)
                  t)))
          (dotimes (index 50)
-           (declare (ignore index))
+           (declare (ignorable index))
            (telemetry-call-with-run configuration (lambda () :done))
            (test-assert (bt:wait-on-semaphore uploaded :timeout 2)
                         "Each completion wakes an existing or replacement uploader without losing work."))
@@ -214,8 +221,10 @@
                                 (bt:all-threads))
                          "A checkpoint joins naturally retiring uploaders as well as active ones."))))
        (test-assert (= roots 50) "Every finalized root uploads exactly once.")))
-   :background-uploads-p t))
+   :background-uploads-p t)
+  nil)
 
+(-> test-telemetry-background-start-failure () null)
 (defun test-telemetry-background-start-failure ()
   "Keep user results and queued events when the runtime cannot create an uploader."
   (test-telemetry--call
@@ -256,4 +265,5 @@
                       (test-telemetry--spans (first bodies)))
                  '("tool" "run"))
           "The later upload contains both the queued event and final summary."))))
-   :background-uploads-p t))
+   :background-uploads-p t)
+  nil)

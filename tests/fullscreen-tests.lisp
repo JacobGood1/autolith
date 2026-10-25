@@ -779,7 +779,6 @@
            (setf (application-input-controller application) controller
                  (application-input-controller-active-p controller) t)
            (with-terminal-ui (active-ui ui)
-             (declare (ignore active-ui))
              (application-input-controller--process-event controller ':interrupt)
              (application-input-controller--process-event controller ':interrupt))
            (let* ((output (recording-terminal-output terminal))

@@ -121,6 +121,7 @@
                      (format nil "bundle fixture failed: ~A~%~A" output diagnostics)))))
   nil)
 
+(-> test-windows-sandbox-profile-cleanup-helper () null)
 (defun test-windows-sandbox-profile-cleanup-helper ()
   "Exercise the packaged sandbox profile cleanup helper with mocked CIM calls."
   (when (typep *platform* 'win32-platform)
@@ -143,7 +144,8 @@
              :ignore-error-status t)
           (test-assert (and (eql status 0) (search "PASS" output))
                        (format nil "profile cleanup fixture failed: ~A~%~A"
-                               output diagnostics)))))))
+                               output diagnostics))))))
+  nil)
 
 (-> test-windows-shell-sandbox-git-null () null)
 (defun test-windows-shell-sandbox-git-null ()
@@ -190,6 +192,7 @@
                (format nil "Sandboxed Git ~A failed: ~A" arguments content))))))))
   nil)
 
+(-> test-windows-shell-sandbox-integration () null)
 (defun test-windows-shell-sandbox-integration ()
   "Exercise native Windows shell containment through shell.run."
   (when (windows-sandbox-tests--enabled-p)
@@ -245,8 +248,10 @@
                 (windows-sandbox-tests--command
                  workspace "Start-Sleep 5" :timeout 1)))
           (test-assert (not (tool-result-success-p result))
-                       "Windows shell.run reports command timeout"))))))
+                       "Windows shell.run reports command timeout")))))
+  nil)
 
+(-> test-windows-shell-sandbox-async () null)
 (defun test-windows-shell-sandbox-async ()
   "Exercise the asynchronous shell.run sandbox lifecycle on Windows."
   (when (windows-sandbox-tests--enabled-p)
@@ -324,8 +329,10 @@
         (ignore-errors (tool-registry-close-runtime-state registry))
         (platform-delete-directory-tree *platform* root
                                         :validate          t
-                                        :if-does-not-exist ':ignore)))))
+                                        :if-does-not-exist ':ignore))))
+  nil)
 
+(-> test-windows-shell-sandbox-missing-helper-fails-closed () null)
 (defun test-windows-shell-sandbox-missing-helper-fails-closed ()
   "Verify missing Windows helper does not silently fall back."
   (when (typep *platform* 'win32-platform)
@@ -350,8 +357,10 @@
                            "missing helper command never executes")))
         (if saved
             (platform-setenv "CL_EXEC_SANDBOX_WINDOWS_HELPER" saved)
-            (platform-unsetenv "CL_EXEC_SANDBOX_WINDOWS_HELPER"))))))
+            (platform-unsetenv "CL_EXEC_SANDBOX_WINDOWS_HELPER")))))
+  nil)
 
+(-> test-windows-shell-sandbox-network () null)
 (defun test-windows-shell-sandbox-network ()
   "Verify shell networking against a live loopback listener and full-access control."
   (windows-sandbox-tests--enabled-p)
@@ -374,4 +383,5 @@
                (test-assert (and (not (windows-sandbox-tests--successful-exit-p isolated))
                                  (search "BLOCKED" (tool-result-content isolated)))
                             "AppContainer blocks the same shell network request")))
-        (sb-bsd-sockets:socket-close listener)))))
+        (sb-bsd-sockets:socket-close listener))))
+  nil)

@@ -154,6 +154,7 @@
 
 ;;;; -- Protocol --
 
+(-> test-emacs-server-quoting () null)
 (defun test-emacs-server-quoting ()
   "Arguments are quoted exactly as server.el quotes them and round-trip."
   (dolist (case (list (list "plain" "plain")
@@ -166,8 +167,10 @@
       (test-assert (equal (emacs-server-quote text) quoted)
                    (format nil "~S quotes as ~S" text quoted))
       (test-assert (equal (emacs-server-unquote quoted) text)
-                   (format nil "~S unquotes to ~S" quoted text)))))
+                   (format nil "~S unquotes to ~S" quoted text))))
+  nil)
 
+(-> test-emacs-server-fake-replies () null)
 (defun test-emacs-server-fake-replies ()
   "Printed chunks join, -error becomes an elisp error and slow servers time out."
   (with-platform-capability (':local-sockets "Emacs server protocol")
@@ -221,11 +224,13 @@
                    (test-assert (eq (emacs-server-error-reason condition) ':timeout)
                                 "A silent server is a timeout.")))
                (join-thread thread)))
-        (platform-delete-directory-tree *platform* directory :validate t :if-does-not-exist ':ignore)))))
+        (platform-delete-directory-tree *platform* directory :validate t :if-does-not-exist ':ignore))))
+  nil)
 
 
 ;;;; -- Registration --
 
+(-> test-emacs-tools-registration () null)
 (defun test-emacs-tools-registration ()
   "The emacs.* tools and emacs: scheme exist only while a configured Emacs server socket exists."
   (with-test-configuration (base root)
@@ -255,7 +260,8 @@
                (test-assert (registered-p (emacs-test-configuration root socket))
                             "An existing Emacs server socket registers the tools and scheme.")
             (sb-bsd-sockets:socket-close listener)
-            (platform-delete-directory-tree *platform* directory :validate t :if-does-not-exist ':ignore)))))))
+            (platform-delete-directory-tree *platform* directory :validate t :if-does-not-exist ':ignore))))))
+  nil)
 
 
 ;;;; -- Real Emacs --
@@ -315,6 +321,7 @@
                       (uiop:native-namestring file)))))
   nil)
 
+(-> test-emacs-tools-real-daemon () null)
 (defun test-emacs-tools-real-daemon ()
   "emacs: resources and emacs.* tools work against a real Emacs daemon."
   (let ((emacs (emacs-test-executable)))
@@ -420,11 +427,13 @@
                 (error 'emacs-server-error
                        :message "The test Emacs daemon did not exit before cleanup."
                        :reason  ':timeout))
-              (platform-delete-directory-tree *platform* runtime :validate t :if-does-not-exist ':ignore)))))))
+              (platform-delete-directory-tree *platform* runtime :validate t :if-does-not-exist ':ignore))))))
+  nil)
 
 
 ;;;; -- autolith.el --
 
+(-> test-autolith-el-compiles () null)
 (defun test-autolith-el-compiles ()
   "emacs/autolith.el byte-compiles warning-free without sly or agent-shell installed."
   (let ((emacs (emacs-test-executable)))
@@ -447,7 +456,8 @@
               (test-assert (zerop status)
                            (format nil "autolith.el compiles cleanly: ~A" error-output))
               (test-assert (probe-file (merge-pathnames "autolith.elc" root))
-                           "Compilation writes autolith.elc.")))))))
+                           "Compilation writes autolith.elc."))))))
+  nil)
 
 (-> test-autolith-el-layout () t)
 (defun test-autolith-el-layout ()

@@ -2,6 +2,7 @@
 
 ;;;; -- Asynchronous Lisp Output Tests --
 
+(-> test-async-lisp-output-flood () null)
 (defun test-async-lisp-output-flood ()
   "Bounded capture marks discarded output without growing its storage."
   (let ((stream (application-async-lisp-output-stream-create)))
@@ -16,8 +17,10 @@
           (*application-async-lisp-output-pending-limit* 512))
       (write-string (make-string 256 :initial-element #\x) stream)
       (test-assert (<= (length (application-async-lisp-output-text stream)) 64)
-                   "changing defaults does not change an existing stream's capacity"))))
+                   "changing defaults does not change an existing stream's capacity")))
+  nil)
 
+(-> test-async-lisp-output-captures-standard-text () null)
 (defun test-async-lisp-output-captures-standard-text ()
   "Capture ordinary characters, newlines, and tabs."
   (let ((stream   (application-async-lisp-output-stream-create))
@@ -29,8 +32,10 @@
                  "async output reports a useful column")
     (write-char #\Return stream)
     (test-assert (zerop (trivial-gray-streams:stream-line-column stream))
-                 "carriage return resets the logical column")))
+                 "carriage return resets the logical column"))
+  nil)
 
+(-> test-async-lisp-output-sanitizes-control-text () null)
 (defun test-async-lisp-output-sanitizes-control-text ()
   "Remove terminal escapes and unsafe control characters."
   (let ((stream (application-async-lisp-output-stream-create)))
@@ -43,8 +48,10 @@
     (write-char #\\ stream)
     (write-char #\z stream)
     (test-assert (string= (application-async-lisp-output-text stream) "abcxyz")
-                 "split OSC terminators, DEL, and C1 controls cannot reach display")))
+                 "split OSC terminators, DEL, and C1 controls cannot reach display"))
+  nil)
 
+(-> test-async-lisp-output-throttles-and-flushes () null)
 (defun test-async-lisp-output-throttles-and-flushes ()
   "Throttle live callbacks while retaining a final flush."
   (let ((chunks nil)
@@ -61,8 +68,10 @@
     (test-assert (= (length chunks) 2) "async output flushes final tail")
     (test-assert (search "second" (first chunks)) "async output preserves tail")
     (application-async-lisp-output-flush stream)
-    (test-assert (= (length chunks) 2) "final flush does not repeat delivered output")))
+    (test-assert (= (length chunks) 2) "final flush does not repeat delivered output"))
+  nil)
 
+(-> test-async-lisp-output-concurrent-writes () null)
 (defun test-async-lisp-output-concurrent-writes ()
   "Concurrent writes produce bounded, valid captured text."
   (let ((stream  (application-async-lisp-output-stream-create))
@@ -76,4 +85,5 @@
     (dolist (thread threads)
       (join-thread thread))
     (test-assert (= (length (application-async-lisp-output-text stream)) 4000)
-                 "concurrent writers retain every character within the capture limit")))
+                 "concurrent writers retain every character within the capture limit"))
+  nil)

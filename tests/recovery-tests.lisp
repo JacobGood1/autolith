@@ -7,6 +7,7 @@
 
 ;;;; -- Recovery Runtime Tests --
 
+(-> test-recovery-launcher-trace-context () null)
 (defun test-recovery-launcher-trace-context ()
   "The Bash launcher creates one context, and recovery forwards it with attempt two."
   (with-test-fixture (':posix-shell "Bash launcher trace continuity")
@@ -837,6 +838,7 @@ exit 64
                                       :if-does-not-exist ':ignore)))
   nil)
 
+(-> test-recovery-object-store-copy () null)
 (defun test-recovery-object-store-copy ()
   "Copy nested object bytes independently while retaining existing objects."
   (with-test-configuration (configuration root)

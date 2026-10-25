@@ -65,10 +65,10 @@
   "Preserve dotted lists, circular lists, and shared substructure."
   (let ((*read-eval* nil))
     (let* ((value    (list :self))
-           (ignored  (setf (cdr value) value))
+           (ignored  (setf (rest value) value))
            (restored (read-from-string (application-lisp-render-value value))))
       (declare (ignore ignored))
-      (test-assert (eq (cdr restored) restored)
+      (test-assert (eq (rest restored) restored)
                    "Circular list structure must survive display and readback."))
     (let* ((tail     (list "shared"))
            (value    (list tail tail))

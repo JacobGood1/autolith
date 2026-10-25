@@ -12,7 +12,6 @@
            (application   (make-instance 'application :configuration configuration :ui ui
                                                      :conversation (conversation-create configuration))))
       (with-terminal-ui (active-ui ui)
-        (declare (ignore active-ui))
         (funcall function application terminal)))))
 
 (-> memory-manager-tests--manager (application) memory-manager)

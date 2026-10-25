@@ -163,7 +163,6 @@
                                "the callable models command filters by provider")))
               (setf (scripted-terminal-events terminal) (list :submit))
               (with-terminal-ui (active-ui ui)
-                (declare (ignore active-ui))
                 (multiple-value-bind (model provider)
                     (application--pick-model application :provider "selection-a")
                   (test-assert (and (equal model "shared") (equal provider "selection-a"))

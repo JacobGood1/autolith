@@ -380,6 +380,7 @@
   (dolist (linked-p '(nil t))
     (task-worktree-tests--fixture
      (lambda (configuration source parent job tool context)
+       (declare (ignore context))
        (when linked-p
          (let ((linked (merge-pathnames "../linked/" source)))
            (task-worktree-tests--git configuration source
@@ -410,7 +411,6 @@
               (shell          (make-instance 'shell-run-tool :namespace "shell" :name "run"
                                             :description "Run the sandbox fixture."))
               (unrelated      (merge-pathnames "unrelated-config" source)))
-         (declare (ignore context))
          (test-assert (probe-file (merge-pathnames "file" path)) "The owned checkout is created in the sandbox.")
          (task-worktree-tests--write (merge-pathnames "file" path) "isolated commit")
          (dolist (command '("git add file" "git -c user.name=Fixture -c user.email=fixture@example.invalid commit -m isolated"))

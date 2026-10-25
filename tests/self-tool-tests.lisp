@@ -822,8 +822,7 @@
                                              :configuration configuration
                                              :worker        nil
                                              :conversation  conversation))
-                (registry     (make-default-tool-registry))
-                (eval-tool    (tool-registry-find registry "self" "eval")))
+                (registry     (make-default-tool-registry)))
            (labels ((run (&rest arguments)
                       "Execute self.eval with ARGUMENTS through the registry."
                       (tool-registry-execute-call
@@ -834,7 +833,6 @@
                                                  (apply #'json-object
                                                         arguments)))
                        context)))
-             (declare (ignorable eval-tool))
              (test-assert
               (tool-result-success-p
                (run "forms"

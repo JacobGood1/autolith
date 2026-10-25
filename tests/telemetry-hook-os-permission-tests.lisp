@@ -2,6 +2,7 @@
 
 ;;;; -- Operating System Permission Failures --
 
+(-> test-telemetry-os-permission-failure-hooks () null)
 (defun test-telemetry-os-permission-failure-hooks ()
   "Real OS-denied reads, path resolution, edit staging and parent creation retain permission codes."
   (test-telemetry--call

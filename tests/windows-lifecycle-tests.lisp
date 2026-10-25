@@ -1,5 +1,6 @@
 (in-package #:autolith)
 
+(-> windows-tests--script (pathname list) pathname)
 (defun windows-tests--script (pathname forms)
   "Write readable FORMS as a native runtime test script."
   (ensure-directories-exist pathname)
@@ -12,12 +13,14 @@
           (terpri stream)))))
   pathname)
 
+(-> windows-tests--command (pathname &rest string) list)
 (defun windows-tests--command (script &rest arguments)
   "Return the running runtime's script invocation with literal ARGUMENTS."
   (append (list (namestring sb-ext:*runtime-pathname*) "--noinform"
                 "--no-userinit" "--no-sysinit" "--script" (namestring script))
           arguments))
 
+(-> windows-tests--await (function) (eql t))
 (defun windows-tests--await (predicate)
   "Require PREDICATE within ten seconds, bounding native process fixtures."
   (let ((deadline (+ (get-internal-real-time) (* 10 internal-time-units-per-second))))
@@ -27,6 +30,7 @@
              (sleep 0.01)))
   t)
 
+(-> test-windows-detached-arguments () null)
 (defun test-windows-detached-arguments ()
   "Exercise real Unicode/quoted argv and inherited output through CreateProcessW."
   (with-platform-capability (':restartable-image-saver "native Windows process launch")
@@ -62,8 +66,10 @@
                             "waiting and repeated release close resources idempotently"))
           (when process
             (ignore-errors (platform-terminate-process-object *platform* process :force t))
-            (platform-wait-process *platform* process)))))))
+            (platform-wait-process *platform* process))))))
+  nil)
 
+(-> test-windows-detached-descendants () null)
 (defun test-windows-detached-descendants ()
   "Cancel descendants after their detached root has already exited."
   (with-platform-capability (':restartable-image-saver "native Windows tree ownership")
@@ -108,8 +114,10 @@
                                 "no descendant survives a cancelled handoff"))))
           (when process
             (ignore-errors (platform-terminate-process-object *platform* process :force t))
-            (platform-wait-process *platform* process)))))))
+            (platform-wait-process *platform* process))))))
+  nil)
 
+(-> test-windows-detached-startup-failure () null)
 (defun test-windows-detached-startup-failure ()
   "Refuse failed job assignment before any replacement code can run."
   (with-platform-capability (':restartable-image-saver "native Windows startup gate")
@@ -138,8 +146,10 @@
             "failed assignment rejects the detached launch")))
         (test-assert process-handle "the test reached native job assignment")
         (test-assert (not (probe-file marker))
-                     "the suspended replacement never ran before ownership")))))
+                     "the suspended replacement never ran before ownership"))))
+  nil)
 
+(-> test-windows-detached-release () null)
 (defun test-windows-detached-release ()
   "Release a successful handoff without killing its detached process."
   (with-platform-capability (':restartable-image-saver "native Windows ownership release")
@@ -164,8 +174,10 @@
                (windows-tests--await
                 (lambda () (not (platform-process-alive-p *platform* pid)))))
           (when (platform-process-alive-p *platform* pid)
-            (platform-terminate-process *platform* pid :force t)))))))
+            (platform-terminate-process *platform* pid :force t))))))
+  nil)
 
+(-> test-windows-restart-library () null)
 (defun test-windows-restart-library ()
   "Save and boot the library's exact cyclic heap on native Windows.
 
@@ -190,4 +202,5 @@ this shared test worker."
           (declare (ignore error-output))
           (test-assert (zerop code)
                        (format nil "library tests in a fresh runtime exit ~D:~%~A"
-                               code output)))))))
+                               code output))))))
+  nil)

@@ -568,6 +568,7 @@
 (defvar *task-tests--orchestrators* nil
   "Orchestrators created by tests, closed when the task suite finishes.")
 
+(-> task-tests--orchestrator () task-orchestrator)
 (defun task-tests--orchestrator ()
   "Return a fresh orchestrator the task suite will close afterwards.
 
@@ -578,16 +579,24 @@ the tests that require a single-threaded image do."
     (push orchestrator *task-tests--orchestrators*)
     orchestrator))
 
+(-> task-tests--close-orchestrators () null)
 (defun task-tests--close-orchestrators ()
   "Close every orchestrator the task tests created and forget them."
   (dolist (orchestrator *task-tests--orchestrators*)
     (ignore-errors (task-orchestrator-close orchestrator)))
   (setf *task-tests--orchestrators* nil))
 
+(-> task-tests--queued-jobs (task-orchestrator) list)
 (defun task-tests--queued-jobs (orchestrator)
   "Return the children ORCHESTRATOR has admitted but not yet started."
   (cl-jobpond::job-pool--queue (task-orchestrator-pool orchestrator)))
 
+(-> task-tests--make-job
+    (task-orchestrator
+     &key (:definition (option task-agent-definition)) (:item t) (:parent-agent (option agent))
+     (:identifier (option string)) (:index integer) (:detached-p boolean)
+     (:owner-identifiers list) (:root-identifier (option string)))
+    task-job)
 (defun task-tests--make-job
     (orchestrator &key definition item parent-agent identifier (index 1)
                     detached-p owner-identifiers root-identifier)
@@ -614,6 +623,7 @@ the tests that require a single-threaded image do."
    :parent-agent                 parent-agent
    :detached-p                   detached-p))
 
+(-> task-tests--attach-job (task-orchestrator function &key (:name (option string))) task-job)
 (defun task-tests--attach-job (orchestrator build-function &key name)
   "Register the job BUILD-FUNCTION returns without queueing it for a worker.
 
@@ -632,6 +642,7 @@ admission offers no such thing on purpose."
       (incf (cl-jobpond::job-pool--live-count pool)))
     job))
 
+(-> task-tests--publish-terminal (task-job keyword t &key (:report (option string))) boolean)
 (defun task-tests--publish-terminal (job state result &key report)
   "Publish one terminal STATE for JOB the way a pool worker would."
   (cl-jobpond::job--publish-terminal job state result :report report))

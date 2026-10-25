@@ -3542,14 +3542,14 @@ esac
            (let ((*standard-output* (make-string-output-stream))
                  (*error-output*    (make-string-output-stream)))
              (test-assert
-              (= 64 (catch 'update-dispatch-exit
-                      (main (cons alias tail))))
+              (eql 64 (catch 'update-dispatch-exit
+                        (main (cons alias tail))))
               "bypassing a launcher cannot update or start a session")))
          (dolist (tail '(("--help") ("-h") ("--help" "--")))
            (let ((*standard-output* (make-string-output-stream))
                  (*error-output*    (make-string-output-stream)))
              (test-assert
-              (zerop (catch 'update-dispatch-exit
+              (eql 0 (catch 'update-dispatch-exit
                        (main-dispatch (cons alias tail))))
               "direct dispatch supports help for both update spellings"))))))
     (test-assert
@@ -3570,13 +3570,13 @@ esac
          (let ((*standard-output* (make-string-output-stream))
                (*error-output*    (make-string-output-stream)))
            (test-assert
-            (= 64 (catch 'update-dispatch-exit
-                    (main (cons "uninstall" tail))))
+            (eql 64 (catch 'update-dispatch-exit
+                      (main (cons "uninstall" tail))))
             "bypassing a launcher cannot uninstall or start a session")))
        (let ((*standard-output* (make-string-output-stream))
              (*error-output*    (make-string-output-stream)))
          (test-assert
-          (zerop (catch 'update-dispatch-exit
+          (eql 0 (catch 'update-dispatch-exit
                    (main-dispatch '("uninstall" "--help"))))
           "direct dispatch supports uninstall help"))))
     (test-assert (not started-p) "update and uninstall never fall through to a session"))

@@ -16,6 +16,10 @@
   "Use the real bounded HTTP reader without telemetry's consent adapter."
   (model-catalog--worker-fetch (model-catalog-test-configuration context)))
 
+(-> test-model-catalog--http-fixture
+    (keyword (option string) function
+     &key (:port (integer 0 65535)) (:on-request (option function)))
+    t)
 (defun test-model-catalog--http-fixture (mode body function &key (port 0) on-request)
   "Call FUNCTION with a local HTTP source and port, then join its server.
 Call ON-REQUEST, when supplied, after reading the request headers."
@@ -65,6 +69,7 @@ Call ON-REQUEST, when supplied, after reading the request headers."
       (when server (bt:join-thread server))
       (ignore-errors (usocket:socket-close listener)))))
 
+(-> test-model-catalog-standalone-http () null)
 (defun test-model-catalog-standalone-http ()
   "Resolve real fixture HTTP membership and retain warm or cold state on network failure."
   (dolist (warm-p '(nil t))
@@ -163,6 +168,7 @@ Call ON-REQUEST, when supplied, after reading the request headers."
       (test-assert (not contacted-p) "Redirect targets receive no request.")))
   nil)
 
+(-> test-model-catalog--fixture (list) string)
 (defun test-model-catalog--fixture (identifiers)
   "Return a small public models.dev fixture without access to any provider endpoint."
   (let ((models (make-hash-table :test #'equal)))
@@ -170,6 +176,7 @@ Call ON-REQUEST, when supplied, after reading the request headers."
       (setf (gethash identifier models) (json-object "id" identifier)))
     (json-encode (json-object "public-provider" (json-object "models" models)))))
 
+(-> test-model-catalog-parser () null)
 (defun test-model-catalog-parser ()
   "Accept exact native and canonical IDs; reject malformed or changed schemas."
   (let* ((text    "{\"p\":{\"models\":{\"native/v1\":{\"id\":\"native/v1\",\"canonical_model_id\":\"lab/base\",\"extra\":[]}}},\"q\":{\"models\":{\"native/v1\":{\"id\":\"native/v1\"},\"UPPER\":{\"id\":\"UPPER\"}}}}")
@@ -198,8 +205,10 @@ Call ON-REQUEST, when supplied, after reading the request headers."
   (let ((*model-catalog-maximum-bytes* 32))
     (test-assert (handler-case
                     (progn (model-catalog-parse (make-string 33 :initial-element #\Space)) nil)
-                  (model-catalog-invalid () t)) "Raw input has a hard byte limit.")))
+                  (model-catalog-invalid () t)) "Raw input has a hard byte limit."))
+  nil)
 
+(-> test-model-catalog-http-stream () null)
 (defun test-model-catalog-http-stream ()
   "Read an actual application/json HTTP response as bounded UTF-8 bytes."
   (with-test-configuration (configuration)
@@ -250,4 +259,5 @@ Call ON-REQUEST, when supplied, after reading the request headers."
                (bt:join-thread server)
                (test-assert (null server-error) "The local HTTP fixture completes without an error."))
           (when server (ignore-errors (bt:join-thread server)))
-          (usocket:socket-close listener))))))
+          (usocket:socket-close listener)))))
+  nil)

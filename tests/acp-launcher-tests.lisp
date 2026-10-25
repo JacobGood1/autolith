@@ -2,6 +2,7 @@
 
 ;;;; -- ACP Launcher --
 
+(-> acp-launcher-tests--run-parser (&rest string) (values string string integer))
 (defun acp-launcher-tests--run-parser (&rest arguments)
   "Run the shared shell launcher parser and return its exported state."
   (let* ((script  (asdf:system-relative-pathname :autolith

@@ -1,17 +1,20 @@
 (in-package #:autolith)
 
+(-> test-model-catalog--refresh (telemetry-controller integer (option function)) t)
 (defun test-model-catalog--refresh (controller epoch fetch)
   "Exercise catalog publication with a specific telemetry consent epoch."
   (model-catalog--refresh controller
                           (telemetry--make-run :controller controller :epoch epoch :active t)
                           fetch))
 
+(-> test-model-catalog--await (telemetry-controller) t)
 (defun test-model-catalog--await (controller)
   "Wait for a bounded fixture refresh, without holding the controller lock."
   (let ((thread (bt:with-lock-held ((telemetry-controller-lock controller))
                   (model-catalog-thread controller))))
     (when thread (bt:join-thread thread))))
 
+(-> test-model-catalog-idle-refresh () null)
 (defun test-model-catalog-idle-refresh ()
   "Refresh an expired cache without new runs and synchronously stop the idle timer."
   (test-telemetry--call
@@ -41,6 +44,7 @@
                         "No timer remains reachable after revocation."))))))
   nil)
 
+(-> test-model-catalog-checkpoint-refresh () null)
 (defun test-model-catalog-checkpoint-refresh ()
   "Resume idle refresh in the surviving parent on normal and abnormal checkpoint exits."
   (dolist (fail-p '(nil t))
@@ -75,6 +79,7 @@
            (test-assert (= calls 2) "One refresh replaces the expired catalog."))))))
   nil)
 
+(-> test-model-catalog-cache () null)
 (defun test-model-catalog-cache ()
   "Exercise cold offline, refresh, backoff, stale preservation and cache reload."
   (test-telemetry--call
@@ -128,8 +133,10 @@
                         "A later catalog update replaces membership.")
            (test-assert (equal (multiple-value-list (telemetry--model controller "new-public-model"))
                                '(:custom nil))
-                        "Removed IDs return to the private-model category.")))))))
+                        "Removed IDs return to the private-model category."))))))
+  nil)
 
+(-> test-model-catalog-cache-rejection () null)
 (defun test-model-catalog-cache-rejection ()
   "Reject wrong cache metadata and invalid bodies, without adopting partial IDs."
   (test-telemetry--call
@@ -155,8 +162,10 @@
          (telemetry-attach configuration)
          (test-model-catalog--await *telemetry-controller*)
          (test-assert (null (model-catalog-identifiers *telemetry-controller*))
-                      "Malformed cache metadata and bodies are rejected."))))))
+                      "Malformed cache metadata and bodies are rejected.")))))
+  nil)
 
+(-> test-model-catalog-consent () null)
 (defun test-model-catalog-consent ()
   "Default-off reads no cache; revoked in-flight work cannot publish or survive saving."
   (test-telemetry--call
@@ -240,8 +249,10 @@
                   (test-assert (null (model-catalog-retired-threads controller))
                                "Revoked threads are joined and removed."))
              (sb-thread:signal-semaphore release)
-             (when revoker (ignore-errors (bt:join-thread revoker))))))))))
+             (when revoker (ignore-errors (bt:join-thread revoker)))))))))
+  nil)
 
+(-> test-model-catalog-cache-failures () null)
 (defun test-model-catalog-cache-failures ()
   "Round-trip an escaped maximum body and retain last-good disk data on write failure."
   (test-telemetry--call
@@ -280,8 +291,10 @@
          (test-assert (equal saved (uiop:read-file-string path))
                       "Failed atomic publication retains the old disk cache.")
          (test-assert (null (directory (merge-pathnames "models-dev-*.tmp" path)))
-                      "Failed publication removes its temporary file."))))))
+                      "Failed publication removes its temporary file.")))))
+  nil)
 
+(-> test-model-catalog-failure-completion () null)
 (defun test-model-catalog-failure-completion ()
   "Measure backoff from completion, including failures after a long fetch."
   (test-telemetry--call
@@ -305,8 +318,10 @@
                       "Failure records its completion time.")
          (telemetry--ensure-model-catalog controller)
          (test-model-catalog--await controller)
-         (test-assert (= calls 1) "A slow failed attempt receives the full retry backoff."))))))
+         (test-assert (= calls 1) "A slow failed attempt receives the full retry backoff.")))))
+  nil)
 
+(-> test-model-catalog-shutdown-settings-race () null)
 (defun test-model-catalog-shutdown-settings-race ()
   "A settings callback cannot restart a controller while shutdown joins its workers."
   (test-telemetry--call
@@ -343,8 +358,10 @@
                (bt:join-thread stopper)
                (test-assert (null *telemetry-controller*) "Shutdown detaches the stopped controller.")))
          (sb-thread:signal-semaphore release)
-         (when stopper (ignore-errors (bt:join-thread stopper))))))))
+         (when stopper (ignore-errors (bt:join-thread stopper)))))))
+  nil)
 
+(-> test-model-catalog-process-deadline () null)
 (defun test-model-catalog-process-deadline ()
   "Kill an actual catalog child after ten seconds, independent of upload settings."
   (test-telemetry--call
@@ -374,8 +391,10 @@
               (test-assert (<= 9 elapsed 13)
                            (format nil "Catalog work has its own ten-second deadline: ~,3Fs. ~A"
                                    elapsed (test-telemetry--stalled-child-diagnostic process ready-path))))
-            (test-assert (not (uiop:process-alive-p process)) "The deadline kills and reaps catalog work."))))))))
+            (test-assert (not (uiop:process-alive-p process)) "The deadline kills and reaps catalog work.")))))))
+  nil)
 
+(-> test-model-catalog-transport () null)
 (defun test-model-catalog-transport ()
   "Check anonymous bounded full-catalog requests and unknown-length body rejection."
   (with-test-configuration (configuration)
@@ -407,8 +426,10 @@
              (test-assert (handler-case (progn (model-catalog--http-fetch) nil)
                             (model-catalog-invalid () t))
                           "Unknown-length responses have a hard streaming byte bound."))
-           (test-assert (not (open-stream-p opened)) "Oversized response closes the stream.")))))))
+           (test-assert (not (open-stream-p opened)) "Oversized response closes the stream."))))))
+  nil)
 
+(-> test-model-catalog-network-fallback () null)
 (defun test-model-catalog-network-fallback ()
   "A trickling or unreachable HTTP source leaves last-good cache and membership intact."
   (test-telemetry--call

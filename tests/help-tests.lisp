@@ -8,7 +8,7 @@
         (tool (gensym "TOOL")))
     `(multiple-value-bind (,application ,root ,terminal ,tool)
          (application-operation-tests--application)
-       (declare (ignore ,tool))
+       (declare (ignore ,tool) (ignorable ,terminal))
        (unwind-protect (locally ,@body)
          (terminal-ui-stop (application-ui ,application))
          (platform-delete-directory-tree *platform* ,root
@@ -31,7 +31,6 @@
 (defun test-help-selection-and-bounds ()
   "Test progressive disclosure, section precedence, aliases, and live tool schemas."
   (with-help-tests-application (application terminal)
-    (declare (ignore terminal))
     (let* ((overview (application-operation-help application))
            (section  (application-operation-help application ':conversations))
            (command  (application-operation-help application 'conversations))
@@ -228,6 +227,5 @@
           (test-assert (every (lambda (line) (<= (text-cell-width line) width)) lines)
                        "help prose and examples fit the current terminal width")))))
   (with-help-tests-application (application terminal)
-    (declare (ignore application))
     (help-tests--heading-rendering terminal))
   nil)

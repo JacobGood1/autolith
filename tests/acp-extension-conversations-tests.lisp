@@ -2,6 +2,7 @@
 
 ;;;; -- ACP Conversation Extension Tests --
 
+(-> acp-conversations-test--make (configuration string string) conversation)
 (defun acp-conversations-test--make (configuration identifier text)
   "Create and persist one conversation with a user message."
   (let ((conversation (conversation-create

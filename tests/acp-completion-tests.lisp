@@ -141,7 +141,7 @@
          (test-call-with-function-replacements
           (list (list 'agent-run-user-turn
                       (lambda (&rest arguments)
-                        (if (getf (cddr arguments) :automatic-p)
+                        (if (getf (nthcdr 2 arguments) :automatic-p)
                             (progn
                               (incf attempts)
                               (error 'simple-error :format-control "Automatic inference failed."))

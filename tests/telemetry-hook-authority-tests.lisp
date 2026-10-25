@@ -2,6 +2,7 @@
 
 ;;;; -- Task and Mission Authority Failures --
 
+(-> test-telemetry-mission-authority-hooks () null)
 (defun test-telemetry-mission-authority-hooks ()
   "Mission, review and schedule emitters preserve authority without relabeling validation."
   (test-telemetry--call
@@ -58,6 +59,7 @@
          (test-telemetry-hooks--assert-failure (first spans) "error" "tool-failure")))))
   nil)
 
+(-> test-telemetry-continuity-authority-hooks () null)
 (defun test-telemetry-continuity-authority-hooks ()
   "Only explicit continuity refusals are denials; malformed actions remain errors."
   (test-telemetry--call
@@ -83,6 +85,7 @@
          (task-orchestrator-close orchestrator)))))
   nil)
 
+(-> test-telemetry-peer-authority-hooks () null)
 (defun test-telemetry-peer-authority-hooks ()
   "Peer grants and message ownership are denials; invalid or missing identities remain errors."
   (test-telemetry--call
@@ -149,6 +152,7 @@
     (telemetry-shutdown))
   nil)
 
+(-> test-telemetry-worker-host-admission-hooks () null)
 (defun test-telemetry-worker-host-admission-hooks ()
   "Real Lisp host-tool admission distinguishes unavailable names from authority refusals."
   (test-telemetry--call
@@ -169,6 +173,7 @@
                do (test-telemetry-hooks--assert-failure span (second case) (third case)))))))
   nil)
 
+(-> test-telemetry-worktree-authority-hook () null)
 (defun test-telemetry-worktree-authority-hook ()
   "Exercise the worktree emitter directly because child registries normally withhold it."
   (test-telemetry--call
@@ -214,6 +219,7 @@
          (task-orchestrator-close orchestrator)))))
   nil)
 
+(-> test-telemetry-child-authority-hooks () null)
 (defun test-telemetry-child-authority-hooks ()
   "Export child image and spawn refusals while retaining ordinary argument errors."
   (test-telemetry--call
