@@ -290,10 +290,10 @@
                    :pathname  (configuration-journal-path configuration)))))))
 
 (-> tuning-experiment-settle
-    (configuration (option string) string string)
+    (configuration (option string) &key (:verdict-name string) (:observation string))
     tuning-experiment)
 (defun tuning-experiment-settle
-    (configuration experiment-identifier verdict-name observation)
+    (configuration experiment-identifier &key verdict-name observation)
   "Settle the open experiment with VERDICT-NAME and bounded OBSERVATION."
   (with-live-mutation
     (let* ((experiment (tuning-experiment-open configuration))
@@ -398,8 +398,8 @@
           (tuning-experiment-settle
            (tool-context-configuration context)
            (tool-argument arguments "experiment")
-           (tool-argument arguments "verdict" :required t)
-           (tool-argument arguments "observation" :required t))))
+           :verdict-name (tool-argument arguments "verdict" :required t)
+           :observation  (tool-argument arguments "observation" :required t))))
     (tool-success
      (format nil
              "Recorded ~A for tuning experiment ~A.~%Observation: ~A~2%~A"
