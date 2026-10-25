@@ -5,14 +5,14 @@
 (asdf:initialize-source-registry)
 (require :sb-posix)
 
-(let* ((arguments (uiop:command-line-arguments))
+(let* ((arguments       (uiop:command-line-arguments))
        (source-root
          (uiop:ensure-directory-pathname
           (or (first arguments)
               (error "The recovery launcher needs the source root."))))
-       (project-setup (merge-pathnames ".qlot/setup.lisp" source-root))
-       (user-setup (merge-pathnames "quicklisp/setup.lisp"
-                                    (user-homedir-pathname)))
+       (project-setup   (merge-pathnames ".qlot/setup.lisp" source-root))
+       (user-setup      (merge-pathnames "quicklisp/setup.lisp"
+                                         (user-homedir-pathname)))
        (quicklisp-setup (if (probe-file project-setup)
                            project-setup
                            user-setup)))
