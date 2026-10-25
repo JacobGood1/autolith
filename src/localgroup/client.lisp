@@ -18,7 +18,6 @@
   (getf (rest record) :token))
 
 (-> localgroup--remove-stale-record (pathname list) null)
-
 (defun localgroup--remove-stale-record (pathname expected-record)
   "Delete PATHNAME only when it still contains EXPECTED-RECORD."
   (image-daemon:daemon-registry-delete-matching pathname expected-record)
@@ -29,8 +28,8 @@
     list)
 (defun localgroup-query-record (entry operation &optional arguments)
   "Perform OPERATION against endpoint ENTRY, pruning a confirmed stale record."
-  (let* ((pathname (first entry))
-         (record (rest entry))
+  (let* ((pathname   (first entry))
+         (record     (rest entry))
          (session-id (localgroup--record-session-id record))
          (response
            (handler-case
@@ -42,27 +41,27 @@
              (error (condition)
                (localgroup--remove-stale-record pathname record)
                (error 'localgroup-error
-                       :message (format nil "Localgroup session ~A is unavailable."
-                                        (session-identifier-display
-                                         session-id))
-                      :operation operation
+                       :message   (format nil "Localgroup session ~A is unavailable."
+                                          (session-identifier-display
+                                           session-id))
+                      :operation  operation
                       :session-id session-id
-                      :cause condition)))))
+                      :cause      condition)))))
     (unless (and (proper-list-p response)
                  (eq (first response) ':ok))
       (error 'localgroup-error
-             :message (or (getf (rest response) :message)
-                          "The localgroup endpoint rejected the request.")
-             :operation operation
+             :message    (or (getf (rest response) :message)
+                             "The localgroup endpoint rejected the request.")
+             :operation  operation
              :session-id session-id))
     response))
 
 (-> localgroup--session-prefix-p (string string) boolean)
 (defun localgroup--session-prefix-p (prefix session-id)
   "Return true when nonempty PREFIX matches SESSION-ID's canonical or displayed form."
-  (let ((prefix (if (legacy-session-identifier-p session-id)
-                    (string-downcase prefix)
-                    prefix))
+  (let ((prefix     (if (legacy-session-identifier-p session-id)
+                        (string-downcase prefix)
+                        prefix))
         (identifier (handler-case (session-identifier-normalize session-id)
                       (localgroup-error () session-id))))
     (and (non-empty-string-p prefix)
@@ -74,11 +73,11 @@
   "Return CONFIGURATION's unique endpoint matching SESSION-ID or its prefix.
 
 Prefer exact identifiers, then normalized identifiers, then unique prefixes."
-  (let* ((records (localgroup-endpoint-records configuration))
-         (exact (remove-if-not
-                 (lambda (entry)
-                   (string= session-id (localgroup--record-session-id (rest entry))))
-                 records))
+  (let* ((records    (localgroup-endpoint-records configuration))
+         (exact      (remove-if-not
+                      (lambda (entry)
+                        (string= session-id (localgroup--record-session-id (rest entry))))
+                      records))
          (normalized (handler-case (session-identifier-normalize session-id)
                        (localgroup-error () session-id)))
          (matches
@@ -100,9 +99,9 @@ Prefer exact identifiers, then normalized identifiers, then unique prefixes."
                 records))))
     (cond ((null matches)
            (error 'localgroup-error
-                  :message (format nil "No localgroup session named ~A is running."
-                                   (session-identifier-display session-id))
-                  :operation ':discover
+                  :message    (format nil "No localgroup session named ~A is running."
+                                      (session-identifier-display session-id))
+                  :operation  ':discover
                   :session-id session-id))
           ((rest matches)
            (error 'localgroup-error
@@ -114,7 +113,7 @@ Prefer exact identifiers, then normalized identifiers, then unique prefixes."
                                            (localgroup--record-session-id (rest entry))))
                                         matches)
                                 #'string<))
-                  :operation ':discover
+                  :operation  ':discover
                   :session-id session-id))
           (t
            (first matches)))))
@@ -139,11 +138,16 @@ Prefer exact identifiers, then normalized identifiers, then unique prefixes."
 (defun localgroup--status-state-style (status)
   "Return the semantic terminal style for STATUS's current state."
   (case (getf (rest status) :state)
-    (:idle ':success)
-    (:failed ':failure)
-    ((:paused :cancelling :detaching) ':notice)
-    ((:active :working) ':brand)
-    (otherwise ':dim)))
+    (:idle
+     ':success)
+    (:failed
+     ':failure)
+    ((:paused :cancelling :detaching)
+     ':notice)
+    ((:active :working)
+     ':brand)
+    (otherwise
+     ':dim)))
 
 (-> localgroup--status-activity-text (list) string)
 (defun localgroup--status-activity-text (status)
@@ -165,7 +169,7 @@ Prefer exact identifiers, then normalized identifiers, then unique prefixes."
 (-> localgroup--status-started-text (list) string)
 (defun localgroup--status-started-text (status)
   "Return STATUS's encoded or recorded session start time for display."
-  (let* ((values (rest status))
+  (let* ((values     (rest status))
          (identifier (getf values :session-id))
          (timestamp
            (and (stringp identifier)
@@ -181,13 +185,20 @@ Prefer exact identifiers, then normalized identifiers, then unique prefixes."
 (defun localgroup--status-field-label (field)
   "Return FIELD's compact human-readable table heading."
   (ecase field
-    (:session "SESSION")
-    (:pid "PID")
-    (:state "STATE")
-    (:started "STARTED")
-    (:conversation "CONVERSATION")
-    (:activity "ACTIVITY")
-    (:workspace "WORKSPACE")))
+    (:session
+     "SESSION")
+    (:pid
+     "PID")
+    (:state
+     "STATE")
+    (:started
+     "STARTED")
+    (:conversation
+     "CONVERSATION")
+    (:activity
+     "ACTIVITY")
+    (:workspace
+     "WORKSPACE")))
 
 (-> localgroup--status-field-text (list keyword) string)
 (defun localgroup--status-field-text (status field)
@@ -201,25 +212,36 @@ Prefer exact identifiers, then normalized identifiers, then unique prefixes."
          (if (typep pid '(integer 1))
              (format nil "~D" pid)
              "unknown")))
-      (:state (localgroup--status-state-text status))
-      (:started (localgroup--status-started-text status))
-      (:conversation (or (getf values :conversation-title)
-                         (getf values :conversation-display-id)))
-      (:activity (localgroup--status-activity-text status))
-      (:workspace (getf values :cwd)))))
+      (:state
+       (localgroup--status-state-text status))
+      (:started
+       (localgroup--status-started-text status))
+      (:conversation
+       (or (getf values :conversation-title)
+           (getf values :conversation-display-id)))
+      (:activity
+       (localgroup--status-activity-text status))
+      (:workspace
+       (getf values :cwd)))))
 
 (-> localgroup--status-field-style (list keyword) terminal-style)
 (defun localgroup--status-field-style (status field)
   "Return the semantic style for STATUS's FIELD."
   (case field
-    (:session ':code)
-    (:pid ':code)
-    (:state (localgroup--status-state-style status))
-    (:started ':timestamp-time)
+    (:session
+     ':code)
+    (:pid
+     ':code)
+    (:state
+     (localgroup--status-state-style status))
+    (:started
+     ':timestamp-time)
     (:conversation
      (if (getf (rest status) :conversation-title) ':plain ':code))
-    (:activity ':dim)
-    (:workspace ':plain)))
+    (:activity
+     ':dim)
+    (:workspace
+     ':plain)))
 
 (-> localgroup--status-table-fields (integer) (option list))
 (defun localgroup--status-table-fields (columns)
@@ -232,19 +254,27 @@ Prefer exact identifiers, then normalized identifiers, then unique prefixes."
          '(:session :state :conversation :workspace))
         ((>= columns 36)
          '(:session :conversation :workspace))
-        (t nil)))
+        (t
+         nil)))
 
 (-> localgroup--status-field-minimum-width (keyword) integer)
 (defun localgroup--status-field-minimum-width (field)
   "Return the minimum useful cell width for FIELD."
   (ecase field
-    (:session 8)
-    (:pid 5)
-    (:state 8)
-    (:started 17)
-    (:conversation 8)
-    (:activity 12)
-    (:workspace 14)))
+    (:session
+     8)
+    (:pid
+     5)
+    (:state
+     8)
+    (:started
+     17)
+    (:conversation
+     8)
+    (:activity
+     12)
+    (:workspace
+     14)))
 
 (-> localgroup--status-output-styled-p (stream) boolean)
 (defun localgroup--status-output-styled-p (stream)
@@ -349,12 +379,12 @@ HEADER-P renders field labels rather than status values."
 (-> localgroup--status-card-row (list integer) terminal-styled-text)
 (defun localgroup--status-card-row (status inner-width)
   "Return compact bordered rows for STATUS within INNER-WIDTH cells."
-  (let* ((identifier (localgroup--status-field-text status ':session))
-         (state (localgroup--status-field-text status ':state))
+  (let* ((identifier   (localgroup--status-field-text status ':session))
+         (state        (localgroup--status-field-text status ':state))
          (session-width
            (min (text-cell-width identifier)
                 (max 1 (- inner-width (text-cell-width state) 2))))
-         (state-width (max 0 (- inner-width session-width 2)))
+         (state-width  (max 0 (- inner-width session-width 2)))
          (detail
            (format nil "~A  ~A"
                    (localgroup--status-field-text status ':started)
@@ -398,10 +428,10 @@ HEADER-P renders field labels rather than status values."
        stream
        (list (terminal-span ':notice "No local Autolith sessions are running."))
        styled-p)
-      (let* ((columns (max 4 columns))
+      (let* ((columns     (max 4 columns))
              (inner-width (- columns 2))
-             (fields (localgroup--status-table-fields columns))
-             (title "Local Autolith sessions"))
+             (fields      (localgroup--status-table-fields columns))
+             (title       "Local Autolith sessions"))
         (localgroup--write-styled-line
          stream
          (localgroup--status-box-border #\Box_Drawings_Light_Down_And_Right
@@ -431,7 +461,7 @@ HEADER-P renders field labels rather than status values."
                       :gap-width 1
                       :minimum-widths
                       (mapcar #'localgroup--status-field-minimum-width fields)
-                      :fill-p t)))
+                      :fill-p    t)))
               (localgroup--write-styled-line
                stream
                (localgroup--status-table-border widths ':top)
@@ -498,14 +528,14 @@ HEADER-P renders field labels rather than status values."
 
 (defun localgroup--attach-terminal-loop (socket-stream terminal mode &key socket)
   "Relay terminal I/O; return an application exit or explicit checkpoint transition."
-  (let ((output (make-mode-tracking-output-stream *standard-output*))
+  (let ((output    (make-mode-tracking-output-stream *standard-output*))
         (reconnect nil))
     (unwind-protect
          (let ((exit
                  (image-daemon:daemon-attach-client-run
                   socket-stream :mode mode :socket socket :output-stream output
                   :input-ready-function (lambda () (terminal-input-ready-p terminal))
-                  :read-event-function (lambda () (terminal-read-event terminal))
+                  :read-event-function  (lambda () (terminal-read-event terminal))
                   :packet-function
                   (lambda (packet)
                     (when (and (eq (first packet) ':checkpoint-reconnect)
@@ -526,7 +556,6 @@ HEADER-P renders field labels rather than status values."
 (-> localgroup--wait-for-handoff-entry
     (configuration string string integer)
     cons)
-
 (defun localgroup--wait-for-handoff-entry (configuration session-id token old-pid)
   "Wait for SESSION-ID's authenticated replacement endpoint after OLD-PID."
   (let ((deadline
@@ -535,7 +564,7 @@ HEADER-P renders field labels rather than status values."
                internal-time-units-per-second))))
     (loop
      (let* ((pathname (localgroup-registry-pathname configuration session-id))
-            (record (image-daemon:daemon-registry-read pathname)))
+            (record   (image-daemon:daemon-registry-read pathname)))
        (when
            (and record (/= (getf (rest record) :pid) old-pid)
                 (string= (localgroup--record-token record) token)
@@ -554,13 +583,13 @@ HEADER-P renders field labels rather than status values."
 (-> localgroup--wait-for-checkpoint-entry (cons string) cons)
 (defun localgroup--wait-for-checkpoint-entry (entry reconnect-id)
   "Wait boundedly for ENTRY's authenticated endpoint for RECONNECT-ID."
-  (let* ((pathname (first entry))
+  (let* ((pathname   (first entry))
          (old-record (rest entry))
          (session-id (localgroup--record-session-id old-record))
-         (token (localgroup--record-token old-record))
-         (deadline (+ (get-internal-real-time)
-                      (* *localgroup-handoff-start-timeout-seconds*
-                         internal-time-units-per-second))))
+         (token      (localgroup--record-token old-record))
+         (deadline   (+ (get-internal-real-time)
+                        (* *localgroup-handoff-start-timeout-seconds*
+                           internal-time-units-per-second))))
     (loop
       (let ((record (image-daemon:daemon-registry-read pathname)))
         (when (and record
@@ -596,19 +625,19 @@ Return an application exit plist, or NIL after a detach or connection loss."
 
 (defun localgroup--attach-record-once (configuration entry mode &key history-position)
   "Run one attachment and release terminal ownership before any reconnect."
-  (let* ((record (rest entry))
-         (socket nil)
+  (let* ((record        (rest entry))
+         (socket        nil)
          (socket-stream nil)
-         (terminal nil)
-         (resize-watch nil))
+         (terminal      nil)
+         (resize-watch  nil))
     (unwind-protect
         (progn
          (multiple-value-bind (rows columns)
              (terminal-current-size)
            (setf terminal
                  (stream-terminal-create
-                  :rows rows
-                  :columns columns
+                  :rows                  rows
+                  :columns               columns
                   :input-file-descriptor (terminal-standard-input-file-descriptor))))
          (unless (terminal--terminal-mode-or-nil terminal)
            (error 'localgroup-error :message
@@ -628,8 +657,8 @@ Return an application exit plist, or NIL after a detach or connection loss."
            (cond
             ((and response (eq (first response) ':handoff))
              (let ((session-id (getf (rest response) :session-id))
-                   (old-pid (getf (rest response) :old-pid))
-                   (token (localgroup--record-token record)))
+                   (old-pid    (getf (rest response) :old-pid))
+                   (token      (localgroup--record-token record)))
                (unless (and (non-empty-string-p session-id) (typep old-pid '(integer 1)))
                  (error 'localgroup-error :message
                         "The localgroup handoff response was malformed." :operation
@@ -728,16 +757,16 @@ that action to the controlling terminal."
       (let ((records (localgroup--reachable-records configuration)))
         (cond ((null records)
                (error 'localgroup-error
-                      :message "No reachable localgroup session is running."
+                      :message   "No reachable localgroup session is running."
                       :operation ':discover))
               ((rest records)
                (error 'localgroup-error
-                      :message (format nil "Multiple reachable localgroup sessions are running; provide a session identifier: ~{~A~^, ~}."
-                                       (sort (mapcar (lambda (entry)
-                                                       (session-identifier-display
-                                                        (localgroup--record-session-id (rest entry))))
-                                                     records)
-                                             #'string<))
+                      :message   (format nil "Multiple reachable localgroup sessions are running; provide a session identifier: ~{~A~^, ~}."
+                                         (sort (mapcar (lambda (entry)
+                                                         (session-identifier-display
+                                                          (localgroup--record-session-id (rest entry))))
+                                                       records)
+                                               #'string<))
                       :operation ':discover))
               (t
                (first records))))))
@@ -746,17 +775,17 @@ that action to the controlling terminal."
 (defun localgroup--status-command ()
   "Return the localgroup status sub-command definition."
   (make-command
-   :name "status"
+   :name        "status"
    :description "list detached Autolith sessions"
-   :options (list (make-option ':flag
-                               :long-name "sexp"
-                               :key ':sexp
-                               :description "print statuses as readable forms"))
+   :options     (list (make-option ':flag
+                                   :long-name   "sexp"
+                                   :key         ':sexp
+                                   :description "print statuses as readable forms"))
    :handler
    (lambda (command)
      (when (command-arguments command)
        (error 'localgroup-error
-              :message "localgroup status accepts no arguments."
+              :message   "localgroup status accepts no arguments."
               :operation ':arguments))
      (localgroup--run-status
       :sexp-p (not (null (getopt command ':sexp)))))))
@@ -765,20 +794,20 @@ that action to the controlling terminal."
 (defun localgroup--tell-command ()
   "Return the localgroup tell sub-command definition."
   (make-command
-   :name "tell"
+   :name        "tell"
    :description "queue one message for a detached session"
-   :usage "[SESSION-ID] MESSAGE"
+   :usage       "[SESSION-ID] MESSAGE"
    :handler
    (lambda (command)
      (let ((arguments (command-arguments command)))
        (unless (member (length arguments) '(1 2))
          (error 'localgroup-error
-                :message "localgroup tell requires MESSAGE, or SESSION-ID and exactly one quoted message argument."
+                :message   "localgroup tell requires MESSAGE, or SESSION-ID and exactly one quoted message argument."
                 :operation ':arguments))
        (let* ((configuration (localgroup--client-configuration))
-              (session-id (when (= (length arguments) 2) (first arguments)))
-              (message (if session-id (second arguments) (first arguments)))
-              (entry (localgroup--session-record configuration session-id)))
+              (session-id    (when (= (length arguments) 2) (first arguments)))
+              (message       (if session-id (second arguments) (first arguments)))
+              (entry         (localgroup--session-record configuration session-id)))
          (localgroup--print-response
           (localgroup-query-record entry ':tell (list :message message))
           *standard-output*))))))
@@ -787,36 +816,39 @@ that action to the controlling terminal."
 (defun localgroup--attach-command ()
   "Return the localgroup attach sub-command definition."
   (make-command
-   :name "attach"
+   :name        "attach"
    :description "attach this terminal to a detached session"
-   :usage "[SESSION-ID]"
-   :options (list (make-option ':flag
-                               :long-name "read-only"
-                               :key ':read-only
-                               :description "observe without control")
-                  (make-option ':flag
-                               :long-name "take-over"
-                               :key ':take-over
-                               :description "take exclusive control"))
+   :usage       "[SESSION-ID]"
+   :options     (list (make-option ':flag
+                                   :long-name   "read-only"
+                                   :key         ':read-only
+                                   :description "observe without control")
+                      (make-option ':flag
+                                   :long-name   "take-over"
+                                   :key         ':take-over
+                                   :description "take exclusive control"))
    :handler
    (lambda (command)
      (let ((arguments (command-arguments command)))
        (unless (member (length arguments) '(0 1))
          (error 'localgroup-error
-                :message "localgroup attach accepts at most one session identifier."
+                :message   "localgroup attach accepts at most one session identifier."
                 :operation ':arguments))
        (let ((read-only-p (not (null (getopt command ':read-only))))
              (take-over-p (not (null (getopt command ':take-over)))))
          (when (and read-only-p take-over-p)
            (error 'localgroup-error
-                  :message "Choose at most one of --read-only and --take-over."
+                  :message   "Choose at most one of --read-only and --take-over."
                   :operation ':arguments))
          (let* ((configuration (localgroup--client-configuration))
-                (session-id (first arguments))
-                (mode (cond (read-only-p ':read-only)
-                            (take-over-p ':take-over)
-                            (t ':control)))
-                (entry (localgroup--session-record configuration session-id)))
+                (session-id    (first arguments))
+                (mode          (cond (read-only-p
+                                      ':read-only)
+                                     (take-over-p
+                                      ':take-over)
+                                     (t
+                                      ':control)))
+                (entry         (localgroup--session-record configuration session-id)))
            (localgroup-relay-exit
             (localgroup-attach-record configuration entry mode)
             mode)))))))
@@ -825,18 +857,18 @@ that action to the controlling terminal."
 (defun localgroup--operation-command (name description operation)
   "Return a single-session localgroup OPERATION sub-command definition."
   (make-command
-   :name name
+   :name        name
    :description description
-   :usage "[SESSION-ID]"
+   :usage       "[SESSION-ID]"
    :handler
    (lambda (command)
      (let ((arguments (command-arguments command)))
        (unless (member (length arguments) '(0 1))
          (error 'localgroup-error
-                :message (format nil "localgroup ~A accepts at most one session identifier." name)
+                :message   (format nil "localgroup ~A accepts at most one session identifier." name)
                 :operation ':arguments))
        (let* ((configuration (localgroup--client-configuration))
-              (entry (localgroup--session-record configuration (first arguments))))
+              (entry         (localgroup--session-record configuration (first arguments))))
          (localgroup--print-response
           (localgroup-query-record entry operation)
           *standard-output*))))))
@@ -845,8 +877,8 @@ that action to the controlling terminal."
 (defun main-localgroup-command ()
   "Return the localgroup command definition and its sub-commands."
   (make-command
-   :name "localgroup"
-   :aliases '("lg")
+   :name        "localgroup"
+   :aliases     '("lg")
    :description "inspect and control detached Autolith sessions"
    :sub-commands
    (list (localgroup--status-command)
@@ -862,7 +894,7 @@ that action to the controlling terminal."
    (lambda (command)
      (when (command-arguments command)
        (error 'localgroup-error
-              :message (format nil "Unknown localgroup command ~S."
-                               (first (command-arguments command)))
+              :message   (format nil "Unknown localgroup command ~S."
+                                 (first (command-arguments command)))
               :operation ':arguments))
      (localgroup--run-status :sexp-p nil))))
