@@ -17,10 +17,10 @@
      registry
      (apply #'make-instance
             class
-            :namespace namespace
-            :name name
-            :description description
-            :parameters parameters
+            :namespace              namespace
+            :name                   name
+            :description            description
+            :parameters             parameters
              :correction-metadata-p correction-metadata-p
             initialization-arguments))))
 
@@ -168,108 +168,108 @@ retracting facts, and proposing rules."
       'vector
       (when knowledge-p
         (list
-      (operation-schema
-       "predicate-define"
-       (json-object
-        "predicate" (tool-string-property "Lowercase dotted name such as event.start.")
-        "arguments" (cl-llm-provider-api:provider-array-schema
-                     (tool-object-schema
-                      (json-object
-                       "name" (tool-string-property "Lowercase argument name.")
-                       "type" (cl-llm-provider-api:provider-enum-schema
-                               *memory-knowledge-type-names* "The argument's value type.")
-                       "unit" (tool-string-property
-                               "For a quantity, a unit whose dimension values must have."))
-                      '("name" "type"))
-                     "Typed arguments in order.")
-        "key" (cl-llm-provider-api:provider-array-schema
-               (tool-string-property "An argument name.")
-               "Arguments identifying the subject; facts agreeing on them and differing elsewhere conflict.")
-        "template" (tool-string-property "Sentence with {argument} placeholders.")
-        "description" (tool-string-property "What the predicate means.")
-        "scope" (memory-scope-property))
-       '("predicate" "arguments"))
-      (operation-schema
-       "fact-assert"
-       (json-object
-        "predicate" (tool-string-property "A defined predicate.")
-        "arguments" (json-object "type" "array"
-                                 "items" (json-object "description" "One argument value.")
-                                 "description" "Values in argument order: strings, numbers, ISO instants and dates, durations such as PT30M, quantities as {magnitude, unit}.")
-        "negated" (tool-boolean-property "Assert that the fact does not hold.")
-        "sources" (memory-sources-property)
-        "basis" (cl-llm-provider-api:provider-enum-schema
-                 '("observation" "user-assertion" "assumption" "model-proposal")
-                 "Why it is believed. The sources decide it: a file is an observation, the user's words a user assertion, a page an observation only once retrieved with that text in this conversation, and no source a model proposal. Give assumption or model-proposal to claim less.")
-        "valid-from" (tool-string-property "ISO instant from which the fact holds.")
-        "valid-until" (tool-string-property "ISO instant after which it no longer holds.")
-        "scope" (memory-scope-property))
-       '("predicate" "arguments"))
-      (operation-schema
-       "method-define"
-       (json-object
-        "id" (tool-string-property "Lowercase method name; defining it again replaces it.")
-        "task" (json-object "type" "array"
-                            "items" (json-object "description" "A task name, then variables or values.")
-                            "description" "The task this method does, such as [\"prepare\", \"?event\"].")
-        "when" (json-object "type" "array"
-                            "items" (json-object "description" "One fact pattern.")
-                            "description" "Fact patterns that must hold for this method to apply.")
-        "steps" (json-object "type" "array"
-                             "items" (json-object "description" "{\"task\": [NAME, ARGS...]} or {\"step\": TEXT, \"requires\": [...], \"verify\": PATTERN}.")
-                             "description" "Ordered subtasks and plain steps; {?var} in step text is filled from facts.")
-        "description" (tool-string-property "What the method achieves.")
-        "scope" (memory-scope-property))
-       '("id" "task" "steps"))
-      (operation-schema
-       "contract-define"
-       (json-object
-        "id" (tool-string-property "Lowercase contract name; defining it again replaces it.")
-        "tool" (tool-string-property "The tool the contract describes, such as shell.run or an MCP tool.")
-        "when" (json-object "type" "object"
-                            "description" "Argument names mapped to required values or to variables they bind.")
-        "requires" (json-object "type" "array"
-                                "items" (json-object "description" "One fact pattern.")
-                                "description" "Fact patterns that must hold before the call; otherwise it is refused.")
-        "effects" (json-object "type" "array"
+         (operation-schema
+          "predicate-define"
+          (json-object
+           "predicate" (tool-string-property "Lowercase dotted name such as event.start.")
+           "arguments" (cl-llm-provider-api:provider-array-schema
+                        (tool-object-schema
+                         (json-object
+                          "name" (tool-string-property "Lowercase argument name.")
+                          "type" (cl-llm-provider-api:provider-enum-schema
+                                  *memory-knowledge-type-names* "The argument's value type.")
+                          "unit" (tool-string-property
+                                  "For a quantity, a unit whose dimension values must have."))
+                         '("name" "type"))
+                        "Typed arguments in order.")
+           "key" (cl-llm-provider-api:provider-array-schema
+                  (tool-string-property "An argument name.")
+                  "Arguments identifying the subject; facts agreeing on them and differing elsewhere conflict.")
+           "template" (tool-string-property "Sentence with {argument} placeholders.")
+           "description" (tool-string-property "What the predicate means.")
+           "scope" (memory-scope-property))
+          '("predicate" "arguments"))
+         (operation-schema
+          "fact-assert"
+          (json-object
+           "predicate" (tool-string-property "A defined predicate.")
+           "arguments" (json-object "type" "array"
+                                    "items" (json-object "description" "One argument value.")
+                                    "description" "Values in argument order: strings, numbers, ISO instants and dates, durations such as PT30M, quantities as {magnitude, unit}.")
+           "negated" (tool-boolean-property "Assert that the fact does not hold.")
+           "sources" (memory-sources-property)
+           "basis" (cl-llm-provider-api:provider-enum-schema
+                    '("observation" "user-assertion" "assumption" "model-proposal")
+                    "Why it is believed. The sources decide it: a file is an observation, the user's words a user assertion, a page an observation only once retrieved with that text in this conversation, and no source a model proposal. Give assumption or model-proposal to claim less.")
+           "valid-from" (tool-string-property "ISO instant from which the fact holds.")
+           "valid-until" (tool-string-property "ISO instant after which it no longer holds.")
+           "scope" (memory-scope-property))
+          '("predicate" "arguments"))
+         (operation-schema
+          "method-define"
+          (json-object
+           "id" (tool-string-property "Lowercase method name; defining it again replaces it.")
+           "task" (json-object "type" "array"
+                               "items" (json-object "description" "A task name, then variables or values.")
+                               "description" "The task this method does, such as [\"prepare\", \"?event\"].")
+           "when" (json-object "type" "array"
                                "items" (json-object "description" "One fact pattern.")
-                               "description" "Facts the call is expected to cause, recorded as predictions.")
-        "observes" (json-object "type" "array"
-                                "items" (json-object "description" "{\"predicate\": NAME, \"arguments\": [VALUE, ?var, $arg.NAME, or $result.PATH]}.")
-                                "description" "Facts read from the call's arguments and JSON result after it succeeds.")
-        "accepts" (json-object "type" "array"
-                               "items" (cl-llm-provider-api:provider-enum-schema
-                                        '("observation" "user-assertion" "assumption" "model-proposal")
-                                        "A basis a requirement may rest on.")
-                               "description" "Bases requirements may rest on; default observation and user-assertion. Add model-proposal to let earlier calls' predicted effects count.")
-        "description" (tool-string-property "What the contract states.")
-        "scope" (memory-scope-property))
-       '("id" "tool"))
-      (operation-schema
-       "fact-retract"
-       (json-object
-        "id" (tool-string-property "A claim or support identifier.")
-        "reason" (tool-string-property "Why it no longer holds."))
-       '("id"))
-      (operation-schema
-       "rule-propose"
-       (json-object
-        "id" (tool-string-property "Lowercase rule name; proposing it again makes a new version.")
-        "premises" (json-object "type" "array"
-                                "items" (json-object "description" "One premise pattern.")
-                                "description" "Patterns such as [\"event.start\", \"?event\", \"?start\"], or [\"not\", PATTERN] matching an explicitly asserted negation.")
-        "guards" (json-object "type" "array"
-                              "items" (json-object "description" "One comparison.")
-                              "description" "Comparisons such as [\"<\", \"?a\", \"?b\"].")
-        "bindings" (json-object "type" "array"
-                                "items" (json-object "description" "One variable and its expression.")
-                                "description" "New variables such as [\"?leave\", [\"-\", \"?start\", \"?travel\"]], computed with + - * / min max abs date start-of-day weekday days hours minutes in-unit.")
-        "conclusion" (json-object "type" "array"
-                                  "items" (json-object "description" "A predicate name, variable, or value.")
-                                  "description" "The pattern the rule concludes, using bound variables.")
-        "description" (tool-string-property "What the rule does.")
-        "scope" (memory-scope-property))
-       '("id" "premises" "conclusion"))))
+                               "description" "Fact patterns that must hold for this method to apply.")
+           "steps" (json-object "type" "array"
+                                "items" (json-object "description" "{\"task\": [NAME, ARGS...]} or {\"step\": TEXT, \"requires\": [...], \"verify\": PATTERN}.")
+                                "description" "Ordered subtasks and plain steps; {?var} in step text is filled from facts.")
+           "description" (tool-string-property "What the method achieves.")
+           "scope" (memory-scope-property))
+          '("id" "task" "steps"))
+         (operation-schema
+          "contract-define"
+          (json-object
+           "id" (tool-string-property "Lowercase contract name; defining it again replaces it.")
+           "tool" (tool-string-property "The tool the contract describes, such as shell.run or an MCP tool.")
+           "when" (json-object "type" "object"
+                               "description" "Argument names mapped to required values or to variables they bind.")
+           "requires" (json-object "type" "array"
+                                   "items" (json-object "description" "One fact pattern.")
+                                   "description" "Fact patterns that must hold before the call; otherwise it is refused.")
+           "effects" (json-object "type" "array"
+                                  "items" (json-object "description" "One fact pattern.")
+                                  "description" "Facts the call is expected to cause, recorded as predictions.")
+           "observes" (json-object "type" "array"
+                                   "items" (json-object "description" "{\"predicate\": NAME, \"arguments\": [VALUE, ?var, $arg.NAME, or $result.PATH]}.")
+                                   "description" "Facts read from the call's arguments and JSON result after it succeeds.")
+           "accepts" (json-object "type" "array"
+                                  "items" (cl-llm-provider-api:provider-enum-schema
+                                           '("observation" "user-assertion" "assumption" "model-proposal")
+                                           "A basis a requirement may rest on.")
+                                  "description" "Bases requirements may rest on; default observation and user-assertion. Add model-proposal to let earlier calls' predicted effects count.")
+           "description" (tool-string-property "What the contract states.")
+           "scope" (memory-scope-property))
+          '("id" "tool"))
+         (operation-schema
+          "fact-retract"
+          (json-object
+           "id" (tool-string-property "A claim or support identifier.")
+           "reason" (tool-string-property "Why it no longer holds."))
+          '("id"))
+         (operation-schema
+          "rule-propose"
+          (json-object
+           "id" (tool-string-property "Lowercase rule name; proposing it again makes a new version.")
+           "premises" (json-object "type" "array"
+                                   "items" (json-object "description" "One premise pattern.")
+                                   "description" "Patterns such as [\"event.start\", \"?event\", \"?start\"], or [\"not\", PATTERN] matching an explicitly asserted negation.")
+           "guards" (json-object "type" "array"
+                                 "items" (json-object "description" "One comparison.")
+                                 "description" "Comparisons such as [\"<\", \"?a\", \"?b\"].")
+           "bindings" (json-object "type" "array"
+                                   "items" (json-object "description" "One variable and its expression.")
+                                   "description" "New variables such as [\"?leave\", [\"-\", \"?start\", \"?travel\"]], computed with + - * / min max abs date start-of-day weekday days hours minutes in-unit.")
+           "conclusion" (json-object "type" "array"
+                                     "items" (json-object "description" "A predicate name, variable, or value.")
+                                     "description" "The pattern the rule concludes, using bound variables.")
+           "description" (tool-string-property "What the rule does.")
+           "scope" (memory-scope-property))
+          '("id" "premises" "conclusion"))))
       (vector
        (operation-schema
         "replace-lines"
@@ -308,93 +308,93 @@ retracting facts, and proposing rules."
                    "Optional anchor printed beside the line; corrects a small transcription offset.")
          "content" (tool-string-property "Non-empty text to insert."))
         '("line" "content"))
-      (operation-schema
-       "replace-empty"
-       (json-object
-        "content" (tool-string-property
-                   "Non-empty complete content for an observed missing resource or empty file."))
-       '("content"))
-      (operation-schema
-       "scratchpad-delete"
-       (json-object)
-       nil)
-      (operation-schema
-       "agenda-add"
-       (json-object
-        "text" (tool-string-property
-                (format nil "Complete agenda item text, 1 to ~D characters."
-                        *agenda-item-text-limit*))
-        "status" (status-property)
-        "memory-ids" (memory-identifiers-property))
-       '("text"))
-      (operation-schema
-       "agenda-update"
-       (json-object
-        "id" (tool-string-property "The stable agenda item identifier.")
-        "text" (tool-string-property
-                (format nil "Replacement agenda item text, 1 to ~D characters."
-                        *agenda-item-text-limit*))
-        "status" (status-property)
-        "memory-ids" (memory-identifiers-property))
-       '("id")
-       :any-required '("text" "status" "memory-ids"))
-      (operation-schema
-       "agenda-remove"
-       (json-object
-        "id" (tool-string-property "The stable agenda item identifier."))
-       '("id"))
-      (operation-schema
-       "memory-remember"
-       (json-object
-        "title" (tool-string-property "Complete persistent-memory title.")
-        "content" (tool-string-property "Complete persistent-memory content.")
-        "tags" (memory-tags-property)
-        "sources" (memory-sources-property)
-        "premises" (memory-premises-property))
-       '("title" "content"))
-      (operation-schema
-       "memory-replace"
-       (json-object
-        "title" (tool-string-property "Complete replacement memory title.")
-        "content" (tool-string-property "Complete replacement memory content.")
-        "tags" (memory-tags-property)
-        "scope" (memory-scope-property)
-        "sources" (memory-sources-property)
-        "premises" (memory-premises-property))
-       '("title" "content"))
-      (operation-schema
-       "memory-forget"
-       (json-object)
-       nil)
-      (operation-schema
-       "papercut-report"
-       (json-object
-        "issue-kind" (cl-llm-provider-api:provider-enum-schema
-                      '("broken_tool" "misleading_success" "authorization" "performance" "other")
-                      "Explicit issue category; omit when unknown.")
-        "tool" (tool-string-property "Affected builtin tool name; omit when unknown.")
-        "title" (tool-string-property "Complete bounded papercut title.")
-        "content" (tool-string-property "Complete bounded private local papercut report.")
-        "diagnostic" (default-tools--diagnostic-property))
-       '("title" "content"))
-      (operation-schema
-       "papercut-assess"
-       (json-object
-        "verdict" (json-object
-                   "type" "string"
-                   "description" "Latest effectiveness verdict."
-                   "enum" (vector "improved" "worse" "unchanged" "too-early"))
-        "note" (tool-string-property
-                "Complete bounded private local assessment note.")
-        "diagnostic" (default-tools--diagnostic-property))
-       '("verdict" "note"))
-      (operation-schema
-       "papercut-close"
-       (json-object
-        "resolution" (tool-string-property
-                      "Complete bounded private local closure resolution.")
-        "diagnostic" (default-tools--diagnostic-property))
-       '("resolution")))))))
+       (operation-schema
+        "replace-empty"
+        (json-object
+         "content" (tool-string-property
+                    "Non-empty complete content for an observed missing resource or empty file."))
+        '("content"))
+       (operation-schema
+        "scratchpad-delete"
+        (json-object)
+        nil)
+       (operation-schema
+        "agenda-add"
+        (json-object
+         "text" (tool-string-property
+                 (format nil "Complete agenda item text, 1 to ~D characters."
+                         *agenda-item-text-limit*))
+         "status" (status-property)
+         "memory-ids" (memory-identifiers-property))
+        '("text"))
+       (operation-schema
+        "agenda-update"
+        (json-object
+         "id" (tool-string-property "The stable agenda item identifier.")
+         "text" (tool-string-property
+                 (format nil "Replacement agenda item text, 1 to ~D characters."
+                         *agenda-item-text-limit*))
+         "status" (status-property)
+         "memory-ids" (memory-identifiers-property))
+        '("id")
+        :any-required '("text" "status" "memory-ids"))
+       (operation-schema
+        "agenda-remove"
+        (json-object
+         "id" (tool-string-property "The stable agenda item identifier."))
+        '("id"))
+       (operation-schema
+        "memory-remember"
+        (json-object
+         "title" (tool-string-property "Complete persistent-memory title.")
+         "content" (tool-string-property "Complete persistent-memory content.")
+         "tags" (memory-tags-property)
+         "sources" (memory-sources-property)
+         "premises" (memory-premises-property))
+        '("title" "content"))
+       (operation-schema
+        "memory-replace"
+        (json-object
+         "title" (tool-string-property "Complete replacement memory title.")
+         "content" (tool-string-property "Complete replacement memory content.")
+         "tags" (memory-tags-property)
+         "scope" (memory-scope-property)
+         "sources" (memory-sources-property)
+         "premises" (memory-premises-property))
+        '("title" "content"))
+       (operation-schema
+        "memory-forget"
+        (json-object)
+        nil)
+       (operation-schema
+        "papercut-report"
+        (json-object
+         "issue-kind" (cl-llm-provider-api:provider-enum-schema
+                       '("broken_tool" "misleading_success" "authorization" "performance" "other")
+                       "Explicit issue category; omit when unknown.")
+         "tool" (tool-string-property "Affected builtin tool name; omit when unknown.")
+         "title" (tool-string-property "Complete bounded papercut title.")
+         "content" (tool-string-property "Complete bounded private local papercut report.")
+         "diagnostic" (default-tools--diagnostic-property))
+        '("title" "content"))
+       (operation-schema
+        "papercut-assess"
+        (json-object
+         "verdict" (json-object
+                    "type" "string"
+                    "description" "Latest effectiveness verdict."
+                    "enum" (vector "improved" "worse" "unchanged" "too-early"))
+         "note" (tool-string-property
+                 "Complete bounded private local assessment note.")
+         "diagnostic" (default-tools--diagnostic-property))
+        '("verdict" "note"))
+       (operation-schema
+        "papercut-close"
+        (json-object
+         "resolution" (tool-string-property
+                       "Complete bounded private local closure resolution.")
+         "diagnostic" (default-tools--diagnostic-property))
+        '("resolution")))))))
 
 (-> default-tools--register-workspace (tool-registry &key (:knowledge-p boolean)) tool-registry)
 (defun default-tools--register-workspace (registry &key (knowledge-p t))
@@ -536,7 +536,7 @@ KNOWLEDGE-P offers structured knowledge through memory: resources."
     *web-run-description*
      (web-run-parameters))
     ;; The subscription backend validates this provider-reserved schema exactly.
-    :correction-metadata-p nil)
+   :correction-metadata-p nil)
   (default-tools--register
    registry
    (list
@@ -623,7 +623,6 @@ KNOWLEDGE-P offers structured knowledge through memory: resources."
          :engine worker)))
     (default-tools--register registry specification))
   registry)
-
 
 (-> default-tools--register-papercut (tool-registry) tool-registry)
 (defun default-tools--register-papercut (registry)
@@ -797,7 +796,7 @@ them."
              "explanation"
              (tool-string-property
               "Optional short explanation of the plan."))
-             '("steps")))))
+            '("steps")))))
       (default-tools--register registry specification)))
   (when knowledge-p
     (default-tools--register
@@ -885,27 +884,27 @@ them."
              "repl" (tool-string-property
                      "The persistent REPL name; defaults to default."))
             '("designator")))
-           (list
-            'lisp-source-tool
-            "lisp" "source"
-            "Read matching source from a named worker or the active image."
-            (tool-object-schema
-             (json-object
-              "name" (tool-string-property
-                      "A readable definition or active symbol name.")
-              "target" (json-object
-                        "type" "string"
-                        "enum" #("worker" "self")
-                        "description" "Inspect a worker by default, or the active image with self.")
-              "kind" (tool-string-property
-                      "An optional SBCL definition kind, such as function, optimizer, transform, or vop.")
-              "package" (tool-string-property
-                         "The active-image reader package for an unqualified name; defaults to AUTOLITH.")
-              "system" (tool-string-property
-                        "An optional direct Autolith ASDF dependency containing the active symbol.")
-              "repl" (tool-string-property
-                      "The persistent REPL name; defaults to default."))
-             '("name")))
+          (list
+           'lisp-source-tool
+           "lisp" "source"
+           "Read matching source from a named worker or the active image."
+           (tool-object-schema
+            (json-object
+             "name" (tool-string-property
+                     "A readable definition or active symbol name.")
+             "target" (json-object
+                       "type" "string"
+                       "enum" #("worker" "self")
+                       "description" "Inspect a worker by default, or the active image with self.")
+             "kind" (tool-string-property
+                     "An optional SBCL definition kind, such as function, optimizer, transform, or vop.")
+             "package" (tool-string-property
+                        "The active-image reader package for an unqualified name; defaults to AUTOLITH.")
+             "system" (tool-string-property
+                       "An optional direct Autolith ASDF dependency containing the active symbol.")
+             "repl" (tool-string-property
+                     "The persistent REPL name; defaults to default."))
+            '("name")))
           (list
            'lisp-apropos-tool
            "lisp" "apropos"
@@ -988,12 +987,12 @@ them."
 (-> default-tools--self-repair-schema (list) list)
 (defun default-tools--self-repair-schema (specification)
   "Add optional explicit repair metadata to self mutation and exercise schemas."
-  (let* ((class (first specification))
+  (let* ((class      (first specification))
          (properties (json-get (fifth specification) "properties")))
     (when (subtypep class 'mutable-self-tool)
       (setf (gethash "diagnostic" properties) (default-tools--diagnostic-property)))
     (when (member class '(self-eval-tool self-redefine-tool self-set-tool
-                         self-persist-definition-tool self-exercise-tool))
+                          self-persist-definition-tool self-exercise-tool))
       (setf (gethash "incident" properties)
             (tool-string-property "The exact active papercut identifier for this repair; omit for a standalone mutation.")
             (gethash "repair-kind" properties)
@@ -1180,7 +1179,7 @@ them."
 LSP tools register only when CONFIGURATION enables a language server, and the
 emacs.* tools and emacs: resources only when it names a reachable Emacs server
 socket."
-  (let ((registry (make-instance 'tool-registry))
+  (let ((registry      (make-instance 'tool-registry))
         (search-worker (search-worker-create :configuration configuration)))
     (default-tools--register-workspace registry
                                        :knowledge-p (knowledge-active-p configuration))
