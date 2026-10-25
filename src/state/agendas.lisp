@@ -26,58 +26,58 @@
 
 (defclass agenda-item ()
   ((identifier
-    :initarg :identifier
-    :reader agenda-item-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        agenda-item-identifier
+    :type          non-empty-string
     :documentation "The stable identifier of this agenda item.")
    (text
-    :initarg :text
-    :reader agenda-item-text
-    :type non-empty-string
+    :initarg       :text
+    :reader        agenda-item-text
+    :type          non-empty-string
     :documentation "The bounded task, thought, or note text.")
    (status
-    :initarg :status
-    :reader agenda-item-status
-    :type agenda-status
+    :initarg       :status
+    :reader        agenda-item-status
+    :type          agenda-status
     :documentation "The current lifecycle or informational status.")
    (created-at
-    :initarg :created-at
-    :reader agenda-item-created-at
-    :type timestamp
+    :initarg       :created-at
+    :reader        agenda-item-created-at
+    :type          timestamp
     :documentation "The universal time at which this item was created.")
    (updated-at
-    :initarg :updated-at
-    :reader agenda-item-updated-at
-    :type timestamp
+    :initarg       :updated-at
+    :reader        agenda-item-updated-at
+    :type          timestamp
     :documentation "The universal time at which this item last changed.")
    (memory-identifiers
-    :initarg :memory-identifiers
-    :initform nil
-    :reader agenda-item-memory-identifiers
-    :type list
+    :initarg       :memory-identifiers
+    :initform      nil
+    :reader        agenda-item-memory-identifiers
+    :type          list
     :documentation "Stable persistent-memory identifiers attached to this item."))
   (:documentation "One stable task, thought, or note in a workspace agenda."))
 
 (defclass workspace-agenda ()
   ((directory
-    :initarg :directory
-    :reader workspace-agenda-directory
-    :type non-empty-string
+    :initarg       :directory
+    :reader        workspace-agenda-directory
+    :type          non-empty-string
     :documentation "The canonical or transported workspace directory key.")
    (items
-    :initarg :items
-    :initform nil
-    :reader workspace-agenda-items
-    :type list
+    :initarg       :items
+    :initform      nil
+    :reader        workspace-agenda-items
+    :type          list
     :documentation "The ordered agenda items for this workspace."))
   (:documentation "The short persistent agenda associated with one workspace."))
 
 (defclass agenda-state ()
   ((records
-    :initarg :records
-    :initform nil
-    :accessor agenda-state-records
-    :type list
+    :initarg       :records
+    :initform      nil
+    :accessor      agenda-state-records
+    :type          list
     :documentation "Every known workspace agenda, ordered by directory key."))
   (:documentation "Validated user-specific agendas for all known workspaces."))
 
@@ -131,7 +131,7 @@
       (and (sexp-store:record-shape-p form)
            (eq (first form) ':agenda)
            (let* ((properties (rest form))
-                  (items (getf properties :items)))
+                  (items      (getf properties :items)))
              (and (= (length properties) 4)
                   (record-property-present-p form :directory)
                   (record-property-present-p form :items)
@@ -178,8 +178,8 @@
   (let ((properties (rest form)))
     (make-instance 'agenda-item
                    :identifier (copy-seq (getf properties :id))
-                   :text (copy-seq (getf properties :text))
-                   :status (getf properties :status)
+                   :text       (copy-seq (getf properties :text))
+                   :status     (getf properties :status)
                    :created-at (getf properties :created-at)
                    :updated-at (getf properties :updated-at)
                    :memory-identifiers
@@ -193,9 +193,9 @@
   (let ((properties (rest form)))
     (make-instance 'workspace-agenda
                    :directory (copy-seq (getf properties :directory))
-                   :items (mapcar (lambda (item)
-                                    (agenda--item-form->item item version))
-                                  (getf properties :items)))))
+                   :items     (mapcar (lambda (item)
+                                        (agenda--item-form->item item version))
+                                      (getf properties :items)))))
 
 (-> agenda--sort-records (list) list)
 (defun agenda--sort-records (records)
@@ -208,10 +208,10 @@
   (let ((pathname (configuration-agenda-path configuration)))
     (make-instance
      'sexp-store:snapshot-store
-     :pathname pathname
+     :pathname      pathname
      :lock-pathname (readable-state-lock-pathname pathname "agendas.lock")
      :initial-state (lambda () (make-instance 'agenda-state))
-     :validator #'agenda--form-p
+     :validator     #'agenda--form-p
      :decoder
      (lambda (form)
        (make-instance
@@ -220,16 +220,16 @@
                   (mapcar (lambda (record)
                             (agenda--record-form->record record (third form)))
                           (fifth form)))))
-     :encoder #'agenda--state-form)))
+     :encoder       #'agenda--state-form)))
 
 (-> agenda--store-error (sexp-store:store-error) nil)
 (defun agenda--store-error (cause)
   "Translate storage CAUSE without changing the agenda corruption policy."
   (error 'agenda-error
-         :message (sexp-store:store-error-message cause)
-         :pathname (sexp-store:store-error-pathname cause)
+         :message   (sexp-store:store-error-message cause)
+         :pathname  (sexp-store:store-error-pathname cause)
          :operation (sexp-store:store-error-operation cause)
-         :cause cause))
+         :cause     cause))
 
 (-> agenda--read (configuration &key (:lock-held-p boolean)) agenda-state)
 (defun agenda--read (configuration &key lock-held-p)
@@ -247,7 +247,7 @@
     (agenda-error (condition)
       (warn 'agenda-load-warning
             :pathname (agenda-error-pathname condition)
-            :cause condition)
+            :cause    condition)
       (make-instance 'agenda-state))))
 
 (-> agenda--item->form (agenda-item) list)
@@ -255,8 +255,8 @@
   "Return ITEM as one portable readable form."
   (list :item
         :id (agenda-item-identifier item)
-        :text (agenda-item-text item)
-        :status (agenda-item-status item)
+        :text       (agenda-item-text item)
+        :status     (agenda-item-status item)
         :created-at (agenda-item-created-at item)
         :updated-at (agenda-item-updated-at item)
         :memory-ids (agenda-item-memory-identifiers item)))
@@ -293,34 +293,34 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
            (namestring (uiop:ensure-directory-pathname (platform-truename *platform* existing))))
           (require-existing-p
            (error 'agenda-error
-                  :message (format nil "Agenda directory ~A does not exist."
-                                   location)
-                  :pathname (configuration-agenda-path configuration)
+                  :message   (format nil "Agenda directory ~A does not exist."
+                                     location)
+                  :pathname  (configuration-agenda-path configuration)
                   :operation ':validate-directory
-                  :cause nil))
+                  :cause     nil))
           (t
            (let ((pathname
                    (uiop:ensure-pathname (platform-pathname location)
-                                         :ensure-absolute t
+                                         :ensure-absolute  t
                                          :ensure-directory t
-                                         :want-non-wild t)))
+                                         :want-non-wild    t)))
              (namestring pathname)))))
     (agenda-error (condition)
       (error condition))
     (error (cause)
       (error 'agenda-error
-             :message (format nil "Cannot use ~A as an agenda directory."
-                              location)
-             :pathname (configuration-agenda-path configuration)
+             :message   (format nil "Cannot use ~A as an agenda directory."
+                                location)
+             :pathname  (configuration-agenda-path configuration)
              :operation ':validate-directory
-             :cause cause))))
+             :cause     cause))))
 
 (-> agenda-find (agenda-state string) (option workspace-agenda))
 (defun agenda-find (state directory)
   "Return STATE's workspace agenda keyed by DIRECTORY, when present."
   (find directory
         (agenda-state-records state)
-        :key #'workspace-agenda-directory
+        :key  #'workspace-agenda-directory
         :test #'string=))
 
 (-> agenda-current (configuration agenda-state) (option workspace-agenda))
@@ -353,7 +353,7 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
 (defun agenda-prompt-item-lines (configuration)
   "Return active agenda item lines without the lead-in, or NIL when empty."
   (with-recursive-lock-held (*agenda-lock*)
-    (let* ((state (agenda-load configuration))
+    (let* ((state  (agenda-load configuration))
            (record (agenda-current configuration state))
            (items
              (and record
@@ -384,11 +384,11 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
   (unless (and (non-empty-string-p text)
                (<= (length text) *agenda-item-text-limit*))
     (error 'agenda-error
-           :message (format nil "Agenda text must contain 1 to ~D characters."
-                            *agenda-item-text-limit*)
-           :pathname (configuration-agenda-path configuration)
+           :message   (format nil "Agenda text must contain 1 to ~D characters."
+                              *agenda-item-text-limit*)
+           :pathname  (configuration-agenda-path configuration)
            :operation ':validate-item
-           :cause nil))
+           :cause     nil))
   (copy-seq text))
 
 (-> agenda--validate-memory-identifiers (configuration t) list)
@@ -396,30 +396,30 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
   "Return copied active memory IDENTIFIERS or signal an agenda failure."
   (unless (agenda--memory-identifiers-p identifiers)
     (error 'agenda-error
-           :message (format nil
-                            "Agenda memory-ids must be a unique list of at most ~D bounded strings."
-                            *agenda-item-memory-limit*)
-           :pathname (configuration-agenda-path configuration)
+           :message   (format nil
+                              "Agenda memory-ids must be a unique list of at most ~D bounded strings."
+                              *agenda-item-memory-limit*)
+           :pathname  (configuration-agenda-path configuration)
            :operation ':validate-item
-           :cause nil))
+           :cause     nil))
   (dolist (identifier identifiers)
     (handler-case
         (unless (memory-find configuration identifier)
           (error 'agenda-error
-                 :message (format nil "Memory ~A does not exist." identifier)
-                 :pathname (configuration-agenda-path configuration)
+                 :message   (format nil "Memory ~A does not exist." identifier)
+                 :pathname  (configuration-agenda-path configuration)
                  :operation ':validate-item
-                 :cause nil))
+                 :cause     nil))
       (agenda-error (condition)
         (error condition))
       (memory-error (cause)
         (error 'agenda-error
-               :message (format nil "Cannot validate linked memory ~A: ~A"
-                                identifier
-                                (autolith-error-message cause))
-               :pathname (configuration-agenda-path configuration)
+               :message   (format nil "Cannot validate linked memory ~A: ~A"
+                                  identifier
+                                  (autolith-error-message cause))
+               :pathname  (configuration-agenda-path configuration)
                :operation ':validate-item
-               :cause cause))))
+               :cause     cause))))
   (copy-list identifiers))
 
 (-> agenda--add-unlocked
@@ -433,22 +433,22 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
   "Add a new agenda item to CONFIGURATION's current workspace."
   (unless (typep status 'agenda-status)
     (error 'agenda-error
-           :message (format nil "Unsupported agenda status ~S." status)
-           :pathname (configuration-agenda-path configuration)
+           :message   (format nil "Unsupported agenda status ~S." status)
+           :pathname  (configuration-agenda-path configuration)
            :operation ':validate-item
-           :cause nil))
+           :cause     nil))
   (let* ((directory
            (agenda-directory-name
             configuration
             (config :working-directory configuration)
             :require-existing-p t))
          (record (agenda-find state directory))
-         (items (and record (workspace-agenda-items record))))
+         (items  (and record (workspace-agenda-items record))))
     (let* ((item
              (make-instance 'agenda-item
                             :identifier (make-identifier)
-                            :text (agenda--validate-text configuration text)
-                            :status status
+                            :text       (agenda--validate-text configuration text)
+                            :status     status
                             :created-at now
                             :updated-at now
                             :memory-identifiers
@@ -457,9 +457,9 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
            (replacement
              (make-instance 'workspace-agenda
                             :directory directory
-                            :items (append items (list item))))
+                            :items     (append items (list item))))
            (records (agenda--replace-record (agenda-state-records state)
-                                             replacement)))
+                                            replacement)))
       (setf (agenda-state-records state) records)
       item)))
 
@@ -475,36 +475,36 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
   "Update IDENTIFIER in the current workspace and return its replacement."
   (when (and status (not (typep status 'agenda-status)))
     (error 'agenda-error
-           :message (format nil "Unsupported agenda status ~S." status)
-           :pathname (configuration-agenda-path configuration)
+           :message   (format nil "Unsupported agenda status ~S." status)
+           :pathname  (configuration-agenda-path configuration)
            :operation ':validate-item
-           :cause nil))
+           :cause     nil))
   (unless (or text status memory-identifiers-supplied-p)
     (error 'agenda-error
-           :message "agenda.update requires text, status, or memory-ids."
-           :pathname (configuration-agenda-path configuration)
+           :message   "agenda.update requires text, status, or memory-ids."
+           :pathname  (configuration-agenda-path configuration)
            :operation ':update
-           :cause nil))
+           :cause     nil))
   (let* ((record (agenda-current configuration state))
-         (item (and record
-                    (find identifier
-                          (workspace-agenda-items record)
-                          :key #'agenda-item-identifier
-                          :test #'string=))))
+         (item   (and record
+                      (find identifier
+                            (workspace-agenda-items record)
+                            :key  #'agenda-item-identifier
+                            :test #'string=))))
     (unless item
       (error 'agenda-error
-             :message (format nil "Agenda item ~A does not exist here."
-                              identifier)
-             :pathname (configuration-agenda-path configuration)
+             :message   (format nil "Agenda item ~A does not exist here."
+                                identifier)
+             :pathname  (configuration-agenda-path configuration)
              :operation ':update
-             :cause nil))
+             :cause     nil))
     (let* ((replacement-item
              (make-instance 'agenda-item
                             :identifier (copy-seq identifier)
-                            :text (if text
-                                      (agenda--validate-text configuration text)
-                                      (copy-seq (agenda-item-text item)))
-                            :status (or status (agenda-item-status item))
+                            :text       (if text
+                                            (agenda--validate-text configuration text)
+                                            (copy-seq (agenda-item-text item)))
+                            :status     (or status (agenda-item-status item))
                             :created-at (agenda-item-created-at item)
                             :updated-at now
                             :memory-identifiers
@@ -517,11 +517,11 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
              (make-instance
               'workspace-agenda
               :directory (workspace-agenda-directory record)
-              :items (substitute replacement-item
-                                 identifier
-                                 (workspace-agenda-items record)
-                                 :key #'agenda-item-identifier
-                                 :test #'string=)))
+              :items     (substitute replacement-item
+                                     identifier
+                                     (workspace-agenda-items record)
+                                     :key  #'agenda-item-identifier
+                                     :test #'string=)))
            (records (agenda--replace-record (agenda-state-records state)
                                             replacement-record)))
       (setf (agenda-state-records state) records)
@@ -530,10 +530,10 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
 (-> agenda--remove-unlocked (configuration agenda-state string) boolean)
 (defun agenda--remove-unlocked (configuration state identifier)
   "Remove current-workspace agenda IDENTIFIER and report whether it existed."
-  (let* ((record (agenda-current configuration state))
-         (items (and record (workspace-agenda-items record)))
+  (let* ((record    (agenda-current configuration state))
+         (items     (and record (workspace-agenda-items record)))
          (remaining (remove identifier items
-                            :key #'agenda-item-identifier
+                            :key  #'agenda-item-identifier
                             :test #'string=)))
     (if (= (length remaining) (length items))
         nil
@@ -544,10 +544,10 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
                       (agenda-state-records state)
                       (make-instance 'workspace-agenda
                                      :directory directory
-                                     :items remaining))
+                                     :items     remaining))
                      (remove directory
                              (agenda-state-records state)
-                             :key #'workspace-agenda-directory
+                             :key  #'workspace-agenda-directory
                              :test #'string=))))
           (setf (agenda-state-records state) records)
           t))))
@@ -562,8 +562,8 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
   (make-instance 'agenda-item
                  :identifier (or identifier
                                  (copy-seq (agenda-item-identifier item)))
-                 :text (copy-seq (agenda-item-text item))
-                 :status (agenda-item-status item)
+                 :text       (copy-seq (agenda-item-text item))
+                 :status     (agenda-item-status item)
                  :created-at (agenda-item-created-at item)
                  :updated-at (agenda-item-updated-at item)
                  :memory-identifiers
@@ -576,16 +576,16 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
 (defun agenda--merge-memory-identifiers (configuration target source)
   "Return stable union of TARGET and SOURCE memory identifiers."
   (let ((merged (remove-duplicates (append target source)
-                                   :test #'string=
+                                   :test     #'string=
                                    :from-end t)))
     (when (> (length merged) *agenda-item-memory-limit*)
       (error 'agenda-error
-             :message (format nil
-                              "Transport would attach more than ~D memories to one agenda item."
-                              *agenda-item-memory-limit*)
-             :pathname (configuration-agenda-path configuration)
+             :message   (format nil
+                                "Transport would attach more than ~D memories to one agenda item."
+                                *agenda-item-memory-limit*)
+             :pathname  (configuration-agenda-path configuration)
              :operation ':transport
-             :cause nil))
+             :cause     nil))
     merged))
 
 (-> agenda--merge-items (configuration list list) list)
@@ -623,7 +623,7 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
                        source
                        :identifier
                        (if (find identifier result
-                                 :key #'agenda-item-identifier
+                                 :key  #'agenda-item-identifier
                                  :test #'string=)
                            (make-identifier)
                            (copy-seq identifier))))))))))
@@ -646,23 +646,23 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
          (target (agenda-find state target-name)))
     (unless source
       (error 'agenda-error
-             :message (format nil "No agenda is keyed by ~A." source-name)
-             :pathname (configuration-agenda-path configuration)
+             :message   (format nil "No agenda is keyed by ~A." source-name)
+             :pathname  (configuration-agenda-path configuration)
              :operation ':transport
-             :cause nil))
+             :cause     nil))
     (when (string= source-name target-name)
       (error 'agenda-error
-             :message "Agenda source and target directories are identical."
-             :pathname (configuration-agenda-path configuration)
+             :message   "Agenda source and target directories are identical."
+             :pathname  (configuration-agenda-path configuration)
              :operation ':transport
-             :cause nil))
-    (let* ((items (agenda--merge-items
-                   configuration
-                   (and target (workspace-agenda-items target))
-                   (workspace-agenda-items source)))
+             :cause     nil))
+    (let* ((items       (agenda--merge-items
+                         configuration
+                         (and target (workspace-agenda-items target))
+                         (workspace-agenda-items source)))
            (replacement (make-instance 'workspace-agenda
                                        :directory target-name
-                                       :items items))
+                                       :items     items))
            (records
              (agenda--replace-record
               (agenda-state-records state)
@@ -702,12 +702,12 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
   (agenda--call-with-transaction
    configuration state
    (lambda (current)
-     (agenda--add-unlocked :configuration configuration
-                           :state current
-                           :text text
-                           :status status
+     (agenda--add-unlocked :configuration      configuration
+                           :state              current
+                           :text               text
+                           :status             status
                            :memory-identifiers memory-identifiers
-                           :now now))))
+                           :now                now))))
 
 (-> agenda-update
     (configuration agenda-state string
@@ -749,8 +749,8 @@ when REQUIRE-EXISTING-P is false, but it must still name an absolute path."
   (agenda--call-with-transaction
    configuration state
    (lambda (current)
-     (agenda--transport-unlocked :configuration configuration
-                                 :state current
+     (agenda--transport-unlocked :configuration    configuration
+                                 :state            current
                                  :source-directory source-directory
                                  :target-directory target-directory
-                                 :move-p move-p))))
+                                 :move-p           move-p))))
