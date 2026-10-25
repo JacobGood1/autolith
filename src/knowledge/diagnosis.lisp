@@ -33,7 +33,6 @@
   "The most probes one case runs before reporting what remains open.")
 
 
-
 ;;;; -- Validation --
 
 (-> knowledge-diagnosis-p (t) boolean)
@@ -84,7 +83,7 @@ positive cost. Every variable must be a parameter."
                      "Diagnosis names are lowercase letters, digits, hyphens, and dots."))
   (let ((parameters (coerce (or parameters #()) 'list))
         (hypotheses (coerce (or hypotheses #()) 'list))
-        (probes (coerce (or probes #()) 'list)))
+        (probes     (coerce (or probes #()) 'list)))
     (unless (every #'knowledge-variable-p parameters)
       (knowledge--fail ':invalid-diagnosis parameters "Parameters are variables such as ?service."))
     (unless (<= 1 (length hypotheses) *knowledge-diagnosis-hypothesis-limit*)
@@ -101,7 +100,7 @@ positive cost. Every variable must be a parameter."
       (let ((diagnosis
               (list :diagnosis
                     :id id
-                    :parameters parameters
+                    :parameters  parameters
                     :hypotheses
                     (mapcar
                      (lambda (hypothesis)
@@ -133,17 +132,17 @@ positive cost. Every variable must be a parameter."
                          (knowledge--fail ':invalid-diagnosis probe
                                           "Each probe is an object with tool, arguments, and an optional cost."))
                        (let ((arguments (or (gethash "arguments" probe) (json-object)))
-                             (cost (or (gethash "cost" probe) 1)))
+                             (cost      (or (gethash "cost" probe) 1)))
                          (unless (json-object-p arguments)
                            (knowledge--fail ':invalid-diagnosis probe
                                             "A probe's arguments are an object."))
                          (unless (and (realp cost) (plusp cost))
                            (knowledge--fail ':invalid-diagnosis probe "A probe's cost is positive."))
-                         (list :tool (gethash "tool" probe)
+                         (list :tool      (gethash "tool" probe)
                                :arguments (loop for name being the hash-keys of arguments
                                                   using (hash-value value)
                                                 collect (list name (check-variables value)))
-                               :cost (rationalize cost))))
+                               :cost      (rationalize cost))))
                      probes)
                     :description description)))
         (unless (knowledge-diagnosis-p diagnosis)
@@ -192,7 +191,7 @@ positive cost. Every variable must be a parameter."
 
 Return its ID and whether the definition changed."
   (let ((workspace (knowledge--owner configuration scope))
-        (viewer (knowledge--workspace configuration)))
+        (viewer    (knowledge--workspace configuration)))
     (values-list
      (knowledge-transact
       configuration
@@ -205,16 +204,16 @@ Return its ID and whether the definition changed."
                              (knowledge-base-schema base predicate
                                                     :workspace (and (eq scope ':workspace)
                                                                     viewer)))))
-               (existing (gethash (list scope workspace id)
-                                  (knowledge-base-diagnoses-table base))))
+               (existing  (gethash (list scope workspace id)
+                                   (knowledge-base-diagnoses-table base))))
           (if (equal (getf existing :diagnosis) diagnosis)
               (values nil (list id nil) nil)
               (values (list (list :diagnosis-defined
                                   :version *knowledge-format-version*
-                                  :scope scope
-                                  :workspace workspace
-                                  :diagnosis diagnosis
-                                  :time (get-universal-time)
+                                  :scope               scope
+                                  :workspace           workspace
+                                  :diagnosis           diagnosis
+                                  :time                (get-universal-time)
                                   :source-conversation source-conversation))
                       (list id t)
                       t))))))))
@@ -233,25 +232,32 @@ explicit negation or, for a keyed predicate, by a fact giving its key another
 value; a negated one is contradicted by the fact it denies. Absence of a fact
 never contradicts."
   (if (knowledge-negation-p prediction)
-      (let ((denied (first (knowledge--established view (second prediction))))
+      (let ((denied    (first (knowledge--established view (second prediction))))
             (confirmed (first (knowledge--established view prediction))))
         (cond
-          (denied (values ':contradicted denied))
-          (confirmed (values ':confirmed confirmed))
-          (t (values ':unknown nil))))
+          (denied
+           (values ':contradicted denied))
+          (confirmed
+           (values ':confirmed confirmed))
+          (t
+           (values ':unknown nil))))
       (let ((confirmed (first (knowledge--established view prediction)))
-            (negated (first (knowledge--established view (list :not prediction))))
-            (rival (let ((pattern (knowledge--observation-key view prediction)))
-                     (and pattern
-                          (find-if-not (lambda (node)
-                                         (equal (knowledge-node-proposition node)
-                                                prediction))
-                                       (knowledge--established view pattern))))))
+            (negated   (first (knowledge--established view (list :not prediction))))
+            (rival     (let ((pattern (knowledge--observation-key view prediction)))
+                         (and pattern
+                              (find-if-not (lambda (node)
+                                             (equal (knowledge-node-proposition node)
+                                                    prediction))
+                                           (knowledge--established view pattern))))))
         (cond
-          (confirmed (values ':confirmed confirmed))
-          (negated (values ':contradicted negated))
-          (rival (values ':contradicted rival))
-          (t (values ':unknown nil))))))
+          (confirmed
+           (values ':confirmed confirmed))
+          (negated
+           (values ':contradicted negated))
+          (rival
+           (values ':contradicted rival))
+          (t
+           (values ':unknown nil))))))
 
 (-> knowledge--established (knowledge-view list) list)
 (defun knowledge--established (view pattern)
@@ -301,11 +307,11 @@ predicate's schema, found with SCHEMA-FUNCTION; probe arguments take it as given
                      (getf (rest diagnosis) :hypotheses))
              :probes
              (mapcar (lambda (probe)
-                       (list :tool (getf probe :tool)
+                       (list :tool      (getf probe :tool)
                              :arguments (loop for (name item) in (getf probe :arguments)
                                               collect (list name (knowledge--instantiate-term
                                                                   item environment)))
-                             :cost (getf probe :cost)))
+                             :cost      (getf probe :cost)))
                      (getf (rest diagnosis) :probes))
              :bindings environment
              (let ((properties (copy-list (rest diagnosis))))
@@ -322,18 +328,18 @@ Return the case: :REMAINING hypothesis plists, :ELIMINATED as (:HYPOTHESIS
 :BY :TEXT), :PROBES run as (:TOOL :ARGUMENTS :STATUS :OBSERVED), :REPAIR when
 one hypothesis remains and names one, and :OPEN when several remain."
   (let* ((configuration (tool-context-configuration context))
-         (base (knowledge-base-read configuration))
-         (workspace (knowledge--workspace configuration))
-         (instance (knowledge-diagnosis-instantiate
-                    diagnosis bindings
-                    (lambda (predicate)
-                      (or (knowledge-base-schema base predicate :workspace workspace)
-                          (knowledge--fail ':unknown-predicate predicate
-                                           "Define predicate ~A before predicting it." predicate)))))
-         (hypotheses (getf (rest instance) :hypotheses))
-         (available (getf (rest instance) :probes))
-         (eliminated nil)
-         (ran nil))
+         (base          (knowledge-base-read configuration))
+         (workspace     (knowledge--workspace configuration))
+         (instance      (knowledge-diagnosis-instantiate
+                         diagnosis bindings
+                         (lambda (predicate)
+                           (or (knowledge-base-schema base predicate :workspace workspace)
+                               (knowledge--fail ':unknown-predicate predicate
+                                                "Define predicate ~A before predicting it." predicate)))))
+         (hypotheses    (getf (rest instance) :hypotheses))
+         (available     (getf (rest instance) :probes))
+         (eliminated    nil)
+         (ran           nil))
     (flet ((weigh ()
              ;; Eliminate every remaining hypothesis a current fact contradicts.
              (let ((view (knowledge-view-current configuration)))
@@ -345,8 +351,8 @@ one hypothesis remains and names one, and :OPEN when several remain."
                                      (knowledge-prediction-status view prediction)
                                    (when (eq status ':contradicted)
                                      (push (list :hypothesis (getf hypothesis :id)
-                                                 :by (knowledge-node-identifier node)
-                                                 :text (knowledge-node-text node))
+                                                 :by         (knowledge-node-identifier node)
+                                                 :text       (knowledge-node-text node))
                                            eliminated)
                                      (return t)))))
                       hypotheses))
@@ -359,13 +365,13 @@ one hypothesis remains and names one, and :OPEN when several remain."
                  (setf available (remove probe available))
                  (push (knowledge--run-probe context probe) ran))))
     (let* ((remaining hypotheses)
-           (case (list :diagnosis (getf (rest diagnosis) :id)
-                       :bindings (getf (rest instance) :bindings)
-                       :remaining (mapcar (lambda (hypothesis) (getf hypothesis :id)) remaining)
-                       :eliminated (reverse eliminated)
-                       :probes (reverse ran)
-                       :repair (and (= 1 (length remaining)) (getf (first remaining) :repair))
-                       :open (and (rest remaining) t))))
+           (case      (list :diagnosis  (getf (rest diagnosis) :id)
+                            :bindings   (getf (rest instance) :bindings)
+                            :remaining  (mapcar (lambda (hypothesis) (getf hypothesis :id)) remaining)
+                            :eliminated (reverse eliminated)
+                            :probes     (reverse ran)
+                            :repair     (and (= 1 (length remaining)) (getf (first remaining) :repair))
+                            :open       (and (rest remaining) t))))
       (knowledge--record-case configuration case
                               :conversation (and (tool-context-conversation context)
                                                  (conversation-identifier
@@ -407,7 +413,7 @@ one hypothesis remains and names one, and :OPEN when several remain."
 Values known before the call are read by the predicate's schema; values the
 result will supply are NIL."
   (let* ((arguments (knowledge--probe-arguments probe))
-         (base (knowledge-base-read configuration))
+         (base      (knowledge-base-read configuration))
          (workspace (knowledge--workspace configuration)))
     (loop for (contract environment) in (knowledge-contracts-for-call
                                          configuration (getf probe :tool) arguments)
@@ -421,13 +427,15 @@ result will supply are NIL."
                                              for value = (cond
                                                             ((and (stringp argument)
                                                                   (uiop:string-prefix-p "$arg." argument))
-                                                            (values (knowledge--reference-value
-                                                                     argument arguments nil)))
-                                                           ((knowledge--reference-p argument) nil)
+                                                             (values (knowledge--reference-value
+                                                                      argument arguments nil)))
+                                                           ((knowledge--reference-p argument)
+                                                            nil)
                                                            ((knowledge-variable-p argument)
                                                             (rest (assoc argument environment
                                                                          :test #'string=)))
-                                                           (t argument))
+                                                           (t
+                                                            argument))
                                              collect (and value
                                                           (ignore-errors
                                                            (knowledge-term-from-input
@@ -440,9 +448,12 @@ result will supply are NIL."
     (loop for (name value) in (getf probe :arguments)
           do (setf (gethash name arguments)
                    (cond
-                     ((eq value ':true) t)
-                     ((eq value ':false) (json-false))
-                     (t value))))
+                     ((eq value ':true)
+                      t)
+                     ((eq value ':false)
+                      (json-false))
+                     (t
+                      value))))
     arguments))
 
 (-> knowledge--observation-key (knowledge-view list) (option list))
@@ -452,7 +463,7 @@ result will supply are NIL."
 The key arguments are OBSERVATION's; every other argument is a variable."
   (let* ((schema (knowledge-base-schema (knowledge-view-base view) (first observation)
                                         :workspace (knowledge-view-workspace view)))
-         (key (and schema (knowledge-schema-key schema))))
+         (key    (and schema (knowledge-schema-key schema))))
     (and key
          (every (lambda (position) (nth (1+ position) observation)) key)
          (cons (first observation)
@@ -490,18 +501,18 @@ A pair is told apart when the two hypotheses predict differently about a fact
 the probe observes. A fact already known tells nothing new, so a probe only
 observing known facts is not run. Probes whose contracts refuse the call are
 ineligible before consuming the bounded execution budget."
-  (let ((best nil)
+  (let ((best       nil)
         (best-score 0))
     (dolist (probe (remove-if-not (lambda (candidate)
-                                  (knowledge--probe-admissible-p configuration candidate))
+                                   (knowledge--probe-admissible-p configuration candidate))
                                 probes))
-      (let* ((keys (loop for observation in (handler-case
-                                                (knowledge--probe-observations configuration probe)
-                                              (knowledge-error ()
-                                                nil))
-                         for key = (knowledge--observation-key view observation)
-                         when (and key (null (knowledge--established view key)))
-                           collect key))
+      (let* ((keys  (loop for observation in (handler-case
+                                                 (knowledge--probe-observations configuration probe)
+                                               (knowledge-error ()
+                                                 nil))
+                          for key = (knowledge--observation-key view observation)
+                          when (and key (null (knowledge--established view key)))
+                            collect key))
              (pairs (loop for (left . others) on hypotheses
                           sum (loop for right in others
                                     count (some (lambda (key)
@@ -518,33 +529,33 @@ ineligible before consuming the bounded execution budget."
 (-> knowledge--run-probe (tool-context list) list)
 (defun knowledge--run-probe (context probe)
   "Run PROBE through CONTEXT's tool registry and return what it observed."
-  (let* ((arguments (knowledge--probe-arguments probe))
-         (tool (find (getf probe :tool) (tool-registry-tools (tool-context-registry context))
-                     :key #'tool-canonical-name :test #'string=))
-         (result (if tool
-                     (tool-registry-execute-call
-                      (tool-context-registry context)
-                      (json-object "type" "function_call"
-                                   "call_id" (format nil "~@[~A/~]probe" (tool-context-call-id context))
-                                   "namespace" (tool-namespace tool)
-                                   "name" (tool-name tool)
-                                   "arguments" (json-encode arguments))
-                      context)
-                     (tool-failure (format nil "Tool ~A is not available here." (getf probe :tool)))))
+  (let* ((arguments     (knowledge--probe-arguments probe))
+         (tool          (find (getf probe :tool) (tool-registry-tools (tool-context-registry context))
+                              :key #'tool-canonical-name :test #'string=))
+         (result        (if tool
+                            (tool-registry-execute-call
+                             (tool-context-registry context)
+                             (json-object "type" "function_call"
+                                          "call_id" (format nil "~@[~A/~]probe" (tool-context-call-id context))
+                                          "namespace" (tool-namespace tool)
+                                          "name" (tool-name tool)
+                                          "arguments" (json-encode arguments))
+                             context)
+                            (tool-failure (format nil "Tool ~A is not available here." (getf probe :tool)))))
          (configuration (tool-context-configuration context))
-         (view (knowledge-view-current configuration)))
-    (list :tool (getf probe :tool)
+         (view          (knowledge-view-current configuration)))
+    (list :tool           (getf probe :tool)
           :arguments-json arguments
-          :status (if (tool-result-success-p result) ':ok ':failed)
-          :observed (and (tool-result-success-p result)
-                         (loop for observation in (handler-case
-                                                      (knowledge--probe-observations configuration
-                                                                                     probe)
-                                                    (knowledge-error ()
-                                                      nil))
-                               for key = (knowledge--observation-key view observation)
-                               append (mapcar #'knowledge-node-text
-                                              (and key (knowledge--established view key))))))))
+          :status         (if (tool-result-success-p result) ':ok ':failed)
+          :observed       (and (tool-result-success-p result)
+                               (loop for observation in (handler-case
+                                                            (knowledge--probe-observations configuration
+                                                                                           probe)
+                                                          (knowledge-error ()
+                                                            nil))
+                                     for key = (knowledge--observation-key view observation)
+                                     append (mapcar #'knowledge-node-text
+                                                    (and key (knowledge--established view key))))))))
 
 (-> knowledge--record-case (configuration list &key (:conversation (option string))) null)
 (defun knowledge--record-case (configuration case &key conversation)
@@ -556,21 +567,21 @@ ineligible before consuming the bounded execution budget."
        (declare (ignore base))
        (values (list (list :diagnosis-recorded
                            :scope ':workspace
-                           :workspace workspace
-                           :case (list :diagnosis (getf case :diagnosis)
-                                       :bindings (mapcar (lambda (binding)
-                                                           (list (first binding) (rest binding)))
-                                                         (getf case :bindings))
-                                       :remaining (getf case :remaining)
-                                       :eliminated (getf case :eliminated)
-                                       :probes (mapcar (lambda (probe)
-                                                         (list :tool (getf probe :tool)
-                                                               :status (getf probe :status)
-                                                               :observed (getf probe :observed)))
-                                                       (getf case :probes))
-                                       :repair (getf case :repair))
+                           :workspace    workspace
+                           :case         (list :diagnosis  (getf case :diagnosis)
+                                               :bindings   (mapcar (lambda (binding)
+                                                                     (list (first binding) (rest binding)))
+                                                                   (getf case :bindings))
+                                               :remaining  (getf case :remaining)
+                                               :eliminated (getf case :eliminated)
+                                               :probes     (mapcar (lambda (probe)
+                                                                     (list :tool     (getf probe :tool)
+                                                                           :status   (getf probe :status)
+                                                                           :observed (getf probe :observed)))
+                                                                   (getf case :probes))
+                                               :repair     (getf case :repair))
                            :conversation conversation
-                           :time (get-universal-time)))
+                           :time         (get-universal-time)))
                nil
                t))))
   nil)
