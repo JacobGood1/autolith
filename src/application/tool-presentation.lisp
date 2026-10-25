@@ -2007,7 +2007,7 @@ lists, independently of the producer's transport limits."
                                      (return-from invalid (values nil nil)))
                                    (setf (gethash (string-downcase (symbol-name (first tail))) object)
                                          (project (second tail) (1- depth))
-                                         tail (cddr tail)))
+                                         tail (nthcdr 2 tail)))
                           (when tail (setf (gethash "…" object) "more fields"))
                           object)
                         (let ((items nil) (tail value))
