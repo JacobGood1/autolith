@@ -28,58 +28,58 @@ and TRACES are newest first.")
 
 (defclass action-trace ()
   ((conversation
-    :initarg :conversation
-    :reader action-trace-conversation
-    :type string
+    :initarg       :conversation
+    :reader        action-trace-conversation
+    :type          string
     :documentation "The conversation the turn belongs to.")
    (sequence
-    :initarg :sequence
-    :reader action-trace-sequence
-    :type integer
+    :initarg       :sequence
+    :reader        action-trace-sequence
+    :type          integer
     :documentation "The durable sequence of the user message that started the turn.")
    (input
-    :initarg :input
-    :reader action-trace-input
-    :type string
+    :initarg       :input
+    :reader        action-trace-input
+    :type          string
     :documentation "The user message that started the turn.")
    (calls
-    :initarg :calls
-    :accessor action-trace-calls
-    :type list
+    :initarg       :calls
+    :accessor      action-trace-calls
+    :type          list
     :documentation "(:TOOL :ARGUMENTS :STATUS :OUTPUT :CALL-ID) for each tool call in order.
 
 Procedure calls also retain :PROCEDURE-VERSION and :PROCEDURE provenance.
 OUTPUT is kept only when it is a JSON object or array of bounded length,
 the only results later calls can take values from.")
    (requests
-    :initarg :requests
-    :initform 0
-    :accessor action-trace-requests
-    :type (integer 0)
+    :initarg       :requests
+    :initform      0
+    :accessor      action-trace-requests
+    :type          (integer 0)
     :documentation "How many model requests the turn made.")
    (tokens
-    :initarg :tokens
-    :initform 0
-    :accessor action-trace-tokens
-    :type (integer 0)
+    :initarg       :tokens
+    :initform      0
+    :accessor      action-trace-tokens
+    :type          (integer 0)
     :documentation "How many tokens those requests used in total.")
    (usage-known-p
-    :initarg :usage-known-p
-    :initform t
-    :accessor action-trace-usage-known-p
-    :type boolean
+    :initarg       :usage-known-p
+    :initform      t
+    :accessor      action-trace-usage-known-p
+    :type          boolean
     :documentation "Whether every counted model request supplied total token usage.")
    (answered-p
-    :initarg :answered-p
-    :initform nil
-    :accessor action-trace-answered-p
-    :type boolean
+    :initarg       :answered-p
+    :initform      nil
+    :accessor      action-trace-answered-p
+    :type          boolean
     :documentation "Whether the model answered after the turn's last tool call.")
    (aborted-p
-    :initarg :aborted-p
-    :initform nil
-    :accessor action-trace-aborted-p
-    :type boolean
+    :initarg       :aborted-p
+    :initform      nil
+    :accessor      action-trace-aborted-p
+    :type          boolean
     :documentation "Whether the turn was cancelled or failed before it finished."))
   (:documentation "The tool calls and model cost of one user turn."))
 
@@ -127,7 +127,7 @@ conversations this read did not reach are released once the cache holds
 twice as many conversations as one read visits."
   (let ((workspace (knowledge--workspace configuration))
         (collected nil)
-        (visited nil))
+        (visited   nil))
     (loop for pathname in (conversation-list configuration)
           repeat *action-trace-conversation-limit*
           do (push (namestring (conversation-storage-identity-pathname pathname)) visited)
@@ -178,19 +178,19 @@ Only records appended since the previous read are visited: archived segments
 never change and the active one only grows, so a cached read continues where
 it stopped. Any other change rereads every segment."
   (let* ((identity (conversation-storage-identity-pathname pathname))
-         (name (namestring identity))
-         (states (action-trace--segment-states identity))
-         (cached (gethash name *action-trace-cache*)))
+         (name     (namestring identity))
+         (states   (action-trace--segment-states identity))
+         (cached   (gethash name *action-trace-cache*)))
     (destructuring-bind (&optional cached-states position directory traces) cached
       (cond
         ((and cached (equal cached-states states))
          (list directory traces))
         (t
-         (let* ((resume-p (and cached (action-trace--resumable-p cached-states states)))
-                (index (if resume-p (1- (length cached-states)) 0))
-                (position (if resume-p position 0))
-                (directory (and resume-p directory))
-                (traces (if resume-p (action-trace--reopen traces) nil))
+         (let* ((resume-p   (and cached (action-trace--resumable-p cached-states states)))
+                (index      (if resume-p (1- (length cached-states)) 0))
+                (position   (if resume-p position 0))
+                (directory  (and resume-p directory))
+                (traces     (if resume-p (action-trace--reopen traces) nil))
                 (identifier (pathname-name identity)))
            (loop for (segment) in (nthcdr index states)
                  for start = position then 0
@@ -275,7 +275,7 @@ requests are not counted."
       (:tool-result
        (let ((call (and current
                         (find (getf properties :call-id) (action-trace-calls current)
-                              :key (lambda (call) (getf call :call-id))
+                              :key  (lambda (call) (getf call :call-id))
                               :test #'equal))))
          (when call
            (setf (getf call :status) (getf properties :status)
@@ -297,14 +297,14 @@ requests are not counted."
 (defun action-trace--call (item)
   "Return the call plist of provider function-call ITEM, or NIL for another item."
   (when (equal (json-get item "type") "function_call")
-    (list :tool (cl-llm-provider-api:provider-call-canonical-name item)
-          :arguments (or (ignore-errors (json-decode (or (json-get item "arguments") "{}")))
-                         (json-object))
-          :status nil
-          :output nil
-          :call-id (json-get item "call_id")
+    (list :tool              (cl-llm-provider-api:provider-call-canonical-name item)
+          :arguments         (or (ignore-errors (json-decode (or (json-get item "arguments") "{}")))
+                                 (json-object))
+          :status            nil
+          :output            nil
+          :call-id           (json-get item "call_id")
           :procedure-version nil
-          :procedure nil)))
+          :procedure         nil)))
 
 (-> action-trace--retained-output (t) (option string))
 (defun action-trace--retained-output (output)
