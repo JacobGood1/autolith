@@ -4,7 +4,7 @@
 * Intro
 
 Autolith is a terminal agent running in a live Common Lisp image. It works on
-Linux x86-64 and macOS. 
+Linux x86-64 and macOS.
 
 You can launch autolith by typing its name into your favorite terminal:
 
@@ -1605,7 +1605,7 @@ eventually disappear:
 - It can return none, one, or many contributions
 - Notes stack unless they deduplicate, supersede, or conflict
 - Priority only comes into play when the advice budget is full
-- You can use =(context)= 
+- You can use =(context)=
 
 Note that these are provider-request-only, and don't not count as a conversation turn,
 and do not get attached to your messages.
