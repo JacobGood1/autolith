@@ -586,9 +586,9 @@ Two absent sources are equal; formatting and comments do not matter."
          (and (string= recorded current) t))))))
 
 (-> self--replay-stale-reason
-    (list package (option string) boolean)
+    (list package &key (:tracked (option string)) (:tracked-p boolean))
     (values (option keyword) (option string)))
-(defun self--replay-stale-reason (definition package tracked tracked-p)
+(defun self--replay-stale-reason (definition package &key tracked tracked-p)
   "Return why replaying DEFINITION would shadow a moved tracked definition.
 
 The values are the reason keyword and its explanation, or NIL twice when the
@@ -664,7 +664,9 @@ authoritative; entries without the record are judged by source revision."
                                   (package-name home)))
                   (values ':uninterned-target
                           "an uninterned target has no stable replay identity.")))
-            (self--replay-stale-reason definition package tracked tracked-p))
+            (self--replay-stale-reason definition package
+                                       :tracked   tracked
+                                       :tracked-p tracked-p))
       (if reason
           (progn
             (push (make-instance
