@@ -49,10 +49,10 @@
          (output-modalities
            (and (json-object-p architecture)
                 (json-get architecture "output_modalities")))
-         (parameters (json-get entry "supported_parameters"))
+         (parameters   (json-get entry "supported_parameters"))
          (supports-reasoning-p
            (openrouter--string-member-p "reasoning" parameters))
-         (model-id (json-get entry "id")))
+         (model-id     (json-get entry "id")))
     (unless supports-reasoning-p
       (setf (gethash (openrouter--model-name model-id) *openrouter-models-without-reasoning*) t))
     (if (and (vectorp output-modalities)
@@ -73,9 +73,9 @@
               (model-spec-name spec))))
           (openai-compatible--fetch-models
            configuration
-           :provider-name "OpenRouter"
-           :endpoint (openrouter-models-endpoint)
-           :headers *openrouter-request-headers*
+           :provider-name   "OpenRouter"
+           :endpoint        (openrouter-models-endpoint)
+           :headers         *openrouter-request-headers*
            :credential-manager
            (openrouter-credential-manager-create configuration)
            :entry-predicate #'openrouter--chat-tool-model-p)))
@@ -107,12 +107,12 @@
   "Create the OpenRouter API key provider for CONFIGURATION."
   (make-instance
    'openrouter-chat-completions-provider
-   :configuration configuration
+   :configuration      configuration
    :credential-manager (openrouter-credential-manager-create configuration)
-   :session-id (make-identifier)
-   :display-name "OpenRouter"
-   :family ':openrouter
-   :headers *openrouter-request-headers*))
+   :session-id         (make-identifier)
+   :display-name       "OpenRouter"
+   :family             ':openrouter
+   :headers            *openrouter-request-headers*))
 
 (-> openrouter--reasoning-effort (string) (option string))
 (defun openrouter--reasoning-effort (effort)
@@ -149,7 +149,7 @@
       (call-next-method provider conversation tool-namespaces
                         :goal-context goal-context
                         :compaction-p compaction-p)
-    (let* ((model (json-get request "model"))
+    (let* ((model      (json-get request "model"))
            (wire-model (openrouter--wire-model-name model))
            (effort
             (openrouter--reasoning-effort
