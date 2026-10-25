@@ -333,9 +333,13 @@ Fullscreen restoration bypasses the UI lock, which may be held during shutdown."
        (let* ((application (application-input-controller-application controller))
               (ui          (application-ui application))
               (terminal    (terminal-ui-terminal ui)))
+         ;; Each restoration step is best-effort: the forced exit must still happen.
          (when (typep ui 'fullscreen-terminal-ui)
+           ; mallet:suppress no-ignore-errors -- best-effort fullscreen restoration before a forced exit
            (ignore-errors (terminal-ui-fullscreen-leave ui)))
+         ; mallet:suppress no-ignore-errors -- best-effort terminal restoration before a forced exit
          (ignore-errors (terminal-stop terminal))
+         ; mallet:suppress no-ignore-errors -- best-effort exit notice before a forced exit
          (ignore-errors
            (terminal--write-safe-text
             terminal (application-input-controller-forced-exit-message controller))
@@ -387,6 +391,7 @@ presentation lock reports no display so a later reader pass can try again."
            (application-input-controller-application controller))
          (ui      (application-ui application))
          (shown-p nil))
+    ; mallet:suppress no-ignore-errors -- a notice that cannot be shown reports no display and is retried
     (ignore-errors
       (setf shown-p
             (nth-value
@@ -3043,13 +3048,13 @@ sandbox grant is revalidated at this final authorization boundary."
          (cached (gethash key cache)))
     (if cached
         (let ((decision
-                (application--automatic-command-decision (car cached))))
+                (application--automatic-command-decision (first cached))))
           (values (if (and (eq decision ':sandboxed) (not sandbox-available-p))
                       ':deny
                       decision)
-                  (if (and (eq decision (car cached))
-                           (non-empty-string-p (cdr cached)))
-                      (cdr cached)
+                  (if (and (eq decision (first cached))
+                           (non-empty-string-p (rest cached)))
+                      (rest cached)
                       "the cached classifier decision was unusable")))
         (multiple-value-bind (inferred-decision inferred-reason)
             (permissions-model-classify-command
@@ -3313,7 +3318,7 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
                         collect (list key (application--pretty-tool-arguments
                                            (json-get arguments key)))))
                  collect (list (sanitize-text label :single-line-p t) value)))
-         (width (min 24 (loop for (label value) in fields
+         (width (min 24 (loop for (label nil) in fields
                              maximize (text-cell-width label)))))
     (append
      (list (terminal-span ':tool "◇ external tool permission")
