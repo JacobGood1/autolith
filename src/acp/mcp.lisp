@@ -4,14 +4,23 @@
 
 (defclass acp-mcp-stdio-transport-configuration
     (mcp-stdio-transport-configuration)
-  ((environment-values :initarg  :environment-values
-                       :accessor acp-mcp-environment-values)))
+  ((environment-values
+    :initarg       :environment-values
+    :accessor      acp-mcp-environment-values
+    :documentation "Client-supplied literal (NAME . VALUE) environment pairs."))
+  (:documentation
+   "A stdio MCP transport carrying literal ACP client environment credentials."))
 
 (defclass acp-mcp-http-transport-configuration
     (mcp-http-transport-configuration)
-  ((header-values :initarg  :header-values
-                  :accessor acp-mcp-header-values)))
+  ((header-values
+    :initarg       :header-values
+    :accessor      acp-mcp-header-values
+    :documentation "Client-supplied literal (NAME . VALUE) HTTP header pairs."))
+  (:documentation
+   "An HTTP MCP transport carrying literal ACP client header credentials."))
 
+(-> acp-mcp--credential-scope (list function) t)
 (defun acp-mcp--credential-scope (values function)
   "Call FUNCTION with literal ACP credentials dynamically scoped and redacted."
   (call-with-secret-use
@@ -23,6 +32,7 @@
                                      credentials)))
          (funcall function))))))
 
+(-> acp-mcp--project-ingress (t t) t)
 (defun acp-mcp--project-ingress (kind value)
   "Redact server-controlled VALUE while an ACP credential scope is active."
   (declare (ignore kind))
@@ -33,6 +43,7 @@
      (server-configuration mcp-server-configuration)
      (configuration configuration)
      &key notification-handler exchange-scope-function)
+  "Materialize a stdio transport whose environment carries ACP literal credentials."
   (declare (ignore exchange-scope-function))
   (make-mcp-stdio-transport
    (mcp-stdio-configuration-command transport)
@@ -61,6 +72,7 @@
      (server-configuration mcp-server-configuration)
      (configuration configuration)
      &key notification-handler exchange-scope-function)
+  "Materialize an HTTP transport whose headers and exchanges carry ACP literal credentials."
   (make-mcp-streamable-http-transport
    (mcp-http-configuration-url transport)
    :headers-function
@@ -78,6 +90,7 @@
    :connect-timeout
    (mcp-http-configuration-connect-timeout-seconds transport)))
 
+(-> acp-mcp--field (hash-table string &key (:required t)) t)
 (defun acp-mcp--field (object name &key required)
   "Read NAME from an ACP JSON object, optionally requiring it."
   (let ((value (json-get object name :absent)))
@@ -86,6 +99,7 @@
        "MCP server field ~A is required." name))
     (unless (eq value :absent) value)))
 
+(-> acp-mcp--pairs (t string) list)
 (defun acp-mcp--pairs (entries label)
   "Validate literal ACP name/value entries and copy their strings."
   (unless (or (null entries) (vectorp entries) (listp entries))
@@ -134,7 +148,6 @@
       (mcp-configuration-error ()
         (agentcomms:acp-invalid-params "Invalid MCP configuration for ~A." name)))))
 
-(-> acp-mcp--transport-values (mcp-transport-configuration) list)
 (defgeneric acp-mcp--transport-values (transport)
   (:documentation "Return ephemeral literal credential bindings, or NIL for native policy."))
 
