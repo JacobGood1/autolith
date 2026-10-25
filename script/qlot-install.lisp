@@ -57,7 +57,13 @@ loaded by Autolith."
                :test #'equal)))
   (uiop:symbol-call '#:ql '#:quickload :qlot :silent t)
   (when (uiop:os-windows-p)
-    (qlot-install--tolerate-windows-unsafe-tar-entries))
+    (qlot-install--tolerate-windows-unsafe-tar-entries)
+    ;; trivial-glob's fixtures contain a circular directory link. Qlot's
+    ;; metadata walkers follow it on Windows, where enumeration fails.
+    (let ((exclusions (find-symbol "*EXCLUDE-DIRECTORIES*" "QLOT/UTILS/ASDF")))
+      (unless (and exclusions (boundp exclusions))
+        (error "The loaded Qlot does not expose its metadata directory exclusions."))
+      (pushnew "test-fixtures" (symbol-value exclusions) :test #'equal)))
   (let ((qlot-project-root (find-symbol "*PROJECT-ROOT*" "QLOT")))
     (unless qlot-project-root
       (error "The loaded Qlot does not expose its project root."))

@@ -535,6 +535,62 @@ printf '%s\\n' \"${LIBRARY_PATH:-}\" > \"${AUTOLITH_TEST_EVENT_LOG:?}\"
      "the Darwin fff build publishes its private library")
     nil))
 
+(-> release-script-tests--qlot-metadata-exclusions (pathname pathname) null)
+(defun release-script-tests--qlot-metadata-exclusions (source-root root)
+  "Exercise the Windows Qlot metadata exclusions at the install boundary."
+  (let* ((home   (merge-pathnames "qlot-metadata-home/" root))
+         (setup  (merge-pathnames "quicklisp/setup.lisp" home))
+         (script (merge-pathnames "script/qlot-install.lisp" source-root)))
+    (release-script-tests--write-file
+     setup
+     "(defpackage #:ql
+  (:use #:cl)
+  (:export #:quickload))
+(in-package #:ql)
+(defun quickload (system &key silent)
+  (declare (ignore silent))
+  system)
+(defpackage #:cffi (:use #:cl))
+(in-package #:cffi)
+(defvar *foreign-library-directories* nil)
+(defpackage #:ql-minitar (:use #:cl))
+(in-package #:ql-minitar)
+(defun save-file (file size stream)
+  (declare (ignore file size stream)))
+(defpackage #:qlot/utils/asdf (:use #:cl))
+(in-package #:qlot/utils/asdf)
+(defvar *exclude-directories* '(\"existing-exclusion\"))
+(defpackage #:qlot
+  (:use #:cl)
+  (:export #:install))
+(in-package #:qlot)
+(defvar *project-root* nil)
+(defun install (&key jobs)
+  (declare (ignore jobs))
+  (let ((exclusions qlot/utils/asdf::*exclude-directories*))
+    (assert *project-root*)
+    (assert (member \"existing-exclusion\" exclusions :test #'equal))
+    (assert (eql (not (null (member \"test-fixtures\" exclusions :test #'equal)))
+                 (uiop:os-windows-p))))
+  (format t \"metadata-install-ok~%\"))
+")
+    (dolist (windows-p '(nil t))
+      (multiple-value-bind (output error-output status)
+          (release-script-tests--run
+           (list (lisp-worker-sbcl-command)
+                 "--noinform" "--no-sysinit" "--no-userinit" "--disable-debugger"
+                 "--eval" "(require :asdf)"
+                 "--eval" (format nil "(setf (symbol-function 'uiop:os-windows-p) (constantly ~S))"
+                                  windows-p)
+                 "--script" (namestring script))
+           :environment         (list (format nil "HOME=~A" (namestring home)))
+           :ignore-error-status t)
+        (test-assert
+         (and (zerop status) (search "metadata-install-ok" output))
+         (format nil "Qlot metadata exclusions reach installation (Windows ~S):~%~A~%~A"
+                 windows-p output error-output)))))
+  nil)
+
 (-> release-script-tests--bootstrap-dependency-order (pathname pathname) null)
 (defun release-script-tests--bootstrap-dependency-order (source-root root)
   "Exercise project dependency setup before bootstrap CFFI loading."
@@ -3693,6 +3749,7 @@ esac
               (release-script-tests--update-dispatch)
               (release-script-tests--models-command)
               (release-script-tests--bootstrap-dependency-order source-root root)
+              (release-script-tests--qlot-metadata-exclusions source-root root)
               (release-script-tests--darwin-fff-library-path
                source-root root)
               (release-script-tests--linux-release-validator source-root root)
