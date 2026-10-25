@@ -43,36 +43,36 @@ so its repeats share fewer words than reports from different sessions do.")
 
 (defclass papercut ()
   ((identifier
-    :initarg :identifier
-    :reader papercut-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        papercut-identifier
+    :type          non-empty-string
     :documentation "The stable identifier of this papercut report.")
    (reported-at
-    :initarg :reported-at
-    :reader papercut-reported-at
-    :type timestamp
+    :initarg       :reported-at
+    :reader        papercut-reported-at
+    :type          timestamp
     :documentation "The time at which the report was recorded.")
    (workspace
-    :initarg :workspace
-    :reader papercut-workspace
-    :type non-empty-string
+    :initarg       :workspace
+    :reader        papercut-workspace
+    :type          non-empty-string
     :documentation "The workspace in which the problem was observed.")
    (title
-    :initarg :title
-    :reader papercut-title
-    :type non-empty-string
+    :initarg       :title
+    :reader        papercut-title
+    :type          non-empty-string
     :documentation "A short description of the problem.")
    (content
-    :initarg :content
-    :reader papercut-content
-    :type non-empty-string
+    :initarg       :content
+    :reader        papercut-content
+    :type          non-empty-string
     :documentation "The complete user-visible problem report.")
    (issue-kind
     :initarg :issue-kind :initform "other" :reader papercut-issue-kind
     :type string :documentation "The explicit structured category of the observed problem.")
    (diagnostic
     :initarg :diagnostic :initform nil :reader papercut-diagnostic
-    :type (option string)
+    :type          (option string)
     :documentation "An explicit explanation intended for optional redacted telemetry.")
    (tool
     :initarg :tool :initform nil :reader papercut-tool
@@ -80,25 +80,25 @@ so its repeats share fewer words than reports from different sessions do.")
    (telemetry-id
     :initarg :telemetry-id :initform nil :accessor papercut-telemetry-id
     :type (option string) :documentation "An independently random issue export ID, allocated only with consent.")
-    (assessment-verdict
-     :initform nil
-     :accessor papercut-assessment-verdict
-     :type (option (member :improved :worse :unchanged :too-early))
-     :documentation "The verdict from the latest effectiveness assessment, if any.")
-    (assessment-note
-     :initform nil
-     :accessor papercut-assessment-note
-     :type (option string)
-     :documentation "The bounded explanatory note from the latest assessment, if any.")
-    (assessed-at
-     :initform nil
-     :accessor papercut-assessed-at
-     :type (option timestamp)
-     :documentation "The time of the latest effectiveness assessment, if any.")
+   (assessment-verdict
+    :initform      nil
+    :accessor      papercut-assessment-verdict
+    :type          (option (member :improved :worse :unchanged :too-early))
+    :documentation "The verdict from the latest effectiveness assessment, if any.")
+   (assessment-note
+    :initform      nil
+    :accessor      papercut-assessment-note
+    :type          (option string)
+    :documentation "The bounded explanatory note from the latest assessment, if any.")
+   (assessed-at
+    :initform      nil
+    :accessor      papercut-assessed-at
+    :type          (option timestamp)
+    :documentation "The time of the latest effectiveness assessment, if any.")
    (source-conversation
-    :initarg :source-conversation
-    :reader papercut-source-conversation
-    :type (option string)
+    :initarg       :source-conversation
+    :reader        papercut-source-conversation
+    :type          (option string)
     :documentation "The conversation that most recently reported the papercut."))
   (:documentation "One persistent user-visible report of an Autolith problem."))
 
@@ -110,15 +110,15 @@ so its repeats share fewer words than reports from different sessions do.")
   "Return non-empty string VALUE after validating FIELD and LIMIT."
   (unless (non-empty-string-p value)
     (error 'papercut-error
-           :message (format nil "Papercut ~A must be a non-empty string." field)
-           :pathname #P"papercuts.sexp"
+           :message    (format nil "Papercut ~A must be a non-empty string." field)
+           :pathname   #P"papercuts.sexp"
            :identifier nil))
   (when (> (length value) limit)
     (error 'papercut-error
-           :message (format nil "Papercut ~A exceeds the ~:D-character limit."
-                            field
-                            limit)
-           :pathname #P"papercuts.sexp"
+           :message    (format nil "Papercut ~A exceeds the ~:D-character limit."
+                               field
+                               limit)
+           :pathname   #P"papercuts.sexp"
            :identifier nil))
   value)
 
@@ -127,15 +127,15 @@ so its repeats share fewer words than reports from different sessions do.")
   "Return the complete portable record for PAPERCUT."
   (list :papercut
         :version *papercut-format-version*
-        :id (papercut-identifier papercut)
-        :reported-at (papercut-reported-at papercut)
-        :workspace (papercut-workspace papercut)
-        :title (papercut-title papercut)
-        :content (papercut-content papercut)
-        :diagnostic (papercut-diagnostic papercut)
-        :issue-kind (papercut-issue-kind papercut)
-        :tool (papercut-tool papercut)
-        :telemetry-id (papercut-telemetry-id papercut)
+        :id                  (papercut-identifier papercut)
+        :reported-at         (papercut-reported-at papercut)
+        :workspace           (papercut-workspace papercut)
+        :title               (papercut-title papercut)
+        :content             (papercut-content papercut)
+        :diagnostic          (papercut-diagnostic papercut)
+        :issue-kind          (papercut-issue-kind papercut)
+        :tool                (papercut-tool papercut)
+        :telemetry-id        (papercut-telemetry-id papercut)
         :source-conversation (papercut-source-conversation papercut)))
 
 (-> papercut--issue-kind (t) string)
@@ -152,10 +152,10 @@ so its repeats share fewer words than reports from different sessions do.")
   "Export a newly committed report through the consent-gated projection."
   (telemetry--call-safely
    (lambda ()
-     (telemetry-note-report :report-id (papercut-telemetry-id papercut)
-                           :tool (papercut-tool papercut)
-                           :issue-kind (papercut-issue-kind papercut)
-                           :duplicate-p duplicate-p
+     (telemetry-note-report :report-id       (papercut-telemetry-id papercut)
+                           :tool             (papercut-tool papercut)
+                           :issue-kind       (papercut-issue-kind papercut)
+                           :duplicate-p      duplicate-p
                            :summary-function (lambda () (or (papercut-diagnostic papercut)
                                                             (papercut-title papercut))))))
   nil)
@@ -165,13 +165,13 @@ so its repeats share fewer words than reports from different sessions do.")
   "Export an assessment verdict or closure without claiming passed checks."
   (telemetry--call-safely
    (lambda ()
-     (telemetry-note-repair :report-id (papercut-telemetry-id papercut)
-                           :incident-id (papercut-telemetry-id papercut)
-                           :event-kind (if (equal outcome "closed") "closure" "assessment")
-                           :target (papercut-tool papercut)
-                           :issue-kind (papercut-issue-kind papercut)
+     (telemetry-note-repair :report-id       (papercut-telemetry-id papercut)
+                           :incident-id      (papercut-telemetry-id papercut)
+                           :event-kind       (if (equal outcome "closed") "closure" "assessment")
+                           :target           (papercut-tool papercut)
+                           :issue-kind       (papercut-issue-kind papercut)
                            :repair-kind "other" :outcome outcome :verified nil
-                           :operation *telemetry-tool-name*
+                           :operation        *telemetry-tool-name*
                            :summary-function (lambda () summary))))
   nil)
 
@@ -190,8 +190,8 @@ so its repeats share fewer words than reports from different sessions do.")
   "Return one portable closure record for IDENTIFIER and RESOLUTION."
   (list :papercut-closed
         :version *papercut-format-version*
-        :id identifier
-        :closed-at closed-at
+        :id         identifier
+        :closed-at  closed-at
         :resolution resolution
         :diagnostic diagnostic))
 
@@ -203,71 +203,71 @@ so its repeats share fewer words than reports from different sessions do.")
   "Return one portable effectiveness assessment record for IDENTIFIER."
   (list :papercut-assessed
         :version *papercut-format-version*
-        :id identifier
+        :id          identifier
         :assessed-at assessed-at
-        :verdict verdict
-        :note note
-        :diagnostic diagnostic))
+        :verdict     verdict
+        :note        note
+        :diagnostic  diagnostic))
 
 (-> papercut--validate-assessed-record (pathname list) list)
 (defun papercut--validate-assessed-record (pathname record)
   "Validate assessment RECORD from PATHNAME and return its replay values."
-  (let ((version (getf (rest record) :version))
-        (identifier (getf (rest record) :id))
+  (let ((version     (getf (rest record) :version))
+        (identifier  (getf (rest record) :id))
         (assessed-at (getf (rest record) :assessed-at))
-        (verdict (getf (rest record) :verdict))
-        (note (getf (rest record) :note)))
+        (verdict     (getf (rest record) :verdict))
+        (note        (getf (rest record) :note)))
     (unless (and (eql version *papercut-format-version*)
                  (non-empty-string-p identifier)
                  (typep assessed-at 'timestamp)
                  (member verdict '(:improved :worse :unchanged :too-early)))
       (error 'papercut-error
-             :message "A papercut assessment record has invalid metadata."
-             :pathname pathname
+             :message    "A papercut assessment record has invalid metadata."
+             :pathname   pathname
              :identifier (and (stringp identifier) identifier)))
     (handler-case
         (papercut--validate-text
          note "assessment note" *papercut-assessment-note-limit*)
       (papercut-error (condition)
         (error 'papercut-error
-               :message (autolith-error-message condition)
-               :pathname pathname
+               :message    (autolith-error-message condition)
+               :pathname   pathname
                :identifier identifier)))
     (list identifier verdict note assessed-at)))
 
 (-> papercut--validate-closed-record (pathname list) string)
 (defun papercut--validate-closed-record (pathname record)
   "Validate closure RECORD from PATHNAME and return its identifier."
-  (let ((version (getf (rest record) :version))
+  (let ((version    (getf (rest record) :version))
         (identifier (getf (rest record) :id))
-        (closed-at (getf (rest record) :closed-at))
+        (closed-at  (getf (rest record) :closed-at))
         (resolution (getf (rest record) :resolution)))
     (unless (and (eql version *papercut-format-version*)
                  (non-empty-string-p identifier)
                  (typep closed-at 'timestamp))
       (error 'papercut-error
-             :message "A papercut closure record has invalid metadata."
-             :pathname pathname
+             :message    "A papercut closure record has invalid metadata."
+             :pathname   pathname
              :identifier (and (stringp identifier) identifier)))
     (handler-case
         (papercut--validate-text
          resolution "closure resolution" *papercut-resolution-limit*)
       (papercut-error (condition)
         (error 'papercut-error
-               :message (autolith-error-message condition)
-               :pathname pathname
+               :message    (autolith-error-message condition)
+               :pathname   pathname
                :identifier identifier)))
     identifier))
 
 (-> papercut--record->papercut (pathname list) papercut)
 (defun papercut--record->papercut (pathname record)
   "Validate and convert one portable papercut RECORD from PATHNAME."
-  (let ((version (getf (rest record) :version))
-        (identifier (getf (rest record) :id))
-        (reported-at (getf (rest record) :reported-at))
-        (workspace (getf (rest record) :workspace))
-        (title (getf (rest record) :title))
-        (content (getf (rest record) :content))
+  (let ((version             (getf (rest record) :version))
+        (identifier          (getf (rest record) :id))
+        (reported-at         (getf (rest record) :reported-at))
+        (workspace           (getf (rest record) :workspace))
+        (title               (getf (rest record) :title))
+        (content             (getf (rest record) :content))
         (source-conversation (getf (rest record) :source-conversation)))
     (unless (and (eql version *papercut-format-version*)
                  (non-empty-string-p identifier)
@@ -278,27 +278,27 @@ so its repeats share fewer words than reports from different sessions do.")
                  (or (null source-conversation)
                      (non-empty-string-p source-conversation)))
       (error 'papercut-error
-             :message "A persistent papercut record has invalid metadata."
-             :pathname pathname
+             :message    "A persistent papercut record has invalid metadata."
+             :pathname   pathname
              :identifier (and (stringp identifier) identifier)))
     (handler-case
         (make-instance 'papercut
-                       :identifier identifier
-                       :reported-at reported-at
-                       :workspace workspace
-                       :title (papercut--validate-text
-                               title "title" *papercut-title-limit*)
-                       :content (papercut--validate-text
-                                 content "content" *papercut-content-limit*)
-                       :diagnostic (telemetry-diagnostic-text (getf (rest record) :diagnostic))
-                       :issue-kind (papercut--issue-kind (getf (rest record) :issue-kind "other"))
-                       :tool (telemetry--tool (getf (rest record) :tool))
-                       :telemetry-id (getf (rest record) :telemetry-id)
+                       :identifier          identifier
+                       :reported-at         reported-at
+                       :workspace           workspace
+                       :title               (papercut--validate-text
+                                             title "title" *papercut-title-limit*)
+                       :content             (papercut--validate-text
+                                             content "content" *papercut-content-limit*)
+                       :diagnostic          (telemetry-diagnostic-text (getf (rest record) :diagnostic))
+                       :issue-kind          (papercut--issue-kind (getf (rest record) :issue-kind "other"))
+                       :tool                (telemetry--tool (getf (rest record) :tool))
+                       :telemetry-id        (getf (rest record) :telemetry-id)
                        :source-conversation source-conversation)
       (papercut-error (condition)
         (error 'papercut-error
-               :message (autolith-error-message condition)
-               :pathname pathname
+               :message    (autolith-error-message condition)
+               :pathname   pathname
                :identifier identifier)))))
 
 
@@ -310,29 +310,29 @@ so its repeats share fewer words than reports from different sessions do.")
   (let ((pathname (configuration-papercut-path configuration)))
     (make-instance
      'sexp-store:log-store
-     :pathname pathname
+     :pathname      pathname
      :lock-pathname (readable-state-lock-pathname pathname "papercuts.lock")
-     :header (list :papercuts :version *papercut-format-version*)
+     :header        (list :papercuts :version *papercut-format-version*)
      :header-validator
      (lambda (form)
        (sexp-store:record-check form :tag ':papercuts
-                               :versions (list *papercut-format-version*)))
-     :validator (lambda (form) (keywordp (first form)))
+                               :versions  (list *papercut-format-version*)))
+     :validator     (lambda (form) (keywordp (first form)))
      :initial-state (lambda () (cons (make-hash-table :test #'equal)
                                      (make-hash-table :test #'equal)))
-     :reducer (lambda (state record)
-                (papercut--reduce-record pathname state record))
-     :finalizer #'papercut--sort-active)))
+     :reducer       (lambda (state record)
+                      (papercut--reduce-record pathname state record))
+     :finalizer     #'papercut--sort-active)))
 
 (-> papercut--reduce-record (pathname cons list) cons)
 (defun papercut--reduce-record (pathname state record)
   "Apply one report, assessment, or closure to private lifecycle STATE."
-  (let ((seen (first state))
+  (let ((seen   (first state))
         (active (rest state)))
     (case (first record)
       (:papercut-telemetry
        (let* ((properties (rest record))
-              (papercut (gethash (getf properties :id) active))
+              (papercut   (gethash (getf properties :id) active))
               (identifier (getf properties :telemetry-id)))
          (unless (and papercut (eql (getf properties :version) *papercut-format-version*)
                       (telemetry--report-id-p identifier)
@@ -341,14 +341,14 @@ so its repeats share fewer words than reports from different sessions do.")
                                  :pathname pathname :identifier nil))
          (setf (papercut-telemetry-id papercut) identifier)))
       (:papercut
-       (let* ((papercut (papercut--record->papercut pathname record))
+       (let* ((papercut   (papercut--record->papercut pathname record))
               (identifier (papercut-identifier papercut)))
          (when (gethash identifier seen)
            (error 'papercut-error
-                  :message (format nil
-                                   "Persistent papercut identifier ~A occurs more than once."
-                                   identifier)
-                  :pathname pathname
+                  :message    (format nil
+                                      "Persistent papercut identifier ~A occurs more than once."
+                                      identifier)
+                  :pathname   pathname
                   :identifier identifier))
          (setf (gethash identifier seen) t
                (gethash identifier active) papercut)))
@@ -358,10 +358,10 @@ so its repeats share fewer words than reports from different sessions do.")
          (let ((papercut (gethash identifier active)))
            (unless papercut
              (error 'papercut-error
-                    :message (format nil
-                                     "Papercut assessment references inactive or unknown identifier ~A."
-                                     identifier)
-                    :pathname pathname
+                    :message    (format nil
+                                        "Papercut assessment references inactive or unknown identifier ~A."
+                                        identifier)
+                    :pathname   pathname
                     :identifier identifier))
            (setf (papercut-assessment-verdict papercut) verdict
                  (papercut-assessment-note papercut) note
@@ -370,31 +370,31 @@ so its repeats share fewer words than reports from different sessions do.")
        (let ((identifier (papercut--validate-closed-record pathname record)))
          (unless (gethash identifier seen)
            (error 'papercut-error
-                  :message (format nil "Papercut closure references unknown identifier ~A."
-                                   identifier)
-                  :pathname pathname
+                  :message    (format nil "Papercut closure references unknown identifier ~A."
+                                      identifier)
+                  :pathname   pathname
                   :identifier identifier))
          (unless (gethash identifier active)
            (error 'papercut-error
-                  :message (format nil "Papercut identifier ~A is closed more than once."
-                                   identifier)
-                  :pathname pathname
+                  :message    (format nil "Papercut identifier ~A is closed more than once."
+                                      identifier)
+                  :pathname   pathname
                   :identifier identifier))
          (when (member (papercut-assessment-verdict (gethash identifier active))
                        '(:worse :unchanged :too-early))
            (error 'papercut-error
-                  :message (format nil
-                                   "Papercut ~A closure conflicts with its latest ~A assessment."
-                                   identifier
-                                   (papercut-assessment-verdict (gethash identifier active)))
-                  :pathname pathname
+                  :message    (format nil
+                                      "Papercut ~A closure conflicts with its latest ~A assessment."
+                                      identifier
+                                      (papercut-assessment-verdict (gethash identifier active)))
+                  :pathname   pathname
                   :identifier identifier))
          (remhash identifier active)))
       (otherwise
        (error 'papercut-error
-              :message (format nil "Unsupported persistent papercut record ~S."
-                               (first record))
-              :pathname pathname
+              :message    (format nil "Unsupported persistent papercut record ~S."
+                                  (first record))
+              :pathname   pathname
               :identifier nil)))
     state))
 
@@ -415,8 +415,8 @@ so its repeats share fewer words than reports from different sessions do.")
       (sexp-store:store-transact (papercut--store configuration) update)
     (sexp-store:store-error (cause)
       (error 'papercut-error
-             :message (sexp-store:store-error-message cause)
-             :pathname (sexp-store:store-error-pathname cause)
+             :message    (sexp-store:store-error-message cause)
+             :pathname   (sexp-store:store-error-pathname cause)
              :identifier nil))))
 
 
@@ -451,8 +451,7 @@ so its repeats share fewer words than reports from different sessions do.")
   (find identifier
         (papercut-list configuration)
         :test #'string=
-        :key #'papercut-identifier))
-
+        :key  #'papercut-identifier))
 
 (-> papercut-repair-context (configuration string) list)
 (defun papercut-repair-context (configuration identifier)
@@ -464,13 +463,14 @@ so its repeats share fewer words than reports from different sessions do.")
        (let ((papercut (find identifier (papercut--workspace-reports configuration active)
                             :key #'papercut-identifier :test #'equal)))
          (unless papercut
-           (error 'papercut-error :message "No active incident has the supplied exact identifier."
-                                 :pathname (configuration-papercut-path configuration)
+           (error 'papercut-error :message   "No active incident has the supplied exact identifier."
+                                 :pathname   (configuration-papercut-path configuration)
                                  :identifier identifier))
          (values (papercut--telemetry-record papercut)
                  (list :incident-id (papercut-telemetry-id papercut)
-                       :tool (papercut-tool papercut)
-                       :issue-kind (papercut-issue-kind papercut))))))))
+                       :tool        (papercut-tool papercut)
+                       :issue-kind  (papercut-issue-kind papercut))))))))
+
 (-> papercut-resolve
     (configuration string)
     (values (option papercut) (member :missing :ambiguous :found) list))
@@ -481,12 +481,12 @@ The second value is :FOUND, :MISSING, or :AMBIGUOUS. The third value contains
 matching reports for :AMBIGUOUS."
   (if (non-empty-string-p identifier)
       (let* ((papercuts (papercut-list configuration))
-             (matches (remove-if-not
-                       (lambda (papercut)
-                         (uiop:string-prefix-p
-                          identifier
-                          (papercut-identifier papercut)))
-                       papercuts)))
+             (matches   (remove-if-not
+                         (lambda (papercut)
+                           (uiop:string-prefix-p
+                            identifier
+                            (papercut-identifier papercut)))
+                         papercuts)))
         (cond
           ((null matches)
            (values nil ':missing nil))
@@ -503,7 +503,7 @@ matching reports for :AMBIGUOUS."
 Words keep inner dots, slashes, colons, hyphens, and underscores, so tool and
 symbol names such as lisp.source survive, while surrounding punctuation drops."
   (let ((tokens nil)
-        (start nil))
+        (start  nil))
     (flet ((flush (end)
              (when start
                (let ((word (string-trim "-_./:"
@@ -548,20 +548,20 @@ overlap at *PAPERCUT-DUPLICATE-SIMILARITY* or more. A report from
 SOURCE-CONVERSATION filed within *PAPERCUT-DUPLICATE-SESSION-WINDOW-SECONDS*
 only needs *PAPERCUT-DUPLICATE-SESSION-SIMILARITY*. The closest match wins."
   (let ((title-words (papercut--tokens title))
-        (words (union (papercut--tokens title) (papercut--tokens content)
-                      :test #'string=))
-        (best nil)
-        (best-score 0))
+        (words       (union (papercut--tokens title) (papercut--tokens content)
+                            :test #'string=))
+        (best        nil)
+        (best-score  0))
     (dolist (papercut (papercut--workspace-reports configuration active) best)
       (let ((age (abs (- now (papercut-reported-at papercut)))))
         (when (<= age *papercut-duplicate-window-seconds*)
           (let* ((other-title-words (papercut--tokens (papercut-title papercut)))
-                 (other-words (union other-title-words
-                                     (papercut--tokens (papercut-content papercut))
-                                     :test #'string=))
-                 (score (if (papercut--same-words-p title-words other-title-words)
-                            1
-                            (papercut--similarity words other-words)))
+                 (other-words       (union other-title-words
+                                           (papercut--tokens (papercut-content papercut))
+                                           :test #'string=))
+                 (score             (if (papercut--same-words-p title-words other-title-words)
+                                        1
+                                        (papercut--similarity words other-words)))
                  (threshold
                    (if (and source-conversation
                             (equal source-conversation
@@ -587,7 +587,7 @@ only needs *PAPERCUT-DUPLICATE-SESSION-SIMILARITY*. The closest match wins."
 
 When the report repeats an ACTIVE papercut, persist any newly consented telemetry
 identity and return that existing papercut with DUPLICATE-P true."
-  (let* ((now (funcall *papercut-clock*))
+  (let* ((now       (funcall *papercut-clock*))
          (duplicate (papercut--duplicate configuration
                                          (remove-if-not
                                           (lambda (item)
@@ -601,15 +601,15 @@ identity and return that existing papercut with DUPLICATE-P true."
         (let ((papercut
                 (make-instance
                  'papercut
-                 :identifier (make-identifier)
-                 :reported-at now
-                 :workspace (papercut--workspace configuration)
-                 :title title
-                 :content content
-                 :diagnostic diagnostic
-                 :issue-kind (papercut--issue-kind issue-kind)
-                 :tool (telemetry--tool tool)
-                 :telemetry-id (telemetry-new-report-id)
+                 :identifier          (make-identifier)
+                 :reported-at         now
+                 :workspace           (papercut--workspace configuration)
+                 :title               title
+                 :content             content
+                 :diagnostic          diagnostic
+                 :issue-kind          (papercut--issue-kind issue-kind)
+                 :tool                (telemetry--tool tool)
+                 :telemetry-id        (telemetry-new-report-id)
                  :source-conversation source-conversation)))
           (values (list (papercut--record papercut)) (list papercut nil) t)))))
 
@@ -633,8 +633,8 @@ its first consented telemetry identity without recording another report."
     (unless (or (null source-conversation)
                 (non-empty-string-p source-conversation))
       (error 'papercut-error
-             :message "Papercut source conversation must be a non-empty string."
-             :pathname (configuration-papercut-path configuration)
+             :message    "Papercut source conversation must be a non-empty string."
+             :pathname   (configuration-papercut-path configuration)
              :identifier nil))
     (destructuring-bind (papercut duplicate-p)
         (with-lock-held (*papercut-lock*)
@@ -643,10 +643,10 @@ its first consented telemetry identity without recording another report."
            (lambda (active)
              (papercut--report-unlocked
               configuration :title validated-title :content validated-content
-                            :diagnostic diagnostic
+                            :diagnostic          diagnostic
                             :issue-kind issue-kind :tool tool
                             :source-conversation source-conversation
-                            :active active))))
+                            :active              active))))
       (papercut--note-report papercut duplicate-p)
       (values papercut duplicate-p))))
 
@@ -661,14 +661,14 @@ its first consented telemetry identity without recording another report."
           (find identifier
                 (papercut--workspace-reports configuration active)
                 :test #'string=
-                :key #'papercut-identifier))
+                :key  #'papercut-identifier))
         (assessed-at (get-universal-time)))
     (unless papercut
       (error 'papercut-error
-             :message (format nil
-                              "No active papercut ~A exists in this workspace."
-                              identifier)
-             :pathname (configuration-papercut-path configuration)
+             :message    (format nil
+                                 "No active papercut ~A exists in this workspace."
+                                 identifier)
+             :pathname   (configuration-papercut-path configuration)
              :identifier identifier))
     (setf (papercut-assessment-verdict papercut) verdict
           (papercut-assessment-note papercut) note
@@ -686,13 +686,13 @@ its first consented telemetry identity without recording another report."
   (setf diagnostic (telemetry-diagnostic-text diagnostic))
   (unless (non-empty-string-p identifier)
     (error 'papercut-error
-           :message "Papercut identifier must be a non-empty string."
-           :pathname (configuration-papercut-path configuration)
+           :message    "Papercut identifier must be a non-empty string."
+           :pathname   (configuration-papercut-path configuration)
            :identifier nil))
   (unless (member verdict '(:improved :worse :unchanged :too-early))
     (error 'papercut-error
-           :message "Papercut assessment verdict must be improved, worse, unchanged, or too-early."
-           :pathname (configuration-papercut-path configuration)
+           :message    "Papercut assessment verdict must be improved, worse, unchanged, or too-early."
+           :pathname   (configuration-papercut-path configuration)
            :identifier identifier))
   (let ((validated-note
           (papercut--validate-text
@@ -723,19 +723,19 @@ its first consented telemetry identity without recording another report."
             active)))
     (unless papercut
       (error 'papercut-error
-             :message (format nil
-                              "No active papercut ~A exists in this workspace."
-                              identifier)
-             :pathname (configuration-papercut-path configuration)
+             :message    (format nil
+                                 "No active papercut ~A exists in this workspace."
+                                 identifier)
+             :pathname   (configuration-papercut-path configuration)
              :identifier identifier))
     (when (member (papercut-assessment-verdict papercut)
                   '(:worse :unchanged :too-early))
       (error 'papercut-error
-             :message (format nil
-                              "Papercut ~A cannot be closed while its latest assessment is ~A."
-                              identifier
-                              (papercut-assessment-verdict papercut))
-             :pathname (configuration-papercut-path configuration)
+             :message    (format nil
+                                 "Papercut ~A cannot be closed while its latest assessment is ~A."
+                                 identifier
+                                 (papercut-assessment-verdict papercut))
+             :pathname   (configuration-papercut-path configuration)
              :identifier identifier))
     (values
      (append (papercut--telemetry-record papercut)
@@ -748,8 +748,8 @@ its first consented telemetry identity without recording another report."
   (setf diagnostic (telemetry-diagnostic-text diagnostic))
   (unless (non-empty-string-p identifier)
     (error 'papercut-error
-           :message "Papercut identifier must be a non-empty string."
-           :pathname (configuration-papercut-path configuration)
+           :message    "Papercut identifier must be a non-empty string."
+           :pathname   (configuration-papercut-path configuration)
            :identifier nil))
   (let ((validated-resolution
           (papercut--validate-text
