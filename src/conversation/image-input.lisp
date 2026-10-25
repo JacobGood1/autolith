@@ -22,12 +22,12 @@
     :documentation "Absolute local image pathnames attached to this submission."))
   (:documentation "One user submission containing text and local image attachments."))
 
-(-> user-message-input-text ((or string user-message-input)) string)
-(-> user-message-input-image-pathnames ((or string user-message-input)) list)
 (defmethod user-message-input-text ((input string))
+  "Plain string INPUT is its own text."
   input)
 
 (defmethod user-message-input-image-pathnames ((input string))
+  "Plain string INPUT carries no image attachments."
   (declare (ignore input)))
 
 (-> user-message-input-create
@@ -48,15 +48,15 @@
                  :text            text
                  :image-pathnames (copy-list image-pathnames)))
 
-(-> user-message-input-copy ((or string user-message-input))
-    (or string user-message-input))
 (defgeneric user-message-input-copy (input)
   (:documentation "Return a detached copy of user INPUT."))
 
 (defmethod user-message-input-copy ((input string))
+  "Return a fresh copy of plain string INPUT."
   (copy-seq input))
 
 (defmethod user-message-input-copy ((input user-message-input))
+  "Return a submission with copies of INPUT's text and image pathname list."
   (make-instance 'user-message-input
                  :text (copy-seq (user-message-input-text input))
                  :image-pathnames
@@ -112,7 +112,7 @@
 
 (setf yolokuva:*image-error-class* 'image-input-error)
 
-(-> image-input--error (pathname keyword string &optional t) null)
+(-> image-input--error (pathname keyword string &optional t) nil)
 (defun image-input--error (pathname stage message &optional cause)
   "Signal a structured image failure for PATHNAME at STAGE."
   (error 'image-input-error
