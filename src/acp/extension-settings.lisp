@@ -24,21 +24,31 @@
 (defun acp-extension--setting-scope (setting)
   "Return SETTING's canonical ACP scope name."
   (case (setting-scope setting)
-    (:process "process")
-    (:durable "durable")
-    (:session "session")
-    (:derived "derived")
-    (t "process")))
+    (:process
+     "process")
+    (:durable
+     "durable")
+    (:session
+     "session")
+    (:derived
+     "derived")
+    (t
+     "process")))
 
 (-> acp-extension--setting-source (configuration setting) string)
 (defun acp-extension--setting-source (configuration setting)
   "Return CONFIGURATION's source label for SETTING."
   (case (configuration-setting-source configuration (setting-name setting))
-    (:environment "environment")
-    (:override "explicit")
-    (:durable "saved")
-    (:session "session")
-    (t "default")))
+    (:environment
+     "environment")
+    (:override
+     "explicit")
+    (:durable
+     "saved")
+    (:session
+     "session")
+    (t
+     "default")))
 
 (-> acp-extension--setting-value (setting t) t)
 (defun acp-extension--setting-value (setting value)
@@ -70,8 +80,8 @@
                                   '(:telemetry-enabled-p :telemetry-diagnostics-p))
                             (telemetry-consent-configuration configuration)
                             configuration))
-         (value (configuration-setting-value configuration setting))
-         (adjustable-p (acp-extension--setting-adjustable-p application setting)))
+         (value         (configuration-setting-value configuration setting))
+         (adjustable-p  (acp-extension--setting-adjustable-p application setting)))
     (agentcomms:json-object
      "name" (string-downcase (symbol-name (setting-name setting)))
      "label" (setting-label setting)
@@ -91,7 +101,7 @@
 (defun acp-extension-settings (session params)
   "Return all visible settings and their current portable values."
   (declare (ignore params))
-  (let* ((application (acp-session-application session))
+  (let* ((application   (acp-session-application session))
          (configuration (application-configuration application)))
     (agentcomms:json-object
      "items"
@@ -122,7 +132,7 @@
      "provider" (provider-registration-name registration)
      "credentialStored" (if stored-p t (argo:json-false))
      "recentlyVerified" (if (and verified-at (< (- (get-universal-time) verified-at) 3600))
-                             t (argo:json-false))
+                            t (argo:json-false))
      "contextWindow" (or (provider-model-context-window model) ':null))))
 
 (-> acp-extension-models (acp-session hash-table) hash-table)
@@ -141,14 +151,14 @@
 (-> acp-extension-set-setting (acp-session hash-table) hash-table)
 (defun acp-extension-set-setting (session params)
   "Apply one existing adjustable setting and return its complete updated item."
-  (let* ((application (acp-session-application session))
+  (let* ((application   (acp-session-application session))
          (configuration (application-configuration application))
-         (name (agentcomms:acp-field params "name" :type ':string :required-p t))
-         (value (agentcomms:acp-field params "value" :required-p t))
-         (setting (find name (configuration-setting-list configuration)
-                        :test #'string-equal
-                        :key (lambda (item)
-                               (string-downcase (symbol-name (setting-name item)))))))
+         (name          (agentcomms:acp-field params "name" :type ':string :required-p t))
+         (value         (agentcomms:acp-field params "value" :required-p t))
+         (setting       (find name (configuration-setting-list configuration)
+                              :test #'string-equal
+                              :key  (lambda (item)
+                                      (string-downcase (symbol-name (setting-name item)))))))
     (unless setting
       (error 'acp-extension-unavailable :reason "The requested setting does not exist."))
     (unless (acp-extension--setting-adjustable-p application setting)
