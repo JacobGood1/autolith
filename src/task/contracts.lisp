@@ -5,10 +5,10 @@
 (define-condition task-error
     (tool-error)
   ((task-id
-    :initarg :task-id
-    :initform nil
-    :reader task-error-task-id
-    :type (option string)
+    :initarg       :task-id
+    :initform      nil
+    :reader        task-error-task-id
+    :type          (option string)
     :documentation "The child or job identifier involved in the failure, when known."))
   (:documentation
    "A task request, child run, or task job violated its contract."))
@@ -16,38 +16,38 @@
 (define-condition task-agent-definition-error
     (task-error)
   ((pathname
-    :initarg :pathname
-    :initform nil
-    :reader task-agent-definition-error-pathname
-    :type (option pathname)
+    :initarg       :pathname
+    :initform      nil
+    :reader        task-agent-definition-error-pathname
+    :type          (option pathname)
     :documentation "The external role file containing the invalid definition, when any.")
    (source
-    :initarg :source
-    :reader task-agent-definition-error-source
-    :type keyword
+    :initarg       :source
+    :reader        task-agent-definition-error-source
+    :type          keyword
     :documentation "The project, user, site, bundled, or programmatic definition origin.")
    (line
-    :initarg :line
-    :initform nil
-    :reader task-agent-definition-error-line
-    :type (option (integer 1))
+    :initarg       :line
+    :initform      nil
+    :reader        task-agent-definition-error-line
+    :type          (option (integer 1))
     :documentation "The source line nearest the invalid value, when known.")
    (field
-    :initarg :field
-    :initform nil
-    :reader task-agent-definition-error-field
-    :type (option keyword)
+    :initarg       :field
+    :initform      nil
+    :reader        task-agent-definition-error-field
+    :type          (option keyword)
     :documentation "The native plist field whose contract was violated, when known.")
    (cause
-    :initarg :cause
-    :reader task-agent-definition-error-cause
-    :type t
+    :initarg       :cause
+    :reader        task-agent-definition-error-cause
+    :type          t
     :documentation "The original condition or concise structural failure.")
    (definition-name
-    :initarg :definition-name
-    :initform nil
-    :reader task-agent-definition-error-definition-name
-    :type (option string)
+    :initarg       :definition-name
+    :initform      nil
+    :reader        task-agent-definition-error-definition-name
+    :type          (option string)
     :documentation "The normalized role basename reserved by this diagnostic."))
   (:documentation "A native child-role definition is unsafe or malformed.")
   (:report
@@ -145,13 +145,13 @@
                   (string-downcase (symbol-name source))
                   definition-name pathname line field cause)))
     (error 'task-agent-definition-error
-           :message message
-           :tool-name "task.run"
-           :pathname pathname
-           :source source
-           :line line
-           :field field
-           :cause cause
+           :message         message
+           :tool-name       "task.run"
+           :pathname        pathname
+           :source          source
+           :line            line
+           :field           field
+           :cause           cause
            :definition-name definition-name)))
 
 (-> task--trim (string) string)
@@ -178,9 +178,9 @@
 
 (-> task--plist-alist
     (t list &key (:pathname (option pathname))
-                  (:source keyword)
-                  (:line (option (integer 1)))
-                  (:definition-name (option string)))
+                 (:source keyword)
+                 (:line (option (integer 1)))
+                 (:definition-name (option string)))
     list)
 (defun task--plist-alist
     (value allowed-fields &key pathname source line definition-name)
@@ -190,18 +190,18 @@
     (when problem
       (task-agent-definition--error
        :pathname pathname :source source :line line
-       :field (and (member problem '(:unknown :duplicate)) key)
-       :cause (case problem
-                (:improper
-                 "The value must be a proper list.")
-                (:odd
-                 "The property list has a key without a value.")
-                (:non-keyword
-                 (format nil "Property key ~S is not a keyword." key))
-                (:unknown
-                 "The property is not part of the native role contract.")
-                (:duplicate
-                 "The property occurs more than once."))
+       :field           (and (member problem '(:unknown :duplicate)) key)
+       :cause           (case problem
+                          (:improper
+                           "The value must be a proper list.")
+                          (:odd
+                           "The property list has a key without a value.")
+                          (:non-keyword
+                           (format nil "Property key ~S is not a keyword." key))
+                          (:unknown
+                           "The property is not part of the native role contract.")
+                          (:duplicate
+                           "The property occurs more than once."))
        :definition-name definition-name)))
   (loop for (key child) on value by #'cddr collect (cons key child)))
 
@@ -235,8 +235,8 @@
       (cl-llm-provider-api:output-schema-normalize
        (task-engineering--expand-schema
         schema :pathname pathname :source source :definition-name definition-name)
-       :maximum-nodes *task-agent-form-maximum-nodes*
-       :maximum-depth *task-agent-form-maximum-depth*
+       :maximum-nodes       *task-agent-form-maximum-nodes*
+       :maximum-depth       *task-agent-form-maximum-depth*
        :property-name-limit *task-agent-string-maximum-characters*)
     (cl-llm-provider-api:output-contract-error (condition)
       (task-agent-definition--error
@@ -261,7 +261,7 @@
       (cl-llm-provider-api:output-json-decode source)
     (cl-llm-provider-api:output-value-error (condition)
       (error 'task-error :tool-name tool-name
-             :message (cl-llm-provider-api:provider-api-error-message condition)))))
+             :message               (cl-llm-provider-api:provider-api-error-message condition)))))
 
 (-> task-json->sexp (t) t)
 (defun task-json->sexp (value)
@@ -270,7 +270,7 @@
       (cl-llm-provider-api:output-json->sexp value)
     (cl-llm-provider-api:output-value-error (condition)
       (error 'task-yield-error :tool-name "yield.submit"
-             :message (cl-llm-provider-api:provider-api-error-message condition)))))
+             :message                     (cl-llm-provider-api:provider-api-error-message condition)))))
 
 (-> task-sexp->json (t) json-value)
 (defun task-sexp->json (value)
@@ -279,7 +279,7 @@
       (cl-llm-provider-api:output-sexp->json value)
     (cl-llm-provider-api:output-value-error (condition)
       (error 'task-error :tool-name "task.run"
-             :message (cl-llm-provider-api:provider-api-error-message condition)))))
+             :message               (cl-llm-provider-api:provider-api-error-message condition)))))
 
 (-> task--character-strings (t) t)
 (defun task--character-strings (value)
@@ -288,11 +288,11 @@
 Fresh strings avoid implementation array syntax and shared-string reader labels.
 Repeated subtrees are copied independently; cyclic conses signal TASK-ERROR."
   (let ((active (make-hash-table :test #'eq))
-        (nodes 0))
+        (nodes  0))
     (labels ((reject ()
                "Reject data outside the portable task result's structural bounds."
                (error 'task-error :tool-name "task.run"
-                      :message "Task result data is cyclic or exceeds its structural bounds."))
+                      :message               "Task result data is cyclic or exceeds its structural bounds."))
 
              (walk (item depth)
                "Copy ITEM while tracking only the active cons ancestry."
@@ -324,6 +324,6 @@ Repeated subtrees are copied independently; cyclic conses signal TASK-ERROR."
   (with-standard-io-syntax
     (write-to-string (task--character-strings value)
                      :readably t
-                     :escape t
-                     :circle nil
-                     :pretty pretty-p)))
+                     :escape   t
+                     :circle   nil
+                     :pretty   pretty-p)))
