@@ -16,17 +16,17 @@
 (-> generation--validate-manifest (list pathname) null)
 (defun generation--validate-manifest (properties pathname)
   "Require PROPERTIES to carry the Autolith fields its manifest version promises."
-  (let* ((version (getf properties :version))
-         (directory (uiop:pathname-directory-pathname pathname))
+  (let* ((version        (getf properties :version))
+         (directory      (uiop:pathname-directory-pathname pathname))
          (reconstruction (getf properties :reconstruction))
          (reconstruction-pathname
            (and (non-empty-string-p reconstruction) (pathname reconstruction)))
-         (image-commit (getf properties :image-commit))
+         (image-commit   (getf properties :image-commit))
          (history-commit (getf properties :mutation-history-commit)))
     (unless (non-empty-string-p (getf properties :git-commit))
       (error 'checkpoint-error
-             :message "A generation manifest has no source revision."
-             :stage ':manifest
+             :message  "A generation manifest has no source revision."
+             :stage    ':manifest
              :pathname pathname))
     (when (member version '(2 3))
       (unless (and reconstruction-pathname
@@ -35,16 +35,16 @@
                    (or (null image-commit)
                        (image-commit--identifier-p image-commit)))
         (error 'checkpoint-error
-               :message "A generation reconstruction manifest is invalid."
-               :stage ':manifest
+               :message  "A generation reconstruction manifest is invalid."
+               :stage    ':manifest
                :pathname pathname)))
     (when (eql version 3)
       (unless (if image-commit
                   (image-history--commit-p history-commit)
                   (null history-commit))
         (error 'checkpoint-error
-               :message "A generation mutation-history identity is invalid."
-               :stage ':manifest
+               :message  "A generation mutation-history identity is invalid."
+               :stage    ':manifest
                :pathname pathname))))
   nil)
 
@@ -56,8 +56,8 @@
                  (uiop:subpathp reconstruction (generation-directory generation))
                  (probe-file reconstruction))
       (error 'checkpoint-error
-             :message "The checkpoint has no valid reconstruction script."
-             :stage ':publish
+             :message  "The checkpoint has no valid reconstruction script."
+             :stage    ':publish
              :pathname reconstruction)))
   nil)
 
@@ -69,19 +69,19 @@ Version 3 manifests are written. Versions 1 and 2 remain readable so that a
 generation saved before the reconstruction and mutation-history fields existed
 can still be listed and booted."
   (make-generation-store
-   :root (generation-root configuration)
-   :current-pathname (generation-current-pathname configuration)
-   :core-name "autolith.core"
-   :temporary-core-name ".autolith.core.tmp"
-   :manifest-version 3
+   :root                       (generation-root configuration)
+   :current-pathname           (generation-current-pathname configuration)
+   :core-name                  "autolith.core"
+   :temporary-core-name        ".autolith.core.tmp"
+   :manifest-version           3
    :accepted-manifest-versions '(1 2 3)
-   :manifest-validator #'generation--validate-manifest
-   :publish-validator #'generation--validate-publication
+   :manifest-validator         #'generation--validate-manifest
+   :publish-validator          #'generation--validate-publication
    ;; Autolith already owns an atomic state layer, so the store uses it rather
    ;; than the library's plain-Lisp default: that keeps the private file mode and
    ;; the crash-tolerant reader that every other Autolith state file relies on.
-   :write-function #'snapshot-write
-   :read-function #'read-portable-form))
+   :write-function             #'snapshot-write
+   :read-function              #'read-portable-form))
 
 
 ;;;; -- Autolith Generation Metadata --
@@ -122,8 +122,8 @@ can still be listed and booted."
 
 Preparing the image commit and writing its replay script happen here, before any
 quiescing, because both touch the private history repository."
-  (let* ((directory (merge-pathnames (format nil "~A/" identifier)
-                                     (generation-root configuration)))
+  (let* ((directory               (merge-pathnames (format nil "~A/" identifier)
+                                                   (generation-root configuration)))
          (reconstruction-pathname (merge-pathnames "reconstruct.lisp" directory))
          (image-commit
            (image-commit-prepare-checkpoint
@@ -134,20 +134,20 @@ quiescing, because both touch the private history repository."
     (image-commit-write-generation-script
      reconstruction-pathname
      :generation-identifier identifier
-     :commit image-commit)
+     :commit                image-commit)
     (list :reconstruction (namestring reconstruction-pathname)
-          :image-commit (and image-commit (image-commit-identifier image-commit))
+          :image-commit   (and image-commit (image-commit-identifier image-commit))
           :mutation-history-commit
           (and image-commit (image-commit-history-commit image-commit))
-          :git-commit (or git-commit
-                          (source-revision
-                           (make-source-provenance
-                            (config :source-root configuration))))
+          :git-commit     (or git-commit
+                              (source-revision
+                               (make-source-provenance
+                                (config :source-root configuration))))
           :journal-position
           (let ((journal (configuration-journal-path configuration)))
             (if (probe-file journal)
                 (with-open-file (stream journal
-                                        :direction ':input
+                                        :direction    ':input
                                         :element-type '(unsigned-byte 8))
                   (file-length stream))
                 0)))))
@@ -162,22 +162,21 @@ quiescing, because both touch the private history repository."
 (defun generation-create-record (configuration &key git-commit mutation-checker)
   "Create a pending generation record with immutable artifact paths."
   (let* ((identifier (make-identifier))
-         (metadata (generation--metadata configuration identifier
-                                         :git-commit git-commit
-                                         :mutation-checker mutation-checker))
-         (directory (merge-pathnames (format nil "~A/" identifier)
-                                     (generation-root configuration))))
+         (metadata   (generation--metadata configuration identifier
+                                           :git-commit       git-commit
+                                           :mutation-checker mutation-checker))
+         (directory  (merge-pathnames (format nil "~A/" identifier)
+                                      (generation-root configuration))))
     (make-instance 'generation
-                   :identifier identifier
-                   :directory directory
-                   :core-pathname (merge-pathnames "autolith.core" directory)
+                   :identifier        identifier
+                   :directory         directory
+                   :core-pathname     (merge-pathnames "autolith.core" directory)
                    :temporary-core-pathname
                    (merge-pathnames ".autolith.core.tmp" directory)
                    :manifest-pathname (merge-pathnames "manifest.sexp" directory)
-                   :metadata metadata
-                   :created-at (get-universal-time)
-                   :status ':pending)))
-
+                   :metadata          metadata
+                   :created-at        (get-universal-time)
+                   :status            ':pending)))
 
 (-> generation--translate (t) t)
 (defun generation--translate (condition)
@@ -190,10 +189,10 @@ structured type and message survive the round trip."
     (if (typep cause 'autolith-error)
         (error cause)
         (error 'checkpoint-error
-               :message (sbcl-generations::checkpoint-error-message condition)
-               :stage (sbcl-generations:checkpoint-error-stage condition)
+               :message  (sbcl-generations::checkpoint-error-message condition)
+               :stage    (sbcl-generations:checkpoint-error-stage condition)
                :pathname (sbcl-generations:checkpoint-error-pathname condition)
-               :cause cause))))
+               :cause    cause))))
 
 (defmacro with-generation-errors (&body body)
   "Run BODY, reporting a library checkpoint failure as an Autolith one."
@@ -315,10 +314,10 @@ structured type and message survive the round trip."
 (-> checkpoint-resume-main (list) null)
 (defun checkpoint-resume-main (arguments)
   "Resume the saved session by its persisted conversation identity."
-  (let* ((application (and (boundp '*active-application*)
-                           (symbol-value '*active-application*)))
+  (let* ((application  (and (boundp '*active-application*)
+                            (symbol-value '*active-application*)))
          (conversation (and application (application-conversation application)))
-         (identifier (and conversation (conversation-identifier conversation))))
+         (identifier   (and conversation (conversation-identifier conversation))))
     (if (non-empty-string-p identifier)
         (let ((previous (uiop:getenv "AUTOLITH_SESSION_STYLE")))
           (unwind-protect
@@ -332,41 +331,41 @@ structured type and message survive the round trip."
 
 (defun checkpoint--source-snapshot (configuration)
   "Return the clean checked revision from CONFIGURATION's source tree."
-  (let* ((source (make-source-provenance (config :source-root configuration)))
+  (let* ((source         (make-source-provenance (config :source-root configuration)))
          (clean-revision (lambda ()
                            (unless (source-clean-p source)
                              (error 'checkpoint-error
-                                    :message "A checkpoint requires a clean source revision."
-                                    :stage ':validation
+                                    :message  "A checkpoint requires a clean source revision."
+                                    :stage    ':validation
                                     :pathname (config :source-root configuration)))
                            (source-revision source)))
-         (before (funcall clean-revision)))
+         (before         (funcall clean-revision)))
     (multiple-value-bind (output ignored status)
         (handler-case
             (uiop:run-program
              (platform-source-check-command
               *platform* (config :source-root configuration))
-             :directory (config :source-root configuration)
-             :output ':string
-             :error-output ':output
+             :directory           (config :source-root configuration)
+             :output              ':string
+             :error-output        ':output
              :ignore-error-status t)
           (error (condition)
             (error 'checkpoint-error
-                   :message (format nil "The repository check failed: ~A" condition)
-                   :stage ':validation
+                   :message  (format nil "The repository check failed: ~A" condition)
+                   :stage    ':validation
                    :pathname (config :source-root configuration))))
       (declare (ignore ignored))
       (unless (zerop status)
         (error 'checkpoint-error
-               :message (format nil "The repository check failed (exit ~D):~%~A"
-                                status (subseq output (max 0 (- (length output) 16384))))
-               :stage ':validation
+               :message  (format nil "The repository check failed (exit ~D):~%~A"
+                                 status (subseq output (max 0 (- (length output) 16384))))
+               :stage    ':validation
                :pathname (config :source-root configuration))))
     (let ((after (funcall clean-revision)))
       (unless (string= before after)
         (error 'checkpoint-error
-               :message "The source revision changed during checkpoint validation."
-               :stage ':validation
+               :message  "The source revision changed during checkpoint validation."
+               :stage    ':validation
                :pathname (config :source-root configuration)))
       after)))
 
@@ -378,8 +377,8 @@ structured type and message survive the round trip."
     (unless (and (source-clean-p source)
                  (string= commit expected-commit))
       (error 'checkpoint-error
-             :message "The source changed after checkpoint validation."
-             :stage ':validation
+             :message  "The source changed after checkpoint validation."
+             :stage    ':validation
              :pathname (config :source-root configuration))))
   nil)
 
@@ -439,16 +438,16 @@ quiescence, metadata, and probe hooks."
               (platform-supports-p *platform* ':restartable-image-saver))
     (error 'platform-capability-unavailable
            :capability ':forked-image-saver
-           :message "This host cannot save a checkpoint image."))
+           :message    "This host cannot save a checkpoint image."))
   (let ((quiesced-runtime-tools nil))
     (with-generation-errors
       (funcall (if (platform-supports-p *platform* ':restartable-image-saver)
                    #'make-restart-checkpoint-backend
                    #'make-checkpoint-backend)
-       :store (generation-store-for configuration)
-       :toplevel-function #'checkpoint-resume-main
+       :store               (generation-store-for configuration)
+       :toplevel-function   #'checkpoint-resume-main
        :identifier-function #'make-identifier
-       :probe-runner (generation-core-probe-runner-create)
+       :probe-runner        (generation-core-probe-runner-create)
        :around-function
        (lambda (thunk)
          (if *checkpoint-thread-quiescer*
@@ -462,8 +461,8 @@ quiescence, metadata, and probe hooks."
        (lambda ()
          (when *credentials-in-request-scope*
            (error 'checkpoint-error
-                  :message "A checkpoint cannot run inside a credential request scope."
-                  :stage ':validation
+                  :message  "A checkpoint cannot run inside a credential request scope."
+                  :stage    ':validation
                   :pathname nil))
          (checkpoint--source-snapshot configuration))
        :fork-guard-function
@@ -485,7 +484,7 @@ quiescence, metadata, and probe hooks."
            (error 'checkpoint-error
                   :message
                   "A provider or tool runtime retained a secret while checkpointing."
-                  :stage ':fork
+                  :stage    ':fork
                   :pathname nil))
          quiesced-runtime-tools)
        :metadata-function
@@ -513,8 +512,8 @@ configuration error rather than a silent restart without publication."
   (let ((pointer (uiop:getenv "AUTOLITH_RESTART_POINTER")))
     (unless (non-empty-string-p pointer)
       (error 'checkpoint-error
-             :message "The stable launcher did not provide a restart envelope path."
-             :stage ':save
+             :message  "The stable launcher did not provide a restart envelope path."
+             :stage    ':save
              :pathname nil))
     (sbcl-generations:checkpoint-restart-save-and-exit
      backend generation
@@ -528,9 +527,9 @@ configuration error rather than a silent restart without publication."
                            final-generation)
               :created-at (sbcl-generations:generation-created-at
                            final-generation)
-              :metadata (copy-list
-                         (sbcl-generations:generation-metadata
-                          final-generation))))))))
+              :metadata   (copy-list
+                           (sbcl-generations:generation-metadata
+                            final-generation))))))))
 
 (-> checkpoint-create (checkpoint-backend) generation)
 (defun checkpoint-create (backend)
@@ -559,13 +558,13 @@ configuration error rather than a silent restart without publication."
   "Begin a validated checkpoint of CONTEXT's active image."
   (declare (ignore tool arguments))
   (let* ((configuration (tool-context-configuration context))
-         (backend (checkpoint-backend-create
-                   configuration
-                   (tool-context-worker context)
-                   :tool-registry (tool-context-registry context)))
-         (generation (checkpoint-create backend))
-         (application (and (boundp '*active-application*)
-                          (symbol-value '*active-application*))))
+         (backend       (checkpoint-backend-create
+                         configuration
+                         (tool-context-worker context)
+                         :tool-registry (tool-context-registry context)))
+         (generation    (checkpoint-create backend))
+         (application   (and (boundp '*active-application*)
+                            (symbol-value '*active-application*))))
     (if (and (platform-supports-p *platform* ':restartable-image-saver)
              (typep application 'application))
         (progn
@@ -578,6 +577,7 @@ configuration error rather than a silent restart without publication."
          (format nil "Checkpoint ~A is being published by coordinator process ~D."
                  (generation-identifier generation)
                  (generation-coordinator-pid generation))))))
+
 (defmethod tool-execute ((tool self-generations-tool)
                          (context tool-context)
                          (arguments hash-table))
