@@ -25,13 +25,13 @@
                  :credential-manager
                  (api-key-credential-manager-create
                   :provider-name "openai-api"
-                  :pathname (configuration-api-keys-path configuration))
-                 :session-id (make-identifier)))
+                  :pathname      (configuration-api-keys-path configuration))
+                 :session-id    (make-identifier)))
 
 (defmethod provider-authenticate ((provider openai-api-provider)
                                   &key stream open-browser-p)
   "Enter or replace the public API key in the private credential store."
-  (openai-compatible--authenticate provider :stream stream
+  (openai-compatible--authenticate provider :stream        stream
                                            :open-browser-p open-browser-p))
 
 (defmethod provider-output-ceiling-p ((provider openai-api-provider))
@@ -87,7 +87,7 @@
    (config :provider-endpoint (provider-configuration provider))
    (json-encode-utf8 request)
    :headers (openai-compatible--authenticated-headers
-             credentials :accept "text/event-stream"
+             credentials :accept       "text/event-stream"
                          :content-type "application/json")))
 
 (-> openai-api--registration-factory
@@ -102,4 +102,4 @@
   "Discover models using the public API key and standard models endpoint."
   (openai-compatible--fetch-models
    configuration :provider-name "openai-api"
-                 :endpoint "https://api.openai.com/v1/models"))
+                 :endpoint      "https://api.openai.com/v1/models"))
