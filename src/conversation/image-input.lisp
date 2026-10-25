@@ -10,21 +10,20 @@
 
 (defclass user-message-input ()
   ((text
-    :initarg :text
-    :reader user-message-input-text
-    :type string
+    :initarg       :text
+    :reader        user-message-input-text
+    :type          string
     :documentation "The editable user text, including visible image labels.")
    (image-pathnames
-    :initarg :image-pathnames
-    :initform nil
-    :reader user-message-input-image-pathnames
-    :type list
+    :initarg       :image-pathnames
+    :initform      nil
+    :reader        user-message-input-image-pathnames
+    :type          list
     :documentation "Absolute local image pathnames attached to this submission."))
   (:documentation "One user submission containing text and local image attachments."))
 
 (-> user-message-input-text ((or string user-message-input)) string)
 (-> user-message-input-image-pathnames ((or string user-message-input)) list)
-
 (defmethod user-message-input-text ((input string))
   input)
 
@@ -46,7 +45,7 @@
     (error 'configuration-error
            :message "Every attached image pathname must be absolute."))
   (make-instance 'user-message-input
-                 :text text
+                 :text            text
                  :image-pathnames (copy-list image-pathnames)))
 
 (-> user-message-input-copy ((or string user-message-input))
@@ -80,34 +79,34 @@
 
 (defclass image-attachment ()
   ((identifier
-    :initarg :identifier
-    :reader image-attachment-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        image-attachment-identifier
+    :type          non-empty-string
     :documentation "The stable identifier of this conversation artifact.")
    (pathname
-    :initarg :pathname
-    :reader image-attachment-pathname
-    :type pathname
+    :initarg       :pathname
+    :reader        image-attachment-pathname
+    :type          pathname
     :documentation "The private prepared image artifact pathname.")
    (source-name
-    :initarg :source-name
-    :reader image-attachment-source-name
-    :type non-empty-string
+    :initarg       :source-name
+    :reader        image-attachment-source-name
+    :type          non-empty-string
     :documentation "The original absolute pathname shown to the model.")
    (mime-type
-    :initarg :mime-type
-    :reader image-attachment-mime-type
-    :type non-empty-string
+    :initarg       :mime-type
+    :reader        image-attachment-mime-type
+    :type          non-empty-string
     :documentation "The media type of the prepared artifact.")
    (width
-    :initarg :width
-    :reader image-attachment-width
-    :type (integer 1)
+    :initarg       :width
+    :reader        image-attachment-width
+    :type          (integer 1)
     :documentation "The prepared image width in pixels.")
    (height
-    :initarg :height
-    :reader image-attachment-height
-    :type (integer 1)
+    :initarg       :height
+    :reader        image-attachment-height
+    :type          (integer 1)
     :documentation "The prepared image height in pixels."))
   (:documentation "A validated provider-ready image stored outside conversation text."))
 
@@ -117,17 +116,17 @@
 (defun image-input--error (pathname stage message &optional cause)
   "Signal a structured image failure for PATHNAME at STAGE."
   (error 'image-input-error
-         :message message
+         :message  message
          :pathname pathname
-         :stage stage
-         :cause cause))
+         :stage    stage
+         :cause    cause))
 
 (-> image-input--limits () list)
 (defun image-input--limits ()
   "Return the Codex high-detail size limits as yolokuva keyword arguments."
   (list :maximum-dimension *image-input-maximum-dimension*
-        :patch-size *image-input-patch-size*
-        :maximum-patches *image-input-maximum-patches*))
+        :patch-size        *image-input-patch-size*
+        :maximum-patches   *image-input-maximum-patches*))
 
 (-> image-input--absolute (pathname) pathname)
 (defun image-input--absolute (pathname)
@@ -160,13 +159,16 @@ JPEG, or WebP image is copied, anything else becomes a resized PNG."
           (apply #'yolokuva:image-preparation format width height
                  :pathname absolute (image-input--limits))
         (let* ((identifier (make-identifier))
-               (target (merge-pathnames
-                        (make-pathname :name identifier
-                                       :type (ecase output-format
-                                               (:png "png")
-                                               (:jpeg "jpg")
-                                               (:webp "webp")))
-                        artifact-root)))
+               (target     (merge-pathnames
+                            (make-pathname :name identifier
+                                           :type (ecase output-format
+                                                   (:png
+                                                    "png")
+                                                   (:jpeg
+                                                    "jpg")
+                                                   (:webp
+                                                    "webp")))
+                            artifact-root)))
           (ensure-directories-exist target)
           (platform-make-private *platform* artifact-root)
           (handler-case
@@ -177,8 +179,8 @@ JPEG, or WebP image is copied, anything else becomes a resized PNG."
                    (yolokuva:image-write-prepared absolute temporary
                                                   :source-format format
                                                   :output-format output-format
-                                                  :width target-width
-                                                  :height target-height)))
+                                                  :width         target-width
+                                                  :height        target-height)))
                 (platform-make-private *platform* target :read-only-p t))
             (image-input-error (condition)
               (error condition))
@@ -188,12 +190,12 @@ JPEG, or WebP image is copied, anything else becomes a resized PNG."
                (format nil "Image ~A could not be stored: ~A" absolute condition)
                condition)))
           (make-instance 'image-attachment
-                         :identifier identifier
-                         :pathname target
+                         :identifier  identifier
+                         :pathname    target
                          :source-name (namestring absolute)
-                         :mime-type (yolokuva:image-mime-type output-format)
-                         :width target-width
-                         :height target-height))))))
+                         :mime-type   (yolokuva:image-mime-type output-format)
+                         :width       target-width
+                         :height      target-height))))))
 
 
 ;;;; -- Paste Recognition --
@@ -204,9 +206,9 @@ JPEG, or WebP image is copied, anything else becomes a resized PNG."
   (let ((path (clinedi:pasted-path text)))
     (when (non-empty-string-p path)
       (let ((pathname (uiop:ensure-pathname (platform-pathname path)
-                                            :defaults (uiop:getcwd)
+                                            :defaults        (uiop:getcwd)
                                             :ensure-absolute t
-                                            :want-non-wild t)))
+                                            :want-non-wild   t)))
         (and (uiop:file-exists-p pathname) (platform-truename *platform* pathname))))))
 
 (-> image-input-recognize-pasted-path (string) (option pathname))
@@ -226,9 +228,9 @@ JPEG, or WebP image is copied, anything else becomes a resized PNG."
   (let ((pathname
           (handler-case
               (uiop:ensure-pathname (platform-pathname location)
-                                    :defaults (uiop:getcwd)
+                                    :defaults        (uiop:getcwd)
                                     :ensure-absolute t
-                                    :want-non-wild t)
+                                    :want-non-wild   t)
             (error (condition)
               (image-input--error
                (pathname location)
@@ -251,13 +253,13 @@ JPEG, or WebP image is copied, anything else becomes a resized PNG."
 (-> image-attachment-record (image-attachment) list)
 (defun image-attachment-record (attachment)
   "Return ATTACHMENT's portable durable descriptor."
-  (list :id (image-attachment-identifier attachment)
+  (list :id       (image-attachment-identifier attachment)
         :artifact (file-namestring (image-attachment-pathname attachment))
-        :source (image-attachment-source-name attachment)
-        :mime (image-attachment-mime-type attachment)
-        :detail "high"
-        :width (image-attachment-width attachment)
-        :height (image-attachment-height attachment)))
+        :source   (image-attachment-source-name attachment)
+        :mime     (image-attachment-mime-type attachment)
+        :detail   "high"
+        :width    (image-attachment-width attachment)
+        :height   (image-attachment-height attachment)))
 
 (-> image-input--artifact-name-p (string string) boolean)
 (defun image-input--artifact-name-p (name identifier)
@@ -275,12 +277,12 @@ JPEG, or WebP image is copied, anything else becomes a resized PNG."
 (defun image-attachment-from-record (record artifact-root)
   "Validate durable attachment RECORD beneath ARTIFACT-ROOT."
   (let* ((identifier (getf record :id))
-         (artifact (getf record :artifact))
-         (source (getf record :source))
-         (mime (getf record :mime))
-         (detail (getf record :detail))
-         (width (getf record :width))
-         (height (getf record :height)))
+         (artifact   (getf record :artifact))
+         (source     (getf record :source))
+         (mime       (getf record :mime))
+         (detail     (getf record :detail))
+         (width      (getf record :width))
+         (height     (getf record :height)))
     (unless (and (non-empty-string-p identifier)
                  (non-empty-string-p artifact)
                  (image-input--artifact-name-p artifact identifier)
@@ -299,12 +301,12 @@ JPEG, or WebP image is copied, anything else becomes a resized PNG."
          pathname ':loading
          (format nil "Conversation image artifact ~A is missing." pathname)))
       (make-instance 'image-attachment
-                     :identifier identifier
-                     :pathname pathname
+                     :identifier  identifier
+                     :pathname    pathname
                      :source-name source
-                     :mime-type mime
-                     :width width
-                     :height height))))
+                     :mime-type   mime
+                     :width       width
+                     :height      height))))
 
 (-> image-input--data-url (image-attachment) string)
 (defun image-input--data-url (attachment)
