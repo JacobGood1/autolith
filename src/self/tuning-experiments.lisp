@@ -234,10 +234,11 @@
              :pathname  (configuration-journal-path configuration))))
   nil)
 
-(-> tuning-experiment-start (configuration string string string)
+(-> tuning-experiment-start
+    (configuration string &key (:hypothesis string) (:criterion string))
     tuning-experiment)
 (defun tuning-experiment-start
-    (configuration mutation-identifier hypothesis criterion)
+    (configuration mutation-identifier &key hypothesis criterion)
   "Start one tuning experiment bound to effective MUTATION-IDENTIFIER."
   (with-live-mutation
     (when (tuning-experiment-open configuration)
@@ -378,8 +379,8 @@
           (tuning-experiment-start
            (tool-context-configuration context)
            (tool-argument arguments "mutation" :required t)
-           (tool-argument arguments "hypothesis" :required t)
-           (tool-argument arguments "criterion" :required t))))
+           :hypothesis (tool-argument arguments "hypothesis" :required t)
+           :criterion  (tool-argument arguments "criterion" :required t))))
     (tool-success
      (format nil
              "Started tuning experiment ~A for mutation ~A.~%Hypothesis: ~A~%Criterion: ~A"
