@@ -140,7 +140,9 @@ original metadata as provenance and adapt visible section ranges to its prefix."
                     result
                     (multiple-value-bind (claims errors)
                         (knowledge-contract-record
-                         configuration (or admitted matches) arguments result
+                         configuration (or admitted matches)
+                         :arguments    arguments
+                         :result       result
                          :tool         name
                          :conversation (and (tool-context-conversation context)
                                             (conversation-identifier

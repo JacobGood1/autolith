@@ -26,9 +26,12 @@
                        "repeated variables compare actual JSON values")
           (test-assert (eq expected
                            (not (null (knowledge-contract-record
-                                       configuration matches (json-object "source" source "target" target)
-                                       (make-instance 'tool-result :content "read succeeded" :success-p t)
-                                       :tool "resource.read"))))
+                                       configuration matches
+                                       :arguments (json-object "source" source "target" target)
+                                       :result    (make-instance 'tool-result
+                                                                 :content   "read succeeded"
+                                                                 :success-p t)
+                                       :tool      "resource.read"))))
                        "only unified arguments produce observation claims")
           (when matches
             (test-assert (= 1 (length (second (first matches))))
@@ -100,8 +103,10 @@
           (test-assert (and (tool-result-success-p denied)
                             (search "admission was declined" (tool-result-content denied))
                             (null (matches))
-                            (null (knowledge-contract-record configuration (matches) arguments result
-                                                             :tool "resource.read")))
+                            (null (knowledge-contract-record configuration (matches)
+                                                             :arguments arguments
+                                                             :result    result
+                                                             :tool      "resource.read")))
                        "declined resource contract has no observation or runtime effects"))
         (test-assert (= 0 (hash-table-count
                            (knowledge-base-claims (knowledge-base-read configuration))))
@@ -114,8 +119,9 @@
         (propose (contract-tests--operation "report-42"))
         (test-assert (and (knowledge-contract-admitted-p (contract-tests--entry configuration))
                           (= 1 (length (knowledge-contract-record configuration (matches)
-                                                                   arguments result
-                                                                   :tool "resource.read"))))
+                                                                   :arguments arguments
+                                                                   :result    result
+                                                                   :tool      "resource.read"))))
                      "the approved exact mapping records its observation")
         (let ((old-matches (matches))
               (count       (length requests)))
@@ -133,8 +139,9 @@
           (test-assert (and (not (null (matches)))
                             (not (equal old-matches (matches)))
                             (null (knowledge-contract-record configuration old-matches
-                                                             arguments result
-                                                             :tool "resource.read")))
+                                                             :arguments arguments
+                                                             :result    result
+                                                             :tool      "resource.read")))
                        "the separately admitted replacement supersedes the old mapping"))
         (setf decision ':deny)
         (let ((count       (length requests))
@@ -341,9 +348,10 @@
                          (apply original arguments))))
                 (lambda ()
                   (knowledge-contract-record
-                   configuration matches arguments
-                   (make-instance 'tool-result :content "read succeeded" :success-p t)
-                   :tool "resource.read")))))
+                   configuration matches
+                   :arguments arguments
+                   :result    (make-instance 'tool-result :content "read succeeded" :success-p t)
+                   :tool      "resource.read")))))
         (test-assert superseded-p "the replacement committed at the intended assertion boundary")
         (test-assert (= (1- boundary) (length claims))
                      "only assertions committed before supersession return claim identifiers")
