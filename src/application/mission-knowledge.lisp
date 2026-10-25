@@ -16,8 +16,9 @@
            (application-conversation (mission-context-application context)))
           (getf (mission-context-goal context) :created-at)))
 
-(-> mission-knowledge--record (mission-context string list string) null)
-(defun mission-knowledge--record (context predicate arguments detail)
+(-> mission-knowledge--record
+    (mission-context string &key (:arguments list) (:detail string)) null)
+(defun mission-knowledge--record (context predicate &key arguments detail)
   "Record that CONTEXT's mission reported PREDICATE of ARGUMENTS, described by DETAIL."
   (let* ((application   (mission-context-application context))
          (configuration (application-configuration application)))
@@ -40,11 +41,14 @@
 (defun mission-knowledge-record-status (context status)
   "Record that CONTEXT's mission now has STATUS."
   (let ((name (string-downcase (symbol-name status))))
-    (mission-knowledge--record context "autolith.mission.status" (list name) name)))
+    (mission-knowledge--record context "autolith.mission.status"
+                               :arguments (list name)
+                               :detail    name)))
 
 (-> mission-knowledge-record-gate (mission-context string keyword) null)
 (defun mission-knowledge-record-gate (context gate status)
   "Record that gate GATE of CONTEXT's mission now has STATUS."
   (let ((name (string-downcase (symbol-name status))))
-    (mission-knowledge--record context "autolith.mission.gate" (list gate name)
-                               (format nil "~A ~A" gate name))))
+    (mission-knowledge--record context "autolith.mission.gate"
+                               :arguments (list gate name)
+                               :detail    (format nil "~A ~A" gate name))))
