@@ -17,77 +17,76 @@
 
 (defclass plan-step ()
   ((text
-    :initarg :text
-    :reader plan-step-text
-    :type non-empty-string
+    :initarg       :text
+    :reader        plan-step-text
+    :type          non-empty-string
     :documentation "The ordered work described by this plan step.")
    (status
-    :initarg :status
-    :reader plan-step-status
-    :type plan-status
+    :initarg       :status
+    :reader        plan-step-status
+    :type          plan-status
     :documentation "Whether this step is pending, in progress, or done.")
    (identifier
-    :initarg :identifier
-    :initform nil
-    :reader plan-step-identifier
-    :type (option string)
+    :initarg       :identifier
+    :initform      nil
+    :reader        plan-step-identifier
+    :type          (option string)
     :documentation "A stable name keeping the step's receipt across plan updates.")
    (requires
-    :initarg :requires
-    :initform nil
-    :reader plan-step-requires
-    :type list
+    :initarg       :requires
+    :initform      nil
+    :reader        plan-step-requires
+    :type          list
     :documentation "Fact patterns that must hold for the step; their variables fill {?var} in its text.")
    (verify
-    :initarg :verify
-    :initform nil
-    :reader plan-step-verify
-    :type (option list)
+    :initarg       :verify
+    :initform      nil
+    :reader        plan-step-verify
+    :type          (option list)
     :documentation "A fact pattern whose observation confirms the step was done.")
    (receipt
-    :initarg :receipt
-    :initform nil
-    :reader plan-step-receipt
-    :type list
+    :initarg       :receipt
+    :initform      nil
+    :reader        plan-step-receipt
+    :type          list
     :documentation "When the step was done, the bindings and facts it relied on."))
   (:documentation "One ordered step in the current workspace plan."))
 
 (defclass workspace-plan ()
   ((directory
-    :initarg :directory
-    :reader workspace-plan-directory
-    :type non-empty-string
+    :initarg       :directory
+    :reader        workspace-plan-directory
+    :type          non-empty-string
     :documentation "The workspace directory this plan belongs to.")
    (explanation
-    :initarg :explanation
-    :initform nil
-    :reader workspace-plan-explanation
-    :type (option string)
+    :initarg       :explanation
+    :initform      nil
+    :reader        workspace-plan-explanation
+    :type          (option string)
     :documentation "Optional short explanation of the current plan.")
    (steps
-    :initarg :steps
-    :initform nil
-    :reader workspace-plan-steps
-    :type list
+    :initarg       :steps
+    :initform      nil
+    :reader        workspace-plan-steps
+    :type          list
     :documentation "Ordered plan steps from first to last.")
    (updated-at
-    :initarg :updated-at
-    :reader workspace-plan-updated-at
-    :type timestamp
+    :initarg       :updated-at
+    :reader        workspace-plan-updated-at
+    :type          timestamp
     :documentation "The universal time at which this plan last changed."))
   (:documentation "The current ordered plan for one workspace."))
 
-
 (define-condition plan-error (autolith-error)
   ((pathname
-    :initarg :pathname
-    :reader plan-error-pathname
-    :type (option pathname)
+    :initarg       :pathname
+    :reader        plan-error-pathname
+    :type          (option pathname)
     :documentation "The plan state pathname related to the failure.")
    (operation
-    :initarg :operation
-    :reader plan-error-operation
-    :type keyword
+    :initarg       :operation
+    :reader        plan-error-operation
+    :type          keyword
     :documentation "The plan operation that failed."))
   (:documentation "A durable workspace plan operation failed.")
   (:report
@@ -97,14 +96,16 @@
              (plan-error-pathname condition)
              (autolith-error-message condition)))))
 
-
 (-> plan--status (t) (option plan-status))
 (defun plan--status (value)
   "Return VALUE as a plan status keyword, or NIL when invalid."
   (cond
-    ((typep value 'plan-status) value)
-    ((not (stringp value)) nil)
-    ((string-equal value "pending") ':pending)
+    ((typep value 'plan-status)
+     value)
+    ((not (stringp value))
+     nil)
+    ((string-equal value "pending")
+     ':pending)
     ((or (string-equal value "doing")
          (string-equal value "in_progress")
          (string-equal value "inProgress"))
@@ -112,19 +113,20 @@
     ((or (string-equal value "done")
          (string-equal value "completed"))
      ':done)
-    (t nil)))
+    (t
+     nil)))
 
 (-> plan--step-form-p (t) boolean)
 (defun plan--step-form-p (form)
   "Return true when FORM is one portable plan step."
   (and (listp form)
        (eq (first form) :step)
-       (let ((text (getf (rest form) :text))
-             (status (getf (rest form) :status))
+       (let ((text       (getf (rest form) :text))
+             (status     (getf (rest form) :status))
              (identifier (getf (rest form) :id))
-             (requires (getf (rest form) :requires))
-             (verify (getf (rest form) :verify))
-             (receipt (getf (rest form) :receipt)))
+             (requires   (getf (rest form) :requires))
+             (verify     (getf (rest form) :verify))
+             (receipt    (getf (rest form) :receipt)))
          (and (non-empty-string-p text)
               (<= (length text) *plan-step-text-limit*)
               (typep status 'plan-status)
@@ -148,22 +150,22 @@
   "Return true when FORM is a complete portable workspace plan."
   (values
    (record-check form
-                 :tag ':plan
+                 :tag      ':plan
                  :versions (list *plan-version*)
-                 :fields (list (list :indicator ':directory
-                                     :validate #'non-empty-string-p
-                                     :required t)
-                               (list :indicator ':updated-at
-                                     :validate (lambda (value)
-                                                 (typep value 'timestamp))
-                                     :required t)
-                               (list :indicator ':explanation
-                                     :validate (lambda (value)
-                                                 (or (null value)
-                                                     (stringp value))))
-                               (list :indicator ':steps
-                                     :validate #'plan--steps-p
-                                     :required t)))))
+                 :fields   (list (list :indicator ':directory
+                                       :validate  #'non-empty-string-p
+                                       :required  t)
+                                 (list :indicator ':updated-at
+                                       :validate  (lambda (value)
+                                                    (typep value 'timestamp))
+                                       :required  t)
+                                 (list :indicator ':explanation
+                                       :validate  (lambda (value)
+                                                    (or (null value)
+                                                        (stringp value))))
+                                 (list :indicator ':steps
+                                       :validate  #'plan--steps-p
+                                       :required  t)))))
 
 (-> plan-step->form (plan-step) list)
 (defun plan-step->form (step)
@@ -188,30 +190,30 @@ earlier form."
   "Return PLAN as one portable form."
   (list :plan
         :version *plan-version*
-        :directory (workspace-plan-directory plan)
+        :directory   (workspace-plan-directory plan)
         :explanation (workspace-plan-explanation plan)
-        :updated-at (workspace-plan-updated-at plan)
-        :steps (mapcar #'plan-step->form (workspace-plan-steps plan))))
+        :updated-at  (workspace-plan-updated-at plan)
+        :steps       (mapcar #'plan-step->form (workspace-plan-steps plan))))
 
 (-> form->plan-step (list) plan-step)
 (defun form->plan-step (form)
   "Return the plan step represented by FORM."
   (make-instance 'plan-step
-                 :text (getf (rest form) :text)
-                 :status (getf (rest form) :status)
+                 :text       (getf (rest form) :text)
+                 :status     (getf (rest form) :status)
                  :identifier (getf (rest form) :id)
-                 :requires (getf (rest form) :requires)
-                 :verify (getf (rest form) :verify)
-                 :receipt (getf (rest form) :receipt)))
+                 :requires   (getf (rest form) :requires)
+                 :verify     (getf (rest form) :verify)
+                 :receipt    (getf (rest form) :receipt)))
 
 (-> form->plan (list) workspace-plan)
 (defun form->plan (form)
   "Return the workspace plan represented by FORM."
   (make-instance 'workspace-plan
-                 :directory (getf (rest form) :directory)
+                 :directory   (getf (rest form) :directory)
                  :explanation (getf (rest form) :explanation)
-                 :updated-at (getf (rest form) :updated-at)
-                 :steps (mapcar #'form->plan-step (getf (rest form) :steps))))
+                 :updated-at  (getf (rest form) :updated-at)
+                 :steps       (mapcar #'form->plan-step (getf (rest form) :steps))))
 
 (-> plan--directory-name (configuration) string)
 (defun plan--directory-name (configuration)
@@ -238,9 +240,9 @@ earlier form."
             (form->plan form)))
       (error (condition)
         (error 'plan-error
-               :message (format nil "Could not load the workspace plan: ~A"
-                                condition)
-               :pathname pathname
+               :message   (format nil "Could not load the workspace plan: ~A"
+                                  condition)
+               :pathname  pathname
                :operation ':load)))))
 
 (-> plan--write-path (pathname workspace-plan) workspace-plan)
@@ -253,9 +255,9 @@ earlier form."
         plan)
     (error (condition)
       (error 'plan-error
-             :message (format nil "Could not write the workspace plan: ~A"
-                              condition)
-             :pathname pathname
+             :message   (format nil "Could not write the workspace plan: ~A"
+                                condition)
+             :pathname  pathname
              :operation ':write))))
 
 (-> plan--delete-path (pathname keyword) null)
@@ -266,9 +268,9 @@ earlier form."
         (delete-file pathname)
       (error (condition)
         (error 'plan-error
-               :message (format nil "Could not remove the workspace plan: ~A"
-                                condition)
-               :pathname pathname
+               :message   (format nil "Could not remove the workspace plan: ~A"
+                                  condition)
+               :pathname  pathname
                :operation operation))))
   nil)
 
@@ -276,7 +278,7 @@ earlier form."
 (defun plan--retire-matching-legacy (configuration directory)
   "Remove the legacy global plan when it belongs to DIRECTORY."
   (let* ((pathname (configuration-legacy-plan-path configuration))
-         (plan (plan--read-path pathname)))
+         (plan     (plan--read-path pathname)))
     (when (and plan
                (string= (workspace-plan-directory plan) directory))
       (plan--delete-path pathname ':migrate)))
@@ -286,8 +288,8 @@ earlier form."
 (defun plan--load-unlocked (configuration)
   "Return CONFIGURATION's workspace plan, migrating legacy state when needed."
   (let* ((directory (plan--directory-name configuration))
-         (pathname (plan--pathname configuration))
-         (plan (plan--read-path pathname)))
+         (pathname  (plan--pathname configuration))
+         (plan      (plan--read-path pathname)))
     (cond
       (plan
        (and (string= (workspace-plan-directory plan) directory)
@@ -355,53 +357,53 @@ STEPS is a list of (:text string :status plan-status) property lists, which
 may add :ID, :REQUIRES fact patterns, a :VERIFY pattern, and a :RECEIPT."
   (unless (and (listp steps) (plusp (length steps)))
     (error 'plan-error
-           :message "A plan requires at least one step."
-           :pathname (plan--pathname configuration)
+           :message   "A plan requires at least one step."
+           :pathname  (plan--pathname configuration)
            :operation ':update))
   (when (> (length steps) *plan-maximum-steps*)
     (error 'plan-error
-           :message (format nil "A plan may contain at most ~D steps."
-                            *plan-maximum-steps*)
-           :pathname (plan--pathname configuration)
+           :message   (format nil "A plan may contain at most ~D steps."
+                              *plan-maximum-steps*)
+           :pathname  (plan--pathname configuration)
            :operation ':update))
   (when (and explanation
              (not (stringp explanation)))
     (error 'plan-error
-           :message "Plan explanation must be a string."
-           :pathname (plan--pathname configuration)
+           :message   "Plan explanation must be a string."
+           :pathname  (plan--pathname configuration)
            :operation ':update))
   (let ((plan-steps
           (mapcar
            (lambda (step)
-             (let* ((text (getf step :text))
+             (let* ((text   (getf step :text))
                     (status (plan--status (getf step :status))))
                (unless (and (non-empty-string-p text)
                             (<= (length text) *plan-step-text-limit*))
                  (error 'plan-error
-                        :message "Each plan step needs bounded non-empty text."
-                        :pathname (plan--pathname configuration)
+                        :message   "Each plan step needs bounded non-empty text."
+                        :pathname  (plan--pathname configuration)
                         :operation ':update))
                (unless status
                  (error 'plan-error
-                        :message "Plan status must be pending, doing, or done."
-                        :pathname (plan--pathname configuration)
+                        :message   "Plan status must be pending, doing, or done."
+                        :pathname  (plan--pathname configuration)
                         :operation ':update))
                (make-instance 'plan-step
-                              :text text
-                              :status status
+                              :text       text
+                              :status     status
                               :identifier (getf step :id)
-                              :requires (getf step :requires)
-                              :verify (getf step :verify)
-                              :receipt (getf step :receipt))))
+                              :requires   (getf step :requires)
+                              :verify     (getf step :verify)
+                              :receipt    (getf step :receipt))))
            steps)))
     (plan-write
      configuration
      (make-instance
       'workspace-plan
-      :directory (plan--directory-name configuration)
+      :directory   (plan--directory-name configuration)
       :explanation (and (non-empty-string-p explanation) explanation)
-      :updated-at (get-universal-time)
-      :steps plan-steps))))
+      :updated-at  (get-universal-time)
+      :steps       plan-steps))))
 
 (-> plan-step-solutions (plan-step knowledge-view) (values list boolean))
 (defun plan-step-solutions (step view)
@@ -437,22 +439,26 @@ step also reports :CHANGED, the facts it relied on that no longer hold, and
           (plan-step-solutions step view)
           (values nil nil))
     (let ((solution (first solutions)))
-      (list :state (cond
-                     ((null (plan-step-requires step)) ':prose)
-                     (solution ':ready)
-                     (cut-p ':unknown)
-                     (t ':blocked))
-            :bindings (first solution)
-            :facts (mapcar #'knowledge-node-identifier (rest solution))
+      (list :state      (cond
+                          ((null (plan-step-requires step))
+                           ':prose)
+                          (solution
+                           ':ready)
+                          (cut-p
+                           ':unknown)
+                          (t
+                           ':blocked))
+            :bindings   (first solution)
+            :facts      (mapcar #'knowledge-node-identifier (rest solution))
             :conflicted (remove-if-not (lambda (node) (knowledge-node-conflicts node))
                                        (rest solution))
-            :unmet (and (plan-step-requires step) (null solution) (not cut-p)
-                        (plan--unmet-pattern step view))
-            :changed (and (eq (plan-step-status step) ':done)
-                          (remove-if (lambda (identifier)
-                                       (let ((node (knowledge-view-node view identifier)))
-                                         (and node (knowledge-node-supported-p node))))
-                                     (getf (plan-step-receipt step) :facts)))
+            :unmet      (and (plan-step-requires step) (null solution) (not cut-p)
+                             (plan--unmet-pattern step view))
+            :changed    (and (eq (plan-step-status step) ':done)
+                             (remove-if (lambda (identifier)
+                                          (let ((node (knowledge-view-node view identifier)))
+                                            (and node (knowledge-node-supported-p node))))
+                                        (getf (plan-step-receipt step) :facts)))
             :unverified (and (eq (plan-step-status step) ':done)
                              (plan-step-verify step)
                              (null (knowledge-view-solve view (list (plan-step-verify step))
@@ -462,14 +468,17 @@ step also reports :CHANGED, the facts it relied on that no longer hold, and
 (defun plan--step-note (step check view)
   "Return the parenthesized note explaining STEP's CHECK, or NIL when none applies."
   (flet ((fact-text (identifier)
-           (let ((node (knowledge-view-node view identifier))
+           (let ((node     (knowledge-view-node view identifier))
                  (recorded (nth (position identifier (getf (plan-step-receipt step) :facts)
                                           :test #'equal)
                                 (getf (plan-step-receipt step) :texts))))
              (cond
-               (node (knowledge-node-text node))
-               (recorded recorded)
-               (t identifier)))))
+               (node
+                (knowledge-node-text node))
+               (recorded
+                recorded)
+               (t
+                identifier)))))
     (cond
       ((getf check :changed)
        (format nil "done; it relied on ~{~A~^, ~}, which no longer hold~:[s~;~]"
@@ -527,15 +536,15 @@ Each entry is (:KEY :INDEX :TEXT :NOTE); prose steps are left out."
              for index from 1
              when (or (plan-step-requires step) (plan-step-verify step))
                collect (let ((check (plan-step-check step view)))
-                         (list :key (or (plan-step-identifier step) (plan-step-text step))
+                         (list :key   (or (plan-step-identifier step) (plan-step-text step))
                                :index index
-                               :text (plan-step-text-with
-                                      step
-                                      (if (eq (plan-step-status step) ':done)
-                                          (or (getf (plan-step-receipt step) :bindings)
-                                              (getf check :bindings))
-                                          (getf check :bindings)))
-                               :note (plan--step-note step check view))))))
+                               :text  (plan-step-text-with
+                                       step
+                                       (if (eq (plan-step-status step) ':done)
+                                           (or (getf (plan-step-receipt step) :bindings)
+                                               (getf check :bindings))
+                                           (getf check :bindings)))
+                               :note  (plan--step-note step check view))))))
 
 (-> plan-snapshot-changes (list list) list)
 (defun plan-snapshot-changes (previous current)
