@@ -209,7 +209,7 @@ Responses may not excessively quote or draw on a specific source. There are seve
    (json-object
     "tool"      (web--enum-schema '("sports") "Tool name for sports requests.")
     "fn"        (web--enum-schema '("schedule" "standings")
-                                    "Sports function to call.")
+                                   "Sports function to call.")
     "league"    (web--enum-schema
                   '("nba" "wnba" "nfl" "nhl" "mlb" "epl" "ncaamb" "ncaawb" "ipl")
                   "League to look up.")
@@ -278,7 +278,7 @@ commit ba42e6866cef4baed7ad92c73e6be8cd42e49d8b."
   (let ((endpoint (string-right-trim '(#\/) (config :provider-endpoint configuration))))
     (unless (uiop:string-suffix-p endpoint "/responses")
       (error 'tool-error
-             :message "The configured provider has no standalone search endpoint."
+             :message   "The configured provider has no standalone search endpoint."
              :tool-name "web.run"))
     (format nil "~A/alpha/search"
             (subseq endpoint 0 (- (length endpoint) (length "/responses"))))))
@@ -295,8 +295,8 @@ commit ba42e6866cef4baed7ad92c73e6be8cd42e49d8b."
                    (and (string= role "assistant")
                         (member type '("output_text" "text") :test #'string=))))
       (json-object "type" (if (string= role "user")
-                               "input_text"
-                               "output_text")
+                              "input_text"
+                              "output_text")
                    "text" text))))
 
 (-> web--search-message (json-object) (option json-object))
@@ -385,7 +385,7 @@ commit ba42e6866cef4baed7ad92c73e6be8cd42e49d8b."
      "id" (provider-session-id provider)
      "model" (config :model configuration)
      "input" (web--search-history (tool-context-conversation context)
-                                   configuration)
+                                  configuration)
      "commands" commands
      "settings"
      (json-object
@@ -397,11 +397,11 @@ commit ba42e6866cef4baed7ad92c73e6be8cd42e49d8b."
   "Run one Codex-compatible standalone web command batch."
   (declare (ignore tool))
   (let* ((configuration (tool-context-configuration context))
-         (provider (provider-create configuration))
-         (conversation (tool-context-conversation context)))
+         (provider      (provider-create configuration))
+         (conversation  (tool-context-conversation context)))
     (when (string= (config :web-search-mode configuration) "disabled")
       (error 'tool-error
-             :message "Provider web search is disabled by configuration."
+             :message   "Provider web search is disabled by configuration."
              :tool-name "web.run"))
     (with-credentials (credentials (provider-credential-manager provider))
       (multiple-value-bind (body status headers)
@@ -413,11 +413,11 @@ commit ba42e6866cef4baed7ad92c73e6be8cd42e49d8b."
         (declare (ignore headers))
         (unless (= status 200)
           (error 'tool-error
-                 :message (format nil "Provider web search returned HTTP ~D." status)
+                 :message   (format nil "Provider web search returned HTTP ~D." status)
                  :tool-name "web.run"))
         (let ((output (json-get (json-decode body) "output")))
           (unless (non-empty-string-p output)
             (error 'tool-error
-                   :message "Provider web search returned no text output."
+                   :message   "Provider web search returned no text output."
                    :tool-name "web.run"))
           (tool-success output))))))
