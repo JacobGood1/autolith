@@ -625,8 +625,10 @@ restricted, not well typed, or exceeds its bounds."
   "Return rule ENTRY's (SCOPE WORKSPACE IDENTIFIER) key."
   (list (getf entry :scope) (getf entry :workspace) (getf entry :id)))
 
-(-> knowledge--check-acyclic (knowledge-base list list (option string)) null)
-(defun knowledge--check-acyclic (base key rule workspace)
+(-> knowledge--check-acyclic
+    (knowledge-base list &key (:rule list) (:workspace (option string)))
+    null)
+(defun knowledge--check-acyclic (base key &key rule workspace)
   "Refuse RULE under KEY when it would make the visible active rules cyclic."
   (unless (knowledge-rules-acyclic-p
            (cons rule
@@ -666,7 +668,7 @@ Return the rule ID, its version, and whether it differs from the latest one."
                (key    (list scope workspace id))
                (entry  (gethash key (knowledge-base-rules base)))
                (latest (first (last (getf entry :versions)))))
-          (knowledge--check-acyclic base key rule viewer)
+          (knowledge--check-acyclic base key :rule rule :workspace viewer)
           (if (and latest (equal (getf latest :rule) rule))
               (values nil (list id (getf latest :version) nil) nil)
               (values (list (list :rule-defined
@@ -699,8 +701,8 @@ Return the rule ID, its version, and whether it differs from the latest one."
            (knowledge--fail ':unknown-rule id "Rule ~A has no version ~A." id selected))
          (when (eq kind :rule-admitted)
            (knowledge--check-acyclic base key
-                                     (getf (knowledge-rule-entry-version entry selected) :rule)
-                                     viewer))
+                                     :rule      (getf (knowledge-rule-entry-version entry selected) :rule)
+                                     :workspace viewer))
          (if (eql (getf entry :active) (and (eq kind :rule-admitted) selected))
              (values nil selected nil)
              (values (list (list kind
