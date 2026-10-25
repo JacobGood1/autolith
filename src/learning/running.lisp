@@ -16,6 +16,28 @@
   "The most characters of a call's result a run report shows.")
 
 
+;;;; -- Tool Calls --
+
+(-> procedure--call
+    (tool-context string &key (:arguments (satisfies argo:json-object-p)) (:index integer))
+    tool-result)
+(defun procedure--call (context tool-name &key arguments index)
+  "Make call number INDEX of a run: TOOL-NAME with ARGUMENTS through CONTEXT's registry."
+  (let ((tool (find tool-name (tool-registry-tools (tool-context-registry context))
+                    :key #'tool-canonical-name :test #'string=)))
+    (if (null tool)
+        (tool-failure (format nil "Tool ~A is not available here." tool-name))
+        (tool-registry-execute-call
+         (tool-context-registry context)
+         (json-object "type" "function_call"
+                      "call_id" (format nil "~@[~A/~]procedure-~D" (tool-context-call-id context)
+                                        (1+ index))
+                      "namespace" (tool-namespace tool)
+                      "name" (tool-name tool)
+                      "arguments" (json-encode arguments))
+         context))))
+
+
 ;;;; -- Public Functions --
 
 (-> procedure-run (tool-context string &key (:parameters list) (:caller keyword)) list)
@@ -336,25 +358,6 @@ are checked again against actual results by the ordinary call dispatch."
                    ;; A call cannot use its own promises, nor another contract on that call.
                    (setf produced (nconc next-productions produced)))))))
   nil)
-
-(-> procedure--call
-    (tool-context string &key (:arguments (satisfies argo:json-object-p)) (:index integer))
-    tool-result)
-(defun procedure--call (context tool-name &key arguments index)
-  "Make call number INDEX of a run: TOOL-NAME with ARGUMENTS through CONTEXT's registry."
-  (let ((tool (find tool-name (tool-registry-tools (tool-context-registry context))
-                    :key #'tool-canonical-name :test #'string=)))
-    (if (null tool)
-        (tool-failure (format nil "Tool ~A is not available here." tool-name))
-        (tool-registry-execute-call
-         (tool-context-registry context)
-         (json-object "type" "function_call"
-                      "call_id" (format nil "~@[~A/~]procedure-~D" (tool-context-call-id context)
-                                        (1+ index))
-                      "namespace" (tool-namespace tool)
-                      "name" (tool-name tool)
-                      "arguments" (json-encode arguments))
-         context))))
 
 (-> procedure--demonstrated-p (configuration string) boolean)
 (defun procedure--demonstrated-p (configuration identifier)
