@@ -85,17 +85,19 @@ lets the predicted effects of earlier calls satisfy it."
                      items))))
     (let* ((conditions
              (cond
-               ((null when) nil)
+               ((null when)
+                nil)
                ((hash-table-p when)
                 (loop for name being the hash-keys of when using (hash-value value)
                       collect (cons name value)))
-               (t (knowledge--fail ':invalid-contract when
-                                   "when maps argument names to values or variables."))))
-           (required (patterns requires))
-           (bound (append (remove-if-not #'knowledge-variable-p (mapcar #'rest conditions))
-                          (loop for pattern in required
-                                unless (knowledge-negation-p pattern)
-                                  append (knowledge--pattern-variables pattern))))
+               (t
+                (knowledge--fail ':invalid-contract when
+                                 "when maps argument names to values or variables."))))
+           (required  (patterns requires))
+           (bound     (append (remove-if-not #'knowledge-variable-p (mapcar #'rest conditions))
+                              (loop for pattern in required
+                                    unless (knowledge-negation-p pattern)
+                                      append (knowledge--pattern-variables pattern))))
            (predicted (patterns effects))
            (observed
              (mapcar (lambda (observation)
@@ -103,7 +105,7 @@ lets the predicted effects of earlier calls satisfy it."
                          (knowledge--fail ':invalid-contract observation
                                           "Each observation has a predicate and its arguments."))
                        (let* ((predicate (gethash "predicate" observation))
-                              (schema (funcall schema-function predicate))
+                              (schema    (funcall schema-function predicate))
                               (arguments (coerce (gethash "arguments" observation #()) 'list)))
                          (unless schema
                            (knowledge--fail ':unknown-predicate predicate
@@ -116,14 +118,16 @@ lets the predicted effects of earlier calls satisfy it."
                                :arguments
                                (mapcar (lambda (argument)
                                          (cond
-                                           ((knowledge--reference-p argument) argument)
+                                           ((knowledge--reference-p argument)
+                                            argument)
                                            ((knowledge-variable-p argument)
                                             (unless (member argument bound :test #'string=)
                                               (knowledge--fail ':invalid-contract argument
                                                                "~A is not bound by when or a requirement."
                                                                argument))
                                             argument)
-                                           (t argument)))
+                                           (t
+                                            argument)))
                                        arguments))))
                      (coerce (or observes #()) 'list))))
       (dolist (pattern (append (remove-if-not #'knowledge-negation-p required) predicted))
@@ -133,7 +137,7 @@ lets the predicted effects of earlier calls satisfy it."
                              "~A is not bound by when or a positive requirement." variable))))
       (list :contract :id id :tool tool :when conditions :requires required
             :effects predicted :observes observed
-            :accepts (knowledge--accepted-bases accepts id)
+            :accepts     (knowledge--accepted-bases accepts id)
             :description description))))
 
 (-> knowledge--accepted-bases (t string) list)
@@ -188,35 +192,35 @@ This trusted Lisp entry point admits the exact definition by default. Pass
 Until admitted, a replacement leaves the earlier admitted version active.
 Return its ID, whether content changed, and its version."
   (let ((workspace (knowledge--owner configuration scope))
-        (viewer (knowledge--workspace configuration)))
+        (viewer    (knowledge--workspace configuration)))
     (values-list
      (knowledge-transact
       configuration
       (lambda (base)
-        (let* ((contract (knowledge-make-contract
-                          :id id :tool tool :when when :requires requires :effects effects
-                          :observes observes :accepts accepts :description description
-                          :schema-function
-                          (lambda (predicate)
-                            (knowledge-base-schema base predicate
-                                                   :workspace (and (eq scope ':workspace) viewer)))))
-               (existing (gethash (list scope workspace id) (knowledge-base-contracts-table base)))
+        (let* ((contract  (knowledge-make-contract
+                           :id id :tool tool :when when :requires requires :effects effects
+                           :observes observes :accepts accepts :description description
+                           :schema-function
+                           (lambda (predicate)
+                             (knowledge-base-schema base predicate
+                                                    :workspace (and (eq scope ':workspace) viewer)))))
+               (existing  (gethash (list scope workspace id) (knowledge-base-contracts-table base)))
                (changed-p (not (equal (getf existing :contract) contract)))
-               (version (+ (or (getf existing :contract-version) 0) (if changed-p 1 0)))
-               (time (get-universal-time)))
+               (version   (+ (or (getf existing :contract-version) 0) (if changed-p 1 0)))
+               (time      (get-universal-time)))
           (if (and (not changed-p) (or (not admit) (knowledge-contract-admitted-p existing)))
               (values nil (list id nil version) nil)
               (values (list (list :contract-defined
                                   :version *knowledge-format-version*
-                                  :scope scope
-                                  :workspace workspace
-                                  :contract contract
-                                  :contract-version version
-                                  :admission (if admit
-                                                 (list :contract contract :contract-version version
-                                                       :by "trusted-lisp" :time time)
-                                                 (getf existing :admission))
-                                  :time time
+                                  :scope               scope
+                                  :workspace           workspace
+                                  :contract            contract
+                                  :contract-version    version
+                                  :admission           (if admit
+                                                           (list :contract contract :contract-version version
+                                                                 :by "trusted-lisp" :time time)
+                                                           (getf existing :admission))
+                                  :time                time
                                   :source-conversation source-conversation))
                       (list id changed-p version)
                       t))))))))
@@ -247,7 +251,7 @@ Refuse if a concurrent edit replaced the proposed definition."
                                    :contract contract :contract-version version
                                    :admission (list :contract contract :contract-version version
                                                     :by by :time time)
-                                   :time time))
+                                   :time      time))
                        version t))))))))
 
 
@@ -266,14 +270,15 @@ Refuse if a concurrent edit replaced the proposed definition."
                 (every #'digit-char-p key) (plusp (length key))
                 (< (parse-integer key) (length value)))
            (knowledge--json-path (aref value (parse-integer key)) (rest path)))
-          (t (values nil nil))))))
+          (t
+           (values nil nil))))))
 
 (-> knowledge--reference-value (string hash-table t) (values t boolean))
 (defun knowledge--reference-value (reference arguments result)
   "Return the value REFERENCE names in the call ARGUMENTS or its decoded RESULT."
   (let* ((rooted (uiop:string-prefix-p "$arg." reference))
-         (path (uiop:split-string (subseq reference (if rooted 5 (min 8 (length reference))))
-                                  :separator '(#\.))))
+         (path   (uiop:split-string (subseq reference (if rooted 5 (min 8 (length reference))))
+                                    :separator '(#\.))))
     (if rooted
         (knowledge--json-path arguments path)
         (if (string= reference "$result")
@@ -297,6 +302,7 @@ Refuse if a concurrent edit replaced the proposed definition."
      (= left right))
     (t
      (equal left right))))
+
 (-> knowledge--contract-bindings (list hash-table) (values list boolean))
 (defun knowledge--contract-bindings (contract arguments)
   "Return the variables CONTRACT's conditions bind from call ARGUMENTS, and whether it matches."
@@ -336,8 +342,8 @@ Refuse if a concurrent edit replaced the proposed definition."
 (-> knowledge-contracts-for-call (configuration string hash-table) list)
 (defun knowledge-contracts-for-call (configuration tool arguments)
   "Return (CONTRACT ENVIRONMENT) for each contract describing this call of TOOL."
-  (let* ((base (knowledge-base-read configuration))
-         (workspace (knowledge--workspace configuration))
+  (let* ((base            (knowledge-base-read configuration))
+         (workspace       (knowledge--workspace configuration))
          (schema-function (lambda (predicate)
                             (knowledge-base-schema base predicate :workspace workspace))))
     (loop for contract in (knowledge-base-contracts base tool :workspace workspace)
@@ -358,7 +364,7 @@ Refuse if a concurrent edit replaced the proposed definition."
 Requirements must have exactly one distinct binding environment on accepted,
 undisputed facts. Multiple proof paths for that environment retain all their
 claim identities. Incomplete searches and ambiguous environments refuse the call."
-  (let ((view (or view (knowledge-view-current configuration)))
+  (let ((view     (or view (knowledge-view-current configuration)))
         (admitted nil))
     (dolist (match matches (values nil (nreverse admitted)))
       (destructuring-bind (contract environment &optional supports) match
@@ -373,13 +379,15 @@ claim identities. Incomplete searches and ambiguous environments refuse the call
                                             (knowledge-node-admissible-p
                                              view node :accepted accepted)))
             (let* ((environments (remove-duplicates (mapcar #'first solutions) :test #'equal))
-                   (reason (cond
-                             (cut-p "could not be decided within the search limit")
-                             ((rest environments) "has ambiguous requirement bindings")
-                             ((null solutions)
-                              (if (knowledge-view-solve view requires :limit 1)
-                                  (format nil "holds only on disputed facts or on bases it does not accept (it accepts ~{~(~A~)~^, ~})" accepted)
-                                  "does not hold")))))
+                   (reason       (cond
+                                   (cut-p
+                                    "could not be decided within the search limit")
+                                   ((rest environments)
+                                    "has ambiguous requirement bindings")
+                                   ((null solutions)
+                                    (if (knowledge-view-solve view requires :limit 1)
+                                        (format nil "holds only on disputed facts or on bases it does not accept (it accepts ~{~(~A~)~^, ~})" accepted)
+                                        "does not hold")))))
               (when reason
                 (return (values
                          (format nil "Contract ~A requires ~{~A~^ and ~}, which ~A. The call was not made."
@@ -395,29 +403,29 @@ claim identities. Incomplete searches and ambiguous environments refuse the call
                     admitted))))))))
 
 (-> knowledge-contract-record (configuration list hash-table t &key (:tool string)
-                                                                        (:conversation (option string)))
+                                                                    (:conversation (option string)))
     (values list list))
 (defun knowledge-contract-record (configuration matches arguments result &key tool conversation)
   "Return asserted claim identifiers and structured mapping errors for a successful call.
 
 Requirement claim identities are retained in the evidence source. Mapping errors
 never change the external action's outcome and never disappear silently."
-  (let* ((decoded (ignore-errors (json-decode (tool-result-content result))))
-         (base (knowledge-base-read configuration))
+  (let* ((decoded   (ignore-errors (json-decode (tool-result-content result))))
+         (base      (knowledge-base-read configuration))
          (workspace (knowledge--workspace configuration))
-         (claims nil)
-         (errors nil))
+         (claims    nil)
+         (errors    nil))
     (dolist (match matches)
       (destructuring-bind (contract environment &optional supports) match
         (let* ((identifier (getf (rest contract) :id))
-               (source (list :tool :name tool :conversation conversation
-                             :call identifier :requirements supports)))
+               (source     (list :tool :name tool :conversation conversation
+                                 :call identifier :requirements supports)))
           (labels ((record (pattern basis)
                      (push (knowledge-assert
                             configuration pattern
                             :evidence (knowledge-observe
-                                       :source source
-                                       :digest (memory-source-text-digest (tool-result-content result))
+                                       :source  source
+                                       :digest  (memory-source-text-digest (tool-result-content result))
                                        :excerpt (tool-result-content result)
                                        :adapter (format nil "contract/~A/~(~A~)" identifier basis))
                             :basis basis :source-conversation conversation :contract contract)
@@ -451,7 +459,8 @@ never change the external action's outcome and never disappear silently."
                                             (knowledge--fail ':missing-value argument
                                                              "~A has no admitted binding." argument))
                                           (rest binding)))
-                                       (t argument)))
+                                       (t
+                                        argument)))
                                    (getf observation :arguments))))
                     (record (knowledge-make-proposition schema inputs) ':observation))
                 (knowledge-error (condition) (failed "observation" condition))))))))
