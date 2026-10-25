@@ -511,12 +511,14 @@
                       :output (tool-result-content result) :success-p t :persistence persistence))))
 
                (stable-input (request)
-                 (let ((input (json-get request "input")))
-                   (subseq input 0 (1- (length input)))))
+                 "Return REQUEST's input without the deliberately changing mutable-state message."
+                 (remove-if (lambda (item) (search "Mutable state" (json-encode item)))
+                            (json-get request "input")))
 
                (prefix-p (earlier later)
+                 "Return true when EARLIER's stable input is a prefix of LATER's."
                  (let ((prefix (stable-input earlier))
-                       (input  (json-get later "input")))
+                       (input  (stable-input later)))
                    (and (<= (length prefix) (length input))
                         (string= (json-encode prefix)
                                  (json-encode (subseq input 0 (length prefix))))))))

@@ -272,11 +272,12 @@ assembly. The third value is private evidence for Codex placement validation."
            (conversation-input-items-for-family
             conversation (provider-family provider)
             :include-ephemeral-p (not compaction-p))))
-    (multiple-value-bind (items context-tail)
+    (multiple-value-bind (items stable-context volatile-context)
         (context-delivery-project-items delivery conversation history)
-      (let* ((suffix (list (and (not compaction-p) goal-context)
-                           context-tail
-                           (and compaction-p *compaction-instructions*)))
+      (let* ((suffix (append (list (and (not compaction-p) goal-context))
+                             stable-context
+                             (list volatile-context
+                                   (and compaction-p *compaction-instructions*))))
              (projection
               (make-instance
                'cl-llm-provider-api:wire-request
@@ -304,7 +305,7 @@ assembly. The third value is private evidence for Codex placement validation."
                                   :compaction-p compaction-p)
          delivery
          ;; Private assembly evidence for Codex's exact current-suffix guard.
-         ;; Anchored contributions are already in ITEMS, not CONTEXT-TAIL.
+         ;; Anchored contributions are already in ITEMS, not in SUFFIX.
          suffix)))))
 
 
@@ -325,56 +326,61 @@ assembly. The third value is private evidence for Codex placement validation."
 (-> provider--codex-anchor-context (vector (integer 0) list)
     (values vector list))
 (defun provider--codex-anchor-context (items suffix-count state)
-  "Place identically resupplied context at its previous tool-round boundary.
+  "Place each identically resupplied context message at its previous history position.
 
-STATE contains only positions and SHA-256 digests of the current context and
-complete history. Reuse requires append-only history without new user or
-higher-priority messages. Old context is never copied from STATE."
+ITEMS ends with SUFFIX-COUNT current context messages. STATE contains only
+positions and SHA-256 digests: the previous history's length and digest, and a
+history position and digest per context message. When the history only grew,
+a message identical to a previous one returns to that one's position, before
+or after later user messages alike, so the provider's cached prefix through it
+survives; new and changed messages follow the history. Old context is never
+copied from STATE."
   (check-type suffix-count (integer 0))
   (assert (<= suffix-count (length items)))
   (when (zerop suffix-count)
     (return-from provider--codex-anchor-context (values items nil)))
-  (let* ((history-count   (- (length items) suffix-count))
-         (history         (subseq items 0 history-count))
-         (history-digest  (provider--codex-context-digest history))
-         (context-digest
-           (provider--codex-context-digest (subseq items history-count)))
-         (previous-anchor (getf state :anchor))
-         (previous-count  (getf state :history-count))
-         (reuse-p
-           (and (typep previous-anchor '(integer 0))
-                (typep previous-count '(integer 0))
-                (<= previous-anchor previous-count history-count)
-                (equal context-digest (getf state :context-digest))
+  (let* ((history-count  (- (length items) suffix-count))
+         (history        (subseq items 0 history-count))
+         (history-digest (provider--codex-context-digest history))
+         (previous-count (getf state :history-count))
+         (append-only-p
+           (and (typep previous-count '(integer 0))
+                (<= previous-count history-count)
                 (equal (if (= previous-count history-count)
                            history-digest
                            (provider--codex-context-digest
                             (subseq history 0 previous-count)))
-                       (getf state :history-digest))
-                (loop for index from previous-anchor below history-count
-                      never (member (json-get (aref items index) "role")
-                                    '("user" "developer" "system")
-                                    :test #'equal))))
-         (anchor          (if reuse-p previous-anchor history-count))
-         (result          items))
-    (when (< anchor history-count)
-      (setf result (make-array (length items)))
-      (replace result items :end2 anchor)
-      (replace result items :start1 anchor :start2 history-count)
-      (replace result items :start1 (+ anchor suffix-count)
-                            :start2 anchor :end2 history-count))
-    (values result
-            (list :anchor anchor :history-count history-count
-                  :context-digest context-digest :history-digest history-digest))))
+                       (getf state :history-digest))))
+         (available      (and append-only-p (copy-list (getf state :placements))))
+         (placements
+           (loop for index from history-count below (length items)
+                 for digest = (provider--codex-context-digest
+                               (vector (aref items index)))
+                 for previous = (find digest available :key #'first :test #'equal)
+                 do (setf available (remove previous available :count 1))
+                 collect (list digest (if previous (second previous) history-count))))
+         (result         (make-array (length items) :fill-pointer 0)))
+    (loop for position from 0 to history-count
+          do (loop for (nil placed) in placements
+                   for index from history-count
+                   when (= placed position)
+                     do (vector-push (aref items index) result))
+             (when (< position history-count)
+               (vector-push (aref items position) result)))
+    (values (coerce result 'simple-vector)
+            (list :history-count  history-count
+                  :history-digest history-digest
+                  :placements     placements))))
 
 (defmethod provider-request-object :around
     ((provider codex-subscription-provider) (conversation conversation)
      (tool-namespaces vector) &key goal-context compaction-p)
   "Stabilize the placement of currently supplied Codex request context.
 
-Identical context keeps its original tool-round boundary so later rounds
-extend the full previous request. Only current request objects are reused;
-changed or omitted context is never recovered from placement state."
+Each identical context message keeps its original position, across later
+user messages as well as tool rounds, so later requests extend the previous
+one through it. Only current request objects are reused; changed or omitted
+context is never recovered from placement state."
   (declare (ignore tool-namespaces goal-context))
   (multiple-value-bind (request delivery suffix) (call-next-method)
     ;; This lock protects placement evidence, not conversation mutation or

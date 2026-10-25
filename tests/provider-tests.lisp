@@ -2593,7 +2593,7 @@
 
 (-> test-codex-context-anchoring () null)
 (defun test-codex-context-anchoring ()
-  "Exercise current-only context reuse, prefix extension and history changes."
+  "Exercise per-message context reuse, prefix extension and history changes."
   (let* ((user    (json-object "type" "message" "role" "user"
                                "content" "Unicode datum: λ."))
          (call    (json-object "type" "function_call" "name" "sample"
@@ -2603,91 +2603,103 @@
          (context (responses-developer-message "current goal"))
          (data    (responses-developer-message "current local data"))
          (initial (vector user context data)))
-    (multiple-value-bind (first state)
-        (provider--codex-anchor-context initial 2 nil)
-      (test-assert (string= (json-encode first) (json-encode initial))
-                   "initial context stays at the current boundary")
-      (test-assert
-       (and (= 1 (getf state :anchor)) (= 1 (getf state :history-count))
-            (= 8 (length state))
-            (every (lambda (key) (= 64 (length (getf state key))))
-                   '(:context-digest :history-digest)))
-       "placement evidence contains only two positions and two digests")
-      (let* ((fresh-context (responses-developer-message "current goal"))
-             (fresh-data    (responses-developer-message "current local data"))
-             (request       (vector user call output fresh-context fresh-data)))
-        (multiple-value-bind (anchored second-state)
-            (provider--codex-anchor-context request 2 state)
-          (test-assert
-           (string= (json-encode anchored)
-                    (json-encode (vector user fresh-context fresh-data call output)))
-           "identical current context precedes the appended tool round")
-          (test-assert (and (eq fresh-context (aref anchored 1))
-                            (eq fresh-data (aref anchored 2)))
-                       "placement reuses current objects, not saved context")
-          (test-assert
-           (string= (json-encode first)
-                    (json-encode (subseq anchored 0 (length first))))
-           "the complete preceding input is preserved as a prefix")
-          (test-assert
-           (string= (json-encode request)
-                    (json-encode (vector user call output fresh-context fresh-data)))
-           "anchoring does not mutate the current input")
-          ;; Both changes preserve the original pre-anchor user item. Checking
-          ;; only that item would incorrectly accept these non-append-only tails.
-          (dolist (changed
-                   (list (vector user call
-                                 (json-object "type" "function_call_output"
-                                              "call_id" "a" "output" "ONE")
-                                 fresh-context fresh-data)
-                         (vector user call fresh-context fresh-data)))
+    (flet ((positions (state)
+             "Return STATE's context positions in suffix order."
+             (mapcar #'second (getf state :placements))))
+      (multiple-value-bind (first state)
+          (provider--codex-anchor-context initial 2 nil)
+        (test-assert (string= (json-encode first) (json-encode initial))
+                     "initial context stays at the current boundary")
+        (test-assert
+         (and (= 1 (getf state :history-count))
+              (= 64 (length (getf state :history-digest)))
+              (equal (positions state) '(1 1))
+              (every (lambda (placement) (= 64 (length (first placement))))
+                     (getf state :placements)))
+         "placement evidence contains only positions and digests")
+        (let* ((fresh-context (responses-developer-message "current goal"))
+               (fresh-data    (responses-developer-message "current local data"))
+               (request       (vector user call output fresh-context fresh-data)))
+          (multiple-value-bind (anchored second-state)
+              (provider--codex-anchor-context request 2 state)
+            (test-assert
+             (string= (json-encode anchored)
+                      (json-encode (vector user fresh-context fresh-data call output)))
+             "identical current context precedes the appended tool round")
+            (test-assert (and (eq fresh-context (aref anchored 1))
+                              (eq fresh-data (aref anchored 2)))
+                         "placement reuses current objects, not saved context")
+            (test-assert
+             (string= (json-encode first)
+                      (json-encode (subseq anchored 0 (length first))))
+             "the complete preceding input is preserved as a prefix")
+            (test-assert
+             (string= (json-encode request)
+                      (json-encode (vector user call output fresh-context fresh-data)))
+             "anchoring does not mutate the current input")
+            ;; Both changes preserve the original pre-anchor user item. Checking
+            ;; only that item would incorrectly accept these non-append-only tails.
+            (dolist (changed
+                     (list (vector user call
+                                   (json-object "type" "function_call_output"
+                                                "call_id" "a" "output" "ONE")
+                                   fresh-context fresh-data)
+                           (vector user call fresh-context fresh-data)))
+              (multiple-value-bind (result next)
+                  (provider--codex-anchor-context changed 2 second-state)
+                (test-assert (string= (json-encode result) (json-encode changed))
+                             "rewritten or truncated tool history keeps context at the tail")
+                (test-assert (every (lambda (position) (= position (- (length changed) 2)))
+                                    (positions next))
+                             "non-append-only tool history establishes fresh positions")))
+            (let ((extended (vector user call output call output fresh-context fresh-data)))
+              (multiple-value-bind (result next)
+                  (provider--codex-anchor-context extended 2 second-state)
+                (test-assert
+                 (string= (json-encode anchored)
+                          (json-encode (subseq result 0 (length anchored))))
+                 "a second tool round extends the complete anchored input")
+                (test-assert (and (equal (positions next) '(1 1))
+                                  (= 5 (getf next :history-count)))
+                             "state advances its history evidence without moving context"))))
+          (multiple-value-bind (omitted omitted-state)
+              (provider--codex-anchor-context (vector user call output) 0 state)
+            (test-assert (and (= 3 (length omitted)) (null omitted-state))
+                         "omission neither recovers context nor retains placement state"))
+          (let ((updated (responses-developer-message "updated local data")))
             (multiple-value-bind (result next)
-                (provider--codex-anchor-context changed 2 second-state)
-              (test-assert (string= (json-encode result) (json-encode changed))
-                           "rewritten or truncated tool history keeps context at the tail")
-              (test-assert (= (- (length changed) 2) (getf next :anchor))
-                           "non-append-only tool history establishes a fresh boundary")))
-          (let ((extended (vector user call output call output fresh-context fresh-data)))
-            (multiple-value-bind (result next)
-                (provider--codex-anchor-context extended 2 second-state)
+                (provider--codex-anchor-context
+                 (vector user call output fresh-context updated) 2 state)
               (test-assert
-               (string= (json-encode anchored)
-                        (json-encode (subseq result 0 (length anchored))))
-               "a second tool round extends the complete anchored input")
-              (test-assert (and (= 1 (getf next :anchor))
-                                (= 5 (getf next :history-count)))
-                           "state advances its history evidence without moving the anchor"))))
-        (multiple-value-bind (omitted omitted-state)
-            (provider--codex-anchor-context (vector user call output) 0 state)
-          (test-assert (and (= 3 (length omitted)) (null omitted-state))
-                       "omission neither recovers context nor retains placement state"))
-        (dolist (changed
-                 (list (vector user call output fresh-context
-                               (responses-developer-message "updated local data"))
-                       (vector (json-object "type" "message" "role" "user"
-                                            "content" "compacted history")
-                               call output fresh-context fresh-data)))
+               (string= (json-encode result)
+                        (json-encode (vector user fresh-context call output updated)))
+               "only the changed message moves after the history")
+              (test-assert (equal (positions next) '(1 3))
+                           "unchanged context keeps its position")))
+          (let ((rewritten (vector (json-object "type" "message" "role" "user"
+                                                "content" "compacted history")
+                                   call output fresh-context fresh-data)))
+            (multiple-value-bind (result next)
+                (provider--codex-anchor-context rewritten 2 state)
+              (test-assert (string= (json-encode result) (json-encode rewritten))
+                           "rewritten history uses the current tail")
+              (test-assert (equal (positions next) '(3 3))
+                           "rewritten history resets every position")))
           (multiple-value-bind (result next)
-              (provider--codex-anchor-context changed 2 state)
-            (test-assert (string= (json-encode result) (json-encode changed))
-                         "changed context or rewritten history uses the current tail")
-            (test-assert (= 3 (getf next :anchor))
-                         "changed evidence resets the boundary")))
-        (multiple-value-bind (result next)
-            (provider--codex-anchor-context (vector fresh-context fresh-data) 2 state)
-          (test-assert (and (= 2 (length result)) (zerop (getf next :anchor)))
-                       "shortened initial history starts a fresh boundary"))
-        (multiple-value-bind (result next)
-            (provider--codex-anchor-context (vector user call output fresh-data) 1 state)
-          (test-assert (and (= 3 (getf next :anchor))
-                            (eq fresh-data (aref result 3))
-                            (= 4 (length result)))
-                       "partial omission never restores the missing current goal")))))
+              (provider--codex-anchor-context (vector fresh-context fresh-data) 2 state)
+            (test-assert (and (= 2 (length result)) (equal (positions next) '(0 0)))
+                         "shortened initial history starts fresh positions"))
+          (multiple-value-bind (result next)
+              (provider--codex-anchor-context (vector user call output fresh-data) 1 state)
+            (test-assert (and (= 4 (length result))
+                              (eq fresh-data (aref result 1))
+                              (equal (positions next) '(1)))
+                         "partial omission keeps the remaining context and never restores the goal"))))))
   nil)
 
 (-> test-codex-context-boundaries () null)
 (defun test-codex-context-boundaries ()
-  "Reset context placement at instruction boundaries and on case-only changes."
+  "Keep identical context across instruction boundaries and move case-only changes."
   (let* ((user    (json-object "type" "message" "role" "user" "content" "synthetic"))
          (context (responses-developer-message "Current")))
     (multiple-value-bind (first state)
@@ -2698,8 +2710,10 @@
                (input    (vector user boundary context)))
           (multiple-value-bind (result next)
               (provider--codex-anchor-context input 1 state)
-            (test-assert (equalp result input) "instruction boundary resets placement")
-            (test-assert (= 2 (getf next :anchor)) "anchor follows the new instruction"))))
+            (test-assert (equalp result (vector user context boundary))
+                         "identical context stays before a later instruction")
+            (test-assert (= 1 (second (first (getf next :placements))))
+                         "the context keeps its original position"))))
       (let* ((call    (json-object "type" "function_call" "name" "sample"
                                    "call_id" "a" "arguments" "{}"))
              (changed (responses-developer-message "current"))
@@ -2707,7 +2721,8 @@
         (multiple-value-bind (result next)
             (provider--codex-anchor-context input 1 state)
           (test-assert (equalp result input) "case-only change uses current tail")
-          (test-assert (= 2 (getf next :anchor)) "case-sensitive digest resets placement")))))
+          (test-assert (= 2 (second (first (getf next :placements))))
+                       "case-sensitive digest moves the context")))))
   nil)
 
 (-> test-codex-context-request () null)
@@ -2814,11 +2829,11 @@
                 (provider-request-object provider conversation #())
               (let ((input (json-get partial "input")))
                 (test-assert
-                 (string= (json-encode (aref input (1- (length input))))
+                 (string= (json-encode (aref input 1))
                           (json-encode
                            (responses-developer-message
                             (context-delivery-rendered partial-delivery))))
-                 "omitting the goal moves current rendered context to the tail")
+                 "omitting the goal keeps identical rendered context in place")
                 (test-assert (not (search "current goal" (json-encode input)))
                              "partial omission never replays the former goal")))
             (setf instruction nil)
@@ -2888,9 +2903,11 @@
                (string= (json-encode previous)
                         (json-encode (subseq input 0 (length previous))))
                "goal and ordinary tail extend the complete prefix beside anchored context")
-              (test-assert (= 2 (getf (gethash conversation *codex-context-anchor-states*)
-                                      :anchor))
-                           "goal suffix stays after the projected anchored block")
+              (test-assert (equal (mapcar #'second
+                                          (getf (gethash conversation *codex-context-anchor-states*)
+                                                :placements))
+                                  '(2 2))
+                           "goal and tail stay after the projected anchored block")
               (setf previous input)))
           (let ((history (json-encode (conversation-input-items-for-family
                                        conversation (provider-family provider)))))
@@ -2899,11 +2916,10 @@
                                     provider conversation #() :goal-context "current goal")
                                   "input")))
               (test-assert
-               (and (equalp (aref input (1- (length input)))
-                            (responses-developer-message "current goal"))
+               (and (equalp (aref input 2) (responses-developer-message "current goal"))
                     (search "Anchored current block" (json-encode input))
                     (not (search "Trailing current block" (json-encode input))))
-               "omitting the ordinary tail resets the goal without losing anchored context"))
+               "omitting the ordinary tail keeps the goal in place beside anchored context"))
             (setf tail-p t)
             (let ((input (json-get (provider-request-object provider conversation #()) "input")))
               (test-assert
@@ -2927,27 +2943,30 @@
                                   "input")))
               (test-assert
                (and (not (search "Anchored current block" (json-encode input)))
-                    (= (- (length input) 2)
-                       (getf (gethash conversation *codex-context-anchor-states*) :anchor)))
+                    (every (lambda (placement) (= (second placement) (- (length input) 2)))
+                           (getf (gethash conversation *codex-context-anchor-states*)
+                                 :placements)))
                "omitting anchored context resets full-prefix evidence without replaying it"))
             (test-assert
              (string= history (json-encode (conversation-input-items-for-family
                                             conversation (provider-family provider))))
              "combined projection and all omissions leave durable history untouched"))
-          ;; A still-active contribution keeps its own boundary; it must not
-          ;; allow the goal suffix to cross a new durable user instruction.
+          ;; Identical goal and ordinary tail keep their places across a new
+          ;; durable user instruction, so the cached prefix through them survives.
           (setf anchored-p t)
           (provider-request-object provider conversation #() :goal-context "current goal")
           (conversation-append-user-message conversation "new instruction")
           (let ((input (json-get (provider-request-object
                                   provider conversation #() :goal-context "current goal")
                                 "input")))
-            (test-assert
-             (and (equalp (aref input (- (length input) 2))
-                          (responses-developer-message "current goal"))
-                  (string= (json-encode tail)
-                           (json-encode (aref input (1- (length input)))))
-                  (= (- (length input) 2)
-                     (getf (gethash conversation *codex-context-anchor-states*) :anchor)))
-             "new user instruction keeps the goal and ordinary tail at the current boundary"))))))
+            (let ((goal-position
+                    (position (responses-developer-message "current goal") input :test #'equalp))
+                  (tail-position
+                    (position (json-encode tail) input :key #'json-encode :test #'string=)))
+              (test-assert
+               (and goal-position
+                    tail-position
+                    (< goal-position tail-position (1- (length input)))
+                    (search "new instruction" (json-encode (aref input (1- (length input))))))
+               "a new user instruction follows the unchanged goal and ordinary tail")))))))
   nil)

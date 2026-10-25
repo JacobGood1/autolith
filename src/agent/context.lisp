@@ -585,15 +585,20 @@ invoke request-local contributors merely to display idle context usage."
 
 (-> context-delivery-project-items
     ((option context-delivery) conversation list)
-    (values list (option string)))
+    (values list list (option string)))
 (defun context-delivery-project-items (delivery conversation items)
-  "Return ITEMS with active anchored context and the remaining context tail.
+  "Return ITEMS with active anchored context, the stable context tail, and the volatile one.
 
 Only identities and history boundaries survive assembly. Render current selected
 contributions afresh, dropping inactive blocks and relocating anchors whose
-history was removed or compacted. Never append context to durable history."
+history was removed or compacted. Never append context to durable history.
+
+The second value renders each remaining contribution that outlives one request
+as its own block, in priority order, so an unchanged block can keep its place
+in a provider's cached prefix while another changes. The third value renders
+the one-request contributions together: they change on every delivery."
   (unless delivery
-    (return-from context-delivery-project-items (values items nil)))
+    (return-from context-delivery-project-items (values items nil nil)))
   (let* ((contributions (context-delivery-contributions delivery))
          (anchored      (stable-sort
                          (remove-if-not
@@ -639,7 +644,17 @@ history was removed or compacted. Never append context to durable history."
           (dolist (message (reverse (gethash item groups)))
             (push message projected)))
         (setf (conversation-context-anchors conversation) (nreverse anchors))
-        (values (nreverse projected) (context--render trailing))))))
+        (values (nreverse projected)
+                (mapcar (lambda (contribution)
+                          (context--render (list contribution)))
+                        (stable-sort (remove ':next-request trailing
+                                             :key #'context-contribution-lifetime)
+                                     #'< :key #'context-contribution-priority))
+                (context--render (remove-if-not
+                                  (lambda (contribution)
+                                    (eq (context-contribution-lifetime contribution)
+                                        ':next-request))
+                                  trailing)))))))
 
 (-> context--invoke-contributors
     (request-context list)
