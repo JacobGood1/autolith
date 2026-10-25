@@ -136,4 +136,5 @@
                 (and (null diagnostic)
                      (eql (sandbox-result-exit-code result) 0)
                      (eq (cl-exec-sandbox:sandbox-result-status result) ':exited)))))
+        ; mallet:suppress no-ignore-errors -- releasing the log must not mask the command result or failure
         (ignore-errors (shell-log-release-artifact artifact))))))
