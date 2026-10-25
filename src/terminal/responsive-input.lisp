@@ -2968,10 +2968,10 @@ as the terminal UI's exclusive-input function."
          t)))
 
 (-> application--apply-classified-command-permission
-    (application string pathname keyword string)
+    (application string pathname &key (:decision keyword) (:reason string))
     keyword)
 (defun application--apply-classified-command-permission
-    (application command directory decision reason)
+    (application command directory &key decision reason)
   "Apply one automatic DECISION for COMMAND with a terse dim notice.
 
 The command already appears with its tool call, so the notice never
@@ -3085,7 +3085,8 @@ sandbox grant is revalidated at this final authorization boundary."
   (multiple-value-bind (decision reason)
       (application--model-command-permission application command directory)
     (application--apply-classified-command-permission
-     application command directory decision reason)))
+     application command directory :decision decision
+                                   :reason   reason)))
 
 (-> application--apply-command-authorization-choice
     (application string pathname (option string)
@@ -3103,7 +3104,8 @@ sandbox grant is revalidated at this final authorization boundary."
               application request directory :sandbox-available-p nil)
              (application--model-command-permission application command directory))
        (application--apply-classified-command-permission
-        application (or request command) directory decision reason)))
+        application (or request command) directory :decision decision
+                                                   :reason   reason)))
     ((string= (or choice "") "full")
      (setf (application-permission-mode application) ':full-access)
      ':full-access)
@@ -3186,7 +3188,8 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
                         application request directory :sandbox-available-p nil)
                        (application--model-command-permission application key directory))
                  (application--apply-classified-command-permission
-                  application (or request key) directory decision reason))))
+                  application (or request key) directory :decision decision
+                                                         :reason   reason))))
       (case (application-permission-mode application)
         (:full-access
          ':full-access)
