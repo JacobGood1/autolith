@@ -40,9 +40,12 @@
   (defun application-command--option-text (option)
     "Return the slash spelling of a native string, keyword, or boolean OPTION."
     (etypecase option
-      (boolean (if option "on" "off"))
-      (string option)
-      (keyword (string-downcase (symbol-name option)))))
+      (boolean
+       (if option "on" "off"))
+      (string
+       option)
+      (keyword
+       (string-downcase (symbol-name option)))))
 
   (defun application-command--static-options-p (value)
     "Return true for unique printable string, keyword, or boolean choices."
@@ -57,14 +60,14 @@
                 value)
          (= (length value)
             (length (remove-duplicates value :test #'string=
-                                             :key #'application-command--option-text)))))
+                                             :key  #'application-command--option-text)))))
 
   (defun application-command--lambda-list-arity (lambda-list)
     "Return minimum and maximum counts, or NIL for an open keyword/rest tail."
     (let ((minimum 0)
           (maximum 0)
-          (state ':required)
-          (rest-p nil))
+          (state   ':required)
+          (rest-p  nil))
       (dolist (entry lambda-list)
         (if (and (symbolp entry)
                  (member entry lambda-list-keywords :test #'eq))
@@ -124,12 +127,12 @@
   (defun application-command--static-option-hint (options optional-p &key native-p)
     "Return the finite OPTIONS hint in native Lisp or slash syntax."
     (let* ((*print-case* ':downcase)
-           (choices (format nil "~{~A~^|~}"
-                            (mapcar (lambda (option)
-                                      (if native-p
-                                          (format nil "~S" option)
-                                          (application-command--option-text option)))
-                                    options))))
+           (choices      (format nil "~{~A~^|~}"
+                                 (mapcar (lambda (option)
+                                           (if native-p
+                                               (format nil "~S" option)
+                                               (application-command--option-text option)))
+                                         options))))
       (if optional-p (format nil "[~A]" choices) choices)))
 
   (defun application-command--validate-metadata
@@ -196,7 +199,7 @@
       (unless (= (application-command--metadata-key-count metadata key) 1)
         (error "Application command ~S requires literal metadata key ~S."
                definition-name key)))
-    (let* ((callable-p (eq (getf metadata :callable) t))
+    (let* ((callable-p     (eq (getf metadata :callable) t))
            (static-options (getf metadata :static-options))
            (argument-count
              (application-command--metadata-key-count metadata :argument)))
@@ -267,135 +270,135 @@
 
 (defclass application-command ()
   ((definition-name
-    :initarg :definition-name
-    :reader application-command-definition-name
-    :type symbol
+    :initarg       :definition-name
+    :reader        application-command-definition-name
+    :type          symbol
     :documentation "The stable defining-form name used for replacement and replay.")
    (name
-    :initarg :name
-    :reader application-command-name
-    :type non-empty-string
+    :initarg       :name
+    :reader        application-command-name
+    :type          non-empty-string
     :documentation "The canonical lowercase slash-command name.")
    (aliases
-    :initarg :aliases
-    :initform nil
-    :reader application-command-aliases
-    :type list
+    :initarg       :aliases
+    :initform      nil
+    :reader        application-command-aliases
+    :type          list
     :documentation "Alternative slash names sharing this command's behavior.")
    (argument
-    :initarg :argument
-    :reader application-command-argument
-    :type (option string)
+    :initarg       :argument
+    :reader        application-command-argument
+    :type          (option string)
     :documentation "The optional argument hint rendered by help and completion.")
    (description
-    :initarg :description
-    :reader application-command-description
-    :type non-empty-string
+    :initarg       :description
+    :reader        application-command-description
+    :type          non-empty-string
     :documentation "The concise help and completion description.")
    (tip
-    :initarg :tip
-    :reader application-command-tip
-    :type non-empty-string
+    :initarg       :tip
+    :reader        application-command-tip
+    :type          non-empty-string
     :documentation "The startup advice and help notes, with Markdown inline code for Lisp forms.")
    (busy-behavior
-    :initarg :busy-behavior
-    :reader application-command-busy-behavior
-    :type (member :hold :inspect :execute :apply :cancel)
+    :initarg       :busy-behavior
+    :reader        application-command-busy-behavior
+    :type          (member :hold :inspect :execute :apply :cancel)
     :documentation "The command policy while application work is active.")
    (terminal-behavior
-    :initarg :terminal-behavior
-    :reader application-command-terminal-behavior
-    :type (member :shared :exclusive :exclusive-without-arguments)
+    :initarg       :terminal-behavior
+    :reader        application-command-terminal-behavior
+    :type          (member :shared :exclusive :exclusive-without-arguments)
     :documentation "When command execution requires exclusive terminal input.")
    (lambda-list
-    :initarg :lambda-list
-    :initform nil
-    :reader application-command-lambda-list
-    :type list
+    :initarg       :lambda-list
+    :initform      nil
+    :reader        application-command-lambda-list
+    :type          list
     :documentation "The callable parameter list derived from the handler lambda list.")
    (callable-p
-    :initarg :callable-p
-    :initform nil
-    :reader application-command-callable-p
-    :type boolean
+    :initarg       :callable-p
+    :initform      nil
+    :reader        application-command-callable-p
+    :type          boolean
     :documentation "Whether the handler receives canonical Lisp arguments.")
    (slash-parser
-    :initarg :slash-parser
-    :initform nil
-    :reader application-command-slash-parser
-    :type (option function)
+    :initarg       :slash-parser
+    :initform      nil
+    :reader        application-command-slash-parser
+    :type          (option function)
     :documentation "Captured slash-only parser from complete remainder text to semantic arguments.")
    (static-options
-    :initarg :static-options
-    :initform nil
-    :reader application-command-static-options
-    :type list
+    :initarg       :static-options
+    :initform      nil
+    :reader        application-command-static-options
+    :type          list
     :documentation "Finite native string, keyword, or boolean values offered for the command's sole argument.")
    (handler
-    :initarg :handler
-    :reader application-command-handler
-    :type function
+    :initarg       :handler
+    :reader        application-command-handler
+    :type          function
     :documentation "The immutable behavior captured when this definition registered."))
   (:documentation
    "Immutable metadata and behavior for one canonical interactive command."))
 
 (defclass application-command-invocation ()
   ((input
-    :initarg :input
-    :reader application-command-invocation-input
-    :type string
+    :initarg       :input
+    :reader        application-command-invocation-input
+    :type          string
     :documentation "The complete submitted command input.")
    (syntax
-    :initarg :syntax
-    :initform ':slash
-    :reader application-command-invocation-syntax
-    :type (member :slash :lisp)
+    :initarg       :syntax
+    :initform      ':slash
+    :reader        application-command-invocation-syntax
+    :type          (member :slash :lisp)
     :documentation "Whether arguments came from slash text or evaluated Lisp values.")
    (name
-    :initarg :name
-    :reader application-command-invocation-name
-    :type string
+    :initarg       :name
+    :reader        application-command-invocation-name
+    :type          string
     :documentation "The submitted command token normalized to lowercase.")
    (remainder
-    :initarg :remainder
-    :reader application-command-invocation-remainder
-    :type string
+    :initarg       :remainder
+    :reader        application-command-invocation-remainder
+    :type          string
     :documentation "The trimmed text following the submitted command token.")
    (argument
-    :initarg :argument
-    :reader application-command-invocation-argument
-    :type (option string)
+    :initarg       :argument
+    :reader        application-command-invocation-argument
+    :type          (option string)
     :documentation "The first supplied argument in textual form, when available.")
-    (arguments
-     :initarg :arguments
-     :initform nil
-     :reader application-command-invocation-arguments
-     :type list
-     :documentation "The raw semantic argument values supplied by this invocation.")
-    (supplied-argument-count
-     :initarg :supplied-argument-count
-     :initform 0
-     :reader application-command-invocation-supplied-argument-count
-     :type (integer 0)
-     :documentation "The number of semantic arguments explicitly supplied.")
+   (arguments
+    :initarg       :arguments
+    :initform      nil
+    :reader        application-command-invocation-arguments
+    :type          list
+    :documentation "The raw semantic argument values supplied by this invocation.")
+   (supplied-argument-count
+    :initarg       :supplied-argument-count
+    :initform      0
+    :reader        application-command-invocation-supplied-argument-count
+    :type          (integer 0)
+    :documentation "The number of semantic arguments explicitly supplied.")
    (command
-    :initarg :command
-    :reader application-command-invocation-command
-    :type (option application-command)
+    :initarg       :command
+    :reader        application-command-invocation-command
+    :type          (option application-command)
     :documentation "The canonical registered command resolved for this input."))
   (:documentation
    "One parsed command submission and its registry resolution snapshot."))
 
 (defclass application-command-registration ()
   ((command
-    :initarg :command
-    :reader application-command-registration-command
-    :type application-command
+    :initarg       :command
+    :reader        application-command-registration-command
+    :type          application-command
     :documentation "The immutable command contributed by this registry layer.")
    (source
-    :initarg :source
-    :reader application-command-registration-source
-    :type keyword
+    :initarg       :source
+    :reader        application-command-registration-source
+    :type          keyword
     :documentation "The site, user, or runtime layer that contributed the command."))
   (:documentation "One ordered, possibly shadowed command registration layer."))
 
@@ -514,22 +517,21 @@
   (application-command--validate
    (make-instance
     'application-command
-    :definition-name definition-name
-    :name (copy-seq name)
-    :aliases (mapcar #'copy-seq aliases)
-    :argument (and argument (copy-seq argument))
-    :description (copy-seq description)
-    :tip (copy-seq tip)
-    :busy-behavior busy-behavior
+    :definition-name   definition-name
+    :name              (copy-seq name)
+    :aliases           (mapcar #'copy-seq aliases)
+    :argument          (and argument (copy-seq argument))
+    :description       (copy-seq description)
+    :tip               (copy-seq tip)
+    :busy-behavior     busy-behavior
     :terminal-behavior terminal-behavior
-    :lambda-list (copy-tree lambda-list)
-    :callable-p callable-p
-    :static-options (mapcar (lambda (option)
-                              (if (stringp option) (copy-seq option) option))
-                            static-options)
-    :slash-parser slash-parser
-    :handler handler)))
-
+    :lambda-list       (copy-tree lambda-list)
+    :callable-p        callable-p
+    :static-options    (mapcar (lambda (option)
+                                 (if (stringp option) (copy-seq option) option))
+                               static-options)
+    :slash-parser      slash-parser
+    :handler           handler)))
 
 (-> application-command-validate-registration
     (application-command)
@@ -618,7 +620,7 @@ without changing the registry."
       (let* ((replacement
                (make-instance 'application-command-registration
                               :command command
-                              :source source))
+                              :source  source))
              (candidate
                (layered-registry-replace
                 *application-command-registrations* replacement
@@ -627,8 +629,8 @@ without changing the registry."
                   (application-command-definition-name
                    (application-command-registration-command registration)))
                 :source-function #'application-command-registration-source
-                :key-test #'eq
-                :source source)))
+                :key-test        #'eq
+                :source          source)))
         (application-command--publish-registrations candidate))))
   command)
 
@@ -659,8 +661,8 @@ without changing the registry."
                  (application-command-definition-name
                   (application-command-registration-command registration)))
                :source-function #'application-command-registration-source
-               :key-test #'eq
-               :source source)))
+               :key-test        #'eq
+               :source          source)))
         (if (= (length candidate)
                (length *application-command-registrations*))
             nil
@@ -696,7 +698,7 @@ without changing the registry."
                           (application-command-registration-source registration)
                           :definition-name
                           (application-command-definition-name command)
-                          :command command)))))
+                          :command  command)))))
 
 (-> application-command--registry-snapshot () list)
 (defun application-command--registry-snapshot ()
@@ -725,7 +727,7 @@ without changing the registry."
        (remove source
                *application-command-registrations*
                :test #'eq
-               :key #'application-command-registration-source))))
+               :key  #'application-command-registration-source))))
   nil)
 
 (-> application-command--registration-snapshot
@@ -767,7 +769,7 @@ without changing the registry."
                 *application-command-registrations*))
              (candidate
                (if snapshot
-                   (let ((position (getf snapshot :position))
+                   (let ((position     (getf snapshot :position))
                          (registration (getf snapshot :registration)))
                      (unless (and (typep position '(integer 0))
                                   (typep registration
@@ -814,11 +816,11 @@ without changing the registry."
 (-> application-command--tokens (string) list)
 (defun application-command--tokens (text)
   "Parse TEXT into whitespace-delimited strings with double-quoted spans."
-  (let ((arguments nil)
+  (let ((arguments  nil)
         (characters nil)
-        (quoted-p nil)
-        (escaped-p nil)
-        (started-p nil))
+        (quoted-p   nil)
+        (escaped-p  nil)
+        (started-p  nil))
     (labels ((finish-argument ()
                "Finish the current argument when one has started."
                (when started-p
@@ -901,7 +903,7 @@ without changing the registry."
 (defun application-command--call-with-presentation (invocation function)
   "Call FUNCTION with INVOCATION available to label its first presentation."
   (let ((*application-command-presentation-invocation* invocation)
-        (*application-command-presentation-pending-p* t))
+        (*application-command-presentation-pending-p*  t))
     (funcall function)))
 
 (-> application-command-invocation-parse
@@ -924,7 +926,7 @@ without changing the registry."
                (string-trim *application-command-whitespace*
                             (subseq trimmed separator))
                ""))
-         (command (application-command-find submitted-name))
+         (command       (application-command-find submitted-name))
          (parsed-arguments
            (if (and command (application-command-slash-parser command))
                nil
@@ -939,13 +941,13 @@ without changing the registry."
          (text-argument (and (stringp argument) argument)))
     (make-instance
      'application-command-invocation
-     :input (copy-seq input)
-     :name submitted-name
-     :remainder remainder
-     :argument text-argument
-     :arguments arguments
+     :input                   (copy-seq input)
+     :name                    submitted-name
+     :remainder               remainder
+     :argument                text-argument
+     :arguments               arguments
      :supplied-argument-count (length arguments)
-     :command command)))
+     :command                 command)))
 
 (defgeneric application-command-execute (command application invocation)
   (:documentation
@@ -1067,7 +1069,7 @@ change to the next safe boundary and make :INSPECT wait for the idle queue."
 (defmethod application-command-completion-entry
     ((command application-command))
   "Return a detached completion plist for COMMAND."
-  (list :name (copy-seq (application-command-name command))
+  (list :name        (copy-seq (application-command-name command))
         :argument
         (let ((argument (application-command-argument command)))
           (and argument (copy-seq argument)))
@@ -1091,13 +1093,13 @@ the typed text stops matching the canonical name."
         append
         (loop for alias in (application-command-aliases command)
               collect
-              (list :name (copy-seq alias)
+              (list :name     (copy-seq alias)
                     :argument (and argument (copy-seq argument))
                     :description
                     (format nil "~A (alias of ~A)"
                             (application-command-description command)
                             name)
-                    :primary (copy-seq name)))))
+                    :primary  (copy-seq name)))))
 
 (-> application-command--slash-option-token ((or string keyword boolean)) string)
 (defun application-command--slash-option-token (option)
@@ -1127,7 +1129,7 @@ typed text passes the command name."
                     :argument nil
                     :description
                     (copy-seq (application-command-description command))
-                    :primary (copy-seq (application-command-name command))))))
+                    :primary  (copy-seq (application-command-name command))))))
 
 
 ;;;; -- Defining Form --
@@ -1147,8 +1149,8 @@ slash input uses token splitting. Parser and handler functions are captured at
 registration. Every handler returns :CONTINUE or :QUIT."
   (application-command--validate-defining-form
    definition-name metadata lambda-list)
-  (let* ((callable-p (eq (getf metadata :callable) t))
-         (static-options (getf metadata :static-options))
+  (let* ((callable-p       (eq (getf metadata :callable) t))
+         (static-options   (getf metadata :static-options))
          (call-lambda-list (and callable-p (rest lambda-list))))
     `(progn
        (defun ,definition-name ,lambda-list
@@ -1156,18 +1158,18 @@ registration. Every handler returns :CONTINUE or :QUIT."
        (eval-when (:load-toplevel :execute)
          (register-application-command
           (application-command-create
-           :definition-name ',definition-name
-           :name ,(getf metadata :name)
-           :aliases ',(getf metadata :aliases)
-           :argument ,(getf metadata :argument)
-           :description ,(getf metadata :description)
-           :tip ,(getf metadata :tip)
-           :busy-behavior ',(getf metadata :busy-behavior)
+           :definition-name   ',definition-name
+           :name              ,(getf metadata :name)
+           :aliases           ',(getf metadata :aliases)
+           :argument          ,(getf metadata :argument)
+           :description       ,(getf metadata :description)
+           :tip               ,(getf metadata :tip)
+           :busy-behavior     ',(getf metadata :busy-behavior)
            :terminal-behavior ',(getf metadata :terminal-behavior)
-           :lambda-list ',call-lambda-list
-           :callable-p ,callable-p
-           :static-options ',static-options
-           :slash-parser ,(when (getf metadata :slash-parser)
-                            `#',(getf metadata :slash-parser))
-           :handler #',definition-name)))
+           :lambda-list       ',call-lambda-list
+           :callable-p        ,callable-p
+           :static-options    ',static-options
+           :slash-parser      ,(when (getf metadata :slash-parser)
+                                 `#',(getf metadata :slash-parser))
+           :handler           #',definition-name)))
        ',definition-name)))
