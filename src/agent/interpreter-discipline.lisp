@@ -42,11 +42,11 @@
              (interpreter-discipline--turn-offense-p
               (request-context-conversation request)))
     (make-context-contribution
-     :identifier "interpreter-discipline"
-     :instruction *interpreter-discipline-instruction*
-     :priority 40
-     :lifetime ':turn
-     :class ':mandatory
+     :identifier        "interpreter-discipline"
+     :instruction       *interpreter-discipline-instruction*
+     :priority          40
+     :lifetime          ':turn
+     :class             ':mandatory
      :deduplication-key "interpreter-discipline")))
 
 (register-context-contributor "interpreter-discipline"
