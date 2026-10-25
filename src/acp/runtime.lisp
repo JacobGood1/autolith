@@ -42,7 +42,7 @@
                             (acp-service-configuration service)
                             :working-directory (platform-truename *platform* (uiop:ensure-directory-pathname cwd))))
             (conversation nil) (lease nil) (registry nil) (worker nil)
-            (completed-p nil))
+            (completed-p   nil))
        (unwind-protect
             (progn
               (if identifier
@@ -64,14 +64,14 @@
                                        :configuration configuration :conversation conversation
                                        :conversation-lease lease :provider provider
                                        :tool-registry registry :worker worker
-                                       :agent (agent-create :configuration configuration :conversation conversation
-                                                            :provider provider :tool-registry registry :worker worker)
+                                       :agent            (agent-create :configuration configuration :conversation conversation
+                                                                       :provider provider :tool-registry registry :worker worker)
                                        :ui nil :permission-mode (acp-service-permission-mode service)
                                        :permission-state (permissions-load configuration)))
                        (session (make-instance 'acp-session :service service
-                                               :identifier (conversation-identifier conversation)
-                                               :application application
-                                               :mode (acp-service-permission-mode service))))
+                                               :identifier           (conversation-identifier conversation)
+                                               :application          application
+                                               :mode                 (acp-service-permission-mode service))))
                   (acp-input-initialize session)
                   (with-lock-held ((acp-service-lock service))
                     (when (acp-service-closed-p service)
@@ -127,7 +127,7 @@
               (when text
                 (agentcomms:acp-update-agent-thought (agentcomms:acp-text-content text)))))
            ((equal type "function_call")
-            (let ((name (function-call-canonical-name item))
+            (let ((name      (function-call-canonical-name item))
                   (arguments (json-decode (json-get item "arguments"))))
               (agentcomms:acp-update-tool-call
                (agentcomms:acp-tool-call
@@ -140,10 +140,10 @@
          (agentcomms:acp-update-tool-call-progress
           (agentcomms:acp-tool-call-update
            (acp-tool-identifier turn-sequence (getf fields :call-id))
-           :status (if (member (getf fields :status) '(:ok :success)) ':completed ':failed)
+           :status     (if (member (getf fields :status) '(:ok :success)) ':completed ':failed)
            :raw-output output
-           :content (list (agentcomms:acp-tool-call-content
-                           (agentcomms:acp-text-content output))))))))))
+           :content    (list (agentcomms:acp-tool-call-content
+                              (agentcomms:acp-text-content output))))))))))
 
 (-> acp-replay-map-updates (conversation function) null)
 (defun acp-replay-map-updates (conversation function)
@@ -203,7 +203,7 @@
                      (agentcomms:json-get block "uri")))
             (:resource
              (let* ((resource (agentcomms:json-get block "resource"))
-                    (text (agentcomms:json-get resource "text")))
+                    (text     (agentcomms:json-get resource "text")))
                (unless (stringp text)
                  (agentcomms:acp-invalid-params "Binary embedded context is not supported."))
                (format stream "Resource ~A:~%~A" (agentcomms:json-get resource "uri") text)))
@@ -216,12 +216,12 @@
   (declare (ignore connection))
   (when (and (string= method "session/cancel") (hash-table-p params))
     (let* ((identifier (agentcomms:json-get params "sessionId"))
-           (session (with-lock-held ((acp-service-lock service))
-                      (gethash identifier (acp-service-sessions service))))
-           (epoch (and session
-                       (with-lock-held ((acp-session-lock session))
-                         (when (acp-session-prompt-thread session)
-                           (acp-session-epoch session))))))
+           (session    (with-lock-held ((acp-service-lock service))
+                         (gethash identifier (acp-service-sessions service))))
+           (epoch      (and session
+                            (with-lock-held ((acp-session-lock session))
+                              (when (acp-session-prompt-thread session)
+                                (acp-session-epoch session))))))
       (when epoch (acp-session-cancel session :expected-epoch epoch))))
   nil)
 
@@ -230,16 +230,19 @@
                                                 (:prepare (option function))) keyword)
 (defun acp-session-run-turn (session text &key automatic-p queued-p prepare)
   "Run one admitted turn, preserving cancellation and durable repair for either input source."
-  (let* ((service (acp-session-service session))
-         (application (acp-session-application session))
-         (conversation (application-conversation application))
-         (controller (acp-input-controller session))
+  (let* ((service                      (acp-session-service session))
+         (application                  (acp-session-application session))
+         (conversation                 (application-conversation application))
+         (controller                   (acp-input-controller session))
          (*acp-extension-invocation-p* (or automatic-p queued-p))
-         (start-sequence nil)
-         (observer nil)
-         (source (cond (queued-p "queue") (automatic-p "completion") (t "prompt")))
-         (outcome ':condition)
-         (claimed-p nil))
+         (start-sequence               nil)
+         (observer                     nil)
+         (source                       (cond (queued-p
+                                              "queue") (automatic-p
+                                                        "completion") (t
+                                                                       "prompt")))
+         (outcome                      ':condition)
+         (claimed-p                    nil))
     (acp-service--call-with-operation
      service session
      (lambda ()
@@ -259,7 +262,7 @@
                           (acp-session-prompt-interruptible-p session) t
                           claimed-p t))
                   (let ((*active-application* application)
-                        (*configuration* (application-configuration application))
+                        (*configuration*      (application-configuration application))
                         (*default-pathname-defaults*
                           (config :working-directory (application-configuration application))))
                     (acp-extension-turn-notify session "running" :source source)
@@ -297,7 +300,7 @@
                    (when start-sequence
                      (application--record-turn-aborted application condition
                                                        :turn-start-sequence start-sequence
-                                                       :reason ':cancelled))
+                                                       :reason              ':cancelled))
                    (when observer
                      (handler-case (acp-observer-flush observer)
                        (serious-condition () nil)))
@@ -309,14 +312,14 @@
                    (when start-sequence
                      (application--record-turn-aborted application condition
                                                        :turn-start-sequence start-sequence
-                                                       :reason ':application-error))
+                                                       :reason              ':application-error))
                    (when observer
                      (handler-case (acp-observer-flush observer)
                        (serious-condition () nil)))
-                    (with-lock-held ((acp-session-lock session))
-                      (let ((report (princ-to-string condition)))
-                        (setf (acp-session-completion-report session)
-                              (subseq report 0 (min 2000 (length report))))))
+                   (with-lock-held ((acp-session-lock session))
+                     (let ((report (princ-to-string condition)))
+                       (setf (acp-session-completion-report session)
+                             (subseq report 0 (min 2000 (length report))))))
                    (error condition)))))
          (when claimed-p
            (sb-sys:without-interrupts
@@ -344,8 +347,8 @@
   "Validate and publish a permission mode change between turns."
   (declare (ignore params))
   (let* ((session (acp-service--session service session-id))
-         (mode (find mode-id '(:ask :auto :sandboxed :full-access)
-                     :key (lambda (value) (string-downcase (symbol-name value))) :test #'equal)))
+         (mode    (find mode-id '(:ask :auto :sandboxed :full-access)
+                        :key (lambda (value) (string-downcase (symbol-name value))) :test #'equal)))
     (unless mode (agentcomms:acp-invalid-params "Unknown mode ~A." mode-id))
     (with-lock-held ((acp-session-lock session))
       (when (acp-session-prompt-thread session)
@@ -378,12 +381,12 @@
   "Keep diagnostics off the protocol stream in every inbound handler thread."
   (let* ((*standard-output* *error-output*) (*trace-output* *error-output*)
          (*standard-input* (make-string-input-stream ""))
-         (*terminal-io* (make-two-way-stream *standard-input* *error-output*))
+         (*terminal-io*    (make-two-way-stream *standard-input* *error-output*))
          (*query-io* *terminal-io*) (*debug-io* *terminal-io*))
     (handler-case (call-next-method)
       (authentication-error ()
         (error 'agentcomms:acp-method-error :code -32000
-               :message "Provider authentication required. Configure credentials before starting ACP.")))))
+               :message                           "Provider authentication required. Configure credentials before starting ACP.")))))
 
 (-> acp-service-close (acp-service) null)
 (defun acp-service-close (service)
@@ -413,7 +416,7 @@
   "Own SERVICE and its channel through disconnect and resource cleanup."
   (unwind-protect
        (agentcomms:acp-agent-serve service channel :name "Autolith ACP"
-                                   :log-function #'agentcomms:acp-standard-error-log)
+                                   :log-function         #'agentcomms:acp-standard-error-log)
     (unwind-protect (acp-service-close service)
       (agentcomms:channel-close channel)))
   nil)
@@ -421,13 +424,13 @@
 (-> acp-run (configuration &key (:permission-mode keyword) (:pristine-p boolean)) null)
 (defun acp-run (configuration &key (permission-mode ':ask) pristine-p)
   "Bootstrap a headless ACP endpoint and serve UTF-8 standard I/O until disconnect."
-  (let* ((channel (agentcomms:acp-standard-io-channel))
+  (let* ((channel           (agentcomms:acp-standard-io-channel))
          (*standard-output* *error-output*)
-         (*trace-output* *error-output*)
-         (*standard-input* (make-string-input-stream ""))
-         (*terminal-io* (make-two-way-stream *standard-input* *error-output*))
-         (*query-io* *terminal-io*)
-         (*debug-io* *terminal-io*))
+         (*trace-output*    *error-output*)
+         (*standard-input*  (make-string-input-stream ""))
+         (*terminal-io*     (make-two-way-stream *standard-input* *error-output*))
+         (*query-io*        *terminal-io*)
+         (*debug-io*        *terminal-io*))
     (unwind-protect
          ;; Client declarations can contain credentials for the service lifetime.
          (call-with-secret-use
@@ -441,7 +444,7 @@
             (setf configuration (provider-bootstrap-configuration configuration))
             (with-slynk-endpoint (configuration)
               (acp-service-serve (make-instance 'acp-service :configuration configuration
-                                                :permission-mode permission-mode)
+                                                :permission-mode            permission-mode)
                                  channel))))
       (agentcomms:channel-close channel)))
   nil)
