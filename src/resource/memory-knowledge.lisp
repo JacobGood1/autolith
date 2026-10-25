@@ -16,15 +16,15 @@
 
 (defclass memory-knowledge-resource (memory-resource)
   ((view-kind
-    :initarg :view-kind
-    :reader memory-knowledge-resource-view-kind
-    :type keyword
+    :initarg       :view-kind
+    :reader        memory-knowledge-resource-view-kind
+    :type          keyword
     :documentation "Which knowledge view: :FACTS, :CLAIM, :PREDICATES, :RULES, :METHODS, :CONTRACTS, :PROCEDURES, or :CHANGES.")
    (claim
-    :initarg :claim
-    :initform nil
-    :reader memory-knowledge-resource-claim
-    :type (option string)
+    :initarg       :claim
+    :initform      nil
+    :reader        memory-knowledge-resource-claim
+    :type          (option string)
     :documentation "The claim a :CLAIM resource explains."))
   (:documentation "A structured-knowledge view within the memory: scheme."))
 
@@ -36,22 +36,30 @@
   "Return the knowledge resource memory:IDENTIFIER names, or NIL for another kind."
   (flet ((make (kind &optional claim)
            (make-instance 'memory-knowledge-resource
-                          :uri (format nil "memory:~A" identifier)
+                          :uri        (format nil "memory:~A" identifier)
                           :identifier identifier
-                          :view-kind kind
-                          :claim claim)))
+                          :view-kind  kind
+                          :claim      claim)))
     (cond
-      ((string= identifier "facts") (make ':facts))
-      ((string= identifier "predicates") (make ':predicates))
-      ((string= identifier "rules") (make ':rules))
-      ((string= identifier "changes") (make ':changes))
-      ((string= identifier "methods") (make ':methods))
-      ((string= identifier "contracts") (make ':contracts))
-      ((string= identifier "procedures") (make ':procedures))
+      ((string= identifier "facts")
+       (make ':facts))
+      ((string= identifier "predicates")
+       (make ':predicates))
+      ((string= identifier "rules")
+       (make ':rules))
+      ((string= identifier "changes")
+       (make ':changes))
+      ((string= identifier "methods")
+       (make ':methods))
+      ((string= identifier "contracts")
+       (make ':contracts))
+      ((string= identifier "procedures")
+       (make ':procedures))
       ((and (uiop:string-prefix-p "claim/" identifier)
             (> (length identifier) (length "claim/")))
        (make ':claim (subseq identifier (length "claim/"))))
-      (t nil))))
+      (t
+       nil))))
 
 (defmethod resource-capabilities
     ((resource memory-knowledge-resource) (context tool-context))
@@ -71,9 +79,9 @@
     (if goals
         (knowledge-evaluate (knowledge-base-read configuration)
                             :workspace (knowledge--workspace configuration)
-                            :check (evidence-check-create
-                                    :memories (memory-list configuration :visibility ':all))
-                            :goals goals)
+                            :check     (evidence-check-create
+                                        :memories (memory-list configuration :visibility ':all))
+                            :goals     goals)
         (knowledge-view-current configuration))))
 
 
@@ -102,7 +110,7 @@ Conflicted facts come first, then the rest by predicate and text."
                                       (or (null terms) (memory-knowledge--matches-p node terms)))
                               collect node)
                       (lambda (left right)
-                        (let ((left-conflicted (and (knowledge-node-conflicts left) t))
+                        (let ((left-conflicted  (and (knowledge-node-conflicts left) t))
                               (right-conflicted (and (knowledge-node-conflicts right) t)))
                           (if (eq left-conflicted right-conflicted)
                               (string< (knowledge-node-text left) (knowledge-node-text right))
@@ -200,7 +208,7 @@ Conflicted facts come first, then the rest by predicate and text."
                         append (let ((admission (getf entry :admission)))
                                  (cons entry
                                        (when (and admission (not (knowledge-contract-admitted-p entry)))
-                                         (list (list :contract (getf admission :contract)
+                                         (list (list :contract         (getf admission :contract)
                                                      :contract-version (getf admission :contract-version)
                                                      :admission admission :scope (getf entry :scope)))))))
                 #'string< :key (lambda (entry) (getf (rest (getf entry :contract)) :id)))))
@@ -232,7 +240,7 @@ Conflicted facts come first, then the rest by predicate and text."
     (with-output-to-string (stream)
       (format stream "collection: procedures~%count: ~D~%" (length entries))
       (dolist (entry entries)
-        (let* ((version (procedure-entry-version entry))
+        (let* ((version   (procedure-entry-version entry))
                (procedure (getf version :procedure)))
           (format stream "~%~A v~D ~(~A~)~@[ (runs v~D)~] · ~D run~:P, ~D failed~%"
                   (getf entry :id) (getf version :version) (procedure-entry-status entry)
@@ -333,7 +341,7 @@ Conflicted facts come first, then the rest by predicate and text."
       (format stream "collection: rules~%count: ~D~%" (length entries))
       (dolist (entry entries)
         (let* ((latest (first (last (getf entry :versions))))
-               (rule (getf latest :rule)))
+               (rule   (getf latest :rule)))
           (format stream "~%~A v~D ~(~A~): ~:[proposed, awaiting admission~;~:*active version ~D~]~%  ~{~A~^ and ~}~@[ where ~{~A~^, ~}~]~@[ with ~{~A~^, ~}~] => ~A~@[~%  ~A~]~%"
                   (getf entry :id) (getf latest :version) (getf entry :scope)
                   (getf entry :active)
@@ -355,15 +363,15 @@ Conflicted facts come first, then the rest by predicate and text."
 (defun memory-knowledge-observe (resource context &key query maximum-results)
   "Return RESOURCE's current rendering as a revisioned memory observation."
   (let* ((configuration (tool-context-configuration context))
-         (base (knowledge-base-read configuration))
-         (workspace (knowledge--workspace configuration))
-         (kind (memory-knowledge-resource-view-kind resource))
+         (base          (knowledge-base-read configuration))
+         (workspace     (knowledge--workspace configuration))
+         (kind          (memory-knowledge-resource-view-kind resource))
          (content
            (ecase kind
              (:facts
               (memory-knowledge--render-facts
                (memory-knowledge-view context)
-               :query query
+               :query           query
                :maximum-results (min (or maximum-results *memory-knowledge-default-results*)
                                      *memory-knowledge-maximum-results*)))
              (:claim
@@ -385,11 +393,11 @@ Conflicted facts come first, then the rest by predicate and text."
                (format nil "conversation:~A"
                        (conversation-identifier (tool-context-conversation context)))
                (memory-knowledge-view context)))))
-         (snapshot (list :kind kind
-                         :identifier (memory-resource-identifier resource)
-                         :workspace workspace
-                         :revision (knowledge-base-revision base)
-                         :content content)))
+         (snapshot      (list :kind       kind
+                              :identifier (memory-resource-identifier resource)
+                              :workspace  workspace
+                              :revision   (knowledge-base-revision base)
+                              :content    content)))
     (make-instance 'memory-observation
                    :uri        (resource-uri resource)
                    :revision   (resource-readable-snapshot-digest
@@ -411,7 +419,7 @@ Conflicted facts come first, then the rest by predicate and text."
      (context tool-context) (arguments hash-table))
   "Read one structured-knowledge view, with an optional query on memory:facts."
   (declare (ignore tool))
-  (let ((query (tool-argument arguments "query"))
+  (let ((query   (tool-argument arguments "query"))
         (maximum (tool-argument arguments "max-results")))
     (when (or (nth-value 1 (gethash "start-line" arguments))
               (nth-value 1 (gethash "line-count" arguments)))
@@ -460,9 +468,12 @@ Conflicted facts come first, then the rest by predicate and text."
   "Return OPERATION's scope, workspace unless it names global."
   (let ((scope (gethash "scope" operation "workspace")))
     (cond
-      ((equal scope "workspace") ':workspace)
-      ((equal scope "global") ':global)
-      (t (memory-resource--fail "scope must be workspace or global.")))))
+      ((equal scope "workspace")
+       ':workspace)
+      ((equal scope "global")
+       ':global)
+      (t
+       (memory-resource--fail "scope must be workspace or global.")))))
 
 (-> memory-knowledge--list (t string) list)
 (defun memory-knowledge--list (value field)
@@ -479,7 +490,7 @@ Conflicted facts come first, then the rest by predicate and text."
                             '("predicate" "arguments"))
   (let ((schema
           (knowledge-make-schema
-           :predicate (gethash "predicate" operation)
+           :predicate   (gethash "predicate" operation)
            :arguments
            (mapcar (lambda (argument)
                      (unless (hash-table-p argument)
@@ -493,9 +504,9 @@ Conflicted facts come first, then the rest by predicate and text."
                                (when (gethash "unit" argument)
                                  (list :unit (gethash "unit" argument))))))
                    (memory-knowledge--list (gethash "arguments" operation) "arguments"))
-           :key (and (gethash "key" operation)
-                     (memory-knowledge--list (gethash "key" operation) "key"))
-           :template (gethash "template" operation)
+           :key         (and (gethash "key" operation)
+                             (memory-knowledge--list (gethash "key" operation) "key"))
+           :template    (gethash "template" operation)
            :description (gethash "description" operation))))
     (multiple-value-bind (schema version)
         (knowledge-define-schema configuration schema
@@ -506,41 +517,41 @@ Conflicted facts come first, then the rest by predicate and text."
 (defun memory-knowledge--evidence (context source)
   "Return knowledge evidence for SOURCE, a checked memory source record."
   (let ((properties (rest source))
-        (workspace (knowledge--workspace (tool-context-configuration context))))
+        (workspace  (knowledge--workspace (tool-context-configuration context))))
     (ecase (first source)
       (:file
        (let* ((pathname (uiop:parse-native-namestring (getf properties :path)))
               (relative (uiop:subpathp pathname (uiop:ensure-directory-pathname workspace))))
-         (knowledge-observe :source (list :file
-                                          :path (if relative
-                                                    (uiop:unix-namestring relative)
-                                                    (getf properties :path))
-                                          :relative (and relative t)
-                                          :quote (getf properties :quote))
+         (knowledge-observe :source    (list :file
+                                             :path (if relative
+                                                       (uiop:unix-namestring relative)
+                                                       (getf properties :path))
+                                             :relative (and relative t)
+                                             :quote    (getf properties :quote))
                             :workspace (and relative workspace)
-                            :digest (getf properties :digest)
-                            :excerpt (getf properties :quote)
-                            :adapter "file/1"
-                            :time (getf properties :observed-at))))
+                            :digest    (getf properties :digest)
+                            :excerpt   (getf properties :quote)
+                            :adapter   "file/1"
+                            :time      (getf properties :observed-at))))
       (:url
        (let ((receipt (memory-knowledge--url-receipt
                        (tool-context-conversation context)
                        (getf properties :url) (getf properties :quote)
                        :configuration (tool-context-configuration context))))
          (knowledge-observe
-          :source (append (list :url :url (getf properties :url)
-                                    :quote (getf properties :quote))
-                          (when receipt (list :retrieval "web_extra.gist")))
-          :digest (getf receipt :result-digest)
+          :source  (append (list :url       :url (getf properties :url)
+                                     :quote (getf properties :quote))
+                           (when receipt (list :retrieval "web_extra.gist")))
+          :digest  (getf receipt :result-digest)
           :excerpt (getf properties :quote)
           :adapter (if receipt "web-retrieval/1" "web-proposal/1")
-          :time (if receipt (getf receipt :observed-at) (getf properties :observed-at)))))
+          :time    (if receipt (getf receipt :observed-at) (getf properties :observed-at)))))
       (:user
-       (knowledge-observe :source (list :user :quote (getf properties :quote)
-                                        :conversation (getf properties :conversation))
+       (knowledge-observe :source  (list :user         :quote (getf properties :quote)
+                                         :conversation (getf properties :conversation))
                           :excerpt (getf properties :quote)
                           :adapter "user/1"
-                          :time (getf properties :observed-at))))))
+                          :time    (getf properties :observed-at))))))
 
 (-> memory-knowledge--time (hash-table string) (option timestamp))
 (defun memory-knowledge--time (operation field)
@@ -558,33 +569,33 @@ Conflicted facts come first, then the rest by predicate and text."
                               "valid-from" "valid-until" "scope")
                             '("predicate" "arguments"))
   (let* ((configuration (tool-context-configuration context))
-         (conversation (tool-context-conversation context))
-         (predicate (gethash "predicate" operation))
-         (schema (or (knowledge-base-schema (knowledge-base-read configuration) predicate
-                                            :workspace (knowledge--workspace configuration))
-                     (memory-resource--fail "Define predicate ~A with predicate-define first."
-                                            predicate)))
-         (proposition (knowledge-make-proposition
-                       schema
-                       (memory-knowledge--list (gethash "arguments" operation) "arguments")
-                       :negated (and (gethash "negated" operation)
-                                     (not (json-false-p (gethash "negated" operation))))))
-         (now (knowledge-now))
-         (requests (and (gethash "sources" operation)
-                        (memory-resource--operation-sources operation)))
-         (evidence (mapcar (lambda (request)
-                             (memory-knowledge--evidence
-                              context (memory-resource--observe-source context request now)))
-                           requests))
-         (named-basis (gethash "basis" operation))
-         (basis (and named-basis
-                     (or (find named-basis '(:observation :user-assertion :assumption
-                                             :model-proposal)
-                               :key (lambda (keyword) (string-downcase (symbol-name keyword)))
-                               :test #'string=)
-                         (memory-resource--fail "basis must be observation, user-assertion, assumption, or model-proposal."))))
-         (claim nil)
-         (notes nil))
+         (conversation  (tool-context-conversation context))
+         (predicate     (gethash "predicate" operation))
+         (schema        (or (knowledge-base-schema (knowledge-base-read configuration) predicate
+                                                   :workspace (knowledge--workspace configuration))
+                            (memory-resource--fail "Define predicate ~A with predicate-define first."
+                                                   predicate)))
+         (proposition   (knowledge-make-proposition
+                         schema
+                         (memory-knowledge--list (gethash "arguments" operation) "arguments")
+                         :negated (and (gethash "negated" operation)
+                                       (not (json-false-p (gethash "negated" operation))))))
+         (now           (knowledge-now))
+         (requests      (and (gethash "sources" operation)
+                             (memory-resource--operation-sources operation)))
+         (evidence      (mapcar (lambda (request)
+                                  (memory-knowledge--evidence
+                                   context (memory-resource--observe-source context request now)))
+                                requests))
+         (named-basis   (gethash "basis" operation))
+         (basis         (and named-basis
+                             (or (find named-basis '(:observation :user-assertion :assumption
+                                                     :model-proposal)
+                                       :key  (lambda (keyword) (string-downcase (symbol-name keyword)))
+                                       :test #'string=)
+                                 (memory-resource--fail "basis must be observation, user-assertion, assumption, or model-proposal."))))
+         (claim         nil)
+         (notes         nil))
     (if evidence
         (dolist (item evidence)
           (multiple-value-bind (recorded note) (memory-knowledge--basis context item basis)
@@ -592,18 +603,18 @@ Conflicted facts come first, then the rest by predicate and text."
               (pushnew note notes :test #'string=))
             (setf claim (knowledge-assert
                          configuration proposition
-                         :scope (memory-knowledge--scope operation)
-                         :evidence item
-                         :basis recorded
-                         :valid-from (memory-knowledge--time operation "valid-from")
-                         :valid-until (memory-knowledge--time operation "valid-until")
+                         :scope               (memory-knowledge--scope operation)
+                         :evidence            item
+                         :basis               recorded
+                         :valid-from          (memory-knowledge--time operation "valid-from")
+                         :valid-until         (memory-knowledge--time operation "valid-until")
                          :source-conversation (conversation-identifier conversation)))))
         (setf claim (knowledge-assert
                      configuration proposition
-                     :scope (memory-knowledge--scope operation)
-                     :basis (or basis ':model-proposal)
-                     :valid-from (memory-knowledge--time operation "valid-from")
-                     :valid-until (memory-knowledge--time operation "valid-until")
+                     :scope               (memory-knowledge--scope operation)
+                     :basis               (or basis ':model-proposal)
+                     :valid-from          (memory-knowledge--time operation "valid-from")
+                     :valid-until         (memory-knowledge--time operation "valid-until")
                      :source-conversation (conversation-identifier conversation))))
     (format nil "Asserted ~A: ~A.~{ ~A~}"
             claim (knowledge-proposition-display proposition schema) (reverse notes))))
@@ -619,14 +630,17 @@ conversation retrieved it with the quoted text. Otherwise the support is the
 model's proposal. The model may lower a basis to an assumption or a proposal,
 never raise it."
   (declare (ignore context))
-  (let* ((source (getf (rest evidence) :source))
+  (let* ((source      (getf (rest evidence) :source))
          (established (ecase (first source)
-                        (:file ':observation)
-                        (:user ':user-assertion)
-                        (:url (if (and (equal (getf (rest source) :retrieval) "web_extra.gist")
-                                       (getf (rest evidence) :digest))
-                                  ':observation
-                                  ':model-proposal)))))
+                        (:file
+                         ':observation)
+                        (:user
+                         ':user-assertion)
+                        (:url
+                         (if (and (equal (getf (rest source) :retrieval) "web_extra.gist")
+                                  (getf (rest evidence) :digest))
+                             ':observation
+                             ':model-proposal)))))
     (cond
       ((member requested '(:assumption :model-proposal))
        (values requested nil))
@@ -648,8 +662,8 @@ never raise it."
 Without overflow storage only the original prefix is evidence, never the
 omission notice. With storage, verify the complete object's retrieval digest.
 Older receipts identify their complete, unbounded output directly."
-  (let ((output-digest (getf receipt :output-digest))
-        (content-object (getf receipt :content-object))
+  (let ((output-digest   (getf receipt :output-digest))
+        (content-object  (getf receipt :content-object))
         (retained-length (getf receipt :retained-length)))
     (when (equal (or output-digest (getf receipt :result-digest))
                  (memory-source-text-digest output))
@@ -679,7 +693,7 @@ Match the durable presentation separately from the immutable retrieved content.
 Only retained retrieved text supports quotations. Reuse the retrieval time,
 never the time a later assertion cites it."
   (let ((receipts (make-hash-table :test #'equal))
-        (found nil))
+        (found    nil))
     (handler-case
         (conversation-map-records
          conversation
@@ -696,7 +710,7 @@ never the time a later assertion cites it."
                   (setf (gethash (getf properties :call-id) receipts) properties)))
                (:tool-result
                 (let* ((receipt (gethash (getf properties :call-id) receipts))
-                       (output (getf properties :output))
+                       (output  (getf properties :output))
                        (content
                          (when (and receipt
                                     (equal (getf properties :tool) "web_extra.gist")
@@ -732,20 +746,20 @@ never the time a later assertion cites it."
                               "description" "scope")
                             '("id" "premises" "conclusion"))
   (let ((configuration (tool-context-configuration context))
-        (scope (memory-knowledge--scope operation)))
+        (scope         (memory-knowledge--scope operation)))
     (multiple-value-bind (identifier version new-p)
         (knowledge-propose-rule configuration
-                                :id (gethash "id" operation)
-                                :premises (gethash "premises" operation)
-                                :guards (gethash "guards" operation #())
-                                :bindings (gethash "bindings" operation #())
-                                :conclusion (gethash "conclusion" operation)
-                                :description (gethash "description" operation)
-                                :scope scope
+                                :id                  (gethash "id" operation)
+                                :premises            (gethash "premises" operation)
+                                :guards              (gethash "guards" operation #())
+                                :bindings            (gethash "bindings" operation #())
+                                :conclusion          (gethash "conclusion" operation)
+                                :description         (gethash "description" operation)
+                                :scope               scope
                                 :source-conversation (conversation-identifier
                                                       (tool-context-conversation context)))
-      (let* ((entry (knowledge-base-rule (knowledge-base-read configuration) identifier
-                                         :workspace (knowledge--workspace configuration)))
+      (let* ((entry    (knowledge-base-rule (knowledge-base-read configuration) identifier
+                                            :workspace (knowledge--workspace configuration)))
              (active-p (eql (getf entry :active) version))
              (decision (if active-p
                            ':full-access
@@ -822,12 +836,12 @@ never the time a later assertion cites it."
                             '("id" "task" "steps"))
   (multiple-value-bind (identifier changed-p)
       (knowledge-define-method (tool-context-configuration context)
-                               :id (gethash "id" operation)
-                               :task (gethash "task" operation)
-                               :when (gethash "when" operation #())
-                               :steps (gethash "steps" operation)
-                               :description (gethash "description" operation)
-                               :scope (memory-knowledge--scope operation)
+                               :id                  (gethash "id" operation)
+                               :task                (gethash "task" operation)
+                               :when                (gethash "when" operation #())
+                               :steps               (gethash "steps" operation)
+                               :description         (gethash "description" operation)
+                               :scope               (memory-knowledge--scope operation)
                                :source-conversation (conversation-identifier
                                                      (tool-context-conversation context)))
     (format nil "~:[Method ~A is unchanged~;Defined method ~A~]." changed-p identifier)))
@@ -840,23 +854,23 @@ never the time a later assertion cites it."
                               "accepts" "description" "scope")
                             '("id" "tool"))
   (let* ((configuration (tool-context-configuration context))
-         (scope (memory-knowledge--scope operation))
-         (workspace (knowledge--owner configuration scope)))
+         (scope         (memory-knowledge--scope operation))
+         (workspace     (knowledge--owner configuration scope)))
     (multiple-value-bind (identifier changed-p version)
         (knowledge-define-contract configuration
-                                   :id (gethash "id" operation)
-                                   :tool (gethash "tool" operation)
-                                   :when (gethash "when" operation)
-                                   :requires (gethash "requires" operation #())
-                                   :effects (gethash "effects" operation #())
-                                   :observes (gethash "observes" operation #())
-                                   :accepts (gethash "accepts" operation #())
-                                   :description (gethash "description" operation)
+                                   :id                  (gethash "id" operation)
+                                   :tool                (gethash "tool" operation)
+                                   :when                (gethash "when" operation)
+                                   :requires            (gethash "requires" operation #())
+                                   :effects             (gethash "effects" operation #())
+                                   :observes            (gethash "observes" operation #())
+                                   :accepts             (gethash "accepts" operation #())
+                                   :description         (gethash "description" operation)
                                    :scope scope :admit nil
                                    :source-conversation (conversation-identifier
                                                          (tool-context-conversation context)))
-      (let* ((entry (gethash (list scope workspace identifier)
-                            (knowledge-base-contracts-table (knowledge-base-read configuration))))
+      (let* ((entry    (gethash (list scope workspace identifier)
+                               (knowledge-base-contracts-table (knowledge-base-read configuration))))
              (contract (getf entry :contract))
              (active-p (knowledge-contract-admitted-p entry))
              (decision
@@ -876,7 +890,7 @@ never the time a later assertion cites it."
           (t
            (knowledge-admit-contract configuration identifier :scope scope
                                      :contract contract :version version
-                                     :by (string-downcase (symbol-name decision)))
+                                     :by                             (string-downcase (symbol-name decision)))
            (format nil "Admitted contract ~A version ~D." identifier version)))))))
 
 (-> memory-knowledge--apply (tool-context t) string)
@@ -908,10 +922,10 @@ never the time a later assertion cites it."
   (declare (ignore tool))
   (unless (eq (memory-knowledge-resource-view-kind resource) ':facts)
     (memory-resource--fail "Only memory:facts accepts edits."))
-  (let* ((conversation (tool-context-conversation context))
+  (let* ((conversation  (tool-context-conversation context))
          (base-revision (tool-argument arguments "base-revision" :required t))
-         (operations (memory-knowledge--list (tool-argument arguments "operations" :required t)
-                                             "operations")))
+         (operations    (memory-knowledge--list (tool-argument arguments "operations" :required t)
+                                                "operations")))
     (unless (<= 1 (length operations) *memory-knowledge-operation-limit*)
       (memory-resource--fail "memory:facts accepts 1 to ~D operations per edit."
                              *memory-knowledge-operation-limit*))
@@ -921,7 +935,7 @@ never the time a later assertion cites it."
         (resource-item-find-observation-state conversation resource base-revision)
       (resource-revision-stale ()
         (memory-resource--fail "Read memory:facts in this conversation and edit against a revision it returned.")))
-    (let ((before (knowledge-view-snapshot (memory-knowledge-view context)))
+    (let ((before  (knowledge-view-snapshot (memory-knowledge-view context)))
           (results nil))
       (loop for operation in operations
             for index from 1
@@ -930,9 +944,9 @@ never the time a later assertion cites it."
                    (memory-resource--fail "Operation ~D failed: ~A~@[ Operations 1 to ~D were applied.~]"
                                           index (autolith-error-message condition)
                                           (and (> index 1) (1- index))))))
-      (let* ((changes (knowledge-view-changes before (memory-knowledge-view context)))
+      (let* ((changes     (knowledge-view-changes before (memory-knowledge-view context)))
              (observation (memory-knowledge-observe resource context :maximum-results 1))
-             (state (resource-observation-state-ensure conversation observation)))
+             (state       (resource-observation-state-ensure conversation observation)))
         (tool-success
          (format nil "~{~A~%~}~:[~;~:*~{~A~%~}~]Revision: ~A"
                  (reverse results)
