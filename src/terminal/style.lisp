@@ -59,7 +59,7 @@ Each specification is (NAME MAKE-STYLE-ARGUMENTS)."
         for index in '(224 217 210 203 197 196)
         collect (cons name (make-style
                             :foreground (indexed-color index :fallback ':red)
-                            :bold t))))
+                            :bold       t))))
 
 (-> terminal--lambda-logo-styles () list)
 (defun terminal--lambda-logo-styles ()
@@ -68,7 +68,7 @@ Each specification is (NAME MAKE-STYLE-ARGUMENTS)."
         for index in '(157 121 85 84 78 72)
         collect (cons name (make-style
                             :foreground (indexed-color index :fallback ':green)
-                            :bold t))))
+                            :bold       t))))
 
 (-> terminal-style-table-autolith () list)
 (defun terminal-style-table-autolith ()
@@ -129,7 +129,7 @@ name, and status background opt into indexed colors."
          for index in '(193 157 121 85 84 83)
          collect (cons name (make-style
                              :foreground (indexed-color index :fallback ':green)
-                             :bold t)))
+                             :bold       t)))
    (terminal--recovery-gradient-styles)
    (terminal--lambda-logo-styles)
    (loop for (name foreground arguments) in
@@ -179,14 +179,14 @@ accent, and cyan secondary on a blue canvas.")
 Plain text keeps the terminal default, which the theme sets to the site's
 near-white; emphasis wears the yellow accent, code and strings the cyan
 secondary, and quiet text the soft blue."
-  (let ((ink (almighty-color ':ink))
-        (soft (almighty-color ':soft))
-        (accent (almighty-color ':accent))
-        (accent-soft (almighty-color ':accent-soft))
-        (accent-light (almighty-color ':accent-light))
-        (secondary (almighty-color ':secondary))
-        (safe (almighty-color ':safe))
-        (danger (almighty-color ':danger))
+  (let ((ink           (almighty-color ':ink))
+        (soft          (almighty-color ':soft))
+        (accent        (almighty-color ':accent))
+        (accent-soft   (almighty-color ':accent-soft))
+        (accent-light  (almighty-color ':accent-light))
+        (secondary     (almighty-color ':secondary))
+        (safe          (almighty-color ':safe))
+        (danger        (almighty-color ':danger))
         (canvas-darker (almighty-color ':canvas-darker)))
     (append
      (terminal--style-table
@@ -271,12 +271,12 @@ fullscreen viewport is active, or NIL to leave the terminal's own defaults."
   (background  nil :type (option color) :read-only t))
 
 (defparameter *terminal-themes*
-  (list (make-terminal-theme :name ':autolith
+  (list (make-terminal-theme :name        ':autolith
                              :style-table (terminal-style-table-autolith))
-        (make-terminal-theme :name ':almighty
+        (make-terminal-theme :name        ':almighty
                              :style-table (terminal-style-table-almighty)
-                             :foreground (almighty-color ':ink)
-                             :background (almighty-color ':canvas)))
+                             :foreground  (almighty-color ':ink)
+                             :background  (almighty-color ':canvas)))
   "The presentation themes, default first.")
 
 (defvar *terminal-theme* (first *terminal-themes*)
@@ -414,12 +414,10 @@ which only theme colors carrying RGB values make use of."
   (text    "" :type string :read-only t)
   (display "" :type string :read-only t))
 
-
 (-> terminal--spans-width (list) (integer 0))
 (defun terminal--spans-width (spans)
   "Return the single-row cell width of sanitized SPANS."
   (text-cell-width (termdown:spans-text spans :single-line-p t)))
-
 
 (-> terminal--clip-spans (list integer) list)
 (defun terminal--clip-spans (spans maximum-width)
@@ -435,9 +433,9 @@ which only theme colors carrying RGB values make use of."
   (let* ((start (or (position-if-not (lambda (character) (char= character #\Space))
                                     line)
                     (length line)))
-         (end (or (position-if-not (lambda (character) (char= character #\#))
-                                  line :start start)
-                  (length line))))
+         (end   (or (position-if-not (lambda (character) (char= character #\#))
+                                    line :start start)
+                    (length line))))
     (and (<= start 3)
          (<= 1 (- end start) 6)
          (or (= end (length line))
@@ -452,14 +450,17 @@ changing their text, hierarchy markers, wrapping, inline code, or emphasis."
   ;; The pinned renderer exposes fence state only through this internal accessor.
   (let* ((heading-p (and (not (termdown::markdown-renderer-code-open-p renderer))
                          (terminal--markdown-heading-p line)))
-         (rows (termdown:markdown-render-line renderer line)))
+         (rows      (termdown:markdown-render-line renderer line)))
     (if heading-p
         (loop for row in rows
               collect (loop for span in row
                             collect (terminal-span
                                      (case (terminal-span-style span)
-                                       ((:plain :strong) ':syntax-heading)
-                                       (:emphasis ':heading-emphasis)
-                                       (otherwise (terminal-span-style span)))
+                                       ((:plain :strong)
+                                        ':syntax-heading)
+                                       (:emphasis
+                                        ':heading-emphasis)
+                                       (otherwise
+                                        (terminal-span-style span)))
                                      (terminal-span-text span))))
         rows)))
