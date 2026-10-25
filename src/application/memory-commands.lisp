@@ -44,10 +44,13 @@
 (-> application-memory--provenance (memory) (option string))
 (defun application-memory--provenance (memory)
   "Return a compact summary of MEMORY's sources and premises, or NIL."
-  (let ((labels (remove-duplicates
-                 (mapcar #'application-memory--source-label (memory-sources memory))
-                 :test #'string=
-                 :from-end t))
+  (let ((labels        (remove-duplicates
+
+                        (mapcar #'application-memory--source-label (memory-sources memory))
+
+                        :test     #'string=
+
+                        :from-end t))
         (premise-count (length (memory-premises memory))))
     (when (plusp premise-count)
       (setf labels (append labels
@@ -59,17 +62,23 @@
 (defun application-memory--status-style (status)
   "Return the terminal style presenting STATUS."
   (ecase status
-    (:current ':success)
-    (:stale ':failure)
-    (:unverified ':notice)))
+    (:current
+     ':success)
+    (:stale
+     ':failure)
+    (:unverified
+     ':notice)))
 
 (-> application-memory--status-rank (memory-assessment) integer)
 (defun application-memory--status-rank (assessment)
   "Order stale memories first, then unverified ones, then current ones."
   (ecase (memory-assessment-status assessment)
-    (:stale 0)
-    (:unverified 1)
-    (:current 2)))
+    (:stale
+     0)
+    (:unverified
+     1)
+    (:current
+     2)))
 
 (-> application-memory--reference (memory &key (:indent integer)) list)
 (defun application-memory--reference (memory &key (indent 4))
@@ -104,7 +113,7 @@
   "Return one compact listing row for ASSESSMENT's memory."
   (let* ((memory (memory-assessment-memory assessment))
          (status (memory-assessment-status assessment))
-         (style (application-memory--status-style status)))
+         (style  (application-memory--status-style status)))
     (append
      (list
       (if (eq status ':current)
@@ -131,13 +140,13 @@
 
 QUERY narrows the listing with the same lexical ranking recall uses."
   (let* ((configuration (application-configuration application))
-         (memories (if (non-empty-string-p query)
-                       (memory-search configuration query)
-                       (memory-list configuration)))
-         (assessor (memory-assessor-create configuration))
-         (facts (application-knowledge-facts-section (memory-assessor-view assessor)
-                                                     :query query
-                                                     :memories-p (and memories t))))
+         (memories      (if (non-empty-string-p query)
+                            (memory-search configuration query)
+                            (memory-list configuration)))
+         (assessor      (memory-assessor-create configuration))
+         (facts         (application-knowledge-facts-section (memory-assessor-view assessor)
+                                                             :query      query
+                                                             :memories-p (and memories t))))
     (cond
       ((and (null memories) (null facts))
        (list (terminal-span
@@ -178,15 +187,18 @@ QUERY narrows the listing with the same lexical ranking recall uses."
 (defun application-memory--source-row (outcome &key (indent 4))
   "Return the evidence line for one source OUTCOME, indented by INDENT."
   (let* ((source (getf outcome :source))
-         (quote (getf (rest source) :quote))
+         (quote  (getf (rest source) :quote))
          (reason (getf (getf outcome :reason) :kind)))
     (list
      ;; Only files are checked; statements and pages are provenance.
      (if (eq (first source) :file)
          (ecase (getf outcome :outcome)
-           (:holds (terminal-span ':success (format nil "~vT✓ " indent)))
-           (:failed (terminal-span ':failure (format nil "~vT✗ " indent)))
-           (:unverified (terminal-span ':notice (format nil "~vT? " indent))))
+           (:holds
+            (terminal-span ':success (format nil "~vT✓ " indent)))
+           (:failed
+            (terminal-span ':failure (format nil "~vT✗ " indent)))
+           (:unverified
+            (terminal-span ':notice (format nil "~vT? " indent))))
          (terminal-span ':dim (format nil "~vT· " indent)))
      (terminal-span ':plain
                     (ecase (first source)
@@ -204,24 +216,31 @@ QUERY narrows the listing with the same lexical ranking recall uses."
      (terminal-span ':failure
                     (format nil "~A~%"
                             (case reason
-                              (:file-changed " changed")
-                              (:file-missing " is missing")
-                              (:file-unchecked " could not be checked")
-                              (otherwise "")))))))
+                              (:file-changed
+                               " changed")
+                              (:file-missing
+                               " is missing")
+                              (:file-unchecked
+                               " could not be checked")
+                              (otherwise
+                               "")))))))
 
 (-> application-memory--premise-rows (list &key (:indent integer) (:depth integer)) list)
 (defun application-memory--premise-rows (outcome &key (indent 4) (depth 1))
   "Return the lines for one premise OUTCOME, expanding its own evidence below it."
-  (let* ((memory (getf outcome :memory))
-         (claim (getf outcome :claim))
+  (let* ((memory     (getf outcome :memory))
+         (claim      (getf outcome :claim))
          (assessment (getf outcome :assessment))
-         (kind (getf (getf outcome :reason) :kind)))
+         (kind       (getf (getf outcome :reason) :kind)))
     (append
      (list
       (ecase (getf outcome :outcome)
-        (:holds (terminal-span ':success (format nil "~vT✓ " indent)))
-        (:failed (terminal-span ':failure (format nil "~vT✗ " indent)))
-        (:unverified (terminal-span ':notice (format nil "~vT? " indent))))
+        (:holds
+         (terminal-span ':success (format nil "~vT✓ " indent)))
+        (:failed
+         (terminal-span ':failure (format nil "~vT✗ " indent)))
+        (:unverified
+         (terminal-span ':notice (format nil "~vT? " indent))))
       (cond
         (memory
          (terminal-span ':plain
@@ -240,26 +259,34 @@ QUERY narrows the listing with the same lexical ranking recall uses."
                         (format nil "from forgotten memory ~A"
                                 (sanitize-text (getf outcome :id) :single-line-p t)))))
       (terminal-span ':dim (cond
-                             (memory (application-memory--call memory))
+                             (memory
+                              (application-memory--call memory))
                              ((or claim (eq kind ':premise-claim))
                               (format nil "(memory ~S)"
                                       (application-memory--short (getf outcome :id))))
-                             (t "")))
+                             (t
+                              "")))
       (terminal-span ':failure
                      (format nil "~A~%"
                              (case kind
-                               (:premise-changed " changed since")
-                               (:premise-stale " is stale")
-                               (:premise-unverified " is unverified")
-                               (:premise-cycle " relies on this memory")
-                               (:premise-too-deep " is too deep to check")
+                               (:premise-changed
+                                " changed since")
+                               (:premise-stale
+                                " is stale")
+                               (:premise-unverified
+                                " is unverified")
+                               (:premise-cycle
+                                " relies on this memory")
+                               (:premise-too-deep
+                                " is too deep to check")
                                (:premise-claim
                                 (let ((applicability (getf (getf outcome :reason)
                                                            :applicability)))
                                   (if (eq applicability ':unknown)
                                       " no longer holds"
                                       (format nil " is ~(~A~)" applicability))))
-                               (otherwise "")))))
+                               (otherwise
+                                "")))))
      (when (and assessment (< depth *memory-command-premise-depth*))
        (append
         (loop for source in (memory-assessment-source-outcomes assessment)
@@ -267,7 +294,7 @@ QUERY narrows the listing with the same lexical ranking recall uses."
         (loop for premise in (memory-assessment-premise-outcomes assessment)
               append (application-memory--premise-rows premise
                                                        :indent (+ indent 2)
-                                                       :depth (1+ depth))))))))
+                                                       :depth  (1+ depth))))))))
 
 (-> application-memory-entry (application string) (or string list))
 (defun application-memory-entry (application identifier)
@@ -277,9 +304,9 @@ QUERY narrows the listing with the same lexical ranking recall uses."
         (memory-resolve configuration identifier)
       (case status
         (:found
-         (let* ((assessor (memory-assessor-create configuration))
+         (let* ((assessor   (memory-assessor-create configuration))
                 (assessment (memory-assess assessor memory))
-                (state (memory-assessment-status assessment))
+                (state      (memory-assessment-status assessment))
                 (dependents (memory-assessor-dependents
                              assessor (memory-identifier memory))))
            (append
@@ -391,7 +418,7 @@ QUERY narrows the listing with the same lexical ranking recall uses."
 (defun application-knowledge-forget-entry (application identifier)
   "Retract the fact selected by IDENTIFIER and name what stopped holding with it."
   (let ((configuration (application-configuration application))
-        (view (application-knowledge--view application)))
+        (view          (application-knowledge--view application)))
     (multiple-value-bind (node status) (application-knowledge-resolve view identifier)
       (if (and (eq status ':found)
                (knowledge-base-claim (knowledge-view-base view)
@@ -407,7 +434,7 @@ QUERY narrows the listing with the same lexical ranking recall uses."
                                    (member (getf change :kind) '(:withdrawn :changed)))
                                  (knowledge-view-changes before
                                                          (application-knowledge--view application)))
-                                :key (lambda (change) (getf change :claim))
+                                :key  (lambda (change) (getf change :claim))
                                 :test #'string=)))
               (append
                (list (terminal-span ':success "forgot  ")
@@ -436,14 +463,14 @@ QUERY narrows the listing with the same lexical ranking recall uses."
     (and (plusp (length query)) (list query))))
 
 (define-application-command application--builtin-memories-command
-    (:name "/memories"
-     :argument "[QUERY]"
-     :description "browse and manage saved memories and facts"
-     :tip "Browse notes, facts, and their evidence in fullscreen; filter with a query."
-     :busy-behavior :hold
+    (:name              "/memories"
+     :argument          "[QUERY]"
+     :description       "browse and manage saved memories and facts"
+     :tip               "Browse notes, facts, and their evidence in fullscreen; filter with a query."
+     :busy-behavior     :hold
      :terminal-behavior :exclusive
-     :callable t
-     :slash-parser application--memories-slash-arguments)
+     :callable          t
+     :slash-parser      application--memories-slash-arguments)
     (application &optional query)
   (let ((ui (application-ui application)))
     (if (and ui (terminal-ui-fullscreen-p ui)
@@ -453,14 +480,14 @@ QUERY narrows the listing with the same lexical ranking recall uses."
   ':continue)
 
 (define-application-command application--builtin-memory-command
-    (:name "/memory"
-     :aliases ("/why")
-     :argument "[ID]"
-     :description "inspect one memory or fact and its evidence"
-     :tip "Inspect a memory or fact, its sources and premises, and what relies on it."
-     :busy-behavior :hold
+    (:name              "/memory"
+     :aliases           ("/why")
+     :argument          "[ID]"
+     :description       "inspect one memory or fact and its evidence"
+     :tip               "Inspect a memory or fact, its sources and premises, and what relies on it."
+     :busy-behavior     :hold
      :terminal-behavior :exclusive
-     :callable t)
+     :callable          t)
     (application &optional identifier)
   (let ((ui (application-ui application)))
     (if (and ui (terminal-ui-fullscreen-p ui)
@@ -474,13 +501,13 @@ QUERY narrows the listing with the same lexical ranking recall uses."
   ':continue)
 
 (define-application-command application--builtin-forget-command
-    (:name "/forget"
-     :argument "[ID]"
-     :description "forget one memory or fact"
-     :tip "removes a memory or fact and names what relied on it."
-     :busy-behavior :apply
+    (:name              "/forget"
+     :argument          "[ID]"
+     :description       "forget one memory or fact"
+     :tip               "removes a memory or fact and names what relied on it."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application &optional identifier)
   (application-present
    application
