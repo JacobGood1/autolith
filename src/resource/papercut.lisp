@@ -348,9 +348,9 @@
 ;;;; -- Papercut Operations --
 
 (-> papercut-resource--required-text
-    (json-object string string integer)
+    (json-object string &key (:field string) (:limit integer))
     non-empty-string)
-(defun papercut-resource--required-text (arguments name field limit)
+(defun papercut-resource--required-text (arguments name &key field limit)
   "Return validated required text NAME from ARGUMENTS for papercut FIELD."
   (let ((value (tool-argument arguments name :required t)))
     (handler-case
@@ -404,9 +404,11 @@
              :issue-kind (papercut--issue-kind (or (tool-argument operation "issue-kind") "other"))
              :tool       (telemetry--tool (tool-argument operation "tool"))
              :title      (papercut-resource--required-text
-                          operation "title" "title" *papercut-title-limit*)
+                          operation "title" :field "title"
+                                            :limit *papercut-title-limit*)
              :content    (papercut-resource--required-text
-                          operation "content" "content" *papercut-content-limit*)))
+                          operation "content" :field "content"
+                                              :limit *papercut-content-limit*)))
       ((string= name "papercut-assess")
        (resource-item-validate-operation-fields
         "Papercut"
@@ -419,8 +421,8 @@
              :note       (papercut-resource--required-text
                           operation
                           "note"
-                          "assessment note"
-                          *papercut-assessment-note-limit*)))
+                          :field "assessment note"
+                          :limit *papercut-assessment-note-limit*)))
       ((string= name "papercut-close")
        (resource-item-validate-operation-fields
         "Papercut"
@@ -432,8 +434,8 @@
              :resolution (papercut-resource--required-text
                           operation
                           "resolution"
-                          "closure resolution"
-                          *papercut-resolution-limit*)))
+                          :field "closure resolution"
+                          :limit *papercut-resolution-limit*)))
       (t
        (error 'tool-error
               :message
