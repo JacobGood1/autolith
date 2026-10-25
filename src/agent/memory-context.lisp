@@ -225,41 +225,42 @@ each is explained once, retries included."
         (let ((advice
                 (knowledge-viewer-update
                  configuration (format nil "recall:~A" identifier)
-                 (knowledge-view-workspace view) (knowledge-view-now view)
-                 (lambda (previous time first-p)
-                   (declare (ignore time))
-                   (let* ((given (mapcar (lambda (entry) (getf entry :claim)) previous))
-                          (changes
-                            (and (not first-p)
-                                 (remove-if
-                                  (lambda (change)
-                                    (or (eq (getf change :kind) ':new)
-                                        (and (eq (getf change :kind) ':conflict)
-                                             (not (member (getf change :claim) given
-                                                          :test #'string=)))))
-                                  (knowledge-view-changes previous view))))
-                          (keep  (append given
-                                         (mapcar (lambda (change) (getf change :claim)) changes)
-                                         (mapcar #'knowledge-node-identifier offered))))
-                     (if (and first-p (null offered))
-                         (values ':keep nil)
-                         (values (remove-if-not (lambda (entry)
-                                                  (member (getf entry :claim) keep
-                                                          :test #'string=))
-                                                (knowledge-view-snapshot view))
-                                 (and changes
-                                      (change-class
-                                       (make-context-contribution
-                                        :identifier        "knowledge-changes"
-                                        :instruction
-                                        "Facts you were given earlier in this conversation changed. Revise any answer or plan that relied on the old values."
-                                        :evidence          (format nil "~{~A~^~%~}"
-                                                                   (knowledge-change-lines changes))
-                                        :priority          30
-                                        :lifetime          ':next-request
-                                        :deduplication-key "knowledge-changes")
-                                       'knowledge-change-contribution
-                                       :count (length changes))))))))))
+                 (knowledge-view-workspace view)
+                 :time     (knowledge-view-now view)
+                 :function (lambda (previous time first-p)
+                             (declare (ignore time))
+                             (let* ((given (mapcar (lambda (entry) (getf entry :claim)) previous))
+                                    (changes
+                                      (and (not first-p)
+                                           (remove-if
+                                            (lambda (change)
+                                              (or (eq (getf change :kind) ':new)
+                                                  (and (eq (getf change :kind) ':conflict)
+                                                       (not (member (getf change :claim) given
+                                                                    :test #'string=)))))
+                                            (knowledge-view-changes previous view))))
+                                    (keep  (append given
+                                                   (mapcar (lambda (change) (getf change :claim)) changes)
+                                                   (mapcar #'knowledge-node-identifier offered))))
+                               (if (and first-p (null offered))
+                                   (values ':keep nil)
+                                   (values (remove-if-not (lambda (entry)
+                                                            (member (getf entry :claim) keep
+                                                                    :test #'string=))
+                                                          (knowledge-view-snapshot view))
+                                           (and changes
+                                                (change-class
+                                                 (make-context-contribution
+                                                  :identifier        "knowledge-changes"
+                                                  :instruction
+                                                  "Facts you were given earlier in this conversation changed. Revise any answer or plan that relied on the old values."
+                                                  :evidence          (format nil "~{~A~^~%~}"
+                                                                             (knowledge-change-lines changes))
+                                                  :priority          30
+                                                  :lifetime          ':next-request
+                                                  :deduplication-key "knowledge-changes")
+                                                 'knowledge-change-contribution
+                                                 :count (length changes))))))))))
           (setf (gethash identifier *memory-context-turn-changes*) (cons turn advice))
           advice))))
 

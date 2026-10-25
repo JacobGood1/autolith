@@ -59,9 +59,9 @@
                                          nil))))
 
 (-> knowledge-viewer-update
-    (configuration string string timestamp function)
+    (configuration string string &key (:time timestamp) (:function function))
     t)
-(defun knowledge-viewer-update (configuration viewer workspace time function)
+(defun knowledge-viewer-update (configuration viewer workspace &key time function)
   "Replace VIEWER's snapshot in WORKSPACE by what FUNCTION returns, and return its result.
 
 FUNCTION receives the previous snapshot, the time it was recorded, and whether
@@ -101,9 +101,10 @@ The second value is when VIEWER last looked, and the third is true when it
 never had. When RECORD, VIEW becomes what VIEWER last saw."
   (values-list
    (knowledge-viewer-update
-    configuration viewer (knowledge-view-workspace view) (knowledge-view-now view)
-    (lambda (previous time first-p)
-      (values (if record (knowledge-view-snapshot view) ':keep)
-              (list (and (not first-p) (knowledge-view-changes previous view))
-                    time
-                    first-p))))))
+    configuration viewer (knowledge-view-workspace view)
+    :time     (knowledge-view-now view)
+    :function (lambda (previous time first-p)
+                (values (if record (knowledge-view-snapshot view) ':keep)
+                        (list (and (not first-p) (knowledge-view-changes previous view))
+                              time
+                              first-p))))))

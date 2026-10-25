@@ -46,10 +46,11 @@
   "Record that CONVERSATION's model just saw PLAN as checked against VIEW."
   (when (and plan view)
     (knowledge-viewer-update configuration (plan-context--viewer conversation)
-                             (knowledge-view-workspace view) (knowledge-view-now view)
-                             (lambda (previous time first-p)
-                               (declare (ignore previous time first-p))
-                               (values (plan-step-snapshot plan view) nil))))
+                             (knowledge-view-workspace view)
+                             :time     (knowledge-view-now view)
+                             :function (lambda (previous time first-p)
+                                         (declare (ignore previous time first-p))
+                                         (values (plan-step-snapshot plan view) nil))))
   nil)
 
 (-> plan-changes-context (request-context) (option context-contribution))
@@ -70,25 +71,26 @@
                        (let ((view (knowledge-view-current configuration)))
                          (knowledge-viewer-update
                           configuration (plan-context--viewer conversation)
-                          (knowledge-view-workspace view) (knowledge-view-now view)
-                          (lambda (previous time first-p)
-                            (declare (ignore time))
-                            (let* ((current (plan-step-snapshot plan view))
-                                   (changes (and (not first-p)
-                                                 (plan-snapshot-changes previous current))))
-                              (values current
-                                      (and changes
-                                           (change-class
-                                            (make-context-contribution
-                                             :identifier        "plan-changes"
-                                             :instruction
-                                             "Plan steps that depend on facts changed since you last saw the plan. Adjust the plan or the work in progress accordingly."
-                                             :evidence          (format nil "~{~A~^~%~}" changes)
-                                             :priority          30
-                                             :lifetime          ':next-request
-                                             :deduplication-key "plan-changes")
-                                            'plan-change-contribution
-                                            :count (length changes)))))))))))
+                          (knowledge-view-workspace view)
+                          :time     (knowledge-view-now view)
+                          :function (lambda (previous time first-p)
+                                      (declare (ignore time))
+                                      (let* ((current (plan-step-snapshot plan view))
+                                             (changes (and (not first-p)
+                                                           (plan-snapshot-changes previous current))))
+                                        (values current
+                                                (and changes
+                                                     (change-class
+                                                      (make-context-contribution
+                                                       :identifier        "plan-changes"
+                                                       :instruction
+                                                       "Plan steps that depend on facts changed since you last saw the plan. Adjust the plan or the work in progress accordingly."
+                                                       :evidence          (format nil "~{~A~^~%~}" changes)
+                                                       :priority          30
+                                                       :lifetime          ':next-request
+                                                       :deduplication-key "plan-changes")
+                                                      'plan-change-contribution
+                                                      :count (length changes)))))))))))
               (setf (gethash identifier *plan-context-turn-changes*) (cons turn advice))
               advice))))))
 
