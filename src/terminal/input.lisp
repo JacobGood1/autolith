@@ -9,7 +9,7 @@
 (defun terminal--read-control-v-paste (stream)
   "Read literal Ctrl-V paste using the application's idle gap and input bound."
   (clinedi:read-paste-burst stream
-                          :idle-seconds *terminal-control-v-paste-idle-seconds*
+                          :idle-seconds       *terminal-control-v-paste-idle-seconds*
                           :maximum-characters *terminal-unbracketed-paste-maximum-characters*))
 
 (-> terminal--decode-editing-event
