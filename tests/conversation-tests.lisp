@@ -1136,6 +1136,49 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
+(-> test-conversation-reload-keeps-exchange-order () null)
+(defun test-conversation-reload-keeps-exchange-order ()
+  "Test reload keeps complete exchanges in their recorded order and repairs only missing outputs."
+  (with-test-configuration (configuration)
+    (let ((conversation (conversation-create configuration :identifier "exchange-order")))
+      (flet ((call (identifier)
+               "Return a completed shell call named IDENTIFIER."
+               (json-object "type" "function_call" "status" "completed"
+                            "arguments" "{}" "call_id" identifier
+                            "name" "run" "namespace" "shell"))
+
+             (assistant (text)
+               "Return an assistant message saying TEXT."
+               (json-object "type" "message" "role" "assistant"
+                            "content" (json-array (json-object "type" "output_text"
+                                                               "text" text))))
+
+             (shape (items)
+               "Return each item's type, with the role of messages."
+               (mapcar (lambda (item)
+                         (if (equal (json-get item "type") "message")
+                             (json-get item "role")
+                             (json-get item "type")))
+                       items)))
+        (conversation-append-user-message conversation "start")
+        (conversation-append-provider-item conversation (call "call-first"))
+        (conversation-append-provider-item conversation (assistant "working"))
+        (conversation-append-tool-result conversation "call-first"
+                                         :tool-name "shell.run" :output "done")
+        (conversation-append-provider-item conversation (assistant "finished"))
+        (conversation-append-provider-item conversation (call "call-second"))
+        (let ((items (conversation-input-items
+                      (conversation-load-by-id configuration "exchange-order"))))
+          (test-assert
+           (equal (shape items)
+                  '("user" "function_call" "assistant" "function_call_output" "assistant"
+                    "function_call" "function_call_output"))
+           "a complete exchange reloads in its recorded order")
+          (test-assert
+           (equal (json-get (seventh items) "output") *conversation-interrupted-tool-output*)
+           "the missing output is repaired after its call")))))
+  nil)
+
 (-> test-conversation-malformed-tool-projections () null)
 (defun test-conversation-malformed-tool-projections ()
   "Test replay rejects impossible durable tool-output projections."

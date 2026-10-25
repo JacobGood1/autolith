@@ -2080,6 +2080,9 @@ transcript show automatic INPUT as a short notice."
         (let ((plan
                 (clinker-transcript:reconcile-items
                  (conversation-input-items conversation)
+                 ;; Keep complete exchanges where they were: the history a
+                 ;; provider already cached must reload unchanged.
+                 :preserve-order-p t
                  :repaired-output-p
                  (lambda (output)
                    (equal (json-get output "output")

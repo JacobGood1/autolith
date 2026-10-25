@@ -596,6 +596,7 @@
   test-conversation-process-lease
   test-conversation-interrupted-tool-call
   test-conversation-late-duplicate-tool-output
+  test-conversation-reload-keeps-exchange-order
   test-conversation-persistence
   test-conversation-private-storage
   test-conversation-origin-directory
