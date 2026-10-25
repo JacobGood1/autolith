@@ -211,8 +211,12 @@ read-only source tree."
 
 TRUENAME of a dangling symbolic link returns the link's own canonical path
 rather than failing, so existence needs the following stat first."
-  (and (ignore-errors (sb-posix:stat (namestring link)))
-       (ignore-errors (truename link))))
+  (and (handler-case (sb-posix:stat (namestring link))
+         (sb-posix:syscall-error ()
+           nil))
+       (handler-case (truename link)
+         (file-error ()
+           nil))))
 
 (-> release-archive--materialize-dependency-links (pathname) null)
 (defun release-archive--materialize-dependency-links (dependency-root)
@@ -255,6 +259,7 @@ rather than failing, so existence needs the following stat first."
 (defun release-archive--cleanup (temporary-root)
   "Remove TEMPORARY-ROOT even when archive inputs were made read-only."
   (when (uiop:directory-exists-p temporary-root)
+    ;; mallet:suppress no-ignore-errors -- best effort; the deletion below reports real failures
     (ignore-errors
       (release-archive--run
        (list "chmod" "-R" "u+w" (namestring temporary-root))

@@ -5,6 +5,7 @@
        (source-root   (uiop:pathname-parent-directory-pathname server-root))
        (project-setup (merge-pathnames ".qlot/setup.lisp" source-root)))
   (unless (probe-file project-setup)
+    ;; mallet:suppress error-without-custom-condition -- Autolith's conditions load later
     (error "The release server needs locked dependencies; run ./script/bootstrap."))
   (load project-setup)
   (asdf:load-asd (merge-pathnames "autolith.asd" source-root))

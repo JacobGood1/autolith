@@ -86,14 +86,13 @@
   "Parse an optional listener port VALUE, defaulting when it is absent."
   (if (null value)
       *release-server-default-port*
-      (handler-case
-          (let ((port (parse-integer value :junk-allowed nil)))
-            (unless (typep port '(integer 1 65535))
-              (error 'parse-error))
-            port)
-        (error ()
-          (error 'configuration-error
-                 :message (format nil "Invalid release server port ~S." value))))))
+      (let ((port (handler-case (parse-integer value)
+                    (parse-error ()
+                      nil))))
+        (if (typep port '(integer 1 65535))
+            port
+            (error 'configuration-error
+                   :message (format nil "Invalid release server port ~S." value))))))
 
 (-> release-server--git-output (pathname list) string)
 (defun release-server--git-output (directory arguments)
@@ -159,7 +158,9 @@
                   (and configured (pathname configured)))
                 (asdf:system-source-directory :autolith))))
          (resolved-source-root
-           (or (ignore-errors (truename configured-source-root))
+           (or (handler-case (truename configured-source-root)
+                 (file-error ()
+                   nil))
                configured-source-root)))
     (multiple-value-bind (detected-tag detected-commit)
         (release-server--source-identity resolved-source-root)
@@ -554,6 +555,7 @@
            (release-server-request-error (condition)
              (declare (ignore condition))
              (when stream
+               ;; mallet:suppress no-ignore-errors -- the client may already be gone
                (ignore-errors
                  (release-server--write-response
                   stream
@@ -564,6 +566,7 @@
            (error (condition)
              (format *error-output* "~&Release request failed: ~A~%" condition)
              (when stream
+               ;; mallet:suppress no-ignore-errors -- the client may already be gone
                (ignore-errors
                  (release-server--write-response
                   stream
@@ -571,6 +574,7 @@
                    500 "text/plain; charset=utf-8"
                    (format nil "internal error~%"))
                   nil)))))
+      ;; mallet:suppress no-ignore-errors -- closing a finished connection is best effort
       (if stream
           (ignore-errors (close stream))
           (ignore-errors (sb-bsd-sockets:socket-close socket)))))
@@ -602,5 +606,6 @@
                    (lambda ()
                      (release-server--handle-connection configuration connection))
                    :name "autolith release request"))))
+      ;; mallet:suppress no-ignore-errors -- closing the listener on exit is best effort
       (ignore-errors (sb-bsd-sockets:socket-close listener))))
   nil)

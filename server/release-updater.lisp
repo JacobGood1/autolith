@@ -272,8 +272,12 @@
               (unless (and (not (eq state eof))
                            (eq trailing eof)
                            (release-updater--state-valid-p state))
-                (error "The deployment-state file is malformed or unsupported."))
+                (error 'release-updater-error
+                       :stage ':state
+                       :cause "The deployment-state file is malformed or unsupported."))
               state)))
+      (release-updater-error (condition)
+        (error condition))
       (error (cause)
         (error 'release-updater-error
                :stage ':state
@@ -464,7 +468,9 @@ checked-out commit are rejected."
            :type     "tmp"
            :defaults selection)))
     (ensure-directories-exist selection)
-    (ignore-errors (delete-file temporary))
+    (handler-case (delete-file temporary)
+      (file-error ()
+        nil))
     (unwind-protect
          (progn
            (sb-posix:symlink
@@ -472,7 +478,9 @@ checked-out commit are rejected."
             (namestring temporary))
            (sb-posix:rename (namestring temporary) (namestring selection))
            selection)
-      (ignore-errors (delete-file temporary)))))
+      (handler-case (delete-file temporary)
+        (file-error ()
+          nil)))))
 
 (-> release-updater--clone-tag
     (release-updater-configuration release-source-tag pathname)
@@ -612,6 +620,7 @@ checked-out commit are rejected."
 (defun release-updater--remove-managed-deployment (deployment)
   "Remove one unselected updater-owned DEPLOYMENT after making it writable."
   (when (uiop:directory-exists-p deployment)
+    ;; mallet:suppress no-ignore-errors -- best effort; the deletion below reports real failures
     (ignore-errors
       (uiop:run-program
        (list "chmod" "-R" "u+w" (namestring deployment))
@@ -880,7 +889,10 @@ checked-out commit are rejected."
               (let ((source-tag
                       (release-updater--source-tag-at deployment)))
                 (unless (string= tag (release-source-tag-name source-tag))
-                  (error "Deployment directory and source tag differ."))
+                  (error 'release-updater-error
+                         :stage ':pruning
+                         :tag   tag
+                         :cause "Deployment directory and source tag differ."))
                 (release-updater--remove-managed-deployment deployment)
                 (format t "~&Pruned superseded host deployment ~A.~%" tag)
                 (finish-output))
@@ -1157,8 +1169,12 @@ checked-out commit are rejected."
            (sb-posix:lockf descriptor sb-posix:f-lock 0)
            (funcall function))
       (when descriptor
-        (ignore-errors (sb-posix:lockf descriptor sb-posix:f-ulock 0))
-        (ignore-errors (sb-posix:close descriptor))))))
+        (handler-case (sb-posix:lockf descriptor sb-posix:f-ulock 0)
+          (sb-posix:syscall-error ()
+            nil))
+        (handler-case (sb-posix:close descriptor)
+          (sb-posix:syscall-error ()
+            nil))))))
 
 (-> release-updater-update-once
     (release-updater-configuration

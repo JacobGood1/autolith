@@ -102,14 +102,13 @@
   "Parse positive integer VALUE, using FALLBACK when absent and naming NAME."
   (if (null value)
       fallback
-      (handler-case
-          (let ((parsed (parse-integer value :junk-allowed nil)))
-            (unless (plusp parsed)
-              (error 'parse-error))
-            parsed)
-        (error ()
-          (error 'configuration-error
-                 :message (format nil "Invalid ~A ~S." name value))))))
+      (let ((parsed (handler-case (parse-integer value)
+                      (parse-error ()
+                        nil))))
+        (if (and parsed (plusp parsed))
+            parsed
+            (error 'configuration-error
+                   :message (format nil "Invalid ~A ~S." name value))))))
 
 (-> release-host--call-with-lock (pathname function) t)
 (defun release-host--call-with-lock (state-root function)
@@ -129,8 +128,12 @@
            (sb-posix:lockf descriptor sb-posix:f-lock 0)
            (funcall function))
       (when descriptor
-        (ignore-errors (sb-posix:lockf descriptor sb-posix:f-ulock 0))
-        (ignore-errors (sb-posix:close descriptor))))))
+        (handler-case (sb-posix:lockf descriptor sb-posix:f-ulock 0)
+          (sb-posix:syscall-error ()
+            nil))
+        (handler-case (sb-posix:close descriptor)
+          (sb-posix:syscall-error ()
+            nil))))))
 
 (-> release-builder-configuration-create
     (&key (:source-root (option pathname))
@@ -232,9 +235,8 @@ Lightweight tags only publish one line and keep that commit identity."
                    :stage ':tag-discovery
                    :cause (format nil "Malformed remote tag line ~S." line)))
           (if peeled-p
-              (progn
-                (setf (gethash tag commits) commit
-                      (gethash tag peeled) t))
+              (setf (gethash tag commits) commit
+                    (gethash tag peeled) t)
               (unless (gethash tag peeled)
                 (setf (gethash tag commits) commit))))))
     (sort
@@ -414,6 +416,7 @@ tree intact lets one tag's object files fail a later tag's checks."
            (list (list "top" container-name
                        "-eo" "pid,ppid,pgid,sid,user,stat,wchan:32,etime,cmd")
                  (list "logs" "--tail" "200" container-name)))
+    ;; mallet:suppress no-ignore-errors -- diagnostics must never mask the build failure
     (ignore-errors
       (funcall *release-builder-command-function*
                (cons
@@ -428,6 +431,7 @@ tree intact lets one tag's object files fail a later tag's checks."
     null)
 (defun release-builder--remove-container (configuration container-name)
   "Force-remove managed CONTAINER-NAME after a failed or timed-out build."
+  ;; mallet:suppress no-ignore-errors -- best-effort cleanup after a build that already failed
   (ignore-errors
     (funcall *release-builder-command-function*
              (list (release-builder-configuration-container-command configuration)
