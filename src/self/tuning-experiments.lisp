@@ -283,7 +283,10 @@
                   (tuning-experiment-list configuration)
                   :key  #'tuning-experiment-identifier
                   :test #'string=)
-            (error "The tuning experiment journal did not round-trip."))))))
+            (error 'source-mutation-error
+                   :message   "The tuning experiment journal did not round-trip."
+                   :tool-name "self.experiment-start"
+                   :pathname  (configuration-journal-path configuration)))))))
 
 (-> tuning-experiment-settle
     (configuration (option string) string string)
@@ -329,7 +332,10 @@
                 (tuning-experiment-list configuration)
                 :key  #'tuning-experiment-identifier
                 :test #'string=)
-          (error "The tuning experiment settlement did not round-trip.")))))
+          (error 'source-mutation-error
+                 :message   "The tuning experiment settlement did not round-trip."
+                 :tool-name "self.experiment-settle"
+                 :pathname  (configuration-journal-path configuration))))))
 
 (-> tuning-experiment-render-open (configuration) (option string))
 (defun tuning-experiment-render-open (configuration)
