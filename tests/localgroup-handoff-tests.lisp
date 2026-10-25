@@ -834,6 +834,25 @@
                  (conversation-lease-acquire configuration identifier))
                 (delete-file pathname)
                 (assert-identity before)
+                (let ((delete-record (symbol-function 'image-daemon:daemon-registry-delete-matching))
+                      (old-pathname  (image-daemon:daemon-runtime-registry-pathname session)))
+                  (test-call-with-function-replacements
+                   (list
+                    (list 'image-daemon:daemon-registry-delete-matching
+                          (lambda (target record &key errorp)
+                            (if (equal target old-pathname)
+                                (error 'file-error :pathname target)
+                                (funcall delete-record target record :errorp errorp)))))
+                   (lambda ()
+                     (test-assert
+                      (handler-case
+                          (progn (application-install-conversation application blocked) nil)
+                        (application-runtime-replacement-error () t))
+                      "failed endpoint retirement aborts the conversation transaction")))
+                  (test-assert (and (eq before (application-conversation application))
+                                    (null (image-daemon:daemon-registry-read pathname)))
+                               "failed retirement restores identity and removes its replacement")
+                  (assert-identity before))
                 (test-call-with-function-replacements
                  (list
                   (list 'application-publish-recovery-session

@@ -104,12 +104,8 @@ conversation transaction can roll back before releasing either lease."
                        (localgroup-registry-pathname
                         (application-configuration application) identifier))
                  (localgroup--publish-registry session)
-                 (image-daemon:daemon-registry-call-with-lock old-pathname
-                  (lambda ()
-                    (when
-                        (equal old-record
-                               (image-daemon:daemon-registry-read old-pathname))
-                      (delete-file old-pathname))))
+                 (image-daemon:daemon-registry-delete-matching
+                  old-pathname old-record :errorp t)
                  (setf completed-p t))
               (unless completed-p
                 (localgroup--delete-owned-registry session)
