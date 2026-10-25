@@ -335,7 +335,7 @@
 (-> configuration--reasoning-effort-problem (string t) (option string))
 (defun configuration--reasoning-effort-problem (effort configuration)
   "Return why CONFIGURATION's model/provider does not support EFFORT."
-  (let* ((model (config :model configuration))
+  (let* ((model   (config :model configuration))
          (efforts (configuration--reasoning-efforts-for
                    model (config :model-provider configuration))))
     (unless (member effort efforts :test #'string=)
@@ -373,7 +373,7 @@
 (-> environment-directory (string pathname) pathname)
 (defun environment-directory (variable fallback)
   "Return absolute directory VARIABLE, or FALLBACK when it is unset or invalid."
-  (let* ((value (uiop:getenv variable))
+  (let* ((value    (uiop:getenv variable))
          (pathname (and (non-empty-string-p value)
                         (pathname value))))
     (uiop:ensure-directory-pathname
