@@ -34,6 +34,7 @@
     ("autolith.verification.scope" . *telemetry-verification-scopes*))
   "Map projected categorical fields to symbols whose current values define wire vocabularies.")
 
+(-> telemetry--tool (t) (option string))
 (defun telemetry--tool (name)
   "Return a catalog tool name or NIL when no public identity is available."
   (when (stringp name) (find name *telemetry-tool-catalog* :test #'string=)))
@@ -47,10 +48,11 @@
           (or (third entry) (second entry)))
         value)))
 
+(-> telemetry--attribute (cons) hash-table)
 (defun telemetry--attribute (pair)
   "Encode one allowlisted scalar OTLP attribute."
   (let ((value (telemetry--wire-value (first pair) (rest pair))))
-    (json-object "key" (car pair) "value"
+    (json-object "key" (first pair) "value"
                  (cond ((stringp value)
                         (json-object "stringValue" value))
                        ((integerp value)
@@ -58,6 +60,7 @@
                        (t
                         (json-object "boolValue" value))))))
 
+(-> telemetry--diagnostic-attributes ((option string)) list)
 (defun telemetry--diagnostic-attributes (safe)
   "Attach text only after successful native redaction."
   (when safe
@@ -65,6 +68,7 @@
           (cons "autolith.redaction.engine" "rampart")
           (cons "autolith.redaction.revision" "b1993e4e68b082835b80ffc65acc03325ea2e501"))))
 
+(-> telemetry--enqueue (telemetry-run keyword list t) hash-table)
 (defun telemetry--enqueue (run kind attributes duration-ms)
   "Queue and return a projected span under the consent lock, discarding oldest on overflow."
   (let* ((kind       (telemetry--wire-value "autolith.event.kind"
@@ -204,6 +208,7 @@
                  (cons "autolith.repair.attempt.id" attempt-id))
            (telemetry--diagnostic-attributes safe)) 0))
 
+(-> telemetry--envelope (telemetry-controller list) hash-table)
 (defun telemetry--envelope (controller spans)
   "Construct exactly the allowlisted schema-1 resource and scope envelope."
   (json-object
@@ -227,6 +232,7 @@
 
 ;;;; -- Supervised Isolated Work --
 
+(-> telemetry--process (telemetry-run list) t)
 (defun telemetry--process (run request)
   "Perform one child operation with atomic consent admission and synchronous retirement."
   (unless (bt:with-lock-held ((telemetry-controller-lock (telemetry-run-controller run)))
@@ -269,6 +275,7 @@
          :stop     #'telemetry--stop-process-once
          :complete (lambda (record) (telemetry--complete-process controller record))))))
 
+(-> telemetry--pre-redact (string) string)
 (defun telemetry--pre-redact (text)
   "Mask credentials, paths, URLs, hosts and opaque identifiers around native inference."
   (let ((result text))
@@ -283,7 +290,7 @@
                ("(?i)\\b(?:[a-z0-9-]+\\.)+(?:[a-z]{2,63}|local|internal)\\b" . "[HOST]")
                ("(?i)\\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\b" . "[ID]")
                ("\\b[A-Za-z0-9_+/=-]{32,}\\b" . "[OPAQUE]")))
-      (setf result (cl-ppcre:regex-replace-all (car entry) result (cdr entry))))
+      (setf result (cl-ppcre:regex-replace-all (first entry) result (rest entry))))
     (map 'string (lambda (char)
                    (let ((code (char-code char)))
                      (if (or (< code 32) (<= 127 code 159)) #\Space char))) result)))
@@ -316,6 +323,7 @@ all pieces within the caller's existing deadline."
                    (write-string safe stream))
                  (setf start end))))))
 
+(-> telemetry--worker-redact (list) (option string))
 (defun telemetry--worker-redact (request)
   "Load a trusted absolute library and a lazy context inside a consent-admitted child."
   (destructuring-bind (operation text language model runtime library) request
@@ -337,6 +345,7 @@ all pieces within the caller's existing deadline."
                  (telemetry--pre-redact safe)))
           (defingerprinter:close-redactor redactor))))))
 
+(-> telemetry--worker-upload (list) boolean)
 (defun telemetry--worker-upload (request)
   "Upload anonymously; never follow redirects or retain response text."
   (destructuring-bind (operation endpoint body) request
@@ -351,6 +360,7 @@ all pieces within the caller's existing deadline."
       (unwind-protect (and (integerp status) (<= 200 status 299) t)
         (when (streamp stream) (close stream))))))
 
+(-> telemetry--worker-main () nil)
 (defun telemetry--worker-main ()
   "One-shot subprocess entry. All failures return NIL without printing conditions or text."
   (let ((input *standard-input*) (output *standard-output*))
