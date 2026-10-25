@@ -52,7 +52,9 @@
       (let* ((configuration (tool-context-configuration context))
              (plan          (plan-load configuration))
              (view          (and (plan-tool--structured-p plan) (knowledge-view-current configuration))))
-        (plan-context-note-delivered configuration (tool-context-conversation context) plan view)
+        (plan-context-note-delivered configuration (tool-context-conversation context)
+                                     :plan plan
+                                     :view view)
         (tool-success (plan-render plan :view view)))
     (plan-error (condition)
       (error 'tool-error
@@ -148,7 +150,9 @@ change to those facts can be reported without repeating the step."
                    (progn
                      (plan-clear configuration)
                      nil))))
-        (plan-context-note-delivered configuration (tool-context-conversation context) plan view)
+        (plan-context-note-delivered configuration (tool-context-conversation context)
+                                     :plan plan
+                                     :view view)
         (tool-success (plan-render plan :view view)))
     (plan-error (condition)
       (error 'tool-error
@@ -178,7 +182,8 @@ change to those facts can be reported without repeating the step."
                                       :explanation (format nil "Expanded ~A by its methods."
                                                            (knowledge-pattern-text task)))))
                (plan-context-note-delivered configuration (tool-context-conversation context)
-                                            plan view)
+                                            :plan plan
+                                            :view view)
                (tool-success (plan-render plan :view view))))
             (:unknown-task
              (tool-success

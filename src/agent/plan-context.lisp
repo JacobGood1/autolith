@@ -40,9 +40,9 @@
   (format nil "plan:~A" (conversation-identifier conversation)))
 
 (-> plan-context-note-delivered
-    (configuration conversation (option workspace-plan) (option knowledge-view))
+    (configuration conversation &key (:plan (option workspace-plan)) (:view (option knowledge-view)))
     null)
-(defun plan-context-note-delivered (configuration conversation plan view)
+(defun plan-context-note-delivered (configuration conversation &key plan view)
   "Record that CONVERSATION's model just saw PLAN as checked against VIEW."
   (when (and plan view)
     (knowledge-viewer-update configuration (plan-context--viewer conversation)
