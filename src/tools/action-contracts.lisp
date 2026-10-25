@@ -45,7 +45,7 @@
   "Return valid bounded JSON, accounting for escaping before clipping the external excerpt."
   (let* ((content (if include-output-p (tool-result-content result) ""))
          (summaries
-           (loop for error in errors for index below 8
+           (loop for error in (take 8 errors)
                  collect (json-object "contract" (bounded-string (json-get error "contract") :limit 80)
                                       "mapping" (json-get error "mapping")
                                       "message" (bounded-string (json-get error "message") :limit 200))))
