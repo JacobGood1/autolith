@@ -8,7 +8,7 @@
 (-> mission-review--application (tool-context) application)
 (defun mission-review--application (context)
   "Require the owning primary application, excluding delegated agents."
-  (let* ((mission (mission-context-find (tool-context-conversation context)))
+  (let* ((mission     (mission-context-find (tool-context-conversation context)))
          (application (and mission (mission-context-application mission))))
     (unless application
       (mission--reject ':missing "Mission review requires a mission."))
@@ -20,7 +20,7 @@
 (defmethod tool-execute ((tool mission-review-tool) (context tool-context) arguments)
   "Execute review operations without granting a reviewer decision authority."
   (let* ((application (mission-review--application context))
-         (operation (tool-name tool))
+         (operation   (tool-name tool))
          (result
            (cond
              ((string= operation "configure")
@@ -29,17 +29,20 @@
                                             "mission-review.configure")
               (application-mission-review-configure
                application
-               (list :id (tool-argument arguments "id")
-                     :phase (let ((phase (tool-argument arguments "phase")))
-                              (cond ((equal phase "before-integration") ':before-integration)
-                                    ((equal phase "final-acceptance") ':final-acceptance)
-                                    ((equal phase "after-edit-set") ':after-edit-set)))
-                     :inputs (coerce (or (tool-argument arguments "inputs") #()) 'list)
-                     :context (tool-argument arguments "context")
-                     :models (coerce (or (tool-argument arguments "models") #()) 'list)
-                     :turn-limit (tool-argument arguments "turn-limit")
+               (list :id          (tool-argument arguments "id")
+                     :phase       (let ((phase (tool-argument arguments "phase")))
+                                    (cond ((equal phase "before-integration")
+                                           ':before-integration)
+                                          ((equal phase "final-acceptance")
+                                           ':final-acceptance)
+                                          ((equal phase "after-edit-set")
+                                           ':after-edit-set)))
+                     :inputs      (coerce (or (tool-argument arguments "inputs") #()) 'list)
+                     :context     (tool-argument arguments "context")
+                     :models      (coerce (or (tool-argument arguments "models") #()) 'list)
+                     :turn-limit  (tool-argument arguments "turn-limit")
                      :token-limit (tool-argument arguments "token-limit")
-                     :run-limit (tool-argument arguments "run-limit"))))
+                     :run-limit   (tool-argument arguments "run-limit"))))
              ((string= operation "trigger")
               (task--validate-tool-arguments arguments '("id") "mission-review.trigger")
               (application-mission-review-trigger application (tool-argument arguments "id")
@@ -48,21 +51,24 @@
               (task--validate-tool-arguments arguments '("id" "finding" "decision" "reason") "mission-review.decide")
               (application-mission-review-decide
                application (tool-argument arguments "id") (tool-argument arguments "finding")
-               :agent (tool-context-agent context)
-               :decision (cond ((equal (tool-argument arguments "decision") "resolve") ':resolve)
-                               ((equal (tool-argument arguments "decision") "reject") ':reject))
-               :reason (tool-argument arguments "reason")))
+               :agent    (tool-context-agent context)
+               :decision (cond ((equal (tool-argument arguments "decision") "resolve")
+                                ':resolve)
+                               ((equal (tool-argument arguments "decision") "reject")
+                                ':reject))
+               :reason   (tool-argument arguments "reason")))
              ((string= operation "inspect")
               (task--validate-tool-arguments arguments nil "mission-review.inspect")
               (copy-tree (getf (application-goal application) :reviews)))
-             (t (mission--reject ':invalid "Unknown mission review operation.")))))
+             (t
+              (mission--reject ':invalid "Unknown mission review operation.")))))
     (task-tool-result (task--write-readable-sexp result :pretty-p t) result)))
 
 (-> mission-review-augment-tool-registry (tool-registry) tool-registry)
 (defun mission-review-augment-tool-registry (registry)
   "Register explicit primary mission reviewer operations in REGISTRY."
   (tool-registry-describe-namespace registry "mission-review" "Optional independent reviewer checkpoints and primary decisions.")
-  (let* ((id (tool-string-property "Attached checkpoint ID."))
+  (let* ((id      (tool-string-property "Attached checkpoint ID."))
          (strings (json-object "type" "array" "items" (json-object "type" "string")))
          (specifications
            (list
@@ -87,5 +93,5 @@
       (tool-registry-register registry
                               (make-instance 'mission-review-tool :namespace "mission-review"
                                              :name (first specification) :description (second specification)
-                                             :parameters (third specification)))))
+                                             :parameters                     (third specification)))))
   registry)
