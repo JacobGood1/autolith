@@ -116,15 +116,12 @@
 
 ;;;; -- Observation Identity Protocol --
 
-(-> resource-observation-state-class (resource) symbol)
 (defgeneric resource-observation-state-class (resource)
   (:documentation "Return the observation-state class recorded for RESOURCE."))
 
-(-> resource-item-identity (resource) non-empty-string)
 (defgeneric resource-item-identity (resource)
   (:documentation "Return RESOURCE's collection or exact item identity."))
 
-(-> resource-observation-identity (resource-observation) non-empty-string)
 (defgeneric resource-observation-identity (observation)
   (:documentation "Return OBSERVATION's collection or exact item identity."))
 
