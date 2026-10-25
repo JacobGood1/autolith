@@ -56,47 +56,47 @@
   (let ((identifier (memory-identifier memory)))
     (make-instance
      'memory-manager-item
-     :identifier identifier
-     :key (concatenate 'string "note:" identifier)
-     :kind ':note
-     :title (application-memory--title memory)
-     :scope (memory-scope memory)
-     :status (memory-assessment-status (memory-assess assessor memory))
+     :identifier  identifier
+     :key         (concatenate 'string "note:" identifier)
+     :kind        ':note
+     :title       (application-memory--title memory)
+     :scope       (memory-scope memory)
+     :status      (memory-assessment-status (memory-assess assessor memory))
      :search-text (format nil "~A ~A ~A ~{~A ~} ~S ~S"
                           (memory-title memory) (memory-content memory) identifier
                           (memory-tags memory) (memory-sources memory) (memory-premises memory))
-     :data memory
-     :version (copy-tree (memory--record memory))
-     :updated-at (memory-updated-at memory)
+     :data        memory
+     :version     (copy-tree (memory--record memory))
+     :updated-at  (memory-updated-at memory)
      :deletable-p t)))
 
 (-> application-memory-manager--fact (knowledge-view knowledge-node) memory-manager-item)
 (defun application-memory-manager--fact (view node)
   "Capture NODE, including direct support provenance and retraction eligibility."
-  (let* ((base (knowledge-view-base view))
+  (let* ((base       (knowledge-view-base view))
          (identifier (knowledge-node-identifier node))
-         (supports (loop for support in (knowledge-node-supports node)
-                         collect (knowledge-base-support base (getf support :id))))
-         (evidence (loop for support in supports
-                         when (getf support :evidence)
-                           collect (knowledge-base-evidence-record base (getf support :evidence)))))
+         (supports   (loop for support in (knowledge-node-supports node)
+                           collect (knowledge-base-support base (getf support :id))))
+         (evidence   (loop for support in supports
+                           when (getf support :evidence)
+                             collect (knowledge-base-evidence-record base (getf support :evidence)))))
     (make-instance
      'memory-manager-item
-     :identifier identifier
-     :key (concatenate 'string "fact:" identifier)
-     :kind ':fact
-     :title (application-knowledge--text node)
-     :scope (knowledge-node-scope node)
-     :status (if (eq (knowledge-node-status view node) ':conflicted)
-                 ':conflicted
-                 (knowledge-node-applicability node))
+     :identifier  identifier
+     :key         (concatenate 'string "fact:" identifier)
+     :kind        ':fact
+     :title       (application-knowledge--text node)
+     :scope       (knowledge-node-scope node)
+     :status      (if (eq (knowledge-node-status view node) ':conflicted)
+                      ':conflicted
+                      (knowledge-node-applicability node))
      :search-text (format nil "~A ~A ~S ~S ~S" (knowledge-node-text node) identifier
                           (knowledge-node-proposition node) evidence
                           (knowledge-node-justifications node))
-     :data node
-     :version (memory-manager-item--fact-version view node)
-     :updated-at (loop for support in supports maximize (or (getf support :time) 0) into time
-                       finally (return (or time 0)))
+     :data        node
+     :version     (memory-manager-item--fact-version view node)
+     :updated-at  (loop for support in supports maximize (or (getf support :time) 0) into time
+                        finally (return (or time 0)))
      :deletable-p (and (some (lambda (support)
                               (and support (not (getf support :retracted-at))))
                             supports)
@@ -106,26 +106,29 @@
 (defun application-memory-manager--rank (item)
   "Sort conflicted/stale items before unverified items and current ones."
   (case (memory-manager-item-status item)
-    ((:conflicted :stale :expired) 0)
-    ((:unverified :pending) 1)
-    (otherwise 2)))
+    ((:conflicted :stale :expired)
+     0)
+    ((:unverified :pending)
+     1)
+    (otherwise
+     2)))
 
 (-> application-memory-manager-items (application) list)
 (defun application-memory-manager-items (application)
   "Return every visible note and listed fact, attention first and newest next."
   (let* ((configuration (application-configuration application))
-         (assessor (memory-assessor-create configuration))
-         (view (application-knowledge--view application))
-         (items (append
-                 (mapcar (lambda (memory) (application-memory-manager--note memory assessor))
-                         (memory-list configuration))
-                 (loop for node being the hash-values of (knowledge-view-nodes view)
-                       when (application-knowledge--listed-p node)
-                         collect (application-memory-manager--fact view node)))))
+         (assessor      (memory-assessor-create configuration))
+         (view          (application-knowledge--view application))
+         (items         (append
+                         (mapcar (lambda (memory) (application-memory-manager--note memory assessor))
+                                 (memory-list configuration))
+                         (loop for node being the hash-values of (knowledge-view-nodes view)
+                               when (application-knowledge--listed-p node)
+                                 collect (application-memory-manager--fact view node)))))
     (stable-sort
      items
      (lambda (left right)
-       (let ((left-rank (application-memory-manager--rank left))
+       (let ((left-rank  (application-memory-manager--rank left))
              (right-rank (application-memory-manager--rank right)))
          (cond
            ((/= left-rank right-rank)
@@ -195,8 +198,8 @@
   "Replace a captured note, preserving its recorded evidence and premise versions."
   (unless (application-memory-manager-editable-p item)
     (error 'memory-error :message "Only note memories can be edited."
-           :pathname (configuration-memory-path (application-configuration application))
-           :identifier (memory-manager-item-identifier item)))
+           :pathname              (configuration-memory-path (application-configuration application))
+           :identifier            (memory-manager-item-identifier item)))
   (with-recursive-lock-held (*memory-lock*)
     (application-memory-manager--check application item)
     (memory-remember (application-configuration application)
@@ -213,8 +216,8 @@
       (application-memory-manager--check application item)
       (unless (application-memory-manager-deletable-p item)
         (error 'memory-error :message "Derived facts must be changed through their premises."
-               :pathname (configuration-memory-path (application-configuration application))
-               :identifier (memory-manager-item-identifier item)))
+               :pathname              (configuration-memory-path (application-configuration application))
+               :identifier            (memory-manager-item-identifier item)))
       (let ((result
               (ecase (memory-manager-item-kind item)
                 (:note
