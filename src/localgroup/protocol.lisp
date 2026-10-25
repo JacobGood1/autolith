@@ -23,7 +23,6 @@
 (-> application-localgroup-run-handoff (t keyword t) null)
 (-> localgroup-handoff-assert-startup-active () null)
 (-> localgroup-handoff-finish-startup (t) null)
-
 (define-condition localgroup-error (image-daemon:daemon-error autolith-error)
   ()
   (:documentation
