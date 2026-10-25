@@ -24,7 +24,7 @@
                          :test #'string=)
                  (non-empty-string-p (quri:uri-host uri)))
       (error 'tool-error
-             :message "web_extra.gist requires an absolute HTTP or HTTPS URL with a host."
+             :message   "web_extra.gist requires an absolute HTTP or HTTPS URL with a host."
              :tool-name "web_extra.gist")))
   (fetch-gist:markdown-from-url url))
 
@@ -36,13 +36,13 @@
   (let ((url (tool-argument arguments "url" :required t)))
     (unless (non-empty-string-p url)
       (error 'tool-error
-             :message "web_extra.gist requires a non-empty string url."
+             :message   "web_extra.gist requires a non-empty string url."
              :tool-name "web_extra.gist"))
     (handler-case
-        (let* ((output (web-gist--retrieve url))
-               (observed-at (knowledge-now))
+        (let* ((output            (web-gist--retrieve url))
+               (observed-at       (knowledge-now))
                (overflow-function *tool-result-overflow-function*)
-               (content-object nil)
+               (content-object    nil)
                (result
                  (let ((*tool-result-overflow-function*
                          (when overflow-function
@@ -56,16 +56,16 @@
              (tool-context-conversation context)
              (list :web-retrieval
                    :tool "web_extra.gist"
-                   :url url
-                   :call-id (tool-context-call-id context)
-                   :result-digest (memory-source-text-digest output)
-                   :output-digest (memory-source-text-digest (tool-result-content result))
+                   :url             url
+                   :call-id         (tool-context-call-id context)
+                   :result-digest   (memory-source-text-digest output)
+                   :output-digest   (memory-source-text-digest (tool-result-content result))
                    :retained-length (min 8000 (length output))
-                   :content-object content-object
-                   :observed-at observed-at)))
+                   :content-object  content-object
+                   :observed-at     observed-at)))
           result)
       (error (condition)
         (error 'tool-error
-               :message (format nil "web_extra.gist could not retrieve ~A: ~A"
-                                url condition)
+               :message   (format nil "web_extra.gist could not retrieve ~A: ~A"
+                                  url condition)
                :tool-name "web_extra.gist")))))
