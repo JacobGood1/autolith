@@ -38,7 +38,8 @@
          ':os-permission-denied)
         ((eq (platform-error-reason condition) ':missing)
          ':not-found)
-        (t ':file-error)))
+        (t
+         ':file-error)))
 
 (defmethod tool-failure-code ((condition file-operation-failed))
   "Classify exact-file failures before their condition details are discarded."
@@ -46,7 +47,8 @@
          ':os-permission-denied)
         ((eq (file-operation-failed-reason condition) ':missing)
          ':not-found)
-        (t ':file-error)))
+        (t
+         ':file-error)))
 
 (defmethod tool-failure-code ((condition resource-operation-unsupported))
   "Expose generic unsupported operations through the tool transport."
@@ -58,17 +60,16 @@
 (defparameter *resource-readable-schemes* nil
   "Optional exact URI schemes permitted during one restricted tool call.")
 
-
 (defclass resource-observation-state ()
   ((alias
-    :initarg :alias
-    :reader resource-observation-state-alias
-    :type non-empty-string
+    :initarg       :alias
+    :reader        resource-observation-state-alias
+    :type          non-empty-string
     :documentation "The short opaque revision alias visible to the model.")
    (observation
-    :initarg :observation
-    :reader resource-observation-state-observation
-    :type resource-observation
+    :initarg       :observation
+    :reader        resource-observation-state-observation
+    :type          resource-observation
     :documentation "The complete internal observation represented by the alias."))
   (:documentation "Conversation-local state for one model-visible resource observation."))
 
