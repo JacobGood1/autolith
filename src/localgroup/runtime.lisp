@@ -414,9 +414,9 @@ forced shutdown does; the conversation stays resumable."
                                  (cons (integer 1 10000) null))))))))
 
 (-> localgroup--serve-attachment
-    (localgroup-session sb-bsd-sockets:socket stream list)
+    (localgroup-session list &key (:socket sb-bsd-sockets:socket) (:stream stream))
     null)
-(defun localgroup--serve-attachment (session socket stream request)
+(defun localgroup--serve-attachment (session request &key socket stream)
   "Attach REQUEST's persistent SOCKET while coordinating the application reader."
   (unless (localgroup--valid-request-p request session)
     (daemon-write-packet
@@ -632,7 +632,7 @@ already disconnected costs nothing."
   "Dispatch authenticated requests according to Autolith's command and attachment policy."
   (case (localgroup--request-field request :operation)
     (:attach
-     (localgroup--serve-attachment session socket stream request))
+     (localgroup--serve-attachment session request :socket socket :stream stream))
     (:message
      (image-daemon:daemon-message-handle-request
       session request :stream stream
