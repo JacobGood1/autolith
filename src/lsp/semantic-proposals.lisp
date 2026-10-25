@@ -28,8 +28,8 @@
   ':tool-failure)
 
 (defclass lsp-semantic-state ()
-  ((entries :initform (make-hash-table :test #'eq :weakness :key)
-            :reader lsp-semantic-state-entries
+  ((entries :initform      (make-hash-table :test #'eq :weakness :key)
+            :reader        lsp-semantic-state-entries
             :documentation "Conversation-keyed bounded choices, without owning conversations."))
   (:documentation "Registry-owned semantic choices serialized by the LSP manager lock."))
 
@@ -59,8 +59,8 @@
   (unless (and (stringp uri) (uiop:string-prefix-p "file:///" uri)
                (not (find #\? uri)) (not (find #\# uri)))
     (lsp-semantic--fail "Semantic edits require local file URIs without authorities, queries or fragments."))
-  (let* ((name (workspace-file--decode-identifier "file" (subseq uri 7)))
-         (path (platform-file-uri-pathname *platform* name))
+  (let* ((name     (workspace-file--decode-identifier "file" (subseq uri 7)))
+         (path     (platform-file-uri-pathname *platform* name))
          (resource (resource-registry-resolve
                     (tool-registry-resource-registry (tool-context-registry context))
                     (concatenate 'string "workspace:" (workspace-file--encode-identifier
@@ -87,7 +87,7 @@
 (defun lsp-semantic--snapshot-function (context client snapshots)
   "Capture bounded authorized resources and synchronized versions before normalization."
   (let ((versions (make-hash-table :test #'equal))
-        (bytes (lsp-semantic--snapshot-bytes snapshots)))
+        (bytes    (lsp-semantic--snapshot-bytes snapshots)))
     (with-lock-held ((cl-lsp:lsp-client-lock client))
       (maphash (lambda (uri document)
                  (setf (gethash uri versions)
@@ -103,9 +103,9 @@
                  (observation
                    (workspace-file--call-with-authorized-access
                     resource context ':read (lambda () (resource-observe resource context))))
-                 (kind (workspace-file-observation-kind observation))
-                 (version (gethash uri versions))
-                 (weight (workspace-file--observation-retained-bytes observation)))
+                 (kind     (workspace-file-observation-kind observation))
+                 (version  (gethash uri versions))
+                 (weight   (workspace-file--observation-retained-bytes observation)))
             (unless (member kind '(:file :missing))
               (lsp-semantic--fail "Semantic edits do not support directories or service resources."))
             (when (> (+ bytes weight) *lsp-semantic-maximum-snapshot-bytes*)
@@ -137,9 +137,9 @@
   (when (> (length (json-encode (lsp-semantic-entry-value entry)))
            *lsp-semantic-maximum-characters*)
     (lsp-semantic--fail "Semantic proposal exceeds the retained choice limit; narrow the request."))
-  (let* ((snapshots (lsp-semantic-entry-snapshots entry))
+  (let* ((snapshots    (lsp-semantic-entry-snapshots entry))
          (conversation (tool-context-conversation context))
-         (entries (cons entry (gethash conversation (lsp-semantic-state-entries state)))))
+         (entries      (cons entry (gethash conversation (lsp-semantic-state-entries state)))))
     (when (or (> (hash-table-count snapshots)
                  (min *lsp-semantic-maximum-snapshots-per-entry* *lsp-semantic-maximum-snapshots*))
               (> (lsp-semantic--snapshot-bytes snapshots) *lsp-semantic-maximum-snapshot-bytes*))
@@ -192,7 +192,7 @@
 (-> lsp-semantic--edit-text (string vector) string)
 (defun lsp-semantic--edit-text (text edits)
   "Apply validated simultaneous offsets, retaining insertion order at equal offsets."
-  (let ((cursor 0)
+  (let ((cursor  0)
         (ordered (stable-sort (coerce edits 'list)
                               (lambda (left right)
                                 (or (< (json-get left "startOffset") (json-get right "startOffset"))
@@ -212,11 +212,11 @@
 (-> lsp-semantic--requests (tool-context lsp-semantic-entry) list)
 (defun lsp-semantic--requests (context entry)
   "Evaluate ordered file effects in memory and produce one revisioned request per resource."
-  (let* ((plan (lsp-semantic-entry-value entry))
-         (snapshots (lsp-semantic-entry-snapshots entry))
-         (overlay (make-hash-table :test #'equal))
+  (let* ((plan              (lsp-semantic-entry-value entry))
+         (snapshots         (lsp-semantic-entry-snapshots entry))
+         (overlay           (make-hash-table :test #'equal))
          (permission-donors (make-hash-table :test #'equal))
-         (order nil))
+         (order             nil))
     (unless (equal (json-get plan "positionEncoding") "utf-16")
       (lsp-semantic--fail "Semantic proposal encoding must be UTF-16."))
     (maphash (lambda (uri record)
@@ -265,8 +265,8 @@
                     (t
                      (lsp-semantic--fail "Delete target does not exist."))))
                  ((equal kind "rename")
-                  (let* ((old (json-get operation "oldUri"))
-                         (new (json-get operation "newUri"))
+                  (let* ((old    (json-get operation "oldUri"))
+                         (new    (json-get operation "newUri"))
                          (source (content old))
                          (target (content new)))
                     (unless source (lsp-semantic--fail "Move source does not exist."))
