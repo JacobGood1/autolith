@@ -50,31 +50,31 @@
 
 (defclass request-context ()
   ((configuration
-    :initarg :configuration
-    :reader request-context-configuration
-    :type configuration
+    :initarg       :configuration
+    :reader        request-context-configuration
+    :type          configuration
     :documentation "The immutable configuration for this request.")
    (conversation
-    :initarg :conversation
-    :reader request-context-conversation
-    :type conversation
+    :initarg       :conversation
+    :reader        request-context-conversation
+    :type          conversation
     :documentation "The durable conversation projected by this request.")
    (tool-namespaces
-    :initarg :tool-namespaces
-    :reader request-context-tool-namespaces
-    :type vector
+    :initarg       :tool-namespaces
+    :reader        request-context-tool-namespaces
+    :type          vector
     :documentation "The filtered local tool namespaces, before provider wire encoding.")
    (goal-context
-    :initarg :goal-context
-    :initform nil
-    :reader request-context-goal-context
-    :type (option string)
+    :initarg       :goal-context
+    :initform      nil
+    :reader        request-context-goal-context
+    :type          (option string)
     :documentation "The active request-local goal context, when present.")
    (compaction-p
-    :initarg :compaction-p
-    :initform nil
-    :reader request-context-compaction-p
-    :type boolean
+    :initarg       :compaction-p
+    :initform      nil
+    :reader        request-context-compaction-p
+    :type          boolean
     :documentation "Whether the request is a side-channel compaction."))
   (:documentation "A read-only snapshot supplied to context contributors."))
 
@@ -87,115 +87,116 @@ activation, contents, and lifetime are checked on every request."))
 
 (defclass context-delivery ()
   ((conversation-identifier
-    :initarg :conversation-identifier
-    :reader context-delivery-conversation-identifier
-    :type non-empty-string
+    :initarg       :conversation-identifier
+    :reader        context-delivery-conversation-identifier
+    :type          non-empty-string
     :documentation "The conversation for which this delivery was assembled.")
    (created-at
-    :initarg :created-at
-    :reader context-delivery-created-at
-    :type timestamp
+    :initarg       :created-at
+    :reader        context-delivery-created-at
+    :type          timestamp
     :documentation "The assembly time as Common Lisp universal time.")
    (contributions
-    :initarg :contributions
-    :reader context-delivery-contributions
-    :type list
+    :initarg       :contributions
+    :reader        context-delivery-contributions
+    :type          list
     :documentation "The contributions selected for the provider request.")
    (omitted
-    :initarg :omitted
-    :reader context-delivery-omitted
-    :type list
+    :initarg       :omitted
+    :reader        context-delivery-omitted
+    :type          list
     :documentation "Advisory contributions omitted by the token budget.")
    (failures
-    :initarg :failures
-    :reader context-delivery-failures
-    :type list
+    :initarg       :failures
+    :reader        context-delivery-failures
+    :type          list
     :documentation "Contributor identifiers paired with bounded failure reports.")
    (rendered
-    :initarg :rendered
-    :reader context-delivery-rendered
-    :type (option string)
+    :initarg       :rendered
+    :reader        context-delivery-rendered
+    :type          (option string)
     :documentation "The complete request-local developer message, when nonempty.")
    (selection
-    :initarg :selection
-    :reader context-delivery-selection
-    :type cl-llm-provider-api:context-selection
+    :initarg       :selection
+    :reader        context-delivery-selection
+    :type          cl-llm-provider-api:context-selection
     :documentation "The generic selection whose receipts await request success."))
   (:documentation "Non-conversation diagnostics for one ephemeral context assembly."))
+
 (defclass context-contribution-diagnostic ()
   ((identifier
-    :initarg :identifier
-    :reader context-contribution-diagnostic-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        context-contribution-diagnostic-identifier
+    :type          non-empty-string
     :documentation "The stable identity of the selected or omitted contribution.")
    (contributor
-    :initarg :contributor
-    :reader context-contribution-diagnostic-contributor
-    :type non-empty-string
+    :initarg       :contributor
+    :reader        context-contribution-diagnostic-contributor
+    :type          non-empty-string
     :documentation "The registration that produced the contribution.")
    (source
-    :initarg :source
-    :reader context-contribution-diagnostic-source
-    :type keyword
+    :initarg       :source
+    :reader        context-contribution-diagnostic-source
+    :type          keyword
     :documentation "The built-in, user, or runtime origin of the contributor.")
    (priority
-    :initarg :priority
-    :reader context-contribution-diagnostic-priority
-    :type integer
+    :initarg       :priority
+    :reader        context-contribution-diagnostic-priority
+    :type          integer
     :documentation "The priority used while resolving the contribution.")
    (lifetime
-    :initarg :lifetime
-    :reader context-contribution-diagnostic-lifetime
-    :type context-contribution-lifetime
+    :initarg       :lifetime
+    :reader        context-contribution-diagnostic-lifetime
+    :type          context-contribution-lifetime
     :documentation "The contribution's request-local lifetime.")
    (class
-    :initarg :class
-    :reader context-contribution-diagnostic-class
-    :type context-contribution-class
+    :initarg       :class
+    :reader        context-contribution-diagnostic-class
+    :type          context-contribution-class
     :documentation "Whether the contribution was mandatory or advisory.")
    (instruction-character-count
-    :initarg :instruction-character-count
-    :reader context-contribution-diagnostic-instruction-character-count
-    :type (integer 1)
+    :initarg       :instruction-character-count
+    :reader        context-contribution-diagnostic-instruction-character-count
+    :type          (integer 1)
     :documentation "The instruction payload size without retaining its contents.")
    (evidence-character-count
-    :initarg :evidence-character-count
-    :reader context-contribution-diagnostic-evidence-character-count
-    :type (integer 0)
+    :initarg       :evidence-character-count
+    :reader        context-contribution-diagnostic-evidence-character-count
+    :type          (integer 0)
     :documentation "The evidence payload size without retaining its contents.")
    (token-estimate
-    :initarg :token-estimate
-    :reader context-contribution-diagnostic-token-estimate
-    :type (integer 0)
+    :initarg       :token-estimate
+    :reader        context-contribution-diagnostic-token-estimate
+    :type          (integer 0)
     :documentation "The approximate request-token cost of the contribution."))
   (:documentation
    "Bounded observability metadata detached from request-local payload text."))
 
 (defclass context-delivery-diagnostic ()
   ((conversation-identifier
-    :initarg :conversation-identifier
-    :reader context-delivery-diagnostic-conversation-identifier
-    :type non-empty-string
+    :initarg       :conversation-identifier
+    :reader        context-delivery-diagnostic-conversation-identifier
+    :type          non-empty-string
     :documentation "The conversation for which the delivery was assembled.")
    (created-at
-    :initarg :created-at
-    :reader context-delivery-diagnostic-created-at
-    :type timestamp
+    :initarg       :created-at
+    :reader        context-delivery-diagnostic-created-at
+    :type          timestamp
     :documentation "The delivery assembly time as Common Lisp universal time.")
    (contributions
-    :initarg :contributions
-    :reader context-delivery-diagnostic-contributions
-    :type list
+    :initarg       :contributions
+    :reader        context-delivery-diagnostic-contributions
+    :type          list
     :documentation "Metadata for contributions selected for the request.")
    (omitted
-    :initarg :omitted
-    :reader context-delivery-diagnostic-omitted
-    :type list
+    :initarg       :omitted
+    :reader        context-delivery-diagnostic-omitted
+    :type          list
     :documentation "Metadata for advisory contributions omitted by budgeting.")
    (failures
-    :initarg :failures
-    :reader context-delivery-diagnostic-failures
-    :type list
+    :initarg       :failures
+    :reader        context-delivery-diagnostic-failures
+    :type          list
     :documentation "Contributor identifiers paired with bounded failure reports."))
   (:documentation
    "A retained context delivery summary containing no provider payload text."))
@@ -213,7 +214,6 @@ activation, contents, and lifetime are checked on every request."))
                             field
                             *context-contribution-identifier-limit*)))
   value)
-
 
 (-> make-context-contribution
     (&key (:identifier string) (:instruction string) (:evidence (option string))
@@ -233,6 +233,7 @@ activation, contents, and lifetime are checked on every request."))
     (cl-llm-provider-api:context-contribution-error (condition)
       (error 'configuration-error
              :message (cl-llm-provider-api:provider-api-error-message condition)))))
+
 (-> context--function-designator-p (t) boolean)
 (defun context--function-designator-p (value)
   "Return true when VALUE names or is an invocable contributor function."
@@ -268,15 +269,15 @@ identifier can only reload its existing named definition."
                (if definition-name
                    (symbol-function definition-name)
                    function-designator))
-             (registration (list :identifier identifier
+             (registration (list :identifier      identifier
                                  :definition-name definition-name
-                                 :function function
-                                 :source source))
+                                 :function        function
+                                 :source          source))
              (existing
                (find identifier *context-contributors*
                      :test #'string=
-                     :key (lambda (candidate)
-                            (getf candidate :identifier)))))
+                     :key  (lambda (candidate)
+                             (getf candidate :identifier)))))
         (when (and existing
                    (eq (getf existing :source) ':built-in)
                    (not (and (eq source ':built-in)
@@ -301,8 +302,8 @@ identifier can only reload its existing named definition."
       (let ((registration
               (find identifier *context-contributors*
                     :test #'string=
-                    :key (lambda (candidate)
-                           (getf candidate :identifier)))))
+                    :key  (lambda (candidate)
+                            (getf candidate :identifier)))))
         (when (and registration
                    (not (eq (getf registration :source) ':built-in)))
           (setf *context-contributors*
@@ -339,8 +340,8 @@ have the same evaluation behavior as DEFUN."
      :identifier "session-state"
      :instruction
      (request-context-session-state (request-context-configuration request))
-     :priority -1000
-     :class ':mandatory)))
+     :priority   -1000
+     :class      ':mandatory)))
 
 (eval-when (:load-toplevel :execute)
   (register-context-contributor
@@ -371,8 +372,8 @@ have the same evaluation behavior as DEFUN."
   "Return a detached registration for IDENTIFIER, when one exists."
   (find identifier (context-contributor-registrations)
         :test #'string=
-        :key (lambda (registration)
-               (getf registration :identifier))))
+        :key  (lambda (registration)
+                (getf registration :identifier))))
 
 (-> context--registration-snapshot (string) (option list))
 (defun context--registration-snapshot (identifier)
@@ -381,7 +382,7 @@ have the same evaluation behavior as DEFUN."
     (loop for registration in registrations
           for position from 0
           when (string= identifier (getf registration :identifier))
-            return (list :position position
+            return (list :position     position
                          :registration registration))))
 
 (-> context--registration-restore (string (option list)) null)
@@ -394,7 +395,7 @@ have the same evaluation behavior as DEFUN."
              *context-contributors* identifier snapshot
              :key-function
              (lambda (registration) (getf registration :identifier))
-             :key-test #'string=
+             :key-test      #'string=
              :copy-function #'copy-tree))))
   nil)
 
@@ -455,17 +456,17 @@ have the same evaluation behavior as DEFUN."
     ((contribution context-contribution) contributor source)
   (make-instance
    'context-contribution
-   :identifier (context-contribution-identifier contribution)
-   :instruction (context-contribution-instruction contribution)
-   :evidence (context-contribution-evidence contribution)
-   :priority (context-contribution-priority contribution)
-   :lifetime (context-contribution-lifetime contribution)
-   :class (context-contribution-class contribution)
+   :identifier        (context-contribution-identifier contribution)
+   :instruction       (context-contribution-instruction contribution)
+   :evidence          (context-contribution-evidence contribution)
+   :priority          (context-contribution-priority contribution)
+   :lifetime          (context-contribution-lifetime contribution)
+   :class             (context-contribution-class contribution)
    :deduplication-key (context-contribution-deduplication-key contribution)
-   :supersedes (copy-list (context-contribution-supersedes contribution))
-   :conflict-group (context-contribution-conflict-group contribution)
-   :contributor contributor
-   :source source))
+   :supersedes        (copy-list (context-contribution-supersedes contribution))
+   :conflict-group    (context-contribution-conflict-group contribution)
+   :contributor       contributor
+   :source            source))
 
 (defmethod context--copy-contribution
     ((contribution anchored-context-contribution) contributor source)
@@ -489,8 +490,10 @@ have the same evaluation behavior as DEFUN."
   "Return RESULT as a validated contribution list with registration provenance."
   (let ((contributions
           (cond
-            ((null result) nil)
-            ((typep result 'context-contribution) (list result))
+            ((null result)
+             nil)
+            ((typep result 'context-contribution)
+             (list result))
             ((handler-case
                  (let ((length (list-length result)))
                    (and (integerp length)
@@ -591,27 +594,27 @@ history was removed or compacted. Never append context to durable history."
   (unless delivery
     (return-from context-delivery-project-items (values items nil)))
   (let* ((contributions (context-delivery-contributions delivery))
-         (anchored (stable-sort
-                    (remove-if-not
-                     (lambda (contribution)
-                       (typep contribution 'anchored-context-contribution))
-                     contributions)
-                    #'< :key #'context-contribution-priority))
-         (trailing (remove-if
-                    (lambda (contribution)
-                      (typep contribution 'anchored-context-contribution))
-                    contributions)))
+         (anchored      (stable-sort
+                         (remove-if-not
+                          (lambda (contribution)
+                            (typep contribution 'anchored-context-contribution))
+                          contributions)
+                         #'< :key #'context-contribution-priority))
+         (trailing      (remove-if
+                         (lambda (contribution)
+                           (typep contribution 'anchored-context-contribution))
+                         contributions)))
     (with-recursive-lock-held ((conversation-append-lock conversation))
-      (let ((previous (conversation-context-anchors conversation))
+      (let ((previous   (conversation-context-anchors conversation))
             (generation (conversation-log-generation conversation))
-            (groups (make-hash-table :test #'eq))
-            (anchors nil)
-            (projected nil))
+            (groups     (make-hash-table :test #'eq))
+            (anchors    nil)
+            (projected  nil))
         (dolist (contribution anchored)
-          (let* ((key (list (context-contribution-contributor contribution)
-                            (context-contribution-source contribution)
-                            (context-contribution-identifier contribution)))
-                 (old (assoc key previous :test #'equal))
+          (let* ((key   (list (context-contribution-contributor contribution)
+                              (context-contribution-source contribution)
+                              (context-contribution-identifier contribution)))
+                 (old   (assoc key previous :test #'equal))
                  (after (if (and old
                                 (= (getf (rest old) :generation) generation)
                                 (or (null (getf (rest old) :after))
@@ -643,12 +646,12 @@ history was removed or compacted. Never append context to durable history."
 (defun context--invoke-contributors (request registrations)
   "Invoke REGISTRATIONS serially for REQUEST, returning values and failures."
   (let ((contributions nil)
-        (failures nil))
+        (failures      nil))
     (with-lock-held (*context-contributor-invocation-lock*)
       (dolist (registration registrations)
         (let ((identifier (getf registration :identifier))
-              (function (getf registration :function))
-              (source (getf registration :source)))
+              (function   (getf registration :function))
+              (source     (getf registration :source)))
           (handler-case
               (setf contributions
                     (append contributions
@@ -670,12 +673,12 @@ history was removed or compacted. Never append context to durable history."
   "Return bounded metadata for CONTRIBUTION without retaining its payload text."
   (make-instance
    'context-contribution-diagnostic
-   :identifier (context-contribution-identifier contribution)
-   :contributor (context-contribution-contributor contribution)
-   :source (context-contribution-source contribution)
-   :priority (context-contribution-priority contribution)
-   :lifetime (context-contribution-lifetime contribution)
-   :class (context-contribution-class contribution)
+   :identifier     (context-contribution-identifier contribution)
+   :contributor    (context-contribution-contributor contribution)
+   :source         (context-contribution-source contribution)
+   :priority       (context-contribution-priority contribution)
+   :lifetime       (context-contribution-lifetime contribution)
+   :class          (context-contribution-class contribution)
    :instruction-character-count
    (length (context-contribution-instruction contribution))
    :evidence-character-count
@@ -698,7 +701,7 @@ history was removed or compacted. Never append context to durable history."
    :omitted
    (mapcar #'context-contribution->diagnostic
            (context-delivery-omitted delivery))
-   :failures (copy-tree (context-delivery-failures delivery))))
+   :failures   (copy-tree (context-delivery-failures delivery))))
 
 (-> context--remember-delivery (context-delivery) null)
 (defun context--remember-delivery (delivery)
@@ -724,7 +727,6 @@ history was removed or compacted. Never append context to durable history."
                         *context-delivery-diagnostic-limit*))))))
   nil)
 
-
 (-> context-resolve-request
     (configuration conversation vector
      &key (:goal-context (option string)) (:compaction-p boolean)) context-delivery)
@@ -744,20 +746,20 @@ history was removed or compacted. Never append context to durable history."
       (let* ((selection
                (cl-llm-provider-api:context-resolve
                 (append *context-request-contributions* contributions)
-                :resolver *context-resolver*
-                :session-key (conversation-identifier conversation)
-                :budget *context-advice-token-budget*
+                :resolver      *context-resolver*
+                :session-key   (conversation-identifier conversation)
+                :budget        *context-advice-token-budget*
                 :cost-function #'context--token-estimate))
              (delivery
                (make-instance
                 'context-delivery :selection selection
-                :conversation-identifier (conversation-identifier conversation)
-                :created-at (get-universal-time)
-                :contributions (cl-llm-provider-api:context-selection-contributions selection)
-                :omitted (cl-llm-provider-api:context-selection-omitted selection)
-                :failures failures
-                :rendered (context--render
-                           (cl-llm-provider-api:context-selection-contributions selection)))))
+                :conversation-identifier     (conversation-identifier conversation)
+                :created-at                  (get-universal-time)
+                :contributions               (cl-llm-provider-api:context-selection-contributions selection)
+                :omitted                     (cl-llm-provider-api:context-selection-omitted selection)
+                :failures                    failures
+                :rendered                    (context--render
+                                              (cl-llm-provider-api:context-selection-contributions selection)))))
         (context--remember-delivery delivery)
         delivery))))
 
@@ -777,6 +779,7 @@ history was removed or compacted. Never append context to durable history."
     (setf *context-last-delivery-order* nil))
   (context-rule-reset)
   nil)
+
 
 ;;;; -- Diagnostics --
 
