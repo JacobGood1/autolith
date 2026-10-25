@@ -431,9 +431,10 @@ filesystem paths are only a programmatic Lisp designator."
             :message "Frame capabilities must be none or read."))))
 
 (-> rlm--bounded-tool-integer
-    (hash-table string (integer 0) (integer 0) (integer 0))
+    (hash-table string
+     &key (:fallback (integer 0)) (:minimum (integer 0)) (:maximum (integer 0)))
     (integer 0))
-(defun rlm--bounded-tool-integer (arguments name fallback minimum maximum)
+(defun rlm--bounded-tool-integer (arguments name &key fallback minimum maximum)
   "Return the integer argument NAME clamped into [MINIMUM, MAXIMUM]."
   (let ((value (gethash name arguments)))
     (cond
@@ -460,14 +461,20 @@ filesystem paths are only a programmatic Lisp designator."
         (rlm-budget-descend parent :task task)
         (rlm-budget-create
          :calls  (rlm--bounded-tool-integer
-                  arguments "calls" calls
-                  1 *rlm-tool-maximum-call-budget*)
+                  arguments "calls"
+                  :fallback calls
+                  :minimum  1
+                  :maximum  *rlm-tool-maximum-call-budget*)
          :tokens (rlm--bounded-tool-integer
-                  arguments "tokens" tokens
-                  1 *rlm-tool-maximum-token-budget*)
+                  arguments "tokens"
+                  :fallback tokens
+                  :minimum  1
+                  :maximum  *rlm-tool-maximum-token-budget*)
          :depth  (rlm--bounded-tool-integer
-                  arguments "depth" depth
-                  0 *rlm-tool-maximum-depth-budget*)))))
+                  arguments "depth"
+                  :fallback depth
+                  :minimum  0
+                  :maximum  *rlm-tool-maximum-depth-budget*)))))
 
 (-> rlm--tool-activity-callback (rlm-frame-tool tool-context) (option function))
 (defun rlm--tool-activity-callback (tool context)
@@ -751,8 +758,9 @@ turn, and async requests hand off at admission."
             (configuration   (second routing))
             (concurrency     (rlm--bounded-tool-integer
                               arguments "concurrency"
-                              *rlm-map-default-concurrency*
-                              1 *rlm-map-maximum-concurrency*))
+                              :fallback *rlm-map-default-concurrency*
+                              :minimum  1
+                              :maximum  *rlm-map-maximum-concurrency*))
             (source-registry (tool-context-registry context)))
        (rlm--tool-invoke
         context arguments
