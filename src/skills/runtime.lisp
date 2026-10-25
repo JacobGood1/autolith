@@ -397,10 +397,10 @@ discovered without copying."
                     (list overflow)))))))
 
 (-> skill--append-selected-contribution
-    (skill-catalog string list (integer 0))
+    (skill-catalog string &key (:contributions list) (:selected-characters (integer 0)))
     (values list (integer 0)))
 (defun skill--append-selected-contribution
-    (catalog name contributions selected-characters)
+    (catalog name &key contributions selected-characters)
   "Return CONTRIBUTIONS and SELECTED-CHARACTERS after adding NAME from CATALOG."
   (let ((metadata (skill-catalog-find catalog name)))
     (cond
@@ -489,8 +489,8 @@ discovered without copying."
                 (skill--append-selected-contribution
                  catalog
                  (skill-metadata-name metadata)
-                 contributions
-                 selected-characters))))
+                 :contributions       contributions
+                 :selected-characters selected-characters))))
         (skill--bound-warning-contributions contributions)))))
 
 (-> skill-request-contributions
