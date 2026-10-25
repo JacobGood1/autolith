@@ -31,7 +31,9 @@
   "Return true when function CALL reads or edits a structured knowledge view."
   (and (member (function-call-canonical-name call) '("resource.read" "resource.edit")
                :test #'equal)
-       (let* ((arguments (ignore-errors (json-decode (or (json-get call "arguments") "{}"))))
+       (let* ((arguments (handler-case (json-decode (or (json-get call "arguments") "{}"))
+                           ((or json-error type-error) ()
+                             nil)))
               (uri       (and (json-object-p arguments) (json-get arguments "uri"))))
          (and (stringp uri)
               (some (lambda (prefix) (uiop:string-prefix-p prefix uri))
