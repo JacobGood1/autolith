@@ -26,7 +26,7 @@ name; unknown keys survive rewrites so releases can share one file.")
 (-> preferences--form->plist (list) list)
 (defun preferences--form->plist (form)
   "Return the durable value plist carried by a version 8 FORM."
-  (loop for (key value) on (rest form) by #'cddr
+  (loop for (key value) on (rest form) by (partial #'nthcdr 2)
         unless (eq key ':version)
           append (list key value)))
 
