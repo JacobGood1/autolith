@@ -298,11 +298,12 @@ With no activity CALLBACK, return a no-op provider callback."
               (rlm--note-activity callback activity)))))))
 
 (-> rlm--run-direct-inference
-    (string string t rlm-budget model-provider conversation
-     &key (:activity-callback (option function)))
+    (string &key (:request string) (:contract t) (:budget rlm-budget)
+     (:provider model-provider) (:conversation conversation)
+     (:activity-callback (option function)))
     (values t string (integer 0)))
 (defun rlm--run-direct-inference
-    (task request contract budget provider conversation &key activity-callback)
+    (task &key request contract budget provider conversation activity-callback)
   "Run a tool-free frame as bare provider calls over CONVERSATION."
   (conversation-append-user-message conversation request)
   (loop with request-count = 0
@@ -519,7 +520,12 @@ with bounded public outputs and a durable trace, never an unvalidated answer."
                (or source-registry (rlm--environment-registry))
                :activity-callback activity-callback)
               (rlm--run-direct-inference
-               task request contract budget provider conversation
+               task
+               :request           request
+               :contract          contract
+               :budget            budget
+               :provider          provider
+               :conversation      conversation
                :activity-callback activity-callback))
         (rlm-budget-exhausted (condition)
           (rlm--signal-partial condition conversation budget))))))
