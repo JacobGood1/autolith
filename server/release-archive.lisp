@@ -552,8 +552,10 @@ rather than failing, so existence needs the following stat first."
             (file-namestring file)))
   output)
 
-(-> release-archive--tar-command (pathname pathname string string) list)
-(defun release-archive--tar-command (tar-file working-dir release-name commit-time)
+(-> release-archive--tar-command
+    (pathname &key (:working-dir pathname) (:release-name string) (:commit-time string))
+    list)
+(defun release-archive--tar-command (tar-file &key working-dir release-name commit-time)
   "Return a deterministic GNU tar command for RELEASE-NAME below WORKING-DIR."
   (list (namestring
          (if (release-archive--gnu-tar-required-p (software-type))
@@ -819,8 +821,10 @@ the managed runtime, matching SBCL source, native libraries, and sandbox helper.
                 (format t "~&Writing ~A.~%" archive)
                 (finish-output)
                 (release-archive--run
-                 (release-archive--tar-command
-                  temporary-tar temporary-root release-name commit-time))
+                 (release-archive--tar-command temporary-tar
+                                               :working-dir  temporary-root
+                                               :release-name release-name
+                                               :commit-time  commit-time))
                 (release-archive--run
                  (list "gzip" "-9n" (namestring temporary-tar)))
                 (release-archive--checksum-file temporary-archive temporary-checksum)

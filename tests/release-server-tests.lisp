@@ -154,9 +154,9 @@
              nil)))
     (release-updater--run-as-service
      configuration
-     ':bootstrap
-     "v0.31.0"
      '("candidate-bootstrap")
+     :stage     ':bootstrap
+     :tag       "v0.31.0"
      :directory #p"/candidate/")
     (test-assert
      (equal

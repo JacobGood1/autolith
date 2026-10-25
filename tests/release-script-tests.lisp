@@ -3186,9 +3186,9 @@ esac
            (let ((command
                    (release-archive--tar-command
                     (merge-pathnames "release.tar" root)
-                    root
-                    "autolith-v0.0.0-x86_64-openbsd"
-                    "0")))
+                    :working-dir  root
+                    :release-name "autolith-v0.0.0-x86_64-openbsd"
+                    :commit-time  "0")))
              (test-assert (and (stringp (first command))
                                (plusp (length (first command))))
                           "tar command starts with a command pathname")

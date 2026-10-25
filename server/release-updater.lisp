@@ -534,11 +534,11 @@ checked-out commit are rejected."
   nil)
 
 (-> release-updater--run-as-service
-    (release-updater-configuration keyword string list
-     &key (:directory (option pathname)))
+    (release-updater-configuration list
+     &key (:stage keyword) (:tag string) (:directory (option pathname)))
     null)
 (defun release-updater--run-as-service
-    (configuration stage tag command &key directory)
+    (configuration command &key stage tag directory)
   "Run COMMAND as the configured service account, reporting STAGE for TAG."
   (handler-case
       (let ((home
@@ -600,15 +600,15 @@ checked-out commit are rejected."
   "Load and validate DEPLOYMENT's release-host entry points in a fresh process."
   (release-updater--run-as-service
    configuration
-   ':candidate-probe
-   (release-source-tag-name source-tag)
    (list "env"
          (format nil "AUTOLITH_RELEASE_SOURCE_ROOT=~A"
                  (namestring deployment))
          (namestring (merge-pathnames "server/run" deployment))
          "host-probe"
          (release-source-tag-name source-tag)
-         (release-source-tag-commit source-tag)))
+         (release-source-tag-commit source-tag))
+   :stage ':candidate-probe
+   :tag   (release-source-tag-name source-tag))
   (unless (release-updater--checkout-valid-p deployment source-tag)
     (error 'release-updater-error
            :stage ':candidate-probe
@@ -641,15 +641,19 @@ checked-out commit are rejected."
           (list (namestring (merge-pathnames "script/check" deployment))))
         (tag (release-source-tag-name source-tag)))
     (handler-case
-        (release-updater--run-as-service
-         configuration ':check tag command :directory deployment)
+        (release-updater--run-as-service configuration command
+                                         :stage     ':check
+                                         :tag       tag
+                                         :directory deployment)
       (release-updater-error (first-failure)
         (format *error-output*
                 "~&Release host candidate check failed once; retrying: ~A~%"
                 first-failure)
         (finish-output *error-output*)
-        (release-updater--run-as-service
-         configuration ':check tag command :directory deployment))))
+        (release-updater--run-as-service configuration command
+                                         :stage     ':check
+                                         :tag       tag
+                                         :directory deployment))))
   nil)
 
 (-> release-updater--grant-service-write-access
@@ -678,8 +682,10 @@ checked-out commit are rejected."
   (let ((tag (release-source-tag-name source-tag)))
     (release-updater--grant-service-write-access configuration deployment)
     (release-updater--run-as-service
-     configuration ':bootstrap tag
+     configuration
      (list (namestring (merge-pathnames "script/bootstrap" deployment)))
+     :stage     ':bootstrap
+     :tag       tag
      :directory deployment)
     (release-updater--check-deployment configuration deployment source-tag)
     (release-updater--run-host-command

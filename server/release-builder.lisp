@@ -544,8 +544,8 @@ tree intact lets one tag's object files fail a later tag's checks."
               :cause (format nil "Repository ~S is not a GitHub URL."
                              repository))))))
 
-(-> release-builder--github-asset-url (string string string string) string)
-(defun release-builder--github-asset-url (owner repo tag name)
+(-> release-builder--github-asset-url (string string &key (:tag string) (:name string)) string)
+(defun release-builder--github-asset-url (owner repo &key tag name)
   "Return the public GitHub download URL for one release asset."
   (format nil "https://github.com/~A/~A/releases/download/~A/~A"
           owner repo tag name))
@@ -634,10 +634,12 @@ tree intact lets one tag's object files fail a later tag's checks."
           (when (or (not (uiop:file-exists-p (merge-pathnames archive-name target)))
                     (not (uiop:file-exists-p (merge-pathnames checksum-name target))))
             (when (and (release-builder--try-download
-                        (release-builder--github-asset-url owner repo tag archive-name)
+                        (release-builder--github-asset-url owner repo :tag  tag
+                                                                      :name archive-name)
                         archive)
                        (release-builder--try-download
-                        (release-builder--github-asset-url owner repo tag checksum-name)
+                        (release-builder--github-asset-url owner repo :tag  tag
+                                                                      :name checksum-name)
                         checksum))
               (format t "~&Fetched ~A.~%" archive-name)
               (finish-output)))))
