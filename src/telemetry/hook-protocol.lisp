@@ -37,16 +37,22 @@ Evaluation events require an explicit incident link; ordinary probes are not rep
     (telemetry--call-safely
      (lambda ()
        (let* ((properties (rest record))
-              (kind (getf properties :kind))
-              (result (getf properties :result))
-              (check-p (member kind '(:exercise :verification)))
-              (outcome (case result
-                         (:pending ':proposed) (:installed ':applied)
-                         (:passed ':verified) (:failed ':failed)
-                         ((:discarded :superseded) ':reverted)
-                         ((:committed :durable) ':committed)))
-              (contexts (or (getf properties :repair-contexts)
-                            (list (getf properties :repair-context)))))
+              (kind       (getf properties :kind))
+              (result     (getf properties :result))
+              (check-p    (member kind '(:exercise :verification)))
+              (outcome    (case result
+                            (:pending
+                             ':proposed) (:installed
+                                          ':applied)
+                            (:passed
+                             ':verified) (:failed
+                                          ':failed)
+                            ((:discarded :superseded)
+                             ':reverted)
+                            ((:committed :durable)
+                             ':committed)))
+              (contexts   (or (getf properties :repair-contexts)
+                              (list (getf properties :repair-context)))))
          ;; A started check or discard is not another proposed repair.
          (when (and outcome (not (and (eq result ':pending)
                                      (member kind '(:exercise :discard :image-commit)))))
@@ -56,19 +62,22 @@ Evaluation events require an explicit incident link; ordinary probes are not rep
                                               contexts)
                                contexts))
              (let* ((incident-id (getf context :incident-id))
-                    (attempt-id (or (getf context :attempt-id)
-                                    (telemetry-mutation-report-id
-                                     (or (getf properties :mutation) (getf properties :id))))))
+                    (attempt-id  (or (getf context :attempt-id)
+                                     (telemetry-mutation-report-id
+                                      (or (getf properties :mutation) (getf properties :id))))))
                (telemetry-note-repair
                 :run *telemetry-run* :report-id (or incident-id attempt-id)
                 :incident-id incident-id :attempt-id attempt-id
-                :event-kind (if check-p ':check ':repair)
+                :event-kind         (if check-p ':check ':repair)
                 :target (getf context :tool) :issue-kind (getf context :issue-kind)
-                :operation (or (getf context :operation) *telemetry-tool-name*)
-                :repair-kind (or (getf context :repair-kind)
-                                 (case kind (:definition ':redefine-function)
-                                            (:set ':change-setting) (otherwise ':other)))
+                :operation          (or (getf context :operation) *telemetry-tool-name*)
+                :repair-kind        (or (getf context :repair-kind)
+                                        (case kind (:definition
+                                                    ':redefine-function)
+                                                   (:set
+                                                    ':change-setting) (otherwise
+                                                                       ':other)))
                 :outcome outcome :verified (and check-p (member result '(:passed :checked)) t)
-                :summary-function (lambda () (getf context :diagnostic))
+                :summary-function   (lambda () (getf context :diagnostic))
                 :verification-scope (when check-p (or (getf context :verification-scope) ':focused))))))))))
   nil)
