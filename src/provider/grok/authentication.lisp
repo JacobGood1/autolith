@@ -38,33 +38,33 @@
   (let ((pathname (credential-source-pathname source)))
     (when (probe-file pathname)
       (handler-case
-          (let* ((document (read-json-file-with-retry pathname))
-                 (record (json-get document (grok-auth-json-scope)))
-                 (auth-mode (and (json-object-p record)
-                                 (json-get record "auth_mode")))
+          (let* ((document     (read-json-file-with-retry pathname))
+                 (record       (json-get document (grok-auth-json-scope)))
+                 (auth-mode    (and (json-object-p record)
+                                    (json-get record "auth_mode")))
                  (access-token (and (json-object-p record)
                                     (json-get record "key")))
-                 (user-id (and (json-object-p record)
-                               (json-get record "user_id")))
-                 (account-id (or (and (non-empty-string-p user-id) user-id)
-                                 (and (stringp access-token)
-                                      (jwt-subject access-token))))
-                 (expires-at (and (json-object-p record)
-                                  (json-get record "expires_at"))))
+                 (user-id      (and (json-object-p record)
+                                    (json-get record "user_id")))
+                 (account-id   (or (and (non-empty-string-p user-id) user-id)
+                                   (and (stringp access-token)
+                                        (jwt-subject access-token))))
+                 (expires-at   (and (json-object-p record)
+                                    (json-get record "expires_at"))))
             (when (and (stringp auth-mode)
                        (string-equal auth-mode "oidc")
                        (non-empty-string-p access-token)
                        (non-empty-string-p account-id))
               (make-instance 'oauth-credentials
-                             :access-token access-token
+                             :access-token  access-token
                              :refresh-token nil
-                             :id-token nil
-                             :account-id account-id
-                             :expires-at (or (and (stringp expires-at)
-                                                  (rfc3339->universal-time
-                                                   expires-at))
-                                             (jwt-expiration access-token))
-                             :source-path pathname)))
+                             :id-token      nil
+                             :account-id    account-id
+                             :expires-at    (or (and (stringp expires-at)
+                                                     (rfc3339->universal-time
+                                                      expires-at))
+                                                (jwt-expiration access-token))
+                             :source-path   pathname)))
         (error ()
           nil)))))
 
