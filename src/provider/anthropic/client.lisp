@@ -30,10 +30,10 @@
 (defun anthropic-provider-create (configuration)
   "Create the Anthropic API key provider for CONFIGURATION."
   (make-instance 'anthropic-api-key-provider
-                 :configuration configuration
+                 :configuration      configuration
                  :credential-manager (anthropic-credential-manager-create
                                       configuration)
-                 :session-id (make-identifier)))
+                 :session-id         (make-identifier)))
 
 (defmethod provider-authenticate ((provider anthropic-api-key-provider)
                                   &key stream open-browser-p)
@@ -50,7 +50,7 @@
      (tool-namespaces vector) &key goal-context compaction-p)
   "Project product prompts and history into the shared Anthropic wire request.
 Return the encoded request and its unconsumed context delivery."
-  (let* ((configuration (provider-configuration provider))
+  (let* ((configuration   (provider-configuration provider))
          (request-namespaces
            (if compaction-p
                #()
@@ -72,22 +72,22 @@ Return the encoded request and its unconsumed context delivery."
          (projection
            (make-instance
             'cl-llm-provider-api:wire-request
-            :model (config :model configuration)
-            :items durable-items
-            :prefix (append
-                     (list (let ((*system-prompt-hosted-web-search-p* nil))
-                             (system-prompt configuration)))
-                     (when compaction-p (list *compaction-instructions*)))
-            :suffix (append
-                     (when (and goal-context (not compaction-p))
-                       (list goal-context))
-                     (when (and delivery
-                                (non-empty-string-p
-                                 (context-delivery-rendered delivery)))
-                       (list (context-delivery-rendered delivery))))
-            :options (list :ephemeral-items ephemeral-items
+            :model   (config :model configuration)
+            :items   durable-items
+            :prefix  (append
+                      (list (let ((*system-prompt-hosted-web-search-p* nil))
+                              (system-prompt configuration)))
+                      (when compaction-p (list *compaction-instructions*)))
+            :suffix  (append
+                      (when (and goal-context (not compaction-p))
+                        (list goal-context))
+                      (when (and delivery
+                                 (non-empty-string-p
+                                  (context-delivery-rendered delivery)))
+                        (list (context-delivery-rendered delivery))))
+            :options (list :ephemeral-items       ephemeral-items
                            :maximum-output-tokens *provider-maximum-output-tokens*
-                           :cache-p (not compaction-p)))))
+                           :cache-p               (not compaction-p)))))
     (values (provider-request-object provider projection effective-tools)
             delivery)))
 
