@@ -14,8 +14,8 @@ can verify the current active state after a discard."
          (record
            (if identifier
                (find identifier effective
-                     :key (lambda (candidate)
-                            (getf (rest candidate) :id))
+                     :key  (lambda (candidate)
+                             (getf (rest candidate) :id))
                      :test #'string=)
                (first (last effective)))))
     (when (and identifier (null record))
@@ -24,7 +24,7 @@ can verify the current active state after a discard."
              (format nil "No effective pending mutation is named ~A."
                      identifier)
              :tool-name "self.exercise"
-             :pathname (configuration-journal-path configuration)))
+             :pathname  (configuration-journal-path configuration)))
     record))
 
 (-> self-exercise-mutation (configuration string (option string)) string)
@@ -33,24 +33,24 @@ can verify the current active state after a discard."
   (with-live-mutation
     (let* ((record
               (self-exercise--mutation-record configuration mutation-identifier))
-            (mutation-identifier
-              (and record (getf (rest record) :id)))
-            (experiment
-              (tuning-experiment-for-mutation configuration
-                                              mutation-identifier))
-            (experiment-identifier
-              (and experiment (tuning-experiment-identifier experiment)))
-            (exercise-identifier (make-identifier)))
+           (mutation-identifier
+             (and record (getf (rest record) :id)))
+           (experiment
+             (tuning-experiment-for-mutation configuration
+                                             mutation-identifier))
+           (experiment-identifier
+             (and experiment (tuning-experiment-identifier experiment)))
+           (exercise-identifier (make-identifier)))
       (mutation-journal-append
        configuration
        (list :mutation
              :kind :exercise
              :id exercise-identifier
-             :lineage *active-image-lineage-identifier*
-             :mutation mutation-identifier
+             :lineage    *active-image-lineage-identifier*
+             :mutation   mutation-identifier
              :experiment experiment-identifier
-             :proposed source
-             :result ':pending))
+             :proposed   source
+             :result     ':pending))
       (handler-case
           (multiple-value-bind (result-values output)
               (self-capture-evaluation
@@ -61,13 +61,13 @@ can verify the current active state after a discard."
              (list :mutation
                    :kind :exercise
                    :id exercise-identifier
-                   :lineage *active-image-lineage-identifier*
-                   :mutation mutation-identifier
+                   :lineage    *active-image-lineage-identifier*
+                   :mutation   mutation-identifier
                    :experiment experiment-identifier
-                   :proposed source
-                   :result ':passed
-                   :values result-values
-                   :output (bounded-string output :limit 2000)))
+                   :proposed   source
+                   :result     ':passed
+                   :values     result-values
+                   :output     (bounded-string output :limit 2000)))
             (format nil
                     "Exercise ~A passed ~:[against the current active state~;for mutation ~:*~A~]~:[~; and tuning experiment ~:*~A~].~2%~A"
                     exercise-identifier
@@ -80,12 +80,12 @@ can verify the current active state after a discard."
            (list :mutation
                  :kind :exercise
                  :id exercise-identifier
-                 :lineage *active-image-lineage-identifier*
-                 :mutation mutation-identifier
+                 :lineage    *active-image-lineage-identifier*
+                 :mutation   mutation-identifier
                  :experiment experiment-identifier
-                 :proposed source
-                 :result ':failed
-                 :condition (bounded-string condition :limit 2000)))
+                 :proposed   source
+                 :result     ':failed
+                 :condition  (bounded-string condition :limit 2000)))
           (error condition))))))
 
 (defmethod tool-execute ((tool self-exercise-tool)
