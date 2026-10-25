@@ -384,7 +384,7 @@
 
 (asdf:defsystem #:autolith/checks
   :description             "Repository source checks and repairs for Autolith's coding rules."
-  :depends-on              (#:autolith)
+  :depends-on              (#:autolith #:mallet)
   :default-component-class autolith-source-file
   :serial                  t
   :components              ((:module     "checks"
@@ -395,6 +395,7 @@
                                           (:file "definitions")
                                           (:file "parinfer")
                                           (:file "warnings")
+                                          (:file "mallet")
                                           (:file "runner")))))
 
 (asdf:defsystem #:autolith/tests

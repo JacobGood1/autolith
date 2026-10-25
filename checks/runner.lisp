@@ -27,7 +27,8 @@
     source-top-level-spacing-rule
     source-local-function-spacing-rule
     source-clause-layout-rule
-    source-alignment-rule)
+    source-alignment-rule
+    source-mallet-rule)
   "The source rules every check applies, in the order repairs run.")
 
 (defparameter *source-check-repair-rounds* 12

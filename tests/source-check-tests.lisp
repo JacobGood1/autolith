@@ -273,6 +273,28 @@
                    "a missing library is a parinfer error")))
   nil)
 
+(-> test-source-mallet-findings () null)
+(defun test-source-mallet-findings ()
+  "Report Mallet's selected rules by their names, scoped by path, and honor reasoned suppressions."
+  (dolist (case '(("script/a.lisp" ("(loop for (key value) on plist" "      collect key)")
+                   (("mallet/unused-loop-variables" 1)))
+                  ("src/a.lisp" ("(list 1)" "(ignore-errors (f))")
+                   (("mallet/no-ignore-errors" 2)))
+                  ("tests/a.lisp" ("(ignore-errors (f))") ())
+                  ("src/a.lisp" ("; mallet:suppress no-ignore-errors -- best-effort cleanup"
+                                 "(ignore-errors (f))")
+                   ())
+                  ("src/a.lisp" ("(eval (intern name))") ())
+                  ("example.asd" ("(defsystem \"example/tests\")") ())))
+    (destructuring-bind (path lines expected) case
+      (test-assert (equal (mapcar (lambda (finding)
+                                    (list (source-finding-rule finding) (source-finding-line finding)))
+                                  (source-rule-findings (make-instance 'source-mallet-rule)
+                                                        (source-check-tests--file path lines)))
+                          expected)
+                   (format nil "Mallet reports ~S in ~A ~S" expected path lines))))
+  nil)
+
 (-> test-source-warning-run () null)
 (defun test-source-warning-run ()
   "Turn the compiling process's records into distinct findings, and report a failed compile."
