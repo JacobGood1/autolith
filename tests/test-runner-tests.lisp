@@ -50,7 +50,7 @@
               "failure details retain assertion and condition evidence")
              (test-assert (= 3 (length (getf result ':timings)))
                           "timings include successful and failed cases")
-             (test-assert (not (tests-report result (make-broadcast-stream)))
+             (test-assert (not (tests-report result :stream (make-broadcast-stream)))
                           "failed cases produce a false report status")))
       (dolist (name '(runner-probe-failure runner-probe-error runner-probe-success))
         (fiveam:rem-test name))))

@@ -123,9 +123,8 @@ ownership of TEMPORARY-ROOT when supplied or allocating a fresh run directory."
              :failures (nreverse failures) :timings (nreverse timings))))
    :temporary-root temporary-root))
 
-(-> tests-report (list &optional stream &key (:case-timings-p boolean)) boolean)
-(defun tests-report (result &optional (stream *standard-output*)
-                            &key (case-timings-p t))
+(-> tests-report (list &key (:stream stream) (:case-timings-p boolean)) boolean)
+(defun tests-report (result &key (stream *standard-output*) (case-timings-p t))
   "Print RESULT's failures, totals and slowest cases; return success.
 
 Include each case's timing unless CASE-TIMINGS-P is NIL."
@@ -155,6 +154,6 @@ Include each case's timing unless CASE-TIMINGS-P is NIL."
 
 Use script/check --jobs N for process-isolated parallel execution."
   (let ((result (tests-run-cases (tests-select :suites suites :tests tests))))
-    (unless (tests-report result *standard-output* :case-timings-p nil)
+    (unless (tests-report result :case-timings-p nil)
       (error "Autolith tests failed."))
     t))
