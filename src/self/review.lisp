@@ -28,11 +28,11 @@ reminder, so restarts merely allow one early reminder.")
 (defun self-review--contribution ()
   "Return one freshly built review reminder contribution."
   (make-context-contribution
-   :identifier "self-improvement-review"
-   :instruction *self-review-instruction*
-   :priority 10
-   :lifetime ':turn
-   :class ':advice
+   :identifier        "self-improvement-review"
+   :instruction       *self-review-instruction*
+   :priority          10
+   :lifetime          ':turn
+   :class             ':advice
    :deduplication-key "self-improvement-review"))
 
 (-> self-review-context (request-context) (option context-contribution))
@@ -44,14 +44,14 @@ and the accumulated working-time gate have passed since the last
 reminder, and it repeats within that trigger turn so the advice survives
 the turn's whole request loop."
   (let ((configuration (request-context-configuration request))
-        (conversation (request-context-conversation request)))
+        (conversation  (request-context-conversation request)))
     (when (and *self-review-enabled-p*
                (not (request-context-compaction-p request))
                (not (config :immutable-p configuration)))
       (let* ((identifier (conversation-identifier conversation))
-             (turns (conversation-user-turn-count conversation))
-             (worked (conversation-working-seconds conversation))
-             (receipt (gethash identifier *self-review-receipts*))
+             (turns      (conversation-user-turn-count conversation))
+             (worked     (conversation-working-seconds conversation))
+             (receipt    (gethash identifier *self-review-receipts*))
              (fired-turn (and receipt (getf receipt :user-turns)))
              (turn-floor
                (if receipt
