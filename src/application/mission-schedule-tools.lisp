@@ -8,7 +8,7 @@
 (-> mission-schedule--application (tool-context) application)
 (defun mission-schedule--application (context)
   "Require the current primary application, excluding delegated agents."
-  (let* ((mission (mission-context-find (tool-context-conversation context)))
+  (let* ((mission     (mission-context-find (tool-context-conversation context)))
          (application (and mission (mission-context-application mission))))
     (unless application
       (mission--reject ':missing "Mission schedules require a mission."))
@@ -25,21 +25,25 @@
 (defmethod tool-execute ((tool mission-schedule-tool) (context tool-context) arguments)
   "Apply a primary schedule operation through ordinary registry authorization."
   (let* ((application (mission-schedule--application context))
-         (name (tool-name tool))
+         (name        (tool-name tool))
          (result
            (cond
              ((string= name "add")
               (task--validate-tool-arguments arguments '("id" "content" "at" "interval" "event" "missed-policy") "mission-schedule.add")
               (application-mission-schedule-add
                application :id (tool-argument arguments "id" :required t)
-               :content (tool-argument arguments "content" :required t)
+               :content        (tool-argument arguments "content" :required t)
                :at (tool-argument arguments "at") :interval (tool-argument arguments "interval")
-               :event (tool-argument arguments "event")
-               :missed-policy (let ((policy (or (tool-argument arguments "missed-policy") "latest")))
-                                (cond ((equal policy "latest") ':latest)
-                                      ((equal policy "all") ':all)
-                                      ((equal policy "skip") ':skip)
-                                      (t (mission--reject ':schedule-policy "Expected latest, all or skip."))))))
+               :event          (tool-argument arguments "event")
+               :missed-policy  (let ((policy (or (tool-argument arguments "missed-policy") "latest")))
+                                 (cond ((equal policy "latest")
+                                        ':latest)
+                                       ((equal policy "all")
+                                        ':all)
+                                       ((equal policy "skip")
+                                        ':skip)
+                                       (t
+                                        (mission--reject ':schedule-policy "Expected latest, all or skip."))))))
              ((string= name "cancel")
               (task--validate-tool-arguments arguments '("id") "mission-schedule.cancel")
               (application-mission-schedule-cancel application (tool-argument arguments "id" :required t)))
@@ -54,13 +58,18 @@
               (task--validate-tool-arguments arguments '("occurrence" "token" "action") "mission-schedule.resolve")
               (application-mission-schedule-resolve
                application (mission--read-data (tool-argument arguments "occurrence" :required t))
-               :token (tool-argument arguments "token" :required t)
+               :token  (tool-argument arguments "token" :required t)
                :action (let ((action (tool-argument arguments "action" :required t)))
-                         (cond ((equal action "retry") ':retry)
-                               ((equal action "completed") ':completed)
-                               ((equal action "failed") ':failed)
-                               (t (mission--reject ':schedule-resolution "Expected retry, completed or failed."))))))
-             (t (mission--reject ':schedule-operation "Unknown schedule operation.")))))
+                         (cond ((equal action "retry")
+                                ':retry)
+                               ((equal action "completed")
+                                ':completed)
+                               ((equal action "failed")
+                                ':failed)
+                               (t
+                                (mission--reject ':schedule-resolution "Expected retry, completed or failed."))))))
+             (t
+              (mission--reject ':schedule-operation "Unknown schedule operation.")))))
     (task-tool-result (task--write-readable-sexp result :pretty-p t) result)))
 
 (-> mission-schedule-register-tools (tool-registry) tool-registry)
@@ -71,7 +80,7 @@
            (tool-registry-register registry
                                    (make-instance 'mission-schedule-tool :namespace "mission-schedule" :name name
                                                   :description description
-                                                  :parameters (tool-object-schema properties required)))))
+                                                  :parameters  (tool-object-schema properties required)))))
     (register "add" "Attach one time, interval or named external event wakeup to the current mission version."
               (json-object "id" (tool-string-property "Stable immutable schedule ID.")
                            "content" (tool-string-property "Mission continuation instructions, at most 8192 characters.")
@@ -99,6 +108,6 @@
      runtime
      :next-deadline-function (lambda (host) (declare (ignore host))
                               (application-mission-schedules-next-time application))
-     :wake-function (lambda (host) (declare (ignore host))
-                      (application-mission-schedules-wake application))))
+     :wake-function          (lambda (host) (declare (ignore host))
+                               (application-mission-schedules-wake application))))
   nil)
