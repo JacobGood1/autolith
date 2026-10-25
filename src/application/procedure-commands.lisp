@@ -14,8 +14,8 @@
 (defun application-procedures-entry (application)
   "Return the learned procedures of APPLICATION's workspace with status, calls, and cost."
   (let* ((configuration (application-configuration application))
-         (entries (knowledge-base-procedures (knowledge-base-read configuration)
-                                             (knowledge--workspace configuration))))
+         (entries       (knowledge-base-procedures (knowledge-base-read configuration)
+                                                   (knowledge--workspace configuration))))
     (if (null entries)
         (list (terminal-span ':hint "No procedures are learned yet. Autolith learns one when three turns make the same tool calls."))
         (append
@@ -27,44 +27,53 @@
 (-> application-procedures--entry-lines (configuration list) list)
 (defun application-procedures--entry-lines (configuration entry)
   "Return the terminal lines describing procedure ENTRY."
-  (let* ((status (procedure-entry-status entry))
+  (let* ((status     (procedure-entry-status entry))
          (identifier (getf entry :id))
-         (version (procedure-entry-version entry))
-         (procedure (getf version :procedure))
-         (baseline (getf version :baseline))
-         (savings (and (member status '(:admitted :suspended))
-                       (procedure-savings configuration identifier)))
-         (request (procedure-input-text procedure)))
+         (version    (procedure-entry-version entry))
+         (procedure  (getf version :procedure))
+         (baseline   (getf version :baseline))
+         (savings    (and (member status '(:admitted :suspended))
+                          (procedure-savings configuration identifier)))
+         (request    (procedure-input-text procedure)))
     (append
      (list (ecase status
-             (:admitted (terminal-span ':success "  ✓ "))
-             (:candidate (terminal-span ':notice "  ? "))
-             (:suspended (terminal-span ':failure "  ! "))
-             (:retired (terminal-span ':dim "  × ")))
-            (terminal-span ':strong
-                           (format nil "~A v~D"
-                                   (sanitize-text identifier :single-line-p t)
-                                   (getf version :version)))
-            (terminal-span (ecase status
-                             (:admitted ':success)
-                             (:candidate ':notice)
-                             (:suspended ':failure)
-                             (:retired ':dim))
-                           (format nil "  ~(~A~)" status))
-            (terminal-span ':dim
-                           (format nil "~@[ · runs v~D~] · ~D run~:P, ~D failed~A~%"
-                                  (and (getf entry :admitted)
-                                       (/= (getf entry :admitted) (getf version :version))
-                                       (getf entry :admitted))
-                                  (getf entry :runs) (getf entry :failures)
-                                  (case status
-                                    (:candidate
-                                     (format nil " · (admit-procedure ~S)"
-                                             (sanitize-text identifier :single-line-p t)))
-                                    (:suspended
-                                     (format nil " · (admit-procedure ~S) to resume"
-                                             (sanitize-text identifier :single-line-p t)))
-                                    (otherwise ""))))
+             (:admitted
+              (terminal-span ':success "  ✓ "))
+             (:candidate
+              (terminal-span ':notice "  ? "))
+             (:suspended
+              (terminal-span ':failure "  ! "))
+             (:retired
+              (terminal-span ':dim "  × ")))
+           (terminal-span ':strong
+                          (format nil "~A v~D"
+                                  (sanitize-text identifier :single-line-p t)
+                                  (getf version :version)))
+           (terminal-span (ecase status
+                            (:admitted
+                             ':success)
+                            (:candidate
+                             ':notice)
+                            (:suspended
+                             ':failure)
+                            (:retired
+                             ':dim))
+                          (format nil "  ~(~A~)" status))
+           (terminal-span ':dim
+                          (format nil "~@[ · runs v~D~] · ~D run~:P, ~D failed~A~%"
+                                 (and (getf entry :admitted)
+                                      (/= (getf entry :admitted) (getf version :version))
+                                      (getf entry :admitted))
+                                 (getf entry :runs) (getf entry :failures)
+                                 (case status
+                                   (:candidate
+                                    (format nil " · (admit-procedure ~S)"
+                                            (sanitize-text identifier :single-line-p t)))
+                                   (:suspended
+                                    (format nil " · (admit-procedure ~S) to resume"
+                                            (sanitize-text identifier :single-line-p t)))
+                                   (otherwise
+                                    ""))))
            (terminal-span ':plain
                           (format nil "    ~{~A~^ → ~}~%"
                                   (mapcar (lambda (step)
@@ -96,9 +105,9 @@
   "Run procedure IDENTIFIER with ARGUMENTS, alternating names and values, and show each call."
   (handler-case
       (let* ((parameters (application-procedures--parameters arguments))
-             (run (procedure-run (application-tool-context application) identifier
-                                 :parameters parameters :caller ':user))
-             (report (procedure-run-report identifier run)))
+             (run        (procedure-run (application-tool-context application) identifier
+                                        :parameters parameters :caller ':user))
+             (report     (procedure-run-report identifier run)))
         (list (if (eq (getf run :status) ':ok)
                   (terminal-span ':success "ran  ")
                   (terminal-span ':failure "stopped  "))
@@ -135,25 +144,25 @@
 ;;;; -- Command Definitions --
 
 (define-application-command application--builtin-procedures-command
-    (:name "/procedures"
-     :argument nil
-     :description "list procedures learned from recurring work"
-     :tip "shows each learned tool sequence, whether it may run, and what it saved."
-     :busy-behavior :inspect
+    (:name              "/procedures"
+     :argument          nil
+     :description       "list procedures learned from recurring work"
+     :tip               "shows each learned tool sequence, whether it may run, and what it saved."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-present application (application-procedures-entry application))
   ':continue)
 
 (define-application-command application--builtin-run-procedure-command
-    (:name "/run-procedure"
-     :argument "[ID] [NAME VALUE ...]"
-     :description "run a learned procedure without the model"
-     :tip "makes the procedure's tool calls with your parameters, each with its usual authorization."
-     :busy-behavior :hold
+    (:name              "/run-procedure"
+     :argument          "[ID] [NAME VALUE ...]"
+     :description       "run a learned procedure without the model"
+     :tip               "makes the procedure's tool calls with your parameters, each with its usual authorization."
+     :busy-behavior     :hold
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application &optional identifier &rest arguments)
   (application-present
    application
@@ -163,13 +172,13 @@
   ':continue)
 
 (define-application-command application--builtin-admit-procedure-command
-    (:name "/admit-procedure"
-     :argument "[ID]"
-     :description "let a learned procedure run"
-     :tip "admits its latest version and lifts a suspension after failed runs."
-     :busy-behavior :apply
+    (:name              "/admit-procedure"
+     :argument          "[ID]"
+     :description       "let a learned procedure run"
+     :tip               "admits its latest version and lifts a suspension after failed runs."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application &optional identifier)
   (application-present
    application
@@ -179,13 +188,13 @@
   ':continue)
 
 (define-application-command application--builtin-retire-procedure-command
-    (:name "/retire-procedure"
-     :argument "[ID]"
-     :description "stop a learned procedure for good"
-     :tip "retires it so it neither runs nor is learned again."
-     :busy-behavior :apply
+    (:name              "/retire-procedure"
+     :argument          "[ID]"
+     :description       "stop a learned procedure for good"
+     :tip               "retires it so it neither runs nor is learned again."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application &optional identifier)
   (application-present
    application
