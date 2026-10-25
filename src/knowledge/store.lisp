@@ -36,74 +36,74 @@ stopped, and INCOMPLETE-P whether an incomplete final record follows it.")
 
 (defclass knowledge-base ()
   ((revision
-    :initform 0
-    :accessor knowledge-base-revision
-    :type (integer 0)
+    :initform      0
+    :accessor      knowledge-base-revision
+    :type          (integer 0)
     :documentation "How many records the log held; each record is one graph revision.")
    (schemas
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-base-schemas
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-base-schemas
+    :type          hash-table
     :documentation "(SCOPE WORKSPACE PREDICATE) to (SCHEMA VERSION).")
    (evidence
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-base-evidence
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-base-evidence
+    :type          hash-table
     :documentation "Evidence records by identifier.")
    (supports
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-base-supports
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-base-supports
+    :type          hash-table
     :documentation "Support records by identifier, retracted ones included.")
    (claims
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-base-claims
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-base-claims
+    :type          hash-table
     :documentation "Claim plists by identifier: proposition, scope, workspace, supports.")
    (predicate-index
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-base-predicate-index
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-base-predicate-index
+    :type          hash-table
     :documentation "Claim identifiers by predicate name.")
    (term-index
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-base-term-index
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-base-term-index
+    :type          hash-table
     :documentation "Claim identifiers by each string argument, for entity lookup.")
    (evidence-index
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-base-evidence-index
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-base-evidence-index
+    :type          hash-table
     :documentation "Support identifiers by the evidence they rest on.")
    (rules
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-base-rules
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-base-rules
+    :type          hash-table
     :documentation "Rule entries by (SCOPE WORKSPACE IDENTIFIER): versions and the active one.")
    (methods
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-base-methods-table
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-base-methods-table
+    :type          hash-table
     :documentation "Task method entries by (SCOPE WORKSPACE IDENTIFIER): the latest definition.")
    (contracts
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-base-contracts-table
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-base-contracts-table
+    :type          hash-table
     :documentation "Action contract entries by (SCOPE WORKSPACE IDENTIFIER): the latest definition.")
    (procedures
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-base-procedures-table
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-base-procedures-table
+    :type          hash-table
     :documentation "Learned procedure entries by (WORKSPACE IDENTIFIER): versions, admission, and runs.")
    (diagnoses
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-base-diagnoses-table
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-base-diagnoses-table
+    :type          hash-table
     :documentation "Saved diagnosis entries by (SCOPE WORKSPACE IDENTIFIER): the latest definition.")
    (diagnosis-cases
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-base-diagnosis-cases-table
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-base-diagnosis-cases-table
+    :type          hash-table
     :documentation "Each workspace's recent diagnosis cases, newest first."))
   (:documentation "The folded state of the knowledge log, with lookup indexes."))
 
@@ -115,9 +115,12 @@ stopped, and INCOMPLETE-P whether an incomplete final record follows it.")
   "Return CONFIGURATION's structured knowledge mode: :ACTIVE, :PASSIVE, or :OFF."
   (let ((mode (config :knowledge-mode configuration)))
     (cond
-      ((equal mode "passive") ':passive)
-      ((equal mode "off") ':off)
-      (t ':active))))
+      ((equal mode "passive")
+       ':passive)
+      ((equal mode "off")
+       ':off)
+      (t
+       ':active))))
 
 (-> knowledge-active-p ((option configuration)) boolean)
 (defun knowledge-active-p (configuration)
@@ -309,7 +312,7 @@ Without a configuration, as in standalone tool registries, knowledge is active."
                  (typep (getf properties :time) 'timestamp))))
          (:diagnosis-recorded
           (let* ((properties (rest record))
-                 (case (getf properties :case)))
+                 (case       (getf properties :case)))
             (and (eq (getf properties :scope) ':workspace)
                  (non-empty-string-p (getf properties :workspace))
                  (proper-list-p case)
@@ -348,16 +351,16 @@ Records of kinds this generation does not know are skipped, so a log written
 by a newer generation stays readable after a rollback."
   (flet ((fail (message)
            (error 'knowledge-error
-                  :code ':corrupt
+                  :code    ':corrupt
                   :subject (namestring pathname)
                   :message message)))
     (let ((properties (rest record)))
       (case (first record)
         (:schema-defined
-         (let* ((schema (getf properties :schema))
-                (key (list (getf properties :scope)
-                           (getf properties :workspace)
-                           (knowledge-schema-predicate schema)))
+         (let* ((schema   (getf properties :schema))
+                (key      (list (getf properties :scope)
+                                (getf properties :workspace)
+                                (knowledge-schema-predicate schema)))
                 (previous (gethash key (knowledge-base-schemas base))))
            (setf (gethash key (knowledge-base-schemas base))
                  (list schema (if previous (1+ (second previous)) 1)))))
@@ -373,8 +376,8 @@ by a newer generation stays readable after a rollback."
                  (getf evidence :valid-until) (getf properties :valid-until)
                  (gethash (getf properties :id) (knowledge-base-evidence base)) evidence)))
         (:claim-asserted
-         (let ((claim (getf properties :claim))
-               (support (getf properties :support))
+         (let ((claim    (getf properties :claim))
+               (support  (getf properties :support))
                (evidence (getf properties :evidence)))
            (when (and evidence
                       (null (gethash evidence (knowledge-base-evidence base))))
@@ -390,11 +393,11 @@ by a newer generation stays readable after a rollback."
                          copy))
                  (let ((proposition (getf properties :proposition)))
                    (setf (gethash claim (knowledge-base-claims base))
-                         (list :id claim
+                         (list :id          claim
                                :proposition proposition
-                               :scope (getf properties :scope)
-                               :workspace (getf properties :workspace)
-                               :supports (list support)))
+                               :scope       (getf properties :scope)
+                               :workspace   (getf properties :workspace)
+                               :supports    (list support)))
                    (knowledge--index-add (knowledge-base-predicate-index base)
                                          (knowledge-proposition-predicate proposition)
                                          claim)
@@ -415,26 +418,26 @@ by a newer generation stays readable after a rollback."
                  (gethash (getf properties :support) (knowledge-base-supports base))
                  support)))
         (:rule-defined
-         (let* ((rule (getf properties :rule))
-                (key (list (getf properties :scope) (getf properties :workspace)
-                           (getf (rest rule) :id)))
+         (let* ((rule  (getf properties :rule))
+                (key   (list (getf properties :scope) (getf properties :workspace)
+                             (getf (rest rule) :id)))
                 (entry (or (copy-list (gethash key (knowledge-base-rules base)))
-                           (list :id (getf (rest rule) :id)
-                                 :scope (getf properties :scope)
+                           (list :id        (getf (rest rule) :id)
+                                 :scope     (getf properties :scope)
                                  :workspace (getf properties :workspace)
-                                 :versions nil
-                                 :active nil))))
+                                 :versions  nil
+                                 :active    nil))))
            (setf (getf entry :versions)
                  (append (getf entry :versions)
                          (list (list :version (1+ (length (getf entry :versions)))
-                                     :rule rule
-                                     :time (getf properties :time)
+                                     :rule    rule
+                                     :time    (getf properties :time)
                                      :source-conversation
                                      (getf properties :source-conversation))))
                  (gethash key (knowledge-base-rules base)) entry)))
         ((:rule-admitted :rule-retired)
-         (let* ((key (list (getf properties :scope) (getf properties :workspace)
-                           (getf properties :id)))
+         (let* ((key   (list (getf properties :scope) (getf properties :workspace)
+                             (getf properties :id)))
                 (entry (copy-list (gethash key (knowledge-base-rules base)))))
            (unless (and entry
                         (or (eq (first record) :rule-retired)
@@ -450,19 +453,19 @@ by a newer generation stays readable after a rollback."
            (setf (gethash (list (getf properties :scope) (getf properties :workspace)
                                 (getf (rest method) :id))
                           (knowledge-base-methods-table base))
-                 (list :method method
-                       :scope (getf properties :scope)
+                 (list :method    method
+                       :scope     (getf properties :scope)
                        :workspace (getf properties :workspace)
-                       :time (getf properties :time)))))
+                       :time      (getf properties :time)))))
         (:contract-defined
-         (let* ((contract (getf properties :contract))
-                (key (list (getf properties :scope) (getf properties :workspace)
-                           (getf (rest contract) :id)))
-                (previous (gethash key (knowledge-base-contracts-table base)))
+         (let* ((contract  (getf properties :contract))
+                (key       (list (getf properties :scope) (getf properties :workspace)
+                                 (getf (rest contract) :id)))
+                (previous  (gethash key (knowledge-base-contracts-table base)))
                 ;; An unadmitted proposal cannot retire a local authorization or
                 ;; move the local version backwards when importing older history.
-                (version (max (or (getf properties :contract-version) 1)
-                              (or (getf previous :contract-version) 1)))
+                (version   (max (or (getf properties :contract-version) 1)
+                                (or (getf previous :contract-version) 1)))
                 (admission (or (getf properties :admission)
                                (getf previous :admission))))
            (unless (or (null admission)
@@ -472,9 +475,9 @@ by a newer generation stays readable after a rollback."
              (fail "A contract proposal carries an admission for an unknown earlier definition."))
            (setf (gethash key (knowledge-base-contracts-table base))
                  (list :contract contract :contract-version version :admission admission
-                       :scope (getf properties :scope)
+                       :scope     (getf properties :scope)
                        :workspace (getf properties :workspace)
-                       :time (getf properties :time)))))
+                       :time      (getf properties :time)))))
         ((:procedure-defined :procedure-admitted :procedure-retired :procedure-run)
          (let ((key (list (getf properties :workspace)
                           (if (eq (first record) :procedure-defined)
@@ -489,12 +492,12 @@ by a newer generation stays readable after a rollback."
                                 (getf (rest diagnosis) :id))
                           (knowledge-base-diagnoses-table base))
                  (list :diagnosis diagnosis
-                       :scope (getf properties :scope)
+                       :scope     (getf properties :scope)
                        :workspace (getf properties :workspace)
-                       :time (getf properties :time)))))
+                       :time      (getf properties :time)))))
         (:diagnosis-recorded
          (let ((cases (cons (append (getf properties :case)
-                                    (list :time (getf properties :time)
+                                    (list :time         (getf properties :time)
                                           :conversation (getf properties :conversation)))
                             (gethash (getf properties :workspace)
                                      (knowledge-base-diagnosis-cases-table base)))))
@@ -567,7 +570,7 @@ incomplete final record remains. Position zero starts with the header."
          (lambda (form)
            (if header-p
                (progn
-                 (unless (sexp-store:record-check form :tag ':knowledge
+                 (unless (sexp-store:record-check form :tag      ':knowledge
                                                        :versions (list *knowledge-format-version*))
                    (knowledge--fail ':corrupt (namestring pathname)
                                     "The knowledge log header is not supported."))
@@ -589,8 +592,8 @@ The second value is true when the log ends in an incomplete record. Appends
 keep the file's identity, so the cache continues from its position; any other
 replacement rereads the whole log."
   (let* ((pathname (configuration-knowledge-path configuration))
-         (name (namestring pathname))
-         (status (platform-path-status *platform* pathname :follow-links-p t)))
+         (name     (namestring pathname))
+         (status   (platform-path-status *platform* pathname :follow-links-p t)))
     (if (null status)
         (values (make-instance 'knowledge-base) nil)
         (with-recursive-lock-held (*knowledge-lock*)
@@ -617,7 +620,7 @@ replacement rereads the whole log."
   (handler-case (funcall function)
     (sexp-store:store-error (cause)
       (error 'knowledge-error
-             :code ':storage
+             :code    ':storage
              :subject (namestring (sexp-store:store-error-pathname cause))
              :message (sexp-store:store-error-message cause)))))
 
@@ -655,7 +658,7 @@ so an interrupted write leaves none of them. Return RESULT."
                 (when (and write-p records)
                   (let ((form (if (rest records)
                                   (list :transaction :version *knowledge-format-version*
-                                        :records records)
+                                        :records     records)
                                   (first records))))
                     (unless (knowledge--record-valid-p form)
                       (knowledge--fail ':invalid form "A knowledge record is malformed."))
@@ -670,17 +673,17 @@ so an interrupted write leaves none of them. Return RESULT."
 
 (defparameter *knowledge-builtin-schemas*
   (list (knowledge-make-schema
-         :predicate "autolith.mission.status"
-         :arguments '((:name "mission" :type :entity) (:name "status" :type :string))
-         :key '("mission")
-         :template "mission {mission} is {status}"
+         :predicate   "autolith.mission.status"
+         :arguments   '((:name "mission" :type :entity) (:name "status" :type :string))
+         :key         '("mission")
+         :template    "mission {mission} is {status}"
          :description "The latest status of an Autolith mission.")
         (knowledge-make-schema
-         :predicate "autolith.mission.gate"
-         :arguments '((:name "mission" :type :entity) (:name "gate" :type :string)
-                      (:name "status" :type :string))
-         :key '("mission" "gate")
-         :template "gate {gate} of mission {mission} {status}"
+         :predicate   "autolith.mission.gate"
+         :arguments   '((:name "mission" :type :entity) (:name "gate" :type :string)
+                        (:name "status" :type :string))
+         :key         '("mission" "gate")
+         :template    "gate {gate} of mission {mission} {status}"
          :description "The latest result of one mission acceptance gate."))
   "Global predicates Autolith's own observations use, defined by Autolith itself.
 
@@ -763,34 +766,34 @@ predicate is refused, because those claims would no longer fit."
         (predicate (knowledge-schema-predicate schema)))
     (values-list
      (knowledge-transact
-     configuration
-     (lambda (base)
-       (destructuring-bind (&optional existing version)
-           (gethash (list scope workspace predicate) (knowledge-base-schemas base))
-         (cond
-           ((equal existing schema)
-            (values nil (list existing version) nil))
-           ((and existing
-                 (not (equal (knowledge-schema-arguments existing)
-                             (knowledge-schema-arguments schema)))
-                 (some (lambda (claim)
-                         (let ((entry (knowledge-base-claim base claim)))
-                           (and (eq (getf entry :scope) scope)
-                                (equal (getf entry :workspace) workspace))))
-                       (knowledge-base-claims-with-predicate base predicate)))
-            (knowledge--fail ':schema-in-use predicate
-                             "Claims already use ~A; keep its arguments, or define a new predicate."
-                             predicate))
-           (t
-            (values (list (list :schema-defined
-                                :version *knowledge-format-version*
-                                :scope scope
-                                :workspace workspace
-                                :schema schema
-                                :time (get-universal-time)
-                                :source-conversation source-conversation))
-                    (list schema (if version (1+ version) 1))
-                    t)))))))))
+      configuration
+      (lambda (base)
+        (destructuring-bind (&optional existing version)
+            (gethash (list scope workspace predicate) (knowledge-base-schemas base))
+          (cond
+            ((equal existing schema)
+             (values nil (list existing version) nil))
+            ((and existing
+                  (not (equal (knowledge-schema-arguments existing)
+                              (knowledge-schema-arguments schema)))
+                  (some (lambda (claim)
+                          (let ((entry (knowledge-base-claim base claim)))
+                            (and (eq (getf entry :scope) scope)
+                                 (equal (getf entry :workspace) workspace))))
+                        (knowledge-base-claims-with-predicate base predicate)))
+             (knowledge--fail ':schema-in-use predicate
+                              "Claims already use ~A; keep its arguments, or define a new predicate."
+                              predicate))
+            (t
+             (values (list (list :schema-defined
+                                 :version *knowledge-format-version*
+                                 :scope               scope
+                                 :workspace           workspace
+                                 :schema              schema
+                                 :time                (get-universal-time)
+                                 :source-conversation source-conversation))
+                     (list schema (if version (1+ version) 1))
+                     t)))))))))
 
 (-> knowledge-make-evidence
     (&key (:source list) (:workspace (option string)) (:digest (option string))
@@ -805,17 +808,17 @@ The identifier depends on the source, digest, adapter, and workspace, so the
 same observation recorded twice is one piece of evidence."
   (let ((record (list :evidence
                       :version *knowledge-format-version*
-                      :id (knowledge-digest-identifier
-                           #\e (list source digest adapter workspace))
-                      :source source
-                      :workspace workspace
-                      :digest digest
+                      :id          (knowledge-digest-identifier
+                                    #\e (list source digest adapter workspace))
+                      :source      source
+                      :workspace   workspace
+                      :digest      digest
                       :observed-at observed-at
                       :valid-until valid-until
-                      :excerpt (and excerpt
-                                    (subseq excerpt 0 (min (length excerpt)
-                                                           *knowledge-excerpt-limit*)))
-                      :adapter adapter)))
+                      :excerpt     (and excerpt
+                                        (subseq excerpt 0 (min (length excerpt)
+                                                               *knowledge-excerpt-limit*)))
+                      :adapter     adapter)))
     (unless (knowledge--evidence-record-p record)
       (knowledge--fail ':invalid-evidence source "The evidence description is malformed."))
     record))
@@ -826,7 +829,7 @@ same observation recorded twice is one piece of evidence."
   (when evidence
     (let* ((properties (rest evidence))
            (identifier (getf properties :id))
-           (recorded (knowledge-base-evidence-record base identifier)))
+           (recorded   (knowledge-base-evidence-record base identifier)))
       (cond
         ((null recorded)
          (list evidence))
@@ -855,8 +858,8 @@ are recorded, so a refreshed observation applies again. When CONTRACT is
 provided, its exact mapping must still be admitted at the assertion's commit;
 a superseded mapping signals INVALID-CONTRACT without writing any records."
   (let* ((workspace (knowledge--owner configuration scope))
-         (viewer (knowledge--workspace configuration))
-         (claim (knowledge-claim-identifier proposition :scope scope :workspace workspace)))
+         (viewer    (knowledge--workspace configuration))
+         (claim     (knowledge-claim-identifier proposition :scope scope :workspace workspace)))
     (unless (typep basis 'knowledge-basis)
       (knowledge--fail ':invalid-claim basis
                        "Basis must be observation, user-assertion, assumption, or model-proposal."))
@@ -868,62 +871,62 @@ a superseded mapping signals INVALID-CONTRACT without writing any records."
                        "A validity interval cannot end before it starts."))
     (values-list
      (knowledge-transact
-     configuration
-     (lambda (base)
-       (when (and contract
-                  (not (member contract
-                               (knowledge-base-contracts base (getf (rest contract) :tool)
-                                                         :workspace viewer)
-                               :test #'equal)))
-         (knowledge--fail ':invalid-contract (getf (rest contract) :id)
-                          "The contract mapping is no longer admitted."))
-       (let ((schema (knowledge-base-schema base (knowledge-proposition-predicate proposition)
-                                            :workspace viewer)))
-         (unless schema
-           (knowledge--fail ':unknown-predicate (knowledge-proposition-predicate proposition)
-                            "Define predicate ~A before asserting claims about it."
-                            (knowledge-proposition-predicate proposition)))
-         (when (and (eq scope ':global)
-                    (null (knowledge-base-schema base (knowledge-proposition-predicate proposition))))
-           (knowledge--fail ':unknown-predicate (knowledge-proposition-predicate proposition)
-                            "A global claim needs a global definition of ~A."
-                            (knowledge-proposition-predicate proposition)))
-         (unless (knowledge-proposition-valid-p proposition schema)
-           (knowledge--fail ':invalid-claim (knowledge-proposition-predicate proposition)
-                            "The claim does not fit the schema of ~A."
-                            (knowledge-proposition-predicate proposition)))
-         (let* ((evidence-identifier (and evidence (getf (rest evidence) :id)))
-                (existing
-                  (find-if (lambda (support-identifier)
-                             (let ((support (knowledge-base-support base support-identifier)))
-                               (and (null (getf support :retracted-at))
-                                    (equal (getf support :evidence) evidence-identifier)
-                                    (eq (getf support :basis) basis)
-                                    (eql (getf support :valid-from) valid-from)
-                                    (eql (getf support :valid-until) valid-until))))
-                           (getf (knowledge-base-claim base claim) :supports)))
-                (observation-records (knowledge--observation-records base evidence)))
-            (if existing
-                (values observation-records (list claim existing) (and observation-records t))
-                (let ((support (make-identifier)))
-                  (values
-                   (append
-                    observation-records
-                    (list (list :claim-asserted
-                                :version *knowledge-format-version*
-                                :support support
-                                :claim claim
-                                :scope scope
-                                :workspace workspace
-                                :proposition proposition
-                                :evidence evidence-identifier
-                                :basis basis
-                                :valid-from valid-from
-                                :valid-until valid-until
-                                :time (get-universal-time)
-                                :source-conversation source-conversation)))
-                   (list claim support)
-                   t))))))))))
+      configuration
+      (lambda (base)
+        (when (and contract
+                   (not (member contract
+                                (knowledge-base-contracts base (getf (rest contract) :tool)
+                                                          :workspace viewer)
+                                :test #'equal)))
+          (knowledge--fail ':invalid-contract (getf (rest contract) :id)
+                           "The contract mapping is no longer admitted."))
+        (let ((schema (knowledge-base-schema base (knowledge-proposition-predicate proposition)
+                                             :workspace viewer)))
+          (unless schema
+            (knowledge--fail ':unknown-predicate (knowledge-proposition-predicate proposition)
+                             "Define predicate ~A before asserting claims about it."
+                             (knowledge-proposition-predicate proposition)))
+          (when (and (eq scope ':global)
+                     (null (knowledge-base-schema base (knowledge-proposition-predicate proposition))))
+            (knowledge--fail ':unknown-predicate (knowledge-proposition-predicate proposition)
+                             "A global claim needs a global definition of ~A."
+                             (knowledge-proposition-predicate proposition)))
+          (unless (knowledge-proposition-valid-p proposition schema)
+            (knowledge--fail ':invalid-claim (knowledge-proposition-predicate proposition)
+                             "The claim does not fit the schema of ~A."
+                             (knowledge-proposition-predicate proposition)))
+          (let* ((evidence-identifier (and evidence (getf (rest evidence) :id)))
+                 (existing
+                   (find-if (lambda (support-identifier)
+                              (let ((support (knowledge-base-support base support-identifier)))
+                                (and (null (getf support :retracted-at))
+                                     (equal (getf support :evidence) evidence-identifier)
+                                     (eq (getf support :basis) basis)
+                                     (eql (getf support :valid-from) valid-from)
+                                     (eql (getf support :valid-until) valid-until))))
+                            (getf (knowledge-base-claim base claim) :supports)))
+                 (observation-records (knowledge--observation-records base evidence)))
+             (if existing
+                 (values observation-records (list claim existing) (and observation-records t))
+                 (let ((support (make-identifier)))
+                   (values
+                    (append
+                     observation-records
+                     (list (list :claim-asserted
+                                 :version *knowledge-format-version*
+                                 :support             support
+                                 :claim               claim
+                                 :scope               scope
+                                 :workspace           workspace
+                                 :proposition         proposition
+                                 :evidence            evidence-identifier
+                                 :basis               basis
+                                 :valid-from          valid-from
+                                 :valid-until         valid-until
+                                 :time                (get-universal-time)
+                                 :source-conversation source-conversation)))
+                    (list claim support)
+                    t))))))))))
 
 (-> knowledge-retract
     (configuration string &key (:reason (option string)) (:source-conversation (option string)))
@@ -949,13 +952,13 @@ Return the retracted support identifiers. Retracted supports stay inspectable."
                            (t
                             (knowledge--fail ':unknown-support support
                                              "No claim or support ~A exists." support)))))
-            (time (get-universal-time)))
+            (time  (get-universal-time)))
        (values (mapcar (lambda (identifier)
                          (list :support-retracted
                                :version *knowledge-format-version*
-                               :support identifier
-                               :reason reason
-                               :time time
+                               :support             identifier
+                               :reason              reason
+                               :time                time
                                :source-conversation source-conversation))
                        targets)
                targets
@@ -997,20 +1000,20 @@ and adapter details do not distinguish revisions of an identified source."
 Supports of claims with the same schema key whose evidence came from the same
 source are retracted in the same transaction, so an adapter reporting a
 mission's new status does not leave its old status standing. Return the claim."
-  (let* ((workspace (knowledge--owner configuration scope))
-         (claim (knowledge-claim-identifier proposition :scope scope :workspace workspace))
+  (let* ((workspace       (knowledge--owner configuration scope))
+         (claim           (knowledge-claim-identifier proposition :scope scope :workspace workspace))
          (source-identity (knowledge--source-identity (getf (rest evidence) :source))))
     (knowledge-transact
      configuration
      (lambda (base)
-       (let* ((schema (or (knowledge-base-schema base (knowledge-proposition-predicate proposition)
-                                                 :workspace (knowledge--workspace configuration))
-                          (knowledge--fail ':unknown-predicate
-                                           (knowledge-proposition-predicate proposition)
-                                           "Predicate ~A is not defined."
-                                           (knowledge-proposition-predicate proposition))))
-              (key (knowledge-proposition-key proposition schema))
-              (time (get-universal-time))
+       (let* ((schema              (or (knowledge-base-schema base (knowledge-proposition-predicate proposition)
+                                                              :workspace (knowledge--workspace configuration))
+                                       (knowledge--fail ':unknown-predicate
+                                                        (knowledge-proposition-predicate proposition)
+                                                        "Predicate ~A is not defined."
+                                                        (knowledge-proposition-predicate proposition))))
+              (key                 (knowledge-proposition-key proposition schema))
+              (time                (get-universal-time))
               (superseded
                 (loop for other in (knowledge-base-claims-with-predicate
                                     base (knowledge-proposition-predicate proposition))
@@ -1041,7 +1044,7 @@ mission's new status does not leave its old status standing. Return the claim."
                                (null (getf support :valid-until))
                                (equal (getf support :evidence) (getf (rest evidence) :id)))))
                       (getf (knowledge-base-claim base claim) :supports)))
-               (observation-records (knowledge--observation-records base evidence)))
+              (observation-records (knowledge--observation-records base evidence)))
          (unless (knowledge-proposition-valid-p proposition schema)
            (knowledge--fail ':invalid-claim (knowledge-proposition-predicate proposition)
                             "The observation does not fit the schema of ~A."
@@ -1051,25 +1054,25 @@ mission's new status does not leave its old status standing. Return the claim."
            (mapcar (lambda (support)
                      (list :support-retracted
                            :version *knowledge-format-version*
-                           :support support
-                           :reason "superseded by a newer observation from the same source"
-                           :time time
+                           :support             support
+                           :reason              "superseded by a newer observation from the same source"
+                           :time                time
                            :source-conversation source-conversation))
                    superseded)
-            observation-records
+           observation-records
            (unless active-p
              (list (list :claim-asserted
                          :version *knowledge-format-version*
-                         :support (make-identifier)
-                         :claim claim
-                         :scope scope
-                         :workspace workspace
-                         :proposition proposition
-                         :evidence (getf (rest evidence) :id)
-                         :basis ':observation
-                         :valid-from nil
-                         :valid-until nil
-                         :time time
+                         :support             (make-identifier)
+                         :claim               claim
+                         :scope               scope
+                         :workspace           workspace
+                         :proposition         proposition
+                         :evidence            (getf (rest evidence) :id)
+                         :basis               ':observation
+                         :valid-from          nil
+                         :valid-until         nil
+                         :time                time
                          :source-conversation source-conversation))))
           claim
           (or superseded observation-records (not active-p))))))))
