@@ -20,14 +20,20 @@
     item))
 
 (-> rlm-map--run-item
-    (list t t rlm-budget (option keyword) model-provider configuration
-     (option tool-registry)
-     &key (:index (integer 0)) (:total (integer 1))
-          (:activity-callback (option function)))
+    (list &key (:context t)
+               (:contract t)
+               (:budget rlm-budget)
+               (:capabilities (option keyword))
+               (:provider model-provider)
+               (:configuration configuration)
+               (:source-registry (option tool-registry))
+               (:index (integer 0))
+               (:total (integer 1))
+               (:activity-callback (option function)))
     list)
 (defun rlm-map--run-item
-    (item context contract budget capabilities provider configuration
-     source-registry &key index total activity-callback)
+    (item &key context contract budget capabilities provider configuration
+            source-registry index total activity-callback)
   "Run one map ITEM's frame and return its result or captured failure."
   (let* ((task (getf item ':task))
          (item-activity-callback
@@ -152,8 +158,14 @@ return (:task ... :error ...). Finished siblings are never discarded."
                                (lambda (job)
                                  (declare (ignore job))
                                  (rlm-map--run-item
-                                  item context contract budget
-                                  capabilities provider configuration source-registry
+                                  item
+                                  :context           context
+                                  :contract          contract
+                                  :budget            budget
+                                  :capabilities      capabilities
+                                  :provider          provider
+                                  :configuration     configuration
+                                  :source-registry   source-registry
                                   :index             index
                                   :total             (length items)
                                   :activity-callback activity-callback))))))))
