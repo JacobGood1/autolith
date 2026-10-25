@@ -4,56 +4,56 @@
 
 (defclass workspace-content-operation ()
   ((content
-    :initarg :content
-    :reader workspace-content-operation-content
-    :type (option string)
+    :initarg       :content
+    :reader        workspace-content-operation-content
+    :type          (option string)
     :documentation "Complete replacement text, or NIL for removal of a regular file.")
    (permission-donor
-    :initarg :permission-donor
-    :initform nil
-    :reader workspace-content-operation-permission-donor
-    :type (option workspace-file-observation)
+    :initarg       :permission-donor
+    :initform      nil
+    :reader        workspace-content-operation-permission-donor
+    :type          (option workspace-file-observation)
     :documentation "Exact source snapshot whose staging-time permissions a moved file receives."))
   (:documentation "An internal semantic edit prepared from an exact workspace observation."))
 
 (defclass workspace-prepared-change (cl-resources:prepared-change)
   ((base
-    :initarg :base
-    :reader workspace-prepared-change-base
-    :type workspace-file-observation
+    :initarg       :base
+    :reader        workspace-prepared-change-base
+    :type          workspace-file-observation
     :documentation "The exact original snapshot retained for validation and undo.")
    (content
-    :initarg :content
-    :reader workspace-prepared-change-content
-    :type (option string)
+    :initarg       :content
+    :reader        workspace-prepared-change-content
+    :type          (option string)
     :documentation "Prepared replacement text, or NIL for deletion.")
    (backup
-    :initform nil
-    :accessor workspace-prepared-change-backup
-    :type (option pathname)
+    :initform      nil
+    :accessor      workspace-prepared-change-backup
+    :type          (option pathname)
     :documentation "Owned undo file preserving the original bytes and permissions.")
    (permissions
-    :initform nil
-    :accessor workspace-prepared-change-permissions
+    :initform      nil
+    :accessor      workspace-prepared-change-permissions
     :documentation "Restorable source permissions captured before ordered moves remove their source.")
    (original-permissions
-    :initform nil
-    :accessor workspace-prepared-change-original-permissions
+    :initform      nil
+    :accessor      workspace-prepared-change-original-permissions
     :documentation "Restorable destination permissions retained independently of undo-file aliases.")
    (restored-p
-    :initform nil
-    :accessor workspace-prepared-change-restored-p
-    :type boolean
+    :initform      nil
+    :accessor      workspace-prepared-change-restored-p
+    :type          boolean
     :documentation "Whether compensation installed the original filesystem state.")
    (attempted-p
-    :initform nil
-    :accessor workspace-prepared-change-attempted-p
-    :type boolean
+    :initform      nil
+    :accessor      workspace-prepared-change-attempted-p
+    :type          boolean
     :documentation "Whether commit entered the mutation boundary.")
    (published
-    :initform nil
-    :accessor workspace-prepared-change-published
-    :type (option workspace-file-observation)
+    :initform      nil
+    :accessor      workspace-prepared-change-published
+    :type          (option workspace-file-observation)
     :documentation "The resulting snapshot when commit completed its observation."))
   (:documentation "A recoverable workspace adapter payload for cl-resources change sets."))
 
@@ -72,10 +72,10 @@
 (defmethod cl-resources:resource-check-revision
     ((resource workspace-file-resource) (context tool-context) expected-revision)
   "Resolve a conversation-local revision handle and validate its exact snapshot."
-  (let* ((state (workspace-file--find-observation-state
-                 (tool-context-conversation context)
-                 (resource-uri resource) expected-revision))
-         (base (resource-observation-state-observation state))
+  (let* ((state   (workspace-file--find-observation-state
+                   (tool-context-conversation context)
+                   (resource-uri resource) expected-revision))
+         (base    (resource-observation-state-observation state))
          (current (workspace-file--observe-path resource context)))
     (unless (workspace-file--same-observation-p base current)
       (workspace-file--signal-stale resource base current))
@@ -85,10 +85,10 @@
     ((resource workspace-file-resource) (context tool-context)
      &key base-revision operations)
   "Prepare original-coordinate edits or one internal semantic replacement."
-  (let* ((state (workspace-file--find-observation-state
-                 (tool-context-conversation context)
-                 (resource-uri resource) base-revision))
-         (base (resource-observation-state-observation state))
+  (let* ((state   (workspace-file--find-observation-state
+                   (tool-context-conversation context)
+                   (resource-uri resource) base-revision))
+         (base    (resource-observation-state-observation state))
          (current (workspace-file--observe-path resource context)))
     (unless (workspace-file--same-observation-p base current)
       (workspace-file--signal-stale resource base current))
@@ -111,7 +111,7 @@
                   (cl-hashline:hashline-error (condition)
                     (error 'tool-error
                            :tool-name "resource.edit"
-                           :message (princ-to-string condition)))))))
+                           :message   (princ-to-string condition)))))))
       (when (and (null content)
                  (not (eq (workspace-file-observation-kind base) ':file)))
         (error 'resource-operation-unsupported
@@ -123,9 +123,9 @@
                 (workspace-file-resource-pathname resource)))
         (error 'resource-operation-unsupported
                :uri (resource-uri resource) :operation ':create-parent-directory))
-      (let ((change (make-instance 'workspace-prepared-change
-                                   :resource resource :base-revision base-revision
-                                   :base base :content content))
+      (let ((change     (make-instance 'workspace-prepared-change
+                                       :resource resource :base-revision base-revision
+                                       :base base :content content))
             (complete-p nil))
         (unwind-protect
              (progn
@@ -168,8 +168,8 @@
     ((change workspace-prepared-change) (context tool-context))
   "Reject a stale retained snapshot before any member of the set commits."
   (let* ((resource (cl-resources:prepared-change-resource change))
-         (base (workspace-prepared-change-base change))
-         (current (workspace-file--observe-path resource context)))
+         (base     (workspace-prepared-change-base change))
+         (current  (workspace-file--observe-path resource context)))
     (unless (workspace-file--same-observation-p base current)
       (workspace-file--signal-stale resource base current))))
 
@@ -177,20 +177,20 @@
 (defun workspace-prepared-change--save-undo (change)
   "Retain original bytes and permissions before entering the mutation boundary."
   (when (and (eq (workspace-file-observation-kind
-                 (workspace-prepared-change-base change)) ':file)
+                  (workspace-prepared-change-base change)) ':file)
              (null (workspace-prepared-change-backup change)))
-    (let* ((path (workspace-file-resource-pathname
-                  (cl-resources:prepared-change-resource change)))
+    (let* ((path   (workspace-file-resource-pathname
+                    (cl-resources:prepared-change-resource change)))
            (backup (workspace-file--temporary-path path))
            (octets (workspace-file--replacement-octets
                     (resource-observation-content
                      (workspace-prepared-change-base change)))))
       ;; Register exclusive ownership before an asynchronous cancellation can run.
       (sb-sys:without-interrupts
-        (with-open-file (stream backup :direction ':output
-                                      :if-exists ':error
+        (with-open-file (stream backup :direction        ':output
+                                      :if-exists         ':error
                                       :if-does-not-exist ':create
-                                      :element-type '(unsigned-byte 8))
+                                      :element-type      '(unsigned-byte 8))
           (setf (workspace-prepared-change-backup change) backup
                 (workspace-prepared-change-original-permissions change)
                 (platform-file-permissions *platform* path))
@@ -204,12 +204,12 @@
 (defmethod cl-resources:prepared-change-commit
     ((change workspace-prepared-change) (context tool-context))
   "Publish the prepared replacement with exact pre-publication validation."
-  (let* ((resource (cl-resources:prepared-change-resource change))
-         (base (workspace-prepared-change-base change))
-         (content (workspace-prepared-change-content change))
+  (let* ((resource    (cl-resources:prepared-change-resource change))
+         (base        (workspace-prepared-change-base change))
+         (content     (workspace-prepared-change-content change))
          (permissions (workspace-prepared-change-permissions change))
-         (publish *workspace-file-resource-publish-function*)
-         (create *workspace-file-resource-create-function*))
+         (publish     *workspace-file-resource-publish-function*)
+         (create      *workspace-file-resource-create-function*))
     (workspace-prepared-change--save-undo change)
     (cl-resources:prepared-change-validate change context)
     (labels ((install (function temporary target)
@@ -238,7 +238,7 @@
 (defun workspace-prepared-change--installed-p (change current)
   "Return true when CURRENT is exactly the state this commit could install."
   (let ((published (workspace-prepared-change-published change))
-        (content (workspace-prepared-change-content change)))
+        (content   (workspace-prepared-change-content change)))
     (if published
         (workspace-file--same-observation-p published current)
         (and (workspace-prepared-change-attempted-p change)
@@ -252,9 +252,9 @@
     ((change workspace-prepared-change) (context tool-context))
   "Restore original content and permissions without replacing a later external change."
   (let* ((resource (cl-resources:prepared-change-resource change))
-         (path (workspace-file-resource-pathname resource))
-         (base (workspace-prepared-change-base change))
-         (current (workspace-file--observe-path resource context)))
+         (path     (workspace-file-resource-pathname resource))
+         (base     (workspace-prepared-change-base change))
+         (current  (workspace-file--observe-path resource context)))
     (unless (workspace-file--same-observation-p base current)
       (unless (workspace-prepared-change--installed-p change current)
         (workspace-file--signal-stale resource base current))
@@ -263,7 +263,7 @@
           (let ((backup (workspace-prepared-change-backup change)))
             (unless (and backup (probe-file backup))
               (error 'cl-resources:resource-protocol-error
-                     :uri (resource-uri resource)
+                     :uri    (resource-uri resource)
                      :reason "The original workspace undo file is unavailable."))
             (funcall
              (if (eq (workspace-file-observation-kind current) ':missing)
@@ -284,14 +284,14 @@
   "Release owned undo storage without modifying permissions through a restored hard link."
   (let ((backup (workspace-prepared-change-backup change)))
     (when backup
-      (let* ((path (workspace-file-resource-pathname
-                    (cl-resources:prepared-change-resource change)))
+      (let* ((path          (workspace-file-resource-pathname
+                             (cl-resources:prepared-change-resource change)))
              (backup-status (platform-path-status *platform* backup))
              (target-status (and (workspace-prepared-change-restored-p change)
                                  (platform-path-status *platform* path)))
-             (aliased-p (and backup-status target-status
-                             (equal (platform-file-status-identity backup-status)
-                                    (platform-file-status-identity target-status)))))
+             (aliased-p     (and backup-status target-status
+                                 (equal (platform-file-status-identity backup-status)
+                                        (platform-file-status-identity target-status)))))
         (unwind-protect
              (when backup-status
                (platform-delete-file *platform* backup))
