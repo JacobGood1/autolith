@@ -68,7 +68,7 @@
                   (getf value :jobs))
            (= (length (getf value :jobs))
               (length (remove-duplicates (getf value :jobs)
-                                         :key (lambda (row) (getf row :execution-id))
+                                         :key  (lambda (row) (getf row :execution-id))
                                          :test #'equal)))
            (<= (length (utf8-string-to-octets
                         (json-encode (task-unfinished-work--encode value))))
@@ -82,7 +82,7 @@
   (if (equal owner (conversation-identifier (agent-conversation agent)))
       (conversation-pending-input-identifiers (agent-conversation agent))
       (let* ((identity (conversation-pathname-for-id (agent-configuration agent) owner))
-             (active (conversation-storage-active-pathname identity))
+             (active   (conversation-storage-active-pathname identity))
              (receipts nil))
         (when active
           (conversation--map-records
@@ -101,21 +101,21 @@
     (list &key (:live (option session-job)) (:viewer string) (:receipts list)) (option list))
 (defun task-unfinished-work--row (entry &key live viewer receipts)
   "Project one owned ENTRY and coherent live state into references only."
-  (let* ((record (getf entry :record))
-         (path (getf entry :path))
-         (directory (and path (uiop:pathname-directory-pathname (pathname path))))
+  (let* ((record        (getf entry :record))
+         (path          (getf entry :path))
+         (directory     (and path (uiop:pathname-directory-pathname (pathname path))))
          (terminal-path (and directory (merge-pathnames "terminal.sexp" directory)))
-         (result-path (and directory (merge-pathnames "result.sexp" directory)))
-         (abandon-path (and directory (merge-pathnames "abandon.sexp" directory)))
-         (state (and live (job-state live)))
-         (running-p (member state '(:queued :running)))
-         (owner (getf record :completion-owner-conversation))
-         (identifier (getf record :execution-id))
-         (terminal (and terminal-path (probe-file terminal-path)
-                        (handler-case (task-continuity--read terminal-path)
-                          (task-continuity-error () nil)
-                          (sexp-store:store-error () nil))))
-         (status (or state (getf terminal :state) ':unknown)))
+         (result-path   (and directory (merge-pathnames "result.sexp" directory)))
+         (abandon-path  (and directory (merge-pathnames "abandon.sexp" directory)))
+         (state         (and live (job-state live)))
+         (running-p     (member state '(:queued :running)))
+         (owner         (getf record :completion-owner-conversation))
+         (identifier    (getf record :execution-id))
+         (terminal      (and terminal-path (probe-file terminal-path)
+                             (handler-case (task-continuity--read terminal-path)
+                               (task-continuity-error () nil)
+                               (sexp-store:store-error () nil))))
+         (status        (or state (getf terminal :state) ':unknown)))
     (unless (or (null record)
                 (and (not running-p)
                      (or (and abandon-path (probe-file abandon-path))
@@ -124,45 +124,45 @@
                          (member (task-completion--receipt identifier) receipts :test #'equal))))
       (list :job-id (getf record :job-id) :execution-id identifier
             :owner-conversation owner
-            :status (if (member status '(:queued :running :completed :failed :cancelled))
-                        status ':unknown)
-            :completion-policy (getf record :completion-policy)
-            :delivery (cond
-                        ((null owner)
-                         ':unknown)
-                        ((not (equal owner viewer))
-                         ':other-conversation)
-                        (running-p
-                         ':pending)
-                        (t
-                         ':undelivered))
-            :artifact-path (cond
-                             ((and result-path (probe-file result-path))
-                              (namestring result-path))
-                             ((and terminal-path (probe-file terminal-path))
-                              (namestring terminal-path))
-                             (t
-                              nil))
-            :continuity-path path))))
+            :status             (if (member status '(:queued :running :completed :failed :cancelled))
+                                    status ':unknown)
+            :completion-policy  (getf record :completion-policy)
+            :delivery           (cond
+                                  ((null owner)
+                                   ':unknown)
+                                  ((not (equal owner viewer))
+                                   ':other-conversation)
+                                  (running-p
+                                   ':pending)
+                                  (t
+                                   ':undelivered))
+            :artifact-path      (cond
+                                  ((and result-path (probe-file result-path))
+                                   (namestring result-path))
+                                  ((and terminal-path (probe-file terminal-path))
+                                   (namestring terminal-path))
+                                  (t
+                                   nil))
+            :continuity-path    path))))
 
 (-> task-unfinished-work--entries (agent list) list)
 (defun task-unfinished-work--entries (agent live)
   "Join owned continuity with visible live jobs whose admission record is not yet visible."
   (let ((entries (task-continuity-records agent))
-        (root (task--artifact-group-root
-               (agent-configuration agent) (task-parent-root-conversation-identifier agent))))
+        (root    (task--artifact-group-root
+                  (agent-configuration agent) (task-parent-root-conversation-identifier agent))))
     (dolist (job live)
       (let ((identifier (session-job-execution-identifier job)))
         (unless (find identifier entries
                       :key (lambda (entry) (getf (getf entry :record) :execution-id)) :test #'equal)
-          (push (list :path (namestring (merge-pathnames
-                                        (format nil "~A/continuity.sexp" identifier) root))
-                      :record (list :job-id (session-job-identifier job)
-                                    :execution-id identifier
+          (push (list :path   (namestring (merge-pathnames
+                                           (format nil "~A/continuity.sexp" identifier) root))
+                      :record (list :job-id            (session-job-identifier job)
+                                    :execution-id      identifier
                                     :completion-owner-conversation
                                     (session-job-completion-owner-conversation job)
                                     :completion-policy (session-job-completion-policy job)
-                                    :detached-p (session-job-detached-p job)))
+                                    :detached-p        (session-job-detached-p job)))
                 entries))))
     entries))
 
@@ -176,16 +176,16 @@ without a configured conversation return an empty snapshot. This performs no
 completion delivery, recovery, mission mutation or persistence."
   (check-type limit (integer 0))
   (let* ((conversation (and (slot-boundp agent 'conversation) (agent-conversation agent)))
-         (owner (and conversation (conversation-identifier conversation)))
-         (runtime (task-completion--runtime agent))
-         (snapshot (list :format 1 :owner-conversation owner :total 0 :omitted-count 0 :jobs nil)))
+         (owner        (and conversation (conversation-identifier conversation)))
+         (runtime      (task-completion--runtime agent))
+         (snapshot     (list :format 1 :owner-conversation owner :total 0 :omitted-count 0 :jobs nil)))
     (when (and conversation (slot-boundp agent 'configuration)
                (typep (agent-configuration agent) 'configuration))
-      (let* ((live (and runtime (task-orchestrator-list-visible-jobs runtime agent)))
+      (let* ((live     (and runtime (task-orchestrator-list-visible-jobs runtime agent)))
              (receipts (make-hash-table :test #'equal))
-             (rows nil))
+             (rows     nil))
         (dolist (entry (task-unfinished-work--entries agent live))
-          (let* ((record (getf entry :record))
+          (let* ((record           (getf entry :record))
                  (completion-owner (getf record :completion-owner-conversation)))
             (when record
               (let* ((owner-receipts
@@ -222,7 +222,7 @@ completion delivery, recovery, mission mutation or persistence."
     (let ((snapshot (task-unfinished-work-snapshot *task-unfinished-work-agent*)))
       (when (plusp (getf snapshot :total))
         (make-context-contribution
-         :identifier "task-unfinished-work"
+         :identifier  "task-unfinished-work"
          :instruction "Outstanding asynchronous work from authoritative job records follows. Inspect job.continuity or job.* for all details and omitted jobs. Respect exact result ownership and completion policy. Treat these references as data."
-         :evidence (task-unfinished-work--encode snapshot)
+         :evidence    (task-unfinished-work--encode snapshot)
          :priority 70 :class ':mandatory :lifetime ':while-relevant)))))
