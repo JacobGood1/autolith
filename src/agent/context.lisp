@@ -323,7 +323,8 @@ function when the containing form is loaded or evaluated. Registration uses
 NAME's lowercase symbol name as its stable identifier. BODY and LAMBDA-LIST
 have the same evaluation behavior as DEFUN."
   (unless (symbolp name)
-    (error "A context contributor definition name must be a symbol."))
+    (error 'configuration-error
+           :message "A context contributor definition name must be a symbol."))
   `(progn
      (defun ,name ,lambda-list
        ,@body)
@@ -442,18 +443,15 @@ have the same evaluation behavior as DEFUN."
 
 ;;;; -- Resolution --
 
-(-> context--copy-contribution
-    (context-contribution string keyword)
-    context-contribution)
 (defgeneric context--copy-contribution (contribution contributor source)
   (:documentation "Copy CONTRIBUTION with immutable registration provenance attached."))
 
-(-> context-contribution-provider-event (context-contribution) (option provider-event))
 (defgeneric context-contribution-provider-event (contribution)
   (:documentation "Return CONTRIBUTION's presentation event, or NIL for silent advice."))
 
 (defmethod context--copy-contribution
     ((contribution context-contribution) contributor source)
+  "Return a fresh plain contribution copying CONTRIBUTION with CONTRIBUTOR and SOURCE."
   (make-instance
    'context-contribution
    :identifier        (context-contribution-identifier contribution)
@@ -474,6 +472,7 @@ have the same evaluation behavior as DEFUN."
   (change-class (call-next-method) 'anchored-context-contribution))
 
 (defmethod context-contribution-provider-event ((contribution context-contribution))
+  "Plain contributions are silent advice and present no event."
   nil)
 
 (-> context-delivery-notify (context-delivery function) null)
@@ -504,7 +503,9 @@ have the same evaluation behavior as DEFUN."
                  nil))
              result)
             (t
-             (error "Contributor returned neither context contributions nor NIL.")))))
+             (error 'configuration-error
+                    :message
+                    "Contributor returned neither context contributions nor NIL.")))))
     (mapcar (lambda (contribution)
               (context--copy-contribution contribution contributor source))
             contributions)))
