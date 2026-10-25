@@ -35,7 +35,7 @@
        (find identifier
              (workspace-agenda-items record)
              :test #'string=
-             :key #'agenda-item-identifier)))
+             :key  #'agenda-item-identifier)))
 
 (-> application--agenda-resource-record
     (application string string)
@@ -64,7 +64,7 @@
                          (string= uri (resource-observation-uri observation)))
               (return (values nil nil)))
             (let* ((snapshot (agenda-observation-snapshot observation))
-                   (form (getf snapshot :record)))
+                   (form     (getf snapshot :record)))
               (cond
                 ((null form)
                  (values nil t))
@@ -127,10 +127,10 @@
       (application--agenda-operation-change-documents operation record)
     (and available-p
          (change-viewer-render
-          :removed-content old-text
-          :added-content new-text
+          :removed-content    old-text
+          :added-content      new-text
           :removed-start-line old-start-line
-          :added-start-line new-start-line))))
+          :added-start-line   new-start-line))))
 
 
 
@@ -148,11 +148,10 @@
 (defun application--memory->document (memory)
   "Return MEMORY as one stable editable line document."
   (application--memory-document
-   :title (memory-title memory)
+   :title   (memory-title memory)
    :content (memory-content memory)
-   :scope (memory-scope memory)
-   :tags (memory-tags memory)))
-
+   :scope   (memory-scope memory)
+   :tags    (memory-tags memory)))
 
 (-> application--memory-resource-observation
     (application string string)
@@ -221,10 +220,10 @@
                  (values
                   nil
                    (application--memory-document
-                    :title (getf normalized :title)
+                    :title   (getf normalized :title)
                     :content (getf normalized :content)
-                    :scope scope
-                    :tags (getf normalized :tags))
+                    :scope   scope
+                    :tags    (getf normalized :tags))
                   nil 1 t)
                  (values nil nil nil nil nil))))
           (:replace
@@ -232,11 +231,11 @@
              (if memory
                  (values
                   (application--memory->document memory)
-                   (application--memory-document
-                    :title (getf normalized :title)
-                    :content (getf normalized :content)
-                    :scope (or (getf normalized :scope) (memory-scope memory))
-                    :tags (getf normalized :tags))
+                  (application--memory-document
+                   :title   (getf normalized :title)
+                   :content (getf normalized :content)
+                   :scope   (or (getf normalized :scope) (memory-scope memory))
+                   :tags    (getf normalized :tags))
                   1 1 t)
                  (values nil nil nil nil nil))))
           (:forget
@@ -260,10 +259,10 @@
       (application--memory-resource-operation-change-documents operation observation)
     (and available-p
          (change-viewer-render
-          :removed-content old-text
-          :added-content new-text
+          :removed-content    old-text
+          :added-content      new-text
           :removed-start-line old-start-line
-          :added-start-line new-start-line))))
+          :added-start-line   new-start-line))))
 
 ;;; Resource edit dispatch
 
@@ -271,17 +270,17 @@
     ((tool resource-edit-tool) (application application) (call hash-table))
   "Present resource.edit operations through resource-specific change adapters."
   (declare (ignore tool))
-  (let* ((arguments (application--function-call-arguments call))
-         (uri (let ((value (and arguments (json-get arguments "uri"))))
-                (if (stringp value) value "")))
+  (let* ((arguments  (application--function-call-arguments call))
+         (uri        (let ((value (and arguments (json-get arguments "uri"))))
+                       (if (stringp value) value "")))
          (revision
            (let ((value (and arguments (json-get arguments "base-revision"))))
              (if (stringp value) value "")))
          (operations (and arguments (json-get arguments "operations")))
-         (path (application--file-resource-path uri)))
+         (path       (application--file-resource-path uri)))
     (application--tool-entry
      application
-     :style ':tool
+     :style  ':tool
      :header "▸ resource.edit"
      :rows
      (append
