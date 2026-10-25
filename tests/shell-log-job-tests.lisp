@@ -47,7 +47,8 @@
                       (task-orchestrator-find-visible-job
                        orchestrator
                        (getf (getf (rest (tool-result-details result)) :job) :id)
-                       parent "job.get")
+                       :viewer    parent
+                       :tool-name "job.get")
                       (first (last (task-orchestrator-list-visible-jobs
                                     orchestrator parent))))))
            (test-assert job "shell invocation has a supervised execution identity")
@@ -120,7 +121,8 @@
             (job (task-orchestrator-find-visible-job
                   orchestrator
                   (getf (getf (rest (tool-result-details result)) :job) :id)
-                  parent "job.get")))
+                  :viewer    parent
+                  :tool-name "job.get")))
        (test-assert
         (task-tests--wait-until
          (lambda ()

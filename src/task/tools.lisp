@@ -1129,7 +1129,7 @@ poll a job whose completion will wake it."
                  "job.send"))
               (message (tool-argument arguments "message" :required t))
               (job     (task-orchestrator-find-visible-job
-                        orchestrator identifier viewer "job.send")))
+                        orchestrator identifier :viewer viewer :tool-name "job.send")))
          (unless (and (stringp message) (non-empty-string-p message))
            (error 'task-error
                   :message   "job.send requires non-empty message text."
@@ -1163,8 +1163,8 @@ poll a job whose completion will wake it."
               (job (task-orchestrator-find-visible-job
                     orchestrator
                     identifier
-                    viewer
-                    (tool-canonical-name tool))))
+                    :viewer    viewer
+                    :tool-name (tool-canonical-name tool))))
          (if (string= operation "cancel")
              (multiple-value-bind (accepted-p cancelled-descendants)
                  (session-job-cancel job :user)

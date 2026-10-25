@@ -287,7 +287,9 @@
                             "while (!(Test-Path compaction-release)) { Start-Sleep -Milliseconds 20 }; Add-Content compaction-effects shell-once; [Console]::Write('shell-finished')")
                            "async" t "completion-policy" "continue")))
                        (record (getf (rest (tool-result-details result)) :job)))
-                  (setf shell (task-orchestrator-find-visible-job runtime (getf record :id) parent "job.get")))
+                  (setf shell (task-orchestrator-find-visible-job runtime (getf record :id)
+                                                                  :viewer    parent
+                                                                  :tool-name "job.get")))
                 (test-assert (and child shell (not (job-terminal-p child)) (not (job-terminal-p shell)))
                              "both real jobs remain outstanding before compaction")
                 (task-completion-watch child parent)
@@ -412,7 +414,9 @@
                                "while (!(Test-Path during-request-release)) { Start-Sleep -Milliseconds 20 }; [Console]::Write('completed-during-request')")
                               "async" t "completion-policy" "continue")))
               (record       (getf (rest (tool-result-details result)) :job))
-              (job          (task-orchestrator-find-visible-job runtime (getf record :id) parent "job.get"))
+              (job          (task-orchestrator-find-visible-job runtime (getf record :id)
+                                                                :viewer    parent
+                                                                :tool-name "job.get"))
               (identifier   (session-job-execution-identifier job)))
          (unwind-protect
               (progn

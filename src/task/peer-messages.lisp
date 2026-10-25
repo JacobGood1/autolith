@@ -143,7 +143,9 @@
   (if (equal identifier "primary")
       (peer-message--actor-endpoint owner)
       (let ((job (task-orchestrator-find-visible-job (peer-message-orchestrator service)
-                                                   identifier owner "peer.grant")))
+                                                   identifier
+                                                   :viewer    owner
+                                                   :tool-name "peer.grant")))
         (unless (and (typep job 'task-job) (not (job-terminal-p job)))
           (peer-message--reject ':endpoint-lifecycle))
         (list :session (peer-message-session service) :job (session-job-identifier job)

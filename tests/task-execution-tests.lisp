@@ -564,7 +564,7 @@
            (setf execution
                  (and identifier
                       (task-orchestrator-find-visible-job
-                       orchestrator identifier child "lisp.eval")))
+                       orchestrator identifier :viewer child :tool-name "lisp.eval")))
            ;; The evaluation starts a fresh SBCL worker, which takes tens of
            ;; seconds on Windows while the parallel check loads the host.
            (test-assert

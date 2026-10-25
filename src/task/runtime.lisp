@@ -1070,10 +1070,10 @@ values from either side of a terminal transition."
    (task-orchestrator-list-jobs orchestrator)))
 
 (-> task-orchestrator-find-visible-job
-    (task-orchestrator string agent string)
+    (task-orchestrator string &key (:viewer agent) (:tool-name string))
     session-job)
 (defun task-orchestrator-find-visible-job
-    (orchestrator identifier viewer tool-name)
+    (orchestrator identifier &key viewer tool-name)
   "Return VIEWER's visible IDENTIFIER or signal a non-disclosing task error."
   (let ((job (task-orchestrator--find-job orchestrator identifier)))
     (if (and job (session-job-visible-to-agent-p job viewer))

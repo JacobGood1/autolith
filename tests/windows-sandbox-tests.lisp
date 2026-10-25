@@ -292,7 +292,7 @@
                     (job-id (getf (getf record :job) :id))
                     (job    (and job-id
                                  (task-orchestrator-find-visible-job
-                                  orchestrator job-id primary "shell.run"))))
+                                  orchestrator job-id :viewer primary :tool-name "shell.run"))))
                (test-assert (and job-id job)
                             "asynchronous shell.run returns an inspectable job")
                (when job
@@ -311,7 +311,9 @@
                                                  "async" t)))
                     (record     (getf (rest (tool-result-details result)) :job))
                     (identifier (getf record :id))
-                    (job        (task-orchestrator-find-visible-job orchestrator identifier primary "shell.run")))
+                    (job        (task-orchestrator-find-visible-job orchestrator identifier
+                                                                    :viewer    primary
+                                                                    :tool-name "shell.run")))
                (test-assert (task-tests--wait-until (lambda () (probe-file started)) 10)
                             "sandboxed command starts before cancellation")
                (tool-execute (tool-registry-find registry "job" "cancel") context

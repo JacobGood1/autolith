@@ -472,7 +472,7 @@
                       (identifier (and record (getf record :id))))
                  (and identifier
                       (task-orchestrator-find-visible-job
-                       orchestrator identifier primary "lisp.eval"))))
+                       orchestrator identifier :viewer primary :tool-name "lisp.eval"))))
 
              (run-completed-lisp (name &rest arguments)
                "Await lifecycle work even when a cold worker outlives the tool grace."
@@ -797,7 +797,7 @@
                       (identifier (and record (getf record :id))))
                  (and identifier
                       (task-orchestrator-find-visible-job
-                       orchestrator identifier primary tool-name))))
+                       orchestrator identifier :viewer primary :tool-name tool-name))))
 
              (start-blocker (name)
                "Start and return one marked slow evaluation job for REPL NAME."

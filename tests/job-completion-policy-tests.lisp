@@ -113,7 +113,7 @@
                "Resolve the native handoff RESULT to its execution job."
                (let* ((record (getf (rest (tool-result-details result)) :job))
                       (job    (task-orchestrator-find-visible-job
-                               orchestrator (getf record :id) primary "job.get")))
+                               orchestrator (getf record :id) :viewer primary :tool-name "job.get")))
                  (test-assert (session-job-detached-p job)
                               "handoff marks the job detached")
                  (test-assert

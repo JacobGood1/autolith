@@ -1671,7 +1671,7 @@ exactly that race."
                       (identifier (and record (getf record :id))))
                  (and identifier
                       (task-orchestrator-find-visible-job
-                       orchestrator identifier primary "shell.run")))))
+                       orchestrator identifier :viewer primary :tool-name "shell.run")))))
       (unwind-protect
            (progn
              (let* ((parameters   (tool-parameters shell-tool))
