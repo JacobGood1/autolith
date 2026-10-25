@@ -27,122 +27,122 @@
 
 (defclass knowledge-node ()
   ((identifier
-    :initarg :identifier
-    :reader knowledge-node-identifier
-    :type string
+    :initarg       :identifier
+    :reader        knowledge-node-identifier
+    :type          string
     :documentation "The claim identifier.")
    (proposition
-    :initarg :proposition
-    :reader knowledge-node-proposition
-    :type list
+    :initarg       :proposition
+    :reader        knowledge-node-proposition
+    :type          list
     :documentation "The canonical proposition the claim makes.")
    (scope
-    :initarg :scope
-    :reader knowledge-node-scope
-    :type memory-scope
+    :initarg       :scope
+    :reader        knowledge-node-scope
+    :type          memory-scope
     :documentation "Whether the claim is global or belongs to a workspace.")
    (workspace
-    :initarg :workspace
-    :reader knowledge-node-workspace
-    :type (option string)
+    :initarg       :workspace
+    :reader        knowledge-node-workspace
+    :type          (option string)
     :documentation "The workspace owning a workspace claim.")
    (schema
-    :initarg :schema
-    :reader knowledge-node-schema
-    :type (option list)
+    :initarg       :schema
+    :reader        knowledge-node-schema
+    :type          (option list)
     :documentation "The schema of the claim's predicate visible in the view.")
    (supports
-    :initform nil
-    :accessor knowledge-node-supports
-    :type list
+    :initform      nil
+    :accessor      knowledge-node-supports
+    :type          list
     :documentation "(:ID :STATE :REASON :BASIS :EVIDENCE) for each stored support.")
    (justifications
-    :initform nil
-    :accessor knowledge-node-justifications
-    :type list
+    :initform      nil
+    :accessor      knowledge-node-justifications
+    :type          list
     :documentation "(:ID :RULE :VERSION :PREMISES :BINDINGS) for each derivation.")
    (bases
-    :initform nil
-    :accessor knowledge-node-bases
-    :type list
+    :initform      nil
+    :accessor      knowledge-node-bases
+    :type          list
     :documentation "The minimal basis sets of the paths supporting the claim.")
    (conflicts
-    :initform nil
-    :accessor knowledge-node-conflicts
-    :type list
+    :initform      nil
+    :accessor      knowledge-node-conflicts
+    :type          list
     :documentation "Identifiers of supported claims this one contradicts.")
    (text
-    :initform nil
-    :accessor knowledge-node--text
-    :type (option string)
+    :initform      nil
+    :accessor      knowledge-node--text
+    :type          (option string)
     :documentation "The claim's sentence, computed once.")
    (haystack
-    :initform nil
-    :accessor knowledge-node--haystack
-    :type (option string)
+    :initform      nil
+    :accessor      knowledge-node--haystack
+    :type          (option string)
     :documentation "The claim's lowercase sentence and values for lexical matching."))
   (:documentation "One claim as evaluated in a view."))
 
 (defclass knowledge-view ()
   ((base
-    :initarg :base
-    :reader knowledge-view-base
-    :type knowledge-base
+    :initarg       :base
+    :reader        knowledge-view-base
+    :type          knowledge-base
     :documentation "The folded log the view was evaluated from.")
    (workspace
-    :initarg :workspace
-    :reader knowledge-view-workspace
-    :type (option string)
+    :initarg       :workspace
+    :reader        knowledge-view-workspace
+    :type          (option string)
     :documentation "The workspace whose visible knowledge the view holds.")
    (now
-    :initarg :now
-    :reader knowledge-view-now
-    :type timestamp
+    :initarg       :now
+    :reader        knowledge-view-now
+    :type          timestamp
     :documentation "The time validity and expiry were evaluated at.")
    (nodes
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-view-nodes
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-view-nodes
+    :type          hash-table
     :documentation "Evaluated claims by identifier, stored and derived.")
    (supported
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-view-supported
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-view-supported
+    :type          hash-table
     :documentation "Supported positive nodes by predicate.")
    (negated
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-view-negated
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-view-negated
+    :type          hash-table
     :documentation "Supported negated nodes by predicate.")
    (argument-index
-    :initform (make-hash-table :test #'equal)
-    :reader knowledge-view-argument-index
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        knowledge-view-argument-index
+    :type          hash-table
     :documentation "Supported positive nodes by (PREDICATE POSITION STRING-TERM).")
    (incomplete
-    :initform nil
-    :accessor knowledge-view-incomplete
-    :type list
+    :initform      nil
+    :accessor      knowledge-view-incomplete
+    :type          list
     :documentation "Identifiers of rules whose evaluation hit a work limit.")
    (errors
-    :initform nil
-    :accessor knowledge-view-errors
-    :type list
+    :initform      nil
+    :accessor      knowledge-view-errors
+    :type          list
     :documentation "(:RULE :VERSION :MESSAGE) for derivations a computation refused.")
    (matches
-    :initform 0
-    :accessor knowledge-view-matches
-    :type (integer 0)
+    :initform      0
+    :accessor      knowledge-view-matches
+    :type          (integer 0)
     :documentation "Rule conclusions derived so far.")
    (steps
-    :initform 0
-    :accessor knowledge-view-steps
-    :type (integer 0)
+    :initform      0
+    :accessor      knowledge-view-steps
+    :type          (integer 0)
     :documentation "Candidate claims examined so far.")
    (boundary
-    :initform nil
-    :accessor knowledge-view-boundary
-    :type (option timestamp)
+    :initform      nil
+    :accessor      knowledge-view-boundary
+    :type          (option timestamp)
     :documentation "The earliest later time a support or evidence starts or stops being valid."))
   (:documentation "Knowledge visible from one workspace, evaluated at one time."))
 
@@ -195,12 +195,18 @@ A supported claim is :CURRENT. Otherwise the reason is taken from its supports:
       (let ((states (mapcar (lambda (support) (getf support :state))
                             (knowledge-node-supports node))))
         (cond
-          ((intersection states '(:changed :missing)) ':stale)
-          ((member ':unverified states) ':unverified)
-          ((member ':expired states) ':expired)
-          ((member ':pending states) ':pending)
-          ((member ':retracted states) ':retracted)
-          (t ':unknown)))))
+          ((intersection states '(:changed :missing))
+           ':stale)
+          ((member ':unverified states)
+           ':unverified)
+          ((member ':expired states)
+           ':expired)
+          ((member ':pending states)
+           ':pending)
+          ((member ':retracted states)
+           ':retracted)
+          (t
+           ':unknown)))))
 
 (-> knowledge--opposite-nodes (knowledge-view knowledge-node) list)
 (defun knowledge--opposite-nodes (view node)
@@ -208,12 +214,12 @@ A supported claim is :CURRENT. Otherwise the reason is taken from its supports:
 
 Storage scope identifies ownership, not a separate truth domain within a view."
   (let* ((proposition (knowledge-node-proposition node))
-         (opposite (if (knowledge-negation-p proposition)
-                       (second proposition)
-                       (list :not proposition)))
-         (index (if (knowledge-node-negated-p node)
-                    (knowledge-view-supported view)
-                    (knowledge-view-negated view))))
+         (opposite    (if (knowledge-negation-p proposition)
+                          (second proposition)
+                          (list :not proposition)))
+         (index       (if (knowledge-node-negated-p node)
+                          (knowledge-view-supported view)
+                          (knowledge-view-negated view))))
     (remove-if-not
      (lambda (candidate)
        (knowledge-propositions-equal-p opposite (knowledge-node-proposition candidate)))
@@ -314,20 +320,20 @@ premise of a support path."
   (or (gethash identifier (knowledge-view-nodes view))
       (setf (gethash identifier (knowledge-view-nodes view))
             (make-instance 'knowledge-node
-                           :identifier identifier
+                           :identifier  identifier
                            :proposition proposition
-                           :scope scope
-                           :workspace workspace
-                           :schema (knowledge-base-schema
-                                    (knowledge-view-base view)
-                                    (knowledge-proposition-predicate proposition)
-                                    :workspace (knowledge-view-workspace view))))))
+                           :scope       scope
+                           :workspace   workspace
+                           :schema      (knowledge-base-schema
+                                         (knowledge-view-base view)
+                                         (knowledge-proposition-predicate proposition)
+                                         :workspace (knowledge-view-workspace view))))))
 
 (-> knowledge--index-supported (knowledge-view knowledge-node) null)
 (defun knowledge--index-supported (view node)
   "Index supported NODE for rule matching, once."
   (let* ((proposition (knowledge-node-proposition node))
-         (predicate (knowledge-proposition-predicate proposition)))
+         (predicate   (knowledge-proposition-predicate proposition)))
     (if (knowledge-node-negated-p node)
         (pushnew node (gethash predicate (knowledge-view-negated view)))
         (unless (member node (gethash predicate (knowledge-view-supported view)))
@@ -359,7 +365,7 @@ second after its valid-until time, so those are the instants that change it."
 (-> knowledge--evaluate-stored (knowledge-view evidence-check) null)
 (defun knowledge--evaluate-stored (view check)
   "Add every visible stored claim to VIEW with the state of each support."
-  (let ((base (knowledge-view-base view))
+  (let ((base      (knowledge-view-base view))
         (workspace (knowledge-view-workspace view)))
     (loop for entry being the hash-values of (knowledge-base-claims base)
           when (knowledge-visible-p (getf entry :scope) (getf entry :workspace) workspace)
@@ -375,10 +381,10 @@ second after its valid-until time, so those are the instants that change it."
                                                        base (getf support :evidence))))
                      (multiple-value-bind (state reason)
                          (evidence-check-support check base support)
-                       (push (list :id support-identifier
-                                   :state state
-                                   :reason reason
-                                   :basis (getf support :basis)
+                       (push (list :id       support-identifier
+                                   :state    state
+                                   :reason   reason
+                                   :basis    (getf support :basis)
                                    :evidence (getf support :evidence))
                              (knowledge-node-supports node))
                        (when (eq state ':current)
@@ -391,8 +397,8 @@ second after its valid-until time, so those are the instants that change it."
 (defun knowledge--rule-order (rules)
   "Return RULES so that each runs after every rule concluding a predicate it reads."
   (let ((producers (make-hash-table :test #'equal))
-        (visited (make-hash-table :test #'eq))
-        (ordered nil))
+        (visited   (make-hash-table :test #'eq))
+        (ordered   nil))
     (dolist (item rules)
       (push item (gethash (knowledge-rule-conclusion-predicate (third item)) producers)))
     (labels ((visit (item)
@@ -409,7 +415,7 @@ second after its valid-until time, so those are the instants that change it."
   "Return the RULES that can contribute to predicates in GOALS, or all when GOALS is empty."
   (if (null goals)
       rules
-      (let ((needed (make-hash-table :test #'equal))
+      (let ((needed  (make-hash-table :test #'equal))
             (pending (copy-list goals)))
         (loop while pending
               do (let ((predicate (pop pending)))
@@ -507,30 +513,30 @@ are independent support paths even when their propositions agree."
                   (knowledge-evaluate-expression (second binding) table)))
           (when (every (lambda (guard) (knowledge-guard-holds-p guard table))
                        (getf (rest rule) :guards))
-            (let* ((pattern (getf (rest rule) :conclusion))
+            (let* ((pattern     (getf (rest rule) :conclusion))
                    (proposition (knowledge--instantiate
                                  pattern
                                  (loop for variable being the hash-keys of table
                                          using (hash-value value)
                                        collect (cons variable value))))
-                   (schema (knowledge-base-schema (knowledge-view-base view)
-                                                  (knowledge-proposition-predicate proposition)
-                                                  :workspace (knowledge-view-workspace view))))
+                   (schema      (knowledge-base-schema (knowledge-view-base view)
+                                                       (knowledge-proposition-predicate proposition)
+                                                       :workspace (knowledge-view-workspace view))))
               (unless (and schema (knowledge-proposition-valid-p proposition schema))
                 (knowledge--fail ':evaluation proposition
                                  "The conclusion does not fit the schema of ~A."
                                  (knowledge-proposition-predicate proposition)))
-              (let* ((workspace-p (or (eq (getf entry :scope) ':workspace)
-                                      (some (lambda (premise)
-                                              (eq (knowledge-node-scope premise) ':workspace))
-                                            premises)))
-                     (scope (if workspace-p ':workspace ':global))
-                     (workspace (and workspace-p (knowledge-view-workspace view)))
-                     (node (knowledge--view-node
-                            view
-                            (knowledge-claim-identifier proposition
-                                                        :scope scope :workspace workspace)
-                            proposition scope workspace))
+              (let* ((workspace-p         (or (eq (getf entry :scope) ':workspace)
+                                              (some (lambda (premise)
+                                                      (eq (knowledge-node-scope premise) ':workspace))
+                                                    premises)))
+                     (scope               (if workspace-p ':workspace ':global))
+                     (workspace           (and workspace-p (knowledge-view-workspace view)))
+                     (node                (knowledge--view-node
+                                           view
+                                           (knowledge-claim-identifier proposition
+                                                                       :scope scope :workspace workspace)
+                                           proposition scope workspace))
                      (premise-identifiers (mapcar #'knowledge-node-identifier premises))
                      (justification
                        (knowledge-digest-identifier
@@ -538,9 +544,9 @@ are independent support paths even when their propositions agree."
                 (unless (find justification (knowledge-node-justifications node)
                               :key (lambda (item) (getf item :id)) :test #'string=)
                   (incf (knowledge-view-matches view))
-                  (push (list :id justification
-                              :rule (getf entry :id)
-                              :version version
+                  (push (list :id       justification
+                              :rule     (getf entry :id)
+                              :version  version
                               :premises premise-identifiers
                               :bindings (loop for binding in (getf (rest rule) :bindings)
                                               collect (cons (first binding)
@@ -587,7 +593,7 @@ are independent support paths even when their propositions agree."
                     (pushnew (getf entry :id) (knowledge-view-incomplete view)
                              :test #'string=))
                    ((null patterns)
-                     (match-negative negative environment premises))
+                    (match-negative negative environment premises))
                    (t
                     (dolist (node (knowledge--candidates view (first patterns) environment))
                       (when (exhausted-p)
@@ -641,9 +647,9 @@ contribute to them; by default every admitted rule runs. A view whose work
 limits were reached lists the unfinished rules as incomplete; their absent
 conclusions are unknown, never false."
   (let ((view (make-instance 'knowledge-view
-                             :base base
+                             :base      base
                              :workspace workspace
-                             :now (evidence-check-now check))))
+                             :now       (evidence-check-now check))))
     (knowledge--evaluate-stored view check)
     (dolist (item (knowledge--rule-order
                    (knowledge--relevant-rules
@@ -663,7 +669,7 @@ conclusions are unknown, never false."
 
 A negated PATTERN matches supported explicit negations."
   (let ((negated-p (knowledge-negation-p pattern))
-        (atom (knowledge-proposition-atom pattern)))
+        (atom      (knowledge-proposition-atom pattern)))
     (remove-if-not
      (lambda (node)
        (nth-value 1 (knowledge--unify atom
@@ -691,12 +697,12 @@ explicit negations the negated patterns required, as in rules. When TEST is
 given, only facts it accepts are used. The second value is true when the
 limit or the view's step limit cut the search short, so absent solutions are
 unknown rather than impossible."
-  (let ((positive (remove-if #'knowledge-negation-p patterns))
-        (negative (remove-if-not #'knowledge-negation-p patterns))
+  (let ((positive  (remove-if #'knowledge-negation-p patterns))
+        (negative  (remove-if-not #'knowledge-negation-p patterns))
         (solutions nil)
-        (count 0)
-        (steps 0)
-        (cut-p nil))
+        (count     0)
+        (steps     0)
+        (cut-p     nil))
     (labels ((match-negative (remaining environment nodes)
                (cond
                  ((or (>= count limit) (>= steps *knowledge-step-limit*))
@@ -718,7 +724,7 @@ unknown rather than impossible."
                  ((or (>= count limit) (>= steps *knowledge-step-limit*))
                   (setf cut-p t))
                  ((null remaining)
-                   (match-negative negative environment nodes))
+                  (match-negative negative environment nodes))
                  (t
                   (dolist (node (remove-if-not (lambda (node) (or (null test) (funcall test node)))
                                                (knowledge--candidates view (first remaining)
@@ -796,28 +802,28 @@ A view is reused while the knowledge log, the memory log, and every file it
 read are unchanged and no support or evidence has started or stopped being
 valid since. Recall and listings in a session therefore evaluate once per
 change, not once per request. Views are shared and must not be modified."
-  (let* ((workspace (or workspace (knowledge--workspace configuration)))
-         (base (knowledge-base-read configuration))
-         (now (knowledge-now))
+  (let* ((workspace  (or workspace (knowledge--workspace configuration)))
+         (base       (knowledge-base-read configuration))
+         (now        (knowledge-now))
          (memory-key (knowledge-file-status-key (configuration-memory-path configuration)))
-         (key (list (namestring (configuration-knowledge-path configuration)) workspace))
-         (cached (gethash key *knowledge-view-cache*)))
+         (key        (list (namestring (configuration-knowledge-path configuration)) workspace))
+         (cached     (gethash key *knowledge-view-cache*)))
     (if (and cached (knowledge--view-cache-valid-p cached base memory-key now))
         (getf cached :view)
         (let* ((evaluated-at (get-universal-time))
-               (check (evidence-check-create
-                       :now now
-                       :memories (memory-list configuration :visibility ':all)))
-               (view (knowledge-evaluate base :workspace workspace :check check)))
+               (check        (evidence-check-create
+                              :now      now
+                              :memories (memory-list configuration :visibility ':all)))
+               (view         (knowledge-evaluate base :workspace workspace :check check)))
           (setf (gethash key *knowledge-view-cache*)
-                (list :view view
-                      :memory-key memory-key
+                (list :view         view
+                      :memory-key   memory-key
                       :evaluated-at evaluated-at
-                      :files (loop for pathname being the hash-keys of (evidence-check-files check)
-                                     using (hash-value entry)
-                                   collect (list (pathname pathname)
-                                                 (third entry)
-                                                 (if (first entry)
-                                                     (memory-source-text-digest (first entry))
-                                                     (second entry))))))
+                      :files        (loop for pathname being the hash-keys of (evidence-check-files check)
+                                            using (hash-value entry)
+                                          collect (list (pathname pathname)
+                                                        (third entry)
+                                                        (if (first entry)
+                                                            (memory-source-text-digest (first entry))
+                                                            (second entry))))))
           view))))
