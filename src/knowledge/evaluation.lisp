@@ -791,8 +791,9 @@ view was evaluated, or later, has its content compared instead of its status."
                (equal (knowledge--file-fingerprint pathname) fingerprint))
            t))))
 
-(-> knowledge--view-cache-valid-p (list knowledge-base t timestamp) boolean)
-(defun knowledge--view-cache-valid-p (entry base memory-key now)
+(-> knowledge--view-cache-valid-p
+    (list knowledge-base &key (:memory-key t) (:now timestamp)) boolean)
+(defun knowledge--view-cache-valid-p (entry base &key memory-key now)
   "Return true when cached view ENTRY still describes BASE, the memories, and the files at NOW."
   (let ((view (getf entry :view)))
     (and view
@@ -821,7 +822,9 @@ change, not once per request. Views are shared and must not be modified."
          (memory-key (knowledge-file-status-key (configuration-memory-path configuration)))
          (key        (list (namestring (configuration-knowledge-path configuration)) workspace))
          (cached     (gethash key *knowledge-view-cache*)))
-    (if (and cached (knowledge--view-cache-valid-p cached base memory-key now))
+    (if (and cached (knowledge--view-cache-valid-p cached base
+                                                   :memory-key memory-key
+                                                   :now        now))
         (getf cached :view)
         (let* ((evaluated-at (get-universal-time))
                (check        (evidence-check-create
