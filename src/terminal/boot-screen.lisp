@@ -25,8 +25,8 @@
     "⠀⢀⠀⠴⠻⠲⠑⠇⠖⠚⠛⠌⠀⠀⠐⠂⠈⠀⠁⢀⢸⣿⣿⢀⢌⣈⢕⣈⢌⣿⣿⣇⠠⣄⢠⠠⠉⠤⠃⠳⠧⣗⣀⠿⠋⠀⠀⠀"
     "⠀⠀⠀⠀⠀⢀⡊⣿⣲⣌⠀⠀⠚⠛⠀⠀⠀⠀⠴⡿⠿⠿⡛⠓⢋⠪⢌⣭⣿⣿⢿⠿⠕⢋⣑⠈⠐⠉⠓⠑⠚⠋⠅⠀⠀⠀⠀⠀"
     "⠀⠀⠀⠀⠐⠀⠉⠀⠁⠁⠀⠀⠀⠀⣀⢁⠀⠂⠠⠖⢀⠤⠦⢄⠀⠀⠀⠀⠁⠀⠀⠠⠐⠻⠛⠂⠀⠀⠂⠁⠀⠀⠀⠀⠀⠀⠀⠀"
-    "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⠀⠀⠁⠀⠀⠀⠀⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"
-    )
+    "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⠀⠀⠁⠀⠀⠀⠀⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀")
+
   "A dithered braille rendering of the Autolith rock mascot, for the boot panel.")
 
 (defparameter *terminal-ui-boot-almighty-rows*
@@ -99,12 +99,12 @@
 
 MARK-ROWS are the already height-limited rows of the theme's boot mark. They
 are centered as one block, so rows of unequal width stay aligned."
-  (let* ((width (terminal-ui--boot-panel-width columns))
-         (inside (max 0 (- width 4)))
-         (mark-width (loop for text in mark-rows maximize (text-cell-width text)))
-         (mark-indent (max 0 (floor (- inside mark-width) 2)))
-         (left (make-string (max 0 (floor (- columns width) 2))
-                            :initial-element #\Space))
+  (let* ((width        (terminal-ui--boot-panel-width columns))
+         (inside       (max 0 (- width 4)))
+         (mark-width   (loop for text in mark-rows maximize (text-cell-width text)))
+         (mark-indent  (max 0 (floor (- inside mark-width) 2)))
+         (left         (make-string (max 0 (floor (- columns width) 2))
+                                    :initial-element #\Space))
          (top-border
            (concatenate 'string "┌" (make-string (max 0 (- width 2))
                                                  :initial-element #\─) "┐"))
@@ -117,51 +117,51 @@ are centered as one block, so rows of unequal width stay aligned."
          (mascot-count (length mark-rows)))
     (multiple-value-bind (art title tagline) (terminal-ui--boot-art)
       (declare (ignore art))
-    (labels ((row (style text)
-               (list (terminal-span ':plain left)
-                     (terminal-span style (layout-fit-text text width))))
+     (labels ((row (style text)
+                (list (terminal-span ':plain left)
+                      (terminal-span style (layout-fit-text text width))))
 
-             (boxed (style text)
-               (let* ((safe (layout-fit-text (sanitize-text text :single-line-p t) inside))
-                      (padding (make-string (max 0 (- inside (text-cell-width safe)))
-                                            :initial-element #\Space)))
-                 (row style (format nil "│ ~A~A │" safe padding))))
+              (boxed (style text)
+                (let* ((safe    (layout-fit-text (sanitize-text text :single-line-p t) inside))
+                       (padding (make-string (max 0 (- inside (text-cell-width safe)))
+                                             :initial-element #\Space)))
+                  (row style (format nil "│ ~A~A │" safe padding))))
 
-             (mascot-row (index text)
-               (boxed (terminal-ui--boot-mascot-row-style index mascot-count)
-                      (format nil "~A~A"
-                              (make-string mark-indent :initial-element #\Space)
-                              text))))
-      (append
-       (list (row ':brand top-border))
-       (loop for index from 0
-             for mascot-line in mark-rows
-             collect (mascot-row index mascot-line))
-       (list (row ':brand mid-border)
-             (boxed ':brand title)
-             (boxed ':hint tagline)
-             (boxed ':plain "")
-             (boxed ':plain (format nil "(boot :image ~S)"
-                                    (format nil "~A ~A" (lisp-implementation-type)
-                                            (lisp-implementation-version))))
-             (boxed ':brand (format nil ";; ~A" (string-upcase (string phase))))
-             (boxed ':plain (or detail "Awaiting operator input."))
-             (boxed ':plain "")
-             (boxed ':hint
-                    (if *terminal-ui-boot-linger-p*
-                        (format nil "[ SYSTEM CONSOLE ]          Space: ~A   Ctrl-C: halt"
-                                *terminal-ui-boot-start-label*)
-                        "[ SYSTEM CONSOLE ]                         Ctrl-C: halt"))
-             (row ':brand bottom-border)))))))
+              (mascot-row (index text)
+                (boxed (terminal-ui--boot-mascot-row-style index mascot-count)
+                       (format nil "~A~A"
+                               (make-string mark-indent :initial-element #\Space)
+                               text))))
+       (append
+        (list (row ':brand top-border))
+        (loop for index from 0
+              for mascot-line in mark-rows
+              collect (mascot-row index mascot-line))
+        (list (row ':brand mid-border)
+              (boxed ':brand title)
+              (boxed ':hint tagline)
+              (boxed ':plain "")
+              (boxed ':plain (format nil "(boot :image ~S)"
+                                     (format nil "~A ~A" (lisp-implementation-type)
+                                             (lisp-implementation-version))))
+              (boxed ':brand (format nil ";; ~A" (string-upcase (string phase))))
+              (boxed ':plain (or detail "Awaiting operator input."))
+              (boxed ':plain "")
+              (boxed ':hint
+                     (if *terminal-ui-boot-linger-p*
+                         (format nil "[ SYSTEM CONSOLE ]          Space: ~A   Ctrl-C: halt"
+                                 *terminal-ui-boot-start-label*)
+                         "[ SYSTEM CONSOLE ]                         Ctrl-C: halt"))
+              (row ':brand bottom-border)))))))
 
 (-> terminal-ui--boot-tip-rows (terminal-ui integer) list)
 (defun terminal-ui--boot-tip-rows (ui columns)
   "Wrap and center one cached startup tip, preserving its display styles."
   (when (terminal-ui-fullscreen-p ui)
     (let* ((width (terminal-ui--boot-panel-width columns))
-           (tip (or (fullscreen-terminal-ui-welcome-tip ui)
-                    (setf (fullscreen-terminal-ui-welcome-tip ui)
-                          (application--startup-tip-spans)))))
+           (tip   (or (fullscreen-terminal-ui-welcome-tip ui)
+                      (setf (fullscreen-terminal-ui-welcome-tip ui)
+                            (application--startup-tip-spans)))))
       (mapcar (lambda (row)
                 (concatenate 'string
                              (make-string (max 0 (floor (- columns (clinedi:ansi-display-width row)) 2))
@@ -177,34 +177,34 @@ are centered as one block, so rows of unequal width stay aligned."
 
 While the boot screen waits for the operator, a bold call to action follows
 the tip."
-  (let* ((terminal (terminal-ui-terminal ui))
-         (columns (max 1 (terminal-columns terminal)))
-         (tip (terminal-ui--boot-tip-rows ui columns))
-         (prompt (when *terminal-ui-boot-linger-p*
-                   (list ""
-                         (terminal--render-spans
-                          terminal
-                          (list (terminal-span
-                                 ':plain
-                                 (make-string
-                                  (max 0 (floor (- columns
-                                                   (length *terminal-ui-boot-linger-prompt*))
-                                                2))
-                                  :initial-element #\Space))
-                                (terminal-span ':strong *terminal-ui-boot-linger-prompt*))))))
-         (available (max 0 (1- height)))
+  (let* ((terminal     (terminal-ui-terminal ui))
+         (columns      (max 1 (terminal-columns terminal)))
+         (tip          (terminal-ui--boot-tip-rows ui columns))
+         (prompt       (when *terminal-ui-boot-linger-p*
+                         (list ""
+                               (terminal--render-spans
+                                terminal
+                                (list (terminal-span
+                                       ':plain
+                                       (make-string
+                                        (max 0 (floor (- columns
+                                                         (length *terminal-ui-boot-linger-prompt*))
+                                                      2))
+                                        :initial-element #\Space))
+                                      (terminal-span ':strong *terminal-ui-boot-linger-prompt*))))))
+         (available    (max 0 (1- height)))
          ;; Keep status and advice visible before allocating rows to the mascot.
          (mascot-limit (max 0 (- available 11
                                  (if tip (1+ (length tip)) 0)
                                  (length prompt))))
-         (art (terminal-ui--boot-art))
-         (mark-rows (subseq art 0 (min mascot-limit (length art))))
-         (panel (mapcar (lambda (row) (terminal--render-spans terminal row))
-                        (terminal-ui--boot-screen-panel phase detail columns
-                                                        :mark-rows mark-rows)))
-         (rows (append panel (when tip (cons "" tip)) prompt))
-         (visible (subseq rows 0 (min (length rows) available)))
-         (top (max 0 (floor (- height (length visible)) 2))))
+         (art          (terminal-ui--boot-art))
+         (mark-rows    (subseq art 0 (min mascot-limit (length art))))
+         (panel        (mapcar (lambda (row) (terminal--render-spans terminal row))
+                               (terminal-ui--boot-screen-panel phase detail columns
+                                                               :mark-rows mark-rows)))
+         (rows         (append panel (when tip (cons "" tip)) prompt))
+         (visible      (subseq rows 0 (min (length rows) available)))
+         (top          (max 0 (floor (- height (length visible)) 2))))
     (values (append (make-list top :initial-element "") visible)
             (min (max 0 (1- height)) (+ top (length visible))))))
 
@@ -213,8 +213,8 @@ the tip."
   "Center the machine console and one stable, wrapped tip above the composer."
   (nth-value 0 (terminal-ui--boot-screen-frame
                 ui :phase ':listener-ready
-                :detail "Type a request. Use (login) to connect a provider."
-                :height height)))
+                :detail   "Type a request. Use (login) to connect a provider."
+                :height   height)))
 
 (-> terminal-ui-boot-screen
     (terminal-ui (or string symbol) &optional (option string)) null)
@@ -229,7 +229,6 @@ the tip."
         (terminal-ui-fullscreen-paint ui :rows rows :cursor-row cursor-row :cursor-column 0))))
   nil)
 
-
 (-> terminal-ui--await-interactive (terminal (or null function) number) boolean)
 (defun terminal-ui--await-interactive (terminal wait-function timeout)
   "Poll TERMINAL for up to TIMEOUT seconds until it reports interactive.
@@ -240,7 +239,7 @@ localgroup daemon begins listening. This gives that handshake a brief
 window instead of judging interactivity before it could possibly happen."
   (or (terminal-interactive-p terminal)
       (let ((deadline (+ (get-internal-real-time)
-                          (round (* timeout internal-time-units-per-second)))))
+                         (round (* timeout internal-time-units-per-second)))))
         (loop while (and (not (terminal-interactive-p terminal))
                          (< (get-internal-real-time) deadline))
               do (funcall (or wait-function #'sleep) 0.02))
@@ -316,10 +315,10 @@ permits. Space, Enter, and end of input return :START; Ctrl-C, or
 HALTED-FUNCTION reporting an exit request, returns :INTERRUPT. The startup tip
 rotates every TIP-SECONDS, counted in WAIT-FUNCTION calls so scripted waits
 stay deterministic."
-  (let* ((terminal (terminal-ui-terminal ui))
+  (let* ((terminal                    (terminal-ui-terminal ui))
          (*terminal-ui-boot-linger-p* t)
-         (detail (second (first (last *terminal-ui-boot-sequence-phases*))))
-         (elapsed 0))
+         (detail                      (second (first (last *terminal-ui-boot-sequence-phases*))))
+         (elapsed                     0))
     (terminal-ui-boot-screen ui ':listener-ready detail)
     (loop
       (when (terminal-ui-refresh-size ui resize-callback)
@@ -401,10 +400,10 @@ Returns :START, or :INTERRUPT when Ctrl-C ended the wait."
                    (setf result
                          (terminal-ui--boot-linger
                           ui
-                          :wait-function wait-function
-                          :resize-callback resize-callback
-                          :tip-seconds tip-seconds
-                          :halted-function halted-function
+                          :wait-function           wait-function
+                          :resize-callback         resize-callback
+                          :tip-seconds             tip-seconds
+                          :halted-function         halted-function
                           :direct-input-p-function direct-input-p-function))))
             (setf (terminal-ui-boot-waiting-p ui) nil)
             (with-terminal-ui-locked (ui)
