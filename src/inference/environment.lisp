@@ -199,8 +199,8 @@ of failing the run."
   (handler-case
       (let* ((response (lisp-worker-request worker ':eval
                                             (list :forms (list "(environment-names)"))))
-             (fields (rest response))
-             (printed (first (getf fields ':values))))
+             (fields   (rest response))
+             (printed  (first (getf fields ':values))))
         (when (and (eq (getf fields ':status) ':ok)
                    (stringp printed))
           (let ((names (with-standard-io-syntax
@@ -234,9 +234,9 @@ the worker must be able to read this form's socket symbols."
 
 (defclass rlm-root-agent (rlm-frame-agent)
   ((endpoint
-    :initarg :endpoint
-    :reader rlm-root-agent--endpoint
-    :type rlm-endpoint
+    :initarg       :endpoint
+    :reader        rlm-root-agent--endpoint
+    :type          rlm-endpoint
     :documentation "The endpoint whose finished state ends the root turn."))
   (:documentation "The root agent of one recursive language model run."))
 
@@ -252,9 +252,9 @@ provider request on a closing remark."
 
 (defclass rlm-environment-tool (tool)
   ((worker
-    :initarg :worker
-    :reader rlm-environment-tool--worker
-    :type t
+    :initarg       :worker
+    :reader        rlm-environment-tool--worker
+    :type          t
     :documentation "The dedicated environment worker evaluating root forms."))
   (:documentation "Evaluate root model Lisp inside the run's environment."))
 
@@ -274,8 +274,8 @@ provider request on a closing remark."
   (make-instance
    'rlm-environment-tool
    :namespace "env"
-   :name "eval"
-   :worker worker
+   :name      "eval"
+   :worker    worker
    :description
    "Evaluate exactly one Common Lisp form in the run's environment and return its printed values and captured output, both bounded. Keep large data in environment variables and observe short summaries."
    :parameters
@@ -375,31 +375,31 @@ configuration before per-call model routing, so routing copies share its pool."
            :message "A root completion requires a non-empty task."))
   (multiple-value-bind (provider configuration)
       (rlm--resolve-environment :model model :effort effort
-                                :provider provider
+                                :provider      provider
                                 :configuration configuration)
-    (let* ((object (rlm-context-designator-object configuration context))
-           (budget (or budget
-                       (rlm-budget-create
-                        :calls *rlm-complete-call-budget*
-                        :tokens *rlm-complete-token-budget*
-                        :depth *rlm-complete-depth-budget*)))
-           (conversation (rlm--frame-conversation configuration))
-           (endpoint (rlm-endpoint-start
-                      :provider provider
-                      :configuration configuration
-                      :budget budget
-                      ;; Metadata records are replay-safe, so the root trace
-                      ;; itself carries the run's invocation tree.
-                      :ledger
-                      (lambda (record)
-                        (conversation-append-provider-metadata
-                         conversation
-                         (list :rlm-call record)))
-                      :activity-callback activity-callback))
-           (worker nil)
-           (reused-p nil)
+    (let* ((object          (rlm-context-designator-object configuration context))
+           (budget          (or budget
+                                (rlm-budget-create
+                                 :calls  *rlm-complete-call-budget*
+                                 :tokens *rlm-complete-token-budget*
+                                 :depth  *rlm-complete-depth-budget*)))
+           (conversation    (rlm--frame-conversation configuration))
+           (endpoint        (rlm-endpoint-start
+                             :provider          provider
+                             :configuration     configuration
+                             :budget            budget
+                             ;; Metadata records are replay-safe, so the root trace
+                             ;; itself carries the run's invocation tree.
+                             :ledger
+                             (lambda (record)
+                               (conversation-append-provider-metadata
+                                conversation
+                                (list :rlm-call record)))
+                             :activity-callback activity-callback))
+           (worker          nil)
+           (reused-p        nil)
            (previous-lost-p nil)
-           (parked-p nil))
+           (parked-p        nil))
       (unwind-protect
            (progn
              (rlm--note-activity activity-callback "starting environment")
@@ -446,26 +446,26 @@ configuration before per-call model routing, so routing copies share its pool."
              (multiple-value-bind (status-callback flush-tranche)
                  (rlm--frame-budget-callback
                   budget task :activity-callback activity-callback)
-               (let* ((registry (make-instance 'tool-registry))
+               (let* ((registry                 (make-instance 'tool-registry))
                       (agent
                         (make-instance 'rlm-root-agent
                                        :configuration configuration
-                                       :provider provider
-                                       :conversation conversation
+                                       :provider      provider
+                                       :conversation  conversation
                                        :tool-registry registry
-                                       :worker nil
-                                       :endpoint endpoint))
+                                       :worker        nil
+                                       :endpoint      endpoint))
                       (observer
                         (make-instance 'callback-agent-observer
                                        :status-callback status-callback))
-                      (request (rlm--root-request
-                                task object
-                                :reused-p reused-p
-                                :persisted-names
-                                (and reused-p
-                                     (rlm--environment-persisted-names
-                                      worker))
-                                :previous-lost-p previous-lost-p))
+                      (request                  (rlm--root-request
+                                                 task object
+                                                 :reused-p        reused-p
+                                                 :persisted-names
+                                                 (and reused-p
+                                                      (rlm--environment-persisted-names
+                                                       worker))
+                                                 :previous-lost-p previous-lost-p))
                       (*system-prompt-override* *rlm-root-system-prompt*))
                  (tool-registry-register registry
                                          (rlm-environment-tool-create worker))
@@ -476,8 +476,8 @@ configuration before per-call model routing, so routing copies share its pool."
                              (*provider-maximum-output-tokens* nil))
                          (unwind-protect
                               (agent-run-user-turn agent request
-                                                   :observer observer
-                                                   :tool-allowlist (list "env.eval")
+                                                   :observer           observer
+                                                   :tool-allowlist     (list "env.eval")
                                                    :tool-restriction-p t)
                            (funcall flush-tranche)))
                        (multiple-value-bind (value final-p)
@@ -499,8 +499,8 @@ configuration before per-call model routing, so routing copies share its pool."
                              (values value (conversation-identifier conversation))
                              (rlm--signal-partial
                               condition conversation budget
-                              :context (format nil "context:~A"
-                                               (rlm-context-object-digest object))
+                              :context     (format nil "context:~A"
+                                                   (rlm-context-object-digest object))
                               :environment names)))))))))
         (unless parked-p
           (when worker
