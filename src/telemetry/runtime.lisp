@@ -158,10 +158,11 @@ Keep records registered until teardown completes, including across concurrent pu
         (telemetry-controller-runs controller) nil)
   (copy-list (telemetry-controller-processes controller)))
 
-(-> telemetry--settings-changed (configuration setting t t) null)
-(defun telemetry--settings-changed (configuration setting old new)
-  "Adopt owner consent changes; attached secondary roots may revoke, never enable."
-  (declare (ignore old))
+(-> telemetry--settings-changed (configuration setting &key (:new t)) null)
+(defun telemetry--settings-changed (configuration setting &key new)
+  "Adopt owner consent changes; attached secondary roots may revoke, never enable.
+
+NEW is SETTING's value after the change."
   (let ((controller *telemetry-controller*) (mirror nil) (processes nil))
     (when controller
       (bt:with-lock-held ((telemetry-controller-lock controller))
@@ -213,7 +214,10 @@ Attaching a disabled root does not change existing process consent."
   (unless *telemetry-controller*
     (setf *telemetry-controller*
           (telemetry--make-controller
-           :owner configuration :listener #'telemetry--settings-changed
+           :owner       configuration
+           :listener    (lambda (root setting old new)
+                          (declare (ignore old))
+                          (telemetry--settings-changed root setting :new new))
            :cache-root  (config :cache-root configuration)
            :library     (uiop:getenv "AUTOLITH_DEFINGERPRINTER_LIBRARY")
            :enabled     (eq (config :telemetry-enabled-p configuration) t)
