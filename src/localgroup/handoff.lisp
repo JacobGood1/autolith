@@ -36,8 +36,10 @@
   (lambda (configuration session-id handoff-pathname permission-argument
            immutable-p)
     (localgroup-handoff--launch-for
-     configuration session-id handoff-pathname permission-argument
-     immutable-p))
+     configuration session-id
+     :handoff-pathname    handoff-pathname
+     :permission-argument permission-argument
+     :immutable-p         immutable-p))
   "The detached launch boundary used by client-first session starts.")
 
 (defparameter *localgroup-fresh-wait-function*
@@ -345,16 +347,18 @@ before any shell is involved."
   (localgroup-handoff--launch-for (application-configuration application)
                                   (image-daemon:daemon-runtime-identifier
                                    (application-localgroup-session application))
-                                  handoff-pathname
-                                  (localgroup-handoff--permission-argument application)
-                                  (config :immutable-p
-                                   (application-configuration application))))
+                                  :handoff-pathname    handoff-pathname
+                                  :permission-argument (localgroup-handoff--permission-argument
+                                                        application)
+                                  :immutable-p         (config :immutable-p
+                                                        (application-configuration application))))
 
 (-> localgroup-handoff--launch-for
-    (configuration string pathname string boolean)
+    (configuration string &key (:handoff-pathname pathname) (:permission-argument string)
+                               (:immutable-p boolean))
     t)
 (defun localgroup-handoff--launch-for
-    (configuration session-id handoff-pathname permission-argument immutable-p)
+    (configuration session-id &key handoff-pathname permission-argument immutable-p)
   "Launch one detached session process from HANDOFF-PATHNAME."
   (let ((arguments
           (localgroup-handoff--arguments
