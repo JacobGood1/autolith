@@ -337,6 +337,7 @@ opened by the directory's own name."
     (list (namestring sb-ext:*runtime-pathname*) "--noinform"
           "--no-userinit" "--no-sysinit" "--script" (namestring launcher))))
 
+(-> win32--command-line-argument (string) string)
 (defun win32--command-line-argument (argument)
   "Quote ARGUMENT for the Windows command-line parser."
   (if (and (> (length argument) 0)
@@ -363,10 +364,12 @@ opened by the directory's own name."
             (write-char #\\ stream)))
         (write-char #\" stream))))
 
+(-> win32--command-line (list) string)
 (defun win32--command-line (arguments)
   "Build a mutable CreateProcessW command line from ARGUMENTS."
   (format nil "~{~A~^ ~}" (mapcar #'win32--command-line-argument arguments)))
 
+(-> win32--stream-handle (t) integer)
 (defun win32--stream-handle (stream)
   "Return STREAM's native handle, or zero when it has none."
   (if (and stream (find-symbol "FD-STREAM-FD" "SB-SYS")
@@ -374,11 +377,13 @@ opened by the directory's own name."
       (funcall (symbol-function (find-symbol "FD-STREAM-FD" "SB-SYS")) stream)
       0))
 
+(-> win32--sap-uint64 (sb-sys:system-area-pointer (integer 0)) (unsigned-byte 64))
 (defun win32--sap-uint64 (sap offset)
   "Read an unsigned 64-bit value from SAP at byte OFFSET."
   (logior (sb-sys:sap-ref-32 sap offset)
           (ash (sb-sys:sap-ref-32 sap (+ offset 4)) 32)))
 
+(-> win32--duplicate-inheritable-handle (integer) integer)
 (defun win32--duplicate-inheritable-handle (handle)
   "Return an inheritable duplicate of HANDLE."
   (sb-alien:with-alien ((copy win32-handle))
@@ -391,6 +396,7 @@ opened by the directory's own name."
       (win32--fail ':launch nil))
     copy))
 
+(-> win32--null-handle () integer)
 (defun win32--null-handle ()
   "Open NUL for use as valid child standard handles."
   (let ((handle
@@ -402,10 +408,11 @@ opened by the directory's own name."
       (win32--fail ':launch nil))
     handle))
 
+(-> win32--call-with-inherited-handles (list function) t)
 (defun win32--call-with-inherited-handles (handles function)
   "Call FUNCTION with a native attribute list inheriting only HANDLES."
   (sb-alien:with-alien ((size (sb-alien:unsigned 64) 0)
-                       (list (sb-alien:array win32-handle 3)))
+                        (list (sb-alien:array win32-handle 3)))
     (win32--initialize-attributes nil 1 0 (sb-alien:addr size))
     (let ((attributes    (sb-alien:make-alien (sb-alien:unsigned 8) size))
           (initialized-p nil))
@@ -426,6 +433,7 @@ opened by the directory's own name."
         (when initialized-p (win32--delete-attributes attributes))
         (sb-alien:free-alien attributes)))))
 
+(-> win32--job-kill-on-close (integer t) null)
 (defun win32--job-kill-on-close (job enabled-p)
   "Make JOB die with its launch owner until ownership is explicitly released."
   (sb-alien:with-alien ((limits (sb-alien:array (sb-alien:unsigned 8) 144)))
@@ -485,7 +493,7 @@ handoff explicitly releases ownership without terminating the detached session."
                           (sb-sys:sap-ref-64 start 88) out
                           (sb-sys:sap-ref-64 start 96) err
                           (sb-sys:sap-ref-sap start 104) attributes)
-                    ;; CREATE_SUSPENDED | EXTENDED_STARTUPINFO_PRESENT.
+                    ;; CREATE_SUSPENDED and EXTENDED_STARTUPINFO_PRESENT.
                     (unless (plusp (win32--create-process
                                     (first arguments) (win32--command-line arguments)
                                     nil nil 1
@@ -552,7 +560,7 @@ handoff explicitly releases ownership without terminating the detached session."
   nil)
 
 (defmethod platform-release-process ((platform win32-platform)
-                                    (process win32-detached-process))
+                                     (process win32-detached-process))
   "Release this caller's handles without terminating a successful handoff."
   (declare (ignore platform))
   (unless (win32-detached-process-closed-p process)
@@ -563,7 +571,7 @@ handoff explicitly releases ownership without terminating the detached session."
   nil)
 
 (defmethod platform-wait-process ((platform win32-platform)
-                                 (process win32-detached-process))
+                                  (process win32-detached-process))
   "Wait for the entire owned tree, then release both native handles."
   (loop while (platform-process-object-alive-p platform process) do (sleep 0.01))
   (platform-release-process platform process)
@@ -926,6 +934,7 @@ Autolith publishes read-only lives below a private root anyway."
                (when (= attempt 100)
                  (error condition))
                (when (uiop:directory-exists-p pathname)
+                 ; mallet:suppress no-ignore-errors -- the next deletion attempt reports a failed repair
                  (ignore-errors
                    (win32--make-directory-tree-writable platform pathname)))
                (sleep 0.1)))))
@@ -1195,7 +1204,10 @@ System application directories are available through AppContainer's system acces
 (defmethod trivial-gray-streams:stream-read-byte ((stream win32-public-http-stream))
   "Refill a fixed buffer, never slurping an unbounded native response."
   (when (win32-http-closed-p stream)
-    (error 'stream-error :stream stream))
+    (error 'win32-http-stream-closed
+           :stream    stream
+           :operation ':http
+           :message   "The public HTTP response stream is closed."))
   (when (= (win32-http-position stream) (win32-http-end stream))
     (setf (win32-http-position stream) 0
           (win32-http-end stream)
@@ -1247,11 +1259,24 @@ System application directories are available through AppContainer's system acces
              (setf transferred-p t)
              (values stream status)))
       (unless transferred-p
-        (when request (ignore-errors (winhttp:close-handle request)))
-        (when connection (ignore-errors (winhttp:close-handle connection)))
-        (when session (ignore-errors (winhttp:close-handle session)))))))
+        (when request
+          ; mallet:suppress no-ignore-errors -- closing must not mask the original failure
+          (ignore-errors (winhttp:close-handle request)))
+        (when connection
+          ; mallet:suppress no-ignore-errors -- closing must not mask the original failure
+          (ignore-errors (winhttp:close-handle connection)))
+        (when session
+          ; mallet:suppress no-ignore-errors -- closing must not mask the original failure
+          (ignore-errors (winhttp:close-handle session)))))))
 
 
 ;;;; -- Installation --
 
 (setf *platform* (make-instance 'win32-platform))
+
+
+;;;; -- Conditions --
+
+(define-condition win32-http-stream-closed (platform-error stream-error)
+  ()
+  (:documentation "A closed native public HTTP response stream was read."))
