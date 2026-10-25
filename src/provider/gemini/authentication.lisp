@@ -152,8 +152,10 @@
    :headers         (list (cons "User-Agent" (provider-user-agent)))
    :request-wrapper #'gemini-oauth--request-wrapper))
 
-(-> gemini-oauth--token-document (function string list keyword) json-object)
-(defun gemini-oauth--token-document (request-function endpoint parameters stage)
+(-> gemini-oauth--token-document
+    (function string &key (:parameters list) (:stage keyword))
+    json-object)
+(defun gemini-oauth--token-document (request-function endpoint &key parameters stage)
   "POST PARAMETERS and validate the JSON token response for STAGE."
   (browser-authentication-token-document
    (gemini-oauth--client :request-function request-function :token-parameters nil)

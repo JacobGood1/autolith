@@ -101,8 +101,8 @@
                                  (format nil "bad ~A" secret)))
                    400 nil))
          "https://oauth.test/token"
-         (list (cons "refresh_token" secret))
-         ':refresh)
+         :parameters (list (cons "refresh_token" secret))
+         :stage      ':refresh)
       (gemini-oauth-error (caught)
         (setf condition caught)))
     (test-assert (and condition
