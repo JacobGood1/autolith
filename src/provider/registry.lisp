@@ -92,7 +92,7 @@ same source and shadow lower-precedence registrations with the same name."
 (-> provider--canonical-name (string) string)
 (defun provider--canonical-name (name)
   "Return NAME normalized for provider registry lookup."
-  (or (cdr (assoc (string-downcase name) *provider-name-aliases* :test #'string=))
+  (or (rest (assoc (string-downcase name) *provider-name-aliases* :test #'string=))
       (string-downcase name)))
 
 
@@ -101,10 +101,13 @@ same source and shadow lower-precedence registrations with the same name."
 (-> provider-load-model-cache (configuration) null)
 (defun provider-load-model-cache (configuration)
   "Load successful dynamic model metadata from CONFIGURATION's private cache."
+  ;; The catalog structure is defined after this file, so its reader is not inlined.
+  (declare (notinline model-catalog-providers))
   (provider-registry-load-model-cache *provider-registry* configuration)
   (let ((catalog (provider-catalog-load configuration)))
     (when (model-catalog-providers catalog)
       (dolist (registration (provider-registrations))
+        ; mallet:suppress no-ignore-errors -- cached metadata that fails to install keeps the built-in fallback
         (ignore-errors (provider-catalog--install catalog registration)))))
   nil)
 
@@ -192,7 +195,7 @@ The default startup path never performs remote model discovery."
   (provider-registry-find *provider-registry* name))
 
 (-> provider--selection-error
-    (string (option string) &key (:reason keyword) (:message string)) null)
+    (string (option string) &key (:reason keyword) (:message string)) nil)
 (defun provider--selection-error (model provider &key reason message)
   "Signal a structured selection failure with actionable MESSAGE."
   (error 'model-selection-error :model model :provider provider
