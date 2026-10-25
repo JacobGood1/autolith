@@ -334,7 +334,7 @@
   "Validate and consume a native persisted scheduler ticket."
   (unless (and (null extra) (proper-list-p ticket) (= (length ticket) 4)
                (every (lambda (key) (member key '(:id :token)))
-                      (loop for (key value) on ticket by #'cddr collect key))
+                      (plist-keys ticket))
                (proper-list-p (getf ticket :id)) (getf ticket :id)
                (integerp (getf ticket :token)) (plusp (getf ticket :token)))
     (mission--reject ':schedule-ticket "Expected a ticket with :id and a positive integer :token."))
