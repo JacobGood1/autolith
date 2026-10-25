@@ -287,7 +287,9 @@ clamped at EOF. Live children use their deterministic conversation identity."
 
              (parse-bound (value default)
                (if value
-                   (or (ignore-errors (parse-integer value :junk-allowed nil))
+                   (or (handler-case (parse-integer value :junk-allowed nil)
+                         (parse-error ()
+                           nil))
                        (task-continuity--fail "Task bounds must be integers."))
                    default)))
       (let* ((name   (or (word) "list"))
@@ -326,7 +328,7 @@ clamped at EOF. Live children use their deterministic conversation identity."
   (unless (and (member action '(:list :get :transcript :send :cancel :revive :abandon))
                (if (eq action ':list) (null id) (non-empty-string-p id))
                (evenp (length options))
-               (let ((keys (loop for (key value) on options by #'cddr collect key)))
+               (let ((keys (plist-keys options)))
                  (and (= (length keys) (length (remove-duplicates keys)))
                       (every (lambda (key)
                                (member key (case action
