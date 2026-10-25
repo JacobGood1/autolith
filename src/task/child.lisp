@@ -24,12 +24,11 @@
          (and (listp policy) (member child-name policy :test #'string-equal)))
      t)))
 
-
 (defun task--tool-spec-matches-p (spec tool)
   "Return true when agent tool SPEC permits TOOL."
   (let* ((normalized (string-downcase spec))
-         (canonical (string-downcase (tool-canonical-name tool)))
-         (namespace (string-downcase (tool-namespace tool))))
+         (canonical  (string-downcase (tool-canonical-name tool)))
+         (namespace  (string-downcase (tool-namespace tool))))
     (or (string= normalized canonical)
         (string= normalized (format nil "~A.*" namespace)))))
 
@@ -58,13 +57,13 @@
                              (task--tool-spec-matches-p specification tool)))
                       (tool-registry-tools registry)))
           (task-agent-definition--error
-           :pathname (task-agent-definition-pathname definition)
-           :source (task-agent-definition-source definition)
-           :field ':tools
-           :cause (format nil "Tool grant ~S is unavailable in this session."
-                          specification)
+           :pathname        (task-agent-definition-pathname definition)
+           :source          (task-agent-definition-source definition)
+           :field           ':tools
+           :cause           (format nil "Tool grant ~S is unavailable in this session."
+                                    specification)
            :definition-name (task-agent-definition-name definition)))))
-  nil))
+   nil))
 
 (defun task-child-tool-registry (parent-registry definition orchestrator depth)
   "Build a restricted child registry with yield and structurally bounded spawning."
@@ -89,7 +88,7 @@
        (make-instance
         'task-yield-tool
         :namespace "yield"
-        :name "submit"
+        :name      "submit"
         :description
         "Submit the required terminal child result. Call exactly once when the assignment is complete or cannot continue."
         :parameters
@@ -119,7 +118,7 @@
        (make-instance
         'task-note-tool
         :namespace "yield"
-        :name "note"
+        :name      "note"
         :description
         "Post one bounded interim progress note to the parent agent without ending this assignment; the parent reads it at its next turn boundary. Keep notes rare and load-bearing. yield.submit remains the required terminal result."
         :parameters
@@ -150,10 +149,15 @@
   "Resolve one child model ALIAS relative to PARENT-MODEL."
   (let ((value (string-downcase alias)))
     (cond
-      ((member value '("@task" "@parent" "@auto") :test #'string=) parent-model)
-      ((string= value "@smol") "gpt-5.6-luna")
-      ((member value '("@slow" "@designer") :test #'string=) "gpt-5.6-terra")
-      ((member alias *supported-models* :test #'string=) alias) (t nil))))
+      ((member value '("@task" "@parent" "@auto") :test #'string=)
+       parent-model)
+      ((string= value "@smol")
+       "gpt-5.6-luna")
+      ((member value '("@slow" "@designer") :test #'string=)
+       "gpt-5.6-terra")
+      ((member alias *supported-models* :test #'string=)
+       alias) (t
+               nil))))
 
 (defparameter *task-default-reasoning-effort* "medium"
   "The effort of child roles that leave their reasoning effort unspecified or :auto.
@@ -192,8 +196,8 @@ choice for the primary agent rather than a silent property of every task."
                       :test #'string-equal))))
     (configuration-copy
      parent-configuration
-     :model model
-     :reasoning-effort effort
+     :model             model
+     :reasoning-effort  effort
      :codex-fast-mode-p nil
      :web-search-mode
      (if web-enabled-p
@@ -236,8 +240,8 @@ boundary cannot fit within that budget."
 (defun task-child-goal-context (job child-configuration)
   "Build child instructions without replacing ordinary path authorization."
   (let* ((definition (task-job-definition job))
-         (identity (task-job-identity job))
-         (item (task-job-item job))
+         (identity   (task-job-identity job))
+         (item       (task-job-item job))
          (context
           (if (getf item :worktree)
               (format nil "~@[~A~2%~]This is an isolated modifying task at baseline ~A. Edit and test in ~A. Return your findings through yield; the parent will explicitly inspect and integrate your artifact. Do not modify or integrate into source workspace ~A. Stage new files before yielding so the complete patch can be extracted."
@@ -246,7 +250,7 @@ boundary cannot fit within that budget."
                       (getf (getf item :worktree) :path)
                       (getf (getf item :worktree) :source))
               (getf item :context)))
-         (output (task-output-definition-text definition)))
+         (output     (task-output-definition-text definition)))
     (format nil
             "You are child agent ~A of type ~A, depth ~D. Your specialized role follows.~2%~A~@[~2%Shared parent context:~%~A~]~@[~2%Your yield data must satisfy this native output contract:~%~A~]~2%You are not the primary Autolith session. self.* tools are deliberately unavailable. Your initial workspace is ~A. Work within the assignment's scope. Paths outside the workspace use the ordinary tool path authorization; this initial directory is not an additional confinement policy. Complete the assignment in the user message. You MUST end by calling yield.submit exactly once. A normal assistant stop without yield is a failed child run. Put the useful parent-facing answer in yield.text and structured data in yield.data when requested."
             (getf identity :id) (task-agent-definition-name definition)
@@ -255,7 +259,6 @@ boundary cannot fit within that budget."
             (namestring
              (config :working-directory child-configuration)))))
 
-
 (defmethod tool-execute
     ((tool task-yield-tool) (context tool-context) arguments)
   "Validate and record one exact terminal child yield."
@@ -263,7 +266,7 @@ boundary cannot fit within that budget."
   (let ((agent (tool-context-agent context)))
     (unless (typep agent 'task-child-agent)
       (error 'task-yield-error
-             :message "yield.submit is available only inside a child agent."
+             :message   "yield.submit is available only inside a child agent."
              :tool-name "yield.submit"))
     (let* ((completion (task-child-agent-completion agent))
            (identifier (getf (task-child-agent-identity agent) :id))
@@ -272,10 +275,10 @@ boundary cannot fit within that budget."
               (task-child-agent-definition agent))))
       (labels ((yield-error (message &key (code ':invalid-yield))
                  (error 'task-yield-error
-                        :message message
-                        :code code
+                        :message   message
+                        :code      code
                         :tool-name "yield.submit"
-                        :task-id identifier))
+                        :task-id   identifier))
 
                (optional-string (name)
                  (multiple-value-bind (value present-p)
@@ -300,9 +303,12 @@ boundary cannot fit within that budget."
             (yield-error "Yield status must be a string."))
           (let ((status
                   (cond
-                    ((string= status-text "success") :success)
-                    ((string= status-text "failed") :failed)
-                    ((string= status-text "aborted") :aborted)
+                    ((string= status-text "success")
+                     :success)
+                    ((string= status-text "failed")
+                     :failed)
+                    ((string= status-text "aborted")
+                     :aborted)
                     (t
                      (yield-error
                       "Yield status must be exactly success, failed, or aborted.")))))
@@ -393,7 +399,7 @@ boundary cannot fit within that budget."
           (task--environment-integer "AUTOLITH_TASK_MAX_OUTPUT_LINES"
                                      *task-default-maximum-output-lines*
                                      :minimum 1))
-         (lines (task--split-lines (or text "")))
+         (lines          (task--split-lines (or text "")))
          (line-bounded-p (> (length lines) maximum-lines))
          (line-text
           (format nil "~{~A~^~%~}"
@@ -502,7 +508,7 @@ candidates."
           (handler-case
               (progn
                 (platform-delete-directory-tree *platform* directory
-                                                :validate t
+                                                :validate          t
                                                 :if-does-not-exist ':ignore)
                 (decf excess))
             (error ()
@@ -516,12 +522,12 @@ candidates."
 (defun task--result-grammar ()
   "Return the bounded portable data dialect used by durable child results."
   (make-source-grammar
-   :label "Child result artifact"
+   :label                                     "Child result artifact"
    :maximum-depth 128 :maximum-nodes 262144
-   :maximum-string-characters *task-result-maximum-octets*
+   :maximum-string-characters                 *task-result-maximum-octets*
    :qualified-common-lisp-symbols-permitted-p t
-   :readable-strings-permitted-p t
-   :read-default-float-format 'single-float
+   :readable-strings-permitted-p              t
+   :read-default-float-format                 'single-float
    :allowed-atom-predicate
    (lambda (value)
      (or (null value) (eq value t) (keywordp value) (stringp value)
@@ -535,15 +541,15 @@ candidates."
                :validate (lambda (value)
                            (not (null (member value '(:success :failed :aborted))))))
          (list :indicator ':request-count
-               :validate (lambda (value) (typep value '(integer 0))))
+               :validate  (lambda (value) (typep value '(integer 0))))
          (list :indicator ':duration-ms
-               :validate (lambda (value) (typep value '(integer 0))))
+               :validate  (lambda (value) (typep value '(integer 0))))
          (list :indicator ':usage
-               :validate (lambda (value)
-                           (or (null value) (task-progress--usage-object-p value)))))
+               :validate  (lambda (value)
+                            (or (null value) (task-progress--usage-object-p value)))))
    (mapcar (lambda (key)
              (list :indicator key
-                   :validate (lambda (value) (or (null value) (stringp value)))))
+                   :validate  (lambda (value) (or (null value) (stringp value)))))
            '(:id :name :agent :assignment :error :label :model :conversation-file))
    (mapcar (lambda (key)
              (list :indicator key :validate (lambda (value) (typep value 'boolean))))
@@ -571,7 +577,7 @@ candidates."
                            (format nil ".result.~A" (make-identifier))
                            :type "tmp")
             root))
-         (orchestrator (session-job-orchestrator job)))
+         (orchestrator  (session-job-orchestrator job)))
     (with-lock-held ((task-orchestrator-artifact-lock orchestrator))
       (ensure-directories-exist target)
       (when (probe-file target)
@@ -580,19 +586,19 @@ candidates."
                (format nil "Task artifact pathname is already occupied: ~A"
                        target)
                :tool-name "task.run"
-               :task-id (job-identifier job)))
+               :task-id   (job-identifier job)))
       (unwind-protect
            (progn
              (with-open-file
                  (stream temporary
-                         :direction ':output
-                         :if-exists ':supersede
+                         :direction         ':output
+                         :if-exists         ':supersede
                          :if-does-not-exist ':create
-                         :external-format ':utf-8)
+                         :external-format   ':utf-8)
                (with-standard-io-syntax
                  (let ((*print-readably* t)
-                       (*print-pretty* t)
-                       (*print-circle* t))
+                       (*print-pretty*   t)
+                       (*print-circle*   t))
                    (prin1 (task--character-strings result) stream)
                    (terpri stream)
                    (finish-output stream))))
@@ -603,7 +609,7 @@ candidates."
                       (format nil "Task artifact pathname became occupied: ~A"
                               target)
                       :tool-name "task.run"
-                      :task-id (job-identifier job)))
+                      :task-id   (job-identifier job)))
              (rename-file temporary target)
              (task--prune-result-artifacts
               root
@@ -620,7 +626,8 @@ candidates."
              (let ((tail (with-lock-held ((task-progress-lock progress))
                            (copy-seq (task-progress-output-tail progress)))))
                (and (non-empty-string-p tail) tail)))))
-    (cond ((non-empty-string-p text) (task--bounded-output text))
+    (cond ((non-empty-string-p text)
+           (task--bounded-output text))
           ((task-completion-data-present-p completion)
            (task--bounded-output
             (task--write-readable-sexp
@@ -628,7 +635,8 @@ candidates."
           ((plusp (task-progress-request-count progress))
            (format nil "(no output) after ~D req"
                    (task-progress-request-count progress)))
-          (t "(no output)"))))
+          (t
+           "(no output)"))))
 
 (defun task--assemble-child-result
     (job provider-result child conversation completion)
@@ -638,7 +646,7 @@ candidates."
           (if (task-completion-called-p completion)
               (task-completion-status completion)
               :failed))
-         (output (task--result-output completion progress provider-result))
+         (output   (task--result-output completion progress provider-result))
          (duration
           (task--milliseconds-between
            (or (job-started-at job) (job-created-at job))
@@ -673,32 +681,32 @@ candidates."
 
 (defun task--failed-result (job status message)
   "Return a portable terminal failure result for JOB."
-  (let* ((parent (task-job-parent-agent job))
+  (let* ((parent   (task-job-parent-agent job))
          (progress (task-job-progress job))
-         (tail (with-lock-held ((task-progress-lock progress))
-                 (copy-seq (task-progress-output-tail progress))))
-         (model (and parent
-                     (config :model (agent-configuration parent)))))
-    (list :id (job-identifier job)
-          :name (task-job-display-name job)
-          :agent (task-agent-definition-name (task-job-definition job))
-          :agent-source (task-agent-definition-source
-                         (task-job-definition job))
-          :assignment (getf (task-job-item job) :task)
-          :status status
-          :output (if (non-empty-string-p tail)
-                      (task--bounded-output tail)
-                      "(no output)")
-          :error message
-          :yielded-p nil
+         (tail     (with-lock-held ((task-progress-lock progress))
+                     (copy-seq (task-progress-output-tail progress))))
+         (model    (and parent
+                        (config :model (agent-configuration parent)))))
+    (list :id            (job-identifier job)
+          :name          (task-job-display-name job)
+          :agent         (task-agent-definition-name (task-job-definition job))
+          :agent-source  (task-agent-definition-source
+                          (task-job-definition job))
+          :assignment    (getf (task-job-item job) :task)
+          :status        status
+          :output        (if (non-empty-string-p tail)
+                             (task--bounded-output tail)
+                             "(no output)")
+          :error         message
+          :yielded-p     nil
           :request-count (task-progress-request-count progress)
-          :usage (task-progress--usage-summary (task-progress-usage progress))
+          :usage         (task-progress--usage-summary (task-progress-usage progress))
           :duration-ms
           (task--milliseconds-between
            (or (job-started-at job) (job-created-at job))
            (get-internal-real-time))
-          :model model
-          :detached (task-job-detached-p job))))
+          :model         model
+          :detached      (task-job-detached-p job))))
 
 (-> task-child-inherit-reference-history
     (task-job conversation model-provider)
@@ -718,7 +726,7 @@ candidates."
 (defun task-job-note-agent-status (job status details)
   "Project one child observer STATUS into progress or durable response delivery."
   (if (eq status ':assistant-response-persisted)
-      (let ((text (getf details :text))
+      (let ((text      (getf details :text))
             (timestamp (getf details :time)))
         (when (and (stringp text) (typep timestamp 'timestamp))
           (task-job-note-verbal-response job text timestamp)))
@@ -740,10 +748,10 @@ candidates."
 
 (defun task-run-child (job)
   "Create and run JOB's real in-process child session through terminal yield."
-  (let* ((parent (task-job-parent-agent job))
-         (definition (task-job-definition job))
+  (let* ((parent       (task-job-parent-agent job))
+         (definition   (task-job-definition job))
          (orchestrator (task-job-orchestrator job))
-         (depth (1+ (task-parent-depth parent)))
+         (depth        (1+ (task-parent-depth parent)))
          (configuration
           (task-worktree-configuration
            job (task-configuration-for-definition (agent-configuration parent)
@@ -751,12 +759,12 @@ candidates."
          (conversation
           (conversation-create
            configuration
-           :identifier (task-job-execution-identifier job)
+           :identifier       (task-job-execution-identifier job)
            :prompt-cache-key (task--child-prompt-cache-key
                               (task-job-root-conversation-identifier job))
-           :storage-root (task--artifact-root configuration job)))
-         (worker (lisp-worker-pool-create configuration))
-         (completion (make-instance 'task-completion))
+           :storage-root     (task--artifact-root configuration job)))
+         (worker       (lisp-worker-pool-create configuration))
+         (completion   (make-instance 'task-completion))
          (registry
           (task-child-tool-registry (agent-tool-registry parent) definition
                                     orchestrator depth))
@@ -766,11 +774,11 @@ candidates."
           (make-instance 'task-child-agent :configuration configuration
                          :provider provider :conversation conversation
                          :tool-registry registry :worker worker
-                         :definition definition
+                         :definition                      definition
                          :identity (task-job-identity job) :depth depth
                          :completion completion :orchestrator orchestrator :job
                          job))
-         (progress (task-job-progress job))
+         (progress     (task-job-progress job))
          (observer
           (callback-agent-observer-create
            :text-callback
@@ -804,7 +812,7 @@ candidates."
                    (agent-run-user-turn
                     child
                     (getf (task-job-item job) :task)
-                    :observer observer
+                    :observer     observer
                     :goal-context (task-child-goal-context job configuration))))
              (task--assemble-child-result
               job result child conversation completion)))
