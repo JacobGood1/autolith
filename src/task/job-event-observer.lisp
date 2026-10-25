@@ -16,9 +16,12 @@
 (defun run-job-event--status (status)
   "Translate an accepted pool lifecycle STATUS to a wire status."
   (case status
-    (:started ':running)
-    (:completed ':succeeded)
-    (:aborted ':cancelled)
+    (:started
+     ':running)
+    (:completed
+     ':succeeded)
+    (:aborted
+     ':cancelled)
     (otherwise
      ':failed)))
 
@@ -62,10 +65,10 @@ The parent registry does not contain the child's mandatory yield tools."
 (defun run-job-event--terminal-path (configuration job)
   "Return JOB's published execution-qualified terminal artifact, or NIL."
   (let* ((result (job-result job))
-         (path (if (typep job 'task-job)
-                   (and (listp result) (getf result :output-path))
-                   (merge-pathnames
-                    "terminal.sexp" (run-job-event--job-directory configuration job)))))
+         (path   (if (typep job 'task-job)
+                     (and (listp result) (getf result :output-path))
+                     (merge-pathnames
+                      "terminal.sexp" (run-job-event--job-directory configuration job)))))
     (when path
       (probe-file path))))
 
@@ -94,8 +97,8 @@ Only the root identifier is retained. Provider call IDs are hashed, arbitrary
 text is excluded, and descendant terminals require durable publication. The
 root terminal is emitted by RUN-JOB-RUN after its output artifact is published."
   (let ((root-identifier nil)
-        (lock (make-lock "headless observer scope"))
-        (run-id (run-job-event-emitter-run-id emitter)))
+        (lock            (make-lock "headless observer scope"))
+        (run-id          (run-job-event-emitter-run-id emitter)))
     (labels ((scoped-p (job)
                (with-lock-held (lock)
                  (and (equal root-conversation
@@ -120,11 +123,11 @@ root terminal is emitted by RUN-JOB-RUN after its output artifact is published."
 
              (project (channel payload job)
                (let* ((identifier (session-job-execution-identifier job))
-                      (base (list :job-id identifier :execution-id identifier))
-                      (status (getf payload :status))
-                      (call-id (run-job-event--call-id
-                                run-id (or (getf payload :call-id)
-                                           (getf payload :parent-tool-call-id)))))
+                      (base       (list :job-id identifier :execution-id identifier))
+                      (status     (getf payload :status))
+                      (call-id    (run-job-event--call-id
+                                   run-id (or (getf payload :call-id)
+                                              (getf payload :parent-tool-call-id)))))
                  (case channel
                    (:task-subagent-lifecycle
                     (cond
@@ -136,7 +139,7 @@ root terminal is emitted by RUN-JOB-RUN after its output artifact is published."
                             (run-job-event--terminal-published-p configuration job))
                        (emit ':job-finished
                              (append base
-                                     (list :status (run-job-event--status status)
+                                     (list :status      (run-job-event--status status)
                                            :published-p t
                                            :result-uri
                                            (run-job-event--artifact-uri
