@@ -106,7 +106,6 @@
     :documentation "Whether loadCodeAssist and any onboarding have completed."))
   (:documentation "A direct Gemini CLI subscription provider for Code Assist."))
 
-(-> gemini-code-assist-credential-manager-create (configuration) credential-manager)
 (defgeneric gemini-code-assist-credential-manager-create (configuration)
   (:documentation "Return the OAuth credential manager used by Gemini Code Assist."))
 
