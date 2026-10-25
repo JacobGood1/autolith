@@ -7,45 +7,45 @@
 
 (defclass tuning-experiment ()
   ((identifier
-    :initarg :identifier
-    :reader tuning-experiment-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        tuning-experiment-identifier
+    :type          non-empty-string
     :documentation "The stable identifier joining this experiment's journal records.")
    (mutation-identifier
-    :initarg :mutation-identifier
-    :reader tuning-experiment-mutation-identifier
-    :type non-empty-string
+    :initarg       :mutation-identifier
+    :reader        tuning-experiment-mutation-identifier
+    :type          non-empty-string
     :documentation "The one effective exploratory mutation under measurement.")
    (mutation-kind
-    :initarg :mutation-kind
-    :reader tuning-experiment-mutation-kind
-    :type keyword
+    :initarg       :mutation-kind
+    :reader        tuning-experiment-mutation-kind
+    :type          keyword
     :documentation "The bound mutation kind, either SET or DEFINITION.")
    (mutation-target
-    :initarg :mutation-target
-    :reader tuning-experiment-mutation-target
-    :type non-empty-string
+    :initarg       :mutation-target
+    :reader        tuning-experiment-mutation-target
+    :type          non-empty-string
     :documentation "The semantic target of the bound exploratory mutation.")
    (hypothesis
-    :initarg :hypothesis
-    :reader tuning-experiment-hypothesis
-    :type non-empty-string
+    :initarg       :hypothesis
+    :reader        tuning-experiment-hypothesis
+    :type          non-empty-string
     :documentation "The proposed explanation motivating this tuning change.")
    (criterion
-    :initarg :criterion
-    :reader tuning-experiment-criterion
-    :type non-empty-string
+    :initarg       :criterion
+    :reader        tuning-experiment-criterion
+    :type          non-empty-string
     :documentation "The expected effect and measurement criterion.")
    (verdict
-    :initarg :verdict
-    :accessor tuning-experiment-verdict
-    :type keyword
+    :initarg       :verdict
+    :accessor      tuning-experiment-verdict
+    :type          keyword
     :documentation "The latest experiment verdict or OPEN before settlement.")
    (observation
-    :initarg :observation
-    :initform nil
-    :accessor tuning-experiment-observation
-    :type (option string)
+    :initarg       :observation
+    :initform      nil
+    :accessor      tuning-experiment-observation
+    :type          (option string)
     :documentation "The latest bounded settlement observation, when present."))
   (:documentation "One append-only evaluation of an exploratory self mutation."))
 
@@ -64,22 +64,22 @@
                (plusp (length (string-trim '(#\Space #\Tab #\Newline #\Return)
                                            value))))
     (error 'source-mutation-error
-           :message (format nil "Tuning experiment ~A must be nonempty." field)
+           :message   (format nil "Tuning experiment ~A must be nonempty." field)
            :tool-name tool-name
-           :pathname nil))
+           :pathname  nil))
   (subseq value 0 (min (length value) *tuning-experiment-text-limit*)))
 
 (-> tuning-experiment--verdict (string) keyword)
 (defun tuning-experiment--verdict (name)
   "Return the supported tuning verdict named by NAME."
   (or (find name '(:better :worse :unchanged :too-early)
-            :key #'symbol-name
+            :key  #'symbol-name
             :test #'string-equal)
       (error 'source-mutation-error
              :message
              "A tuning verdict must be better, worse, unchanged, or too-early."
              :tool-name "self.experiment-settle"
-             :pathname nil)))
+             :pathname  nil)))
 
 (-> tuning-experiment--journal-record-p (t) boolean)
 (defun tuning-experiment--journal-record-p (record)
@@ -92,8 +92,8 @@
 (-> tuning-experiment--record-valid-p (list) boolean)
 (defun tuning-experiment--record-valid-p (record)
   "Return true when tuning experiment RECORD has a complete portable shape."
-  (let* ((properties (rest record))
-         (verdict (getf properties :result))
+  (let* ((properties  (rest record))
+         (verdict     (getf properties :result))
          (observation (getf properties :observation)))
     (and (non-empty-string-p (getf properties :id))
          (non-empty-string-p (getf properties :lineage))
@@ -131,20 +131,20 @@
 (-> tuning-experiment-list (configuration) list)
 (defun tuning-experiment-list (configuration)
   "Reconstruct tuning experiments from CONFIGURATION's append-only journal."
-  (let ((experiments (make-hash-table :test #'equal))
-        (order nil)
+  (let ((experiments     (make-hash-table :test #'equal))
+        (order           nil)
         (open-experiment nil))
     (dolist (record (mutation-journal-read-records configuration))
       (when (tuning-experiment--journal-record-p record)
         (unless (tuning-experiment--record-valid-p record)
           (error 'source-mutation-error
-                 :message "A tuning experiment journal record is invalid."
+                 :message   "A tuning experiment journal record is invalid."
                  :tool-name "self.status"
-                 :pathname (configuration-journal-path configuration)))
+                 :pathname  (configuration-journal-path configuration)))
         (let* ((properties (rest record))
                (identifier (getf properties :id))
-               (verdict (getf properties :result))
-               (existing (gethash identifier experiments)))
+               (verdict    (getf properties :result))
+               (existing   (gethash identifier experiments)))
           (if (eq verdict :open)
               (progn
                 (when (or existing open-experiment)
@@ -152,17 +152,17 @@
                          :message
                          "The mutation journal contains overlapping tuning experiments."
                          :tool-name "self.status"
-                         :pathname (configuration-journal-path configuration)))
+                         :pathname  (configuration-journal-path configuration)))
                 (let ((experiment
                         (make-instance
                          'tuning-experiment
-                         :identifier identifier
+                         :identifier          identifier
                          :mutation-identifier (getf properties :mutation)
-                         :mutation-kind (getf properties :mutation-kind)
-                         :mutation-target (getf properties :target)
-                         :hypothesis (getf properties :hypothesis)
-                         :criterion (getf properties :criterion)
-                         :verdict ':open)))
+                         :mutation-kind       (getf properties :mutation-kind)
+                         :mutation-target     (getf properties :target)
+                         :hypothesis          (getf properties :hypothesis)
+                         :criterion           (getf properties :criterion)
+                         :verdict             ':open)))
                   (setf (gethash identifier experiments) experiment
                         open-experiment experiment
                         order (nconc order (list identifier)))))
@@ -176,7 +176,7 @@
                          :message
                          "A tuning experiment journal transition is invalid."
                          :tool-name "self.status"
-                         :pathname (configuration-journal-path configuration)))
+                         :pathname  (configuration-journal-path configuration)))
                 (setf (tuning-experiment-verdict existing) verdict
                       (tuning-experiment-observation existing)
                       (getf properties :observation))
@@ -215,7 +215,7 @@
                      (tuning-experiment-identifier experiment)
                      (tuning-experiment-mutation-identifier experiment))
              :tool-name tool-name
-             :pathname (configuration-journal-path configuration))))
+             :pathname  (configuration-journal-path configuration))))
   nil)
 
 (-> tuning-experiment-assert-settled (configuration string) null)
@@ -231,7 +231,7 @@
                      (tuning-experiment-verdict experiment)
                      (tuning-experiment-mutation-identifier experiment))
              :tool-name tool-name
-             :pathname (configuration-journal-path configuration))))
+             :pathname  (configuration-journal-path configuration))))
   nil)
 
 (-> tuning-experiment-start (configuration string string string)
@@ -242,9 +242,9 @@
   (with-live-mutation
     (when (tuning-experiment-open configuration)
       (error 'source-mutation-error
-             :message "A tuning experiment is already open."
+             :message   "A tuning experiment is already open."
              :tool-name "self.experiment-start"
-             :pathname (configuration-journal-path configuration)))
+             :pathname  (configuration-journal-path configuration)))
     (let* ((hypothesis
              (tuning-experiment--required-text
               hypothesis "hypothesis" "self.experiment-start"))
@@ -254,8 +254,8 @@
            (record
              (find mutation-identifier
                    (image-commit-effective-diff-records configuration)
-                   :key (lambda (candidate)
-                          (getf (rest candidate) :id))
+                   :key  (lambda (candidate)
+                           (getf (rest candidate) :id))
                    :test #'string=)))
       (unless record
         (error 'source-mutation-error
@@ -264,7 +264,7 @@
                        "No effective pending self.set or self.redefine mutation is named ~A."
                        mutation-identifier)
                :tool-name "self.experiment-start"
-               :pathname (configuration-journal-path configuration)))
+               :pathname  (configuration-journal-path configuration)))
       (let* ((properties (rest record))
              (identifier (make-identifier)))
         (mutation-journal-append
@@ -272,16 +272,16 @@
          (list :mutation
                :kind :tuning-experiment
                :id identifier
-               :lineage *active-image-lineage-identifier*
-               :mutation mutation-identifier
+               :lineage       *active-image-lineage-identifier*
+               :mutation      mutation-identifier
                :mutation-kind (getf properties :kind)
-               :target (getf properties :target)
-               :hypothesis hypothesis
-               :criterion criterion
-               :result ':open))
+               :target        (getf properties :target)
+               :hypothesis    hypothesis
+               :criterion     criterion
+               :result        ':open))
         (or (find identifier
                   (tuning-experiment-list configuration)
-                  :key #'tuning-experiment-identifier
+                  :key  #'tuning-experiment-identifier
                   :test #'string=)
             (error "The tuning experiment journal did not round-trip."))))))
 
@@ -293,15 +293,15 @@
   "Settle the open experiment with VERDICT-NAME and bounded OBSERVATION."
   (with-live-mutation
     (let* ((experiment (tuning-experiment-open configuration))
-           (verdict (tuning-experiment--verdict verdict-name))
+           (verdict    (tuning-experiment--verdict verdict-name))
            (observation
              (tuning-experiment--required-text
               observation "observation" "self.experiment-settle")))
       (unless experiment
         (error 'source-mutation-error
-               :message "There is no open tuning experiment to settle."
+               :message   "There is no open tuning experiment to settle."
                :tool-name "self.experiment-settle"
-               :pathname (configuration-journal-path configuration)))
+               :pathname  (configuration-journal-path configuration)))
       (when (and experiment-identifier
                  (not (string= experiment-identifier
                                (tuning-experiment-identifier experiment))))
@@ -311,23 +311,23 @@
                        (tuning-experiment-identifier experiment)
                        experiment-identifier)
                :tool-name "self.experiment-settle"
-               :pathname (configuration-journal-path configuration)))
+               :pathname  (configuration-journal-path configuration)))
       (mutation-journal-append
        configuration
        (list :mutation
              :kind :tuning-experiment
              :id (tuning-experiment-identifier experiment)
-             :lineage *active-image-lineage-identifier*
-             :mutation (tuning-experiment-mutation-identifier experiment)
+             :lineage       *active-image-lineage-identifier*
+             :mutation      (tuning-experiment-mutation-identifier experiment)
              :mutation-kind (tuning-experiment-mutation-kind experiment)
-             :target (tuning-experiment-mutation-target experiment)
-             :hypothesis (tuning-experiment-hypothesis experiment)
-             :criterion (tuning-experiment-criterion experiment)
-             :observation observation
-             :result verdict))
+             :target        (tuning-experiment-mutation-target experiment)
+             :hypothesis    (tuning-experiment-hypothesis experiment)
+             :criterion     (tuning-experiment-criterion experiment)
+             :observation   observation
+             :result        verdict))
       (or (find (tuning-experiment-identifier experiment)
                 (tuning-experiment-list configuration)
-                :key #'tuning-experiment-identifier
+                :key  #'tuning-experiment-identifier
                 :test #'string=)
           (error "The tuning experiment settlement did not round-trip.")))))
 
