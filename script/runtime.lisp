@@ -107,7 +107,7 @@
                thereis (string= (runtime-trimmed line)
                                 (format nil "\"~A\"" version))))))
 
-(defun runtime-source-available-p (managed-source identity-pathname version expected-sha256)
+(defun runtime-source-available-p (managed-source &key identity-pathname version expected-sha256)
   "Return true when MANAGED-SOURCE holds the verified SBCL VERSION source tree."
   (and expected-sha256
        (uiop:directory-exists-p managed-source)
@@ -158,8 +158,8 @@
       (write-line content stream))
     (autolith-script-replace-file temporary pathname)))
 
-(defun runtime-install-source (runtime-root managed-source identity-pathname
-                               version expected-sha256)
+(defun runtime-install-source (runtime-root managed-source
+                               &key identity-pathname version expected-sha256)
   "Download, verify, and publish the SBCL VERSION source tree below RUNTIME-ROOT."
   (unless (autolith-version-components version)
     (runtime-fail "SBCL ~A is not an official release with a published source archive; set AUTOLITH_SBCL to a release build."
@@ -264,21 +264,28 @@
            (expected-sha256   (and (autolith-version-components version)
                                    (runtime-source-checksum checksums-pathname version))))
       (when (and install-p
-                 (not (runtime-source-available-p managed-source identity-pathname
-                                                  version expected-sha256)))
+                 (not (runtime-source-available-p managed-source
+                                                  :identity-pathname identity-pathname
+                                                  :version           version
+                                                  :expected-sha256   expected-sha256)))
         ;; Only the pinned release has a verified source archive. A newer
         ;; SBCL still satisfies the minimum, so it runs Autolith; workers
         ;; then report that matching implementation source is unavailable.
         (if expected-sha256
-            (runtime-install-source runtime-root managed-source identity-pathname
-                                    version expected-sha256)
+            (runtime-install-source runtime-root managed-source
+                                    :identity-pathname identity-pathname
+                                    :version           version
+                                    :expected-sha256   expected-sha256)
             (format *error-output*
                     "~&SBCL ~A has no tracked source archive; implementation source stays unavailable to Lisp workers until the release pinned in sbcl.version is used.~%"
                     version)))
       (autolith-script-setenv "AUTOLITH_SBCL" runtime-command)
       (let ((source (or (runtime-configured-source version)
                         (and (runtime-source-available-p
-                              managed-source identity-pathname version expected-sha256)
+                              managed-source
+                              :identity-pathname identity-pathname
+                              :version           version
+                              :expected-sha256   expected-sha256)
                              managed-source))))
         (if source
             (autolith-script-setenv "AUTOLITH_SBCL_SOURCE_ROOT"
