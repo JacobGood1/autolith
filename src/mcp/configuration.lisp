@@ -63,91 +63,91 @@
 
 (define-condition mcp-configuration-error (configuration-error)
   ((pathname
-    :initarg :pathname
-    :initform nil
-    :reader mcp-configuration-error-pathname
-    :type (option pathname)
+    :initarg       :pathname
+    :initform      nil
+    :reader        mcp-configuration-error-pathname
+    :type          (option pathname)
     :documentation "The native MCP configuration file involved, when any.")
    (server-name
-    :initarg :server-name
-    :initform nil
-    :reader mcp-configuration-error-server-name
-    :type (option string)
+    :initarg       :server-name
+    :initform      nil
+    :reader        mcp-configuration-error-server-name
+    :type          (option string)
     :documentation "The server definition involved, when known.")
    (field
-    :initarg :field
-    :initform nil
-    :reader mcp-configuration-error-field
-    :type (option keyword)
+    :initarg       :field
+    :initform      nil
+    :reader        mcp-configuration-error-field
+    :type          (option keyword)
     :documentation "The invalid native field, when known.")
    (cause
-    :initarg :cause
-    :initform nil
-    :reader mcp-configuration-error-cause
-    :type t
+    :initarg       :cause
+    :initform      nil
+    :reader        mcp-configuration-error-cause
+    :type          t
     :documentation "The underlying reader or validation failure, when any."))
   (:documentation "A native Autolith MCP configuration is malformed."))
 
 (defclass mcp-server-configuration ()
   ((name
-    :initarg :name
-    :reader mcp-server-configuration-name
-    :type non-empty-string
+    :initarg       :name
+    :reader        mcp-server-configuration-name
+    :type          non-empty-string
     :documentation "The user-facing, case-sensitive server identifier.")
    (transport
-    :initarg :transport
-    :reader mcp-server-configuration-transport
-    :type mcp-transport-configuration
+    :initarg       :transport
+    :reader        mcp-server-configuration-transport
+    :type          mcp-transport-configuration
     :documentation "The transport used to reach this server.")
    (required-p
-    :initarg :required-p
-    :initform nil
-    :reader mcp-server-configuration-required-p
-    :type boolean
+    :initarg       :required-p
+    :initform      nil
+    :reader        mcp-server-configuration-required-p
+    :type          boolean
     :documentation "Whether discovery failure prevents Autolith startup.")
    (startup-timeout-seconds
-    :initarg :startup-timeout-seconds
-    :initform *mcp-default-startup-timeout-seconds*
-    :reader mcp-server-configuration-startup-timeout-seconds
-    :type real
+    :initarg       :startup-timeout-seconds
+    :initform      *mcp-default-startup-timeout-seconds*
+    :reader        mcp-server-configuration-startup-timeout-seconds
+    :type          real
     :documentation "The server initialization and discovery deadline.")
    (tool-timeout-seconds
-    :initarg :tool-timeout-seconds
-    :initform *mcp-default-tool-timeout-seconds*
-    :reader mcp-server-configuration-tool-timeout-seconds
-    :type real
+    :initarg       :tool-timeout-seconds
+    :initform      *mcp-default-tool-timeout-seconds*
+    :reader        mcp-server-configuration-tool-timeout-seconds
+    :type          real
     :documentation "The default deadline for one server tool call.")
    (approval-policy
-    :initarg :approval-policy
-    :initform ':prompt
-    :reader mcp-server-configuration-approval-policy
-    :type keyword
+    :initarg       :approval-policy
+    :initform      ':prompt
+    :reader        mcp-server-configuration-approval-policy
+    :type          keyword
     :documentation "The policy deciding which MCP tool calls need approval.")
    (trusted-read-only-tools
-    :initarg :trusted-read-only-tools
+    :initarg  :trusted-read-only-tools
     :initform nil
-    :reader mcp-server-configuration-trusted-read-only-tools
-    :type list
+    :reader   mcp-server-configuration-trusted-read-only-tools
+    :type     list
     :documentation
     "Exact raw tools whose read-only annotations the user explicitly trusts.")
    (child-tools
-    :initarg :child-tools
-    :initform nil
-    :reader mcp-server-configuration-child-tools
-    :type list
+    :initarg       :child-tools
+    :initform      nil
+    :reader        mcp-server-configuration-child-tools
+    :type          list
     :documentation "Exact raw MCP tool names explicitly granted to child agents."))
   (:documentation "One complete native Autolith MCP server definition."))
 
 (defclass mcp-server-registration ()
   ((configuration
-    :initarg :configuration
-    :reader mcp-server-registration-configuration
-    :type mcp-server-configuration
+    :initarg       :configuration
+    :reader        mcp-server-registration-configuration
+    :type          mcp-server-configuration
     :documentation "The immutable registered server configuration.")
    (source
     :initarg :source
-    :reader mcp-server-registration-source
-    :type keyword
+    :reader  mcp-server-registration-source
+    :type    keyword
     :documentation
     "The tracked, site-config, site, config, directory, user, or runtime registration layer."))
   (:documentation "One source-attributed layer in the MCP server registry."))
@@ -170,11 +170,11 @@
     (message &key pathname server-name field cause)
   "Signal a structured native MCP configuration failure."
   (error 'mcp-configuration-error
-         :message message
-         :pathname pathname
+         :message     message
+         :pathname    pathname
          :server-name server-name
-         :field field
-         :cause cause))
+         :field       field
+         :cause       cause))
 
 (-> mcp-configuration--bounded-string-p
     (t integer &key (:empty-p boolean))
@@ -210,12 +210,12 @@ control characters are rejected even when the native reader accepted them."
 The grammar is rebuilt for every read so that a live change to the keyword or
 bound policy takes effect without reloading this file."
   (make-source-grammar
-   :label "Native MCP configuration"
-   :keywords *mcp-configuration-native-keywords*
-   :maximum-depth *mcp-configuration-maximum-depth*
-   :maximum-nodes *mcp-configuration-maximum-nodes*
+   :label                      "Native MCP configuration"
+   :keywords                   *mcp-configuration-native-keywords*
+   :maximum-depth              *mcp-configuration-maximum-depth*
+   :maximum-nodes              *mcp-configuration-maximum-nodes*
    :improper-lists-permitted-p t
-   :allowed-atom-predicate #'mcp-configuration--native-value-p))
+   :allowed-atom-predicate     #'mcp-configuration--native-value-p))
 
 (-> mcp-configuration--validate-readable-tree
     (t &key (:pathname (option pathname)))
@@ -230,7 +230,7 @@ bound policy takes effect without reloading this file."
 
 (-> mcp-configuration--validate-plist
     (t list &key (:pathname (option pathname))
-                  (:server-name (option string)))
+                 (:server-name (option string)))
     list)
 (defun mcp-configuration--validate-plist
     (value allowed-keys &key pathname server-name)
@@ -250,9 +250,9 @@ bound policy takes effect without reloading this file."
           (format nil "Unknown MCP configuration key ~S." key))
          (:duplicate
           (format nil "Duplicate MCP configuration key ~S." key)))
-       :pathname pathname
+       :pathname    pathname
        :server-name server-name
-       :field (and (member problem '(:unknown :duplicate)) key))))
+       :field       (and (member problem '(:unknown :duplicate)) key))))
   value)
 
 (-> mcp-configuration--property
@@ -269,9 +269,9 @@ bound policy takes effect without reloading this file."
   (when required-p
     (mcp-configuration--error
      (format nil "MCP configuration is missing required key ~S." key)
-     :pathname pathname
+     :pathname    pathname
      :server-name server-name
-     :field key))
+     :field       key))
   nil)
 
 (-> mcp-configuration--property-present-p (list keyword) boolean)
@@ -295,16 +295,15 @@ bound policy takes effect without reloading this file."
              "MCP timeout ~S must be positive and no greater than ~D seconds."
              field
              *mcp-maximum-timeout-seconds*)
-     :pathname pathname
+     :pathname    pathname
      :server-name server-name
-     :field field))
+     :field       field))
   value)
 
 (-> mcp-configuration--transport
     (t &key (:pathname (option pathname))
-             (:server-name (option string)))
+            (:server-name (option string)))
     mcp-transport-configuration)
-
 (defun mcp-configuration--transport (form &key pathname server-name)
   "Read a shared declarative transport and attach native error context."
   (handler-case
@@ -343,19 +342,19 @@ bound policy takes effect without reloading this file."
     (mcp-configuration--error
      "An MCP server name must be a bounded non-empty string."
      :pathname pathname
-     :field ':name))
+     :field    ':name))
   (unless (or (null required-p) (eq required-p t))
     (mcp-configuration--error
      "MCP :REQUIRED-P must be exactly T or NIL."
-     :pathname pathname
+     :pathname    pathname
      :server-name name
-     :field ':required-p))
+     :field       ':required-p))
   (unless (member approval *mcp-approval-policies*)
     (mcp-configuration--error
      "Unsupported MCP approval policy."
-     :pathname pathname
+     :pathname    pathname
      :server-name name
-     :field ':approval))
+     :field       ':approval))
   (unless
       (and
        (proper-list-p trusted-read-only-tools)
@@ -372,16 +371,16 @@ bound policy takes effect without reloading this file."
            (remove-duplicates trusted-read-only-tools :test #'string=))))
     (mcp-configuration--error
      "MCP :TRUSTED-READ-ONLY-TOOLS must be a bounded proper list of unique bounded raw tool names."
-     :pathname pathname
+     :pathname    pathname
      :server-name name
-     :field ':trusted-read-only-tools))
+     :field       ':trusted-read-only-tools))
   (when (and trusted-read-only-tools
              (not (eq approval :read-only)))
     (mcp-configuration--error
      "MCP :TRUSTED-READ-ONLY-TOOLS requires :APPROVAL :READ-ONLY."
-     :pathname pathname
+     :pathname    pathname
      :server-name name
-     :field ':trusted-read-only-tools))
+     :field       ':trusted-read-only-tools))
   (unless (and (proper-list-p child-tools)
                (<= (length child-tools) *mcp-maximum-child-tools*)
                (every
@@ -394,18 +393,18 @@ bound policy takes effect without reloading this file."
                   (length (remove-duplicates child-tools :test #'string=))))
     (mcp-configuration--error
      "MCP :CHILD-TOOLS must be a bounded proper list of unique bounded raw tool names."
-     :pathname pathname
+     :pathname    pathname
      :server-name name
-     :field ':child-tools))
+     :field       ':child-tools))
   (make-instance
    'mcp-server-configuration
-   :name (copy-seq name)
+   :name            (copy-seq name)
    :transport
    (mcp-configuration--transport
     transport
-    :pathname pathname
+    :pathname    pathname
     :server-name name)
-   :required-p (and required-p t)
+   :required-p      (and required-p t)
    :startup-timeout-seconds
    (mcp-configuration--positive-timeout
     startup-timeout-seconds
@@ -421,7 +420,7 @@ bound policy takes effect without reloading this file."
    :approval-policy approval
    :trusted-read-only-tools
    (mapcar #'copy-seq trusted-read-only-tools)
-   :child-tools (mapcar #'copy-seq child-tools)))
+   :child-tools     (mapcar #'copy-seq child-tools)))
 
 (-> mcp-configuration--server
     (t &key (:pathname (option pathname)))
@@ -437,12 +436,12 @@ bound policy takes effect without reloading this file."
           (mcp-configuration--property
            form :name :required-p t :pathname pathname)))
     (mcp-server-configuration-create
-     :name name
+     :name     name
      :transport
      (mcp-configuration--property
       form :transport
       :required-p t
-      :pathname pathname
+      :pathname    pathname
       :server-name (and (stringp name) name))
      :required-p
      (or (mcp-configuration--property form :required-p) nil)
@@ -487,7 +486,7 @@ bound policy takes effect without reloading this file."
        (format nil "Could not read native MCP configuration at ~A: ~A"
                pathname cause)
        :pathname pathname
-       :cause cause))))
+       :cause    cause))))
 
 (-> mcp-configuration--source-present-p
     (pathname &key (:description string))
@@ -516,7 +515,7 @@ bound policy takes effect without reloading this file."
        (format nil "Could not inspect ~A at ~A: ~A"
                description pathname condition)
        :pathname pathname
-       :cause condition))))
+       :cause    condition))))
 
 (-> mcp-configuration--read-form (pathname) t)
 (defun mcp-configuration--read-form (pathname)
@@ -544,7 +543,7 @@ bound policy takes effect without reloading this file."
        (format nil "MCP configuration must use version ~D."
                *mcp-configuration-version*)
        :pathname pathname
-       :field ':version))
+       :field    ':version))
     (let ((servers
             (mcp-configuration--property
              form :servers :required-p t :pathname pathname)))
@@ -552,13 +551,13 @@ bound policy takes effect without reloading this file."
         (mcp-configuration--error
          "MCP :SERVERS must be a proper list."
          :pathname pathname
-         :field ':servers))
+         :field    ':servers))
       (when (> (length servers) *mcp-configuration-maximum-servers*)
         (mcp-configuration--error
          (format nil "MCP :SERVERS exceeds the limit of ~D."
                  *mcp-configuration-maximum-servers*)
          :pathname pathname
-         :field ':servers))
+         :field    ':servers))
       (let ((definitions
               (mapcar
                (lambda (server)
@@ -570,9 +569,9 @@ bound policy takes effect without reloading this file."
             (when (gethash name seen)
               (mcp-configuration--error
                (format nil "Duplicate MCP server name ~S." name)
-               :pathname pathname
+               :pathname    pathname
                :server-name name
-               :field ':name))
+               :field       ':name))
             (setf (gethash name seen) t)))
         definitions))))
 
@@ -609,7 +608,7 @@ bound policy takes effect without reloading this file."
   (unless (proper-list-p registrations)
     (mcp-configuration--error
      "The MCP server registry snapshot must be a proper list."))
-  (let ((seen (make-hash-table :test #'equal))
+  (let ((seen         (make-hash-table :test #'equal))
         (server-names (make-hash-table :test #'equal)))
     (dolist (registration registrations)
       (unless (typep registration 'mcp-server-registration)
@@ -679,12 +678,14 @@ their prior layer without destroying shadowed lower layers."
   (mcp--registration-source-rank source)
   (let* ((configuration
            (etypecase definition
-             (mcp-server-configuration definition)
-             (list (mcp-configuration--server definition))))
+             (mcp-server-configuration
+              definition)
+             (list
+              (mcp-configuration--server definition))))
          (replacement
            (make-instance 'mcp-server-registration
                           :configuration configuration
-                          :source source)))
+                          :source        source)))
     (with-extension-registry-transaction
       (with-lock-held (*mcp-server-registry-lock*)
         (let ((candidate
@@ -695,8 +696,8 @@ their prior layer without destroying shadowed lower layers."
                    (mcp-server-configuration-name
                     (mcp-server-registration-configuration registration)))
                  :source-function #'mcp-server-registration-source
-                 :key-test #'string=
-                 :source source)))
+                 :key-test        #'string=
+                 :source          source)))
           (mcp--validate-registration-list candidate)
           (setf *mcp-server-registrations* candidate))))
     configuration))
