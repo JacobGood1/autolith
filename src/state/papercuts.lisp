@@ -537,9 +537,11 @@ symbol names such as lisp.source survive, while surrounding punctuation drops."
        (subsetp right left :test #'string=)))
 
 (-> papercut--duplicate
-    (configuration list non-empty-string non-empty-string (option string) integer)
+    (configuration list
+     &key (:title non-empty-string) (:content non-empty-string)
+          (:source-conversation (option string)) (:now integer))
     (option papercut))
-(defun papercut--duplicate (configuration active title content source-conversation now)
+(defun papercut--duplicate (configuration active &key title content source-conversation now)
   "Return the recent active report of this workspace that TITLE and CONTENT repeat.
 
 A report repeats another filed within *PAPERCUT-DUPLICATE-WINDOW-SECONDS* when
@@ -593,8 +595,11 @@ identity and return that existing papercut with DUPLICATE-P true."
                                           (lambda (item)
                                             (and (equal (papercut-issue-kind item) issue-kind)
                                                  (equal (papercut-tool item) (telemetry--tool tool))))
-                                          active) title content
-                                         source-conversation now)))
+                                          active)
+                                         :title               title
+                                         :content             content
+                                         :source-conversation source-conversation
+                                         :now                 now)))
     (if duplicate
         (let ((records (papercut--telemetry-record duplicate)))
           (values records (list duplicate t) (not (null records))))
