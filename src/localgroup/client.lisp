@@ -526,6 +526,9 @@ HEADER-P renders field labels rather than status values."
    styled-p)
   nil)
 
+(-> localgroup--attach-terminal-loop
+    (stream terminal keyword &key (:socket t))
+    (option list))
 (defun localgroup--attach-terminal-loop (socket-stream terminal mode &key socket)
   "Relay terminal I/O; return an application exit or explicit checkpoint transition."
   (let ((output    (make-mode-tracking-output-stream *standard-output*))
@@ -610,6 +613,7 @@ HEADER-P renders field labels rather than status values."
                                 :operation ':attach :session-id session-id))
       (sleep 0.05))))
 
+(-> localgroup-attach-record ((option configuration) cons keyword) (option list))
 (defun localgroup-attach-record (configuration entry mode)
   "Attach the terminal, following explicit checkpoint transitions in the same mode.
 
@@ -623,6 +627,9 @@ Return an application exit plist, or NIL after a detach or connection loss."
         (setf entry (localgroup--wait-for-checkpoint-entry entry (getf (rest result) :id))
               history-position (getf (rest result) :history-position))))))
 
+(-> localgroup--attach-record-once
+    ((option configuration) cons keyword &key (:history-position (option integer)))
+    (option list))
 (defun localgroup--attach-record-once (configuration entry mode &key history-position)
   "Run one attachment and release terminal ownership before any reconnect."
   (let* ((record        (rest entry))
@@ -696,9 +703,15 @@ Return an application exit plist, or NIL after a detach or connection loss."
          (localgroup--attach-terminal-loop socket-stream terminal mode :socket socket))
       (when resize-watch
         (platform-unwatch-terminal-resize *platform* resize-watch))
-      (when terminal (ignore-errors (terminal-stop terminal)))
-      (when socket-stream (ignore-errors (close socket-stream)))
+      ;; Cleanup is best-effort so it never masks the attachment outcome.
+      (when terminal
+        ; mallet:suppress no-ignore-errors -- best-effort terminal release during unwinding
+        (ignore-errors (terminal-stop terminal)))
+      (when socket-stream
+        ; mallet:suppress no-ignore-errors -- best-effort stream close during unwinding
+        (ignore-errors (close socket-stream)))
       (when (and socket (null socket-stream))
+        ; mallet:suppress no-ignore-errors -- best-effort socket close during unwinding
         (ignore-errors (sb-bsd-sockets:socket-close socket))))))
 
 (-> localgroup-relay-exit ((option list) keyword) null)
