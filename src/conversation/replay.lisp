@@ -367,7 +367,7 @@ whole history when a crash or retention boundary interrupted sequencing."
         (unless (and (= (length text) 10)
                      (char= (char text 4) #\-)
                      (char= (char text 7) #\-))
-          (error "bad date"))
+          (error 'configuration-error :message "Malformed replay date."))
         (let* ((year  (parse-integer text :start 0 :end 4 :junk-allowed nil))
                (month (parse-integer text :start 5 :end 7 :junk-allowed nil))
                (day   (parse-integer text :start 8 :end 10 :junk-allowed nil))
@@ -378,7 +378,7 @@ whole history when a crash or retention boundary interrupted sequencing."
             (unless (and (= year decoded-year)
                          (= month decoded-month)
                          (= day decoded-day))
-              (error "bad date")))
+              (error 'configuration-error :message "Nonexistent replay date.")))
           (values year month day)))
     (error ()
       (error 'configuration-error
@@ -419,7 +419,7 @@ whole history when a crash or retention boundary interrupted sequencing."
                      (<= 0 hour 23)
                      (<= 0 minute 59)
                      (<= 0 second 59))
-          (error "bad clock"))
+          (error 'configuration-error :message "Malformed replay time."))
         (values hour minute second))
     (error ()
       (error 'configuration-error
@@ -851,8 +851,10 @@ complete durable record.  The source is read only and never repaired."
              loaded))
       (unless published-p
         (dolist (pathname (conversation-storage-pathnames target-identity))
+          ; mallet:suppress no-ignore-errors -- best-effort cleanup must not mask the failure
           (ignore-errors (delete-file pathname)))
         (when (probe-file target-artifacts)
+          ; mallet:suppress no-ignore-errors -- best-effort cleanup must not mask the failure
           (ignore-errors
             (platform-delete-directory-tree *platform* target-artifacts
                                             :validate          t
