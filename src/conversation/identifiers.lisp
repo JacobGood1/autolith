@@ -48,7 +48,6 @@
   (and (identifier-p identifier) identifier))
 
 
-
 ;;;; -- Chunk Storage Paths --
 
 (defparameter *conversation-chunk-sequence-width* 20
@@ -75,26 +74,26 @@
 Legacy logs already use this pathname. A chunk pathname maps to the sibling
 identity named by its containing conversation directory."
   (if (conversation-chunk-start-sequence pathname)
-      (let* ((directory (pathname-directory pathname))
+      (let* ((directory  (pathname-directory pathname))
              (identifier (and directory (first (last directory)))))
         (if (stringp identifier)
             (make-pathname :directory (butlast directory)
-                           :name identifier
-                           :type "sexp"
-                           :defaults pathname)
+                           :name      identifier
+                           :type      "sexp"
+                           :defaults  pathname)
             pathname))
       pathname))
 
 (-> conversation-storage-directory-pathname (pathname) pathname)
 (defun conversation-storage-directory-pathname (pathname)
   "Return the chunk directory belonging to identity or chunk PATHNAME."
-  (let* ((identity (conversation-storage-identity-pathname pathname))
+  (let* ((identity   (conversation-storage-identity-pathname pathname))
          (identifier (pathname-name identity)))
     (make-pathname :directory (append (pathname-directory identity)
                                       (list identifier))
-                   :name nil
-                   :type nil
-                   :defaults identity)))
+                   :name      nil
+                   :type      nil
+                   :defaults  identity)))
 
 (-> conversation-chunk-pathname (pathname (integer 1)) pathname)
 (defun conversation-chunk-pathname (pathname start-sequence)
@@ -112,7 +111,7 @@ identity named by its containing conversation directory."
 
 A legacy top-level file, when present, is the oldest segment. Deterministic
 chunk files follow in numeric start-sequence order."
-  (let* ((identity (conversation-storage-identity-pathname pathname))
+  (let* ((identity  (conversation-storage-identity-pathname pathname))
          (directory (conversation-storage-directory-pathname identity))
          (chunks
            (if (uiop:directory-exists-p directory)
@@ -145,6 +144,7 @@ chunk files follow in numeric start-sequence order."
   "Return PATHNAME's newest durable segment write date, or zero."
   (let ((active (conversation-storage-active-pathname pathname)))
     (or (and active (file-write-date active)) 0)))
+
 
 ;;;; -- Conversation Identifier Allocation --
 
@@ -180,24 +180,24 @@ would let a second allocation in the same second choose the same identifier."
   (let ((root (uiop:ensure-directory-pathname storage-root)))
     (handler-case
         (identifier-generate
-         :timestamp timestamp
-         :namespace (namestring root)
+         :timestamp            timestamp
+         :namespace            (namestring root)
          :reserved-identifiers reserved-identifiers
-         :occupied-p (lambda (candidate)
-                       (conversation-identifier--occupied-p root candidate)))
+         :occupied-p           (lambda (candidate)
+                                 (conversation-identifier--occupied-p root candidate)))
       (identifier-space-exhausted ()
         (error 'conversation-identifier-space-exhausted
                :message
                (format nil
                        "All conversation identifier seeds are occupied for Universal Time ~D."
                        timestamp)
-               :pathname root
-               :sequence nil
+               :pathname  root
+               :sequence  nil
                :timestamp timestamp))
       (identifier-error (condition)
         (error 'conversation-identifier-error
                :message (identifier-error-message condition)
-               :value timestamp)))))
+               :value   timestamp)))))
 
 
 ;;;; -- Conversation Picker Sidecar Paths --
@@ -215,20 +215,19 @@ would let a second allocation in the same second choose the same identifier."
      (make-pathname :name (pathname-name identity) :type "sexp")
      (merge-pathnames "conversation-picker/" data-root))))
 
-
 (-> conversation-input-history-pathname (pathname) pathname)
 (defun conversation-input-history-pathname (conversation-pathname)
   "Return the complete input-only sidecar owned by CONVERSATION-PATHNAME."
   (let ((metadata-pathname
           (conversation-picker-metadata-pathname conversation-pathname)))
-    (make-pathname :name (format nil "~A.inputs" (pathname-name metadata-pathname))
-                   :type "sexp"
+    (make-pathname :name     (format nil "~A.inputs" (pathname-name metadata-pathname))
+                   :type     "sexp"
                    :defaults metadata-pathname)))
 
 (-> conversation-picker-source-lock-pathname (pathname) pathname)
 (defun conversation-picker-source-lock-pathname (conversation-pathname)
   "Return the persistent lock shared by source appends and picker reconstruction."
-  (make-pathname :type "lock"
+  (make-pathname :type     "lock"
                  :defaults (conversation-picker-metadata-pathname conversation-pathname)))
 
 (-> conversation-picker-revision-pathname (pathname) pathname)
@@ -238,17 +237,15 @@ would let a second allocation in the same second choose the same identifier."
                  :defaults
                  (conversation-picker-metadata-pathname conversation-pathname)))
 
-
 (-> conversation-picker-search-pathname (pathname) pathname)
 (defun conversation-picker-search-pathname (conversation-pathname)
   "Return the durable message-search pathname for CONVERSATION-PATHNAME."
   (let ((metadata-pathname
           (conversation-picker-metadata-pathname conversation-pathname)))
-    (make-pathname :name (format nil "~A.search"
-                                 (pathname-name metadata-pathname))
-                   :type "sexp"
+    (make-pathname :name     (format nil "~A.search"
+                                     (pathname-name metadata-pathname))
+                   :type     "sexp"
                    :defaults metadata-pathname)))
-
 
 (-> conversation-picker-search-revision-pathname (pathname) pathname)
 (defun conversation-picker-search-revision-pathname (conversation-pathname)
@@ -256,7 +253,6 @@ would let a second allocation in the same second choose the same identifier."
   (make-pathname :type "revision"
                  :defaults
                  (conversation-picker-search-pathname conversation-pathname)))
-
 
 (-> conversation-picker-sidecar-pathnames (pathname) list)
 (defun conversation-picker-sidecar-pathnames (conversation-pathname)
