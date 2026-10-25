@@ -31,9 +31,9 @@
 
 (defclass workspace-file-resource (resource)
   ((pathname
-    :initarg :pathname
-    :reader workspace-file-resource-pathname
-    :type pathname
+    :initarg       :pathname
+    :reader        workspace-file-resource-pathname
+    :type          pathname
     :documentation "The canonical pathname represented by this resource."))
   (:documentation "An existing or potential file addressed by a workspace URI."))
 
@@ -56,25 +56,25 @@
 
 (defclass workspace-file-observation (resource-observation)
   ((kind
-    :initarg :kind
-    :reader workspace-file-observation-kind
-    :type (member :file :directory :missing)
+    :initarg       :kind
+    :reader        workspace-file-observation-kind
+    :type          (member :file :directory :missing)
     :documentation "Whether the observation represents a file, directory, or missing path.")
    (stored-lines
-    :initarg :lines
-    :initform nil
-    :reader workspace-file-observation-stored-lines
-    :type (option vector)
+    :initarg       :lines
+    :initform      nil
+    :reader        workspace-file-observation-stored-lines
+    :type          (option vector)
     :documentation "Optional pre-split logical lines supplied by tests or callers.")
    (line-ending
-    :initarg :line-ending
-    :reader workspace-file-observation-line-ending
-    :type string
+    :initarg       :line-ending
+    :reader        workspace-file-observation-line-ending
+    :type          string
     :documentation "The LF or CRLF sequence used when reconstructing edited content.")
    (final-newline-p
-    :initarg :final-newline-p
-    :reader workspace-file-observation-final-newline-p
-    :type boolean
+    :initarg       :final-newline-p
+    :reader        workspace-file-observation-final-newline-p
+    :type          boolean
     :documentation "Whether the exact observed snapshot ended in a line ending."))
   (:documentation "A complete transient UTF-8 workspace-file snapshot."))
 
@@ -98,9 +98,9 @@
 
 (defclass workspace-file-observation-state (resource-observation-state)
   ((visible-ranges
-    :initarg :visible-ranges
-    :accessor workspace-file-observation-state-visible-ranges
-    :type structlisp:integer-interval-set
+    :initarg       :visible-ranges
+    :accessor      workspace-file-observation-state-visible-ranges
+    :type          structlisp:integer-interval-set
     :documentation "Half-open one-based ranges fully shown to the model."))
   (:documentation "One conversation-local model observation of a workspace file."))
 
@@ -130,13 +130,11 @@
   (workspace-file--observation-retained-bytes
    (resource-observation-state-observation state)))
 
-
 (defmethod resource-observation-state-maximum
     ((state workspace-file-observation-state))
   "Return the configured workspace-file observation limit."
   (declare (ignore state))
   *workspace-file-resource-maximum-observations*)
-
 
 (defmethod resource-observation-state-trim-storage
     ((conversation conversation) (state workspace-file-observation-state))
@@ -190,10 +188,10 @@
             (config :working-directory
              (tool-context-configuration context))))
          (canonical-path (workspace-tool--canonical-path path))
-          (identifier
-            (if (uiop:subpathp canonical-path working-directory)
-                (workspace-tool--relative-identifier canonical-path working-directory)
-                (uiop:native-namestring canonical-path))))
+         (identifier
+           (if (uiop:subpathp canonical-path working-directory)
+               (workspace-tool--relative-identifier canonical-path working-directory)
+               (uiop:native-namestring canonical-path))))
     (format nil "workspace:~A"
             (workspace-file--encode-identifier identifier))))
 
@@ -250,9 +248,9 @@
            ':other)))
     (platform-error (condition)
       (error 'tool-error
-             :message (format nil "Could not inspect workspace resource ~A: ~A"
-                              path condition)
-             :code (tool-failure-code condition)
+             :message   (format nil "Could not inspect workspace resource ~A: ~A"
+                                path condition)
+             :code      (tool-failure-code condition)
              :tool-name "resource.read"))))
 
 (-> workspace-file--read-content
@@ -263,8 +261,8 @@
   (file--read-bounded-utf-8
    path
    :maximum-bytes *workspace-file-resource-maximum-bytes*
-   :tool-name "resource.read"
-   :description "Workspace resource snapshot"
+   :tool-name     "resource.read"
+   :description   "Workspace resource snapshot"
    :validation-function
    (and context
         (lambda ()
@@ -295,15 +293,15 @@ Return NIL when NAME disappears during enumeration."
                 (format nil "o           ~A" name)))))
     (platform-error (condition)
       (error 'tool-error
-             :message (format nil "Could not inspect directory entry ~A beneath ~A: ~A"
-                              name directory condition)
-             :code (tool-failure-code condition)
+             :message   (format nil "Could not inspect directory entry ~A beneath ~A: ~A"
+                                name directory condition)
+             :code      (tool-failure-code condition)
              :tool-name "resource.read"))))
 
 (-> workspace-file--directory-content (pathname) string)
 (defun workspace-file--directory-content (path)
   "Return a bounded sorted directory listing without opening its entries."
-  (let ((entries nil)
+  (let ((entries     nil)
         (truncated-p nil))
     (multiple-value-bind (names more-p)
         (handler-case
@@ -312,9 +310,9 @@ Return NIL when NAME disappears during enumeration."
              :limit *workspace-file-resource-maximum-directory-entries*)
           (platform-error (condition)
             (error 'tool-error
-                   :message (format nil "Could not list workspace directory ~A: ~A"
-                                    path condition)
-                   :code (tool-failure-code condition)
+                   :message   (format nil "Could not list workspace directory ~A: ~A"
+                                      path condition)
+                   :code      (tool-failure-code condition)
                    :tool-name "resource.read")))
       (setf truncated-p more-p)
       (dolist (name names)
@@ -331,10 +329,10 @@ Return NIL when NAME disappears during enumeration."
                     (if (eq left-directory-p right-directory-p)
                         (string< (first left) (first right))
                         left-directory-p)))))
-    (let* ((marker (format nil "[directory listing truncated]~%"))
-           (limit *workspace-file-resource-maximum-result-characters*)
+    (let* ((marker     (format nil "[directory listing truncated]~%"))
+           (limit      *workspace-file-resource-maximum-result-characters*)
            (row-budget (max 0 (- limit (length marker))))
-           (used 0))
+           (used       0))
       (with-output-to-string (stream)
         (dolist (entry entries)
           (let ((row (format nil "~A~%" (second entry))))
@@ -368,8 +366,8 @@ Return NIL when NAME disappears during enumeration."
          (kind (workspace-file--path-kind path)))
     (when (eq kind ':other)
       (error 'tool-error
-             :message (format nil "Resource ~A is not a regular file or directory."
-                              (resource-uri resource))
+             :message   (format nil "Resource ~A is not a regular file or directory."
+                                (resource-uri resource))
              :tool-name "resource.read"))
     (let ((content
             (case kind
@@ -407,7 +405,6 @@ Return NIL when NAME disappears during enumeration."
      (workspace-file-observation-state-visible-ranges state)
      (first range) (1+ (second range))))
   state)
-
 
 (defparameter *workspace-file-proposal-observations* nil
   "Conversation, URI and alias keyed snapshots owned by one guarded semantic apply.")
@@ -456,7 +453,7 @@ Return NIL when NAME disappears during enumeration."
   "Return explicit gaps omitted from the cumulative visible RANGES."
   (let* ((complete (structlisp:make-integer-interval-set
                     :intervals (list (cons 1 (1+ total-lines)))))
-         (gaps (structlisp:integer-interval-set-difference complete ranges))
+         (gaps     (structlisp:integer-interval-set-difference complete ranges))
          (elisions
             (loop for gap across (structlisp:integer-interval-set->vector gaps)
                  for start = (structlisp:integer-interval-start gap)
@@ -479,8 +476,8 @@ Return NIL when NAME disappears during enumeration."
 (defun workspace-file--read-result (state body total-lines truncated-p)
   "Return one explicit model-facing resource observation result."
   (let* ((observation (resource-observation-state-observation state))
-         (ranges (workspace-file-observation-state-visible-ranges state))
-         (elisions (workspace-file--elisions total-lines ranges truncated-p)))
+         (ranges      (workspace-file-observation-state-visible-ranges state))
+         (elisions    (workspace-file--elisions total-lines ranges truncated-p)))
     (format nil "URI: ~A~%Revision: ~A~%Kind: ~(~A~)~%Visible lines: ~A of ~D~%Elided: ~A~%Content:~%~A"
             (resource-observation-uri observation)
             (resource-observation-state-alias state)
@@ -549,7 +546,7 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
     null)
 (defun workspace-file--write-temporary (temporary target octets)
   "Write OCTETS, preserving TARGET permissions and cleaning up a failed new file."
-  (let ((created-p nil)
+  (let ((created-p  nil)
         (complete-p nil))
     (unwind-protect
          (progn
@@ -583,31 +580,30 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
 (defun workspace-file--signal-stale (resource expected &optional actual)
   "Signal that RESOURCE no longer matches EXPECTED, optionally reporting ACTUAL."
   (error 'resource-revision-stale
-         :uri (resource-uri resource)
+         :uri               (resource-uri resource)
          :expected-revision (resource-observation-revision expected)
-         :actual-revision (and actual
-                               (resource-observation-revision actual))))
-
+         :actual-revision   (and actual
+                                 (resource-observation-revision actual))))
 
 (-> workspace-file--publish
     (workspace-file-resource tool-context workspace-file-observation string)
     workspace-file-observation)
 (defun workspace-file--publish (resource context base-observation content)
   "Stage and publish CONTENT after an immediate exact BASE-OBSERVATION check."
-  (let ((path (workspace-file-resource-pathname resource))
+  (let ((path   (workspace-file-resource-pathname resource))
         (octets (workspace-file--replacement-octets content)))
     (platform-ensure-directories-exist *platform* path)
     (handler-case
         (cl-hashline:publish-edit
-         :base base-observation
+         :base    base-observation
          :content content
-         :stage (lambda (replacement)
-                  (declare (ignore replacement))
-                  (let ((temporary (workspace-file--temporary-path path)))
-                    (workspace-file--write-temporary temporary path octets)
-                    temporary))
+         :stage   (lambda (replacement)
+                    (declare (ignore replacement))
+                    (let ((temporary (workspace-file--temporary-path path)))
+                      (workspace-file--write-temporary temporary path octets)
+                      temporary))
          :observe (lambda () (workspace-file--observe-path resource context))
-         :same-p #'workspace-file--same-observation-p
+         :same-p  #'workspace-file--same-observation-p
          :publish (lambda (temporary)
                     (handler-case
                         (funcall
@@ -626,15 +622,15 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
          :cleanup (lambda (temporary)
                     (when (probe-file temporary)
                       (delete-file temporary)))
-         :verify (lambda (published replacement)
-                   (and (eq (workspace-file-observation-kind published) ':file)
-                        (string= replacement
-                                 (resource-observation-content published)))))
+         :verify  (lambda (published replacement)
+                    (and (eq (workspace-file-observation-kind published) ':file)
+                         (string= replacement
+                                  (resource-observation-content published)))))
       (cl-hashline:stale-revision (condition)
         (workspace-file--signal-stale
          resource base-observation (cl-hashline:stale-revision-actual condition)))
       (cl-hashline:hashline-error (condition)
-        (error 'tool-error :message (princ-to-string condition)
+        (error 'tool-error :message   (princ-to-string condition)
                            :tool-name "resource.edit")))))
 
 (-> workspace-file--operation-window (list (integer 0))
@@ -642,9 +638,9 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
 (defun workspace-file--operation-window (operations total-lines)
   "Return a bounded nearby window covering OPERATIONS in the resulting file."
   (let* ((first-line (reduce #'min operations :key (lambda (op) (getf op :start))))
-         (last-line (reduce #'max operations :key (lambda (op) (getf op :end))))
-         (start (max 1 (- first-line 2)))
-         (count (max 1 (min 120 (+ (- last-line start) 6)))))
+         (last-line  (reduce #'max operations :key (lambda (op) (getf op :end))))
+         (start      (max 1 (- first-line 2)))
+         (count      (max 1 (min 120 (+ (- last-line start) 6)))))
     (values (if (zerop total-lines) 1 (min start total-lines)) count)))
 
 
@@ -654,7 +650,7 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
 (defun workspace-file--json-operation (operation)
   "Translate JSON OPERATION fields into library keyword data."
   (unless (hash-table-p operation)
-    (error 'tool-error :message "Resource edit operations must be JSON objects."
+    (error 'tool-error :message   "Resource edit operations must be JSON objects."
                        :tool-name "resource.edit"))
   (let ((fields '(("op" . :op) ("line" . :line)
                   ("start-line" . :start-line) ("end-line" . :end-line)
@@ -666,7 +662,7 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
        (let ((field (assoc key fields :test #'equal)))
          (unless field
            (error 'tool-error
-                  :message (format nil "Unsupported resource edit field ~S." key)
+                  :message   (format nil "Unsupported resource edit field ~S." key)
                   :tool-name "resource.edit"))
          (when (eq (rest field) ':op)
            (setf value
@@ -691,14 +687,14 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
     (with-recursive-lock-held (*workspace-file-mutation-lock*)
       (with-recursive-lock-held
           ((conversation-resource-observation-lock conversation))
-        (let* ((state (workspace-file--find-observation-state
-                       conversation (resource-uri resource) base-revision))
-               (base (resource-observation-state-observation state))
+        (let* ((state   (workspace-file--find-observation-state
+                         conversation (resource-uri resource) base-revision))
+               (base    (resource-observation-state-observation state))
                (current (workspace-file--observe-path resource context)))
           (unless (workspace-file--same-observation-p current base)
             (workspace-file--signal-stale resource base current))
           (when (eq (workspace-file-observation-kind base) ':directory)
-            (error 'tool-error :message "Workspace directories are read-only resources."
+            (error 'tool-error :message   "Workspace directories are read-only resources."
                                :tool-name "resource.edit"))
           (handler-case
               (multiple-value-bind (content normalized)
@@ -707,14 +703,15 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
                    (if (listp operations)
                        (mapcar #'workspace-file--json-operation operations)
                        operations)
-                   :visible-lines (workspace-file-observation-state-visible-ranges state)
-                   :split-lines #'text--split-lines
+                   :visible-lines         (workspace-file-observation-state-visible-ranges state)
+                   :split-lines           #'text--split-lines
                    :anchor-maximum-offset *workspace-file-resource-anchor-maximum-offset*)
                 (values (workspace-file--publish resource context base content)
                         normalized))
             (cl-hashline:hashline-error (condition)
-              (error 'tool-error :message (princ-to-string condition)
+              (error 'tool-error :message   (princ-to-string condition)
                                  :tool-name "resource.edit"))))))))
+
 
 ;;;; -- Resource Tool Methods --
 
@@ -730,14 +727,16 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
         (funcall function)
         (let ((tool-name
                 (ecase operation
-                  (:read "resource.read")
-                  (:edit "resource.edit"))))
+                  (:read
+                   "resource.read")
+                  (:edit
+                   "resource.edit"))))
           (unless (workspace-tool-authorize-outside-path context path tool-name)
             (error 'tool-error
                    :message
                    (format nil "~A requires full-access approval for path ~A outside the workspace and source roots."
                            tool-name path)
-                   :code ':permission-denied
+                   :code      ':permission-denied
                    :tool-name tool-name))
           (let ((*workspace-tool-readable-roots* (cons path roots)))
             (funcall function))))))
@@ -767,7 +766,6 @@ already admits the path to the readable roots, so it is not asked again."
   (workspace-file--call-with-authorized-access
    resource context ':edit (lambda () (call-next-method))))
 
-
 (defmethod resource-tool-read
     ((resource workspace-file-resource) (tool resource-read-tool)
      (context tool-context) (arguments hash-table))
@@ -789,8 +787,8 @@ already admits the path to the readable roots, so it is not asked again."
              (total-lines (length lines)))
         (when (and (plusp total-lines) (> start-line total-lines))
           (error 'tool-error
-                 :message (format nil "Start line ~D is beyond the resource's ~D lines. Request a valid window."
-                                  start-line total-lines)
+                 :message   (format nil "Start line ~D is beyond the resource's ~D lines. Request a valid window."
+                                    start-line total-lines)
                  :tool-name "resource.read"))
         (multiple-value-bind (body visible-ranges last-line truncated-p)
             (text--numbered-line-window
@@ -802,8 +800,8 @@ already admits the path to the readable roots, so it is not asked again."
           (declare (ignore last-line))
           (when (and (plusp total-lines) (null visible-ranges))
             (error 'tool-error
-                   :message (format nil "Line ~D exceeds the resource.read result limit and was not observed. Use search.content or shell.run for bounded inspection."
-                                    start-line)
+                   :message   (format nil "Line ~D exceeds the resource.read result limit and was not observed. Use search.content or shell.run for bounded inspection."
+                                      start-line)
                    :tool-name "resource.read"))
           (let ((state
                    (resource-observation-state-ensure
@@ -819,23 +817,23 @@ already admits the path to the readable roots, so it is not asked again."
      (context tool-context) (arguments hash-table))
   "Apply structured revision-gated operations and return a refreshed observation."
   (declare (ignore tool))
-  (let* ((uri (tool-argument arguments "uri" :required t))
-         (base-revision (tool-argument arguments "base-revision" :required t))
+  (let* ((uri             (tool-argument arguments "uri" :required t))
+         (base-revision   (tool-argument arguments "base-revision" :required t))
          (operation-array (tool-argument arguments "operations" :required t)))
     (unless (non-empty-string-p base-revision)
       (error 'tool-error
-             :message "Resource edit base-revision must be a non-empty string."
+             :message   "Resource edit base-revision must be a non-empty string."
              :tool-name "resource.edit"))
     (unless (and (vectorp operation-array) (plusp (length operation-array)))
       (error 'tool-error
-             :message "Resource edit operations must be a non-empty JSON array."
+             :message   "Resource edit operations must be a non-empty JSON array."
              :tool-name "resource.edit"))
     (let ((operations (coerce operation-array 'list)))
       (handler-case
         (multiple-value-bind (observation normalized)
             (resource-apply-operations resource context
                                        :base-revision base-revision
-                                       :operations operations)
+                                       :operations    operations)
           (let ((lines (workspace-file-observation-lines observation)))
             (multiple-value-bind (start-line line-count)
                 (workspace-file--operation-window normalized (length lines))
@@ -863,7 +861,7 @@ already admits the path to the readable roots, so it is not asked again."
                     result-content
                     (workspace-file-resource-pathname resource)
                     (resource-observation-content observation))))))))
-      (resource-revision-stale ()
-        (tool-failure
-         (format nil "Resource revision ~A is stale, expired, or was not observed in this conversation. Reread ~A with resource.read and retry against the returned revision."
-                 base-revision uri)))))))
+       (resource-revision-stale ()
+         (tool-failure
+          (format nil "Resource revision ~A is stale, expired, or was not observed in this conversation. Reread ~A with resource.read and retry against the returned revision."
+                  base-revision uri)))))))
