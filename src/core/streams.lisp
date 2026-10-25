@@ -20,11 +20,11 @@ TOOL-NAME and DESCRIPTION."
   (let ((native-path (uiop:native-namestring path)))
     (flet ((fail (control &rest arguments)
              (error 'tool-error
-                    :message (apply #'format nil control arguments)
+                    :message   (apply #'format nil control arguments)
                     :tool-name tool-name)))
       (handler-case
           (read-file-text path
-                          :maximum-octets maximum-bytes
+                          :maximum-octets      maximum-bytes
                           :validation-function validation-function)
         (file-too-large (condition)
           (fail "~A ~A is ~:D bytes; ~A reads exact UTF-8 files only up to ~:D bytes."
@@ -45,10 +45,10 @@ TOOL-NAME and DESCRIPTION."
               (fail "~A ~A is not a regular file." description native-path)))
         (file-error (condition)
           (error 'tool-error
-                 :message (format nil "Could not read ~A ~A as an exact regular file: ~A"
-                                  description native-path condition)
+                 :message   (format nil "Could not read ~A ~A as an exact regular file: ~A"
+                                    description native-path condition)
                  :tool-name tool-name
-                 :code (tool-failure-code condition)))))))
+                 :code      (tool-failure-code condition)))))))
 
 
 ;;;; -- Bounded Text Windows --
@@ -58,8 +58,8 @@ TOOL-NAME and DESCRIPTION."
   "Return CONTENT's logical lines without their LF or CRLF delimiters."
   (if (zerop (length content))
       #()
-      (let ((lines nil)
-            (start 0)
+      (let ((lines  nil)
+            (start  0)
             (length (length content)))
         (loop
           for newline = (position #\Newline content :start start)
@@ -88,14 +88,14 @@ TOOL-NAME and DESCRIPTION."
 
 When LINE-ANCHOR-FUNCTION is supplied, render its short annotation beside each
 line number."
-  (let* ((total-lines (length lines))
+  (let* ((total-lines    (length lines))
          (last-requested (min total-lines (+ start-line line-count -1)))
-         (body (make-array maximum-characters
-                           :element-type 'character
-                           :fill-pointer 0))
-         (visible-start nil)
-         (visible-end nil)
-         (truncated-p nil))
+         (body           (make-array maximum-characters
+                                     :element-type 'character
+                                     :fill-pointer 0))
+         (visible-start  nil)
+         (visible-end    nil)
+         (truncated-p    nil))
     (loop for line from start-line to last-requested
           for text = (aref lines (1- line))
           for anchor = (and line-anchor-function
@@ -130,12 +130,12 @@ line number."
 
 (defclass bounded-output-stream (trivial-gray-streams:fundamental-character-output-stream)
   ((builder
-    :initarg :builder
-    :reader bounded-output-stream--builder
+    :initarg       :builder
+    :reader        bounded-output-stream--builder
     :documentation "The structlisp builder retaining the captured prefix.")
    (column
-    :initform 0
-    :accessor bounded-output-stream--column
+    :initform      0
+    :accessor      bounded-output-stream--column
     :documentation "The logical output column for FORMAT and FRESH-LINE."))
   (:documentation
    "A character output stream retaining at most a fixed prefix of its output.
@@ -176,7 +176,8 @@ the logical column keeps following everything written."))
   (bounded-sequence-builder-try-append (bounded-output-stream--builder stream) character)
   (setf (bounded-output-stream--column stream)
         (case character
-          ((#\Newline #\Return) 0)
+          ((#\Newline #\Return)
+           0)
           (#\Tab
            (let ((column (bounded-output-stream--column stream)))
              (+ column (- 8 (mod column 8)))))
