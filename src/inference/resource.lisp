@@ -22,9 +22,9 @@
 
 (defclass inference-trace-resource (resource)
   ((identifier
-    :initarg :identifier
-    :reader inference-trace-resource-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        inference-trace-resource-identifier
+    :type          non-empty-string
     :documentation "The trace conversation identifier selected by this URI."))
   (:documentation "One read-only persisted inference frame trace."))
 
@@ -61,11 +61,11 @@
                                   *rlm-index-identifier*))))
   (unless (rlm--trace-identifier-p identifier)
     (error 'resource-operation-unsupported
-           :uri (format nil "~A:~A"
-                        (resource-resolver-scheme resolver) identifier)
+           :uri       (format nil "~A:~A"
+                              (resource-resolver-scheme resolver) identifier)
            :operation ':resolve))
   (make-instance 'inference-trace-resource
-                 :uri (format nil "inference:~A" identifier)
+                 :uri        (format nil "inference:~A" identifier)
                  :identifier identifier))
 
 (defmethod resource-capabilities
@@ -103,12 +103,15 @@
   "Return the validated window integer NAME from ARGUMENTS."
   (let ((value (gethash name arguments)))
     (cond
-      ((null value) fallback)
-      ((and (integerp value) (<= 1 value maximum)) value)
-      (t (error 'tool-error
-                :message (format nil "~A must be an integer between 1 and ~D."
+      ((null value)
+       fallback)
+      ((and (integerp value) (<= 1 value maximum))
+       value)
+      (t
+       (error 'tool-error
+              :message   (format nil "~A must be an integer between 1 and ~D."
                                  name maximum)
-                :tool-name "resource.read")))))
+              :tool-name "resource.read")))))
 
 (-> rlm--window-render (list (integer 0) (integer 0) (integer 0)) string)
 (defun rlm--window-render (lines start end total)
@@ -141,7 +144,7 @@ count, so a follow-up read can target any region, including the tail."
                  arguments "line-count"
                  *rlm-resource-default-line-count*
                  *rlm-resource-maximum-line-count*))
-         (end (min total (1- (+ start count)))))
+         (end   (min total (1- (+ start count)))))
     (rlm--window-render
      (loop for line-number from start to end
            collect (aref lines (1- line-number)))
@@ -169,10 +172,10 @@ segment boundary. Lines match TEXT--SPLIT-LINES: split on newlines with
 one trailing carriage return stripped per line. Returns the collected
 bounded window lines, the total line count, and the bounded newest line."
   (let ((window nil)
-        (total 0)
+        (total  0)
         (newest nil)
-        (carry nil)
-        (end (1- (+ start count))))
+        (carry  nil)
+        (end    (1- (+ start count))))
     (labels ((strip-return (line)
                "Drop LINE's single trailing carriage return, when present."
                (let ((length (length line)))
@@ -190,7 +193,7 @@ bounded window lines, the total line count, and the bounded newest line."
                    (push bounded window)))))
       (dolist (segment segments)
         (with-open-file (stream segment
-                                :direction ':input
+                                :direction       ':input
                                 :external-format ':utf-8)
           (loop
             (multiple-value-bind (line missing-newline-p)
@@ -221,7 +224,7 @@ requested window rather than the complete trace."
     (multiple-value-bind (lines total newest)
         (rlm--segment-window-lines segments requested-start count)
       (let* ((start (min requested-start (max 1 total)))
-             (end (min total (1- (+ start count)))))
+             (end   (min total (1- (+ start count)))))
         (rlm--window-render
          (cond ((zerop total)
                 nil)
@@ -244,7 +247,7 @@ requested window rather than the complete trace."
 (-> rlm--trace-index-entries (configuration) list)
 (defun rlm--trace-index-entries (configuration)
   "Return (identifier . newest-write-date) pairs for traces, newest first."
-  (let ((root (configuration-inference-root configuration))
+  (let ((root    (configuration-inference-root configuration))
         (entries (make-hash-table :test #'equal)))
     (flet ((note (identifier pathname)
              (when (rlm--trace-identifier-p identifier)
@@ -274,14 +277,14 @@ requested window rather than the complete trace."
              (handler-case
                  (with-open-file (stream segment :external-format ':utf-8)
                    (let* ((buffer (make-string 4000))
-                          (count (read-sequence buffer stream))
+                          (count  (read-sequence buffer stream))
                           (prefix (subseq buffer 0 count))
-                          (start (search "Task: " prefix)))
+                          (start  (search "Task: " prefix)))
                      (when start
                        (let* ((begin (+ start (length "Task: ")))
-                              (end (or (position #\Newline prefix
-                                                 :start begin)
-                                       (length prefix))))
+                              (end   (or (position #\Newline prefix
+                                                   :start begin)
+                                         (length prefix))))
                          (string-right-trim
                           '(#\Return #\\ #\")
                           (subseq prefix begin
@@ -319,9 +322,9 @@ requested window rather than the complete trace."
   (let ((content (rlm--trace-index-render
                   (tool-context-configuration context))))
     (make-instance 'resource-observation
-                   :uri (resource-uri resource)
+                   :uri      (resource-uri resource)
                    :revision (format nil "~D" (length content))
-                   :content content)))
+                   :content  content)))
 
 (defmethod resource-tool-read
     ((resource inference-trace-index-resource) (tool resource-read-tool)
@@ -337,16 +340,16 @@ requested window rather than the complete trace."
     ((resource inference-trace-resource) (context tool-context))
   "Observe one complete persisted inference trace."
   (let* ((identifier (inference-trace-resource-identifier resource))
-         (content (rlm--trace-content (tool-context-configuration context)
-                                      identifier)))
+         (content    (rlm--trace-content (tool-context-configuration context)
+                                         identifier)))
     (unless content
       (error 'rlm-view-error
              :designator identifier
-             :message "no inference trace has this identifier"))
+             :message    "no inference trace has this identifier"))
     (make-instance 'resource-observation
-                   :uri (resource-uri resource)
+                   :uri      (resource-uri resource)
                    :revision identifier
-                   :content content)))
+                   :content  content)))
 
 (defmethod resource-tool-read
     ((resource inference-trace-resource) (tool resource-read-tool)
@@ -367,9 +370,9 @@ requested window rather than the complete trace."
 
 (defclass context-object-resource (resource)
   ((digest
-    :initarg :digest
-    :reader context-object-resource-digest
-    :type non-empty-string
+    :initarg       :digest
+    :reader        context-object-resource-digest
+    :type          non-empty-string
     :documentation "The content digest selecting one stored context object."))
   (:documentation "One read-only content-addressed context object."))
 
@@ -399,11 +402,11 @@ requested window rather than the complete trace."
                (every (lambda (character) (digit-char-p character 16))
                       identifier))
     (error 'resource-operation-unsupported
-           :uri (format nil "~A:~A"
-                        (resource-resolver-scheme resolver) identifier)
+           :uri       (format nil "~A:~A"
+                              (resource-resolver-scheme resolver) identifier)
            :operation ':resolve))
   (make-instance 'context-object-resource
-                 :uri (format nil "context:~A" identifier)
+                 :uri    (format nil "context:~A" identifier)
                  :digest (string-downcase identifier)))
 
 (defmethod resource-capabilities
@@ -450,9 +453,9 @@ requested window rather than the complete trace."
   (handler-case
       (with-open-file (stream pathname :external-format ':utf-8)
         (let* ((buffer (make-string 200))
-               (count (read-sequence buffer stream))
+               (count  (read-sequence buffer stream))
                (prefix (subseq buffer 0 count))
-               (end (or (position #\Newline prefix) (length prefix))))
+               (end    (or (position #\Newline prefix) (length prefix))))
           (substitute #\Space #\Return
                       (subseq prefix
                               0 (min end *rlm-index-excerpt-characters*)))))
@@ -463,7 +466,7 @@ requested window rather than the complete trace."
 (defun rlm--context-index-render (configuration)
   "Return the bounded newest-first index of stored context objects."
   (let ((entries (rlm--context-index-entries configuration))
-        (root (rlm-object-root configuration)))
+        (root    (rlm-object-root configuration)))
     (if (null entries)
         "No context objects are stored."
         (with-output-to-string (stream)
@@ -490,9 +493,9 @@ requested window rather than the complete trace."
   (let ((content (rlm--context-index-render
                   (tool-context-configuration context))))
     (make-instance 'resource-observation
-                   :uri (resource-uri resource)
+                   :uri      (resource-uri resource)
                    :revision (format nil "~D" (length content))
-                   :content content)))
+                   :content  content)))
 
 (defmethod resource-tool-read
     ((resource context-object-index-resource) (tool resource-read-tool)
@@ -514,16 +517,16 @@ requested window rather than the complete trace."
     (unless object
       (error 'rlm-view-error
              :designator (context-object-resource-digest resource)
-             :message "no stored context object has this digest"))
+             :message    "no stored context object has this digest"))
     content))
 
 (defmethod resource-observe
     ((resource context-object-resource) (context tool-context))
   "Observe one complete stored context object."
   (make-instance 'resource-observation
-                 :uri (resource-uri resource)
+                 :uri      (resource-uri resource)
                  :revision (context-object-resource-digest resource)
-                 :content (rlm--context-object-text resource context)))
+                 :content  (rlm--context-object-text resource context)))
 
 (defmethod resource-tool-read
     ((resource context-object-resource) (tool resource-read-tool)
