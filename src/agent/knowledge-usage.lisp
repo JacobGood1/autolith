@@ -32,7 +32,7 @@
   (and (member (function-call-canonical-name call) '("resource.read" "resource.edit")
                :test #'equal)
        (let* ((arguments (ignore-errors (json-decode (or (json-get call "arguments") "{}"))))
-              (uri (and (json-object-p arguments) (json-get arguments "uri"))))
+              (uri       (and (json-object-p arguments) (json-get arguments "uri"))))
          (and (stringp uri)
               (some (lambda (prefix) (uiop:string-prefix-p prefix uri))
                     '("memory:facts" "memory:claim/" "memory:predicates" "memory:rules"
@@ -46,7 +46,7 @@
 CALLS are the request's function calls and USAGE its provider usage. Nothing
 is recorded for a request knowledge did not take part in."
   (let* ((identifier (conversation-identifier conversation))
-         (note (gethash identifier *knowledge-usage-notes*))
+         (note       (gethash identifier *knowledge-usage-notes*))
          (tool-calls (count-if #'knowledge-usage--tool-call-p calls)))
     (remhash identifier *knowledge-usage-notes*)
     (when (or (and note (or (plusp (getf note :facts)) (plusp (getf note :changes))))
@@ -54,12 +54,12 @@ is recorded for a request knowledge did not take part in."
       (conversation-append-provider-metadata
        conversation
        (list :request-number request-number
-             :knowledge (append (or note
-                                    (list :facts 0 :fact-characters 0
-                                          :changes 0 :change-characters 0))
-                                (list :tool-calls tool-calls
-                                      :usage (agent--portable-value
-                                              (provider-usage-normalize usage))))))))
+             :knowledge      (append (or note
+                                         (list :facts 0 :fact-characters 0
+                                               :changes 0 :change-characters 0))
+                                     (list :tool-calls tool-calls
+                                           :usage      (agent--portable-value
+                                                        (provider-usage-normalize usage))))))))
   nil)
 
 (-> knowledge-usage-report (conversation) list)
@@ -85,4 +85,4 @@ The plist counts :REQUESTS, recalled :FACTS and :CHANGES, model
            (incf tokens (or (conversation--usage-total (getf knowledge :usage)) 0))))))
     (list :requests requests :facts facts :changes changes :tool-calls tool-calls
           :estimated-recall-tokens (ceiling characters *knowledge-usage-characters-per-token*)
-          :request-tokens tokens)))
+          :request-tokens          tokens)))
