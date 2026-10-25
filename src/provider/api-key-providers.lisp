@@ -1,6 +1,5 @@
 (in-package #:autolith)
 
-
 ;;;; -- Static API-Key Provider Definitions --
 
 (-> api-key-validate-models-endpoint (string string list) null)
@@ -13,11 +12,11 @@
       60
       (lambda ()
         (dexador:get url
-                     :headers headers
-                     :force-string t
-                     :keep-alive nil
+                     :headers         headers
+                     :force-string    t
+                     :keep-alive      nil
                      :connect-timeout 30
-                     :read-timeout 60))))))
+                     :read-timeout    60))))))
 
 (defmacro define-static-api-key-provider
     (name &key display-name environment-variable provider-name
@@ -32,19 +31,19 @@ validation time, and KEY-HEADERS, a form evaluating to a function from a key to
 request headers, define NAME-VALIDATE-API-KEY as a probe of that model list.
 VALIDATE-FUNCTION instead names an existing probe. NAME-API-KEY-LOGIN prompts
 for the key, validates it when a probe exists, and saves it."
-  (let* ((prefix (string-upcase (string name)))
-         (name-string (string-downcase (string name)))
-         (display-name (or display-name prefix))
-         (provider-name (or provider-name name-string))
-         (account-label (intern (format nil "*~A-ACCOUNT-LABEL*" prefix)))
-         (environment-var (intern (format nil "*~A-ENVIRONMENT-VARIABLE*" prefix)))
+  (let* ((prefix            (string-upcase (string name)))
+         (name-string       (string-downcase (string name)))
+         (display-name      (or display-name prefix))
+         (provider-name     (or provider-name name-string))
+         (account-label     (intern (format nil "*~A-ACCOUNT-LABEL*" prefix)))
+         (environment-var   (intern (format nil "*~A-ENVIRONMENT-VARIABLE*" prefix)))
          (environment-class (intern (format nil "~A-ENVIRONMENT-CREDENTIAL-SOURCE" prefix)))
-         (manager-class (intern (format nil "~A-CREDENTIAL-MANAGER" prefix)))
-         (create-function (intern (format nil "~A-CREDENTIAL-MANAGER-CREATE" prefix)))
-         (login-function (intern (format nil "~A-API-KEY-LOGIN" prefix)))
-         (validate (or validate-function
-                       (and models-endpoint
-                            (intern (format nil "~A-VALIDATE-API-KEY" prefix))))))
+         (manager-class     (intern (format nil "~A-CREDENTIAL-MANAGER" prefix)))
+         (create-function   (intern (format nil "~A-CREDENTIAL-MANAGER-CREATE" prefix)))
+         (login-function    (intern (format nil "~A-API-KEY-LOGIN" prefix)))
+         (validate          (or validate-function
+                                (and models-endpoint
+                                     (intern (format nil "~A-VALIDATE-API-KEY" prefix))))))
     `(progn
        (defparameter ,account-label ,name-string
          ,(format nil "The synthetic account identifier pinned for static ~A API keys." display-name))
@@ -108,8 +107,8 @@ for the key, validates it when a probe exists, and saves it."
          ,(format nil "Prompt for~:[~; and validate~] the ~A API key and save it to MANAGER's store."
                   validate display-name)
          (api-key-login manager
-                        :stream stream
-                        :input input
+                        :stream                stream
+                        :input                 input
                         :input-file-descriptor input-file-descriptor
                         ,@(when validate
                             `(:validate #',validate)))))))
