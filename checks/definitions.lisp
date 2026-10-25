@@ -73,14 +73,20 @@ The runner binds it so rules about project source skip standalone scripts.")
   (:documentation "No function has two -> declarations."))
 
 (defclass source-positional-parameters-rule (source-rule)
-  ()
+  ((specialized
+    :initform      (make-hash-table :test #'equal)
+    :reader        source-positional-parameters-rule-specialized
+    :type          hash-table
+    :documentation "Each generic function name's number of leading positions some method specializes."))
   (:default-initargs
    :name "positional-parameters"
    :description "Functions and methods with four or more parameters use keyword arguments (AGENTS.md, Naming).")
   (:documentation "At most three required and optional parameters.
 
 A method's parameters follow its generic function, so the rule judges the
-generic function, not each method."))
+generic function, not each method. A parameter some method specializes must
+stay positional, so a generic function may take as many positional
+parameters as its methods dispatch on."))
 
 (defclass source-list-accessor-rule (source-rule)
   ()
@@ -228,6 +234,16 @@ generic function, not each method."))
                                name (length places) (reverse places))
                      :column  (source-node-column node)))))
 
+(defmethod source-rule-prepare ((rule source-positional-parameters-rule) (file source-file))
+  "Record how many leading parameter positions FILE's methods specialize, per generic function."
+  (let ((specialized (source-positional-parameters-rule-specialized rule)))
+    (dolist (node (source-definition-forms file))
+      (dolist (method (source-definition--method-lambda-lists node))
+        (destructuring-bind (name lambda-list) method
+          (setf (gethash name specialized)
+                (max (gethash name specialized 0)
+                     (source-definition--specialized-count lambda-list))))))))
+
 (defmethod source-rule-findings ((rule source-positional-parameters-rule) (file source-file))
   "Report functions and generic functions taking more than the limit of positional parameters."
   (loop for node in (source-definition-forms file)
@@ -235,7 +251,11 @@ generic function, not each method."))
         for parameters = (and (member operator '("defun" "defgeneric") :test #'equal)
                               (source-definition--lambda-list node))
         for count = (and parameters (source-definition--positional-count parameters))
-        when (and count (> count *source-positional-limit*))
+        for allowed = (max *source-positional-limit*
+                           (gethash (source-definition-name node)
+                                    (source-positional-parameters-rule-specialized rule)
+                                    0))
+        when (and count (> count allowed))
           collect (source-finding-create
                    rule file
                    :line    (source-node-line node)
@@ -447,6 +467,35 @@ generic function, not each method."))
            (setf counting-p nil))
           (counting-p
            (incf count)))))))
+
+(-> source-definition--specialized-count (source-node) (integer 0))
+(defun source-definition--specialized-count (lambda-list)
+  "Return how many leading positions of method LAMBDA-LIST reach its last specialized parameter."
+  (let ((last 0))
+    (loop for parameter in (source-node-children lambda-list)
+          for position from 1
+          until (let ((name (source-node-name parameter)))
+                  (and name (char= (char name 0) #\&)))
+          when (source-node-list-p parameter)
+            do (setf last position))
+    last))
+
+(-> source-definition--method-lambda-lists (source-node) list)
+(defun source-definition--method-lambda-lists (node)
+  "Return (NAME LAMBDA-LIST) for each method a defmethod or defgeneric NODE defines."
+  (let ((operator (source-node-operator node)))
+    (cond
+      ((equal operator "defmethod")
+       (let ((lambda-list (source-definition--lambda-list node)))
+         (and lambda-list
+              (list (list (source-definition-name node) lambda-list)))))
+      ((equal operator "defgeneric")
+       (loop for option in (nthcdr 3 (source-node-children node))
+             for lambda-list = (and (equal (source-node-operator option) ":method")
+                                    (find-if #'source-node-list-p
+                                             (rest (source-node-children option))))
+             when lambda-list
+               collect (list (source-definition-name node) lambda-list))))))
 
 (-> source-definition--documented-body-p (source-node) boolean)
 (defun source-definition--documented-body-p (node)

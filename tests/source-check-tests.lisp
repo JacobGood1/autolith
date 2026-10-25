@@ -160,6 +160,17 @@
                        (source-file-create "a.lisp" (format nil "(a)~%~%")))
                       '(3))
                "blank lines after the last form are reported")
+  (let ((rule (make-instance 'source-positional-parameters-rule))
+        (file (source-check-tests--file "a.lisp"
+                                        '("(defgeneric g (a b c d))"
+                                          "(defmethod g ((a t) (b t) (c t) (d t))"
+                                          "  a)"
+                                          "(defgeneric h (a b c d))"
+                                          "(defmethod h ((a t) b c d)"
+                                          "  a)"))))
+    (source-rule-prepare rule file)
+    (test-assert (equal (mapcar #'source-finding-line (source-rule-findings rule file)) '(4))
+                 "a generic function may keep every parameter its methods specialize positional"))
   nil)
 
 (-> test-source-rule-repairs () null)
