@@ -24,7 +24,6 @@
                    "vault-discard" "data.export" "data.import" "detach" "quit")))
   "Human help topics and their preferred command order; registrations supply the text.")
 
-(-> application-help-operation-notes (application-operation) string)
 (defgeneric application-help-operation-notes (operation)
   (:documentation "Return OPERATION's detailed Markdown notes from its live backend."))
 
