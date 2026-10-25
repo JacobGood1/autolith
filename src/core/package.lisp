@@ -981,6 +981,7 @@
                 #:response-status)
   (:import-from #:quri
                 #:uri
+                #:uri-error
                 #:uri-host
                 #:uri-path
                 #:uri-port
@@ -990,7 +991,10 @@
                 #:url-encode-params)
   (:import-from #:serapeum
                 #:->
-                #:dict)
+                #:dict
+                #:partial
+                #:plist-keys
+                #:take)
   (:import-from #:usocket
                 #:ns-error
                 #:socket-error)
@@ -1164,6 +1168,7 @@
                 #:json-false-p
                 #:json-get
                 #:json-get-present
+                #:json-limits
                 #:json-object
                 #:json-object-copy
                 #:json-object-p
@@ -1174,6 +1179,7 @@
                 #:json-value
                 #:make-json-limits)
   (:import-from #:ls-compat
+                #:utf8-conversion-failed
                 #:utf8-octets-to-string
                 #:utf8-string-to-octets)
   (:import-from #:ls-compat.files
