@@ -4,9 +4,9 @@
 
 (define-condition papercut-resource-identifier-unsupported (autolith-error)
   ((identifier
-    :initarg :identifier
-    :reader papercut-resource-identifier-unsupported-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        papercut-resource-identifier-unsupported-identifier
+    :type          non-empty-string
     :documentation "The unsupported papercut resource identifier."))
   (:default-initargs :message "The papercut resource identifier is not supported.")
   (:documentation "A papercut: URI names neither the current collection nor an exact item.")
@@ -18,9 +18,9 @@
 
 (define-condition papercut-resource-not-found (autolith-error)
   ((identifier
-    :initarg :identifier
-    :reader papercut-resource-not-found-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        papercut-resource-not-found-identifier
+    :type          non-empty-string
     :documentation "The stable papercut identifier that has no active value."))
   (:default-initargs :message "The active papercut does not exist.")
   (:documentation "A papercut: exact-item URI names a closed, missing, or other-workspace report.")
@@ -42,14 +42,14 @@
 
 (defclass papercut-resource (resource)
   ((identifier
-    :initarg :identifier
-    :reader papercut-resource-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        papercut-resource-identifier
+    :type          non-empty-string
     :documentation "The collection name or stable report identifier in this URI.")
    (workspace
-    :initarg :workspace
-    :reader papercut-resource-workspace
-    :type non-empty-string
+    :initarg       :workspace
+    :reader        papercut-resource-workspace
+    :type          non-empty-string
     :documentation "The current workspace identity resolved under authority."))
   (:documentation "A revisioned current-workspace papercut collection or active report."))
 
@@ -67,24 +67,24 @@
 
 (defclass papercut-observation (resource-observation)
   ((identifier
-    :initarg :identifier
-    :reader papercut-observation-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        papercut-observation-identifier
+    :type          non-empty-string
     :documentation "The collection name or stable report identifier observed.")
    (workspace
-    :initarg :workspace
-    :reader papercut-observation-workspace
-    :type non-empty-string
+    :initarg       :workspace
+    :reader        papercut-observation-workspace
+    :type          non-empty-string
     :documentation "The current workspace represented by this observation.")
    (kind
-    :initarg :kind
-    :reader papercut-observation-kind
-    :type keyword
+    :initarg       :kind
+    :reader        papercut-observation-kind
+    :type          keyword
     :documentation "Whether the observation represents a collection, item, or closure.")
    (snapshot
-    :initarg :snapshot
-    :reader papercut-observation-snapshot
-    :type list
+    :initarg       :snapshot
+    :reader        papercut-observation-snapshot
+    :type          list
     :documentation "The exact detached readable snapshot used for revision gating."))
   (:documentation "An exact rendered and structural current-workspace papercut snapshot."))
 
@@ -230,15 +230,15 @@
 (-> papercut-resource--assessment-snapshot (papercut) list)
 (defun papercut-resource--assessment-snapshot (papercut)
   "Return PAPERCUT's detached latest-assessment snapshot."
-  (list :verdict (papercut-assessment-verdict papercut)
-        :note (papercut-assessment-note papercut)
+  (list :verdict     (papercut-assessment-verdict papercut)
+        :note        (papercut-assessment-note papercut)
         :assessed-at (papercut-assessed-at papercut)))
 
 (-> papercut-resource--collection-snapshot (non-empty-string list) list)
 (defun papercut-resource--collection-snapshot (workspace papercuts)
   "Return an exact snapshot of active reports and assessments in WORKSPACE."
-  (list :kind ':collection
-        :workspace workspace
+  (list :kind        ':collection
+        :workspace   workspace
         :identifiers (mapcar #'papercut-identifier papercuts)
         :assessments
         (mapcar (lambda (papercut)
@@ -249,8 +249,8 @@
 (-> papercut-resource--item-snapshot (papercut) list)
 (defun papercut-resource--item-snapshot (papercut)
   "Return an exact detached snapshot of one active PAPERCUT."
-  (list :kind ':item
-        :record (papercut--record papercut)
+  (list :kind       ':item
+        :record     (papercut--record papercut)
         :assessment (papercut-resource--assessment-snapshot papercut)))
 
 (-> papercut-resource--collection-observation-unlocked
@@ -259,7 +259,7 @@
 (defun papercut-resource--collection-observation-unlocked (resource context active)
   "Observe RESOURCE from private ACTIVE transaction state."
   (let* ((configuration (tool-context-configuration context))
-         (workspace (papercut--workspace configuration)))
+         (workspace     (papercut--workspace configuration)))
     (unless (string= workspace (papercut-resource-workspace resource))
       (error 'resource-revision-stale
              :uri               (resource-uri resource)
@@ -303,7 +303,7 @@
 (defun papercut-resource--item-observation-unlocked (resource context active)
   "Observe one exact RESOURCE from private ACTIVE transaction state."
   (let* ((configuration (tool-context-configuration context))
-         (workspace (papercut--workspace configuration)))
+         (workspace     (papercut--workspace configuration)))
     (unless (string= workspace (papercut-resource-workspace resource))
       (error 'resource-revision-stale
              :uri               (resource-uri resource)
@@ -313,7 +313,7 @@
             (find (papercut-resource-identifier resource)
                   (papercut--workspace-reports configuration active)
                   :test #'string=
-                  :key #'papercut-identifier)))
+                  :key  #'papercut-identifier)))
       (unless papercut
         (error 'papercut-resource-not-found
                :identifier (papercut-resource-identifier resource)))
@@ -357,7 +357,7 @@
         (papercut--validate-text value field limit)
       (papercut-error (condition)
         (error 'tool-error
-               :message (autolith-error-message condition)
+               :message   (autolith-error-message condition)
                :tool-name "resource.edit")))))
 
 (-> papercut-resource--required-verdict
@@ -377,7 +377,7 @@
        ':too-early)
       (t
        (error 'tool-error
-              :message "Papercut assessment verdict must be improved, worse, unchanged, or too-early."
+              :message   "Papercut assessment verdict must be improved, worse, unchanged, or too-early."
               :tool-name "resource.edit")))))
 
 (-> papercut-resource--normalize-operation (t) list)
@@ -385,43 +385,43 @@
   "Return one validated normalized papercut resource OPERATION."
   (unless (hash-table-p operation)
     (error 'tool-error
-           :message "Papercut resource operations must be JSON objects."
+           :message   "Papercut resource operations must be JSON objects."
            :tool-name "resource.edit"))
   (let ((name (tool-argument operation "op" :required t)))
     (unless (stringp name)
       (error 'tool-error
-             :message "Papercut resource operation op must be a string."
+             :message   "Papercut resource operation op must be a string."
              :tool-name "resource.edit"))
     (cond
       ((string= name "papercut-report")
        (resource-item-validate-operation-fields
         "Papercut"
         operation '("op" "title" "content" "issue-kind" "tool" "diagnostic") '("op" "title" "content"))
-       (list :kind ':report
+       (list :kind       ':report
              :diagnostic (telemetry-diagnostic-text (tool-argument operation "diagnostic"))
              :issue-kind (papercut--issue-kind (or (tool-argument operation "issue-kind") "other"))
-             :tool (telemetry--tool (tool-argument operation "tool"))
-             :title (papercut-resource--required-text
-                     operation "title" "title" *papercut-title-limit*)
-             :content (papercut-resource--required-text
-                       operation "content" "content" *papercut-content-limit*)))
+             :tool       (telemetry--tool (tool-argument operation "tool"))
+             :title      (papercut-resource--required-text
+                          operation "title" "title" *papercut-title-limit*)
+             :content    (papercut-resource--required-text
+                          operation "content" "content" *papercut-content-limit*)))
       ((string= name "papercut-assess")
        (resource-item-validate-operation-fields
         "Papercut"
         operation '("op" "verdict" "note" "diagnostic") '("op" "verdict" "note"))
-       (list :kind ':assess
+       (list :kind       ':assess
              :diagnostic (telemetry-diagnostic-text (tool-argument operation "diagnostic"))
-             :verdict (papercut-resource--required-verdict operation)
-             :note (papercut-resource--required-text
-                    operation
-                    "note"
-                    "assessment note"
-                    *papercut-assessment-note-limit*)))
+             :verdict    (papercut-resource--required-verdict operation)
+             :note       (papercut-resource--required-text
+                          operation
+                          "note"
+                          "assessment note"
+                          *papercut-assessment-note-limit*)))
       ((string= name "papercut-close")
        (resource-item-validate-operation-fields
         "Papercut"
         operation '("op" "resolution" "diagnostic") '("op" "resolution"))
-       (list :kind ':close
+       (list :kind       ':close
              :diagnostic (telemetry-diagnostic-text (tool-argument operation "diagnostic"))
              :resolution (papercut-resource--required-text
                           operation
@@ -443,12 +443,12 @@
     (papercut-collection-resource
      (unless (eq (getf operation :kind) ':report)
        (error 'tool-error
-              :message "papercut:current accepts only papercut-report."
+              :message   "papercut:current accepts only papercut-report."
               :tool-name "resource.edit")))
     (papercut-item-resource
      (unless (member (getf operation :kind) '(:assess :close))
        (error 'tool-error
-              :message "Exact papercut item URIs accept papercut-assess or papercut-close."
+              :message   "Exact papercut item URIs accept papercut-assess or papercut-close."
               :tool-name "resource.edit"))))
   nil)
 
@@ -458,9 +458,9 @@
 (defun papercut-resource--closed-observation (resource papercut resolution)
   "Return a revisioned terminal observation for closed PAPERCUT."
   (let* ((identifier (papercut-identifier papercut))
-         (snapshot (list :kind ':closed
-                         :identifier identifier
-                         :resolution resolution)))
+         (snapshot   (list :kind       ':closed
+                           :identifier identifier
+                           :resolution resolution)))
     (make-instance 'papercut-observation
                    :uri        (resource-uri resource)
                    :revision   (resource-readable-snapshot-digest
@@ -481,17 +481,17 @@
   "Validate the revision and publish one papercut mutation in a single transaction."
   (unless (and (listp operations) (= (length operations) 1))
     (error 'tool-error
-           :message "papercut: resources require exactly one operation per resource.edit call."
+           :message   "papercut: resources require exactly one operation per resource.edit call."
            :tool-name "resource.edit"))
   (let ((operation (papercut-resource--normalize-operation (first operations))))
     (papercut-resource--validate-operation-target resource operation)
-    (let ((conversation (tool-context-conversation context))
+    (let ((conversation  (tool-context-conversation context))
           (configuration (tool-context-configuration context)))
       (with-lock-held (*papercut-lock*)
         (with-recursive-lock-held
             ((conversation-resource-observation-lock conversation))
-          (let* ((state (resource-item-find-observation-state
-                         conversation resource base-revision))
+          (let* ((state            (resource-item-find-observation-state
+                                    conversation resource base-revision))
                  (base-observation (resource-observation-state-observation state))
                  (result
                    (papercut--transact
@@ -503,40 +503,40 @@
                                    resource context active)
                                 (papercut-resource-not-found ()
                                   (error 'resource-revision-stale
-                                         :uri (resource-uri resource)
+                                         :uri               (resource-uri resource)
                                          :expected-revision base-revision
-                                         :actual-revision nil)))))
+                                         :actual-revision   nil)))))
                         (unless (and
                                  (string= (resource-observation-revision current)
                                           (resource-observation-revision base-observation))
                                  (equal (papercut-observation-snapshot current)
                                         (papercut-observation-snapshot base-observation)))
                           (error 'resource-revision-stale
-                                 :uri (resource-uri resource)
+                                 :uri               (resource-uri resource)
                                  :expected-revision base-revision
-                                 :actual-revision (resource-observation-revision current))))
+                                 :actual-revision   (resource-observation-revision current))))
                       (ecase (getf operation :kind)
                         (:report
                          (papercut--report-unlocked
-                          configuration :title (getf operation :title)
+                          configuration :title      (getf operation :title)
                                         :diagnostic (getf operation :diagnostic)
-                                        :content (getf operation :content)
+                                        :content    (getf operation :content)
                                         :issue-kind (getf operation :issue-kind)
-                                        :tool (getf operation :tool)
+                                        :tool       (getf operation :tool)
                                         :source-conversation
                                         (conversation-identifier conversation)
-                                        :active active))
+                                        :active     active))
                         (:assess
                          (papercut--assess-unlocked
                           configuration (papercut-resource-identifier resource)
                           :active active :verdict (getf operation :verdict)
-                                         :note (getf operation :note)
+                                         :note       (getf operation :note)
                                          :diagnostic (getf operation :diagnostic)))
                         (:close
                          (papercut--mark-closed-unlocked
                           configuration (papercut-resource-identifier resource)
                           (getf operation :resolution) :active active
-                          :diagnostic (getf operation :diagnostic))))))))
+                          :diagnostic                          (getf operation :diagnostic))))))))
             (ecase (getf operation :kind)
               (:report
                (destructuring-bind (papercut duplicate-p) result
@@ -581,13 +581,13 @@
             (nth-value 1 (gethash "query" arguments))
             (nth-value 1 (gethash "max-results" arguments)))
     (error 'tool-error
-           :message "papercut: resources are always read in full and accept no read filters."
+           :message   "papercut: resources are always read in full and accept no read filters."
            :tool-name "resource.read"))
   (let* ((observation (resource-observe resource context))
          (state
             (resource-observation-state-ensure
-            (tool-context-conversation context)
-            observation)))
+             (tool-context-conversation context)
+             observation)))
     (tool-success (resource-item-read-result state))))
 
 (defmethod resource-tool-edit
@@ -595,26 +595,26 @@
      (context tool-context) (arguments hash-table))
   "Apply one revision-gated papercut operation and return a fresh exact observation."
   (declare (ignore tool))
-  (let* ((uri (tool-argument arguments "uri" :required t))
-         (base-revision (tool-argument arguments "base-revision" :required t))
+  (let* ((uri             (tool-argument arguments "uri" :required t))
+         (base-revision   (tool-argument arguments "base-revision" :required t))
          (operation-array (tool-argument arguments "operations" :required t)))
     (unless (non-empty-string-p base-revision)
       (error 'tool-error
-             :message "Resource edit base-revision must be a non-empty string."
+             :message   "Resource edit base-revision must be a non-empty string."
              :tool-name "resource.edit"))
     (unless (and (vectorp operation-array) (= (length operation-array) 1))
       (error 'tool-error
-             :message "papercut: resources require exactly one operation per resource.edit call."
+             :message   "papercut: resources require exactly one operation per resource.edit call."
              :tool-name "resource.edit"))
     (handler-case
         (multiple-value-bind (observation summary exact-uri)
             (resource-apply-operations resource context
                                        :base-revision base-revision
-                                       :operations (coerce operation-array 'list))
+                                       :operations    (coerce operation-array 'list))
           (let ((state
                    (resource-observation-state-ensure
-                   (tool-context-conversation context)
-                   observation)))
+                    (tool-context-conversation context)
+                    observation)))
             (tool-success
              (format nil "~A~@[~%Exact URI: ~A~]~%~A"
                      summary
