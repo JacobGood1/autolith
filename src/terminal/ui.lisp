@@ -2368,14 +2368,30 @@ while output is deferred and otherwise dropped."
                (name (and end (subseq header 3 end))))
           (and (non-empty-string-p name) name))))))
 
+(-> terminal-ui--compact-handoff-group ((or string list)) (option string))
+(defun terminal-ui--compact-handoff-group (entry)
+  "Return a per-tool group for a single-line background handoff."
+  (when (and (consp entry)
+             (notany #'termdown:widget-p entry)
+             (eq (terminal-span-style (first entry)) ':notice))
+    (let ((header (terminal-span-text (first entry)))
+          (text (terminal--spans-text entry)))
+      (when (and (uiop:string-prefix-p "↪ " header)
+                 (> (length header) 2)
+                 (not (char= (char header (1- (length header))) #\…))
+                 (not (find #\Newline text))
+                 (not (find #\Return text)))
+        header))))
+
 (-> terminal-ui--compact-entry-group
     ((or string list))
     (or null (eql :success) string))
 (defun terminal-ui--compact-entry-group (entry)
-  "Return a shared success group or an exact per-tool call group for ENTRY."
+  "Group single-line successes, calls, and handoffs by kind and tool."
   (if (terminal-ui--compact-success-p entry)
       ':success
-      (terminal-ui--compact-call-tool entry)))
+      (or (terminal-ui--compact-call-tool entry)
+          (terminal-ui--compact-handoff-group entry))))
 
 (-> terminal-ui--finalized-content
     (terminal-ui (or string list))
@@ -2383,9 +2399,9 @@ while output is deferred and otherwise dropped."
 (defun terminal-ui--finalized-content (ui entry)
   "Return finalized ENTRY as plain text, styled text, and click regions.
 
-Compact tool calls and successes end with one newline; other entries include a
-blank separator row. Regions index the plain text. This formatter does not
-change UI."
+Compact calls, handoffs, and successes end with one newline; other entries
+include a blank separator row. Regions index the plain text. This formatter
+does not change UI."
   (let* ((terminal (terminal-ui-terminal ui))
          (spans (if (stringp entry)
                     (list (terminal-span ':plain entry))
