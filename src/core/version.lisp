@@ -8,10 +8,10 @@
 
 Development builds such as 0.50.3-dev.5 compare as their base release."
   (let ((components nil)
-        (start 0))
+        (start      0))
     (loop
-      (let* ((end (or (position-if-not #'digit-char-p version :start start)
-                      (length version)))
+      (let* ((end       (or (position-if-not #'digit-char-p version :start start)
+                            (length version)))
              (component (and (> end start)
                              (parse-integer version :start start :end end))))
         (unless component
@@ -26,10 +26,10 @@ Development builds such as 0.50.3-dev.5 compare as their base release."
 (-> version< (string string) boolean)
 (defun version< (left right)
   "Return true when release LEFT precedes release RIGHT."
-  (let ((left-components (version-components left))
+  (let ((left-components  (version-components left))
         (right-components (version-components right)))
     (loop
-      (let ((left-component (or (pop left-components) 0))
+      (let ((left-component  (or (pop left-components) 0))
             (right-component (or (pop right-components) 0)))
         (cond
           ((< left-component right-component)
