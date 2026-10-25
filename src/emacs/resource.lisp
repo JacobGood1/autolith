@@ -292,7 +292,8 @@ Return the new observation and the normalized operations."
               (cl-hashline:hashline-error (condition)
                 (error 'tool-error :message   (princ-to-string condition)
                                    :tool-name "resource.edit")))
-          (values (emacs-buffer--replace resource context base content)
+          (values (emacs-buffer--replace resource context :base    base
+                                                          :content content)
                   normalized))))))
 
 
@@ -478,9 +479,10 @@ Return the new observation and the normalized operations."
   nil)
 
 (-> emacs-buffer--replace
-    (emacs-buffer-resource tool-context emacs-buffer-observation string)
+    (emacs-buffer-resource tool-context
+     &key (:base emacs-buffer-observation) (:content string))
     emacs-buffer-observation)
-(defun emacs-buffer--replace (resource context base content)
+(defun emacs-buffer--replace (resource context &key base content)
   "Replace RESOURCE's text with CONTENT in Emacs while it still equals BASE's text."
   (when (> (length content) *emacs-buffer-maximum-characters*)
     (error 'tool-error
