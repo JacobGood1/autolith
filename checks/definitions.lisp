@@ -556,25 +556,55 @@ generic function, not each method."))
                              (second (source-node-children node))))))
            (when (and (source-node-string-p control)
                       (null (source-node-prefixes control))
-                      (search "%%" (source-node-text control)))
+                      (source-expression--doubled-percent-positions (source-node-text control)))
              (push control found))))))
     (nreverse found)))
 
 (-> source-expression--single-percent (string) string)
 (defun source-expression--single-percent (text)
-  "Return string literal TEXT with each %% written as %."
-  (with-output-to-string (stream)
-    (loop with index = 0
-          while (< index (length text))
-          do (if (and (char= (char text index) #\%)
-                      (< (1+ index) (length text))
-                      (char= (char text (1+ index)) #\%))
-                 (progn
-                   (write-char #\% stream)
-                   (incf index 2))
-                 (progn
-                   (write-char (char text index) stream)
-                   (incf index))))))
+  "Return string literal TEXT with each literal %% written as %."
+  (let ((positions (source-expression--doubled-percent-positions text)))
+    (with-output-to-string (stream)
+      (loop for character across text
+            for index from 0
+            unless (member (1- index) positions)
+              do (write-char character stream)))))
+
+(-> source-expression--doubled-percent-positions (string) list)
+(defun source-expression--doubled-percent-positions (text)
+  "Return the positions where a literal %% starts in format control TEXT.
+
+The percent sign ending a ~% directive is not literal, so ~%% is a newline
+followed by one percent sign."
+  (let ((positions nil)
+        (index     0))
+    (loop while (< index (length text))
+          do (cond
+               ((char= (char text index) #\~)
+                (setf index (source-expression--directive-end text (1+ index))))
+               ((and (char= (char text index) #\%)
+                     (< (1+ index) (length text))
+                     (char= (char text (1+ index)) #\%))
+                (push index positions)
+                (incf index 2))
+               (t
+                (incf index))))
+    (nreverse positions)))
+
+(-> source-expression--directive-end (string (integer 0)) (integer 0))
+(defun source-expression--directive-end (text start)
+  "Return the position after the format directive whose parameters begin at START in TEXT."
+  (let ((index start))
+    (loop while (< index (length text))
+          do (let ((character (char text index)))
+               (cond
+                 ((char= character #\')
+                  (incf index 2))
+                 ((find character "0123456789+-,vV#:@")
+                  (incf index))
+                 (t
+                  (return)))))
+    (min (length text) (1+ index))))
 
 (-> source-expression--marker-p (string) boolean)
 (defun source-expression--marker-p (text)

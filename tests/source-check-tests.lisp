@@ -131,6 +131,7 @@
                     (source-list-accessor-rule "a.lisp" ("(list (car x)" "      (cdr x))") (1 2))
                     (source-format-percent-rule "a.lisp" ("(format nil \"100%%\")") (1))
                     (source-format-percent-rule "a.lisp" ("(list \"100%%\")") ())
+                    (source-format-percent-rule "a.lisp" ("(format nil \"~%%TEMP%\")") ())
                     (source-top-level-spacing-rule "a.lisp" ("(defun a ())" "(defun b ())") (2))
                     (source-top-level-spacing-rule "a.lisp" ("(-> a () t)" "(defun a ())" ""
                                                              "(defun b ())")
@@ -181,6 +182,7 @@
                                          ("(make-instance 'c :a  1" "                  :bb 2)"))
                   (source-list-accessor-rule ("(list (car x) (cadr x))") ("(list (first x) (second x))"))
                   (source-format-percent-rule ("(format nil \"100%%\")") ("(format nil \"100%\")"))
+                  (source-format-percent-rule ("(format nil \"100%% ~%%TEMP%\")") ("(format nil \"100% ~%%TEMP%\")"))
                   (source-generic-declaration-rule ("(-> g (t) t)" "(defgeneric g (x))")
                                                    ("(defgeneric g (x))"))))
     (destructuring-bind (class lines expected) case
