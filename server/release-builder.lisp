@@ -21,71 +21,71 @@
 
 (defclass release-builder-configuration ()
   ((source-root
-    :initarg :source-root
-    :reader release-builder-configuration-source-root
-    :type pathname
+    :initarg       :source-root
+    :reader        release-builder-configuration-source-root
+    :type          pathname
     :documentation "The deployed checkout containing the builder container files.")
    (state-root
-    :initarg :state-root
-    :reader release-builder-configuration-state-root
-    :type pathname
+    :initarg       :state-root
+    :reader        release-builder-configuration-state-root
+    :type          pathname
     :documentation "The private root for checkouts, caches, and staging files.")
    (public-root
-    :initarg :public-root
-    :reader release-builder-configuration-public-root
-    :type pathname
+    :initarg       :public-root
+    :reader        release-builder-configuration-public-root
+    :type          pathname
     :documentation "The root receiving complete atomic release publications.")
    (repository
-    :initarg :repository
-    :reader release-builder-configuration-repository
-    :type string
+    :initarg       :repository
+    :reader        release-builder-configuration-repository
+    :type          string
     :documentation "The Git repository queried for release tags.")
    (poll-seconds
-    :initarg :poll-seconds
-    :reader release-builder-configuration-poll-seconds
-    :type (integer 1)
+    :initarg       :poll-seconds
+    :reader        release-builder-configuration-poll-seconds
+    :type          (integer 1)
     :documentation "The delay after each remote-tag scan.")
    (container-command
-    :initarg :container-command
-    :reader release-builder-configuration-container-command
-    :type string
+    :initarg       :container-command
+    :reader        release-builder-configuration-container-command
+    :type          string
     :documentation "The container engine executable used for isolated builds.")
    (container-timeout-seconds
-    :initarg :container-timeout-seconds
-    :reader release-builder-configuration-container-timeout-seconds
-    :type (integer 1)
+    :initarg       :container-timeout-seconds
+    :reader        release-builder-configuration-container-timeout-seconds
+    :type          (integer 1)
     :documentation "The maximum seconds allowed for one container build and check."))
   (:documentation "Private settings for the automatic release builder."))
 
 (defclass release-source-tag ()
   ((name
-    :initarg :name
-    :reader release-source-tag-name
-    :type string
+    :initarg       :name
+    :reader        release-source-tag-name
+    :type          string
     :documentation "The semantic Git tag name.")
    (commit
-    :initarg :commit
-    :reader release-source-tag-commit
-    :type string
+    :initarg       :commit
+    :reader        release-source-tag-commit
+    :type          string
     :documentation "The exact forty-character Git commit identity."))
   (:documentation "One immutable remote source tag selected for building."))
 
 (define-condition release-builder-error (error)
   ((stage
-    :initarg :stage
-    :reader release-builder-error-stage
-    :type keyword
+    :initarg       :stage
+    :reader        release-builder-error-stage
+    :type          keyword
     :documentation "The builder stage that failed.")
    (tag
-    :initarg :tag
-    :initform nil
-    :reader release-builder-error-tag
-    :type (option string)
+    :initarg       :tag
+    :initform      nil
+    :reader        release-builder-error-tag
+    :type          (option string)
     :documentation "The release tag being built, when one was selected.")
    (cause
-    :initarg :cause
-    :reader release-builder-error-cause
-    :type t
+    :initarg       :cause
+    :reader        release-builder-error-cause
+    :type          t
     :documentation "The underlying failure condition or diagnostic value."))
   (:report
    (lambda (condition stream)
@@ -165,9 +165,9 @@
         (let ((configured (uiop:getenv "AUTOLITH_RELEASE_PUBLIC_ROOT")))
           (and configured (pathname configured)))
         #p"/srv/autolith-release-server/"))
-   :repository (or repository
-                   (uiop:getenv "AUTOLITH_RELEASE_REPOSITORY")
-                   *release-builder-default-repository*)
+   :repository        (or repository
+                          (uiop:getenv "AUTOLITH_RELEASE_REPOSITORY")
+                          *release-builder-default-repository*)
    :poll-seconds
    (or poll-seconds
        (release-builder--positive-integer
@@ -206,16 +206,16 @@ Annotated tags publish both the tag object and a peeled commit line ending in
 ^{}. Prefer the peeled commit so checkout validation matches HEAD after clone.
 Lightweight tags only publish one line and keep that commit identity."
   (let ((commits (make-hash-table :test #'equal))
-        (peeled (make-hash-table :test #'equal)))
+        (peeled  (make-hash-table :test #'equal)))
     (dolist (line (uiop:split-string output :separator '(#\Newline #\Return)))
       (unless (zerop (length line))
         (let* ((separator (position #\Tab line))
-               (commit (and separator (subseq line 0 separator)))
+               (commit    (and separator (subseq line 0 separator)))
                (reference (and separator (subseq line (1+ separator))))
-               (prefix "refs/tags/")
-               (suffix "^{}")
-               (tag nil)
-               (peeled-p nil))
+               (prefix    "refs/tags/")
+               (suffix    "^{}")
+               (tag       nil)
+               (peeled-p  nil))
           (when (and reference (uiop:string-prefix-p prefix reference))
             (let ((name (subseq reference (length prefix))))
               (when (and (>= (length name) (length suffix))
@@ -240,7 +240,7 @@ Lightweight tags only publish one line and keep that commit identity."
     (sort
      (loop for tag being the hash-keys of commits using (hash-value commit)
            collect (make-instance 'release-source-tag
-                                  :name tag
+                                  :name   tag
                                   :commit commit))
      #'release-tag<
      :key #'release-source-tag-name)))
@@ -255,7 +255,7 @@ Lightweight tags only publish one line and keep that commit identity."
         (list "git" "ls-remote" "--tags"
               (release-builder-configuration-repository configuration)
               "v*.*.*")
-        :output ':string
+        :output       ':string
         :error-output ':output))
     (release-builder-error (condition)
       (error condition))
@@ -278,7 +278,7 @@ semantic order so a temporary builder outage cannot skip a version."
             :source-root (release-builder-configuration-source-root configuration)
             :public-root (release-builder-configuration-public-root configuration)))
          (published (release-server-published-tags server-configuration))
-         (latest (first (last published))))
+         (latest    (first (last published))))
     (if latest
         (remove-if-not
          (lambda (source-tag)
@@ -308,7 +308,7 @@ semantic order so a temporary builder outage cannot skip a version."
   (string-trim
    '(#\Space #\Tab #\Newline #\Return)
    (uiop:run-program (append (list "git" "-C" (namestring directory)) arguments)
-                     :output ':string
+                     :output       ':string
                      :error-output ':output)))
 
 (-> release-builder--checkout-valid-p
@@ -349,7 +349,7 @@ its definition outside this image preserves the running server's system registry
                               "(progn (asdf:load-asd ~S) (write-line (asdf:component-version (asdf:find-system ~S))))"
                               (namestring (merge-pathnames "autolith.asd" checkout))
                               "autolith"))
-                :output ':string
+                :output       ':string
                 :error-output ':string))))
         (unless (release-tag-valid-p (format nil "v~A" version))
           (error 'release-builder-error
@@ -391,7 +391,7 @@ tree intact lets one tag's object files fail a later tag's checks."
         (let ((source-cache (merge-pathnames "source/" implementation)))
           (when (uiop:directory-exists-p source-cache)
             (uiop:delete-directory-tree source-cache
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore)
             (format t "~&Cleared shared source fasl cache at ~A.~%"
                     source-cache)
@@ -419,7 +419,7 @@ tree intact lets one tag's object files fail a later tag's checks."
                (cons
                 (release-builder-configuration-container-command configuration)
                 arguments)
-               :output ':interactive
+               :output       ':interactive
                :error-output ':interactive)))
   nil)
 
@@ -432,7 +432,7 @@ tree intact lets one tag's object files fail a later tag's checks."
     (funcall *release-builder-command-function*
              (list (release-builder-configuration-container-command configuration)
                    "rm" "--force" container-name)
-             :output ':interactive
+             :output       ':interactive
              :error-output ':interactive))
   nil)
 
@@ -441,16 +441,16 @@ tree intact lets one tag's object files fail a later tag's checks."
     pathname)
 (defun release-builder--run-container (configuration source-tag checkout)
   "Build and check SOURCE-TAG in the pinned container, returning its output."
-  (let* ((state (merge-pathnames "container/"
-                                 (release-builder-configuration-state-root
-                                  configuration)))
-         (staging (release-builder--staging-path configuration source-tag))
+  (let* ((state          (merge-pathnames "container/"
+                                          (release-builder-configuration-state-root
+                                           configuration)))
+         (staging        (release-builder--staging-path configuration source-tag))
          (container-name (release-builder--container-name source-tag))
          (container-command
            (release-builder-configuration-container-command configuration)))
     (when (uiop:directory-exists-p staging)
       (uiop:delete-directory-tree staging
-                                  :validate t
+                                  :validate          t
                                   :if-does-not-exist ':ignore))
     (uiop:ensure-all-directories-exist (list state staging))
     (release-builder--clear-shared-source-fasl-cache state)
@@ -469,14 +469,14 @@ tree intact lets one tag's object files fail a later tag's checks."
                "--volume" (release-builder--container-volume state "/state")
                "--volume" (release-builder--container-volume staging "/output")
                *release-builder-container-image*)
-         :output ':interactive
+         :output       ':interactive
          :error-output ':interactive)
       (error (cause)
         (release-builder--container-diagnostics configuration container-name)
         (release-builder--remove-container configuration container-name)
         (error 'release-builder-error
                :stage ':container-build
-               :tag (release-source-tag-name source-tag)
+               :tag   (release-source-tag-name source-tag)
                :cause cause)))
     staging))
 
@@ -556,12 +556,12 @@ tree intact lets one tag's object files fail a later tag's checks."
                          "--proto" "=https" "--tlsv1.2"
                        "--output" (namestring destination)
                        url)
-                 :output ':interactive
+                 :output       ':interactive
                  :error-output ':interactive)
         (and (uiop:file-exists-p destination)
              (plusp
               (with-open-file (stream destination
-                                      :direction ':input
+                                      :direction    ':input
                                       :element-type '(unsigned-byte 8))
                 (file-length stream)))
              t))
@@ -606,7 +606,7 @@ tree intact lets one tag's object files fail a later tag's checks."
     pathname)
 (defun release-builder--fetch-github-assets (configuration source-tag)
   "Download TAG's available GitHub archives and checksums into a staging directory."
-  (let* ((tag (release-source-tag-name source-tag))
+  (let* ((tag     (release-source-tag-name source-tag))
          (staging (release-builder--staging-path configuration source-tag))
          (target
            (release-server--release-directory
@@ -619,14 +619,14 @@ tree intact lets one tag's object files fail a later tag's checks."
          (release-builder-configuration-repository configuration))
       (when (uiop:directory-exists-p staging)
         (uiop:delete-directory-tree staging
-                                    :validate t
+                                    :validate          t
                                     :if-does-not-exist ':ignore))
       (uiop:ensure-all-directories-exist (list staging))
       (dolist (platform *release-server-platform-ids*)
-        (let* ((archive-name (release-server--archive-name tag platform))
+        (let* ((archive-name  (release-server--archive-name tag platform))
                (checksum-name (format nil "~A.sha256" archive-name))
-               (archive (merge-pathnames archive-name staging))
-               (checksum (merge-pathnames checksum-name staging)))
+               (archive       (merge-pathnames archive-name staging))
+               (checksum      (merge-pathnames checksum-name staging)))
           (when (or (not (uiop:file-exists-p (merge-pathnames archive-name target)))
                     (not (uiop:file-exists-p (merge-pathnames checksum-name target))))
             (when (and (release-builder--try-download
@@ -643,10 +643,10 @@ tree intact lets one tag's object files fail a later tag's checks."
 (defun release-builder--files-identical-p (left right)
   "Return true when LEFT and RIGHT contain the same bytes."
   (with-open-file (left-stream left
-                               :direction ':input
+                               :direction    ':input
                                :element-type '(unsigned-byte 8))
     (with-open-file (right-stream right
-                                  :direction ':input
+                                  :direction    ':input
                                   :element-type '(unsigned-byte 8))
       (and (= (file-length left-stream) (file-length right-stream))
            (loop for left-byte = (read-byte left-stream nil nil)
@@ -654,6 +654,7 @@ tree intact lets one tag's object files fail a later tag's checks."
                  always (eql left-byte right-byte)
                  while left-byte)
            t))))
+
 
 ;;;; -- Atomic Publication --
 
@@ -683,7 +684,7 @@ tree intact lets one tag's object files fail a later tag's checks."
 (-> release-builder--checksum-matches-p (pathname pathname) boolean)
 (defun release-builder--checksum-matches-p (archive checksum)
   "Verify CHECKSUM's single GNU record names ARCHIVE and matches its SHA-256."
-  (let* ((name (file-namestring archive))
+  (let* ((name          (file-namestring archive))
          (record-length (+ 66 (length name)))
          (record
            (with-open-file (stream checksum :external-format ':utf-8)
@@ -706,7 +707,7 @@ tree intact lets one tag's object files fail a later tag's checks."
     (unless files
       (error 'release-builder-error
              :stage ':artifact-validation
-             :tag tag
+             :tag   tag
              :cause "No GitHub release archives were fetched."))
     (dolist (entry files)
       (destructuring-bind (archive checksum archive-name) entry
@@ -714,12 +715,12 @@ tree intact lets one tag's object files fail a later tag's checks."
                      (uiop:file-exists-p checksum)
                      (plusp
                       (with-open-file (stream archive
-                                              :direction ':input
+                                              :direction    ':input
                                               :element-type '(unsigned-byte 8))
                         (file-length stream))))
           (error 'release-builder-error
                  :stage ':artifact-validation
-                 :tag tag
+                 :tag   tag
                  :cause (format nil "~A is missing its archive or checksum."
                                 archive-name)))
         (unless (handler-case
@@ -727,11 +728,11 @@ tree intact lets one tag's object files fail a later tag's checks."
                   (error (cause)
                     (error 'release-builder-error
                            :stage ':artifact-validation
-                           :tag tag
+                           :tag   tag
                            :cause cause)))
           (error 'release-builder-error
                  :stage ':artifact-validation
-                 :tag tag
+                 :tag   tag
                  :cause (format nil "~A has an invalid checksum." archive-name))))))
   nil)
 
@@ -761,14 +762,14 @@ tree intact lets one tag's object files fail a later tag's checks."
                                 checksum published-checksum))
                     (error 'release-builder-error
                            :stage ':publication
-                           :tag tag
+                           :tag   tag
                            :cause (format nil "~A already exists with different contents."
                                           archive-name))))
                  ((or (uiop:file-exists-p published-archive)
                       (uiop:file-exists-p published-checksum))
                   (error 'release-builder-error
                          :stage ':publication
-                         :tag tag
+                         :tag   tag
                          :cause (format nil "~A is only partially published."
                                         archive-name)))
                  (t
@@ -800,11 +801,11 @@ tree intact lets one tag's object files fail a later tag's checks."
     (unless (release-builder--linux-artifacts-present-p staging tag)
       (error 'release-builder-error
              :stage ':publication
-             :tag tag
+             :tag   tag
              :cause "The Linux archive is required for first publication."))
     (when (uiop:directory-exists-p temporary)
       (uiop:delete-directory-tree temporary
-                                  :validate t
+                                  :validate          t
                                   :if-does-not-exist ':ignore))
     (uiop:ensure-all-directories-exist (list temporary))
     (dolist (entry (release-builder--staging-files staging tag))
@@ -818,7 +819,7 @@ tree intact lets one tag's object files fail a later tag's checks."
     (rename-file temporary target)
     (format t "~&Published Autolith ~A at ~A.~%" tag target)
     (finish-output)
-      target))
+    target))
 
 
 ;;;; -- Builder Loop --
@@ -828,8 +829,8 @@ tree intact lets one tag's object files fail a later tag's checks."
     (option pathname))
 (defun release-builder-build (configuration source-tag)
   "Fetch GitHub assets for SOURCE-TAG and publish or merge them."
-  (let* ((tag (release-source-tag-name source-tag))
-         (staging (release-builder--fetch-github-assets configuration source-tag))
+  (let* ((tag         (release-source-tag-name source-tag))
+         (staging     (release-builder--fetch-github-assets configuration source-tag))
          (published-p (release-builder--published-p configuration tag)))
     (cond
       ((release-builder--linux-artifacts-present-p staging tag)

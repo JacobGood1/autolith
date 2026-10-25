@@ -1,6 +1,6 @@
 (require :asdf)
 
-(let* ((arguments (uiop:command-line-arguments))
+(let* ((arguments       (uiop:command-line-arguments))
        (source-root
          (and (first arguments)
               (uiop:ensure-directory-pathname (first arguments))))
@@ -10,7 +10,7 @@
        (output-root
          (and (third arguments)
               (uiop:ensure-directory-pathname (third arguments))))
-       (home (and state-root (merge-pathnames "home/" state-root)))
+       (home            (and state-root (merge-pathnames "home/" state-root)))
        (quicklisp-setup (and home (merge-pathnames "quicklisp/setup.lisp" home)))
        (quicklisp-installer
          (and state-root (merge-pathnames "quicklisp.lisp" state-root)))
@@ -18,9 +18,9 @@
   (labels ((run (command &key directory)
              "Run one container build COMMAND with inherited terminal streams."
              (uiop:run-program command
-                               :directory directory
-                               :input ':interactive
-                               :output ':interactive
+                               :directory    directory
+                               :input        ':interactive
+                               :output       ':interactive
                                :error-output ':interactive)))
     (handler-case
         (progn

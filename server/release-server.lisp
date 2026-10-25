@@ -13,68 +13,68 @@
 
 (defclass release-server-configuration ()
   ((source-root
-    :initarg :source-root
-    :reader release-server-configuration-source-root
-    :type pathname
+    :initarg       :source-root
+    :reader        release-server-configuration-source-root
+    :type          pathname
     :documentation "The tracked Autolith checkout containing script/install.")
    (public-root
-    :initarg :public-root
-    :reader release-server-configuration-public-root
-    :type pathname
+    :initarg       :public-root
+    :reader        release-server-configuration-public-root
+    :type          pathname
     :documentation "The root containing atomically published release directories.")
    (address
-    :initarg :address
-    :reader release-server-configuration-address
-    :type string
+    :initarg       :address
+    :reader        release-server-configuration-address
+    :type          string
     :documentation "The IPv4 address accepted by the HTTP listener.")
    (port
-    :initarg :port
-    :reader release-server-configuration-port
-    :type (integer 1 65535)
+    :initarg       :port
+    :reader        release-server-configuration-port
+    :type          (integer 1 65535)
     :documentation "The TCP port accepted by the HTTP listener.")
    (source-tag
-    :initarg :source-tag
-    :initform nil
-    :reader release-server-configuration-source-tag
-    :type (option string)
+    :initarg       :source-tag
+    :initform      nil
+    :reader        release-server-configuration-source-tag
+    :type          (option string)
     :documentation "The exact source tag captured when this server started.")
    (source-commit
-    :initarg :source-commit
-    :initform nil
-    :reader release-server-configuration-source-commit
-    :type (option string)
+    :initarg       :source-commit
+    :initform      nil
+    :reader        release-server-configuration-source-commit
+    :type          (option string)
     :documentation "The exact source commit captured when this server started."))
   (:documentation "Filesystem and listener settings for the release service."))
 
 (defclass release-server-response ()
   ((status
-    :initarg :status
-    :reader release-server-response-status
-    :type integer
+    :initarg       :status
+    :reader        release-server-response-status
+    :type          integer
     :documentation "The numeric HTTP response status.")
    (content-type
-    :initarg :content-type
-    :reader release-server-response-content-type
-    :type string
+    :initarg       :content-type
+    :reader        release-server-response-content-type
+    :type          string
     :documentation "The response media type.")
    (headers
-    :initarg :headers
-    :initform nil
-    :reader release-server-response-headers
-    :type list
+    :initarg       :headers
+    :initform      nil
+    :reader        release-server-response-headers
+    :type          list
     :documentation "Additional trusted response headers as name/value conses.")
    (body
-    :initarg :body
-    :reader release-server-response-body
-    :type (or null string pathname)
+    :initarg       :body
+    :reader        release-server-response-body
+    :type          (or null string pathname)
     :documentation "The in-memory text or file backing the response body."))
   (:documentation "One trusted HTTP response produced by release routing."))
 
 (define-condition release-server-request-error (error)
   ((message
-    :initarg :message
-    :reader release-server-request-error-message
-    :type string
+    :initarg       :message
+    :reader        release-server-request-error-message
+    :type          string
     :documentation "A concise description of the malformed request."))
   (:report (lambda (condition stream)
              (write-string (release-server-request-error-message condition)
@@ -108,7 +108,7 @@
        (list "git" "-c" (format nil "safe.directory=~A" canonical)
              "-C" canonical)
        arguments)
-      :output ':string
+      :output       ':string
       :error-output ':output))))
 
 (-> release-server--source-identity
@@ -165,7 +165,7 @@
         (release-server--source-identity resolved-source-root)
       (make-instance
        'release-server-configuration
-       :source-root resolved-source-root
+       :source-root   resolved-source-root
        :public-root
        (uiop:ensure-directory-pathname
         (or public-root
@@ -173,13 +173,13 @@
                     (uiop:getenv "AUTOLITH_RELEASE_PUBLIC_ROOT")))
               (and configured (pathname configured)))
             #p"/srv/autolith-release-server/"))
-       :address (or address
-                    (uiop:getenv "AUTOLITH_RELEASE_LISTEN_ADDRESS")
-                    *release-server-default-address*)
-       :port (or port
-                 (release-server--environment-port
-                  (uiop:getenv "AUTOLITH_RELEASE_LISTEN_PORT")))
-       :source-tag (or source-tag detected-tag)
+       :address       (or address
+                          (uiop:getenv "AUTOLITH_RELEASE_LISTEN_ADDRESS")
+                          *release-server-default-address*)
+       :port          (or port
+                          (release-server--environment-port
+                           (uiop:getenv "AUTOLITH_RELEASE_LISTEN_PORT")))
+       :source-tag    (or source-tag detected-tag)
        :source-commit (or source-commit detected-commit)))))
 
 
@@ -223,7 +223,7 @@
   "Return true when TAG has both its archive and checksum published."
   (and (release-tag-valid-p tag)
        (let* ((directory (release-server--release-directory configuration tag))
-              (archive (release-server--archive-name tag)))
+              (archive   (release-server--archive-name tag)))
          (not
           (null
            (and (uiop:file-exists-p (merge-pathnames archive directory))
@@ -263,10 +263,10 @@
 (defun release-server--response (status content-type body &key headers)
   "Create one trusted release server response."
   (make-instance 'release-server-response
-                 :status status
+                 :status       status
                  :content-type content-type
-                 :headers headers
-                 :body body))
+                 :headers      headers
+                 :body         body))
 
 (-> release-server--not-found () release-server-response)
 (defun release-server--not-found ()
@@ -298,8 +298,8 @@
            (find #\/ remainder)
            (not (release-tag-valid-p remainder)))
        (let* ((separator (position #\/ remainder))
-              (tag (and separator (subseq remainder 0 separator)))
-              (name (and separator (subseq remainder (1+ separator)))))
+              (tag       (and separator (subseq remainder 0 separator)))
+              (name      (and separator (subseq remainder (1+ separator)))))
            (if (and tag
                     name
                     (release-server--release-complete-p configuration tag)
@@ -320,9 +320,9 @@
                (merge-pathnames
                 name
                 (release-server--release-directory configuration tag))
-              :headers
-              (list (cons "Cache-Control"
-                          "public, max-age=31536000, immutable")))
+               :headers
+               (list (cons "Cache-Control"
+                           "public, max-age=31536000, immutable")))
              (release-server--not-found))))
       ((release-server--release-complete-p configuration remainder)
        (release-server--response
@@ -401,23 +401,33 @@
 (defun release-server--status-reason (status)
   "Return the fixed HTTP reason phrase for STATUS."
   (case status
-    (200 "OK")
-    (302 "Found")
-    (400 "Bad Request")
-    (404 "Not Found")
-    (405 "Method Not Allowed")
-    (500 "Internal Server Error")
-    (503 "Service Unavailable")
-    (t "Error")))
+    (200
+     "OK")
+    (302
+     "Found")
+    (400
+     "Bad Request")
+    (404
+     "Not Found")
+    (405
+     "Method Not Allowed")
+    (500
+     "Internal Server Error")
+    (503
+     "Service Unavailable")
+    (t
+     "Error")))
 
 (-> release-server--body-length ((or null string pathname)) integer)
 (defun release-server--body-length (body)
   "Return BODY's exact encoded byte length."
   (etypecase body
-    (null 0)
-    (string (length (sb-ext:string-to-octets body :external-format ':utf-8)))
+    (null
+     0)
+    (string
+     (length (sb-ext:string-to-octets body :external-format ':utf-8)))
     (pathname
-     (with-open-file (stream body :direction ':input
+     (with-open-file (stream body :direction    ':input
                                   :element-type '(unsigned-byte 8))
        (file-length stream)))))
 
@@ -433,7 +443,7 @@
     null)
 (defun release-server--write-response (stream response head-p)
   "Write RESPONSE to binary STREAM, omitting its body when HEAD-P is true."
-  (let* ((body (release-server-response-body response))
+  (let* ((body   (release-server-response-body response))
          (status (release-server-response-status response))
          (length (release-server--body-length body)))
     (release-server--write-octets
@@ -466,7 +476,7 @@
         (string
          (release-server--write-octets stream body))
         (pathname
-         (with-open-file (file body :direction ':input
+         (with-open-file (file body :direction    ':input
                                     :element-type '(unsigned-byte 8))
            (let ((buffer (make-array 65536 :element-type '(unsigned-byte 8))))
              (loop for count = (read-sequence buffer file)
@@ -480,7 +490,7 @@
   "Read and return one bounded HTTP request head from binary STREAM."
   (let ((octets (make-array 1024
                             :element-type '(unsigned-byte 8)
-                            :adjustable t
+                            :adjustable   t
                             :fill-pointer 0)))
     (loop
       for byte = (read-byte stream nil nil)
@@ -504,10 +514,10 @@
 (defun release-server--parse-request-head (head)
   "Return the method and target from a validated HTTP request HEAD."
   (let* ((line-end (search (format nil "~C~C" #\Return #\Newline) head))
-         (line (and line-end (subseq head 0 line-end)))
-         (parts (and line
-                     (remove-if (lambda (part) (zerop (length part)))
-                                (uiop:split-string line :separator '(#\Space))))))
+         (line     (and line-end (subseq head 0 line-end)))
+         (parts    (and line
+                        (remove-if (lambda (part) (zerop (length part)))
+                                   (uiop:split-string line :separator '(#\Space))))))
     (unless (and (= (length parts) 3)
                  (member (third parts) '("HTTP/1.0" "HTTP/1.1")
                          :test #'string=)
@@ -530,10 +540,10 @@
                (setf stream
                      (sb-bsd-sockets:socket-make-stream
                       socket
-                      :input t
-                      :output t
+                      :input        t
+                      :output       t
                       :element-type '(unsigned-byte 8)
-                      :buffering ':full))
+                      :buffering    ':full))
                (multiple-value-bind (method target)
                    (release-server--parse-request-head
                     (release-server--read-request-head stream))
@@ -570,7 +580,7 @@
 (defun release-server-serve (configuration)
   "Serve release HTTP requests until the process is terminated."
   (let ((listener (make-instance 'sb-bsd-sockets:inet-socket
-                                 :type ':stream
+                                 :type     ':stream
                                  :protocol ':tcp)))
     (unwind-protect
          (progn

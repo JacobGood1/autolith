@@ -16,83 +16,83 @@
 
 (defclass release-updater-configuration ()
   ((selection-path
-    :initarg :selection-path
-    :reader release-updater-configuration-selection-path
-    :type pathname
+    :initarg       :selection-path
+    :reader        release-updater-configuration-selection-path
+    :type          pathname
     :documentation "The symlink atomically selecting the active host deployment.")
    (deployments-root
-    :initarg :deployments-root
-    :reader release-updater-configuration-deployments-root
-    :type pathname
+    :initarg       :deployments-root
+    :reader        release-updater-configuration-deployments-root
+    :type          pathname
     :documentation "The root containing immutable versioned host deployments.")
    (state-root
-    :initarg :state-root
-    :reader release-updater-configuration-state-root
-    :type pathname
+    :initarg       :state-root
+    :reader        release-updater-configuration-state-root
+    :type          pathname
     :documentation "The private root containing updater state and its process lock.")
    (host-lock-root
-    :initarg :host-lock-root
-    :reader release-updater-configuration-host-lock-root
-    :type pathname
+    :initarg       :host-lock-root
+    :reader        release-updater-configuration-host-lock-root
+    :type          pathname
     :documentation "The state root containing the shared builder/updater lock.")
    (repository
-    :initarg :repository
-    :reader release-updater-configuration-repository
-    :type string
+    :initarg       :repository
+    :reader        release-updater-configuration-repository
+    :type          string
     :documentation "The public Git repository queried for immutable release tags.")
    (poll-seconds
-    :initarg :poll-seconds
-    :reader release-updater-configuration-poll-seconds
-    :type (integer 1)
+    :initarg       :poll-seconds
+    :reader        release-updater-configuration-poll-seconds
+    :type          (integer 1)
     :documentation "The delay after a remote release-tag scan.")
    (activation-timeout-seconds
-    :initarg :activation-timeout-seconds
-    :reader release-updater-configuration-activation-timeout-seconds
-    :type (integer 1)
+    :initarg       :activation-timeout-seconds
+    :reader        release-updater-configuration-activation-timeout-seconds
+    :type          (integer 1)
     :documentation "The maximum time allowed for host service activation.")
    (server-service
-    :initarg :server-service
-    :reader release-updater-configuration-server-service
-    :type pathname
+    :initarg       :server-service
+    :reader        release-updater-configuration-server-service
+    :type          pathname
     :documentation "The supervised release-server service directory.")
    (builder-service
-    :initarg :builder-service
-    :reader release-updater-configuration-builder-service
-    :type pathname
+    :initarg       :builder-service
+    :reader        release-updater-configuration-builder-service
+    :type          pathname
     :documentation "The supervised release-builder service directory.")
    (health-url
-    :initarg :health-url
-    :reader release-updater-configuration-health-url
-    :type string
+    :initarg       :health-url
+    :reader        release-updater-configuration-health-url
+    :type          string
     :documentation "The loopback release-server health endpoint.")
    (service-account
-    :initarg :service-account
-    :reader release-updater-configuration-service-account
-    :type string
+    :initarg       :service-account
+    :reader        release-updater-configuration-service-account
+    :type          string
     :documentation "The unprivileged account used to prepare runtime files.")
    (service-home
-    :initarg :service-home
-    :reader release-updater-configuration-service-home
-    :type pathname
+    :initarg       :service-home
+    :reader        release-updater-configuration-service-home
+    :type          pathname
     :documentation "The home used by unprivileged bootstrap and check processes."))
   (:documentation "Settings for transactional release-host source updates."))
 
 (define-condition release-updater-error (error)
   ((stage
-    :initarg :stage
-    :reader release-updater-error-stage
-    :type keyword
+    :initarg       :stage
+    :reader        release-updater-error-stage
+    :type          keyword
     :documentation "The updater stage that failed.")
    (tag
-    :initarg :tag
-    :initform nil
-    :reader release-updater-error-tag
-    :type (option string)
+    :initarg       :tag
+    :initform      nil
+    :reader        release-updater-error-tag
+    :type          (option string)
     :documentation "The release tag involved in the failure, when known.")
    (cause
-    :initarg :cause
-    :reader release-updater-error-cause
-    :type t
+    :initarg       :cause
+    :reader        release-updater-error-cause
+    :type          t
     :documentation "The underlying condition or bounded diagnostic value."))
   (:report
    (lambda (condition stream)
@@ -263,11 +263,11 @@
       (return-from release-updater--read-state nil))
     (handler-case
         (with-open-file (stream pathname
-                                :direction ':input
+                                :direction       ':input
                                 :external-format ':utf-8)
           (let ((*read-eval* nil)
-                (eof (list)))
-            (let ((state (read stream nil eof))
+                (eof         (list)))
+            (let ((state    (read stream nil eof))
                   (trailing (read stream nil eof)))
               (unless (and (not (eq state eof))
                            (eq trailing eof)
@@ -291,18 +291,18 @@
   (let* ((pathname (release-updater--state-pathname configuration))
          (temporary
            (make-pathname
-            :name (format nil ".deployment.~D" (sb-posix:getpid))
-            :type "tmp"
+            :name     (format nil ".deployment.~D" (sb-posix:getpid))
+            :type     "tmp"
             :defaults pathname)))
     (ensure-directories-exist pathname)
     (unwind-protect
          (progn
            (with-open-file (stream temporary
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create
-                                   :external-format ':utf-8)
-             (let ((*print-pretty* t)
+                                   :external-format   ':utf-8)
+             (let ((*print-pretty*   t)
                    (*print-readably* t))
                (write state :stream stream)
                (terpri stream))
@@ -318,7 +318,7 @@
 (defun release-updater--state-source-tag (state tag-key commit-key)
   "Return the source tag stored under TAG-KEY and COMMIT-KEY in STATE."
   (make-instance 'release-source-tag
-                 :name (getf (rest state) tag-key)
+                 :name   (getf (rest state) tag-key)
                  :commit (getf (rest state) commit-key)))
 
 (-> release-updater--state-optional-source-tag
@@ -326,7 +326,7 @@
     (option release-source-tag))
 (defun release-updater--state-optional-source-tag (state tag-key commit-key)
   "Return STATE's optional source tag under TAG-KEY and COMMIT-KEY."
-  (let ((tag (getf (rest state) tag-key))
+  (let ((tag    (getf (rest state) tag-key))
         (commit (getf (rest state) commit-key)))
     (and tag
          (make-instance 'release-source-tag :name tag :commit commit))))
@@ -354,7 +354,7 @@
       (list "git" "-c" (format nil "safe.directory=~A" canonical)
             "-C" canonical)
       arguments)
-     :output output
+     :output       output
      :error-output (if (eq output ':interactive) ':interactive ':output))))
 
 (-> release-updater--git-output (pathname list) string)
@@ -404,7 +404,7 @@ checked-out commit are rejected."
 (defun release-updater--source-tag-at (checkout)
   "Return the exact lightweight semantic tag represented by CHECKOUT."
   (let* ((version (release-builder--source-version checkout))
-         (tag (format nil "v~A" version))
+         (tag     (format nil "v~A" version))
          (commit
            (release-updater--git-output checkout '("rev-parse" "HEAD")))
          (source-tag
@@ -412,7 +412,7 @@ checked-out commit are rejected."
     (unless (release-updater--checkout-valid-p checkout source-tag)
       (error 'release-updater-error
              :stage ':source-validation
-             :tag tag
+             :tag   tag
              :cause
              "The selected deployment is not its exact clean lightweight tag."))
     source-tag))
@@ -434,7 +434,7 @@ checked-out commit are rejected."
                (error 'release-updater-error
                       :stage ':selection
                       :cause cause))))
-         (root-name (namestring deployments-root))
+         (root-name   (namestring deployments-root))
          (target-name (namestring (uiop:ensure-directory-pathname target))))
     (unless (and (uiop:directory-exists-p target)
                  (uiop:string-prefix-p root-name target-name)
@@ -458,10 +458,10 @@ checked-out commit are rejected."
   "Atomically replace symlink SELECTION with an absolute link to TARGET."
   (let ((temporary
           (make-pathname
-           :name (format nil ".~A.~D"
-                         (or (pathname-name selection) "selection")
-                         (sb-posix:getpid))
-           :type "tmp"
+           :name     (format nil ".~A.~D"
+                             (or (pathname-name selection) "selection")
+                             (sb-posix:getpid))
+           :type     "tmp"
            :defaults selection)))
     (ensure-directories-exist selection)
     (ignore-errors (delete-file temporary))
@@ -486,7 +486,7 @@ checked-out commit are rejected."
         (progn
           (uiop:run-program
            (list "git" "init" "--quiet" (namestring destination))
-           :output ':interactive
+           :output       ':interactive
            :error-output ':interactive)
           (release-updater--git-run
            destination
@@ -508,7 +508,7 @@ checked-out commit are rejected."
       (error (cause)
         (error 'release-updater-error
                :stage ':checkout
-               :tag tag
+               :tag   tag
                :cause cause))))
   destination)
 
@@ -519,9 +519,9 @@ checked-out commit are rejected."
   "Run one attended host setup COMMAND, preserving output and failure status."
   (funcall *release-updater-host-command-function*
            command
-           :directory directory
-           :input ':interactive
-           :output ':interactive
+           :directory    directory
+           :input        ':interactive
+           :output       ':interactive
            :error-output ':interactive)
   nil)
 
@@ -550,12 +550,12 @@ checked-out commit are rejected."
                 (format nil "XDG_CACHE_HOME=~A"
                         (namestring (merge-pathnames ".cache/" home))))
           command)
-       :directory directory)
+         :directory directory)
         nil)
     (error (cause)
       (error 'release-updater-error
              :stage stage
-             :tag tag
+             :tag   tag
              :cause cause))))
 
 (-> release-updater--validate-remote-identity
@@ -574,14 +574,14 @@ checked-out commit are rejected."
                   :public-root #p"/tmp/"
                   :repository
                   (release-updater-configuration-repository configuration)))
-                :key #'release-source-tag-name
+                :key  #'release-source-tag-name
                 :test #'string=)))
     (unless (and remote
                  (string= (release-source-tag-commit remote)
                           (release-source-tag-commit source-tag)))
       (error 'release-updater-error
              :stage ':tag-identity
-             :tag (release-source-tag-name source-tag)
+             :tag   (release-source-tag-name source-tag)
              :cause "The remote release tag disappeared or changed identity.")))
   nil)
 
@@ -604,7 +604,7 @@ checked-out commit are rejected."
   (unless (release-updater--checkout-valid-p deployment source-tag)
     (error 'release-updater-error
            :stage ':candidate-probe
-           :tag (release-source-tag-name source-tag)
+           :tag   (release-source-tag-name source-tag)
            :cause "Candidate validation changed tracked source state."))
   nil)
 
@@ -615,10 +615,10 @@ checked-out commit are rejected."
     (ignore-errors
       (uiop:run-program
        (list "chmod" "-R" "u+w" (namestring deployment))
-       :output nil
+       :output       nil
        :error-output nil))
     (uiop:delete-directory-tree deployment
-                                :validate t
+                                :validate          t
                                 :if-does-not-exist ':ignore))
   nil)
 
@@ -689,7 +689,7 @@ checked-out commit are rejected."
     (configuration source-tag
      &key (setup-function #'release-updater--setup-deployment))
   "Prepare and fully validate immutable SOURCE-TAG before making it selectable."
-  (let* ((tag (release-source-tag-name source-tag))
+  (let* ((tag       (release-source-tag-name source-tag))
          (deployments-root
            (release-updater-configuration-deployments-root configuration))
          (deployment
@@ -703,14 +703,14 @@ checked-out commit are rejected."
       (unless (release-updater--checkout-valid-p deployment source-tag)
         (error 'release-updater-error
                :stage ':candidate-existing
-               :tag tag
+               :tag   tag
                :cause
                "An existing deployment has the wrong identity or tracked changes."))
       (setf managed-p t))
     (when (uiop:directory-exists-p incoming)
       (error 'release-updater-error
              :stage ':candidate-existing
-             :tag tag
+             :tag   tag
              :cause "The updater's incoming deployment path already exists."))
     (uiop:ensure-all-directories-exist (list deployments-root))
     (handler-case
@@ -720,7 +720,7 @@ checked-out commit are rejected."
             (unless (release-updater--checkout-valid-p incoming source-tag)
               (error 'release-updater-error
                      :stage ':source-validation
-                     :tag tag
+                     :tag   tag
                      :cause
                      "The fetched source does not match its immutable tag."))
             (rename-file incoming deployment)
@@ -738,7 +738,7 @@ checked-out commit are rejected."
         (release-updater--remove-managed-deployment incoming)
         (error 'release-updater-error
                :stage ':preparation
-               :tag tag
+               :tag   tag
                :cause cause)))))
 
 
@@ -757,12 +757,12 @@ checked-out commit are rejected."
     (funcall
      *release-updater-service-command-function*
      (list "s6-svc" "-wd" "-T" timeout "-d" (namestring service))
-     :output ':interactive
+     :output       ':interactive
      :error-output ':interactive)
     (funcall
      *release-updater-service-command-function*
      (list "s6-svc" "-wu" "-T" timeout "-u" (namestring service))
-     :output ':interactive
+     :output       ':interactive
      :error-output ':interactive))
   nil)
 
@@ -785,8 +785,8 @@ checked-out commit are rejected."
                      (release-source-tag-commit source-tag))
              (release-updater-configuration-health-url configuration))
          :connect-timeout 2
-         :read-timeout 2
-         :force-string t))
+         :read-timeout    2
+         :force-string    t))
        "ok")
     (error ()
       nil)))
@@ -821,7 +821,7 @@ checked-out commit are rejected."
                 (funcall
                  *release-updater-service-command-function*
                  (list "s6-svstat" "-o" "up,pid" (namestring service))
-                 :output ':string
+                 :output       ':string
                  :error-output ':output))
                :separator '(#\Space #\Tab))))
         (and (= (length fields) 2)
@@ -872,7 +872,7 @@ checked-out commit are rejected."
          (uiop:subdirectories
           (release-updater-configuration-deployments-root configuration)))
       (let* ((components (pathname-directory deployment))
-             (tag (and components (first (last components)))))
+             (tag        (and components (first (last components)))))
         (when (and (stringp tag)
                    (release-tag-valid-p tag)
                    (not (member tag retained :test #'string=)))
@@ -908,7 +908,7 @@ checked-out commit are rejected."
     (unless previous
       (error 'release-updater-error
              :stage ':activation
-             :tag (release-source-tag-name selected)
+             :tag   (release-source-tag-name selected)
              :cause "A selected deployment has no rollback identity."))
     (handler-case
         (progn
@@ -939,14 +939,14 @@ checked-out commit are rejected."
                 ':active previous :previous selected :failed selected))
               (error 'release-updater-error
                      :stage ':activation
-                     :tag (release-source-tag-name selected)
+                     :tag   (release-source-tag-name selected)
                      :cause activation-cause))
           (release-updater-error (condition)
             (error condition))
           (error (rollback-cause)
             (error 'release-updater-error
                    :stage ':rollback
-                   :tag (release-source-tag-name selected)
+                   :tag   (release-source-tag-name selected)
                    :cause
                    (format nil
                            "Activation failed (~A), and rollback failed (~A)."
@@ -966,7 +966,7 @@ checked-out commit are rejected."
                (release-updater--checkout-valid-p deployment source-tag))
     (error 'release-updater-error
            :stage ':promotion
-           :tag (release-source-tag-name source-tag)
+           :tag   (release-source-tag-name source-tag)
            :cause "The prepared deployment is not its exact final checkout."))
   (let* ((previous (release-updater--selected-source-tag configuration))
          (previous-path
@@ -997,7 +997,7 @@ checked-out commit are rejected."
 (defun release-updater--reconcile (configuration restart-function)
   "Finish any interrupted deployment transaction and return the active tag."
   (let* ((current (release-updater--selected-source-tag configuration))
-         (state (release-updater--read-state configuration)))
+         (state   (release-updater--read-state configuration)))
     (unless state
       (release-updater--write-state
        configuration
@@ -1037,7 +1037,7 @@ checked-out commit are rejected."
            (unless (release-updater--checkout-valid-p deployment selected)
              (error 'release-updater-error
                     :stage ':reconciliation
-                    :tag (release-source-tag-name selected)
+                    :tag   (release-source-tag-name selected)
                     :cause "The prepared deployment is missing or invalid."))
            (release-updater--replace-symlink
             (merge-pathnames
@@ -1237,7 +1237,7 @@ checked-out commit are rejected."
                (release-builder--commit-valid-p commit))
     (error 'release-updater-error
            :stage ':candidate-probe
-           :tag tag
+           :tag   tag
            :cause "The candidate probe identity is malformed."))
   (let* ((source-root (asdf:system-source-directory :autolith))
          (source-tag
@@ -1245,7 +1245,7 @@ checked-out commit are rejected."
     (unless (release-updater--checkout-valid-p source-root source-tag)
       (error 'release-updater-error
              :stage ':candidate-probe
-             :tag tag
+             :tag   tag
              :cause "Loaded source does not match the requested candidate."))
     (dolist (pathname
              (list (merge-pathnames "server/run" source-root)
@@ -1255,7 +1255,7 @@ checked-out commit are rejected."
       (unless (uiop:file-exists-p pathname)
         (error 'release-updater-error
                :stage ':candidate-probe
-               :tag tag
+               :tag   tag
                :cause (format nil "Required host file ~A is unavailable."
                               pathname))))
     (format t "~&Autolith release host candidate ~A at ~A is ready.~%"

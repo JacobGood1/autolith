@@ -4,14 +4,14 @@
 
 (define-condition release-archive-error (error)
   ((stage
-    :initarg :stage
-    :reader release-archive-error-stage
-    :type keyword
+    :initarg       :stage
+    :reader        release-archive-error-stage
+    :type          keyword
     :documentation "The archive construction stage that failed.")
    (cause
-    :initarg :cause
-    :reader release-archive-error-cause
-    :type t
+    :initarg       :cause
+    :reader        release-archive-error-cause
+    :type          t
     :documentation "The underlying failure or diagnostic value."))
   (:report
    (lambda (condition stream)
@@ -41,8 +41,8 @@
     (command &key directory (output ':interactive) (error-output ':interactive))
   "Run COMMAND for archive construction, preserving diagnostics by default."
   (uiop:run-program command
-                    :directory directory
-                    :output output
+                    :directory    directory
+                    :output       output
                     :error-output error-output))
 
 (-> release-archive--git-output (pathname list) string)
@@ -50,13 +50,13 @@
   "Return trimmed output from a Git command below SOURCE-ROOT."
   (string-trim
    '(#\Space #\Tab #\Newline #\Return)
-     (release-archive--run
-      (append (list "git"
-                    "-c" "safe.directory=*"
-                    "-C" (namestring source-root))
-              arguments)
-      :output ':string
-      :error-output ':output)))
+    (release-archive--run
+     (append (list "git"
+                   "-c" "safe.directory=*"
+                   "-C" (namestring source-root))
+             arguments)
+     :output       ':string
+     :error-output ':output)))
 
 (defparameter *release-archive-extra-command-directories*
   '("/usr/local/bin" "/usr/pkg/bin" "/opt/local/bin" "/bin" "/usr/bin")
@@ -150,7 +150,6 @@ read-only source tree."
     (release-archive--run (list "chmod" "755" (namestring target))))
   nil)
 
-
 (-> release-archive--colorlisp-library () pathname)
 (defun release-archive--colorlisp-library ()
   "Return the configured or materialized ColorLisp native library."
@@ -201,7 +200,7 @@ read-only source tree."
        (uiop:split-string
         (release-archive--run
          (list "find" (namestring dependency-root) "-type" "l")
-         :output ':string
+         :output       ':string
          :error-output ':output)
         :separator '(#\Newline #\Return)))
       nil))
@@ -219,7 +218,7 @@ rather than failing, so existence needs the following stat first."
 (defun release-archive--materialize-dependency-links (dependency-root)
   "Replace links below DEPENDENCY-ROOT with private copies of their targets."
   (dolist (link-name (release-archive--dependency-links dependency-root))
-    (let* ((link (pathname link-name))
+    (let* ((link   (pathname link-name))
            (target (release-archive--link-target link)))
       (delete-file link)
       (when target
@@ -234,10 +233,10 @@ rather than failing, so existence needs the following stat first."
     (pathname &key version tag commit platform)
   "Write the strict VERSION, TAG, COMMIT, and PLATFORM record to PATHNAME."
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :external-format ':utf-8)
+                          :external-format   ':utf-8)
     (format stream "version=~A~%tag=~A~%commit=~A~%platform=~A~%"
             version tag commit platform))
   nil)
@@ -259,10 +258,10 @@ rather than failing, so existence needs the following stat first."
     (ignore-errors
       (release-archive--run
        (list "chmod" "-R" "u+w" (namestring temporary-root))
-       :output nil
+       :output       nil
        :error-output nil))
     (uiop:delete-directory-tree temporary-root
-                                :validate t
+                                :validate          t
                                 :if-does-not-exist ':ignore))
   nil)
 
@@ -310,7 +309,7 @@ rather than failing, so existence needs the following stat first."
             '(#\Space #\Tab #\Newline #\Return)
             (release-archive--run
              (release-archive--identity-git-command source-root '("write-tree"))
-             :output ':string
+             :output       ':string
              :error-output ':output)))
          (commit
            (string-trim
@@ -329,7 +328,7 @@ rather than failing, so existence needs the following stat first."
                     "-C" (string-right-trim "/" (namestring source-root))
                     "commit-tree" tree
                     "-m" (format nil "Autolith ~A source" tag)))
-             :output ':string
+             :output       ':string
              :error-output ':output))))
     (unless (release-archive--commit-p commit)
       (error 'release-archive-error
@@ -377,9 +376,9 @@ rather than failing, so existence needs the following stat first."
   (let* ((output
            (release-archive--run
             (list "sh" "-c" "ldd /bin/sh 2>&1 || true")
-            :output ':string
+            :output       ':string
             :error-output ':output))
-         (detected (release-archive--linux-libc-output->identity output))
+         (detected   (release-archive--linux-libc-output->identity output))
          (configured (uiop:getenv "AUTOLITH_LIBC")))
     (when (and configured
                (plusp (length configured))
@@ -396,7 +395,7 @@ rather than failing, so existence needs the following stat first."
 (defun release-archive--platform-id (os architecture &optional libc)
   "Return the canonical release identifier for OS, ARCHITECTURE, and LIBC."
   (let ((architecture (string-downcase architecture))
-        (musl-p (and libc (string-equal libc "musl"))))
+        (musl-p       (and libc (string-equal libc "musl"))))
     (cond
       ((and (string-equal os "Linux")
             (release-archive--x86-64-architecture-p architecture))
@@ -421,16 +420,16 @@ rather than failing, so existence needs the following stat first."
        "x86_64-openbsd")
       (t
        (error 'release-archive-error
-              :stage ':prerequisites
+              :stage  ':prerequisites
                :cause "Binary releases currently support Linux x86-64, Linux aarch64, macOS x86-64, macOS arm64, FreeBSD x86-64, NetBSD x86-64, and OpenBSD x86-64 only.")))))
 
 (-> release-archive--platform () string)
 (defun release-archive--platform ()
   "Return the validated native release platform identifier."
-  (let* ((os (software-type))
-         (libc (and (string-equal os "Linux")
-                    (release-archive--linux-libc)))
-         (detected (release-archive--platform-id os (machine-type) libc))
+  (let* ((os         (software-type))
+         (libc       (and (string-equal os "Linux")
+                          (release-archive--linux-libc)))
+         (detected   (release-archive--platform-id os (machine-type) libc))
          (configured (uiop:getenv "AUTOLITH_RELEASE_PLATFORM")))
     (when (and configured
                (plusp (length configured))
@@ -498,8 +497,8 @@ rather than failing, so existence needs the following stat first."
 (defun release-archive--sha256-digest (file)
   "Return the lowercase SHA-256 hex digest of FILE."
   (let* ((directory (uiop:pathname-directory-pathname file))
-         (name (file-namestring file))
-         (command (release-archive--sha256-command))
+         (name      (file-namestring file))
+         (command   (release-archive--sha256-command))
          (output
            (string-trim
             '(#\Space #\Tab #\Newline #\Return)
@@ -507,24 +506,24 @@ rather than failing, so existence needs the following stat first."
               ((string= command "sha256sum")
                (release-archive--run
                 (list "sha256sum" name)
-                :directory directory
-                :output ':string
+                :directory    directory
+                :output       ':string
                 :error-output ':output))
               ((string= command "shasum")
                (release-archive--run
                 (list "shasum" "-a" "256" name)
-                :directory directory
-                :output ':string
+                :directory    directory
+                :output       ':string
                 :error-output ':output))
               (t
                (release-archive--run
                 (list "sha256" "-q" name)
-                :directory directory
-                :output ':string
+                :directory    directory
+                :output       ':string
                 :error-output ':output)))))
-           (digest (string-downcase
-                    (first (uiop:split-string output
-                                              :separator '(#\Space #\Tab))))))
+         (digest    (string-downcase
+                     (first (uiop:split-string output
+                                               :separator '(#\Space #\Tab))))))
     (unless (and (= (length digest) 64)
                  (every (lambda (character)
                           (or (digit-char-p character)
@@ -539,10 +538,10 @@ rather than failing, so existence needs the following stat first."
 (defun release-archive--checksum-file (file output)
   "Write the SHA-256 checksum of FILE to OUTPUT in GNU coreutils format."
   (with-open-file (stream output
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :external-format ':utf-8)
+                          :external-format   ':utf-8)
     (format stream "~A  ~A~%"
             (release-archive--sha256-digest file)
             (file-namestring file)))
@@ -580,59 +579,59 @@ the managed runtime, matching SBCL source, native libraries, and sandbox helper.
              (output-directory
                (uiop:ensure-directory-pathname
                 (or output-directory (merge-pathnames "dist/" source-root))))
-              (platform (release-archive--platform))
-              (static-musl-p
-                (not (null (search "-linux-musl" platform :from-end t))))
-              (lib-extension (release-archive--shared-library-extension))
-              (fff-library-name (format nil "libfff_c.~A" lib-extension))
-              (colorlisp-library-name
-                (format nil "libcolorlisp-tree-sitter.~A" lib-extension))
-              (runtime-version
-                (release-archive--trimmed-file
-                 (merge-pathnames "sbcl.version" source-root)))
-              (home (user-homedir-pathname))
-              (data-home
-                (environment-directory
-                 "XDG_DATA_HOME"
-                 (merge-pathnames ".local/share/" home)))
-              (runtime-root
-                (merge-pathnames
-                 (format nil "autolith/runtimes/~A/" runtime-version)
-                 data-home))
-              (runtime-installation
-                (release-archive--environment-pathname
-                 "AUTOLITH_RELEASE_RUNTIME"
-                 (merge-pathnames "installation/" runtime-root)))
-              (runtime-source
-                (release-archive--environment-pathname
-                 "AUTOLITH_RELEASE_SBCL_SOURCE"
-                 (merge-pathnames "source/" runtime-root)))
-              (static-runtime-marker
-                (merge-pathnames "lib/autolith-static-musl"
-                                 runtime-installation))
-              (fff-library
-                (unless static-musl-p
-                  (release-archive--environment-pathname
-                   "AUTOLITH_RELEASE_FFF_LIBRARY"
-                   (merge-pathnames
-                    (format nil "autolith/native/fff/~A" fff-library-name)
-                    data-home))))
-              (colorlisp-library
-                (unless static-musl-p
-                  (release-archive--colorlisp-library)))
-              (sandbox-helper (release-archive--sandbox-helper source-root))
-              (process-group-helper
-                (release-archive--process-group-helper source-root))
-             (version (release-builder--source-version source-root))
-             (tag (format nil "v~A" version))
-             (commit (release-archive--git-output source-root '("rev-parse" "HEAD")))
+             (platform         (release-archive--platform))
+             (static-musl-p
+               (not (null (search "-linux-musl" platform :from-end t))))
+             (lib-extension    (release-archive--shared-library-extension))
+             (fff-library-name (format nil "libfff_c.~A" lib-extension))
+             (colorlisp-library-name
+               (format nil "libcolorlisp-tree-sitter.~A" lib-extension))
+             (runtime-version
+               (release-archive--trimmed-file
+                (merge-pathnames "sbcl.version" source-root)))
+             (home             (user-homedir-pathname))
+             (data-home
+               (environment-directory
+                "XDG_DATA_HOME"
+                (merge-pathnames ".local/share/" home)))
+             (runtime-root
+               (merge-pathnames
+                (format nil "autolith/runtimes/~A/" runtime-version)
+                data-home))
+             (runtime-installation
+               (release-archive--environment-pathname
+                "AUTOLITH_RELEASE_RUNTIME"
+                (merge-pathnames "installation/" runtime-root)))
+             (runtime-source
+               (release-archive--environment-pathname
+                "AUTOLITH_RELEASE_SBCL_SOURCE"
+                (merge-pathnames "source/" runtime-root)))
+             (static-runtime-marker
+               (merge-pathnames "lib/autolith-static-musl"
+                                runtime-installation))
+             (fff-library
+               (unless static-musl-p
+                 (release-archive--environment-pathname
+                  "AUTOLITH_RELEASE_FFF_LIBRARY"
+                  (merge-pathnames
+                   (format nil "autolith/native/fff/~A" fff-library-name)
+                   data-home))))
+             (colorlisp-library
+               (unless static-musl-p
+                 (release-archive--colorlisp-library)))
+             (sandbox-helper   (release-archive--sandbox-helper source-root))
+             (process-group-helper
+               (release-archive--process-group-helper source-root))
+             (version          (release-builder--source-version source-root))
+             (tag              (format nil "v~A" version))
+             (commit           (release-archive--git-output source-root '("rev-parse" "HEAD")))
              (commit-time
                (release-archive--git-output
                 source-root '("show" "-s" "--format=%ct" "HEAD"))))
         (release-archive--require-commands
          '("chmod" "cp" "find" "git" "gzip" "tar"))
-         (when static-musl-p
-           (release-archive--require-commands '("file" "readelf")))
+        (when static-musl-p
+          (release-archive--require-commands '("file" "readelf")))
         (release-archive--sha256-command)
         (release-archive--require-gnu-tar)
         (release-archive--validate-platform)
@@ -653,20 +652,20 @@ the managed runtime, matching SBCL source, native libraries, and sandbox helper.
           (error 'release-archive-error
                  :stage ':prerequisites
                  :cause "The managed SBCL source is absent; run ./script/bootstrap."))
-         (if static-musl-p
-             (unless (probe-file static-runtime-marker)
-               (error 'release-archive-error
-                      :stage ':prerequisites
-                      :cause "The musl SBCL runtime was not statically linked."))
-             (progn
-               (unless (probe-file fff-library)
-                 (error 'release-archive-error
-                        :stage ':prerequisites
-                        :cause "The private fff library is absent; run ./script/bootstrap."))
-               (unless (probe-file colorlisp-library)
-                 (error 'release-archive-error
-                        :stage ':prerequisites
-                        :cause "The private ColorLisp library is absent; run ./script/bootstrap."))))
+        (if static-musl-p
+            (unless (probe-file static-runtime-marker)
+              (error 'release-archive-error
+                     :stage ':prerequisites
+                     :cause "The musl SBCL runtime was not statically linked."))
+            (progn
+              (unless (probe-file fff-library)
+                (error 'release-archive-error
+                       :stage ':prerequisites
+                       :cause "The private fff library is absent; run ./script/bootstrap."))
+              (unless (probe-file colorlisp-library)
+                (error 'release-archive-error
+                       :stage ':prerequisites
+                       :cause "The private ColorLisp library is absent; run ./script/bootstrap."))))
         (when (string-equal (software-type) "Linux")
           (unless sandbox-helper
             (error 'release-archive-error
@@ -676,11 +675,11 @@ the managed runtime, matching SBCL source, native libraries, and sandbox helper.
           (error 'release-archive-error
                  :stage ':prerequisites
                  :cause "The private process-group helper is absent; run ./script/bootstrap."))
-         (when static-musl-p
-           (release-archive--validate-static-elf
-            (merge-pathnames "bin/sbcl" runtime-installation))
-           (release-archive--validate-static-elf sandbox-helper)
-           (release-archive--validate-static-elf process-group-helper))
+        (when static-musl-p
+          (release-archive--validate-static-elf
+           (merge-pathnames "bin/sbcl" runtime-installation))
+          (release-archive--validate-static-elf sandbox-helper)
+          (release-archive--validate-static-elf process-group-helper))
         (unless (release-archive--semantic-version-p version)
           (error 'release-archive-error
                  :stage ':source-validation
@@ -732,11 +731,11 @@ the managed runtime, matching SBCL source, native libraries, and sandbox helper.
                         (merge-pathnames "lib/" release-root)))
                  (format t "~&Collecting tracked source at ~A.~%" commit)
                  (finish-output)
-                   (release-archive--run
-                    (list "git" "-c" "safe.directory=*"
-                          "-C" (namestring source-root)
-                          "archive" "--format=tar"
-                          "--output" (namestring tracked-source) "HEAD"))
+                 (release-archive--run
+                  (list "git" "-c" "safe.directory=*"
+                        "-C" (namestring source-root)
+                        "archive" "--format=tar"
+                        "--output" (namestring tracked-source) "HEAD"))
                  (release-archive--run
                   (list "tar" "-xf" (namestring tracked-source)
                         "-C" (namestring packaged-source)))
@@ -752,15 +751,15 @@ the managed runtime, matching SBCL source, native libraries, and sandbox helper.
                  (release-archive--copy
                   runtime-source
                   (merge-pathnames "libexec/sbcl-source" release-root))
-                  (unless static-musl-p
-                    (release-archive--copy
-                     fff-library
-                     (merge-pathnames (format nil "lib/~A" fff-library-name)
-                                      release-root))
-                    (release-archive--copy
-                     colorlisp-library
-                     (merge-pathnames (format nil "lib/~A" colorlisp-library-name)
-                                      release-root)))
+                 (unless static-musl-p
+                   (release-archive--copy
+                    fff-library
+                    (merge-pathnames (format nil "lib/~A" fff-library-name)
+                                     release-root))
+                   (release-archive--copy
+                    colorlisp-library
+                    (merge-pathnames (format nil "lib/~A" colorlisp-library-name)
+                                     release-root)))
                  (when sandbox-helper
                    (release-archive--stage-executable
                     sandbox-helper release-root "libexec/cl-exec-sandbox-helper"))
@@ -770,66 +769,66 @@ the managed runtime, matching SBCL source, native libraries, and sandbox helper.
                  (release-archive--stage-executable
                   (merge-pathnames "bin/autolith-release" source-root)
                   release-root "bin/autolith")
-                  (unless static-musl-p
-                    (release-archive--run
-                     (list "chmod" "644"
-                           (namestring
-                            (merge-pathnames (format nil "lib/~A" fff-library-name)
-                                             release-root))
-                           (namestring
-                            (merge-pathnames
-                             (format nil "lib/~A" colorlisp-library-name)
-                             release-root)))))
+                 (unless static-musl-p
+                   (release-archive--run
+                    (list "chmod" "644"
+                          (namestring
+                           (merge-pathnames (format nil "lib/~A" fff-library-name)
+                                            release-root))
+                          (namestring
+                           (merge-pathnames
+                            (format nil "lib/~A" colorlisp-library-name)
+                            release-root)))))
                 (release-archive--write-record
                  (merge-pathnames "RELEASE" release-root)
                  :version version :tag tag :commit commit :platform platform)
-                 (format t "~&Creating the internal source identity.~%")
-                 (finish-output)
-                 (release-archive--create-source-identity
-                  packaged-source tag commit-time)
-                 (let ((actual-runtime-version
-                         (string-trim
-                          '(#\Space #\Tab #\Newline #\Return)
-                          (release-archive--run
-                           (list "env" "-u" "SBCL_HOME"
-                                 (namestring
-                                  (merge-pathnames "runtime/bin/sbcl"
-                                                   release-root))
-                                 "--noinform" "--no-userinit" "--no-sysinit"
-                                 "--non-interactive" "--eval"
-                                 "(write-string (lisp-implementation-version))")
-                           :output ':string
-                           :error-output ':output))))
-                   (unless (string= actual-runtime-version runtime-version)
-                     (error 'release-archive-error
-                            :stage ':runtime-validation
-                            :cause
-                            (format nil "The copied SBCL runtime reports ~A."
-                                    actual-runtime-version))))
-                 (release-archive--run
-                  (list "find" (namestring release-root)
-                        "-type" "d" "-exec" "chmod" "a-w" "{}" "+"))
-                 (release-archive--run
-                  (list "find" (namestring release-root)
-                        "-type" "f" "-exec" "chmod" "a-w" "{}" "+"))
-                 (format t "~&Writing ~A.~%" archive)
-                 (finish-output)
-                 (release-archive--run
-                  (release-archive--tar-command
-                   temporary-tar temporary-root release-name commit-time))
-                 (release-archive--run
-                  (list "gzip" "-9n" (namestring temporary-tar)))
-                 (release-archive--checksum-file temporary-archive temporary-checksum)
-                 (uiop:rename-file-overwriting-target temporary-archive archive)
-                 (uiop:rename-file-overwriting-target temporary-checksum checksum)
-                 (let ((checksum-value
-                         (first
-                          (uiop:split-string
-                           (release-archive--trimmed-file checksum)
-                           :separator '(#\Space #\Tab)))))
-                   (format t "~&Built ~A~%SHA-256: ~A~%" archive checksum-value))
-                 (finish-output)
-                 (values archive checksum))
+                (format t "~&Creating the internal source identity.~%")
+                (finish-output)
+                (release-archive--create-source-identity
+                 packaged-source tag commit-time)
+                (let ((actual-runtime-version
+                        (string-trim
+                         '(#\Space #\Tab #\Newline #\Return)
+                         (release-archive--run
+                          (list "env" "-u" "SBCL_HOME"
+                                (namestring
+                                 (merge-pathnames "runtime/bin/sbcl"
+                                                  release-root))
+                                "--noinform" "--no-userinit" "--no-sysinit"
+                                "--non-interactive" "--eval"
+                                "(write-string (lisp-implementation-version))")
+                          :output       ':string
+                          :error-output ':output))))
+                  (unless (string= actual-runtime-version runtime-version)
+                    (error 'release-archive-error
+                           :stage ':runtime-validation
+                           :cause
+                           (format nil "The copied SBCL runtime reports ~A."
+                                   actual-runtime-version))))
+                (release-archive--run
+                 (list "find" (namestring release-root)
+                       "-type" "d" "-exec" "chmod" "a-w" "{}" "+"))
+                (release-archive--run
+                 (list "find" (namestring release-root)
+                       "-type" "f" "-exec" "chmod" "a-w" "{}" "+"))
+                (format t "~&Writing ~A.~%" archive)
+                (finish-output)
+                (release-archive--run
+                 (release-archive--tar-command
+                  temporary-tar temporary-root release-name commit-time))
+                (release-archive--run
+                 (list "gzip" "-9n" (namestring temporary-tar)))
+                (release-archive--checksum-file temporary-archive temporary-checksum)
+                (uiop:rename-file-overwriting-target temporary-archive archive)
+                (uiop:rename-file-overwriting-target temporary-checksum checksum)
+                (let ((checksum-value
+                        (first
+                         (uiop:split-string
+                          (release-archive--trimmed-file checksum)
+                          :separator '(#\Space #\Tab)))))
+                  (format t "~&Built ~A~%SHA-256: ~A~%" archive checksum-value))
+                (finish-output)
+                (values archive checksum))
             (release-archive--cleanup temporary-root))))
     (release-archive-error (condition)
       (error condition))
