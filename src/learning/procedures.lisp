@@ -104,7 +104,7 @@
        (evenp (length (rest procedure)))
        (let* ((properties (rest procedure))
               (parameters (getf properties :parameters))
-              (steps (getf properties :steps)))
+              (steps      (getf properties :steps)))
          (and (knowledge-rule-name-p (getf properties :id))
               (proper-list-p parameters)
               (<= (length parameters) *procedure-parameter-limit*)
@@ -315,7 +315,8 @@ steps' decoded results that :FROM templates must agree with."
          (format nil "~{~A~^ ~}"
                  (mapcar (lambda (element)
                            (cond
-                             ((stringp element) element)
+                             ((stringp element)
+                              element)
                              ((eq (first element) :param)
                               (format nil "~A{~A}~A" (third element) (second element)
                                       (fourth element)))
@@ -333,9 +334,12 @@ steps' decoded results that :FROM templates must agree with."
                  (or (null suffix)
                      (and (> (length value) (length suffix))
                           (string= suffix value :start2 (- (length value) (length suffix))))))))
-         (:integer (integerp value))
-         (:number (realp value))
-         (:boolean (or (eq value t) (eq value :json-false))))
+         (:integer
+          (integerp value))
+         (:number
+          (realp value))
+         (:boolean
+          (or (eq value t) (eq value :json-false))))
        t))
 
 (-> procedure-match-input (list string) (values list boolean))
@@ -344,8 +348,8 @@ steps' decoded results that :FROM templates must agree with."
 
 Return the parameter bindings it supplies and whether it matched. Words are
 compared without regard to case; bound values must suit their parameters."
-  (let ((pattern (getf (rest procedure) :input))
-        (words (procedure-words text))
+  (let ((pattern  (getf (rest procedure) :input))
+        (words    (procedure-words text))
         (bindings nil))
     (block match
       (unless (and pattern (= (length pattern) (length words)))
@@ -400,7 +404,7 @@ compared without regard to case; bound values must suit their parameters."
 (defun procedure-parameter (procedure name)
   "Return PROCEDURE's parameter named NAME, or NIL."
   (find name (getf (rest procedure) :parameters)
-        :key (lambda (parameter) (getf parameter :name))
+        :key  (lambda (parameter) (getf parameter :name))
         :test #'string=))
 
 (-> procedure-describe-call (list list) string)
@@ -422,7 +426,7 @@ An entry holds :ID, :VERSIONS, the :ADMITTED version, :RETIRED-P, and run
 counts. A record naming an unknown procedure or version signals a corrupt
 KNOWLEDGE-ERROR."
   (let ((properties (rest record))
-        (entry (copy-list entry)))
+        (entry      (copy-list entry)))
     (flet ((require-version (version)
              (unless (and entry (<= 1 version (length (getf entry :versions))))
                (knowledge--fail ':corrupt (getf properties :id)
@@ -432,24 +436,24 @@ KNOWLEDGE-ERROR."
         (:procedure-defined
          (let ((procedure (getf properties :procedure)))
            (unless entry
-             (setf entry (list :id (getf (rest procedure) :id)
-                               :workspace (getf properties :workspace)
-                               :versions nil
-                               :admitted nil
-                               :retired-p nil
-                               :runs 0
-                               :failures 0
+             (setf entry (list :id                   (getf (rest procedure) :id)
+                               :workspace            (getf properties :workspace)
+                               :versions             nil
+                               :admitted             nil
+                               :retired-p            nil
+                               :runs                 0
+                               :failures             0
                                :consecutive-failures 0
-                               :last-failure nil
-                               :user-runs 0)))
+                               :last-failure         nil
+                               :user-runs            0)))
            (setf (getf entry :versions)
                  (append (getf entry :versions)
-                         (list (list :version (1+ (length (getf entry :versions)))
-                                     :procedure procedure
-                                     :examples (getf properties :examples)
-                                     :baseline (getf properties :baseline)
+                         (list (list :version    (1+ (length (getf entry :versions)))
+                                     :procedure  procedure
+                                     :examples   (getf properties :examples)
+                                     :baseline   (getf properties :baseline)
                                      :evaluation (getf properties :evaluation)
-                                     :time (getf properties :time)))))))
+                                     :time       (getf properties :time)))))))
         (:procedure-admitted
          (require-version (getf properties :procedure-version))
          (setf (getf entry :admitted) (getf properties :procedure-version)
@@ -476,10 +480,14 @@ KNOWLEDGE-ERROR."
 (defun procedure-entry-status (entry)
   "Return where the procedure ENTRY describes stands."
   (cond
-    ((getf entry :retired-p) ':retired)
-    ((null (getf entry :admitted)) ':candidate)
-    ((>= (getf entry :consecutive-failures) *procedure-suspension-limit*) ':suspended)
-    (t ':admitted)))
+    ((getf entry :retired-p)
+     ':retired)
+    ((null (getf entry :admitted))
+     ':candidate)
+    ((>= (getf entry :consecutive-failures) *procedure-suspension-limit*)
+     ':suspended)
+    (t
+     ':admitted)))
 
 (-> procedure-entry-version (list &optional (option integer)) list)
 (defun procedure-entry-version (entry &optional version)
@@ -522,25 +530,25 @@ BASELINE their average (:REQUESTS :TOKENS), and EVALUATION how it was checked.
 Return its name, version, and whether a version was added."
   (unless (procedure-p procedure)
     (knowledge--fail ':invalid-procedure procedure "The procedure is malformed."))
-  (let ((workspace (knowledge--workspace configuration))
+  (let ((workspace  (knowledge--workspace configuration))
         (identifier (getf (rest procedure) :id)))
     (values-list
      (knowledge-transact
       configuration
       (lambda (base)
-        (let* ((entry (knowledge-base-procedure base workspace identifier))
+        (let* ((entry  (knowledge-base-procedure base workspace identifier))
                (latest (and entry (procedure-entry-version entry))))
           (if (and latest (equal (getf latest :procedure) procedure))
               (values nil (list identifier (getf latest :version) nil) nil)
               (values (list (list :procedure-defined
                                   :version *knowledge-format-version*
-                                  :scope ':workspace
-                                  :workspace workspace
-                                  :procedure procedure
-                                  :examples examples
-                                  :baseline baseline
-                                  :evaluation evaluation
-                                  :time (get-universal-time)
+                                  :scope               ':workspace
+                                  :workspace           workspace
+                                  :procedure           procedure
+                                  :examples            examples
+                                  :baseline            baseline
+                                  :evaluation          evaluation
+                                  :time                (get-universal-time)
                                   :source-conversation source-conversation))
                       (list identifier (1+ (length (getf entry :versions))) t)
                       t))))))))
@@ -566,10 +574,10 @@ Admitting clears a suspension and a retirement. Return the admitted version."
                (values nil version nil)
                (values (list (list :procedure-admitted
                                    :scope ':workspace
-                                   :workspace workspace
-                                   :id identifier
+                                   :workspace         workspace
+                                   :id                identifier
                                    :procedure-version version
-                                   :time (get-universal-time)))
+                                   :time              (get-universal-time)))
                        version
                        t))))))))
 
@@ -590,8 +598,8 @@ Return true when it was not already retired."
              (values (list (list :procedure-retired
                                  :scope ':workspace
                                  :workspace workspace
-                                 :id identifier
-                                 :time (get-universal-time)))
+                                 :id        identifier
+                                 :time      (get-universal-time)))
                      t
                      t)))))))
 
@@ -612,17 +620,17 @@ STATUS is :OK or :FAILED, STEPS how many calls succeeded, and CALLER :USER or :M
        (declare (ignore base))
        (values (list (list :procedure-run
                            :scope ':workspace
-                           :workspace workspace
-                           :id identifier
+                           :workspace         workspace
+                           :id                identifier
                            :procedure-version version
-                           :status status
-                           :steps steps
-                           :caller caller
-                           :failure (and failure
-                                         (subseq failure 0 (min (length failure)
-                                                                *procedure-failure-limit*)))
-                           :conversation conversation
-                           :time (get-universal-time)))
+                           :status            status
+                           :steps             steps
+                           :caller            caller
+                           :failure           (and failure
+                                                   (subseq failure 0 (min (length failure)
+                                                                          *procedure-failure-limit*)))
+                           :conversation      conversation
+                           :time              (get-universal-time)))
                nil
                t))))
   nil)
@@ -634,14 +642,20 @@ STATUS is :OK or :FAILED, STEPS how many calls succeeded, and CALLER :USER or :M
 (defun procedure--references-valid-p (template names step)
   "Return true when TEMPLATE names only parameters in NAMES and steps before STEP."
   (and (ecase (first template)
-         (:json t)
-         (:param (member (second template) names :test #'string=))
-         (:text (member (third template) names :test #'string=))
-         (:from (< (second template) step))
-         (:object (every (lambda (entry) (procedure--references-valid-p (second entry) names step))
-                         (rest template)))
-         (:array (every (lambda (item) (procedure--references-valid-p item names step))
-                        (rest template))))
+         (:json
+          t)
+         (:param
+          (member (second template) names :test #'string=))
+         (:text
+          (member (third template) names :test #'string=))
+         (:from
+          (< (second template) step))
+         (:object
+          (every (lambda (entry) (procedure--references-valid-p (second entry) names step))
+                 (rest template)))
+         (:array
+          (every (lambda (item) (procedure--references-valid-p item names step))
+                 (rest template))))
        t))
 
 (-> procedure--input-valid-p (t list) boolean)
@@ -652,14 +666,17 @@ STATUS is :OK or :FAILED, STEPS how many calls succeeded, and CALLER :USER or :M
                 (or (non-empty-string-p element)
                     (and (proper-list-p element)
                          (case (first element)
-                           (:param (and (= (length element) 4)
-                                        (member (second element) names :test #'string=)
-                                        (stringp (third element))
-                                        (stringp (fourth element))))
-                           (:any (and (= (length element) 3)
-                                      (stringp (second element))
-                                      (stringp (third element))))
-                           (otherwise nil)))))
+                           (:param
+                            (and (= (length element) 4)
+                                 (member (second element) names :test #'string=)
+                                 (stringp (third element))
+                                 (stringp (fourth element))))
+                           (:any
+                            (and (= (length element) 3)
+                                 (stringp (second element))
+                                 (stringp (third element))))
+                           (otherwise
+                            nil)))))
               input)
        t))
 
@@ -678,9 +695,12 @@ STATUS is :OK or :FAILED, STEPS how many calls succeeded, and CALLER :USER or :M
 Return the bindings and whether VALUE agreed."
   (let ((binding (assoc name bindings :test #'string=)))
     (cond
-      ((null binding) (values (acons name value bindings) t))
-      ((procedure-json-equal-p (rest binding) value) (values bindings t))
-      (t (values bindings nil)))))
+      ((null binding)
+       (values (acons name value bindings) t))
+      ((procedure-json-equal-p (rest binding) value)
+       (values bindings t))
+      (t
+       (values bindings nil)))))
 
 (-> procedure--text-middle (t string string &key (:empty-ends-p boolean)) (option string))
 (defun procedure--text-middle (value prefix suffix &key empty-ends-p)
