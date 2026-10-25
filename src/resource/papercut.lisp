@@ -396,7 +396,9 @@
       ((string= name "papercut-report")
        (resource-item-validate-operation-fields
         "Papercut"
-        operation '("op" "title" "content" "issue-kind" "tool" "diagnostic") '("op" "title" "content"))
+        operation
+        :allowed  '("op" "title" "content" "issue-kind" "tool" "diagnostic")
+        :required '("op" "title" "content"))
        (list :kind       ':report
              :diagnostic (telemetry-diagnostic-text (tool-argument operation "diagnostic"))
              :issue-kind (papercut--issue-kind (or (tool-argument operation "issue-kind") "other"))
@@ -408,7 +410,9 @@
       ((string= name "papercut-assess")
        (resource-item-validate-operation-fields
         "Papercut"
-        operation '("op" "verdict" "note" "diagnostic") '("op" "verdict" "note"))
+        operation
+        :allowed  '("op" "verdict" "note" "diagnostic")
+        :required '("op" "verdict" "note"))
        (list :kind       ':assess
              :diagnostic (telemetry-diagnostic-text (tool-argument operation "diagnostic"))
              :verdict    (papercut-resource--required-verdict operation)
@@ -420,7 +424,9 @@
       ((string= name "papercut-close")
        (resource-item-validate-operation-fields
         "Papercut"
-        operation '("op" "resolution" "diagnostic") '("op" "resolution"))
+        operation
+        :allowed  '("op" "resolution" "diagnostic")
+        :required '("op" "resolution"))
        (list :kind       ':close
              :diagnostic (telemetry-diagnostic-text (tool-argument operation "diagnostic"))
              :resolution (papercut-resource--required-text

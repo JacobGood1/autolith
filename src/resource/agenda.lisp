@@ -294,8 +294,8 @@
        (resource-item-validate-operation-fields
         "Agenda"
         operation
-        '("op" "text" "status" "memory-ids")
-        '("op" "text"))
+        :allowed  '("op" "text" "status" "memory-ids")
+        :required '("op" "text"))
        (multiple-value-bind (memory-identifiers memory-identifiers-supplied-p)
            (agenda-resource--memory-identifiers operation "resource.edit")
          (declare (ignore memory-identifiers-supplied-p))
@@ -308,8 +308,8 @@
        (resource-item-validate-operation-fields
         "Agenda"
         operation
-        '("op" "id" "text" "status" "memory-ids")
-        '("op" "id"))
+        :allowed  '("op" "id" "text" "status" "memory-ids")
+        :required '("op" "id"))
        (let ((identifier
                (agenda-resource--string-argument
                 operation "id" "resource.edit" :required t))
@@ -333,7 +333,9 @@
       ((string= name "agenda-remove")
        (resource-item-validate-operation-fields
         "Agenda"
-        operation '("op" "id") '("op" "id"))
+        operation
+        :allowed  '("op" "id")
+        :required '("op" "id"))
        (list :kind ':remove
              :identifier
              (agenda-resource--string-argument

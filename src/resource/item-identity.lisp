@@ -152,9 +152,9 @@
 ;;;; -- Operations and Results --
 
 (-> resource-item-validate-operation-fields
-    (string json-object list list)
+    (string json-object &key (:allowed list) (:required list))
     null)
-(defun resource-item-validate-operation-fields (noun operation allowed required)
+(defun resource-item-validate-operation-fields (noun operation &key allowed required)
   "Require OPERATION to contain exactly ALLOWED fields and every REQUIRED field."
   (loop for name being the hash-keys of operation
         unless (member name allowed :test #'string=)

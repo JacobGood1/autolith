@@ -615,8 +615,8 @@ in one of the user's own inputs to this conversation."
        (resource-item-validate-operation-fields
         "Memory"
         operation
-        '("op" "title" "content" "tags" "sources" "premises")
-        '("op" "title" "content"))
+        :allowed  '("op" "title" "content" "tags" "sources" "premises")
+        :required '("op" "title" "content"))
        (multiple-value-bind (sources sources-p)
            (memory-resource--operation-sources operation)
          (multiple-value-bind (premises premises-p)
@@ -639,8 +639,8 @@ in one of the user's own inputs to this conversation."
        (resource-item-validate-operation-fields
         "Memory"
         operation
-        '("op" "title" "content" "tags" "scope" "sources" "premises")
-        '("op" "title" "content"))
+        :allowed  '("op" "title" "content" "tags" "scope" "sources" "premises")
+        :required '("op" "title" "content"))
        (multiple-value-bind (sources sources-p)
            (memory-resource--operation-sources operation)
          (multiple-value-bind (premises premises-p)
@@ -663,7 +663,9 @@ in one of the user's own inputs to this conversation."
       ((string= name "memory-forget")
        (resource-item-validate-operation-fields
         "Memory"
-        operation '("op") '("op"))
+        operation
+        :allowed  '("op")
+        :required '("op"))
        (list :kind ':forget))
       (t
        (error 'tool-error
