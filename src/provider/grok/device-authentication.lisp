@@ -46,24 +46,24 @@
                (non-empty-string-p client-id)
                (plusp poll-timeout))
     (device-authentication-fail
-     :stage ':configuration
+     :stage   ':configuration
      :message "Grok device authentication configuration is invalid."))
   (make-instance
    'grok-device-authentication-client
-   :issuer (string-right-trim '(#\/) issuer)
-   :client-id client-id
-   :device-code-path "/oauth2/device/code"
-   :token-path "/oauth2/token"
-   :scope (format nil "~{~A~^ ~}" *grok-oauth-scopes*)
+   :issuer                  (string-right-trim '(#\/) issuer)
+   :client-id               client-id
+   :device-code-path        "/oauth2/device/code"
+   :token-path              "/oauth2/token"
+   :scope                   (format nil "~{~A~^ ~}" *grok-oauth-scopes*)
    :request-code-parameters (list (cons "referrer" "autolith"))
    :request-function
    (or request-function #'device-authentication-request)
    :poll-function
    (or poll-function #'rfc8628-device-authentication-poll-for-tokens)
-   :sleep-function sleep-function
-   :clock-function clock-function
-   :browser-function browser-function
-   :poll-timeout poll-timeout))
+   :sleep-function          sleep-function
+   :clock-function          clock-function
+   :browser-function        browser-function
+   :poll-timeout            poll-timeout))
 
 (defmethod device-authentication-display-code
     ((client grok-device-authentication-client)
