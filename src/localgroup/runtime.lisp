@@ -4,46 +4,46 @@
 
 (defclass localgroup-session (image-daemon:daemon-runtime)
   ((application
-    :initarg :application
-    :reader localgroup-session-application
-    :type application
+    :initarg       :application
+    :reader        localgroup-session-application
+    :type          application
     :documentation "The primary application exposed by this endpoint.")
    (paused-p
-    :initform nil
-    :accessor localgroup-session-paused-p
-    :type boolean
+    :initform      nil
+    :accessor      localgroup-session-paused-p
+    :type          boolean
     :documentation "Whether queued primary work must wait for explicit input.")
    (checkpoint-reconnect-id
-    :initarg :checkpoint-reconnect-id
-    :initform nil
-    :accessor localgroup-session-checkpoint-reconnect-id
-    :type (option string)
+    :initarg       :checkpoint-reconnect-id
+    :initform      nil
+    :accessor      localgroup-session-checkpoint-reconnect-id
+    :type          (option string)
     :documentation "The checkpoint transition that created this endpoint.")
    (handoff-mode
-    :initform nil
-    :accessor localgroup-session-handoff-mode
-    :type (option keyword)
+    :initform      nil
+    :accessor      localgroup-session-handoff-mode
+    :type          (option keyword)
     :documentation "The detach or take-over process handoff waiting for strict idle.")
    (handoff-running-p
-    :initform nil
-    :accessor localgroup-session-handoff-running-p
-    :type boolean
+    :initform      nil
+    :accessor      localgroup-session-handoff-running-p
+    :type          boolean
     :documentation "Whether a detached replacement is being started.")
    (detached-explicitly-p
-    :initarg :detached-explicitly-p
-    :initform nil
-    :accessor localgroup-session-detached-explicitly-p
-    :type boolean
+    :initarg       :detached-explicitly-p
+    :initform      nil
+    :accessor      localgroup-session-detached-explicitly-p
+    :type          boolean
     :documentation "Whether the controlling terminal left through an explicit detach.")
    (controller-seen-p
-    :initform nil
-    :accessor localgroup-session-controller-seen-p
-    :type boolean
+    :initform      nil
+    :accessor      localgroup-session-controller-seen-p
+    :type          boolean
     :documentation "Whether any controlling client has ever attached to this endpoint.")
    (attach-watchdog-thread
-    :initform nil
-    :accessor localgroup-session-attach-watchdog-thread
-    :type t
+    :initform      nil
+    :accessor      localgroup-session-attach-watchdog-thread
+    :type          t
     :documentation "The bounded thread exiting a launch nobody attaches to."))
   (:documentation "One authenticated local control endpoint for a primary application."))
 
@@ -56,7 +56,6 @@
   "Return the discovery pathname for SESSION-ID under CONFIGURATION."
   (image-daemon:daemon-registry-pathname
    (localgroup-registry-directory configuration) session-id))
-
 
 (-> localgroup--registry-record (localgroup-session) list)
 (defun localgroup--registry-record (session)
@@ -73,7 +72,6 @@
    (localgroup--registry-record session)))
 
 (-> localgroup--delete-owned-registry (localgroup-session) null)
-
 (defun localgroup--delete-owned-registry (session)
   "Delete SESSION's registry record only while it still names this endpoint."
   (image-daemon:daemon-registry-delete-matching
@@ -82,27 +80,26 @@
   nil)
 
 (-> application-localgroup-sync-conversation (application) null)
-
 (defun application-localgroup-sync-conversation (application)
   "Rekey APPLICATION's endpoint to its active conversation without reconnecting clients.
 
 Publication failure restores the old endpoint identity so the surrounding
 conversation transaction can roll back before releasing either lease."
-  (let ((session (application-localgroup-session application))
+  (let ((session    (application-localgroup-session application))
         (identifier (conversation-identifier (application-conversation application))))
     (when session
       (with-lock-held ((image-daemon:daemon-runtime-lock session))
         (unless (string= identifier (image-daemon:daemon-runtime-identifier session))
           (let ((old-identifier (image-daemon:daemon-runtime-identifier session))
-                (old-pathname (image-daemon:daemon-runtime-registry-pathname session))
-                (old-record (localgroup--registry-record session))
-                (completed-p nil))
+                (old-pathname   (image-daemon:daemon-runtime-registry-pathname session))
+                (old-record     (localgroup--registry-record session))
+                (completed-p    nil))
             (unwind-protect
                 (progn
                  (setf (image-daemon:daemon-runtime-identifier session) identifier
                        (image-daemon:daemon-runtime-registry-pathname session)
-                         (localgroup-registry-pathname
-                          (application-configuration application) identifier))
+                       (localgroup-registry-pathname
+                        (application-configuration application) identifier))
                  (localgroup--publish-registry session)
                  (image-daemon:daemon-registry-call-with-lock old-pathname
                   (lambda ()
@@ -115,7 +112,7 @@ conversation transaction can roll back before releasing either lease."
                 (localgroup--delete-owned-registry session)
                 (setf (image-daemon:daemon-runtime-identifier session) old-identifier
                       (image-daemon:daemon-runtime-registry-pathname session)
-                        old-pathname))))))))
+                      old-pathname))))))))
   (application-mission-schedules-notify application)
   nil)
 
@@ -130,7 +127,6 @@ conversation transaction can roll back before releasing either lease."
    (localgroup-registry-directory configuration)))
 
 (-> application-localgroup-paused-p (application) boolean)
-
 (defun application-localgroup-paused-p (application)
   "Return true when APPLICATION is deliberately holding queued work."
   (let ((session (application-localgroup-session application)))
@@ -141,7 +137,6 @@ conversation transaction can roll back before releasing either lease."
              (localgroup-session-paused-p session)))))))
 
 (-> application-localgroup-resume (application) boolean)
-
 (defun application-localgroup-resume (application)
   "Resume APPLICATION's queued work and report whether it had been paused."
   (let ((session (application-localgroup-session application)) (resumed-p nil))
@@ -158,10 +153,9 @@ conversation transaction can roll back before releasing either lease."
     (not (null resumed-p))))
 
 (-> application-localgroup-pause (application) boolean)
-
 (defun application-localgroup-pause (application)
   "Pause queued work and request cancellation of APPLICATION's active turn."
-  (let ((session (application-localgroup-session application))
+  (let ((session    (application-localgroup-session application))
         (controller (application-input-controller application)))
     (unless (and session controller) (return-from application-localgroup-pause nil))
     (with-lock-held ((image-daemon:daemon-runtime-lock session))
@@ -187,24 +181,23 @@ conversation transaction can roll back before releasing either lease."
         (values 0 0))))
 
 (-> localgroup-status-snapshot (localgroup-session) list)
-
 (defun localgroup-status-snapshot (session)
   "Return a portable, internally consistent status snapshot for SESSION."
-  (let* ((application (localgroup-session-application session))
-         (configuration (application-configuration application))
-         (conversation (application-conversation application))
-         (controller (application-input-controller application))
-         (paused-p (application-localgroup-paused-p application))
-         (handoff-p (application-localgroup-handoff-pending-p application))
-         (active-p nil)
-         (queued-count 0)
-         (steering-count 0)
-         (recalled-p nil)
-         (stopping-p t)
-         (cancelling-p nil)
-         (reader-paused-p nil)
-         (failed-p nil)
-         (task-live-count 0)
+  (let* ((application       (localgroup-session-application session))
+         (configuration     (application-configuration application))
+         (conversation      (application-conversation application))
+         (controller        (application-input-controller application))
+         (paused-p          (application-localgroup-paused-p application))
+         (handoff-p         (application-localgroup-handoff-pending-p application))
+         (active-p          nil)
+         (queued-count      0)
+         (steering-count    0)
+         (recalled-p        nil)
+         (stopping-p        t)
+         (cancelling-p      nil)
+         (reader-paused-p   nil)
+         (failed-p          nil)
+         (task-live-count   0)
          (task-active-count 0))
     (when controller
       (with-lock-held ((application-input-controller-lock controller))
@@ -228,12 +221,20 @@ conversation transaction can roll back before releasing either lease."
                  (not reader-paused-p) (not failed-p)))
            (idle-p (and waiting-for-input-p (not paused-p) (zerop task-live-count)))
            (state
-            (cond (stopping-p ':stopping) (failed-p ':failed) (handoff-p ':detaching)
-                  (paused-p ':paused) (cancelling-p ':cancelling) (active-p ':active)
+            (cond (stopping-p
+                   ':stopping) (failed-p
+                                ':failed) (handoff-p
+                                           ':detaching)
+                  (paused-p
+                   ':paused) (cancelling-p
+                              ':cancelling) (active-p
+                                             ':active)
                   ((or (plusp queued-count) (plusp steering-count) recalled-p
                        (plusp task-live-count))
                    ':working)
-                  (idle-p ':idle) (t ':starting))))
+                  (idle-p
+                   ':idle) (t
+                            ':starting))))
       (list :localgroup-status :version *daemon-protocol-version* :session-id
             (conversation-identifier conversation) :pid (current-process-id)
             :autolith-version *autolith-version* :state state :idle-p (not (null idle-p))
@@ -269,13 +270,12 @@ conversation transaction can roll back before releasing either lease."
               (if (typep terminal 'localgroup-terminal)
                   (image-daemon:relay-observer-count terminal)
                   0))
-            :created-at (image-daemon:daemon-runtime-created-at session)))))
+            :created-at         (image-daemon:daemon-runtime-created-at session)))))
 
 
 ;;;; -- Localgroup Terminal Ownership --
 
 (-> localgroup--terminal (localgroup-session) localgroup-terminal)
-
 (defun localgroup--terminal (session)
   "Return SESSION's attachable relay terminal."
   (let ((terminal
@@ -293,7 +293,7 @@ conversation transaction can roll back before releasing either lease."
   (let ((mode (or (getf arguments :mode) ':control)))
     (unless (member mode '(:read-only :control :take-over))
       (error 'localgroup-error
-             :message "The localgroup attachment mode is invalid."
+             :message   "The localgroup attachment mode is invalid."
              :operation ':attach))
     mode))
 
@@ -318,7 +318,6 @@ without one."
        (not (localgroup--attach-expected-p startup-values))))
 
 (-> localgroup--mark-explicit-detach (localgroup-session) null)
-
 (defun localgroup--mark-explicit-detach (session)
   "Record that SESSION's controlling terminal is leaving on purpose."
   (with-lock-held ((image-daemon:daemon-runtime-lock session))
@@ -326,7 +325,6 @@ without one."
   nil)
 
 (-> localgroup--note-controller-attached (localgroup-session) null)
-
 (defun localgroup--note-controller-attached (session)
   "Record that a controlling client owns SESSION's terminal from now on."
   (with-lock-held ((image-daemon:daemon-runtime-lock session))
@@ -345,7 +343,6 @@ without one."
   nil)
 
 (-> localgroup--controller-lost (localgroup-session) boolean)
-
 (defun localgroup--controller-lost (session)
   "Handle SESSION losing its controlling client and report whether it exits.
 
@@ -362,7 +359,6 @@ forced shutdown does; the conversation stays resumable."
     exit-p))
 
 (-> localgroup--first-attach-overdue-p (localgroup-session) boolean)
-
 (defun localgroup--first-attach-overdue-p (session)
   "Return true when SESSION never met the controlling client it was launched for."
   (let ((terminal
@@ -376,7 +372,6 @@ forced shutdown does; the conversation stays resumable."
          (not (image-daemon:relay-attached-p terminal))))))
 
 (-> localgroup--attach-watchdog (localgroup-session) null)
-
 (defun localgroup--attach-watchdog (session)
   "Exit SESSION when no controlling client attaches within the first-attach timeout."
   (let ((deadline
@@ -422,14 +417,14 @@ forced shutdown does; the conversation stays resumable."
     (daemon-write-packet
      stream (list :error :message "The localgroup request was rejected."))
     (return-from localgroup--serve-attachment nil))
-  (let* ((arguments (localgroup--request-field request :arguments))
-         (mode (localgroup--attachment-mode arguments))
-         (rows (or (getf arguments :rows) *terminal-default-rows*))
-         (columns (or (getf arguments :columns) *terminal-default-columns*))
-         (styled-p (not (null (getf arguments :styled-p))))
+  (let* ((arguments   (localgroup--request-field request :arguments))
+         (mode        (localgroup--attachment-mode arguments))
+         (rows        (or (getf arguments :rows) *terminal-default-rows*))
+         (columns     (or (getf arguments :columns) *terminal-default-columns*))
+         (styled-p    (not (null (getf arguments :styled-p))))
          (application (localgroup-session-application session))
-         (controller (application-input-controller application))
-         (terminal (localgroup--terminal session)))
+         (controller  (application-input-controller application))
+         (terminal    (localgroup--terminal session)))
     (when (and (eq mode ':take-over)
                (eq (image-daemon:relay-attachment-kind terminal) ':foreground))
       (let ((response (application-localgroup-request-handoff application ':take-over)))
@@ -472,11 +467,10 @@ forced shutdown does; the conversation stays resumable."
   nil)
 
 (-> localgroup--detach-terminal (localgroup-session) list)
-
 (defun localgroup--detach-terminal (session)
   "Release SESSION's current controlling terminal or schedule foreground detach."
   (let* ((application (localgroup-session-application session))
-         (terminal (localgroup--terminal session)))
+         (terminal    (localgroup--terminal session)))
     (if (eq (image-daemon:relay-attachment-kind terminal) ':foreground)
         (application-localgroup-request-handoff application ':detach)
         (progn
@@ -496,7 +490,7 @@ A detached session's own launcher only logs its exit status, so the relaying
 terminal must exit with it instead for the outer launcher to update, roll back,
 or recover. Return true when APPLICATION's terminal is a relay; a terminal that
 already disconnected costs nothing."
-  (let* ((ui (and application (application-ui application)))
+  (let* ((ui       (and application (application-ui application)))
          (terminal (and ui (terminal-ui-terminal ui))))
     (when (typep terminal 'localgroup-terminal)
       (handler-case
@@ -518,12 +512,11 @@ already disconnected costs nothing."
   (image-daemon:daemon-request-valid-p request (image-daemon:daemon-runtime-token session)))
 
 (-> localgroup--tell (localgroup-session list) list)
-
 (defun localgroup--tell (session arguments)
   "Submit ARGUMENTS' message through the ordinary responsive input path."
   (let* ((application (localgroup-session-application session))
-         (controller (application-input-controller application))
-         (message (getf arguments :message)))
+         (controller  (application-input-controller application))
+         (message     (getf arguments :message)))
     (unless (and controller (stringp message))
       (error 'localgroup-error :message "localgroup tell requires one string message."
              :operation ':tell :session-id
@@ -541,7 +534,6 @@ already disconnected costs nothing."
           (image-daemon:daemon-runtime-identifier session))))
 
 (-> localgroup--dispatch-request (localgroup-session list) list)
-
 (defun localgroup--dispatch-request (session request)
   "Return SESSION's response to one authenticated REQUEST."
   (unless (localgroup--valid-request-p request session)
@@ -550,15 +542,18 @@ already disconnected costs nothing."
   (let ((operation (localgroup--request-field request :operation))
         (arguments (localgroup--request-field request :arguments)))
     (case operation
-      (:status (list :ok :status (localgroup-status-snapshot session)))
-      (:tell (localgroup--tell session arguments))
+      (:status
+       (list :ok :status (localgroup-status-snapshot session)))
+      (:tell
+       (localgroup--tell session arguments))
       (:pause
        (if (application-localgroup-pause (localgroup-session-application session))
            (list :ok :operation :pause :session-id
                  (image-daemon:daemon-runtime-identifier session))
            (list :error :message
                  "The localgroup session cannot pause while detaching.")))
-      (:detach (localgroup--detach-terminal session))
+      (:detach
+       (localgroup--detach-terminal session))
       (:kill
        (list :ok :operation :kill :session-id
              (image-daemon:daemon-runtime-identifier session)))
@@ -569,31 +564,31 @@ already disconnected costs nothing."
 (defun localgroup-start
     (application &key token created-at detached-explicitly-p checkpoint-reconnect-id)
   "Publish APPLICATION's active conversation with its product startup choreography."
-  (let* ((restart-p (not (null token)))
+  (let* ((restart-p      (not (null token)))
          (startup-values (and *localgroup-startup-record* (rest *localgroup-startup-record*)))
-         (configuration (application-configuration application))
-         (session nil)
-         (completed-p nil))
+         (configuration  (application-configuration application))
+         (session        nil)
+         (completed-p    nil))
     (unwind-protect
          (progn
            (setf session
                  (image-daemon:daemon-runtime-create
-                  :directory (localgroup-registry-directory configuration)
-                  :identifier (conversation-identifier (application-conversation application))
-                  :token (or token (getf startup-values :token))
-                  :created-at (or created-at (getf startup-values :created-at))
-                  :class 'localgroup-session
-                  :initargs (list :application application
-                                  :detached-explicitly-p
-                                  (or detached-explicitly-p
-                                      (localgroup--initially-detached-p startup-values))
-                                  :checkpoint-reconnect-id checkpoint-reconnect-id)
+                  :directory        (localgroup-registry-directory configuration)
+                  :identifier       (conversation-identifier (application-conversation application))
+                  :token            (or token (getf startup-values :token))
+                  :created-at       (or created-at (getf startup-values :created-at))
+                  :class            'localgroup-session
+                  :initargs         (list :application             application
+                                          :detached-explicitly-p
+                                          (or detached-explicitly-p
+                                              (localgroup--initially-detached-p startup-values))
+                                          :checkpoint-reconnect-id checkpoint-reconnect-id)
                   :request-function #'localgroup--handle-request
-                  :error-function (lambda (condition)
-                                    (format *error-output*
-                                            "~&Localgroup endpoint failed: ~A~%" condition)))
+                  :error-function   (lambda (condition)
+                                      (format *error-output*
+                                              "~&Localgroup endpoint failed: ~A~%" condition)))
                  (application-localgroup-session application) session)
-           (let ((terminal (terminal-ui-terminal (application-ui application)))
+           (let ((terminal   (terminal-ui-terminal (application-ui application)))
                  (controller (application-input-controller application)))
              (when (and controller (typep terminal 'localgroup-terminal))
                (image-daemon:relay-set-wake-function
