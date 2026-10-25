@@ -253,7 +253,9 @@ requested window rather than the complete trace."
              (when (rlm--trace-identifier-p identifier)
                (setf (gethash identifier entries)
                      (max (or (gethash identifier entries) 0)
-                          (or (ignore-errors (file-write-date pathname))
+                          (or (handler-case (file-write-date pathname)
+                                (file-error ()
+                                  nil))
                               0))))))
       (when (uiop:directory-exists-p root)
         (dolist (file (uiop:directory-files root "*.sexp"))
@@ -435,13 +437,17 @@ requested window rather than the complete trace."
                                   (digit-char-p character 16))
                                 name))
                  collect (list name
-                               (or (ignore-errors
-                                     (with-open-file
-                                         (stream file
-                                          :element-type '(unsigned-byte 8))
-                                       (file-length stream)))
+                               (or (handler-case
+                                       (with-open-file
+                                           (stream file
+                                            :element-type '(unsigned-byte 8))
+                                         (file-length stream))
+                                     (file-error ()
+                                       nil))
                                    0)
-                               (or (ignore-errors (file-write-date file))
+                               (or (handler-case (file-write-date file)
+                                     (file-error ()
+                                       nil))
                                    0)))
          #'>
          :key #'third)
