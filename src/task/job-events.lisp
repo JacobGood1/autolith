@@ -84,7 +84,7 @@
   "Return whether DATA is a duplicate-free plist using only KEYS."
   (and (evenp (length data))
        (loop with seen = nil
-             for (key value) on data by #'cddr
+             for (key nil) on data by (partial #'nthcdr 2)
              always (and (member key keys) (not (member key seen))
                          (progn (push key seen) t))
              finally (return t))))
@@ -97,7 +97,7 @@
     (unless (and schema (listp data)
                  (run-job-event--plist-p data (rest schema)))
       (run-job-event--error)))
-  (loop for (key value) on data by #'cddr
+  (loop for (key value) on data by (partial #'nthcdr 2)
         unless
         (case key
           ((:job-id :call-id :execution-id :tool-name :result-uri :output :output-path)
