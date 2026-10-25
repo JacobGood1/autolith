@@ -1023,10 +1023,11 @@ restricted turn cannot discover tools outside its allowlist."
   nil)
 
 (-> agent--execute-tool-plan
-    (agent list agent-observer boolean boolean)
+    (agent list &key (:observer agent-observer) (:tool-restriction-p boolean)
+                     (:record-timings-p boolean))
     list)
 (defun agent--execute-tool-plan
-    (agent plan observer tool-restriction-p record-timings-p)
+    (agent plan &key observer tool-restriction-p record-timings-p)
   "Execute one PLAN body and return its result, timings, or fatal condition."
   (let* ((call                                 (getf plan :call))
          (call-id                              (json-get call "call_id"))
@@ -1242,8 +1243,10 @@ worker results become explicit unknown outcomes so provider history stays valid.
          (record-timings-p (= count 1)))
     (if (= count 1)
         (setf (aref executions 0)
-              (agent--execute-tool-plan
-               agent (first plans) observer tool-restriction-p t))
+              (agent--execute-tool-plan agent (first plans)
+                                        :observer           observer
+                                        :tool-restriction-p tool-restriction-p
+                                        :record-timings-p   t))
         (let ((next-index                0)
               (claim-lock                (make-lock "Autolith tool wave claims"))
               (threads                   nil)
@@ -1262,9 +1265,9 @@ worker results become explicit unknown outcomes so provider history stays valid.
                              (agent--execute-tool-plan
                               agent
                               (nth index plans)
-                              observer
-                              tool-restriction-p
-                              record-timings-p))))))
+                              :observer           observer
+                              :tool-restriction-p tool-restriction-p
+                              :record-timings-p   record-timings-p))))))
             (unwind-protect
                  (progn
                    (loop repeat
