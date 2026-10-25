@@ -7,13 +7,13 @@
   "Return an empty growable text buffer with initial CAPACITY characters."
   (make-array capacity
               :element-type 'character
-              :adjustable t
+              :adjustable   t
               :fill-pointer 0))
 
 (-> text-buffer-append (string string) string)
 (defun text-buffer-append (buffer text)
   "Append TEXT to BUFFER in place with amortized growth and return BUFFER."
-  (let* ((start (fill-pointer buffer))
+  (let* ((start    (fill-pointer buffer))
          (required (+ start (length text))))
     (when (> required (array-total-size buffer))
       (adjust-array buffer (max required (* 2 (array-total-size buffer)))))
