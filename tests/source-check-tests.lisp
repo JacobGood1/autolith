@@ -126,6 +126,8 @@
                                                       :not-applicable)
                     (source-positional-parameters-rule "a.lisp" ("(defun f (a b c d)" "  a)") (1))
                     (source-positional-parameters-rule "a.lisp" ("(defun f (a b c &key d)" "  a)") ())
+                    (source-positional-parameters-rule "a.lisp" ("(defgeneric g (a b c d))") (1))
+                    (source-positional-parameters-rule "a.lisp" ("(defmethod g ((a t) b c d)" "  a)") ())
                     (source-list-accessor-rule "a.lisp" ("(list (car x)" "      (cdr x))") (1 2))
                     (source-format-percent-rule "a.lisp" ("(format nil \"100%%\")") (1))
                     (source-format-percent-rule "a.lisp" ("(list \"100%%\")") ())

@@ -77,7 +77,10 @@ The runner binds it so rules about project source skip standalone scripts.")
   (:default-initargs
    :name "positional-parameters"
    :description "Functions and methods with four or more parameters use keyword arguments (AGENTS.md, Naming).")
-  (:documentation "At most three required and optional parameters."))
+  (:documentation "At most three required and optional parameters.
+
+A method's parameters follow its generic function, so the rule judges the
+generic function, not each method."))
 
 (defclass source-list-accessor-rule (source-rule)
   ()
@@ -226,10 +229,10 @@ The runner binds it so rules about project source skip standalone scripts.")
                      :column  (source-node-column node)))))
 
 (defmethod source-rule-findings ((rule source-positional-parameters-rule) (file source-file))
-  "Report functions and methods taking more than the limit of positional parameters."
+  "Report functions and generic functions taking more than the limit of positional parameters."
   (loop for node in (source-definition-forms file)
         for operator = (source-node-operator node)
-        for parameters = (and (member operator '("defun" "defmethod" "defgeneric") :test #'equal)
+        for parameters = (and (member operator '("defun" "defgeneric") :test #'equal)
                               (source-definition--lambda-list node))
         for count = (and parameters (source-definition--positional-count parameters))
         when (and count (> count *source-positional-limit*))
