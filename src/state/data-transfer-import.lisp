@@ -8,8 +8,10 @@
   (merge-pathnames
    (format nil "~A/~A.sexp"
            (ecase (getf state :kind)
-             (:pending "pending-inputs")
-             (:vault "recovery-input-vault"))
+             (:pending
+              "pending-inputs")
+             (:vault
+              "recovery-input-vault"))
            (getf state :owner))
    (config :state-root configuration)))
 
@@ -34,8 +36,8 @@
   (let ((result (copy-tree existing)))
     (dolist (agenda imported)
       (let* ((directory (getf (rest agenda) :directory))
-             (match (find directory result :test #'equal
-                          :key (lambda (record) (getf (rest record) :directory)))))
+             (match     (find directory result :test #'equal
+                              :key                   (lambda (record) (getf (rest record) :directory)))))
         (if (null match)
             (setf result (append result (list agenda)))
             (dolist (item (getf (rest agenda) :items))
@@ -65,10 +67,10 @@
 (-> data-transfer--check-session-identities (configuration list) null)
 (defun data-transfer--check-session-identities (configuration archive)
   "Reject conversation IDs already owned by a different top-level or child session."
-  (let* ((expected (make-hash-table :test #'equal))
-         (data-root (config :data-root configuration))
+  (let* ((expected          (make-hash-table :test #'equal))
+         (data-root         (config :data-root configuration))
          (conversation-root (configuration-conversation-root configuration))
-         (task-root (merge-pathnames "tasks/" data-root)))
+         (task-root         (merge-pathnames "tasks/" data-root)))
     (dolist (session (getf archive :sessions))
       (when (eq (getf session :kind) ':conversation)
         (setf (gethash (getf session :id) expected)
@@ -105,18 +107,18 @@
 (-> data-transfer--plan-import (configuration list) list)
 (defun data-transfer--plan-import (configuration archive)
   "Resolve all identity conflicts and destinations before publishing any data."
-  (let ((writes nil)
+  (let ((writes           nil)
         (child-exclusions (nth-value 1 (data-transfer--children configuration (getf archive :sessions))))
-        (data-root (config :data-root configuration))
-        (state-root (config :state-root configuration)))
+        (data-root        (config :data-root configuration))
+        (state-root       (config :state-root configuration)))
     (data-transfer--check-session-identities configuration archive)
     (flet ((add (write)
              (when write (push write writes))))
       (dolist (session (getf archive :sessions))
-        (let* ((kind (getf session :kind))
+        (let* ((kind       (getf session :kind))
                (identifier (getf session :id))
-               (root (data-transfer--session-root configuration kind))
-               (identity (conversation-identifier--pathname root identifier)))
+               (root       (data-transfer--session-root configuration kind))
+               (identity   (conversation-identifier--pathname root identifier)))
           (data-transfer--check-path data-root identity)
           (when (conversation-storage-occupied-p identity)
             (unless (equal session (data-transfer--session configuration kind identifier))
@@ -142,7 +144,7 @@
                       pathname (data-transfer--forms-bytes (getf segment :records)) data-root)))))))
       (dolist (child (getf archive :children))
         (let* ((session (getf child :session)) (identifier (getf session :id))
-               (root (data-transfer--child-root configuration (getf child :owner) identifier))
+               (root     (data-transfer--child-root configuration (getf child :owner) identifier))
                (identity (conversation-identifier--pathname root identifier)))
           (when (and (conversation-storage-occupied-p identity)
                      (not (equal session (data-transfer--session configuration ':conversation identifier :root root))))
@@ -155,7 +157,7 @@
                 (add (data-transfer--plan-write path (data-transfer--forms-bytes (getf segment :records)) data-root)))))
           (when (getf child :result)
             (let ((result (copy-tree (getf child :result)))
-                  (path (merge-pathnames "result.sexp" root)))
+                  (path   (merge-pathnames "result.sexp" root)))
               (when (getf result :conversation-file)
                 (setf (getf result :conversation-file) (namestring identity)))
               (unless (and (probe-file path) (equal (snapshot-read path) result))
@@ -181,11 +183,13 @@
             (add (data-transfer--plan-write
                   path (data-transfer--forms-bytes (list form)) state-root)))))
       (dolist (kind '(:memories :papercuts))
-        (let* ((path (ecase kind
-                       (:memories (configuration-memory-path configuration))
-                       (:papercuts (configuration-papercut-path configuration))))
+        (let* ((path     (ecase kind
+                           (:memories
+                            (configuration-memory-path configuration))
+                           (:papercuts
+                            (configuration-papercut-path configuration))))
                (existing (data-transfer--log-records path kind))
-               (added (data-transfer--merge-histories existing (getf archive kind) path)))
+               (added    (data-transfer--merge-histories existing (getf archive kind) path)))
           (when added
             (multiple-value-bind (forms incomplete-p) (log-read path)
               (declare (ignore forms))
@@ -201,9 +205,9 @@
                       (data-transfer--forms-bytes
                        (cons (list kind :version 1) added)))
                   data-root :replace-p t)))))
-      (let* ((path (configuration-knowledge-path configuration))
+      (let* ((path     (configuration-knowledge-path configuration))
              (existing (data-transfer--knowledge-records configuration))
-             (added (data-transfer--merge-knowledge existing (getf archive :knowledge) path)))
+             (added    (data-transfer--merge-knowledge existing (getf archive :knowledge) path)))
         (when added
           (when (and (probe-file path) (nth-value 1 (log-read path)))
             (data-transfer--fail path ':conflict "An incomplete knowledge log tail needs repair before import."))
@@ -216,9 +220,9 @@
                     (data-transfer--forms-bytes
                      (cons (list :knowledge :version *knowledge-format-version*) added)))
                 data-root :replace-p t))))
-      (let* ((path (configuration-agenda-path configuration))
-             (old (mapcar #'agenda--record->form
-                          (agenda-state-records (agenda--read configuration :lock-held-p t))))
+      (let* ((path   (configuration-agenda-path configuration))
+             (old    (mapcar #'agenda--record->form
+                             (agenda-state-records (agenda--read configuration :lock-held-p t))))
              (merged (data-transfer--merge-agendas old (getf archive :agendas) path)))
         (unless (equal old merged)
           (add (data-transfer--plan-write
@@ -230,7 +234,7 @@
                      configuration
                      (data-transfer--workspace-identifier (getf (rest plan) :directory)))))
           (let* ((legacy-path (configuration-legacy-plan-path configuration))
-                 (legacy (when (probe-file legacy-path) (snapshot-read legacy-path))))
+                 (legacy      (when (probe-file legacy-path) (snapshot-read legacy-path))))
             (when (and legacy
                        (equal (getf (rest legacy) :directory) (getf (rest plan) :directory))
                        (not (equal legacy plan)))
