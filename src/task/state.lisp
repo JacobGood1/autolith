@@ -125,7 +125,6 @@
 (defparameter *task-response-promotion-maximum-items* 32
   "The most steered child responses awaiting one verbal result each.")
 
-
 (defclass task-completion nil
   ((called-p :initform nil :accessor task-completion-called-p :type
              boolean :documentation
@@ -158,29 +157,29 @@
            keyword :documentation
            "The queued, running, completed, failed, or aborted state.")
    (current-tool
-    :initform nil
-    :accessor task-progress-current-tool
-    :type (option string)
+    :initform      nil
+    :accessor      task-progress-current-tool
+    :type          (option string)
     :documentation "The tool currently executing in the child.")
-    (current-tool-started-at
-     :initform nil
-     :accessor task-progress-current-tool-started-at
-     :type (option integer)
-     :documentation "The internal real time at which the current tool began.")
+   (current-tool-started-at
+    :initform      nil
+    :accessor      task-progress-current-tool-started-at
+    :type          (option integer)
+    :documentation "The internal real time at which the current tool began.")
    (recent-tools
-    :initform (make-deque :maximum-count *task-progress-recent-tool-limit*)
-    :reader task-progress-recent-tools
-    :type deque
+    :initform      (make-deque :maximum-count *task-progress-recent-tool-limit*)
+    :reader        task-progress-recent-tools
+    :type          deque
     :documentation "The completed child tools retained in chronological order.")
    (output-tail
-    :initform ""
-    :accessor task-progress-output-tail
-    :type string
+    :initform      ""
+    :accessor      task-progress-output-tail
+    :type          string
     :documentation "The bounded tail of streamed assistant text.")
    (request-count
-    :initform 0
-    :accessor task-progress-request-count
-    :type (integer 0)
+    :initform      0
+    :accessor      task-progress-request-count
+    :type          (integer 0)
     :documentation "The provider requests started by the child.")
    (usage :initform nil :accessor task-progress-usage :type t
           :documentation "The cumulative portable provider usage for the child.")
@@ -193,66 +192,66 @@
 
 (defclass task-orchestrator nil
   ((pool
-    :initarg :pool
-    :reader task-orchestrator-pool
-    :type job-pool
+    :initarg       :pool
+    :reader        task-orchestrator-pool
+    :type          job-pool
     :documentation "The supervised worker pool running this session's children.")
    (execution-pool
-    :initarg :execution-pool
-    :reader task-orchestrator-execution-pool
-    :type job-pool
+    :initarg       :execution-pool
+    :reader        task-orchestrator-execution-pool
+    :type          job-pool
     :documentation "The supervised worker pool running asynchronous tool calls.")
    (lock
-    :initform (make-lock "Autolith task orchestrator")
-    :accessor task-orchestrator-lock
+    :initform      (make-lock "Autolith task orchestrator")
+    :accessor      task-orchestrator-lock
     :documentation "The lock protecting naming, ordering, hurry-up, and listeners.")
    (artifact-lock
-    :initform (make-lock "Autolith task artifacts")
-    :reader task-orchestrator-artifact-lock
+    :initform      (make-lock "Autolith task artifacts")
+    :reader        task-orchestrator-artifact-lock
     :documentation "The lock serializing artifact publication and retention cleanup.")
-    (closed-p
-     :initform nil
-     :accessor task-orchestrator-closed-p
-     :type boolean
-     :documentation "Whether runtime shutdown has begun and ordinary refresh is forbidden.")
+   (closed-p
+    :initform      nil
+    :accessor      task-orchestrator-closed-p
+    :type          boolean
+    :documentation "Whether runtime shutdown has begun and ordinary refresh is forbidden.")
    (hurry-up-p
-    :initarg :hurry-up-p
-    :initform nil
-    :accessor task-orchestrator-hurry-up-p
-    :type boolean
+    :initarg       :hurry-up-p
+    :initform      nil
+    :accessor      task-orchestrator-hurry-up-p
+    :type          boolean
     :documentation "Whether urgent session limits govern new child work.")
    (hurry-up-admission-count
-    :initform 0
-    :accessor task-orchestrator-hurry-up-admission-count
-    :type (integer 0)
+    :initform      0
+    :accessor      task-orchestrator-hurry-up-admission-count
+    :type          (integer 0)
     :documentation "The children admitted or reserved during the current hurry-up interval.")
    (maximum-depth
-    :initarg :maximum-depth
-    :accessor task-orchestrator-maximum-depth
-    :type (integer 1)
+    :initarg       :maximum-depth
+    :accessor      task-orchestrator-maximum-depth
+    :type          (integer 1)
     :documentation "The maximum child depth below the primary agent.")
    (next-name-index
-    :initform 0
-    :accessor task-orchestrator-next-name-index
-    :type (integer 0)
+    :initform      0
+    :accessor      task-orchestrator-next-name-index
+    :type          (integer 0)
     :documentation "The source of readable names for children given none.")
    (next-session-order
-    :initform 0
-    :accessor task-orchestrator-next-session-order
-    :type (integer 0)
+    :initform      0
+    :accessor      task-orchestrator-next-session-order
+    :type          (integer 0)
     :documentation "The source of ordering shared by child and tool jobs.")
    (completion-lock
-    :initform (make-lock "Autolith completion services")
-    :reader task-orchestrator-completion-lock
+    :initform      (make-lock "Autolith completion services")
+    :reader        task-orchestrator-completion-lock
     :documentation "Serializes creation and closure of owner completion services.")
    (completion-services
-    :initform (make-hash-table :test #'equal)
-    :reader task-orchestrator-completion-services
+    :initform      (make-hash-table :test #'equal)
+    :reader        task-orchestrator-completion-services
     :documentation "Durable notification subscriptions keyed by owning conversation.")
    (listeners
-    :initform nil
-    :accessor task-orchestrator-listeners
-    :type list
+    :initform      nil
+    :accessor      task-orchestrator-listeners
+    :type          list
     :documentation "Callbacks receiving portable task and execution events."))
   (:documentation
    "Session-scoped child and asynchronous tool execution state.
@@ -263,56 +262,56 @@ nesting depth, and lifecycle listeners."))
 
 (defclass session-job (job)
   ((orchestrator
-    :initarg :orchestrator
-    :reader session-job-orchestrator
-    :type task-orchestrator
+    :initarg       :orchestrator
+    :reader        session-job-orchestrator
+    :type          task-orchestrator
     :documentation "The session orchestrator owning this job.")
    (execution-identifier
-    :initarg :execution-identifier
-    :reader session-job-execution-identifier
-    :type non-empty-string
+    :initarg       :execution-identifier
+    :reader        session-job-execution-identifier
+    :type          non-empty-string
     :documentation "The process-independent execution identity.")
    (session-order
-    :initarg :session-order
-    :initform nil
-    :reader session-job-explicit-order
-    :type (option (integer 1))
+    :initarg       :session-order
+    :initform      nil
+    :reader        session-job-explicit-order
+    :type          (option (integer 1))
     :documentation "The optional cross-pool admission order.")
    (public-identifier
-    :initarg :public-identifier
-    :initform nil
-    :reader session-job-public-identifier
-    :type (option non-empty-string)
+    :initarg       :public-identifier
+    :initform      nil
+    :reader        session-job-public-identifier
+    :type          (option non-empty-string)
     :documentation "The optional identifier exposed instead of the pool identifier.")
    (parent-call-id
-    :initarg :parent-call-id
-    :initform nil
-    :reader session-job-parent-call-id
-    :type (option string)
+    :initarg       :parent-call-id
+    :initform      nil
+    :reader        session-job-parent-call-id
+    :type          (option string)
     :documentation "The provider tool call that created this job.")
    (detached-p
-    :initarg :detached-p
-    :initform t
-    :accessor session-job-detached-p
-    :type boolean
+    :initarg       :detached-p
+    :initform      t
+    :accessor      session-job-detached-p
+    :type          boolean
     :documentation "True when the caller is no longer waiting for this job.")
    (completion-owner-conversation
-    :initarg :completion-owner-conversation
-    :initform nil
-    :reader session-job-completion-owner-conversation
-    :type (option non-empty-string)
+    :initarg       :completion-owner-conversation
+    :initform      nil
+    :reader        session-job-completion-owner-conversation
+    :type          (option non-empty-string)
     :documentation "The exact parent conversation authorized to receive this outcome.")
    (completion-policy
-    :initarg :completion-policy
-    :initform ':continue
-    :reader session-job-completion-policy
-    :type (member :notify :continue)
+    :initarg       :completion-policy
+    :initform      ':continue
+    :reader        session-job-completion-policy
+    :type          (member :notify :continue)
     :documentation "Notify at a safe boundary, or also request an automatic continuation.")
    (completion-mission-id
-    :initarg :completion-mission-id
-    :initform nil
-    :reader session-job-completion-mission-id
-    :type (option non-empty-string)
+    :initarg       :completion-mission-id
+    :initform      nil
+    :reader        session-job-completion-mission-id
+    :type          (option non-empty-string)
     :documentation "The admitted mission identity, preventing a completion from reviving another goal."))
   (:documentation
    "Common session ownership, identity, ordering, and waiting state for a job."))
@@ -326,102 +325,102 @@ nesting depth, and lifecycle listeners."))
 
 (defclass task-job (session-job)
   ((telemetry-run
-    :initarg :telemetry-run
-    :initform nil
-    :accessor task-job-telemetry-run
-    :type (option telemetry-run)
+    :initarg       :telemetry-run
+    :initform      nil
+    :accessor      task-job-telemetry-run
+    :type          (option telemetry-run)
     :documentation "The run observed by this job, borrowed or created locally.")
    (telemetry-owner
-    :initform nil
-    :accessor task-job-telemetry-owner
+    :initform      nil
+    :accessor      task-job-telemetry-owner
     :documentation "Opaque finish token retained only when this job creates its run.")
    (telemetry-terminal
-    :initform nil
-    :accessor task-job-telemetry-terminal
-    :type list
+    :initform      nil
+    :accessor      task-job-telemetry-terminal
+    :type          list
     :documentation "Execution failure metadata retained until terminal publication finishes.")
    (definition :initarg :definition :accessor task-job-definition :type
                (option task-agent-definition) :documentation
                "The full child role while this job remains live.")
    (definition-summary
-    :initform nil
-    :accessor task-job-definition-summary
-    :type (option list)
+    :initform      nil
+    :accessor      task-job-definition-summary
+    :type          (option list)
     :documentation "Compact non-instruction role metadata retained at terminal state.")
    (item :initarg :item :accessor task-job-item :type list :documentation
          "The normalized assignment plist.")
    (parent-agent
-    :initarg :parent-agent
-    :accessor task-job-parent-agent
-    :type (option agent)
+    :initarg       :parent-agent
+    :accessor      task-job-parent-agent
+    :type          (option agent)
     :documentation "The parent session while this job remains live.")
    (mission-context
-    :initarg :mission-context
-    :initform nil
-    :reader task-job-mission-context
-    :type t
+    :initarg       :mission-context
+    :initform      nil
+    :reader        task-job-mission-context
+    :type          t
     :documentation "Exact mission authority captured at admission, before any queue delay.")
    (review-checkpoint
-    :initarg :review-checkpoint
-    :initform nil
-    :reader task-job-review-checkpoint
-    :type t
+    :initarg       :review-checkpoint
+    :initform      nil
+    :reader        task-job-review-checkpoint
+    :type          t
     :documentation "Optional mission reviewer budget captured before the child starts.")
    (inherited-reference-p
-    :initarg :inherited-reference-p
-    :initform nil
-    :accessor task-job-inherited-reference-p
-    :type boolean
+    :initarg       :inherited-reference-p
+    :initform      nil
+    :accessor      task-job-inherited-reference-p
+    :type          boolean
     :documentation "Whether this job may receive its captured parent reference.")
    (inherited-reference-items
-    :initarg :inherited-reference-items
-    :initform nil
-    :accessor task-job-inherited-reference-items
-    :type list
+    :initarg       :inherited-reference-items
+    :initform      nil
+    :accessor      task-job-inherited-reference-items
+    :type          list
     :documentation "The filtered parent reference messages captured at admission.")
    (command-authorization-function
-    :initarg :command-authorization-function
-    :initform nil
-    :accessor task-job-command-authorization-function
-    :type (option function)
+    :initarg       :command-authorization-function
+    :initform      nil
+    :accessor      task-job-command-authorization-function
+    :type          (option function)
     :documentation "The parent capability used to authorize child shell commands.")
    (tool-authorization-function
-    :initarg :tool-authorization-function
+    :initarg  :tool-authorization-function
     :initform nil
     :accessor task-job-tool-authorization-function
-    :type (option function)
+    :type     (option function)
     :documentation
     "The parent capability used to authorize child external tool calls.")
-    (steering-lock
-     :initform (make-lock "Autolith task steering")
-     :reader task-job-steering-lock
-     :documentation
-     "The lock serializing steering, response promotion, and terminal claims.")
-    (steering-items
-     :initform (make-deque :weight-function #'task-job--steering-entry-characters)
-     :reader task-job-steering-items
-     :type deque
-     :documentation "Accepted steering entries waiting for the next safe boundary.")
-    (steering-in-flight-items
-     :initform (make-deque :weight-function #'task-job--steering-entry-characters)
-     :reader task-job-steering-in-flight-items
-     :type deque
-     :documentation "Steering entries drained but not yet durably acknowledged.")
-     (response-promotion-pending-identifiers
-      :initform (make-deque)
-      :reader task-job-response-promotion-pending-identifiers
-      :type deque
-      :documentation "Promoted steering identifiers waiting for durable acknowledgment.")
-    (response-promotion-identifiers
-     :initform (make-deque)
-     :reader task-job-response-promotion-identifiers
-     :type deque
-     :documentation "FIFO steering identifiers awaiting one durable verbal response.")
-    (steering-closed-p
-     :initform nil
-     :accessor task-job-steering-closed-p
-     :type boolean
-     :documentation "Whether this child has atomically stopped accepting steering.")
+   (steering-lock
+    :initform (make-lock "Autolith task steering")
+    :reader   task-job-steering-lock
+    :documentation
+    "The lock serializing steering, response promotion, and terminal claims.")
+   (steering-items
+    :initform      (make-deque :weight-function #'task-job--steering-entry-characters)
+    :reader        task-job-steering-items
+    :type          deque
+    :documentation "Accepted steering entries waiting for the next safe boundary.")
+   (steering-in-flight-items
+    :initform      (make-deque :weight-function #'task-job--steering-entry-characters)
+    :reader        task-job-steering-in-flight-items
+    :type          deque
+    :documentation "Steering entries drained but not yet durably acknowledged.")
+   (response-promotion-pending-identifiers
+    :initform      (make-deque)
+    :reader        task-job-response-promotion-pending-identifiers
+    :type          deque
+    :documentation "Promoted steering identifiers waiting for durable acknowledgment.")
+   (response-promotion-identifiers
+    :initform      (make-deque)
+    :reader        task-job-response-promotion-identifiers
+    :type          deque
+    :documentation "FIFO steering identifiers awaiting one durable verbal response.")
+   (steering-closed-p
+    :initform      nil
+    :accessor      task-job-steering-closed-p
+    :type          boolean
+    :documentation "Whether this child has atomically stopped accepting steering.")
    (progress :initform (make-instance 'task-progress) :reader
              task-job-progress :type task-progress :documentation
              "The normalized progress visible to job inspection."))
@@ -434,35 +433,35 @@ parent, and borrowed capabilities are released at terminal state."))
 
 (defclass tool-execution-job (session-job)
   ((tool-name
-    :initarg :tool-name
-    :reader tool-execution-job-tool-name
-    :type non-empty-string
+    :initarg       :tool-name
+    :reader        tool-execution-job-tool-name
+    :type          non-empty-string
     :documentation "The canonical shell or Lisp tool name being executed.")
-    (description
-     :initarg :description
-     :initform nil
-     :reader tool-execution-job-description
-     :type (option string)
-     :documentation "The optional model-authored purpose shown during execution.")
+   (description
+    :initarg       :description
+    :initform      nil
+    :reader        tool-execution-job-description
+    :type          (option string)
+    :documentation "The optional model-authored purpose shown during execution.")
    (summary
-    :initarg :summary
-    :accessor tool-execution-job-summary
-    :type string
+    :initarg       :summary
+    :accessor      tool-execution-job-summary
+    :type          string
     :documentation "The bounded operation summary retained for inspection.")
    (activity
-    :initform nil
-    :accessor tool-execution-job-activity
-    :type (option string)
+    :initform      nil
+    :accessor      tool-execution-job-activity
+    :type          (option string)
     :documentation "The latest bounded content-free execution phase, under the job lock.")
    (activity-at
-    :initform nil
-    :accessor tool-execution-job-activity-at
-    :type (option integer)
+    :initform      nil
+    :accessor      tool-execution-job-activity-at
+    :type          (option integer)
     :documentation "The monotonic time of the latest real phase update, under the job lock.")
    (operation-function
-    :initarg :operation-function
-    :accessor tool-execution-job-operation-function
-    :type (option function)
+    :initarg       :operation-function
+    :accessor      tool-execution-job-operation-function
+    :type          (option function)
     :documentation "The live operation called once and cleared at terminal state."))
   (:documentation "One inspectable asynchronous shell or Lisp tool execution."))
 
@@ -556,9 +555,9 @@ parent, and borrowed capabilities are released at terminal state."))
                :type task-completion :documentation
                "The required terminal yield state.")
    (orchestrator
-    :initarg :orchestrator
-    :reader task-child-agent-orchestrator
-    :type task-orchestrator
+    :initarg       :orchestrator
+    :reader        task-child-agent-orchestrator
+    :type          task-orchestrator
     :documentation "The shared session task orchestrator.")
    (job :initarg :job :reader task-child-agent-job :type task-job
         :documentation
@@ -605,9 +604,9 @@ parent, and borrowed capabilities are released at terminal state."))
 
 (defclass task-orchestrator-tool (tool)
   ((orchestrator
-    :initarg :orchestrator
-    :reader task-orchestrator-tool-orchestrator
-    :type task-orchestrator
+    :initarg       :orchestrator
+    :reader        task-orchestrator-tool-orchestrator
+    :type          task-orchestrator
     :documentation "The session-scoped scheduler shared by task and job tools."))
   (:documentation "A provider tool backed by one shared task orchestrator."))
 
@@ -647,7 +646,6 @@ parent, and borrowed capabilities are released at terminal state."))
 (defclass task-note-tool (tool) nil
   (:documentation
    "Post one bounded interim child note to the parent agent."))
-
 
 (defmethod tool-storm-guard-exempt-p ((tool task-yield-tool))
   "Exempt the required terminal child yield from the mutating-call storm guard."
