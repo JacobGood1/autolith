@@ -100,11 +100,11 @@
 (-> copilot--exchange (copilot-credential-manager string string) oauth-credentials)
 (defun copilot--exchange (manager github-token account-id)
   "Exchange GITHUB-TOKEN for a validated Copilot token with an early expiry."
-  (let* ((document (copilot--get-json
-                    (format nil "https://api.~A/copilot_internal/v2/token"
-                            (copilot-credential-manager-domain manager))
-                    github-token))
-         (token (json-get document "token"))
+  (let* ((document   (copilot--get-json
+                      (format nil "https://api.~A/copilot_internal/v2/token"
+                              (copilot-credential-manager-domain manager))
+                      github-token))
+         (token      (json-get document "token"))
          (expires-at (json-get document "expires_at")))
     (unless (and (non-empty-string-p token)
                  (integerp expires-at)
@@ -113,9 +113,9 @@
              :message "GitHub did not return a valid Copilot token; check your Copilot subscription."))
     (make-instance 'oauth-credentials
                    :access-token token :refresh-token github-token
-                   :account-id account-id
+                   :account-id  account-id
                    ;; The shared manager renews within 300 seconds of expiry.
-                   :expires-at (+ expires-at 2208988800)
+                   :expires-at  (+ expires-at 2208988800)
                    :source-path (credential-source-pathname
                                  (credential-manager-primary-source manager)))))
 
@@ -129,11 +129,12 @@
 (defun copilot--base-url (credentials)
   "Resolve the trusted API host belonging to CREDENTIALS' pinned issuer."
   (let* ((account (oauth-credentials-account-id credentials))
-         (domain (subseq account 0 (position #\: account))))
+         (domain  (subseq account 0 (position #\: account))))
     (handler-case
         (copilot-base-url (oauth-credentials-access-token credentials) :domain domain)
       (provider-error (condition)
         (error 'authentication-error :message (autolith-error-message condition))))))
+
 
 ;;;; -- Device Login --
 
@@ -156,13 +157,13 @@
 (defun copilot-device-authentication-client-create ()
   "Create the GitHub device client using the shared polling, timeout, and browser effects."
   (make-instance 'copilot-device-authentication-client
-                 :issuer (format nil "https://~A" (copilot--domain))
-                 :client-id *copilot-oauth-client-id*
+                 :issuer           (format nil "https://~A" (copilot--domain))
+                 :client-id        *copilot-oauth-client-id*
                  :device-code-path "/login/device/code"
-                 :token-path "/login/oauth/access_token"
-                 :scope "read:user"
+                 :token-path       "/login/oauth/access_token"
+                 :scope            "read:user"
                  :request-function #'copilot--device-request
-                 :poll-function #'rfc8628-device-authentication-poll-for-tokens))
+                 :poll-function    #'rfc8628-device-authentication-poll-for-tokens))
 
 (defmethod device-authentication-complete
     ((client copilot-device-authentication-client)
@@ -171,15 +172,15 @@
   "Poll for the GitHub token and publish only after the Copilot exchange succeeds."
   (call-with-secret-use
    (lambda ()
-     (let* ((document (funcall (device-authentication-client-poll-function client)
-                               client authorization))
+     (let* ((document     (funcall (device-authentication-client-poll-function client)
+                                   client authorization))
             (github-token (and (json-object-p document) (json-get document "access_token"))))
        (unless (non-empty-string-p github-token)
-         (device-authentication-fail :stage ':credentials
+         (device-authentication-fail :stage   ':credentials
                                      :message "GitHub device login omitted the access token."))
        (let* ((domain (copilot-credential-manager-domain manager))
-              (user (copilot--get-json (format nil "https://api.~A/user" domain) github-token))
-              (id (json-get user "id")))
+              (user   (copilot--get-json (format nil "https://api.~A/user" domain) github-token))
+              (id     (json-get user "id")))
          (unless (typep id '(integer 1))
            (error 'authentication-error :message "GitHub did not return an account identifier."))
          (let ((credentials (copilot--exchange manager github-token (format nil "~A:~D" domain id))))
