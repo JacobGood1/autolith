@@ -122,9 +122,9 @@ token that starts with @ is returned."
              (uiop:directory-files directory)))))
 
 (-> terminal-path--search-entries
-    (list (integer 0) (integer 0) (integer 1))
+    (list &key (:token-start (integer 0)) (:token-end (integer 0)) (:limit (integer 1)))
     list)
-(defun terminal-path--search-entries (paths token-start token-end limit)
+(defun terminal-path--search-entries (paths &key token-start token-end limit)
   "Return insert-only completion plists for ranked workspace PATHS."
   (let ((entries
           (loop for path in paths
@@ -161,7 +161,9 @@ submit."
       (terminal-path--search-entries
        (or (funcall search-function (terminal-path--relative token))
            '())
-       token-start token-end limit)))
+       :token-start token-start
+       :token-end   token-end
+       :limit       limit)))
   (let ((root (uiop:ensure-directory-pathname root)))
     (unless (uiop:directory-exists-p root)
       (return-from terminal-path-completion-entries nil))
