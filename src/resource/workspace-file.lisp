@@ -467,9 +467,10 @@ Return NIL when NAME disappears during enumeration."
     elisions))
 
 (-> workspace-file--read-result
-    (workspace-file-observation-state string (integer 0) boolean)
+    (workspace-file-observation-state string
+     &key (:total-lines (integer 0)) (:truncated-p boolean))
     string)
-(defun workspace-file--read-result (state body total-lines truncated-p)
+(defun workspace-file--read-result (state body &key total-lines truncated-p)
   "Return one explicit model-facing resource observation result."
   (let* ((observation (resource-observation-state-observation state))
          (ranges      (workspace-file-observation-state-visible-ranges state))
@@ -805,7 +806,9 @@ already admits the path to the readable roots, so it is not asked again."
                    (resource-observation-state-ensure
                     (tool-context-conversation context) observation
                     :visible-ranges visible-ranges)))
-            (let ((content (workspace-file--read-result state body total-lines truncated-p)))
+            (let ((content (workspace-file--read-result state body
+                                                        :total-lines total-lines
+                                                        :truncated-p truncated-p)))
               (if (eq (workspace-file-observation-kind observation) ':missing)
                   (tool-failure content :code ':not-found)
                   (tool-success content)))))))))
@@ -853,7 +856,8 @@ already admits the path to the readable roots, so it is not asked again."
                                   (lambda (operation) (getf operation :summary))
                                   normalized)
                                  (workspace-file--read-result
-                                  state body (length lines) truncated-p))))
+                                  state body :total-lines (length lines)
+                                             :truncated-p truncated-p))))
                   (tool-success
                    (lisp-source-edit-result-content
                     result-content
