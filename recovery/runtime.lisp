@@ -665,7 +665,7 @@ generation. Its validator carries this image's own stricter checks."
        (recovery-conversation-identifier-stored-p (getf value :new))
        (integerp (getf value :created-at))
        (not (minusp (getf value :created-at)))
-       (loop for key in value by #'cddr
+       (loop for key in value by (lambda (tail) (nthcdr 2 tail))
              always (member key '(:old :new :created-at) :test #'eq))))
 
 (serapeum:-> recovery-conversation-migration-entries
@@ -691,7 +691,7 @@ generation. Its validator carries this image's own stricter checks."
                                :test #'eq)
                        (integerp (getf properties :updated-at))
                        (not (minusp (getf properties :updated-at)))
-                       (loop for key in properties by #'cddr
+                       (loop for key in properties by (lambda (tail) (nthcdr 2 tail))
                              always
                              (member key
                                      '(:version :status :updated-at :entries)
@@ -900,7 +900,7 @@ generation. Its validator carries this image's own stricter checks."
                         (getf properties :history-floor-sequence)))
                  (history-floor-present-p
                    (and properties
-                        (loop for key in properties by #'cddr
+                        (loop for key in properties by (lambda (tail) (nthcdr 2 tail))
                               thereis (eq key :history-floor-sequence)))))
             (unless (and (recovery-proper-list-p record)
                          (member (length record) '(7 9) :test #'=)
@@ -914,7 +914,7 @@ generation. Its validator carries this image's own stricter checks."
                              (null history-floor-sequence)
                              (and (integerp history-floor-sequence)
                                   (plusp history-floor-sequence)))
-                         (loop for key in properties by #'cddr
+                         (loop for key in properties by (lambda (tail) (nthcdr 2 tail))
                                always
                                (member key
                                        '(:version :conversation-id
