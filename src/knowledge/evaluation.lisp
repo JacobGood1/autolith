@@ -503,8 +503,11 @@ are independent support paths even when their propositions agree."
              :test #'equal))
   nil)
 
-(-> knowledge--conclude (knowledge-view list list integer list list) null)
-(defun knowledge--conclude (view entry rule version premises environment)
+(-> knowledge--conclude
+    (knowledge-view list
+     &key (:rule list) (:version integer) (:premises list) (:environment list))
+    null)
+(defun knowledge--conclude (view entry &key rule version premises environment)
   "Derive RULE's conclusion for one complete match of PREMISES under ENVIRONMENT."
   (let ((table (make-hash-table :test #'equal)))
     (loop for (variable . value) in environment
@@ -582,8 +585,11 @@ are independent support paths even when their propositions agree."
                     (pushnew (getf entry :id) (knowledge-view-incomplete view)
                              :test #'string=))
                    ((null patterns)
-                    (knowledge--conclude view entry rule version
-                                         (reverse premises) environment))
+                    (knowledge--conclude view entry
+                                         :rule        rule
+                                         :version     version
+                                         :premises    (reverse premises)
+                                         :environment environment))
                    (t
                     (dolist (node (knowledge--negation-nodes
                                    view (second (first patterns)) environment))
