@@ -12,7 +12,7 @@
     (unless (and (non-empty-string-p value)
                  (<= (length value) *telemetry-diagnostic-limit*))
       (error 'tool-error :tool-name "diagnostic"
-                         :message "Diagnostic must contain between 1 and 8,000 characters."))
+                         :message   "Diagnostic must contain between 1 and 8,000 characters."))
     value))
 
 (defstruct (telemetry-controller (:include model-catalog)
@@ -158,13 +158,13 @@ Keep records registered until teardown completes, including across concurrent pu
   (let ((controller *telemetry-controller*) (mirror nil) (processes nil))
     (when controller
       (bt:with-lock-held ((telemetry-controller-lock controller))
-        (let* ((name (setting-name setting))
-               (owner-p (eq configuration (telemetry-controller-owner controller)))
-               (root-p (member configuration (telemetry-controller-roots controller) :test #'eq))
+        (let* ((name      (setting-name setting))
+               (owner-p   (eq configuration (telemetry-controller-owner controller)))
+               (root-p    (member configuration (telemetry-controller-roots controller) :test #'eq))
                (consent-p (member name '(:telemetry-enabled-p :telemetry-diagnostics-p))))
           (when (and (not (telemetry-controller-stopped controller)) root-p
                      (or (and owner-p (or (eq name ':active-image-core)
-                                           (search "TELEMETRY-" (symbol-name name))))
+                                          (search "TELEMETRY-" (symbol-name name))))
                          (and consent-p (null new))))
             (setf processes (telemetry--purge controller))
             (case name
@@ -205,9 +205,9 @@ Attaching a disabled root does not change existing process consent."
     (setf *telemetry-controller*
           (telemetry--make-controller
            :owner configuration :listener #'telemetry--settings-changed
-           :cache-root (config :cache-root configuration)
-           :library (uiop:getenv "AUTOLITH_DEFINGERPRINTER_LIBRARY")
-           :enabled (eq (config :telemetry-enabled-p configuration) t)
+           :cache-root  (config :cache-root configuration)
+           :library     (uiop:getenv "AUTOLITH_DEFINGERPRINTER_LIBRARY")
+           :enabled     (eq (config :telemetry-enabled-p configuration) t)
            :diagnostics (and (eq (config :telemetry-enabled-p configuration) t)
                              (eq (config :telemetry-diagnostics-p configuration) t)))))
   (let ((controller *telemetry-controller*))
@@ -359,15 +359,15 @@ Only the first top-level launcher scope can adopt the process trace context."
                    (or (member configuration (telemetry-controller-roots controller) :test #'eq)
                        (eq (config :telemetry-enabled-p configuration) t))
                    (< (length (telemetry-controller-runs controller)) 128))
-          (let* ((context (and launcher-p (telemetry--claim-launch-context)))
+          (let* ((context  (and launcher-p (telemetry--claim-launch-context)))
                  (trace-id (first context))
-                 (attempt (or (second context) 1))
-                 (token (list nil))
-                 (run (telemetry--make-run :controller controller :owner token
-                                        :epoch (telemetry-controller-epoch controller)
-                                        :trace-id (or trace-id (telemetry--id 16)) :span-id (telemetry--id 8)
-                                        :attempt attempt :recovered (> attempt 1)
-                                        :start (telemetry--now) :active t)))
+                 (attempt  (or (second context) 1))
+                 (token    (list nil))
+                 (run      (telemetry--make-run :controller controller :owner token
+                                             :epoch (telemetry-controller-epoch controller)
+                                             :trace-id (or trace-id (telemetry--id 16)) :span-id (telemetry--id 8)
+                                             :attempt attempt :recovered (> attempt 1)
+                                             :start (telemetry--now) :active t)))
             (push run (telemetry-controller-runs controller))
             (values run token)))))))
 
@@ -378,14 +378,14 @@ Run-end upload is asynchronous and failure-isolated. Unreported exits are intern
       (funcall function)
       (multiple-value-bind (run token)
           (ignore-errors (telemetry--begin-run configuration))
-        (let ((*telemetry-run* run)
+        (let ((*telemetry-run*  run)
               (failure-terminal nil)
-              (returned-p nil))
+              (returned-p       nil))
           (unwind-protect
                (handler-bind ((serious-condition
                                (lambda (condition)
                                  (setf failure-terminal
-                                       (list :state ':failed
+                                       (list :state      ':failed
                                              :error-type (telemetry--condition-error-type condition))))))
                  (multiple-value-prog1 (funcall function)
                    (setf returned-p t)))
@@ -394,6 +394,7 @@ Run-end upload is asynchronous and failure-isolated. Unreported exits are intern
                                     (if returned-p
                                         (list :state ':completed)
                                         (or failure-terminal (list :state ':unfinished))))))))))
+
 
 ;;;; -- Narrow Metadata Projections --
 
@@ -512,7 +513,8 @@ Catalog rows contain a keyword, accepted spelling and optional exporter wire spe
 (defun telemetry--usage-field (usage name)
   "Read a normalized hash table or portable plist counter, never arbitrary usage fields."
   (telemetry--count
-   (cond ((hash-table-p usage) (gethash name usage))
+   (cond ((hash-table-p usage)
+          (gethash name usage))
          ((listp usage)
           (or (getf usage (intern (string-upcase (substitute #\- #\_ name)) :keyword))
               (getf usage (intern (string-upcase name) :keyword)))))))
@@ -550,9 +552,9 @@ Different primary identities become mixed; missing response names never inherit 
       (bt:with-lock-held ((telemetry-controller-lock controller))
         (when (and (telemetry--live-p run) (not (telemetry-run-ending-p run)))
           (incf (telemetry-run-models run))
-          (let* ((role (telemetry--enum role *telemetry-request-roles*))
-                 (identity (telemetry--model-identity controller :provider provider
-                                                               :request-model request-model
+          (let* ((role     (telemetry--enum role *telemetry-request-roles*))
+                 (identity (telemetry--model-identity controller :provider     provider
+                                                               :request-model  request-model
                                                                :response-model response-model)))
             (setf (telemetry-model-role identity) role
                   (telemetry-model-outcome identity) (telemetry--enum outcome *telemetry-outcomes*)
@@ -574,9 +576,9 @@ Different primary identities become mixed; missing response names never inherit 
 (defun telemetry--argument-digest (arguments tool trace-id)
   "Hash bounded canonical JSON with fresh run salt; retain only the local digest."
   (handler-case
-      (let* ((limits (make-json-limits :maximum-characters 65536 :maximum-depth 24
-                                     :maximum-nodes 4096 :maximum-string-characters 65536
-                                     :maximum-aggregate-string-characters 65536))
+      (let* ((limits    (make-json-limits :maximum-characters 65536 :maximum-depth 24
+                                        :maximum-nodes 4096 :maximum-string-characters 65536
+                                        :maximum-aggregate-string-characters 65536))
              ;; Validate before traversing user arguments, including cycles and large atoms.
              (validated (json-decode (json-encode arguments :limits limits) :limits limits))
              (canonical
@@ -596,7 +598,8 @@ Different primary identities become mixed; missing response names never inherit 
                                (loop for item across value for first-p = t then nil
                                      do (unless first-p (write-char #\, stream)) (emit item))
                                (write-char #\] stream))
-                              (t (write-string (json-encode value) stream)))))
+                              (t
+                               (write-string (json-encode value) stream)))))
                    (emit validated)))))
         (ironclad:digest-sequence
          :sha256 (babel:string-to-octets
@@ -623,7 +626,7 @@ Different primary identities become mixed; missing response names never inherit 
 (defun telemetry--authority-denial-code-p (code)
   "Recognize tool failures caused by user or policy authority, excluding OS refusals."
   (not (null (member code '(:access-denied :permission-denied :authorization
-                           :not-authorized :capability-denied :authority)))))
+                            :not-authorized :capability-denied :authority)))))
 
 (-> telemetry--permission-error-code-p (t) boolean)
 (defun telemetry--permission-error-code-p (code)
@@ -665,7 +668,7 @@ Different primary identities become mixed; missing response names never inherit 
 (defun telemetry-note-tool (&key (run *telemetry-run*) tool arguments outcome error-code exit-code error-type
                                 duration-ms corrects-previous)
   "Record a completed tool attempt. Equality is local; export only its boolean."
-  (setf outcome (telemetry--outcome :outcome (telemetry--enum outcome *telemetry-tool-outcomes*)
+  (setf outcome (telemetry--outcome :outcome  (telemetry--enum outcome *telemetry-tool-outcomes*)
                                   :error-code error-code))
   (when run
     (let ((controller (telemetry-run-controller run)))
@@ -674,17 +677,17 @@ Different primary identities become mixed; missing response names never inherit 
       (bt:with-lock-held ((telemetry-controller-privacy-lock controller))
         (bt:with-lock-held ((telemetry-controller-lock controller))
           (when (and (telemetry--live-p run) (not (telemetry-run-ending-p run)))
-            (let* ((digest (telemetry--argument-digest arguments tool (telemetry-run-trace-id run)))
+            (let* ((digest   (telemetry--argument-digest arguments tool (telemetry-run-trace-id run)))
                    (previous (telemetry-run-previous-digest run))
-                   (same (and digest previous (equalp digest previous))))
+                   (same     (and digest previous (equalp digest previous))))
               (incf (telemetry-run-tools run))
               (setf (telemetry-run-previous-digest run) digest)
               (let ((span
                       (telemetry--export-tool
                        run :tool (telemetry--tool tool) :outcome outcome
-                       :error-code (telemetry--error-code error-code)
-                       :exit-code (when (typep exit-code '(signed-byte 32)) exit-code)
-                       :error-type (telemetry--tool-error-type outcome error-code error-type)
+                       :error-code  (telemetry--error-code error-code)
+                       :exit-code   (when (typep exit-code '(signed-byte 32)) exit-code)
+                       :error-type  (telemetry--tool-error-type outcome error-code error-type)
                        :same-p (not (null same)) :corrects-previous-p (eq corrects-previous t)
                        :duration-ms duration-ms)))
                 (when (and (stringp (telemetry--tool tool))
@@ -725,7 +728,7 @@ Different primary identities become mixed; missing response names never inherit 
                                   summary-function (language "en"))
   "Record an incident or a duplicate's new link to an already exported tool span."
   (when run
-    (let* ((safe (unless duplicate-p (telemetry--diagnostic run summary-function language)))
+    (let* ((safe       (unless duplicate-p (telemetry--diagnostic run summary-function language)))
            (controller (telemetry-run-controller run))
            (identifier (if (telemetry--report-id-p report-id) report-id (telemetry--id 16))))
       (multiple-value-bind (tool-span-id exported-link-p)
@@ -745,7 +748,7 @@ Different primary identities become mixed; missing response names never inherit 
   "Return the latest failed TOOL span ID and link it to REPORT-ID, even after flush.
 The second value is true only for a newly linked span no longer in the queue.
 Retain one identity per catalog tool until run end. Never replace another report's link."
-  (let ((identifier nil)
+  (let ((identifier      nil)
         (exported-link-p nil))
     (when (and run (telemetry--report-id-p report-id)
                (stringp (telemetry--tool tool)))
@@ -773,35 +776,39 @@ Retain one identity per catalog tool until run end. Never replace another report
                                   summary-function (language "en"))
   "Record a typed incident event without source, values or raw check output."
   (when run
-    (let* ((safe (telemetry--diagnostic run summary-function language))
+    (let* ((safe       (telemetry--diagnostic run summary-function language))
            (controller (telemetry-run-controller run))
            (event-kind (let ((kind (telemetry--enum event-kind *telemetry-event-kinds*)))
                          (if (member kind '(:repair :check :assessment :closure)) kind ':repair)))
-           (outcome (telemetry--enum outcome *telemetry-repair-outcomes*))
-           (scope (when (eq event-kind ':check)
-                    (telemetry--enum verification-scope *telemetry-verification-scopes*))))
+           (outcome    (telemetry--enum outcome *telemetry-repair-outcomes*))
+           (scope      (when (eq event-kind ':check)
+                         (telemetry--enum verification-scope *telemetry-verification-scopes*))))
       (bt:with-lock-held ((telemetry-controller-lock controller))
         (when (telemetry--live-p run)
           (telemetry--export-repair
            run :event-kind event-kind
-           :report-id (cond ((telemetry--report-id-p incident-id) incident-id)
-                            ((telemetry--report-id-p report-id) report-id)
-                            ((telemetry--report-id-p attempt-id) attempt-id)
-                            (t (telemetry--id 16)))
+           :report-id      (cond ((telemetry--report-id-p incident-id)
+                                  incident-id)
+                                 ((telemetry--report-id-p report-id)
+                                  report-id)
+                                 ((telemetry--report-id-p attempt-id)
+                                  attempt-id)
+                                 (t
+                                  (telemetry--id 16)))
            :target (telemetry--tool target) :operation (telemetry--tool operation)
-           :issue-kind (telemetry--enum issue-kind *telemetry-issue-kinds*)
-           :repair-kind (telemetry--enum repair-kind *telemetry-repair-kinds*)
+           :issue-kind     (telemetry--enum issue-kind *telemetry-issue-kinds*)
+           :repair-kind    (telemetry--enum repair-kind *telemetry-repair-kinds*)
            :outcome outcome :scope scope
-           :verified-p (and (eq event-kind ':check) (member scope '(:focused :full))
-                            (eq outcome ':verified) (eq verified t))
-           :incident-id (when (telemetry--report-id-p incident-id) incident-id)
+           :verified-p     (and (eq event-kind ':check) (member scope '(:focused :full))
+                                (eq outcome ':verified) (eq verified t))
+           :incident-id    (when (telemetry--report-id-p incident-id) incident-id)
            :attempt-id (when (telemetry--report-id-p attempt-id) attempt-id) :safe safe)))))
   nil)
 
 (-> telemetry--terminal-outcome (list) (values keyword (option keyword) (option string)))
 (defun telemetry--terminal-outcome (terminal)
   "Map recorded state to outcome, error type and dedicated unfinished error code."
-  (let ((state (getf terminal :state))
+  (let ((state    (getf terminal :state))
         (category (getf terminal :category)))
     (cond ((not (member state '(:completed :succeeded :failed :aborted :cancelled :timed-out)))
            (values ':error ':internal "unfinished-run"))
@@ -836,7 +843,7 @@ Reports after finish are ignored with a local debug diagnostic."
       (if (or (telemetry-run-ending-p run) (not (telemetry--live-p run)))
           (telemetry--log ':debug "Ignoring terminal report after run finish.")
           (let* ((candidate (multiple-value-list (telemetry--terminal-outcome terminal)))
-                 (previous (telemetry-run-borrower-outcome run)))
+                 (previous  (telemetry-run-borrower-outcome run)))
             (when (or (null previous)
                       (string> (telemetry--outcome-order candidate)
                                (telemetry--outcome-order previous)))
@@ -846,7 +853,10 @@ Reports after finish are ignored with a local debug diagnostic."
 (-> telemetry--outcome-order (list) string)
 (defun telemetry--outcome-order (outcome)
   "Return a stable ordering key for bounded borrower outcome metadata."
-  (format nil "~D/~A/~A" (ecase (first outcome) (:success 0) (:cancelled 1) (:error 2))
+  (format nil "~D/~A/~A" (ecase (first outcome) (:success
+                                                 0) (:cancelled
+                                                     1) (:error
+                                                         2))
           (or (second outcome) "") (or (third outcome) "")))
 
 (-> telemetry-finish-run ((option telemetry-run) t &optional list) null)
@@ -859,7 +869,7 @@ Reports after finish are ignored with a local debug diagnostic."
 (defun telemetry--end-run (run terminal)
   "Queue final root counters and wake the uploader without waiting for network work."
   (let ((controller (telemetry-run-controller run))
-        (claimed-p nil))
+        (claimed-p  nil))
     (unwind-protect
          (progn
            (bt:with-lock-held ((telemetry-controller-lock controller))
