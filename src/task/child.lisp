@@ -656,10 +656,13 @@ candidates."
            "(no output)"))))
 
 (-> task--assemble-child-result
-    (task-job provider-result agent conversation task-completion)
+    (task-job &key (:provider-result provider-result)
+                   (:child agent)
+                   (:conversation conversation)
+                   (:completion task-completion))
     list)
 (defun task--assemble-child-result
-    (job provider-result child conversation completion)
+    (job &key provider-result child conversation completion)
   "Assemble one portable SingleResult-style plist for a completed child."
   (let* ((progress (task-job-progress job))
          (status
@@ -838,7 +841,10 @@ candidates."
                     :observer     observer
                     :goal-context (task-child-goal-context job configuration))))
              (task--assemble-child-result
-              job result child conversation completion)))
+              job :provider-result result
+                  :child           child
+                  :conversation    conversation
+                  :completion      completion)))
       (task-job-cancel-execution-descendants job ':parent-finished)
       ; mallet:suppress no-ignore-errors -- best-effort worker shutdown must not mask the child result
       (ignore-errors (lisp-worker-pool-stop-all worker)))))

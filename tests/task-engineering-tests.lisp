@@ -111,9 +111,11 @@
            "a contract-valid result may report observed check failure honestly")
           (let* ((durable
                    (task--assemble-child-result
-                    (getf fixture :job) (agent-test-result "engineering-result" nil)
-                    (getf fixture :child) (getf fixture :conversation)
-                    (getf fixture :completion)))
+                    (getf fixture :job)
+                    :provider-result (agent-test-result "engineering-result" nil)
+                    :child           (getf fixture :child)
+                    :conversation    (getf fixture :conversation)
+                    :completion      (getf fixture :completion)))
                  (shared (make-array 5 :element-type 'character :initial-contents "child"))
                  (base   (coerce "base text" 'base-string)))
             (setf (getf durable :id) shared

@@ -805,10 +805,10 @@
              (let ((durable
                      (task--assemble-child-result
                       (getf fixture :job)
-                      (agent-test-result "yield-false-result" nil)
-                      (getf fixture :child)
-                      (getf fixture :conversation)
-                      completion)))
+                      :provider-result (agent-test-result "yield-false-result" nil)
+                      :child           (getf fixture :child)
+                      :conversation    (getf fixture :conversation)
+                      :completion      completion)))
                (test-assert
                 (and (getf durable :structured-output-present-p)
                      (task--plist-key-present-p durable :structured-output)
@@ -959,10 +959,10 @@
                     (durable
                       (task--assemble-child-result
                        (getf fixture :job)
-                       (agent-test-result "bounded-label-result" nil)
-                       (getf fixture :child)
-                       (getf fixture :conversation)
-                       (getf fixture :completion))))
+                       :provider-result (agent-test-result "bounded-label-result" nil)
+                       :child           (getf fixture :child)
+                       :conversation    (getf fixture :conversation)
+                       :completion      (getf fixture :completion))))
                (test-assert
                 (and (tool-result-success-p result)
                      (task-tests--publish-terminal
