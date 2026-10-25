@@ -11,7 +11,6 @@
 (defvar *user-init-layer* nil
   "The site, directory, or user initialization layer currently being loaded.")
 
-
 (-> user-init--present-entry (pathname keyword string) list)
 (defun user-init--present-entry (pathname layer description)
   "Return one LAYER entry when PATHNAME is a present regular file."
@@ -29,8 +28,8 @@
                        "Could not inspect ~A executable initialization at ~A: ~A"
                        (string-downcase (symbol-name layer)) pathname cause)
                :pathname pathname
-               :layer layer
-               :cause cause)))))
+               :layer    layer
+               :cause    cause)))))
 
 (-> user-init--directory-entries (configuration) list)
 (defun user-init--directory-entries (configuration)
@@ -49,8 +48,8 @@
                        "Could not inspect directory executable initialization at ~A: ~A"
                        pathname cause)
                :pathname pathname
-               :layer ':directory
-               :cause cause)))))
+               :layer    ':directory
+               :cause    cause)))))
 
 (-> user-init--entries (configuration) list)
 (defun user-init--entries (configuration)
@@ -74,13 +73,13 @@ They execute with the user's full privileges. Registration changes roll back
 after failure, but arbitrary Lisp side effects do not generally have reversible
 semantics."
   (with-extension-registry-transaction
-    (let ((entries (user-init--entries configuration))
-          (context-registrations (context--registry-snapshot))
-          (command-registrations (application-command--registry-snapshot))
-          (mcp-registrations (mcp--registry-snapshot))
+    (let ((entries                (user-init--entries configuration))
+          (context-registrations  (context--registry-snapshot))
+          (command-registrations  (application-command--registry-snapshot))
+          (mcp-registrations      (mcp--registry-snapshot))
           (provider-registrations (provider--registry-snapshot))
-          (loaded-pathname nil)
-          (current-entry nil))
+          (loaded-pathname        nil)
+          (current-entry          nil))
       (handler-case
           (progn
             (dolist (source '(:site :user))
@@ -90,14 +89,14 @@ semantics."
               (provider--remove-registration-source source))
             (dolist (entry entries loaded-pathname)
               (setf current-entry entry)
-              (let* ((layer (first entry))
-                     (pathname (second entry))
-                     (*package* (find-package '#:autolith))
-                     (*user-init-loading-p* t)
+              (let* ((layer                     (first entry))
+                     (pathname                  (second entry))
+                     (*package*                 (find-package '#:autolith))
+                     (*user-init-loading-p*     t)
                      (*user-init-configuration* configuration)
-                      (*configuration* configuration)
-                     (*user-init-pathname* pathname)
-                     (*user-init-layer* layer)
+                     (*configuration*           configuration)
+                     (*user-init-pathname*      pathname)
+                     (*user-init-layer*         layer)
                      (*extension-registration-source*
                        (if (eq layer ':site) ':site ':user)))
                 (load pathname :verbose nil :print nil)
@@ -107,11 +106,11 @@ semantics."
           (application-command--registry-restore command-registrations)
           (mcp--registry-restore mcp-registrations)
           (provider--registry-restore provider-registrations)
-          (let* ((entry (or current-entry
-                            (first entries)
-                            (list ':user
-                                  (configuration-user-init-path configuration))))
-                 (layer (first entry))
+          (let* ((entry    (or current-entry
+                               (first entries)
+                               (list ':user
+                                     (configuration-user-init-path configuration))))
+                 (layer    (first entry))
                  (pathname (second entry)))
             (error 'user-init-error
                    :message
@@ -119,5 +118,5 @@ semantics."
                            "Could not load ~A executable initialization at ~A: ~A"
                            (string-downcase (symbol-name layer)) pathname cause)
                    :pathname pathname
-                   :layer layer
-                   :cause cause)))))))
+                   :layer    layer
+                   :cause    cause)))))))
