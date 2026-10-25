@@ -43,7 +43,7 @@
                      (viewport (fullscreen-terminal-ui-viewport ui)))
                 (terminal-ui-fullscreen--ensure-width ui width)
                 (multiple-value-bind (text display regions) (terminal-ui--finalized-content ui presented)
-                  (terminal-ui-fullscreen--append ui text display regions))
+                  (terminal-ui-fullscreen--append ui text display :regions regions))
                 (let ((rows (loop for index below (clinedi:transcript-viewport-row-count viewport)
                                   collect (list (clinedi:transcript-viewport-row-text viewport index)
                                                 (clinedi:transcript-viewport-row-display viewport index)))))

@@ -121,9 +121,9 @@ sequence, so it lands in the normal screen where it stays readable."
   nil)
 
 (-> terminal-ui-fullscreen--append
-    (fullscreen-terminal-ui string string &optional list)
+    (fullscreen-terminal-ui string string &key (:regions list))
     null)
-(defun terminal-ui-fullscreen--append (ui text display &optional regions)
+(defun terminal-ui-fullscreen--append (ui text display &key regions)
   "Extend the transcript with one committed output chunk and its click REGIONS."
   (when (plusp (length text))
     (clinedi:transcript-viewport-append (fullscreen-terminal-ui-viewport ui)
@@ -422,7 +422,7 @@ lock, because copying and browser launches present notices of their own."
               (completed-p nil))
           (unwind-protect
                (progn
-                 (terminal-ui-fullscreen--append ui text display regions)
+                 (terminal-ui-fullscreen--append ui text display :regions regions)
                  (when (terminal-ui-started-p ui)
                    (if (terminal-interactive-p terminal)
                        (progn
