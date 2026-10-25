@@ -41,9 +41,10 @@
   (let ((left-version  (release-tag->version left))
         (right-version (release-tag->version right)))
     (unless (and left-version right-version)
-      (error 'type-error
-             :datum         (list left right)
-             :expected-type '(cons string (cons string null))))
+      (error 'release-tag-error
+             :tags    (list left right)
+             :message (format nil "Release tags ~S and ~S are not both strict release tags."
+                              left right)))
     (version< (subseq left 1) (subseq right 1))))
 
 
@@ -543,3 +544,14 @@ that carries a platform accepts only that platform's qualified name."
              :name "Autolith release availability"))
         (serious-condition ()
           nil)))))
+
+
+;;;; -- Conditions --
+
+(define-condition release-tag-error (autolith-error)
+  ((tags
+    :initarg       :tags
+    :reader        release-tag-error-tags
+    :type          list
+    :documentation "The compared release tags, at least one of which is not strict."))
+  (:documentation "Release tags cannot be compared because one is not a strict three-component tag."))
