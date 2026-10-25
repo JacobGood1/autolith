@@ -22,9 +22,9 @@
 
 (defclass scratchpad-resource (workspace-file-resource)
   ((root
-    :initarg :root
-    :reader scratchpad-resource-root
-    :type pathname
+    :initarg       :root
+    :reader        scratchpad-resource-root
+    :type          pathname
     :documentation "The canonical conversation scratchpad root."))
   (:documentation
    "A file, directory, or missing path beneath one conversation scratchpad."))
@@ -65,7 +65,7 @@
   "Resolve RELATIVE-PATH beneath CONTEXT's scratchpad or signal TOOL-ERROR."
   (unless (non-empty-string-p relative-path)
     (error 'tool-error
-           :message "A scratchpad path must be a non-empty relative pathname."
+           :message   "A scratchpad path must be a non-empty relative pathname."
            :tool-name "scratchpad"))
   (let ((root (workspace-tool--canonical-path
                (lisp-scratchpad-root context))))
@@ -79,7 +79,7 @@
                         (member component '(:up :back :wild :wild-inferiors)))
                       directory))
         (error 'tool-error
-               :message "Scratchpad paths must stay inside the conversation folder."
+               :message   "Scratchpad paths must stay inside the conversation folder."
                :tool-name "scratchpad"))
       (let ((resolved
               (workspace-tool--canonical-path
@@ -87,7 +87,7 @@
         (unless (or (uiop:pathname-equal resolved root)
                     (uiop:subpathp resolved root))
           (error 'tool-error
-                 :message "Scratchpad paths must stay inside the conversation folder."
+                 :message   "Scratchpad paths must stay inside the conversation folder."
                  :tool-name "scratchpad"))
         resolved))))
 
@@ -106,7 +106,6 @@
           (remove root
                   *workspace-tool-readable-roots*
                   :test #'uiop:pathname-equal))))
-
 
 (defmethod workspace-file-resource-access-roots
     ((resource scratchpad-resource) (context tool-context))
@@ -145,9 +144,9 @@
   (declare (ignore resolver))
   (let* ((root (workspace-tool--canonical-path
                 (lisp-scratchpad-root context)))
-          (path (lisp-scratchpad-path
-                 context (workspace-file--decode-identifier
-                          "scratchpad" identifier))))
+         (path (lisp-scratchpad-path
+                context (workspace-file--decode-identifier
+                         "scratchpad" identifier))))
     (make-instance 'scratchpad-resource
                    :uri      (scratchpad-resource--canonical-uri root path)
                    :pathname path
@@ -211,21 +210,21 @@
   "Delete RESOURCE after exact BASE-REVISION validation and return its new state."
   (unless (= (length operations) 1)
     (error 'tool-error
-           :message "Operation scratchpad-delete must be the only resource edit operation."
+           :message   "Operation scratchpad-delete must be the only resource edit operation."
            :tool-name "resource.edit"))
   (let ((operation (first operations)))
     (unless (json-object-p operation)
       (error 'tool-error
-             :message "Every resource edit operation must be a JSON object."
+             :message   "Every resource edit operation must be a JSON object."
              :tool-name "resource.edit"))
     (unless (scratchpad-resource--delete-operation-p operation)
       (error 'tool-error
-             :message "Expected scratchpad-delete operation."
+             :message   "Expected scratchpad-delete operation."
              :tool-name "resource.edit"))
     (when (loop for key being the hash-keys of operation
                 thereis (not (equal key "op")))
       (error 'tool-error
-             :message "Operation scratchpad-delete contains unsupported fields."
+             :message   "Operation scratchpad-delete contains unsupported fields."
              :tool-name "resource.edit")))
   (let ((conversation (tool-context-conversation context)))
     (with-recursive-lock-held (*workspace-file-mutation-lock*)
@@ -237,7 +236,7 @@
                (base-observation
                  (resource-observation-state-observation state))
                (current (workspace-file--observe-path resource context))
-               (path (workspace-file-resource-pathname resource)))
+               (path    (workspace-file-resource-pathname resource)))
           (unless (workspace-file--same-observation-p current base-observation)
             (workspace-file--signal-stale resource base-observation current))
           (when (and (eq (workspace-file-observation-kind base-observation)
@@ -245,29 +244,29 @@
                      (search "[directory listing truncated]"
                              (resource-observation-content base-observation)))
             (error 'tool-error
-                   :message "Refusing scratchpad directory deletion because its bounded observation was truncated. Read or delete smaller child resources first."
+                   :message   "Refusing scratchpad directory deletion because its bounded observation was truncated. Read or delete smaller child resources first."
                    :tool-name "resource.edit"))
           (case (workspace-file-observation-kind base-observation)
             (:file
              (delete-file path))
             (:directory
              (platform-delete-directory-tree *platform* path
-                                             :validate t
+                                             :validate          t
                                              :if-does-not-exist ':error))
             (:missing
              (error 'tool-error
-                    :message "Cannot delete an observed missing scratchpad resource."
+                    :message   "Cannot delete an observed missing scratchpad resource."
                     :tool-name "resource.edit")))
           (let ((published (workspace-file--observe-path resource context)))
             (unless (eq (workspace-file-observation-kind published) ':missing)
               (error 'tool-error
-                     :message "Scratchpad deletion did not leave the resource missing."
+                     :message   "Scratchpad deletion did not leave the resource missing."
                      :tool-name "resource.edit"))
             (values
              published
-             (list (list :kind ':scratchpad-delete
+             (list (list :kind  ':scratchpad-delete
                          :start 1
-                         :end 1
+                         :end   1
                          :summary
                          (if (scratchpad-resource--root-p resource)
                              "scratchpad-delete root"
@@ -283,7 +282,7 @@
       ((plusp delete-count)
        (unless (and (= delete-count 1) (= (length operations) 1))
          (error 'tool-error
-                :message "Operation scratchpad-delete must be the only resource edit operation."
+                :message   "Operation scratchpad-delete must be the only resource edit operation."
                 :tool-name "resource.edit"))
        (scratchpad-resource--delete
         resource context base-revision operations))
@@ -293,7 +292,7 @@
                 resource context base-revision)))
          (when (eq (workspace-file-observation-kind base-observation) ':directory)
            (error 'tool-error
-                  :message "Scratchpad directories accept only scratchpad-delete."
+                  :message   "Scratchpad directories accept only scratchpad-delete."
                   :tool-name "resource.edit"))
          (when (and (scratchpad-resource--root-p resource)
                     (eq (workspace-file-observation-kind base-observation) ':missing)
@@ -303,7 +302,7 @@
                                           "replace-empty")))
                           operations))
            (error 'tool-error
-                  :message "The scratchpad root cannot be created as a file. Edit a child scratchpad URI instead."
+                  :message   "The scratchpad root cannot be created as a file. Edit a child scratchpad URI instead."
                   :tool-name "resource.edit"))
          (call-next-method))))))
 
@@ -334,14 +333,14 @@
          (lisp-tool-invoke-execution
           context arguments
           :tool-name "lisp.scratchpad-run"
-          :summary (format nil "Load scratchpad ~A" path)
+          :summary   (format nil "Load scratchpad ~A" path)
           :operation-function
           (lambda (worker)
             (let ((result
                     (worker-response-tool-result
                      (worker-host-eval-request worker :eval (list :forms (list form))
                                                :context context :tools tools
-                                               :enabled-p enabled-p))))
+                                               :enabled-p   enabled-p))))
               (if (tool-result-success-p result)
                   (tool-success
                    (format nil "Loaded scratchpad file ~A into Lisp REPL ~A.~%~A"
