@@ -801,8 +801,6 @@ The caller must hold CONTROLLER's lock."
   "Transactionally restore every vaulted capture before newer controller work."
   (let* ((application
            (application-input-controller-application controller))
-         (vault-pathname
-           (application-recovery-input-vault--path application))
          (pending-pathname
            (application-recovery-input-vault--pending-path application))
          (restored-count 0))
