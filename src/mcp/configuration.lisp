@@ -263,7 +263,7 @@ bound policy takes effect without reloading this file."
 (defun mcp-configuration--property
     (properties key &key required-p pathname server-name)
   "Return KEY from PROPERTIES and reject an absent required value."
-  (loop for (candidate value) on properties by #'cddr
+  (loop for (candidate value) on properties by (partial #'nthcdr 2)
         when (eq candidate key)
           do (return-from mcp-configuration--property value))
   (when required-p
@@ -277,7 +277,7 @@ bound policy takes effect without reloading this file."
 (-> mcp-configuration--property-present-p (list keyword) boolean)
 (defun mcp-configuration--property-present-p (properties key)
   "Return true when PROPERTIES explicitly contains KEY."
-  (loop for tail on properties by #'cddr
+  (loop for tail on properties by (partial #'nthcdr 2)
         thereis (eq (first tail) key)))
 
 (-> mcp-configuration--positive-timeout
