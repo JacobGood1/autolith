@@ -15,9 +15,9 @@ of discarding the tail."
   (let ((text (if (stringp value)
                   value
                   (write-to-string value
-                                   :circle t
-                                   :level 8
-                                   :length 80
+                                   :circle   t
+                                   :level    8
+                                   :length   80
                                    :readably nil))))
     (if (<= (length text) limit)
         text
