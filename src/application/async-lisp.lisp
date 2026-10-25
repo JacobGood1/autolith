@@ -3,9 +3,9 @@
 ;;;; -- Asynchronous Active-image Lisp --
 
 (defclass application-async-lisp-result (tool-result)
-  ((entry :initarg :entry
-          :reader application-async-lisp-result-entry
-          :type list
+  ((entry :initarg       :entry
+          :reader        application-async-lisp-result-entry
+          :type          list
           :documentation "The captured terminal spans for the completed evaluation."))
   (:documentation "An asynchronous Lisp outcome with styled local presentation."))
 
@@ -22,21 +22,21 @@
     (application string application-async-lisp-output-stream) tool-result)
 (defun application-async-lisp--evaluate (application source output)
   "Evaluate one SOURCE form with captured streams and noninteractive recovery."
-  (let* ((input (make-string-input-stream ""))
-         (terminal (make-two-way-stream input output))
-         (*standard-input* input)
-         (*standard-output* output)
-         (*error-output* output)
-         (*trace-output* output)
-         (*terminal-io* terminal)
-         (*query-io* terminal)
-         (*debug-io* terminal)
-         (*package* (find-package '#:autolith))
-         (*application-operation-application* application)
-         (*application-local-user-evaluation-p* t)
-         (*application-command-interactive-p* nil)
+  (let* ((input                                               (make-string-input-stream ""))
+         (terminal                                            (make-two-way-stream input output))
+         (*standard-input*                                    input)
+         (*standard-output*                                   output)
+         (*error-output*                                      output)
+         (*trace-output*                                      output)
+         (*terminal-io*                                       terminal)
+         (*query-io*                                          terminal)
+         (*debug-io*                                          terminal)
+         (*package*                                           (find-package '#:autolith))
+         (*application-operation-application*                 application)
+         (*application-local-user-evaluation-p*               t)
+         (*application-command-interactive-p*                 nil)
          (*application-user-operation-recording-suppressed-p* t)
-         (*application-lisp-tool-results* (make-hash-table :test #'eq)))
+         (*application-lisp-tool-results*                     (make-hash-table :test #'eq)))
     (multiple-value-bind (values status condition restart-names selected-restart)
         (application-lisp-call-with-debugger
          (lambda ()
@@ -52,9 +52,9 @@
                 :condition condition))
              (entry (application-lisp--result-entry evaluation)))
         (make-instance 'application-async-lisp-result
-                       :content (tool-result-content
-                                 (tool-success (terminal--spans-text entry)))
-                       :entry entry
+                       :content   (tool-result-content
+                                   (tool-success (terminal--spans-text entry)))
+                       :entry     entry
                        :success-p (eq status ':ok))))))
 
 (-> application-async-lisp--finish
@@ -70,7 +70,7 @@
   (multiple-value-bind (record final-report final-state)
       (tool-execution-job--terminal-record job state result report)
     (let* ((captured (application-async-lisp-output-text output))
-           (outcome (getf record :content))
+           (outcome  (getf record :content))
            (content
              (format nil "Async Lisp ~A (~(~A~))~%~@[output:~%~A~%~]~A"
                      (session-job-identifier job) final-state
@@ -114,10 +114,10 @@
 
 Persist the submission before starting it. Capture its conversation and identifier
 so completion enters the originating session even after a session switch."
-  (let* ((prefix (terminal-ui--async-lisp-prefix-length source))
+  (let* ((prefix       (terminal-ui--async-lisp-prefix-length source))
          (conversation (application-conversation application))
          (orchestrator (application--task-orchestrator application))
-         (form-source (and prefix (subseq source prefix))))
+         (form-source  (and prefix (subseq source prefix))))
     (unless (and prefix orchestrator)
       (error 'configuration-error
              :message "Async Lisp requires a ? whitespace prefix and a session job runtime."))
