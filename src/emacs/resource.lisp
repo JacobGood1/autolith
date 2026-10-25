@@ -334,7 +334,9 @@ Return the new observation and the normalized operations."
              :message   (format nil "Start line ~D is beyond the buffer's ~D lines. Request a valid window."
                                 start-line total-lines)
              :tool-name "resource.read"))
-    (tool-success (emacs-buffer--window-result context observation start-line line-count))))
+    (tool-success (emacs-buffer--window-result context observation
+                                               :start-line start-line
+                                               :line-count line-count))))
 
 (defmethod resource-tool-edit
     ((resource emacs-buffer-resource) (tool resource-edit-tool)
@@ -364,7 +366,8 @@ Return the new observation and the normalized operations."
                                   (mapcar (lambda (operation) (getf operation :summary))
                                           normalized)
                                   (emacs-buffer--window-result
-                                   context observation start-line line-count))))
+                                   context observation :start-line start-line
+                                                       :line-count line-count))))
               (tool-success
                (if (emacs-buffer-observation-file observation)
                    (lisp-source-edit-result-content result
@@ -513,9 +516,10 @@ Return the new observation and the normalized operations."
        (emacs-buffer--observation resource reply "resource.edit")))))
 
 (-> emacs-buffer--window-result
-    (tool-context emacs-buffer-observation (integer 1) (integer 1))
+    (tool-context emacs-buffer-observation
+     &key (:start-line (integer 1)) (:line-count (integer 1)))
     string)
-(defun emacs-buffer--window-result (context observation start-line line-count)
+(defun emacs-buffer--window-result (context observation &key start-line line-count)
   "Render OBSERVATION's line window, retaining it for edits in CONTEXT's conversation."
   (let* ((lines       (workspace-file-observation-lines observation))
          (total-lines (length lines)))
