@@ -9,16 +9,24 @@
   "The smallest previous prompt used to flag low cache reads.")
 
 (defparameter *prompt-cache-miss-ratio* 1/2
-  "Cached tokens below this share of the previous prompt count as a miss.")
+  "Without a previous cache count, reads below this share of the previous prompt count as a miss.")
 
 (defparameter *prompt-cache-stall-minimum-tokens* 4096
-  "The smallest shortfall against the previous prompt used to flag stagnant reads.")
+  "The smallest unread growth behind a non-advancing cache count used to flag stagnation.")
 
 (defparameter *prompt-cache-stall-ratio* 1/16
-  "The previous-prompt share a cache-read shortfall must reach to flag stagnation.")
+  "The previous-prompt share unread growth must reach to flag stagnation.")
 
 (defparameter *prompt-cache-block-tokens* 128
-  "Tolerance for changes in reported cache reads, not a provider granularity guarantee.")
+  "The provider's cache granularity: the smallest drop in cache reads that counts as lost prefix.")
+
+(deftype prompt-cache-anomaly-kind ()
+  "How cache reads compare with the previous request's.
+
+:SHRUNK means fewer tokens were read than before, so a cached prefix was lost.
+:STALLED means reads did not advance although the prompt grew by enough to cache.
+:MISSED means reads were low against a previous request whose own reads are unknown."
+  '(member :shrunk :stalled :missed))
 
 (deftype prompt-cache-miss-cause ()
   "A local observation accompanying low cache reads, or an unknown cause."
@@ -165,74 +173,84 @@ It does not establish why those tokens were uncached. NIL means no attribution."
     (when (and (integerp input) (integerp cached))
       (max 0 (- input cached)))))
 
-(-> prompt-cache--stalled-p
+(-> prompt-cache--anomaly
     (prompt-cache-baseline (integer 0) (integer 0))
-    boolean)
-(defun prompt-cache--stalled-p (baseline prompt-tokens cached-tokens)
-  "Return true when reported cache reads stagnate behind a growing prompt.
+    (values (option prompt-cache-anomaly-kind) (integer 0)))
+(defun prompt-cache--anomaly (baseline prompt-tokens cached-tokens)
+  "Return the anomaly kind of reading CACHED-TOKENS of PROMPT-TOKENS after BASELINE, and its lost tokens.
 
-This is a measurement heuristic. Temporary context, routing and other unknown
-factors can account for uncached input; these counts do not identify a cause."
-  (let ((expected        (prompt-cache-baseline-prompt-tokens baseline))
+Reads are compared with the previous request's reads, the comparable cached
+prefix, not with its whole prompt: a read that grew is progress however far it
+trails the prompt. Shrinking reads lose exactly the difference. Reads that do
+not advance lose the previous prompt's unread part, which accumulates over
+consecutive stalled requests; it includes that request's temporary context, so
+it is an upper bound. Without previous reads, low reads against the previous
+prompt are the only evidence. The first value is NIL when nothing is anomalous."
+  (let ((previous        (prompt-cache-baseline-prompt-tokens baseline))
         (previous-cached (prompt-cache-baseline-cached-tokens baseline)))
-    (and previous-cached
-         (> prompt-tokens expected)
-         (<= cached-tokens (+ previous-cached *prompt-cache-block-tokens*))
-         (>= (- expected cached-tokens)
-             (max *prompt-cache-stall-minimum-tokens*
-                  (floor (* expected *prompt-cache-stall-ratio*))))
-         t)))
+    (cond
+      ((null previous-cached)
+       (if (and (>= previous *prompt-cache-miss-minimum-tokens*)
+                (< cached-tokens (* previous *prompt-cache-miss-ratio*)))
+           (values ':missed (max 0 (- previous cached-tokens)))
+           (values nil 0)))
+      ((>= (- previous-cached cached-tokens) *prompt-cache-block-tokens*)
+       (values ':shrunk (- previous-cached cached-tokens)))
+      ((and (> prompt-tokens previous)
+            (<= cached-tokens previous-cached)
+            (>= (- previous previous-cached)
+                (max *prompt-cache-stall-minimum-tokens*
+                     (floor (* previous *prompt-cache-stall-ratio*)))))
+       (values ':stalled (max 0 (- previous cached-tokens))))
+      (t
+       (values nil 0)))))
 
 (-> prompt-cache-miss-detect
     ((option prompt-cache-baseline) t
      &key (:started-at (option timestamp)) (:model (option string)))
     (option list))
 (defun prompt-cache-miss-detect (baseline usage &key started-at model)
-  "Return measurements when USAGE has low or stagnant cache reads.
+  "Return measurements when USAGE's cache reads fall behind the previous request's.
 
 USAGE is the completed request's usage; STARTED-AT and MODEL describe that
-request. Thresholds use previous measurements as a heuristic, not as evidence
-that the previous full prompt was reusable. :UNCACHED-TOKENS is the current
-input minus cached tokens, not a measurement of repeated text. :STALLED-P
-describes stagnant aggregate reads.
-:CAUSE identifies a local observation or :UNKNOWN, not a proven cache cause.
-Requests without counters or below the reporting thresholds return NIL."
+request. :KIND is a PROMPT-CACHE-ANOMALY-KIND and :LOST-TOKENS the reuse it
+missed, as PROMPT-CACHE--ANOMALY measures them; the current request's new
+suffix is never counted as lost. :CAUSE identifies a local observation or
+:UNKNOWN, not a proven cache cause. Requests without counters, or whose reads
+kept pace, return NIL."
   (block nil
     (unless baseline
       (return nil))
     (let* ((prompt-tokens (conversation--usage-field usage "input_tokens"))
            (cached-tokens (conversation--usage-field usage "cached_input_tokens"))
-           (expected      (prompt-cache-baseline-prompt-tokens baseline))
-           (miss-p        (and prompt-tokens
-                               cached-tokens
-                               (>= expected *prompt-cache-miss-minimum-tokens*)
-                               (< cached-tokens (* expected *prompt-cache-miss-ratio*))))
-           (stall-p       (and prompt-tokens
-                               cached-tokens
-                               (prompt-cache--stalled-p
-                                baseline prompt-tokens cached-tokens))))
-      (unless (or miss-p stall-p)
+           (expected      (prompt-cache-baseline-prompt-tokens baseline)))
+      (unless (and prompt-tokens cached-tokens)
         (return nil))
-      (let* ((completed-at   (prompt-cache-baseline-completed-at baseline))
-             (baseline-model (prompt-cache-baseline-model baseline))
-             (idle-seconds
-               (and completed-at
-                    started-at
-                    (max 0 (- started-at completed-at)))))
-        (list :uncached-tokens (max 0 (- prompt-tokens cached-tokens))
-              :prompt-tokens   prompt-tokens
-              :cached-tokens   cached-tokens
-              :stalled-p       stall-p
-              :cause           (prompt-cache--miss-cause
-                                :model-changed-p (and model
-                                                      baseline-model
-                                                      (string/= model baseline-model)
-                                                      t)
-                                :idle-seconds    idle-seconds
-                                :shrunk-p        (< prompt-tokens expected)
-                                :completed-at    completed-at)
-              :idle-seconds    idle-seconds
-              :instructions-uncached
-              (prompt-cache--attribution-uncached usage "instructions")
-              :tools-uncached
-              (prompt-cache--attribution-uncached usage "tools"))))))
+      (multiple-value-bind (kind lost-tokens)
+          (prompt-cache--anomaly baseline prompt-tokens cached-tokens)
+        (unless kind
+          (return nil))
+        (let* ((completed-at   (prompt-cache-baseline-completed-at baseline))
+               (baseline-model (prompt-cache-baseline-model baseline))
+               (idle-seconds
+                 (and completed-at
+                      started-at
+                      (max 0 (- started-at completed-at)))))
+          (list :kind                   kind
+                :lost-tokens            lost-tokens
+                :prompt-tokens          prompt-tokens
+                :cached-tokens          cached-tokens
+                :previous-cached-tokens (prompt-cache-baseline-cached-tokens baseline)
+                :cause                  (prompt-cache--miss-cause
+                                         :model-changed-p (and model
+                                                               baseline-model
+                                                               (string/= model baseline-model)
+                                                               t)
+                                         :idle-seconds    idle-seconds
+                                         :shrunk-p        (< prompt-tokens expected)
+                                         :completed-at    completed-at)
+                :idle-seconds           idle-seconds
+                :instructions-uncached
+                (prompt-cache--attribution-uncached usage "instructions")
+                :tools-uncached
+                (prompt-cache--attribution-uncached usage "tools")))))))

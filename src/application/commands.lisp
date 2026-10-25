@@ -284,16 +284,28 @@ transcript renderer, including in fullscreen."
 
 (-> application--prompt-cache-miss-notice (list) list)
 (defun application--prompt-cache-miss-notice (miss)
-  "Return measured uncached input and any accompanying local observation."
+  "Return the reuse MISS lost, its cache reads, and any accompanying local observation."
   (list (terminal-span ':failure "! ")
-        (terminal-span ':notice "cache miss ")
+        (terminal-span ':notice
+                       (case (getf miss :kind)
+                         (:stalled
+                          "cache stalled ")
+                         (otherwise
+                          "cache miss ")))
         (terminal-span ':code
-                       (application--token-count-description
-                        (getf miss :uncached-tokens)))
+                       (application--token-count-description (getf miss :lost-tokens)))
+        (terminal-span ':dim
+                       (case (getf miss :kind)
+                         (:shrunk
+                          " cached tokens lost · ")
+                         (otherwise
+                          " previous tokens not reused · ")))
+        (terminal-span ':code
+                       (application--token-count-description (getf miss :cached-tokens)))
         (terminal-span ':dim " / ")
         (terminal-span ':code
                        (application--token-count-description (getf miss :prompt-tokens)))
-        (terminal-span ':dim " input tokens uncached")
+        (terminal-span ':dim " input tokens cached")
         (terminal-span ':dim
                        (case (getf miss :cause)
                          (:model-changed
@@ -305,11 +317,7 @@ transcript renderer, including in fullscreen."
                          (:resumed
                           " · resumed session")
                          (otherwise
-                          "")))
-        (terminal-span ':dim
-                       (if (getf miss :stalled-p)
-                           " · cached-token count stagnant"
-                           ""))))
+                          "")))))
 
 (-> application-note-prompt-cache-request-started (application) null)
 (defun application-note-prompt-cache-request-started (application)

@@ -11,33 +11,33 @@
 
 (-> test-prompt-cache-miss-detection () null)
 (defun test-prompt-cache-miss-detection ()
-  "Test measured uncached input, observation limits, and stagnant cache counts."
+  "Test anomalies measured on cached-prefix progression, their causes, and their lost reuse."
   (let ((baseline (make-instance 'prompt-cache-baseline
                                  :prompt-tokens 40000
                                  :completed-at  1000
                                  :model         "model-a")))
-    (dolist (case '((:model-changed 1010 "model-b" 41000 0 41000 10)
-                    (:idle 1400 "model-a" 41000 100 40900 400)
-                    (:prompt-shrank 1010 "model-a" 8000 0 8000 10)
-                    (:unknown 1010 "model-a" 41000 19999 21001 10)))
-      (destructuring-bind (cause started-at model input cached uncached idle) case
+    (dolist (case '((:model-changed 1010 "model-b" 41000 0 40000 10)
+                    (:idle 1400 "model-a" 41000 100 39900 400)
+                    (:prompt-shrank 1010 "model-a" 8000 0 40000 10)
+                    (:unknown 1010 "model-a" 41000 19999 20001 10)))
+      (destructuring-bind (cause started-at model input cached lost idle) case
         (let ((miss (prompt-cache-miss-detect
                      baseline (prompt-cache-tests--usage input cached)
                      :started-at started-at :model model)))
           (test-assert
            (and miss
+                (eq (getf miss :kind) ':missed)
                 (eq (getf miss :cause) cause)
-                (= (getf miss :uncached-tokens) uncached)
+                (= (getf miss :lost-tokens) lost)
                 (= (getf miss :prompt-tokens) input)
                 (= (getf miss :cached-tokens) cached)
-                (null (getf miss :stalled-p))
                 (eql (getf miss :idle-seconds) idle))
-           (format nil "~A reports current usage, not assumed reusable text" cause)))))
+           (format nil "~A is reported against a baseline without cache reads" cause)))))
     (dolist (case '((40000 nil 41000 39000 "mostly cached")
                     (40000 nil 41000 20000 "threshold boundary")
                     (40000 nil 41000 nil "missing current cache counter")
                     (40000 30000 nil 0 "missing current input counter")
-                    (500 0 600 0 "below reporting minimum")))
+                    (500 0 600 0 "below the stall minimum")))
       (destructuring-bind (previous previous-cached input cached description) case
         (test-assert
          (null (prompt-cache-miss-detect
@@ -58,19 +58,22 @@
        (and miss (eq (getf miss :cause) ':resumed)
             (null (getf miss :idle-seconds)))
        "a resumed baseline reports session provenance, not cache expiry"))
-    (dolist (case '((63872 73000 63872 t :unknown)
-                    (63872 73000 63900 t :unknown)
-                    (63872 73000 70000 nil nil)
-                    (63872 73000 60000 t :unknown)
-                    (63872 71000 63872 nil nil)
-                    (69000 73000 69000 nil nil)
-                    (72000 140000 72000 nil nil)
-                    (69000 140000 69000 nil nil)
-                    (nil 73000 63872 nil nil)
-                    (1024 73000 1024 t :unknown)
-                    (0 73000 0 t :unknown)
-                    (1024 73000 20000 nil :unknown)))
-      (destructuring-bind (previous-cached input cached stalled-p cause) case
+    ;; Each case: previous cached reads, current input, current cached reads,
+    ;; the expected anomaly kind, and the reuse it lost.
+    (dolist (case '((63872 73000 63872 :stalled 8128)
+                    (63872 73000 63900 nil 0)
+                    (63872 73000 64000 nil 0)
+                    (63872 73000 70000 nil 0)
+                    (63872 73000 60000 :shrunk 3872)
+                    (63872 71000 63872 nil 0)
+                    (69000 73000 69000 nil 0)
+                    (69000 73000 68000 :shrunk 1000)
+                    (72000 140000 72000 nil 0)
+                    (nil 73000 63872 nil 0)
+                    (1024 73000 1024 :stalled 70976)
+                    (0 73000 0 :stalled 72000)
+                    (1024 73000 20000 nil 0)))
+      (destructuring-bind (previous-cached input cached kind lost) case
         (let ((miss (prompt-cache-miss-detect
                      (make-instance 'prompt-cache-baseline
                                     :prompt-tokens 72000 :cached-tokens previous-cached
@@ -78,12 +81,14 @@
                      (prompt-cache-tests--usage input cached)
                      :started-at 1010 :model "model-a")))
           (test-assert
-           (and (eql (not (null (getf miss :stalled-p))) stalled-p)
-                (eq (getf miss :cause) cause)
-                (or (null miss)
-                    (= (getf miss :uncached-tokens) (- input cached))))
-           (format nil "cache counts ~S yield stagnation ~S without inferring a cause"
-                   case stalled-p)))))
+           (if kind
+               (and miss
+                    (eq (getf miss :kind) kind)
+                    (= (getf miss :lost-tokens) lost)
+                    (eql (getf miss :previous-cached-tokens) previous-cached)
+                    (eq (getf miss :cause) ':unknown))
+               (null miss))
+           (format nil "cache reads ~S yield ~S" case kind)))))
     (let ((miss (prompt-cache-miss-detect
                  (make-instance 'prompt-cache-baseline
                                 :prompt-tokens 72000 :cached-tokens 0
@@ -91,7 +96,7 @@
                  (prompt-cache-tests--usage 73000 0)
                  :started-at 1010 :model "model-b")))
       (test-assert
-       (and (getf miss :stalled-p) (eq (getf miss :cause) ':model-changed))
+       (and (eq (getf miss :kind) ':stalled) (eq (getf miss :cause) ':model-changed))
        "a severe stall preserves an independently observed model change"))
     (let ((miss (prompt-cache-miss-detect
                  baseline
@@ -161,25 +166,26 @@
          (let* ((observer (application-agent-observer application))
                 (send-status
                   (callback-agent-observer-status-callback observer)))
-           (flet ((notice-p ()
-                    "Return whether the terminal painted a cache-miss notice."
-                    (not (null (search "cache miss"
-                                       (clinedi:ansi-strip (recording-terminal-output terminal))))))
+           (labels ((notice-p ()
+                     "Return whether the terminal painted a cache-miss notice."
+                     (let ((output (clinedi:ansi-strip (recording-terminal-output terminal))))
+                       (not (null (or (search "cache miss" output)
+                                      (search "cache stalled" output))))))
 
-                  (notice-counts-p (re-read total)
-                    "Return whether the rendered notice includes both token counts."
-                    (let ((output (clinedi:ansi-strip (recording-terminal-output terminal))))
-                      (and (search "cache miss" output)
-                           (search (application--token-count-description re-read) output)
-                           (search (application--token-count-description total) output))))
+                    (notice-counts-p (lost total)
+                      "Return whether the rendered notice includes the lost and total token counts."
+                      (let ((output (clinedi:ansi-strip (recording-terminal-output terminal))))
+                        (and (notice-p)
+                             (search (application--token-count-description lost) output)
+                             (search (application--token-count-description total) output))))
 
-                  (request (usage)
-                    "Run one request lifecycle completing with USAGE."
-                    (recording-terminal-reset terminal)
-                    (funcall send-status :provider-request-started nil)
-                    (funcall send-status
-                             :provider-request-completed
-                             (list :request-number 1 :usage usage))))
+                    (request (usage)
+                      "Run one request lifecycle completing with USAGE."
+                      (recording-terminal-reset terminal)
+                      (funcall send-status :provider-request-started nil)
+                      (funcall send-status
+                               :provider-request-completed
+                               (list :request-number 1 :usage usage))))
              (terminal-ui-start ui)
              (conversation-append-user-message conversation "history")
              (conversation-append-provider-metadata
@@ -204,18 +210,19 @@
                                   :completed-at  (- (get-universal-time) 900)
                                   :model         (config :model configuration)))
              (request (prompt-cache-tests--usage 33000 0))
-             (test-assert (notice-counts-p 33000 33000)
-                          "an idle miss reports measured uncached and total input")
+             (test-assert (notice-counts-p 32000 33000)
+                          "an idle miss reports the previous prompt it could not reuse")
              (let* ((spans  (application--prompt-cache-miss-notice
-                              '(:uncached-tokens 33000 :prompt-tokens 33000)))
+                              '(:kind :missed :lost-tokens 32000 :cached-tokens 0
+                                :prompt-tokens 33000)))
                     (counts (remove-if-not
                              (lambda (span) (eq ':code (terminal-span-style span))) spans)))
                (test-assert (and (eq ':failure (terminal-span-style (first spans)))
                                  (string= "! " (terminal-span-text (first spans))))
                             "the cache-miss ledger entry begins with a red exclamation mark")
                (test-assert (equal (mapcar #'terminal-span-text counts)
-                                   (mapcar #'application--token-count-description '(33000 33000)))
-                            "the renderer reports measured uncached input"))
+                                   (mapcar #'application--token-count-description '(32000 0 33000)))
+                            "the renderer reports lost reuse, cache reads and input"))
              (setf (application-prompt-cache-baseline application)
                    (make-instance 'prompt-cache-baseline
                                   :prompt-tokens 72000
@@ -235,8 +242,8 @@
                                       (list "tools"
                                             (list (list "cached_tokens" 9221)
                                                   (list "input_tokens" 9221))))))))))
-             (test-assert (notice-counts-p 9128 73000)
-                          "a stalled cache reports measured uncached and total input")
+             (test-assert (notice-counts-p 8128 73000)
+                          "a stalled cache reports the unread previous prompt and total input")
              (funcall send-status :compaction-completed nil)
              (test-assert
               (null (application-prompt-cache-baseline application))
@@ -257,7 +264,7 @@
                (test-assert (not (notice-p))
                             "the first request after loading a conversation establishes a fresh baseline")
                (request (prompt-cache-tests--usage 22000 0))
-               (test-assert (notice-counts-p 22000 22000)
+               (test-assert (notice-counts-p 21000 22000)
                             "later misses compare against requests from this session")
                (setf (application-conversation application)
                      (conversation-load (conversation-pathname resumed)))
@@ -265,7 +272,7 @@
                (test-assert (not (notice-p))
                             "resuming the same conversation again starts a fresh cache window")
                (request (prompt-cache-tests--usage 24000 0))
-               (test-assert (notice-counts-p 24000 24000)
+               (test-assert (notice-counts-p 23000 24000)
                             "same-conversation resume suppresses only its first request"))))
       (ignore-errors (terminal-ui-stop ui))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
