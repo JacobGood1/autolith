@@ -232,7 +232,6 @@ reason :MISSING when PATHNAME does not exist."))
       (platform-parse-namestring *platform* designator)
       designator))
 
-(-> platform-file-uri (platform pathname) string)
 (defgeneric platform-file-uri (platform pathname)
   (:documentation "Encode an absolute native pathname as a percent-escaped file URI."))
 
