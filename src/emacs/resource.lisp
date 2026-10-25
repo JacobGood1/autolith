@@ -34,32 +34,32 @@
 
 (defclass emacs-buffer-resource (resource)
   ((name
-    :initarg :name
-    :reader emacs-buffer-resource-name
-    :type non-empty-string
+    :initarg       :name
+    :reader        emacs-buffer-resource-name
+    :type          non-empty-string
     :documentation "The exact Emacs buffer name."))
   (:documentation "One live Emacs buffer, unsaved edits included."))
 
 (defclass emacs-buffer-observation (workspace-file-observation)
   ((file
-    :initarg :file
-    :reader emacs-buffer-observation-file
-    :type (option pathname)
+    :initarg       :file
+    :reader        emacs-buffer-observation-file
+    :type          (option pathname)
     :documentation "The file the buffer visits, or NIL.")
    (mode
-    :initarg :mode
-    :reader emacs-buffer-observation-mode
-    :type string
+    :initarg       :mode
+    :reader        emacs-buffer-observation-mode
+    :type          string
     :documentation "The buffer's major mode.")
    (modified-p
-    :initarg :modified-p
-    :reader emacs-buffer-observation-modified-p
-    :type boolean
+    :initarg       :modified-p
+    :reader        emacs-buffer-observation-modified-p
+    :type          boolean
     :documentation "Whether the buffer has unsaved changes.")
    (read-only-p
-    :initarg :read-only-p
-    :reader emacs-buffer-observation-read-only-p
-    :type boolean
+    :initarg       :read-only-p
+    :reader        emacs-buffer-observation-read-only-p
+    :type          boolean
     :documentation "Whether the buffer refuses edits."))
   (:documentation
    "A complete buffer text snapshot, retained and edited like a workspace file."))
@@ -217,14 +217,14 @@ evaluates without interleaving the person's commands.")
   (let* ((snapshot (emacs-resource--call context "resource.read" *emacs-current-elisp*
                                          (princ-to-string *emacs-current-region-characters*)
                                          (princ-to-string *emacs-current-maximum-buffers*)))
-         (allowed (make-hash-table :test #'equal)))
+         (allowed  (make-hash-table :test #'equal)))
     (dolist (key '("windows" "buffers"))
       (setf (gethash key snapshot)
             (map 'vector #'identity
                  (remove-if-not
                   (lambda (entry)
-                    (let* ((name (json-get entry "buffer"))
-                           (file (emacs-current--file entry))
+                    (let* ((name     (json-get entry "buffer"))
+                           (file     (emacs-current--file entry))
                            (identity (list name file)))
                       (multiple-value-bind (value present-p) (gethash identity allowed)
                         (if present-p
@@ -250,18 +250,18 @@ evaluates without interleaving the person's commands.")
 
 (defmethod resource-observe ((resource emacs-buffer-resource) (context tool-context))
   "Authorize the buffer's current identity before retrieving its text."
-  (let* ((name (emacs-buffer-resource-name resource))
+  (let* ((name     (emacs-buffer-resource-name resource))
          (metadata (emacs-resource--call
                     context "resource.read"
                     *emacs-buffer-metadata-elisp*
                     name))
-         (file (emacs-current--file metadata)))
+         (file     (emacs-current--file metadata)))
     (when (equal (json-get metadata "status") "missing")
-      (error 'tool-error :message "The requested Emacs buffer does not exist."
+      (error 'tool-error :message  "The requested Emacs buffer does not exist."
                         :tool-name "resource.read"))
     (unless (emacs-buffer--authorized-p context name :file file :tool-name "resource.read")
-      (error 'tool-error :message "Reading this Emacs buffer requires full-access approval."
-                        :code ':permission-denied
+      (error 'tool-error :message  "Reading this Emacs buffer requires full-access approval."
+                        :code      ':permission-denied
                         :tool-name "resource.read"))
     (emacs-buffer--observation
      resource
@@ -286,11 +286,11 @@ Return the new observation and the normalized operations."
                 (cl-hashline:edit-text
                  (resource-observation-content base)
                  (mapcar #'workspace-file--json-operation operations)
-                 :visible-lines (workspace-file-observation-state-visible-ranges state)
-                 :split-lines #'text--split-lines
+                 :visible-lines         (workspace-file-observation-state-visible-ranges state)
+                 :split-lines           #'text--split-lines
                  :anchor-maximum-offset *workspace-file-resource-anchor-maximum-offset*)
               (cl-hashline:hashline-error (condition)
-                (error 'tool-error :message (princ-to-string condition)
+                (error 'tool-error :message   (princ-to-string condition)
                                    :tool-name "resource.edit")))
           (values (emacs-buffer--replace resource context base content)
                   normalized))))))
@@ -306,7 +306,7 @@ Return the new observation and the normalized operations."
   (when (or (nth-value 1 (gethash "start-line" arguments))
             (nth-value 1 (gethash "line-count" arguments)))
     (error 'tool-error
-           :message "emacs:current is always read in full and does not accept line windows."
+           :message   "emacs:current is always read in full and does not accept line windows."
            :tool-name "resource.read"))
   (let ((observation (resource-observe resource context)))
     (tool-success (format nil "URI: ~A~%Content:~%~A"
@@ -330,8 +330,8 @@ Return the new observation and the normalized operations."
          (total-lines (length (workspace-file-observation-lines observation))))
     (when (and (plusp total-lines) (> start-line total-lines))
       (error 'tool-error
-             :message (format nil "Start line ~D is beyond the buffer's ~D lines. Request a valid window."
-                              start-line total-lines)
+             :message   (format nil "Start line ~D is beyond the buffer's ~D lines. Request a valid window."
+                                start-line total-lines)
              :tool-name "resource.read"))
     (tool-success (emacs-buffer--window-result context observation start-line line-count))))
 
@@ -345,11 +345,11 @@ Return the new observation and the normalized operations."
         (operation-array (tool-argument arguments "operations" :required t)))
     (unless (non-empty-string-p base-revision)
       (error 'tool-error
-             :message "Resource edit base-revision must be a non-empty string."
+             :message   "Resource edit base-revision must be a non-empty string."
              :tool-name "resource.edit"))
     (unless (and (vectorp operation-array) (plusp (length operation-array)))
       (error 'tool-error
-             :message "Resource edit operations must be a non-empty JSON array."
+             :message   "Resource edit operations must be a non-empty JSON array."
              :tool-name "resource.edit"))
     (handler-case
         (multiple-value-bind (observation normalized)
@@ -422,13 +422,13 @@ Return the new observation and the normalized operations."
                                       :expected-revision nil :actual-revision nil))
       ((equal status "missing")
        (error 'tool-error
-              :message (format nil "Emacs has no buffer named ~S; read emacs:current for the open buffers."
-                               name)
+              :message   (format nil "Emacs has no buffer named ~S; read emacs:current for the open buffers."
+                                 name)
               :tool-name tool-name))
       ((equal status "too-large")
        (error 'tool-error
-              :message (format nil "Buffer ~S holds ~:D characters; emacs: reads at most ~:D."
-                               name (json-get snapshot "size") *emacs-buffer-maximum-characters*)
+              :message   (format nil "Buffer ~S holds ~:D characters; emacs: reads at most ~:D."
+                                 name (json-get snapshot "size") *emacs-buffer-maximum-characters*)
               :tool-name tool-name)))
     (let ((text (json-get snapshot "text"))
           (file (json-get snapshot "file")))
@@ -470,11 +470,11 @@ Return the new observation and the normalized operations."
   "Require full access for non-file buffers and files outside the readable roots."
   (unless (emacs-buffer--authorized-p
            context (getf (resource-observation-metadata observation) :buffer)
-           :file (let ((file (emacs-buffer-observation-file observation)))
-                   (and file (uiop:native-namestring file)))
+           :file      (let ((file (emacs-buffer-observation-file observation)))
+                        (and file (uiop:native-namestring file)))
            :tool-name tool-name)
     (error 'tool-authority-denied :message "Access to this Emacs buffer requires full-access approval."
-                      :tool-name tool-name))
+                      :tool-name           tool-name))
   nil)
 
 (-> emacs-buffer--replace
@@ -484,8 +484,8 @@ Return the new observation and the normalized operations."
   "Replace RESOURCE's text with CONTENT in Emacs while it still equals BASE's text."
   (when (> (length content) *emacs-buffer-maximum-characters*)
     (error 'tool-error
-           :message (format nil "The edited buffer would hold ~:D characters; emacs: writes at most ~:D."
-                            (length content) *emacs-buffer-maximum-characters*)
+           :message   (format nil "The edited buffer would hold ~:D characters; emacs: writes at most ~:D."
+                              (length content) *emacs-buffer-maximum-characters*)
            :tool-name "resource.edit"))
   (let* ((reply  (emacs-resource--call context "resource.edit"
                                        (format nil *emacs-buffer-replace-elisp*
@@ -504,8 +504,8 @@ Return the new observation and the normalized operations."
               :actual-revision   nil))
       ((equal status "read-only")
        (error 'tool-error
-              :message (format nil "Buffer ~S is read-only in Emacs."
-                               (emacs-buffer-resource-name resource))
+              :message   (format nil "Buffer ~S is read-only in Emacs."
+                                 (emacs-buffer-resource-name resource))
               :tool-name "resource.edit"))
       (t
        (emacs-buffer--observation resource reply "resource.edit")))))
