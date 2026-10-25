@@ -10,62 +10,62 @@
 
 (defclass slynk-endpoint ()
   ((directory
-    :initarg :directory
-    :reader slynk-endpoint-directory
-    :type pathname
+    :initarg       :directory
+    :reader        slynk-endpoint-directory
+    :type          pathname
     :documentation "The slynk/ directory whose slynk.asd was loaded.")
    (port-file
-    :initarg :port-file
-    :initform nil
-    :reader slynk-endpoint-port-file
-    :type (option pathname)
+    :initarg       :port-file
+    :initform      nil
+    :reader        slynk-endpoint-port-file
+    :type          (option pathname)
     :documentation "The file receiving the port or the failure for an editor.")
    (port
-    :initarg :port
-    :initform nil
-    :accessor slynk-endpoint-port
-    :type (option (integer 0 65535))
+    :initarg       :port
+    :initform      nil
+    :accessor      slynk-endpoint-port
+    :type          (option (integer 0 65535))
     :documentation "The loopback port once serving; the requested port before.")
    (state
-    :initarg :state
-    :initform ':starting
-    :accessor slynk-endpoint-state
-    :type (member :starting :running :stopping :failed :stopped)
+    :initarg       :state
+    :initform      ':starting
+    :accessor      slynk-endpoint-state
+    :type          (member :starting :running :stopping :failed :stopped)
     :documentation "The endpoint lifecycle state.")
    (wanted-p
-    :initform t
-    :accessor slynk-endpoint-wanted-p
-    :type boolean
+    :initform      t
+    :accessor      slynk-endpoint-wanted-p
+    :type          boolean
     :documentation "Whether serving should resume after a checkpoint.")
    (initialized-p
-    :initform nil
-    :accessor slynk-endpoint-initialized-p
-    :type boolean
+    :initform      nil
+    :accessor      slynk-endpoint-initialized-p
+    :type          boolean
     :documentation "Whether the Slynk shutdown protocol was successfully initialized.")
    (bound-p
-    :initform nil
-    :accessor slynk-endpoint-bound-p
-    :type boolean
+    :initform      nil
+    :accessor      slynk-endpoint-bound-p
+    :type          boolean
     :documentation "Whether a listening socket still needs to be stopped.")
    (closing-server
-    :initform nil
-    :accessor slynk-endpoint-closing-server
-    :type list
+    :initform      nil
+    :accessor      slynk-endpoint-closing-server
+    :type          list
     :documentation "The sentinel listener record retained until its thread has exited.")
    (closing-connections
-    :initform nil
-    :accessor slynk-endpoint-closing-connections
-    :type list
+    :initform      nil
+    :accessor      slynk-endpoint-closing-connections
+    :type          list
     :documentation "Connections retained until their evaluation threads have exited.")
    (closing-threads
-    :initform nil
-    :accessor slynk-endpoint-closing-threads
-    :type list
+    :initform      nil
+    :accessor      slynk-endpoint-closing-threads
+    :type          list
     :documentation "Server and connection threads retained while shutdown drains.")
    (message
-    :initform nil
-    :accessor slynk-endpoint-message
-    :type (option string)
+    :initform      nil
+    :accessor      slynk-endpoint-message
+    :type          (option string)
     :documentation "Why the endpoint failed, when it did."))
   (:documentation "The process-wide Slynk server serving this image on loopback."))
 
@@ -119,7 +119,7 @@ otherwise the call returns once the endpoint is :RUNNING or :FAILED."
           (slynk--stop-endpoint *slynk-endpoint*))
         (let ((endpoint (make-instance 'slynk-endpoint
                                        :directory directory
-                                       :port port
+                                       :port      port
                                        :port-file (config :slynk-port-file configuration))))
           (setf *slynk-endpoint* endpoint)
           (unless *slynk-quiesced-p*
@@ -144,10 +144,10 @@ otherwise the call returns once the endpoint is :RUNNING or :FAILED."
   (with-recursive-lock-held (*slynk-lock*)
     (let ((endpoint *slynk-endpoint*))
       (if endpoint
-          (list :state (slynk-endpoint-state endpoint)
-                :port (slynk-endpoint-port endpoint)
+          (list :state     (slynk-endpoint-state endpoint)
+                :port      (slynk-endpoint-port endpoint)
                 :directory (slynk-endpoint-directory endpoint)
-                :message (slynk-endpoint-message endpoint))
+                :message   (slynk-endpoint-message endpoint))
           (list :state ':stopped :port nil :directory nil :message nil)))))
 
 (-> slynk-call-quiesced (function) t)
@@ -196,10 +196,10 @@ BODY never waits for it to compile, and stops when BODY exits by any means."
   (destructuring-bind (&key state port &allow-other-keys) (slynk-status)
     (when (eq state ':running)
       (make-context-contribution
-       :identifier "slynk-shared-image"
+       :identifier  "slynk-shared-image"
        :instruction "A person is connected to this very image through sly over Slynk. Their packages, definitions and state live in the active image, beside yours: inspect them with lisp.describe, lisp.source and lisp.apropos using target \"self\", or with self.eval, never in a worker. Checkpoints and restarts drop their sly connection, so avoid them unless asked."
-       :evidence (format nil "Slynk listens on ~A:~D." *slynk-interface* port)
-       :priority 40))))
+       :evidence    (format nil "Slynk listens on ~A:~D." *slynk-interface* port)
+       :priority    40))))
 
 
 ;;;; -- Serving --
@@ -254,16 +254,16 @@ BODY never waits for it to compile, and stops when BODY exits by any means."
 The exact file is loaded, so no user directory joins the ASDF search path. Slynk's
 debugger and stream hooks stay off: this image's own errors and output must not
 reach a sly connection."
-  (let ((asd (merge-pathnames "slynk.asd" directory))
+  (let ((asd    (merge-pathnames "slynk.asd" directory))
         (output (make-string-output-stream)))
     (unless (probe-file asd)
       (error 'slynk-error
-             :message (format nil "No slynk.asd in ~A." (uiop:native-namestring directory))
+             :message   (format nil "No slynk.asd in ~A." (uiop:native-namestring directory))
              :operation ':load
-             :reason ':missing-system))
+             :reason    ':missing-system))
     (let ((*standard-output* output)
-          (*error-output* output)
-          (*trace-output* output))
+          (*error-output*    output)
+          (*trace-output*    output))
       (asdf:load-asd asd)
       (asdf:load-system "slynk"))
     (slynk--set "*GLOBAL-DEBUGGER*" nil)
@@ -292,10 +292,10 @@ reach a sly connection."
 (defun slynk--install-observers ()
   "Check the Slynk shutdown protocol and observe thread identities before removal."
   (dolist (name '("CREATE-SERVER" "STOP-SERVER" "CLOSE-CONNECTION" "CONNECTION-SOCKET-IO"
-                 "FIND-REGISTERED" "THREAD-FOR-EVALUATION"
-                 "CONNECTION-CHANNELS" "CHANNEL-THREAD" "MULTITHREADED-CONNECTION-P"
-                 "MCONN.READER-THREAD" "MCONN.CONTROL-THREAD" "MCONN.AUTO-FLUSH-THREAD"
-                 "MCONN.INDENTATION-CACHE-THREAD" "MCONN.ACTIVE-THREADS"))
+                  "FIND-REGISTERED" "THREAD-FOR-EVALUATION"
+                  "CONNECTION-CHANNELS" "CHANNEL-THREAD" "MULTITHREADED-CONNECTION-P"
+                  "MCONN.READER-THREAD" "MCONN.CONTROL-THREAD" "MCONN.AUTO-FLUSH-THREAD"
+                  "MCONN.INDENTATION-CACHE-THREAD" "MCONN.ACTIVE-THREADS"))
     (unless (fboundp (slynk--symbol name))
       (error 'slynk-error :message (format nil "Slynk does not implement ~A." name)
                         :operation ':load :reason ':incompatible)))
@@ -337,10 +337,10 @@ reach a sly connection."
                     :interface *slynk-interface* :style ':spawn))
     (error (condition)
       (error 'slynk-error
-             :message (format nil "Slynk could not listen on ~A:~D: ~A"
-                              *slynk-interface* port condition)
+             :message   (format nil "Slynk could not listen on ~A:~D: ~A"
+                                *slynk-interface* port condition)
              :operation ':listen
-             :reason ':bind))))
+             :reason    ':bind))))
 
 (-> slynk--wait (function string) null)
 (defun slynk--wait (predicate activity)
@@ -368,7 +368,7 @@ reach a sly connection."
            (slynk--call "CONNECTION-CHANNELS" connection))
    (when (slynk--call "MULTITHREADED-CONNECTION-P" connection)
      (append (loop for name in '("MCONN.READER-THREAD" "MCONN.CONTROL-THREAD"
-                                "MCONN.AUTO-FLUSH-THREAD" "MCONN.INDENTATION-CACHE-THREAD")
+                                 "MCONN.AUTO-FLUSH-THREAD" "MCONN.INDENTATION-CACHE-THREAD")
                    collect (slynk--call name connection))
              (copy-list (slynk--call "MCONN.ACTIVE-THREADS" connection))))))
 
@@ -456,9 +456,9 @@ reach a sly connection."
   "Return Slynk's symbol NAME, which exists only once Slynk is loaded."
   (or (find-symbol name '#:slynk)
       (error 'slynk-error
-             :message (format nil "Slynk does not define ~A." name)
+             :message   (format nil "Slynk does not define ~A." name)
              :operation ':load
-             :reason ':incompatible)))
+             :reason    ':incompatible)))
 
 (-> slynk--call (string &rest t) t)
 (defun slynk--call (name &rest arguments)
@@ -476,13 +476,13 @@ reach a sly connection."
 
 (define-condition slynk-error (configuration-error)
   ((operation
-    :initarg :operation
-    :reader slynk-error-operation
-    :type keyword
+    :initarg       :operation
+    :reader        slynk-error-operation
+    :type          keyword
     :documentation "The Slynk operation that failed: :LOAD, :LISTEN or :QUIESCE.")
    (reason
-    :initarg :reason
-    :reader slynk-error-reason
-    :type keyword
+    :initarg       :reason
+    :reader        slynk-error-reason
+    :type          keyword
     :documentation "Why: :MISSING-SYSTEM, :INCOMPATIBLE, :BIND or :TIMEOUT."))
   (:documentation "Slynk could not be loaded, listen or finish shutting down."))
