@@ -2714,10 +2714,11 @@ rows."
           nil))))
 
 (-> application--history-segment-records
-    (application pathname (integer 0) (integer 1))
+    (application pathname &key (:after-sequence (integer 0))
+                               (:limit (integer 1)))
     (values list (integer 0) (integer 0) (integer 0)))
 (defun application--history-segment-records
-    (application pathname after-sequence limit)
+    (application pathname &key after-sequence limit)
   "Return one validated segment's newest visible records and scan metadata.
 
 The values are the newest LIMIT visible records after AFTER-SEQUENCE, the
@@ -2780,7 +2781,8 @@ may fill the remainder."
             (multiple-value-bind
                 (active-records active-count latest-sequence position)
                 (application--history-segment-records
-                 application active after-sequence limit)
+                 application active :after-sequence after-sequence
+                                    :limit          limit)
               (if (/= generation (conversation-log-generation conversation))
                   (application--render-position-invalidate application)
                   (let ((records         active-records)
@@ -2794,7 +2796,8 @@ may fill the remainder."
                             (previous-records previous-count
                              previous-latest-sequence previous-position)
                             (application--history-segment-records
-                             application previous 0 remaining)
+                             application previous :after-sequence 0
+                                                  :limit          remaining)
                           (declare (ignore previous-latest-sequence
                                            previous-position))
                           (setf records (append previous-records active-records)
