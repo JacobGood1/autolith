@@ -67,20 +67,32 @@
                  '(:id :workspace :owner :target :evidence :reason :benefit :criterion))
           (member state
                   (case (getf previous :state)
-                    (:proposed '(:applying))
-                    (:applying '(:experiment :failed :blocked))
-                    (:experiment '(:applying :evaluating))
-                    (:evaluating '(:observed :failed :blocked))
-                    (:observed '(:passed :failed :applying :evaluating))
-                    (:passed '(:applying :evaluating :promoting))
-                    (:failed '(:applying :evaluating))
-                    (:promoting '(:promoted :failed :blocked))
-                    (:promoted '(:applying :evaluating))
-                    (:blocked '(:failed))))
+                    (:proposed
+                     '(:applying))
+                    (:applying
+                     '(:experiment :failed :blocked))
+                    (:experiment
+                     '(:applying :evaluating))
+                    (:evaluating
+                     '(:observed :failed :blocked))
+                    (:observed
+                     '(:passed :failed :applying :evaluating))
+                    (:passed
+                     '(:applying :evaluating :promoting))
+                    (:failed
+                     '(:applying :evaluating))
+                    (:promoting
+                     '(:promoted :failed :blocked))
+                    (:promoted
+                     '(:applying :evaluating))
+                    (:blocked
+                     '(:failed))))
           (or (eq scope (getf previous :scope))
               (and (eq (getf previous :state) :promoting) (eq state :promoted)
                    (eq scope (getf previous :destination))
-                   (eq scope (case (getf previous :scope) (:session ':project) (:project ':global))))))
+                   (eq scope (case (getf previous :scope) (:session
+                                                           ':project) (:project
+                                                                       ':global))))))
          (and (eq scope :session)
               (eq state (if (eq (getf current :target) :none) ':no-op ':proposed))))
      (or (not (eq state :passed))
@@ -97,8 +109,8 @@
   "Replay workspace refinement snapshots, rejecting corrupt or discontinuous records.
 The existing journal reader tolerates an interrupted final form. Returned snapshots
 are fresh portable data; they are not active definitions or verified model claims."
-  (let ((records (make-hash-table :test #'equal))
-        (order nil)
+  (let ((records   (make-hash-table :test #'equal))
+        (order     nil)
         (workspace (refinement--workspace configuration)))
     (dolist (record (mutation-journal-read-records configuration))
       (when (and (consp record) (eq (first record) :refinement))
@@ -106,15 +118,15 @@ are fresh portable data; they are not active definitions or verified model claim
           (refinement--reject ':corrupt "Invalid refinement journal record; inspect the journal before continuing."))
         (let* ((properties (rest record))
                (identifier (getf properties :id))
-               (previous (gethash identifier records)))
+               (previous   (gethash identifier records)))
           (when (equal workspace (getf properties :workspace))
             (unless (= (getf properties :revision)
                        (if previous (1+ (getf previous :revision)) 1))
               (refinement--reject ':corrupt "Discontinuous refinement revision; inspect the journal before continuing."))
-          (unless (refinement--transition-p previous properties)
-            (refinement--reject ':corrupt "Invalid refinement lifecycle, immutable evidence or scope transition."))
-            (unless previous (push identifier order))
-            (setf (gethash identifier records) (copy-tree properties))))))
+           (unless (refinement--transition-p previous properties)
+             (refinement--reject ':corrupt "Invalid refinement lifecycle, immutable evidence or scope transition."))
+           (unless previous (push identifier order))
+           (setf (gethash identifier records) (copy-tree properties))))))
     (mapcar (lambda (identifier) (gethash identifier records)) (nreverse order))))
 
 (-> refinement-find (configuration string) list)
@@ -146,7 +158,7 @@ observations, not instructions. New proposals always begin at session scope."
       (refinement--reject ':invalid "Supply one to sixteen trajectory evidence fields."))
     (mapc #'refinement--text evidence)
     (unless (member target '(:none :memory :repository-fact :context :skill :role
-                            :rlm-policy :live-change))
+                             :rlm-policy :live-change))
       (refinement--reject ':invalid "Unknown refinement adaptation target."))
     (unless (eq target :none)
       (refinement--text benefit)
@@ -178,7 +190,7 @@ observations, not instructions. New proposals always begin at session scope."
 (defun refinement--save (context proposal state)
   "Append a validated next revision without changing the caller on write failure."
   (let ((previous (refinement--current context (getf proposal :id) (getf proposal :revision)))
-        (next (copy-tree proposal)))
+        (next     (copy-tree proposal)))
     (setf (getf next :revision) (1+ (getf next :revision))
           (getf next :state) state)
     (unless (refinement--transition-p previous next)
@@ -218,36 +230,39 @@ Sandbox permission does not authorize evaluation acceptance or promotion."
 (defun refinement--owner-p (target operation evaluation-p)
   "Limit delegation to existing owners; refinement never gains a new capability."
   (let ((namespace (json-get operation "namespace"))
-        (name (json-get operation "name")))
+        (name      (json-get operation "name")))
     (and
      (if evaluation-p
          (member (cons namespace name)
                  '(("shell" . "run") ("lisp" . "eval") ("lisp" . "run-tests")
                    ("self" . "exercise") ("resource" . "read")) :test #'equal)
          (case target
-           ((:memory :repository-fact) (and (equal namespace "resource") (equal name "edit")))
+           ((:memory :repository-fact)
+            (and (equal namespace "resource") (equal name "edit")))
            ((:context :role :live-change)
             (or (and (equal namespace "resource") (equal name "edit"))
                 (and (equal namespace "self")
                      (member name '("define" "redefine" "set" "eval" "commit"
                                     "persist-definition" "discard" "experiment-start"
                                     "experiment-settle") :test #'equal))))
-           (:skill (or (and (equal namespace "skill")
-                           (member name '("load" "edit") :test #'equal))
-                       (and (equal namespace "resource") (equal name "edit"))))
-           (:rlm-policy (or (and (equal namespace "rlm") (equal name "distill"))
-                            (and (equal namespace "self")
-                                 (member name '("define" "redefine" "commit" "discard") :test #'equal))))))
+           (:skill
+            (or (and (equal namespace "skill")
+                    (member name '("load" "edit") :test #'equal))
+                (and (equal namespace "resource") (equal name "edit"))))
+           (:rlm-policy
+            (or (and (equal namespace "rlm") (equal name "distill"))
+                (and (equal namespace "self")
+                     (member name '("define" "redefine" "commit" "discard") :test #'equal))))))
      t)))
 
 (-> refinement--scope-check (json-object keyword) null)
 (defun refinement--scope-check (operation scope)
   "Reserve known globally durable owners for the global promotion stage."
   (let* ((namespace (json-get operation "namespace"))
-         (name (json-get operation "name"))
+         (name      (json-get operation "name"))
          (arguments (handler-case (json-decode (json-get operation "arguments"))
                       (error () (refinement--reject ':invalid "Owner arguments must be a JSON object."))))
-         (uri (and (json-object-p arguments) (json-get arguments "uri"))))
+         (uri       (and (json-object-p arguments) (json-get arguments "uri"))))
     (unless (json-object-p arguments)
       (refinement--reject ':invalid "Owner arguments must be a JSON object."))
     (when (equal (json-encode (json-get arguments "async")) "true")
@@ -268,7 +283,7 @@ Sandbox permission does not authorize evaluation acceptance or promotion."
 (defun refinement--delegate (context proposal source evaluation-p)
   "Invoke the existing registry with the original context and owner authority."
   (let ((operation (refinement--operation source))
-        (registry (tool-context-registry context)))
+        (registry  (tool-context-registry context)))
     (unless (refinement--owner-p (getf proposal :target) operation evaluation-p)
       (refinement--reject ':invalid "This operation is not an existing owner for the selected adaptation target."))
     (unless registry
@@ -279,7 +294,7 @@ Sandbox permission does not authorize evaluation acceptance or promotion."
 (defun refinement--guard-read (context source)
   "Capture actual read-only owner state, never a model-supplied fingerprint."
   (let* ((operation (refinement--operation source))
-         (registry (tool-context-registry context)))
+         (registry  (tool-context-registry context)))
     (unless (and registry
                  (member (cons (json-get operation "namespace") (json-get operation "name"))
                          '(("resource" . "read") ("self" . "diff") ("self" . "status")
@@ -309,11 +324,13 @@ user-reviewed assessment. Pending/interrupted owner effects require inspection
 and recovery rather than automatic retries or promotion. Mechanical checks remain
 with the owner, especially self.commit's clean-process replay checks."
   (with-live-mutation
-    (let* ((proposal (refinement--current context identifier revision))
+    (let* ((proposal      (refinement--current context identifier revision))
            (current-scope (getf proposal :scope))
-           (state (getf proposal :state))
-           (evaluation-p (eq phase :evaluate))
-           (next-scope (case current-scope (:session ':project) (:project ':global))))
+           (state         (getf proposal :state))
+           (evaluation-p  (eq phase :evaluate))
+           (next-scope    (case current-scope (:session
+                                               ':project) (:project
+                                                           ':global))))
       (case phase
         (:experiment
          (unless (member state '(:proposed :failed :experiment :observed :passed :promoted))
@@ -329,7 +346,8 @@ with the owner, especially self.commit's clean-process replay checks."
                       (= (getf (getf proposal :task-evaluation) :observation-revision -1)
                          (1- revision)))
            (refinement--reject ':invalid "Promotion requires current passed task evaluation and exactly the next scope.")))
-        (otherwise (refinement--reject ':invalid "Unknown refinement execution phase.")))
+        (otherwise
+         (refinement--reject ':invalid "Unknown refinement execution phase.")))
       ;; Validate before recording intent; no-op and unsupported owners cannot run.
       (unless (refinement--owner-p (getf proposal :target)
                                   (refinement--operation operation) evaluation-p)
@@ -347,12 +365,15 @@ with the owner, especially self.commit's clean-process replay checks."
             (getf proposal :operation) operation
             (getf proposal :destination) scope)
       (setf proposal (refinement--save context proposal
-                                      (case phase (:experiment ':applying)
-                                            (:evaluate ':evaluating) (:promote ':promoting))))
+                                      (case phase (:experiment
+                                                   ':applying)
+                                            (:evaluate
+                                             ':evaluating) (:promote
+                                                            ':promoting))))
       (handler-case
-          (let* ((result (refinement--delegate context proposal operation evaluation-p))
+          (let* ((result    (refinement--delegate context proposal operation evaluation-p))
                  (success-p (tool-result-success-p result))
-                 (details (tool-result-details result)))
+                 (details   (tool-result-details result)))
             (setf (getf proposal :observation)
                   (subseq (tool-result-content result) 0
                           (min *refinement-text-limit* (length (tool-result-content result))))
@@ -374,11 +395,16 @@ with the owner, especially self.commit's clean-process replay checks."
                           :claim ':owner-execution-only)
                     (getf proposal :mechanical-checks)))
             (refinement--save context proposal
-                              (cond ((getf proposal :pending-job) ':blocked)
-                                    ((not success-p) ':failed)
-                                    (evaluation-p ':observed)
-                                    ((eq phase :promote) ':promoted)
-                                    (t ':experiment))))
+                              (cond ((getf proposal :pending-job)
+                                     ':blocked)
+                                    ((not success-p)
+                                     ':failed)
+                                    (evaluation-p
+                                     ':observed)
+                                    ((eq phase :promote)
+                                     ':promoted)
+                                    (t
+                                     ':experiment))))
         (error (condition)
           (setf (getf proposal :observation) (princ-to-string condition))
           (refinement--save context proposal ':blocked)
