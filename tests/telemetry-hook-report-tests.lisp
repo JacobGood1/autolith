@@ -221,7 +221,7 @@
             (definition     (task-agent-definition-create
                              :name "reporter" :description "Report a fixture problem."
                              :instructions "Report once." :tools '("papercut.report") :source ':test))
-            (child-registry (task-child-tool-registry registry definition nil 1))
+            (child-registry (task-child-tool-registry registry definition :depth 1))
             (conversation   (conversation-create configuration))
             (provider       (make-instance
                              'scripted-provider

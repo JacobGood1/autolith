@@ -11,8 +11,8 @@
           (task-child-tool-registry
            (make-instance 'tool-registry)
            definition
-           orchestrator
-           1)))
+           :orchestrator orchestrator
+           :depth        1)))
     (tool-registry-register
      registry
      (make-instance 'task-test-authorization-tool
@@ -101,7 +101,8 @@
                        "task"))
                     (child-registry
                       (task-child-tool-registry
-                       registry definition orchestrator 1))
+                       registry definition :orchestrator orchestrator
+                                           :depth        1))
                     (non-spawning-definition
                       (task-agent-definition-create
                        :name         "no-spawn-jobs"
@@ -111,7 +112,8 @@
                        :source       ':test))
                     (non-spawning-registry
                       (task-child-tool-registry
-                       registry non-spawning-definition orchestrator 1)))
+                       registry non-spawning-definition :orchestrator orchestrator
+                                                        :depth        1)))
                (test-assert
                 (tool-registry-find child-registry "search" "content")
                 "general task children inherit native repository search")
@@ -213,7 +215,8 @@
                              (tool-object-schema (json-object) nil)))
              (let ((child-registry
                      (task-child-tool-registry
-                      parent-registry definition orchestrator 1)))
+                      parent-registry definition :orchestrator orchestrator
+                                                 :depth        1)))
                (test-assert
                 (null
                  (tool-registry-find child-registry "extension" "denied"))
@@ -513,7 +516,8 @@
             :item         (list :task "Exercise asynchronous Lisp cleanup.")
             :parent-agent parent))
          (child-registry
-           (task-child-tool-registry registry definition orchestrator 1))
+           (task-child-tool-registry registry definition :orchestrator orchestrator
+                                                         :depth        1))
          (child
            (make-instance
             'task-child-agent
@@ -717,7 +721,9 @@
            (primary        (task-tests--primary-agent configuration "child-jobs" registry))
            (child-job      (task-tests--register-job orchestrator primary definition
                                                       :name "child-owner"))
-           (child-registry (task-child-tool-registry registry definition orchestrator 1))
+           (child-registry (task-child-tool-registry registry definition
+                                                     :orchestrator orchestrator
+                                                     :depth        1))
            (child          (task-tests--child-viewer configuration child-job
                                                       :registry child-registry))
            (context        (make-instance 'tool-context
@@ -730,7 +736,9 @@
                (let* ((role-definition
                         (task-find-agent-definition (task-bundled-agent-definitions) role))
                       (role-registry
-                        (task-child-tool-registry registry role-definition orchestrator 1)))
+                        (task-child-tool-registry registry role-definition
+                                                  :orchestrator orchestrator
+                                                  :depth        1)))
                  (test-assert (tool-registry-find role-registry "job" "wait")
                               (format nil "~A can await its execution jobs" role))))
              (let* ((handoff

@@ -433,7 +433,8 @@
          (completion      (make-instance 'task-completion))
          (registry
            (task-child-tool-registry
-            parent-registry definition orchestrator 1))
+            parent-registry definition :orchestrator orchestrator
+                                       :depth        1))
          (conversation
            (conversation-create
             configuration

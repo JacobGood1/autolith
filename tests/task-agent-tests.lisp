@@ -502,7 +502,8 @@
                            :name "spawn-parent"))
                         (child-registry
                           (task-child-tool-registry
-                           registry definition orchestrator 1))
+                           registry definition :orchestrator orchestrator
+                                               :depth        1))
                         (child
                           (task-tests--child-viewer
                            configuration job :registry child-registry))
@@ -579,7 +580,8 @@
                                orchestrator primary definition :name name))
                             (child-registry
                               (task-child-tool-registry
-                               registry definition orchestrator depth))
+                               registry definition :orchestrator orchestrator
+                                                   :depth        depth))
                             (child
                               (task-tests--child-viewer
                                configuration job

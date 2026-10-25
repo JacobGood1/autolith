@@ -71,9 +71,10 @@
    nil))
 
 (-> task-child-tool-registry
-    (tool-registry task-agent-definition (option task-orchestrator) (integer 0))
+    (tool-registry task-agent-definition
+     &key (:orchestrator (option task-orchestrator)) (:depth (integer 0)))
     tool-registry)
-(defun task-child-tool-registry (parent-registry definition orchestrator depth)
+(defun task-child-tool-registry (parent-registry definition &key orchestrator depth)
   "Build a restricted child registry with yield and structurally bounded spawning."
   (let ((registry (make-instance 'tool-registry)))
     (tool-registry-bind-runtime registry 'task-orchestrator orchestrator)
@@ -788,7 +789,8 @@ candidates."
          (completion   (make-instance 'task-completion))
          (registry
           (task-child-tool-registry (agent-tool-registry parent) definition
-                                    orchestrator depth))
+                                    :orchestrator orchestrator
+                                    :depth        depth))
          (provider
           (provider-with-configuration (agent-provider parent) configuration))
          (child
