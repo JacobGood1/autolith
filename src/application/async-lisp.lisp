@@ -68,7 +68,9 @@
     (&key application conversation source submission-identifier output job state result report)
   "Retain JOB's terminal outcome even if presentation fails or its session changed."
   (multiple-value-bind (record final-report final-state)
-      (tool-execution-job--terminal-record job state result report)
+      (tool-execution-job--terminal-record job :state  state
+                                               :result result
+                                               :report report)
     (let* ((captured (application-async-lisp-output-text output))
            (outcome  (getf record :content))
            (content

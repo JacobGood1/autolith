@@ -392,9 +392,9 @@ start under a cancelled ancestor, and hands over to the child."
     (funcall operation)))
 
 (-> tool-execution-job--terminal-record
-    (tool-execution-job keyword t (option string))
+    (tool-execution-job &key (:state keyword) (:result t) (:report (option string)))
     (values list (option string) keyword))
-(defun tool-execution-job--terminal-record (job state result report)
+(defun tool-execution-job--terminal-record (job &key state result report)
   "Return JOB's bounded terminal tool record and release its operation closure."
   (setf (tool-execution-job-operation-function job) nil)
   (let* ((tool-result-p (typep result 'tool-result))
@@ -489,7 +489,11 @@ start under a cancelled ancestor, and hands over to the child."
      &key tool-name description summary operation-function detached-p
        parent-call-id
       (completion-policy ':continue)
-      (terminal-result-function #'tool-execution-job--terminal-record))
+      (terminal-result-function
+       (lambda (job state result report)
+         (tool-execution-job--terminal-record job :state  state
+                                                  :result result
+                                                  :report report))))
   "Admit one operation for exactly-once supervised execution.
 
 TERMINAL-RESULT-FUNCTION receives the job, terminal state, result, and condition
