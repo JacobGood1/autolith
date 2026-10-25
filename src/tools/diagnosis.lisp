@@ -18,18 +18,18 @@
   (declare (ignore tool))
   (handler-case
       (let* ((configuration (tool-context-configuration context))
-             (base (knowledge-base-read configuration))
-             (workspace (knowledge--workspace configuration))
-             (name (tool-argument arguments "diagnosis"))
-             (save-as (tool-argument arguments "save_as"))
-             (hypotheses (tool-argument arguments "hypotheses"))
+             (base          (knowledge-base-read configuration))
+             (workspace     (knowledge--workspace configuration))
+             (name          (tool-argument arguments "diagnosis"))
+             (save-as       (tool-argument arguments "save_as"))
+             (hypotheses    (tool-argument arguments "hypotheses"))
              (diagnosis
                (cond
                  (hypotheses
                   (let ((parameters (map 'list (lambda (parameter)
                                                  (format nil "?~A" (string-left-trim "?" parameter)))
                                          (or (tool-argument arguments "parameters") #())))
-                        (probes (or (tool-argument arguments "probes") #())))
+                        (probes     (or (tool-argument arguments "probes") #())))
                     (when save-as
                       (knowledge-define-diagnosis configuration
                                                   :id save-as :parameters parameters
@@ -55,14 +55,14 @@
                  (t
                   (knowledge--fail ':invalid-diagnosis arguments
                                    "Give hypotheses and probes, or the name of a saved diagnosis."))))
-             (bindings (let ((object (tool-argument arguments "bindings")))
-                         (and (json-object-p object)
-                              (loop for key being the hash-keys of object using (hash-value value)
-                                    collect (cons (format nil "?~A" (string-left-trim "?" key))
-                                                  value))))))
+             (bindings      (let ((object (tool-argument arguments "bindings")))
+                              (and (json-object-p object)
+                                   (loop for key being the hash-keys of object using (hash-value value)
+                                         collect (cons (format nil "?~A" (string-left-trim "?" key))
+                                                       value))))))
         (tool-success
          (knowledge-diagnosis-report (knowledge-diagnosis-run context diagnosis
                                                               :bindings bindings))))
     (knowledge-error (condition)
-      (error 'tool-error :message (autolith-error-message condition)
+      (error 'tool-error :message   (autolith-error-message condition)
                          :tool-name "diagnosis.run"))))
