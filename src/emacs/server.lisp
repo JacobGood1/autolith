@@ -83,6 +83,7 @@ return a value json-serialize accepts: a plist, vector, string, number, t,
                (error 'emacs-server-error
                       :message (format nil "The Emacs server connection failed: ~A" condition)
                       :reason  ':protocol))))
+      ; mallet:suppress no-ignore-errors -- best-effort socket cleanup must not mask the request outcome
       (ignore-errors (sb-bsd-sockets:socket-close connection)))))
 
 
