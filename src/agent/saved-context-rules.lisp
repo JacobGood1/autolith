@@ -152,7 +152,7 @@ canonical working directory and never reside in the repository."
                  :decoder        #'context-rule-saved--decode
                  :encoder        #'context-rule-saved--encode))
 
-(-> context-rule-saved--storage-failure (pathname keyword t) null)
+(-> context-rule-saved--storage-failure (pathname keyword t) nil)
 (defun context-rule-saved--storage-failure (pathname operation cause)
   "Signal a typed saved-rule failure for OPERATION and CAUSE."
   (if (or (eq operation ':validate)
