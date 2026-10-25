@@ -283,10 +283,11 @@ catalog follows the exact model identifiers consumed by streamGenerateContent."
       (provider-signal-http-failure provider condition))))
 
 (-> gemini-code-assist--nonstream-request
-    (gemini-code-assist-provider oauth-credentials keyword function)
+    (gemini-code-assist-provider oauth-credentials
+     &key (:stage keyword) (:request-function function))
     json-object)
 (defun gemini-code-assist--nonstream-request
-    (provider credentials stage request-function)
+    (provider credentials &key stage request-function)
   "Run one setup RPC with Gemini CLI's bounded transient retry behavior.
 
 A retryable HTTP status or transport failure is retried after
@@ -313,9 +314,10 @@ propagates."
 (defun gemini-code-assist--post (provider credentials method stage request)
   "POST one non-streaming Code Assist RPC."
   (gemini-code-assist--nonstream-request
-   provider credentials stage
-   (lambda ()
-     (gemini-code-assist--post-once provider credentials method request))))
+   provider credentials
+   :stage            stage
+   :request-function (lambda ()
+                       (gemini-code-assist--post-once provider credentials method request))))
 
 (-> gemini-code-assist--operation
     (gemini-code-assist-provider oauth-credentials non-empty-string)
@@ -323,9 +325,10 @@ propagates."
 (defun gemini-code-assist--operation (provider credentials operation)
   "GET one Code Assist long-running OPERATION."
   (gemini-code-assist--nonstream-request
-   provider credentials ':operation
-   (lambda ()
-     (gemini-code-assist--get-once provider credentials operation))))
+   provider credentials
+   :stage            ':operation
+   :request-function (lambda ()
+                       (gemini-code-assist--get-once provider credentials operation))))
 
 
 ;;;; -- Account Setup --
