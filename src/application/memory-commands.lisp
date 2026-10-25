@@ -35,7 +35,10 @@
     (:file
      (sanitize-text (memory-source-file-display source) :single-line-p t))
     (:url
-     (sanitize-text (or (ignore-errors (quri:uri-host (quri:uri (getf (rest source) :url))))
+     (sanitize-text (or (handler-case
+                            (uri-host (uri (getf (rest source) :url)))
+                          (uri-error ()
+                            nil))
                         (getf (rest source) :url))
                     :single-line-p t))
     (:user
