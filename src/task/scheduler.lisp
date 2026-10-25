@@ -152,7 +152,9 @@
   (let ((terminal nil))
     (unwind-protect
          (multiple-value-bind (final-result final-report final-state)
-             (task-job--publish-terminal-record job state result report)
+             (task-job--publish-terminal-record job :state  state
+                                                    :result result
+                                                    :report report)
            (setf terminal
                  (append (list :state         final-state
                                :published-p   (not (null (getf final-result :output-path)))
@@ -174,9 +176,9 @@
             (task-job-telemetry-terminal job) nil))))
 
 (-> task-job--publish-terminal-record
-    (task-job keyword t (option string))
+    (task-job &key (:state keyword) (:result t) (:report (option string)))
     (values list (option string) keyword))
-(defun task-job--publish-terminal-record (job state result report)
+(defun task-job--publish-terminal-record (job &key state result report)
   "Return JOB's terminal record for STATE, releasing what it must not retain.
 
 Runs inside the pool's publication claim, so the result artifact is written exactly
