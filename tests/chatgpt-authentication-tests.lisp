@@ -124,9 +124,9 @@
          (credentials
            (chatgpt-oauth-exchange-code
             manager
-            "code-secret"
-            "verifier-secret"
-            "http://localhost:1455/auth/callback"
+            :code           "code-secret"
+            :verifier       "verifier-secret"
+            :redirect-uri   "http://localhost:1455/auth/callback"
             :client-id      "client-test"
             :token-endpoint "https://issuer.test/oauth/token"
             :request-function

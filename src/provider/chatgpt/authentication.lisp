@@ -174,11 +174,12 @@
                                  (credential-manager-primary-source manager)))))
 
 (-> chatgpt-oauth-exchange-code
-    (credential-manager string string string
-     &key (:request-function function) (:client-id string) (:token-endpoint string))
+    (credential-manager
+     &key (:code string) (:verifier string) (:redirect-uri string)
+          (:request-function function) (:client-id string) (:token-endpoint string))
     oauth-credentials)
 (defun chatgpt-oauth-exchange-code
-    (manager code verifier redirect-uri &key (request-function #'chatgpt-oauth--request)
+    (manager &key code verifier redirect-uri (request-function #'chatgpt-oauth--request)
        (client-id *openai-oauth-client-id*) (token-endpoint *openai-oauth-token-endpoint*))
   "Exchange a ChatGPT authorization code and validate its credentials."
   (let ((client (chatgpt-oauth--rfc8252-client :request-function request-function
