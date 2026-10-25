@@ -7,19 +7,19 @@
 
 (define-condition context-rule-storage-error (context-rule-error)
   ((pathname
-    :initarg :pathname
-    :reader context-rule-storage-error-pathname
-    :type pathname
+    :initarg       :pathname
+    :reader        context-rule-storage-error-pathname
+    :type          pathname
     :documentation "The affected saved-rule pathname.")
    (operation
-    :initarg :operation
-    :reader context-rule-storage-error-operation
-    :type keyword
+    :initarg       :operation
+    :reader        context-rule-storage-error-operation
+    :type          keyword
     :documentation "The storage operation that failed.")
    (cause
-    :initarg :cause
-    :reader context-rule-storage-error-cause
-    :type t
+    :initarg       :cause
+    :reader        context-rule-storage-error-cause
+    :type          t
     :documentation "The underlying storage condition."))
   (:documentation "A saved context-rule file could not be read or written."))
 
@@ -33,14 +33,14 @@
 
 (define-condition context-rule-save-conflict (context-rule-error)
   ((rule-id
-    :initarg :rule-id
-    :reader context-rule-save-conflict-rule-id
-    :type string
+    :initarg       :rule-id
+    :reader        context-rule-save-conflict-rule-id
+    :type          string
     :documentation "The existing rule identifier.")
    (pathname
-    :initarg :pathname
-    :reader context-rule-save-conflict-pathname
-    :type pathname
+    :initarg       :pathname
+    :reader        context-rule-save-conflict-pathname
+    :type          pathname
     :documentation "The collection containing the existing rule."))
   (:documentation "A saved rule ID already exists and replacement was not requested."))
 
@@ -75,7 +75,7 @@ SCOPE is either :GLOBAL or :WORKSPACE. Workspace files are keyed by the
 canonical working directory and never reside in the repository."
   (unless (context-rule-saved--scope-p scope)
     (error 'context-rule-error :field ':scope
-           :message "Saved context-rule scope must be :global or :workspace."))
+           :message                   "Saved context-rule scope must be :global or :workspace."))
   (if (eq scope :global)
       (merge-pathnames "context-rules.sexp" (config :data-root configuration))
       (merge-pathnames
@@ -140,18 +140,17 @@ canonical working directory and never reside in the repository."
   "Encode RULES as the versioned readable collection record."
   (list :context-rules :version *context-rule-saved-version* :rules rules))
 
-
 (-> context-rule-saved--store (configuration keyword) sexp-store:snapshot-store)
 (defun context-rule-saved--store (configuration scope)
   "Construct the locked atomic snapshot store for SCOPE."
   (make-instance 'sexp-store:snapshot-store
-                 :pathname (context-rule-saved-path configuration scope)
-                 :lock-pathname (context-rule-saved--lock-path configuration scope)
-                 :initial-state #'list
-                 :validator #'context-rule-saved--form-p
+                 :pathname       (context-rule-saved-path configuration scope)
+                 :lock-pathname  (context-rule-saved--lock-path configuration scope)
+                 :initial-state  #'list
+                 :validator      #'context-rule-saved--form-p
                  :duplicate-keys ':reject
-                 :decoder #'context-rule-saved--decode
-                 :encoder #'context-rule-saved--encode))
+                 :decoder        #'context-rule-saved--decode
+                 :encoder        #'context-rule-saved--encode))
 
 (-> context-rule-saved--storage-failure (pathname keyword t) null)
 (defun context-rule-saved--storage-failure (pathname operation cause)
@@ -161,12 +160,12 @@ canonical working directory and never reside in the repository."
                (typep cause 'sexp-store:store-error)
                (typep (sexp-store:store-error-cause cause) '(or reader-error end-of-file))))
       (error 'context-rule-corruption-error
-             :field ':rules
+             :field   ':rules
              :message (format nil "Malformed saved context rules at ~A: ~A"
                               pathname cause)
              :pathname pathname :operation operation :cause cause)
       (error 'context-rule-io-error
-             :field ':rules
+             :field   ':rules
              :message (format nil "Could not access saved context rules at ~A: ~A"
                               pathname cause)
              :pathname pathname :operation operation :cause cause)))
@@ -189,7 +188,7 @@ canonical working directory and never reside in the repository."
   (unless (and (sexp-store:record-finite-p rule)
                (context-rule--plist-p rule))
     (error 'context-rule-error :field ':rule
-           :message "Saved context rule must be a finite property list."))
+           :message                   "Saved context rule must be a finite property list."))
   (let ((candidate (copy-tree rule)))
     (setf (getf candidate :workspace)
           (when (eq scope :workspace)
@@ -204,11 +203,11 @@ When SCOPE is supplied, return only that collection. Workspace rules override
 a same-ID global rule for the canonical current workspace."
   (unless (or (null scope) (context-rule-saved--scope-p scope))
     (error 'context-rule-error :field ':scope
-           :message "Saved context-rule scope must be :global, :workspace, or omitted."))
+           :message                   "Saved context-rule scope must be :global, :workspace, or omitted."))
   (let* ((workspace-rules (when (or (null scope) (eq scope :workspace))
                             (context-rule-saved--read configuration :workspace)))
-         (global-rules (when (or (null scope) (eq scope :global))
-                         (context-rule-saved--read configuration :global))))
+         (global-rules    (when (or (null scope) (eq scope :global))
+                            (context-rule-saved--read configuration :global))))
     (cond
       ((eq scope :global)
        (mapcar (lambda (rule)
@@ -238,10 +237,10 @@ a same-ID global rule for the canonical current workspace."
 Duplicate IDs signal CONTEXT-RULE-SAVE-CONFLICT unless REPLACE-P is true."
   (unless (context-rule-saved--scope-p scope)
     (error 'context-rule-error :field ':scope
-           :message "Saved context-rule scope must be :global or :workspace."))
-  (let* ((pathname (context-rule-saved-path configuration scope))
+           :message                   "Saved context-rule scope must be :global or :workspace."))
+  (let* ((pathname      (context-rule-saved-path configuration scope))
          (lock-pathname (context-rule-saved--lock-path configuration scope))
-         (validated (context-rule-saved--validated configuration scope rule)))
+         (validated     (context-rule-saved--validated configuration scope rule)))
     (handler-case
         (progn
           (ensure-directories-exist pathname)
@@ -251,12 +250,12 @@ Duplicate IDs signal CONTEXT-RULE-SAVE-CONFLICT unless REPLACE-P is true."
            (lambda (current)
              (let ((existing (find (getf validated :id) current
                                    :test #'string=
-                                   :key (lambda (saved) (getf saved :id)))))
+                                   :key  (lambda (saved) (getf saved :id)))))
                (when (and existing (not replace-p))
                  (error 'context-rule-save-conflict
-                        :field ':id
-                        :message "A saved context-rule with this ID already exists."
-                        :rule-id (getf validated :id)
+                        :field    ':id
+                        :message  "A saved context-rule with this ID already exists."
+                        :rule-id  (getf validated :id)
                         :pathname pathname))
                (values (if existing
                            (mapcar (lambda (saved)
@@ -277,7 +276,7 @@ Duplicate IDs signal CONTEXT-RULE-SAVE-CONFLICT unless REPLACE-P is true."
   (when (request-context-compaction-p request)
     (return-from context-rule-saved-contributions nil))
   (let* ((configuration (request-context-configuration request))
-         (rules (context-rule-saved configuration)))
+         (rules         (context-rule-saved configuration)))
     (loop for rule in rules
           when (context-rule--matches-p rule request)
             collect (make-context-contribution
@@ -288,8 +287,8 @@ Duplicate IDs signal CONTEXT-RULE-SAVE-CONFLICT unless REPLACE-P is true."
                                  (getf rule :id))
                          (format nil "saved-context-rule/global/~A" (getf rule :id)))
                      :instruction (getf rule :instruction)
-                     :priority (getf rule :priority 0)
-                     :lifetime (getf rule :lifetime ':while-relevant)))))
+                     :priority    (getf rule :priority 0)
+                     :lifetime    (getf rule :lifetime ':while-relevant)))))
 
 (define-context-contributor context-rule-saved-contributor (request)
   (context-rule-saved-contributions request))
