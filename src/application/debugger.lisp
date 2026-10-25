@@ -14,42 +14,42 @@
   (:documentation "Diagnosis was cancelled by its owner."))
 
 (defclass application-debugger-session ()
-  ((snapshot :initarg :snapshot
-             :reader application-debugger-portable-snapshot
+  ((snapshot :initarg       :snapshot
+             :reader        application-debugger-portable-snapshot
              :documentation "Detached library diagnostic data, with no live objects.")
    (application :initarg :application :initform nil
-                :reader application-debugger-application
+                :reader        application-debugger-application
                 :documentation "The application requesting model diagnosis.")
-   (lock :initform (make-lock "Autolith application debugger")
-         :reader application-debugger-lock
+   (lock :initform      (make-lock "Autolith application debugger")
+         :reader        application-debugger-lock
          :documentation "The diagnosis state lock.")
-   (condition-variable :initform (make-condition-variable
-                                  :name "Autolith debugger state")
-                       :reader application-debugger-condition-variable
+   (condition-variable :initform      (make-condition-variable
+                                       :name "Autolith debugger state")
+                       :reader        application-debugger-condition-variable
                        :documentation "The diagnosis state change notification.")
-   (diagnosis-thread :initform nil
-                     :accessor application-debugger-diagnosis-thread
+   (diagnosis-thread :initform      nil
+                     :accessor      application-debugger-diagnosis-thread
                      :documentation "The independent diagnosis thread.")
-   (diagnosis-state :initform :idle
-                    :accessor application-debugger-diagnosis-state
+   (diagnosis-state :initform      :idle
+                    :accessor      application-debugger-diagnosis-state
                     :documentation "The diagnosis lifecycle state.")
-   (explanation :initform nil
-                :accessor application-debugger-explanation
+   (explanation :initform      nil
+                :accessor      application-debugger-explanation
                 :documentation "The bounded diagnosis explanation.")
-   (failure :initform nil
-            :accessor application-debugger-failure
+   (failure :initform      nil
+            :accessor      application-debugger-failure
             :documentation "The diagnosis failure condition, when any.")
-   (proposals :initform nil
-              :accessor application-debugger-proposals
+   (proposals :initform      nil
+              :accessor      application-debugger-proposals
               :documentation "The validated recovery proposals in reverse order.")
-   (cancelled-p :initform nil
-                :accessor application-debugger-cancelled-p
+   (cancelled-p :initform      nil
+                :accessor      application-debugger-cancelled-p
                 :documentation "Whether the owner cancelled diagnosis."))
   (:documentation "An independent model diagnosis over a detached failure snapshot."))
 
 (defclass application-debugger-propose-tool (tool)
-  ((session :initarg :session
-            :reader application-debugger-propose-tool-session
+  ((session :initarg       :session
+            :reader        application-debugger-propose-tool-session
             :documentation "The diagnosis session accepting proposals."))
   (:documentation "Restricted debugger diagnosis tool for executable proposals."))
 
@@ -60,18 +60,18 @@
   (handler-case
       (let ((proposal
               (make-instance 'recovery
-                             :kind (intern (string-upcase
-                                            (tool-argument arguments "kind" :required t))
-                                           :keyword)
-                             :report (bounded-string
-                                      (tool-argument arguments "report" :required t))
-                             :restart-id (tool-argument arguments "target-restart-id")
+                             :kind               (intern (string-upcase
+                                                          (tool-argument arguments "kind" :required t))
+                                                         :keyword)
+                             :report             (bounded-string
+                                                  (tool-argument arguments "report" :required t))
+                             :restart-id         (tool-argument arguments "target-restart-id")
                              :preparation-source (let ((source (tool-argument arguments "preparation-source")))
                                                     (and source (bounded-string source)))
-                             :argument-source (let ((source (tool-argument arguments "argument-source")))
-                                                (and source (bounded-string source)))
-                             :return-source (let ((source (tool-argument arguments "return-source")))
-                                              (and source (bounded-string source))))))
+                             :argument-source    (let ((source (tool-argument arguments "argument-source")))
+                                                   (and source (bounded-string source)))
+                             :return-source      (let ((source (tool-argument arguments "return-source")))
+                                                   (and source (bounded-string source))))))
         (let ((session (application-debugger-propose-tool-session tool)))
           (with-lock-held ((application-debugger-lock session))
             (when (application-debugger-cancelled-p session)
@@ -107,8 +107,8 @@
                    "preparation-source" (tool-string-property "A portable source form run before invocation.")
                    "argument-source" (tool-string-property "A portable source form producing the restart argument.")
                    "return-source" (tool-string-property "A portable source form producing returned values."))
-                   '("kind" "report"))
-                 :session session))
+                  '("kind" "report"))
+                 :session     session))
 
 (-> application-debugger-start-diagnosis
     (application-debugger-session configuration)
@@ -166,18 +166,18 @@
                            (application-debugger--proposal-tool session))
                           (agent-run-user-turn
                            (agent-create :configuration configuration
-                                         :provider provider
-                                         :conversation conversation
+                                         :provider      provider
+                                         :conversation  conversation
                                          :tool-registry registry
-                                         :worker worker)
+                                         :worker        worker)
                            (format nil
                                    "You are diagnosing a suspended application operation.~%~%~A~%~%Explain the failure briefly and submit only executable recovery proposals using debugger.propose. Every proposal must contain source strings, never decoded arbitrary values."
                                    (with-output-to-string (stream)
                                      (write
                                       (application-debugger-portable-snapshot session)
                                       :stream stream)))
-                           :observer observer
-                           :tools-p t
+                           :observer           observer
+                           :tools-p            t
                            :tool-restriction-p t
                            :tool-allowlist
                            '("resource.read" "search.files" "search.glob"
@@ -234,9 +234,9 @@
 (defun application-debugger-poll (session)
   "Return a synchronized portable diagnosis status plist for SESSION."
   (with-lock-held ((application-debugger-lock session))
-    (list :state (application-debugger-diagnosis-state session)
+    (list :state       (application-debugger-diagnosis-state session)
           :explanation (application-debugger-explanation session)
-          :failure (and (application-debugger-failure session)
-                        (princ-to-string (application-debugger-failure session)))
-          :proposals (copy-list (application-debugger-proposals session))
+          :failure     (and (application-debugger-failure session)
+                            (princ-to-string (application-debugger-failure session)))
+          :proposals   (copy-list (application-debugger-proposals session))
           :cancelled-p (application-debugger-cancelled-p session))))
