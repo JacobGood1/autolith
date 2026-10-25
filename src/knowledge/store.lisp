@@ -226,7 +226,7 @@ Without a configuration, as in standalone tool registries, knowledge is active."
   (and (proper-list-p properties)
        (evenp (length properties))
        (loop with seen = nil
-             for (key value) on properties by #'cddr
+             for (key nil) on properties by (partial #'nthcdr 2)
              always (and (keywordp key)
                          (not (member key seen))
                          (progn (push key seen) t)))))
