@@ -40,10 +40,10 @@
     (dolist (segment (getf session :segments))
       (unless (data-transfer--properties-p segment '(:name :records))
         (data-transfer--fail pathname ':invalid "Malformed session segment."))
-      (let* ((name (getf segment :name))
-             (records (getf segment :records))
+      (let* ((name     (getf segment :name))
+             (records  (getf segment :records))
              (identity (make-pathname :directory '(:absolute) :name identifier :type "sexp"))
-             (header (first records)))
+             (header   (first records)))
         (unless (and (or (and first-p (null name))
                          (and (data-transfer--safe-component-p name)
                               (equal (pathname-type name) "sexp")
@@ -78,7 +78,7 @@
 (-> data-transfer--validate-history (list keyword t) null)
 (defun data-transfer--validate-history (records kind pathname)
   "Validate memory and papercut lifecycle records, retaining their full history."
-  (let ((seen (make-hash-table :test #'equal))
+  (let ((seen   (make-hash-table :test #'equal))
         (closed (make-hash-table :test #'equal)))
     (dolist (record records)
       (unless (and (conversation--record-form-p record)
@@ -197,7 +197,7 @@
   (dolist (session (getf archive :sessions))
     (dolist (descriptor (data-transfer--image-descriptors (getf session :segments)))
       (let ((identifier (getf descriptor :id))
-            (artifact (getf descriptor :artifact)))
+            (artifact   (getf descriptor :artifact)))
         (unless (and (non-empty-string-p identifier) (stringp artifact)
                      (image-input--artifact-name-p artifact identifier)
                      (find (list ':images (getf session :id) (list artifact))
@@ -310,9 +310,9 @@
 (-> data-transfer--input-state-p (list t) boolean)
 (defun data-transfer--input-state-p (state pathname)
   "Validate complete pending or vault schemas with the persistence readers."
-  (let* ((form (getf state :form))
+  (let* ((form       (getf state :form))
          (properties (rest form))
-         (owner (getf state :owner)))
+         (owner      (getf state :owner)))
     (if (eq (getf state :kind) ':pending)
         (and (application-recovery-input-vault--pending-form-shape-p form)
              (not (null (application-input-controller--pending-state form owner))))
@@ -350,9 +350,9 @@
       (let ((linked (data-transfer--memory-links
                      (getf archive :memories)
                      :workspace workspace
-                     :linked (loop for agenda in (getf archive :agendas) append
-                               (loop for item in (getf (rest agenda) :items)
-                                     append (getf (rest item) :memory-ids))))))
+                     :linked    (loop for agenda in (getf archive :agendas) append
+                                  (loop for item in (getf (rest agenda) :items)
+                                        append (getf (rest item) :memory-ids))))))
         (dolist (record (getf archive :memories))
           (when (and (eq (first record) ':memory) (eq (getf (rest record) :scope) ':global)
                      (not (member (getf (rest record) :id) linked :test #'equal)))
@@ -363,11 +363,11 @@
 (defun data-transfer--remap (archive directory)
   "Relocate explicit ownership metadata, preserving identifiers and transcript text."
   (let* ((copy (copy-tree archive))
-         (old (getf copy :workspace)))
+         (old  (getf copy :workspace)))
     (setf (getf copy :workspace) directory
           (getf copy :workspaces) (remove-duplicates
-                                  (substitute directory old (getf copy :workspaces) :test #'equal)
-                                  :test #'equal))
+                                   (substitute directory old (getf copy :workspaces) :test #'equal)
+                                   :test #'equal))
     (dolist (session (append (getf copy :sessions)
                              (mapcar (lambda (child) (getf child :session)) (getf copy :children))))
       (when (equal (getf session :directory) old)
