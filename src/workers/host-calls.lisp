@@ -14,8 +14,8 @@ Only the ordinary agent dispatch boundary establishes this policy.")
 
 (define-condition worker-host-call-error (tool-error)
   ((code
-    :initarg :code
-    :reader worker-host-call-error-code
+    :initarg       :code
+    :reader        worker-host-call-error-code
     :documentation "Machine-readable product dispatch failure."))
   (:documentation "An invalid, unavailable, or reentrant worker tool call."))
 
@@ -42,6 +42,7 @@ This function is available only during an explicitly enabled worker evaluation."
 
 (defparameter *worker-host-admission* nil
   "Host-only exact mission admission, wrapped to distinguish no mission from no binding.")
+
 (-> worker-host--bindings () list)
 (defun worker-host--bindings ()
   "Capture only the explicit ordinary tool and logical-turn bindings."
@@ -54,7 +55,7 @@ This function is available only during an explicitly enabled worker evaluation."
 (-> worker-host--bound-function (function &key (:context tool-context)) function)
 (defun worker-host--bound-function (function &key context)
   "Preserve explicit tool bindings and exact mission admission in execution jobs."
-  (let* ((agent (tool-context-agent context))
+  (let* ((agent    (tool-context-agent context))
          (*worker-host-admission*
            (or *worker-host-admission*
                (list (and (typep agent 'agent) (mission--agent-context agent)))))
@@ -76,7 +77,7 @@ Intersect requests with the originating turn's policy and exact tool registry."
       (worker-host--reject ':invalid-arguments
                            "host-tools must be an array of at most 64 exact dotted tool names."))
     (let ((registry (tool-context-registry context))
-          (names (remove-duplicates (coerce requested 'list) :test #'string=)))
+          (names    (remove-duplicates (coerce requested 'list) :test #'string=)))
       (unless (typep registry 'tool-registry)
         (worker-host--reject ':missing-context "Worker host calls require the originating tool registry."))
       (dolist (name names)
@@ -97,26 +98,26 @@ Intersect requests with the originating turn's policy and exact tool registry."
 (defun worker-host--context (origin call-id)
   "Clone ORIGIN's exact authority, changing only the correlated call identity."
   (make-instance 'tool-context
-                 :configuration (tool-context-configuration origin)
-                 :conversation (tool-context-conversation origin)
-                 :context-rule-generation (tool-context-rule-generation origin)
-                 :worker (tool-context-worker origin)
-                 :registry (tool-context-registry origin)
-                 :agent (tool-context-agent origin)
-                 :observer (tool-context-observer origin)
-                 :mutation-checker (tool-context-mutation-checker origin)
+                 :configuration                  (tool-context-configuration origin)
+                 :conversation                   (tool-context-conversation origin)
+                 :context-rule-generation        (tool-context-rule-generation origin)
+                 :worker                         (tool-context-worker origin)
+                 :registry                       (tool-context-registry origin)
+                 :agent                          (tool-context-agent origin)
+                 :observer                       (tool-context-observer origin)
+                 :mutation-checker               (tool-context-mutation-checker origin)
                  :command-authorization-function (tool-context-command-authorization-function origin)
-                 :tool-authorization-function (tool-context-tool-authorization-function origin)
-                 :call-id call-id))
+                 :tool-authorization-function    (tool-context-tool-authorization-function origin)
+                 :call-id                        call-id))
 
 (-> worker-host--result (tool-result) list)
 (defun worker-host--result (result)
   "Return ordinary bounded RESULT as readable data, retaining native details."
   (list :success-p (tool-result-success-p result)
-        :category (tool-result-category result)
-        :content (tool-result-content result)
-        :code (tool-result-error-code result)
-        :details (tool-result-details result)
+        :category  (tool-result-category result)
+        :content   (tool-result-content result)
+        :code      (tool-result-error-code result)
+        :details   (tool-result-details result)
         :content-blocks
         (mapcar #'conversation--tool-content-block-record
                 (or (tool-result-content-blocks result)
@@ -139,118 +140,118 @@ CONTEXT is host-owned data; worker payloads cannot replace its authority."
   (destructuring-bind (origin names bindings repl mission) context
     (progv (mapcar #'first bindings) (mapcar #'rest bindings)
       (let ((*worker-host-tool-policy* (list :restricted-p t :allowlist names)))
-      (when (funcall cancelled-p)
-        (worker-host--reject ':cancelled "The originating worker request was cancelled."))
-      (when mission
-        (mission--admit mission :inference-p nil))
-      (unless (and (listp payload) (= (length payload) 4)
-                   (= (count :tool payload :test #'eq) 1)
-                   (= (count :arguments payload :test #'eq) 1)
-                   (member (first payload) '(:tool :arguments))
-                   (member (third payload) '(:tool :arguments))
-                   (non-empty-string-p (getf payload :tool))
-                   (json-object-source-p (getf payload :arguments)))
-        (worker-host--reject ':invalid-arguments
-                             "Use worker-tool-call with an exact tool name and JSON object source."))
-      (let* ((name (getf payload :tool))
-             (call-id (format nil "worker:~A:~A:~A:~A"
-                              (or (tool-context-call-id origin) "local")
-                              (getf identity :session) (getf identity :request-id)
-                              (getf identity :call-id)))
-             (conversation (tool-context-conversation origin))
-             (call-context (worker-host--context origin call-id))
-             (observer (tool-context-observer origin))
-             (result nil)
-             (completed-p nil))
-        (conversation-append-record
-         conversation (list :worker-tool-call :call-id call-id
-                            :parent-call-id (tool-context-call-id origin)
-                            :worker repl :identity identity :tool name
-                            :arguments (getf payload :arguments)))
-        (unwind-protect
-             (progn
-               (setf result
-                     (cond
-                       ((not (member name names :test #'string=))
-                        (tool-failure "Tool is not in this worker request's host-tools allowlist."
+       (when (funcall cancelled-p)
+         (worker-host--reject ':cancelled "The originating worker request was cancelled."))
+       (when mission
+         (mission--admit mission :inference-p nil))
+       (unless (and (listp payload) (= (length payload) 4)
+                    (= (count :tool payload :test #'eq) 1)
+                    (= (count :arguments payload :test #'eq) 1)
+                    (member (first payload) '(:tool :arguments))
+                    (member (third payload) '(:tool :arguments))
+                    (non-empty-string-p (getf payload :tool))
+                    (json-object-source-p (getf payload :arguments)))
+         (worker-host--reject ':invalid-arguments
+                              "Use worker-tool-call with an exact tool name and JSON object source."))
+       (let* ((name         (getf payload :tool))
+              (call-id      (format nil "worker:~A:~A:~A:~A"
+                                    (or (tool-context-call-id origin) "local")
+                                    (getf identity :session) (getf identity :request-id)
+                                    (getf identity :call-id)))
+              (conversation (tool-context-conversation origin))
+              (call-context (worker-host--context origin call-id))
+              (observer     (tool-context-observer origin))
+              (result       nil)
+              (completed-p  nil))
+         (conversation-append-record
+          conversation (list :worker-tool-call :call-id call-id
+                             :parent-call-id   (tool-context-call-id origin)
+                             :worker repl :identity identity :tool name
+                             :arguments        (getf payload :arguments)))
+         (unwind-protect
+              (progn
+                (setf result
+                      (cond
+                        ((not (member name names :test #'string=))
+                         (tool-failure "Tool is not in this worker request's host-tools allowlist."
+                                       :code ':capability-denied))
+                       ((and (uiop:string-prefix-p "lisp." name)
+                             (equal (json-get (json-decode (getf payload :arguments)) "target") "self"))
+                        (tool-failure "Worker host calls do not carry active-image authority."
                                       :code ':capability-denied))
-                      ((and (uiop:string-prefix-p "lisp." name)
-                            (equal (json-get (json-decode (getf payload :arguments)) "target") "self"))
-                       (tool-failure "Worker host calls do not carry active-image authority."
-                                     :code ':capability-denied))
-                      ((worker-host--reentrant-p name
-                                                 (json-decode (getf payload :arguments)) :repl repl)
+                       ((worker-host--reentrant-p name
+                                                  (json-decode (getf payload :arguments)) :repl repl)
                         (tool-failure "The calling REPL is awaiting this callback. Select a different REPL for nested execution."
                                       :code ':worker-reentrancy))
                        (t
-                       (let ((tool (find name (tool-registry-tools (tool-context-registry origin))
-                                         :key #'tool-canonical-name :test #'string=)))
-                         (cond
-                           ((null tool)
-                            (tool-failure "The requested host tool is no longer available."
-                                          :code ':tool-unavailable))
-                           ((string= (tool-namespace tool) "self")
-                            (tool-failure "Worker host calls do not carry active-image authority."
-                                          :code ':capability-denied))
-                           (t
-                            (let ((call (json-object "namespace" (tool-namespace tool)
-                                                     "name" (tool-name tool)
-                                                     "call_id" call-id
-                                                     "arguments" (getf payload :arguments))))
-                               (flet ((execute ()
-                                        (tool-registry-execute-call
-                                         (tool-context-registry origin) call call-context)))
-                                 (if observer
-                                     (agent-observer-call-with-tool-execution observer call-id #'execute)
-                                     (execute))))))))))
-               (let ((portable (worker-host--result result)))
-                 (conversation-append-record
-                  conversation (list :worker-tool-result :call-id call-id
-                                     :parent-call-id (tool-context-call-id origin)
-                                     :identity identity :result portable))
-                 (setf completed-p t)
-                 portable))
-          (unless completed-p
-            (conversation-append-record
-             conversation (list :worker-tool-result :call-id call-id
-                                :parent-call-id (tool-context-call-id origin)
-                                :identity identity :result
-                                (list :success-p nil :category ':failure
-                                      :code ':unknown-outcome
-                                    :content *conversation-interrupted-tool-output*))))))))))
+                        (let ((tool (find name (tool-registry-tools (tool-context-registry origin))
+                                          :key #'tool-canonical-name :test #'string=)))
+                          (cond
+                            ((null tool)
+                             (tool-failure "The requested host tool is no longer available."
+                                           :code ':tool-unavailable))
+                            ((string= (tool-namespace tool) "self")
+                             (tool-failure "Worker host calls do not carry active-image authority."
+                                           :code ':capability-denied))
+                            (t
+                             (let ((call (json-object "namespace" (tool-namespace tool)
+                                                      "name" (tool-name tool)
+                                                      "call_id" call-id
+                                                      "arguments" (getf payload :arguments))))
+                                (flet ((execute ()
+                                         (tool-registry-execute-call
+                                          (tool-context-registry origin) call call-context)))
+                                  (if observer
+                                      (agent-observer-call-with-tool-execution observer call-id #'execute)
+                                      (execute))))))))))
+                (let ((portable (worker-host--result result)))
+                  (conversation-append-record
+                   conversation (list :worker-tool-result :call-id call-id
+                                      :parent-call-id     (tool-context-call-id origin)
+                                      :identity identity :result portable))
+                  (setf completed-p t)
+                  portable))
+           (unless completed-p
+             (conversation-append-record
+              conversation (list :worker-tool-result :call-id call-id
+                                 :parent-call-id     (tool-context-call-id origin)
+                                 :identity identity :result
+                                 (list :success-p nil :category ':failure
+                                       :code  ':unknown-outcome
+                                     :content *conversation-interrupted-tool-output*))))))))))
 
 (-> worker-host-request (sbcl-worker keyword list
-                        &key (:context tool-context) (:tools list)) list)
+                         &key (:context tool-context) (:tools list)) list)
 (defun worker-host-request (worker operation arguments &key context tools)
   "Run an opted-in ordinary worker operation with exactly CONTEXT's authority."
-  (let* ((agent (tool-context-agent context))
-         (mission (if *worker-host-admission*
-                      (first *worker-host-admission*)
-                      (and (typep agent 'agent) (mission--agent-context agent))))
+  (let* ((agent                   (tool-context-agent context))
+         (mission                 (if *worker-host-admission*
+                                      (first *worker-host-admission*)
+                                      (and (typep agent 'agent) (mission--agent-context agent))))
          (*worker-host-admission* (or *worker-host-admission* (list mission)))
-         (bindings (worker-host--bindings))
-         (repl (lisp-worker-name worker)))
+         (bindings                (worker-host--bindings))
+         (repl                    (lisp-worker-name worker)))
     (handler-case
         (lisp-worker--call
          (lambda ()
            (sbcl-workers:sbcl-worker-host-request
             worker operation arguments
-            :dispatcher #'worker-host--dispatch
-            :context (list context tools bindings repl mission)
+            :dispatcher     #'worker-host--dispatch
+            :context        (list context tools bindings repl mission)
             :worker-context (list :conversation-id
                                   (conversation-identifier (tool-context-conversation context))
                                   :parent-call-id (tool-context-call-id context)
                                   :worker repl :host-tools tools)
-            :cancel-p (and mission (lambda ()
-                                     (not (eq (getf (mission-context-goal mission) :status) ':active))))
-            :request-limit *worker-host-request-limit*
-            :result-limit *worker-host-result-limit*)))
+            :cancel-p       (and mission (lambda ()
+                                           (not (eq (getf (mission-context-goal mission) :status) ':active))))
+            :request-limit  *worker-host-request-limit*
+            :result-limit   *worker-host-result-limit*)))
       (job-aborted (condition)
         (sbcl-worker-cancel-request worker)
         (error condition)))))
 
 (-> worker-host-eval-request (sbcl-worker keyword list
-                             &key (:context tool-context) (:tools list)
+                              &key (:context tool-context) (:tools list)
                                   (:enabled-p boolean)) list)
 (defun worker-host-eval-request (worker operation arguments &key context tools enabled-p)
   "Use the plain request by default, installing only explicit worker facades on opt-in."
