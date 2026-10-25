@@ -5,9 +5,9 @@
 (-> application-onboarding--call-fullscreen (application function) t)
 (defun application-onboarding--call-fullscreen (application function)
   "Call FUNCTION with exclusive fullscreen ownership, restoring the user's mode."
-  (let* ((ui (application-ui application))
-         (inline-p (not (terminal-ui-fullscreen-p ui)))
-         (active-p (and (not inline-p) (fullscreen-terminal-ui-active-p ui)))
+  (let* ((ui          (application-ui application))
+         (inline-p    (not (terminal-ui-fullscreen-p ui)))
+         (active-p    (and (not inline-p) (fullscreen-terminal-ui-active-p ui)))
          (suspended-p (terminal-ui-live-output-suspended-p ui)))
     (terminal-ui-call-with-exclusive-input
      ui
@@ -34,7 +34,7 @@
 (-> application-onboarding--settings (application) null)
 (defun application-onboarding--settings (application)
   "Open the real settings picker and return to the suspended tour on every exit."
-  (let* ((ui (application-ui application))
+  (let* ((ui          (application-ui application))
          (suspended-p (terminal-ui-live-output-suspended-p ui)))
     (unwind-protect
          (progn
@@ -54,7 +54,7 @@ Skipping keeps the existing account and model. Picker cancellation returns to
 its caller; cancelling the method picker returns to provider selection. Restore
 the tour's output suspension even when provider authentication fails. Never
 retain provider output or condition details in onboarding state."
-  (let* ((ui (application-ui application))
+  (let* ((ui          (application-ui application))
          (suspended-p (terminal-ui-live-output-suspended-p ui)))
     (unwind-protect
          (progn
@@ -65,23 +65,23 @@ retain provider output or condition details in onboarding state."
                (let ((name
                        (application--pick-identifier
                         application
-                        :title (onboarding-source-text "auth-provider-title")
-                        :items (cons (list :name "skip" :argument nil
-                                           :description (onboarding-source-text "auth-skip"))
-                                     (application--authentication-provider-items application))
+                        :title         (onboarding-source-text "auth-provider-title")
+                        :items         (cons (list :name "skip" :argument nil
+                                                   :description (onboarding-source-text "auth-skip"))
+                                             (application--authentication-provider-items application))
                         :visible-count (application--authentication-provider-visible-count application)
                         :initial-name "skip" :search-p t)))
                  (unless name
                    (return-from selection ':cancelled))
                  (when (string= name "skip")
                    (return-from selection ':skipped))
-                 (let* ((provider (application--authentication-provider application name))
+                 (let* ((provider  (application--authentication-provider application name))
                         (chatgpt-p (typep provider 'codex-subscription-provider))
                         (method
                           (when chatgpt-p
                             (application--pick-identifier
                              application
-                             :title (onboarding-source-text "auth-method-title")
+                             :title        (onboarding-source-text "auth-method-title")
                              :items
                              (list (list :name "browser" :argument nil
                                          :description (onboarding-source-text "auth-browser"))
@@ -110,12 +110,12 @@ retain provider output or condition details in onboarding state."
 Persist each completed page immediately. Explicit refusal acknowledges the
 remaining selected revisions; interruption leaves them pending."
   (let* ((*onboarding-source-snapshot* (onboarding-source--read))
-         (configuration (application-configuration application))
-         (ui (application-ui application))
-         (pages (onboarding-pages configuration))
-         (selected (if new-only-p
-                       (onboarding-state-pending configuration pages)
-                       pages)))
+         (configuration                (application-configuration application))
+         (ui                           (application-ui application))
+         (pages                        (onboarding-pages configuration))
+         (selected                     (if new-only-p
+                                           (onboarding-state-pending configuration pages)
+                                           pages)))
     (cond
       ((not (terminal-interactive-p (terminal-ui-terminal ui)))
        ':unavailable)
@@ -126,12 +126,12 @@ remaining selected revisions; interruption leaves them pending."
         application
         (lambda ()
            (let ((*terminal-ui-boot-linger-prompt* (onboarding-source-text "boot-linger"))
-                 (*terminal-ui-boot-start-label* (onboarding-source-text "boot-start")))
+                 (*terminal-ui-boot-start-label*   (onboarding-source-text "boot-start")))
             (if (eq (terminal-ui-boot-sequence
                      ui :screen-p (config :boot-screen-p configuration) :linger-p t
                      :resize-callback #'application-pending-terminal-size
-                     :duration (config :boot-screen-seconds configuration)
-                     :tip-seconds (config :boot-screen-tip-seconds configuration))
+                     :duration        (config :boot-screen-seconds configuration)
+                     :tip-seconds     (config :boot-screen-tip-seconds configuration))
                     ':interrupt)
                 ':interrupted
                 (multiple-value-bind (outcome seen)
@@ -141,12 +141,12 @@ remaining selected revisions; interruption leaves them pending."
                      (if (and new-only-p (< (length selected) (length pages)))
                          (onboarding-source-text "introduction-new")
                          (onboarding-source-text "introduction"))
-                     :help-function (lambda (&optional topic)
-                                      (application-operation-help application topic))
+                     :help-function      (lambda (&optional topic)
+                                           (application-operation-help application topic))
                       :settings-function (lambda () (application-onboarding--settings application))
                        :authentication-function
                        (lambda () (application-onboarding--authenticate application))
-                      :resize-callback #'application-pending-terminal-size
+                      :resize-callback   #'application-pending-terminal-size
                      :page-completed-function
                      (lambda (page)
                        (onboarding-state-record configuration (list page) ':completed)))
@@ -162,12 +162,12 @@ remaining selected revisions; interruption leaves them pending."
     (application application-input-controller &key (:onboarding-p boolean)) keyword)
 (defun application-startup-presentation (application controller &key (onboarding-p t))
   "Present pending onboarding on interactive startup, otherwise the usual boot."
-  (let* ((ui (application-ui application))
-         (terminal (terminal-ui-terminal ui))
+  (let* ((ui            (application-ui application))
+         (terminal      (terminal-ui-terminal ui))
          (configuration (application-configuration application))
-         (pending (and onboarding-p (config :onboarding-p configuration)
-                       (onboarding-state-pending configuration
-                                                 (onboarding-pages configuration)))))
+         (pending       (and onboarding-p (config :onboarding-p configuration)
+                             (onboarding-state-pending configuration
+                                                       (onboarding-pages configuration)))))
     (when (and pending (typep terminal 'localgroup-terminal))
       ;; Client-first sessions publish their listener before the relay reports a
       ;; TTY. Wait for the same window as the launch's attachment watchdog.
@@ -184,10 +184,10 @@ remaining selected revisions; interruption leaves them pending."
                      (not (application-input-controller-exit-requested-p controller)))
                 (application-onboard application :new-only-p t)
                 (terminal-ui-boot-sequence
-                 ui :screen-p (config :boot-screen-p configuration)
-                 :duration (config :boot-screen-seconds configuration)
-                 :linger-p (config :boot-screen-linger-p configuration)
-                 :tip-seconds (config :boot-screen-tip-seconds configuration)
+                 ui :screen-p     (config :boot-screen-p configuration)
+                 :duration        (config :boot-screen-seconds configuration)
+                 :linger-p        (config :boot-screen-linger-p configuration)
+                 :tip-seconds     (config :boot-screen-tip-seconds configuration)
                  :resize-callback #'application-pending-terminal-size
                  :halted-function
                  (lambda () (application-input-controller-exit-requested-p controller))
@@ -198,13 +198,13 @@ remaining selected revisions; interruption leaves them pending."
       outcome)))
 
 (define-application-command application--builtin-onboard-command
-    (:name "/onboard"
-     :argument nil
-     :description "replay the fullscreen onboarding tour"
-     :tip "Use `(onboard)` to practice the prompt and explore Autolith's capabilities."
-     :busy-behavior :hold
+    (:name              "/onboard"
+     :argument          nil
+     :description       "replay the fullscreen onboarding tour"
+     :tip               "Use `(onboard)` to practice the prompt and explore Autolith's capabilities."
+     :busy-behavior     :hold
      :terminal-behavior :exclusive
-     :callable t)
+     :callable          t)
     (application)
   (application-onboard application)
   ':continue)
