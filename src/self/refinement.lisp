@@ -279,8 +279,10 @@ Sandbox permission does not authorize evaluation acceptance or promotion."
       (refinement--reject ':scope "Use a session draft before promoting into workspace memory.")))
   nil)
 
-(-> refinement--delegate (tool-context list string boolean) tool-result)
-(defun refinement--delegate (context proposal source evaluation-p)
+(-> refinement--delegate
+    (tool-context list &key (:source string) (:evaluation-p boolean))
+    tool-result)
+(defun refinement--delegate (context proposal &key source evaluation-p)
   "Invoke the existing registry with the original context and owner authority."
   (let ((operation (refinement--operation source))
         (registry  (tool-context-registry context)))
@@ -372,7 +374,9 @@ with the owner, especially self.commit's clean-process replay checks."
                                              ':evaluating) (:promote
                                                             ':promoting))))
       (handler-case
-          (let* ((result    (refinement--delegate context proposal operation evaluation-p))
+          (let* ((result    (refinement--delegate context proposal
+                                                :source       operation
+                                                :evaluation-p evaluation-p))
                  (success-p (tool-result-success-p result))
                  (details   (tool-result-details result)))
             (setf (getf proposal :observation)
