@@ -10,12 +10,12 @@
 
 (define-condition data-transfer-error (autolith-error)
   ((pathname
-    :initarg :pathname
-    :reader data-transfer-error-pathname
+    :initarg       :pathname
+    :reader        data-transfer-error-pathname
     :documentation "The archive or durable pathname involved in the failure.")
    (reason
-    :initarg :reason
-    :reader data-transfer-error-reason
+    :initarg       :reason
+    :reader        data-transfer-error-reason
     :documentation "A machine-readable failure category."))
   (:documentation "Portable data failed validation, collection, or publication.")
   (:report (lambda (condition stream)
@@ -155,10 +155,10 @@ single floats, and every source node needs at least one octet."
 The components come from the parsed pathname rather than from a native
 namestring, so no host directory separator ever has to be split out of a name."
   (let* ((directory (data-transfer--directory-pathname root))
-         (relative (uiop:enough-pathname pathname directory))
-         (file (uiop:native-namestring
-                (make-pathname :host nil :device nil :directory nil
-                               :defaults relative))))
+         (relative  (uiop:enough-pathname pathname directory))
+         (file      (uiop:native-namestring
+                     (make-pathname :host nil :device nil :directory nil
+                                    :defaults relative))))
     (when (uiop:absolute-pathname-p relative)
       (data-transfer--fail pathname ':invalid "Path escapes the data root."))
     (append (rest (pathname-directory relative))
@@ -183,7 +183,7 @@ namestring, so no host directory separator ever has to be split out of a name."
 (-> data-transfer--check-path (pathname pathname) null)
 (defun data-transfer--check-path (root pathname)
   "Reject symbolic links and nonregular files below the trusted ROOT."
-  (let ((parts (data-transfer--relative-components pathname root))
+  (let ((parts   (data-transfer--relative-components pathname root))
         (current root))
     (unless (every #'data-transfer--native-component-p parts)
       (data-transfer--fail pathname ':invalid "Path escapes the data root."))
@@ -218,10 +218,10 @@ Conflicts and incomplete rollbacks become typed transfer failures."
     (publication-rollback-failed (condition)
       (error 'data-transfer-rollback-error
              :pathname nil
-             :reason ':rollback
+             :reason   ':rollback
              :failures (publication-rollback-failed-failures condition)
-             :message (format nil "Import failed and some restorations failed. Retained recovery copies: ~S"
-                              (publication-rollback-failed-failures condition))))
+             :message  (format nil "Import failed and some restorations failed. Retained recovery copies: ~S"
+                               (publication-rollback-failed-failures condition))))
     (publication-conflict (condition)
       (data-transfer--fail (store-error-pathname condition) ':conflict
                            "The destination changed during the transfer."))))
@@ -256,26 +256,28 @@ Conflicts and incomplete rollbacks become typed transfer failures."
 (-> data-transfer--report (pathname list) list)
 (defun data-transfer--report (pathname archive)
   "Return portable archive scope and entity counts."
-  (list :pathname (namestring pathname)
-        :workspace (getf archive :workspace)
-        :workspaces (getf archive :workspaces)
+  (list :pathname      (namestring pathname)
+        :workspace     (getf archive :workspace)
+        :workspaces    (getf archive :workspaces)
         :conversations (count ':conversation (getf archive :sessions)
                               :key (lambda (entry) (getf entry :kind)))
-        :inferences (count ':inference (getf archive :sessions)
-                           :key (lambda (entry) (getf entry :kind)))
-        :memories (length (data-transfer--histories (getf archive :memories)))
-        :papercuts (length (data-transfer--histories (getf archive :papercuts)))
-        :agendas (length (getf archive :agendas))
-        :plans (length (getf archive :plans))
-        :facts (count :claim-asserted (getf archive :knowledge) :key #'first)
-        :files (length (getf archive :files))))
+        :inferences    (count ':inference (getf archive :sessions)
+                              :key (lambda (entry) (getf entry :kind)))
+        :memories      (length (data-transfer--histories (getf archive :memories)))
+        :papercuts     (length (data-transfer--histories (getf archive :papercuts)))
+        :agendas       (length (getf archive :agendas))
+        :plans         (length (getf archive :plans))
+        :facts         (count :claim-asserted (getf archive :knowledge) :key #'first)
+        :files         (length (getf archive :files))))
 
 (-> data-transfer--native-pathname ((or pathname string)) pathname)
 (defun data-transfer--native-pathname (value)
   "Interpret string arguments as native names and preserve pathname arguments."
   (etypecase value
-    (pathname value)
-    (string (uiop:parse-native-namestring value))))
+    (pathname
+     value)
+    (string
+     (uiop:parse-native-namestring value))))
 
 (-> data-export ((or pathname string) &key (:workspace t) (:configuration configuration)) list)
 (defun data-export (pathname &key workspace (configuration (data-transfer--configuration)))
@@ -283,7 +285,7 @@ Conflicts and incomplete rollbacks become typed transfer failures."
 
 Returns a portable plist with the archive path, workspace keys, and counts.
 Credentials, configuration, executable image state, and caches are excluded."
-  (let* ((pathname (uiop:ensure-absolute-pathname (data-transfer--native-pathname pathname)))
+  (let* ((pathname  (uiop:ensure-absolute-pathname (data-transfer--native-pathname pathname)))
          (workspace (and workspace (data-transfer--workspace-name
                                     (data-transfer--native-pathname workspace)))))
     (data-transfer--call-with-locks
@@ -302,7 +304,7 @@ Identical identities are skipped; conflicts fail before publication. Ordinary
 publication failures roll back all files written by this invocation. Returns
 archive counts and the number of files installed. Imported code is never run."
   (let* ((pathname (uiop:ensure-absolute-pathname (data-transfer--native-pathname pathname)))
-         (archive (data-transfer--read pathname)))
+         (archive  (data-transfer--read pathname)))
     (data-transfer--validate archive pathname)
     (when workspace
       (unless (getf archive :workspace)
