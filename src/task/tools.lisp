@@ -7,6 +7,7 @@
   (declare (ignore tool))
   t)
 
+(-> task--repair-prose (t) t)
 (defun task--repair-prose (value)
   "Repair a provider string that was JSON-encoded one extra time."
   (if (not (stringp value))
@@ -26,6 +27,7 @@
                  (error nil (return current))) else return current
             finally (return current))))
 
+(-> task--combine-context ((option string) (option string)) (option string))
 (defun task--combine-context (shared item)
   "Combine optional SHARED and ITEM context without manufacturing instructions."
   (cond
@@ -85,6 +87,10 @@ The primary blocking field and legacy inverse async field are mutually exclusive
                     :tool-name "task.run"))
   nil)
 
+(-> task--normalize-item
+    (t &key (:shared-context (option string)) (:top-blocking-p boolean)
+       (:top-completion-policy keyword))
+    list)
 (defun task--normalize-item
     (object &key shared-context top-blocking-p (top-completion-policy ':continue))
   "Validate and normalize one flat task OBJECT."
@@ -135,6 +141,7 @@ The primary blocking field and legacy inverse async field are mutually exclusive
            object :tool-name "task.run" :default top-completion-policy)
           :async     (not blocking-p))))
 
+(-> task-normalize-arguments (hash-table) list)
 (defun task-normalize-arguments (arguments)
   "Validate TASK.RUN ARGUMENTS and return ordinary normalized item plists."
   (task--validate-json-fields
@@ -213,6 +220,10 @@ The primary blocking field and legacy inverse async field are mutually exclusive
               (setf (gethash key names) t))))))
     items))
 
+(-> task--resolve-items
+    (agent task-orchestrator list
+     &key (:items list) (:diagnostics list) (:registry tool-registry))
+    list)
 (defun task--resolve-items
     (parent orchestrator definitions &key items diagnostics registry)
   "Resolve ITEMS to definitions after enforcing parent policy and names."
@@ -266,6 +277,9 @@ The primary blocking field and legacy inverse async field are mutually exclusive
                       (not (task-agent-definition-blocking-p definition)))))))
      items)))
 
+(-> task-tool-result
+    (t t &optional t &key (:code (option keyword)) (:denied-p t))
+    task-tool-result)
 (defun task-tool-result (content details &optional (success-p t) &key code denied-p)
   "Return readable CONTENT, portable DETAILS and retained failure classification."
   (unless (and (stringp content)
@@ -512,10 +526,6 @@ The primary blocking field and legacy inverse async field are mutually exclusive
               :duration-ms   (getf progress :duration-ms)
               :model         (getf progress :model)))))))
 
-(-> session-job-native-record
-    (session-job list agent
-     &key (:preview-limit integer) (:include-progress-p boolean))
-    list)
 (defgeneric session-job-native-record
     (job snapshot viewer &key preview-limit include-progress-p)
   (:documentation "Return one bounded native inspection record for session JOB."))
@@ -939,7 +949,6 @@ poll a job whose completion will wake it."
                :registry    (agent-tool-registry parent)))
              (jobs        nil)
              (synchronous nil)
-             (detached    nil)
              (completed-p nil))
         (unwind-protect
            (progn
@@ -955,9 +964,7 @@ poll a job whose completion will wake it."
                   (tool-context-tool-authorization-function context))
                (setf jobs admitted
                      synchronous
-                     (remove-if #'task-job-detached-p admitted)
-                     detached
-                     (remove-if-not #'task-job-detached-p admitted))
+                     (remove-if #'task-job-detached-p admitted))
                (dolist (job inline)
                  (job-run-inline job)))
              (dolist (job synchronous) (task-job-await job nil))
@@ -1210,6 +1217,7 @@ poll a job whose completion will wake it."
               (format nil "Unknown job operation ~A." operation) :tool-name
               (tool-canonical-name tool))))))
 
+(-> task-run-parameters-schema () hash-table)
 (defun task-run-parameters-schema ()
   "Return the permissive flat-or-batch schema advertised by task.run."
   (let* ((item-properties
@@ -1275,6 +1283,7 @@ poll a job whose completion will wake it."
              *task-agent-page-default*)))
    nil))
 
+(-> task-augment-tool-registry (tool-registry) tool-registry)
 (defun task-augment-tool-registry (registry)
   "Register one session-scoped task orchestrator and its task/job tools."
   (when (tool-registry-find registry "task" "run")
