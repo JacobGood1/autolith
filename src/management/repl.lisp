@@ -4,15 +4,15 @@
 
 (define-condition management-repl-error (configuration-error)
   ((operation
-    :initarg :operation
-    :reader management-repl-error-operation
-    :type keyword
+    :initarg       :operation
+    :reader        management-repl-error-operation
+    :type          keyword
     :documentation "The management endpoint operation that failed.")
    (reason
-    :initarg :reason
-    :initform nil
-    :reader management-repl-error-reason
-    :type (option keyword)
+    :initarg       :reason
+    :initform      nil
+    :reader        management-repl-error-reason
+    :type          (option keyword)
     :documentation "The non-secret failure category."))
   (:documentation "An active-image management endpoint failure."))
 
@@ -61,9 +61,9 @@
   (let ((endpoint (application-management-repl-endpoint application)))
     (when (and endpoint (eq (current-thread) (eval-endpoint-evaluator-thread endpoint)))
       (error 'management-repl-error
-             :message "A management evaluation cannot checkpoint its own evaluator."
+             :message   "A management evaluation cannot checkpoint its own evaluator."
              :operation ':checkpoint
-             :reason ':evaluator))
+             :reason    ':evaluator))
     (when endpoint
       (management-repl-stop application))
     (unwind-protect
