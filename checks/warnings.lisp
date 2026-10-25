@@ -63,8 +63,8 @@ Signal SOURCE-WARNING-RUN-FAILED when the compile did not finish."
     (unless (and (eql status 0) (probe-file (source-warning-run-result run)))
       (error 'source-warning-run-failed
              :log     (source-warning-run-log run)
-             :message (format nil "The clean compile failed with status ~A; see ~A."
-                              status (source-warning-run-log run))))
+             :message (format nil "The clean compile failed with status ~A.~%~A"
+                              status (source-warning--output-tail (source-warning-run-log run)))))
     (source-warning-findings
      (with-open-file (stream (source-warning-run-result run) :external-format ':utf-8)
        (let ((*read-eval* nil)
@@ -95,6 +95,21 @@ same line each time; it is one finding."
 
 
 ;;;; -- Private Functions --
+
+(-> source-warning--output-tail (pathname) string)
+(defun source-warning--output-tail (pathname)
+  "Read at most the last 16,384 characters of PATHNAME into the failure report."
+  (handler-case
+      (with-open-file (stream pathname :external-format ':utf-8)
+        (let ((buffer (make-string 8192))
+              (tail   ""))
+          (loop for count = (read-sequence buffer stream)
+                while (plusp count)
+                do (let ((text (concatenate 'string tail (subseq buffer 0 count))))
+                     (setf tail (subseq text (max 0 (- (length text) 16384))))))
+          tail))
+    (file-error (condition)
+      (format nil "Compiler output unavailable: ~A" condition))))
 
 (-> source-warning--squeeze (string) string)
 (defun source-warning--squeeze (text)

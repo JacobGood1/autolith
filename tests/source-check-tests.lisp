@@ -347,5 +347,27 @@
                          nil)
                      (source-warning-run-failed ()
                        t))
-                   "a compile that cannot finish is a failure, not a clean result")))
+                   "a compile that cannot finish is a failure, not a clean result")
+      (source-check-tests--write
+       root "script/compile-warnings.lisp"
+       (source-check-tests--text
+        '("(require :asdf)"
+          "(write-string (make-string 20000 :initial-element #\\x))"
+          "(write-line \"compiler-failure-evidence\")"
+          "(uiop:quit 1)")))
+      (let* ((directory (merge-pathnames "diagnostic/" root))
+             (failure
+               (handler-case
+                   (source-warning-run-finish
+                    (source-warning-run-start root :command command :directory directory))
+                 (source-warning-run-failed (condition)
+                   condition))))
+        (test-assert (typep failure 'source-warning-run-failed)
+                     "failed compilation returns its typed condition")
+        (platform-delete-directory-tree *platform* directory :validate t)
+        (let ((report (princ-to-string failure)))
+          (test-assert (search "compiler-failure-evidence" report)
+                       "compiler evidence survives run-directory cleanup")
+          (test-assert (< (length report) 17000)
+                       "large compiler output is bounded in the failure report")))))
   nil)
