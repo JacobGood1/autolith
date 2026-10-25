@@ -46,37 +46,57 @@
 (defun telemetry--provider-name (provider)
   "Map a local provider family to a fixed public telemetry category."
   (case (provider-family provider)
-    ((:codex :openai :openai-chat :openai-responses) ':openai)
-    (:anthropic ':anthropic)
-    ((:gemini :gemini-code-assist :google) ':google)
-    ((:grok :xai) ':xai)
-    (:ollama ':ollama)
-    (:deepseek ':deepseek)
-    (:mistral ':mistral-ai)
-    (:cohere ':cohere)
-    (:local ':local)
-    (otherwise ':other)))
+    ((:codex :openai :openai-chat :openai-responses)
+     ':openai)
+    (:anthropic
+     ':anthropic)
+    ((:gemini :gemini-code-assist :google)
+     ':google)
+    ((:grok :xai)
+     ':xai)
+    (:ollama
+     ':ollama)
+    (:deepseek
+     ':deepseek)
+    (:mistral
+     ':mistral-ai)
+    (:cohere
+     ':cohere)
+    (:local
+     ':local)
+    (otherwise
+     ':other)))
 
 (defun telemetry--condition-error-type (condition)
   "Classify failures without exporting reports, server bodies, or arbitrary class names."
-  (cond ((typep condition 'application-turn-cancelled) ':cancelled)
+  (cond ((typep condition 'application-turn-cancelled)
+         ':cancelled)
         ((typep condition 'job-aborted)
          (if (eq (job-aborted-reason condition) ':timeout) ':timeout ':cancelled))
-        ((typep condition 'authentication-error) ':authentication)
-        ((typep condition 'autolith-control-condition) ':cancelled)
-        ((typep condition '(or provider-transport-error stream-error)) ':transport)
+        ((typep condition 'authentication-error)
+         ':authentication)
+        ((typep condition 'autolith-control-condition)
+         ':cancelled)
+        ((typep condition '(or provider-transport-error stream-error))
+         ':transport)
         ((typep condition 'cl-llm-provider-api:provider-error)
          (case (cl-llm-provider-api:provider-error-status condition)
-           ((401 403) ':authentication)
-           (429 ':rate-limit)
-           (otherwise ':provider)))
-        ((typep condition 'agent-loop-error) ':protocol)
+           ((401 403)
+            ':authentication)
+           (429
+            ':rate-limit)
+           (otherwise
+            ':provider)))
+        ((typep condition 'agent-loop-error)
+         ':protocol)
         ((or (typep condition 'tool-authority-denied)
              (typep condition 'command-authorization-unavailable)
              (telemetry--permission-error-code-p (tool-failure-code condition)))
          ':permission)
-        ((typep condition 'tool-error) ':tool)
-        (t ':internal)))
+        ((typep condition 'tool-error)
+         ':tool)
+        (t
+         ':internal)))
 
 (-> telemetry--provider-attempt
     (model-provider function &key (:native-compaction-p boolean) (:fallback-p boolean)) t)
@@ -85,10 +105,10 @@
   (when (and (not fallback-p) *telemetry-provider-attempt-count*)
     (incf *telemetry-provider-attempt-count*))
   (let ((*telemetry-response-metadata* nil)
-        (start (get-internal-real-time))
-        (outcome ':cancelled)
-        (error-type nil)
-        (results nil))
+        (start                         (get-internal-real-time))
+        (outcome                       ':cancelled)
+        (error-type                    nil)
+        (results                       nil))
     (unwind-protect
          (handler-bind ((serious-condition
                          (lambda (condition)
@@ -152,19 +172,19 @@
   (when *telemetry-run*
     (telemetry--call-safely
      (lambda ()
-       (let* ((result (first results))
-              (metadata (or *telemetry-response-metadata*
-                            (when (typep result 'provider-result)
-                              (provider-result-metadata result))))
-              (usage (if native-compaction-p
-                         (second results)
-                         (when (typep result 'provider-result)
-                           (provider-result-usage result))))
+       (let* ((result     (first results))
+              (metadata   (or *telemetry-response-metadata*
+                              (when (typep result 'provider-result)
+                                (provider-result-metadata result))))
+              (usage      (if native-compaction-p
+                              (second results)
+                              (when (typep result 'provider-result)
+                                (provider-result-usage result))))
               (normalized (when usage
                             (provider-usage-normalize usage)))
-              (writes (if metadata
-                          (provider-response-metadata-cache-write-tokens metadata)
-                          (provider-cache-write-tokens provider usage))))
+              (writes     (if metadata
+                              (provider-response-metadata-cache-write-tokens metadata)
+                              (provider-cache-write-tokens provider usage))))
          (when writes
            (unless (hash-table-p normalized)
              (setf normalized (make-hash-table :test 'equal))))
@@ -173,30 +193,33 @@
            (when writes
              (setf (gethash "cache_creation_input_tokens" normalized) writes)))
          (telemetry-note-model
-          :run *telemetry-run*
-          :provider (telemetry--call-safely (lambda () (telemetry--provider-name provider)))
-          :request-model (telemetry--call-safely
-                          (lambda ()
-                            (config :model (provider-configuration provider))))
+          :run            *telemetry-run*
+          :provider       (telemetry--call-safely (lambda () (telemetry--provider-name provider)))
+          :request-model  (telemetry--call-safely
+                           (lambda ()
+                             (config :model (provider-configuration provider))))
           :response-model (when metadata (provider-response-metadata-model metadata))
           :outcome outcome :error-type error-type
-          :role (if native-compaction-p ':compaction *telemetry-request-role*)
-          :finish-reason (or (when metadata (provider-response-metadata-finish-reason metadata))
-                             (when (typep result 'provider-result)
-                               (if (provider-result-tool-calls result) ':tool-calls
-                                   (case (provider-result-turn-completion result)
-                                     (:end ':stop) (:continue ':continue)))))
-          :usage normalized
-          :duration-ms (telemetry--elapsed-milliseconds start))))))
+          :role           (if native-compaction-p ':compaction *telemetry-request-role*)
+          :finish-reason  (or (when metadata (provider-response-metadata-finish-reason metadata))
+                              (when (typep result 'provider-result)
+                                (if (provider-result-tool-calls result) ':tool-calls
+                                    (case (provider-result-turn-completion result)
+                                      (:end
+                                       ':stop) (:continue
+                                                ':continue)))))
+          :usage          normalized
+          :duration-ms    (telemetry--elapsed-milliseconds start))))))
   nil)
+
 
 ;;;; -- Process Configuration Ownership --
 
 (defmethod (setf application-configuration) :around
     ((configuration configuration) (application application))
   "Retire telemetry consent when the owning application's configuration changes."
-  (let* ((previous (when (slot-boundp application 'configuration)
-                     (application-configuration application)))
+  (let* ((previous        (when (slot-boundp application 'configuration)
+                            (application-configuration application)))
          (replace-owner-p (and *telemetry-controller*
                                (eq previous (telemetry-controller-owner *telemetry-controller*))
                                (not (eq previous configuration)))))
@@ -206,6 +229,7 @@
          (lambda ()
            (telemetry-shutdown :drain-p nil)
            (telemetry-attach configuration)))))))
+
 
 ;;;; -- Checkpoint State --
 
