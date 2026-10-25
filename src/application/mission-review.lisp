@@ -6,14 +6,14 @@
   '(:type :object
     :properties
     (("findings" (:type :array :max-items 32
-                   :items (:type :object
+                   :items (:type                  :object
                            :properties
                            (("id" (:type :string))
                             ("severity" (:type :string :enum ("info" "warning" "critical")))
                             ("confidence" (:type :string :enum ("low" "medium" "high")))
                             ("summary" (:type :string))
                             ("evidence" (:type :array :items (:type :string) :max-items 16)))
-                           :required ("id" "severity" "confidence" "summary" "evidence")
+                           :required              ("id" "severity" "confidence" "summary" "evidence")
                            :additional-properties nil)))
      ("summary" (:type :string)))
     :required ("findings" "summary") :additional-properties nil)
@@ -54,14 +54,14 @@
 Each ID may be installed once per mission. INPUTS name the complete relevant
 file set; CONTEXT contains the independent assignment's background. Budgets are
 cumulative across changed snapshots, not reset by retries or restart."
-  (let* ((context (mission-review--context application))
-         (id (getf specification :id))
-         (phase (getf specification :phase))
-         (inputs (getf specification :inputs))
+  (let* ((context    (mission-review--context application))
+         (id         (getf specification :id))
+         (phase      (getf specification :phase))
+         (inputs     (getf specification :inputs))
          (background (getf specification :context))
-         (turns (getf specification :turn-limit))
-         (tokens (getf specification :token-limit))
-         (runs (getf specification :run-limit)))
+         (turns      (getf specification :turn-limit))
+         (tokens     (getf specification :token-limit))
+         (runs       (getf specification :run-limit)))
     (unless (and (non-empty-string-p id) (<= (length id) 128)
                  (member phase '(:before-integration :final-acceptance :after-edit-set))
                  (proper-list-p inputs) inputs (<= (length inputs) 64)
@@ -107,7 +107,7 @@ cumulative across changed snapshots, not reset by retries or restart."
             (with-output-to-string (stream)
               (write-string (getf policy :context) stream)
               (dolist (input (getf policy :inputs))
-                (let* ((path (workspace-tool-path context input))
+                (let* ((path   (workspace-tool-path context input))
                        (before (mission--file-digest path)))
                   (format stream "~2%Input ~A:~%" input)
                   (if (probe-file path)
@@ -128,21 +128,21 @@ cumulative across changed snapshots, not reset by retries or restart."
   "Return a read-only programmatic reviewer using the native task contract."
   (make-instance 'task-agent-definition
                  :name "reviewer" :source ':programmatic
-                 :description "Independent mission checkpoint reviewer"
+                 :description  "Independent mission checkpoint reviewer"
                  :instructions "Review only the supplied independent context. Identify concrete findings with stable unique IDs, severity, confidence and evidence. Findings are advice. Do not claim harness acceptance. Submit your native contracted data through yield.submit."
                  :tools nil :spawns nil :models (getf policy :models)
-                 :blocking-p t
-                 :output (task-output-schema-normalize *mission-review-output-schema*)))
+                 :blocking-p   t
+                 :output       (task-output-schema-normalize *mission-review-output-schema*)))
 
 (-> mission-review--run-task (mission-context list &key (:run list) (:background string) (:tool-context tool-context)) list)
 (defun mission-review--run-task (context policy &key run background tool-context)
   "Invoke one actual contracted task under existing delegation and permissions."
-  (let* ((parent (tool-context-agent tool-context))
-         (runtime (tool-context-execution-runtime tool-context))
+  (let* ((parent     (tool-context-agent tool-context))
+         (runtime    (tool-context-execution-runtime tool-context))
          (definition (mission-review--definition policy))
-         (item (list :name (format nil "review-~A" (getf policy :id))
-                     :agent "reviewer" :blocking t :context background
-                     :task "Perform the configured independent review. Return findings and summary through the required native output contract.")))
+         (item       (list :name (format nil "review-~A" (getf policy :id))
+                           :agent "reviewer" :blocking t :context background
+                           :task "Perform the configured independent review. Return findings and summary through the required native output contract.")))
     (unless (and (typep parent 'agent) (not (typep parent 'task-child-agent)))
       (mission--reject ':review-authority "Only the primary agent may request mission review."))
     (unless (typep runtime 'task-orchestrator)
@@ -152,24 +152,24 @@ cumulative across changed snapshots, not reset by retries or restart."
            (entry (first entries)) (jobs nil) (finished-p nil))
       (setf (first entries)
             (list* :independent-context-p t
-                   :review-checkpoint (list :policy policy :run run) entry))
+                   :review-checkpoint     (list :policy policy :run run) entry))
       (unwind-protect
            (progn
              (multiple-value-bind (admitted inline)
                  (task-orchestrator-start-jobs
                   runtime parent entries :parent-call-id (tool-context-call-id tool-context)
-                  :command-authorization-function (tool-context-command-authorization-function tool-context)
-                  :tool-authorization-function (tool-context-tool-authorization-function tool-context))
+                  :command-authorization-function        (tool-context-command-authorization-function tool-context)
+                  :tool-authorization-function           (tool-context-tool-authorization-function tool-context))
               (setf jobs admitted)
               (with-recursive-lock-held ((mission-context-lock context))
                 (setf (getf run :job-id) (job-identifier (first jobs)))
                 (mission--record context))
-               (dolist (job inline) (job-run-inline job)))
+              (dolist (job inline) (job-run-inline job)))
              (task-job-await (first jobs) nil)
              (setf finished-p t)
              ;; Use the complete durable artifact, not its bounded preview.
              (let* ((result (getf (task-job-snapshot (first jobs)) :result))
-                    (path (getf result :output-path)))
+                    (path   (getf result :output-path)))
                (if path
                    (with-open-file (stream path :external-format ':utf-8)
                      (let ((*read-eval* nil)) (read stream)))
@@ -185,7 +185,7 @@ cumulative across changed snapshots, not reset by retries or restart."
                (getf result :structured-output-present-p))
     (mission--reject ':review-failed "Reviewer did not submit a successful structured result."))
   (let* ((data (task-sexp->json (getf result :structured-output)))
-         (ids nil))
+         (ids  nil))
     (unless (task-output-schema-valid-p data
                                       (task-output-schema-normalize *mission-review-output-schema*))
       (mission--reject ':review-failed "Reviewer output violates its native contract."))
@@ -199,8 +199,8 @@ cumulative across changed snapshots, not reset by retries or restart."
             (push id ids)
             (list :id id :severity (gethash "severity" finding)
                   :confidence (gethash "confidence" finding)
-                  :summary (mission--bounded-text (gethash "summary" finding))
-                  :evidence (map 'list #'mission--bounded-text (gethash "evidence" finding))
+                  :summary    (mission--bounded-text (gethash "summary" finding))
+                  :evidence   (map 'list #'mission--bounded-text (gethash "evidence" finding))
                   :decision ':pending :reason nil :decisions nil :decided-at nil)))))
 
 (defvar *mission-review-live-runs* (make-hash-table :test #'eq :weakness ':key)
@@ -210,9 +210,9 @@ cumulative across changed snapshots, not reset by retries or restart."
 (defun application-mission-review-trigger (application id &key tool-context)
   "Run changed ID once. Unchanged completed, failed and interrupted runs are reused.
 Every finding needs an explicit primary resolve/reject decision before acceptance."
-  (let* ((context (mission-review--context application))
+  (let* ((context  (mission-review--context application))
          (boundary (or tool-context (application-tool-context application)))
-         (policy (mission-review--policy context id)))
+         (policy   (mission-review--policy context id)))
     (unless (eq (tool-context-agent boundary) (application-agent application))
       (mission--reject ':review-authority "Only the primary agent may trigger a checkpoint."))
     (multiple-value-bind (fingerprint background) (mission-review--snapshot policy boundary)
@@ -244,8 +244,8 @@ Every finding needs an explicit primary resolve/reject decision before acceptanc
         ;; Never hold the request/state lock while awaiting the delegated worker.
         (unwind-protect
              (handler-case
-               (let* ((result (mission-review--run-task context policy
-                                                      :run run :background background :tool-context boundary))
+               (let* ((result   (mission-review--run-task context policy
+                                                        :run run :background background :tool-context boundary))
                       (findings (mission-review--findings result)))
                  (with-recursive-lock-held ((mission-context-lock context))
                    (setf (getf run :findings) findings
@@ -277,10 +277,10 @@ Every finding needs an explicit primary resolve/reject decision before acceptanc
   (unless (and (member decision '(:resolve :reject)) (non-empty-string-p reason))
     (mission--reject ':invalid "Review decisions require an explicit resolve/reject reason."))
   (let* ((context (mission-review--context application))
-         (policy (mission-review--policy context checkpoint-id)))
+         (policy  (mission-review--policy context checkpoint-id)))
     (with-recursive-lock-held ((mission-context-lock context))
-      (let* ((run (find (getf policy :current-fingerprint) (getf policy :runs)
-                        :key (lambda (entry) (getf entry :fingerprint)) :test #'equal))
+      (let* ((run     (find (getf policy :current-fingerprint) (getf policy :runs)
+                            :key (lambda (entry) (getf entry :fingerprint)) :test #'equal))
              (finding (find finding-id (getf run :findings)
                             :key (lambda (entry) (getf entry :id)) :test #'equal)))
         (unless (and (eq (getf run :status) ':completed) finding)
@@ -315,13 +315,12 @@ without claiming failed harness checks. No configured review means no model call
             (mission--record context)
             (return nil)))))))
 
-
 (-> application-mission-review-current-p (application keyword) boolean)
 (defun application-mission-review-current-p (application phase)
   "Require completed adjudicated reviews for current inputs without another model call.
 Final acceptance retains the request lock from this check through its transition;
 policy admission and fingerprint selection use the same request-before-state order."
-  (let* ((context (mission-review--context application))
+  (let* ((context  (mission-review--context application))
          (boundary (application-tool-context application)))
     (with-recursive-lock-held ((mission-context-request-lock context))
       (with-recursive-lock-held ((mission-context-lock context))
@@ -333,7 +332,7 @@ policy admission and fingerprint selection use the same request-before-state ord
                               collect (list input (mission--file-digest
                                                    (workspace-tool-path boundary input)))))
                       (run (find fingerprint (getf policy :runs)
-                                 :key (lambda (entry) (getf entry :fingerprint))
+                                 :key  (lambda (entry) (getf entry :fingerprint))
                                  :test #'equal)))
                  (and (equal fingerprint (getf policy :current-fingerprint))
                       run
