@@ -6,11 +6,11 @@
 (defun acp-input--validate-storage (application)
   "Reject unreadable pending input before publishing an empty controller snapshot."
   (let* ((configuration (application-configuration application))
-         (conversation (application-conversation application))
-         (path (configuration-pending-inputs-path configuration (conversation-pathname conversation)))
-         (legacy (configuration-legacy-pending-inputs-path configuration))
-         (current (probe-file path))
-         (source (or current (probe-file legacy))))
+         (conversation  (application-conversation application))
+         (path          (configuration-pending-inputs-path configuration (conversation-pathname conversation)))
+         (legacy        (configuration-legacy-pending-inputs-path configuration))
+         (current       (probe-file path))
+         (source        (or current (probe-file legacy))))
     (when source
       (multiple-value-bind (form complete-p) (snapshot-read source)
         (let ((identifier (if current
@@ -26,8 +26,8 @@
 (defun acp-input-initialize (session)
   "Attach native pending-input storage without starting a terminal reader."
   (let* ((application (acp-session-application session))
-         (controller (make-instance 'application-input-controller
-                                    :application application :main-thread nil)))
+         (controller  (make-instance 'application-input-controller
+                                     :application application :main-thread nil)))
     (acp-input--validate-storage application)
     (setf (application-input-controller application) controller)
     (application-input-controller--load-pending controller)
@@ -51,7 +51,7 @@
 (-> acp-input--submit (acp-session hash-table boolean) hash-table)
 (defun acp-input--submit (session params steer-p)
   "Durably accept prose through native steering or follow-up admission."
-  (let ((text (agentcomms:acp-field params "text" :type ':string :required-p t))
+  (let ((text       (agentcomms:acp-field params "text" :type ':string :required-p t))
         (controller (acp-input-controller session)))
     (unless (non-empty-string-p (string-trim '(#\Space #\Tab #\Newline #\Return) text))
       (agentcomms:acp-invalid-params "Input text must not be blank."))
@@ -145,9 +145,9 @@
   "Acknowledge and display queued user input at its durable append boundary."
   (let* ((controller (acp-input-controller (acp-observer-session observer)))
          (identifier (getf details :pending-input-identifier))
-         (work (and controller identifier
-                    (with-lock-held ((application-input-controller-lock controller))
-                      (application-input-controller-active-work controller)))))
+         (work       (and controller identifier
+                          (with-lock-held ((application-input-controller-lock controller))
+                            (application-input-controller-active-work controller)))))
     (when work
       (application-input-controller--acknowledge-active-work controller identifier)
       (acp-input--present-user observer (second work))))
@@ -173,10 +173,10 @@
 (-> acp-input--apply-commands (acp-observer t) null)
 (defun acp-input--apply-commands (observer agent)
   "Apply native boundary commands and project their presented text."
-  (let* ((session (acp-observer-session observer))
-         (controller (acp-input-controller session))
+  (let* ((session                                      (acp-observer-session observer))
+         (controller                                   (acp-input-controller session))
          (*application-command-presentation-capture-p* t)
-         (*application-command-presentation-text* nil))
+         (*application-command-presentation-text*      nil))
     (when controller
       (application-input-controller--apply-pending-commands controller :agent agent)
       (dolist (text (nreverse *application-command-presentation-text*))
@@ -196,11 +196,11 @@
   (acp-service--call-with-operation
    (acp-session-service session) session
    (lambda ()
-     (let* ((application (acp-session-application session))
-            (*active-application* application)
-            (*configuration* (application-configuration application))
+     (let* ((application                 (acp-session-application session))
+            (*active-application*        application)
+            (*configuration*             (application-configuration application))
             (*default-pathname-defaults* (config :working-directory *configuration*))
-            (observer (acp-observer-create session)))
+            (observer                    (acp-observer-create session)))
        (acp-input--apply-commands observer (application-agent application))
        (acp-observer-flush observer))))
   nil)
