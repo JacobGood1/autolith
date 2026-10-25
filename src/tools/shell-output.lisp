@@ -85,12 +85,13 @@
         (format stream "~%Log metadata diagnostic: ~A~%" diagnostic)))))
 
 (-> workspace-tool-run-shell-command
-    (string pathname t (integer 1) (integer 0)
-     &key (:environment list) (:context tool-context) (:merge-output-p boolean))
+    (string pathname
+     &key (:policy t) (:timeout (integer 1)) (:output-limit (integer 0))
+          (:environment list) (:context tool-context) (:merge-output-p boolean))
     tool-result)
 (defun workspace-tool-run-shell-command
-    (command directory policy timeout output-limit
-     &key environment context (merge-output-p t))
+    (command directory
+     &key policy timeout output-limit environment context (merge-output-p t))
   "Run one authorized command after allocating its private execution-owned capture."
   (sb-sys:without-interrupts
     (let* ((job      *tool-execution-current-job*)

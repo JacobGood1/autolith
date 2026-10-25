@@ -271,8 +271,11 @@
                          (progn
                            (workspace-tool-run-shell-command
                             (test-fixture-shell-command *platform* "exit 0" "exit 0")
-                            (config :working-directory configuration) ':invalid-policy 1 32
-                            :context context)
+                            (config :working-directory configuration)
+                            :policy       ':invalid-policy
+                            :timeout      1
+                            :output-limit 32
+                            :context      context)
                            nil)
                        (error () t))
                      "Policy validation fails before the executor can launch")

@@ -280,9 +280,13 @@ with full permissions never refuses one."
              (lambda ()
                (flet ((run (policy environment)
                         (workspace-tool-run-shell-command
-                         command directory policy timeout output-limit
-                          :environment environment :context context
-                          :merge-output-p merge-output-p)))
+                         command directory
+                         :policy         policy
+                         :timeout        timeout
+                         :output-limit   output-limit
+                         :environment    environment
+                         :context        context
+                         :merge-output-p merge-output-p)))
                  (ecase authorization
                    (:sandboxed
                     (platform-call-with-command-sandbox
