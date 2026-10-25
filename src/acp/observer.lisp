@@ -266,8 +266,8 @@ fragments that providers interleave with empty content deltas."
       (acp-session-check-cancelled session)
       choice)))
 
-(-> acp-observer--approval (acp-observer string hash-table t) boolean)
-(defun acp-observer--approval (observer title arguments key)
+(-> acp-observer--approval (acp-observer string &key (:arguments hash-table) (:key t)) boolean)
+(defun acp-observer--approval (observer title &key arguments key)
   "Ask for exact operation approval, retaining allow-always only for this session."
   (let* ((session (acp-observer-session observer))
          (saved   (with-lock-held ((acp-session-lock session))
@@ -307,8 +307,9 @@ fragments that providers interleave with empty content deltas."
                     :sandbox-available-p        (application--command-sandbox-available-p)))))
       (otherwise
        (if (acp-observer--approval observer "shell.run"
-                                   (json-object "command" command "directory" (namestring directory))
-                                   (list ':command command (namestring directory)))
+                                   :arguments (json-object "command" command
+                                                           "directory" (namestring directory))
+                                   :key       (list ':command command (namestring directory)))
            ':full-access
            ':deny)))))
 
@@ -333,8 +334,9 @@ fragments that providers interleave with empty content deltas."
            ':deny))
       (otherwise
        (if (acp-observer--approval
-            observer (tool-display-name tool) arguments
-            (list ':tool (application--tool-permission-key tool arguments)))
+            observer (tool-display-name tool)
+            :arguments arguments
+            :key       (list ':tool (application--tool-permission-key tool arguments)))
            ':allow
            ':deny)))))
 

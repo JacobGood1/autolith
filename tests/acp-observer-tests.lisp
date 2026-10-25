@@ -106,11 +106,15 @@
              (agentcomms:client-initialize client)
              (test-assert
               (null
-               (acp-observer--approval observer "shell.run" (agentcomms:json-object) '("command")))
+               (acp-observer--approval observer "shell.run"
+                                       :arguments (agentcomms:json-object)
+                                       :key       '("command")))
               "an unoffered permission choice is denied")
              (setf (acp-observer-test-client-permission-choice client) "session")
              (test-assert
-              (acp-observer--approval observer "shell.run" (agentcomms:json-object) '("command"))
+              (acp-observer--approval observer "shell.run"
+                                      :arguments (agentcomms:json-object)
+                                      :key       '("command"))
               "an offered session choice is accepted"))
         (agentcomms:connection-close (agentcomms:acp-client-connection client)))))
   nil)
@@ -204,7 +208,9 @@
                (agent-observer-text observer "")
                (agent-observer-reasoning observer "thought")
                (test-assert
-                (acp-observer--approval observer "shell.run" (json-object "command" "pwd") '(:command))
+                (acp-observer--approval observer "shell.run"
+                                        :arguments (json-object "command" "pwd")
+                                        :key       '(:command))
                 "the editor can approve after receiving pending thoughts")
                (let ((updates (acp-observer-test-client-permission-updates client)))
                  (test-assert
@@ -289,8 +295,8 @@
       (test-call-with-function-replacements
        (list
         (list 'acp-observer--approval
-              (lambda (observer title input key)
-                (declare (ignore observer input key))
+              (lambda (observer title &key arguments key)
+                (declare (ignore observer arguments key))
                 (incf approval-count)
                 (test-assert (string= title (tool-display-name tool))
                              "editor permission titles use the readable tool identity")
