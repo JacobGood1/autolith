@@ -354,9 +354,6 @@ commit ba42e6866cef4baed7ad92c73e6be8cd42e49d8b."
     (t
      (json-false))))
 
-(-> provider-web-search-request-headers
-    (subscription-provider oauth-credentials conversation)
-    list)
 (defgeneric provider-web-search-request-headers (provider credentials conversation)
   (:documentation
    "Return authenticated standalone web search headers for PROVIDER."))
