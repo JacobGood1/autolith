@@ -53,7 +53,6 @@
       (list (terminal-span ':plain body))
       body))
 
-
 (-> terminal-ui-onboarding--link-action (list integer integer) t)
 (defun terminal-ui-onboarding--link-action (regions column row)
   "Return the widget action at one-based terminal COLUMN and ROW."
@@ -64,7 +63,7 @@
 (-> terminal-ui-onboarding--wrap-spans (terminal list integer) list)
 (defun terminal-ui-onboarding--wrap-spans (terminal spans width)
   "Wrap SPANS into styled physical rows no wider than WIDTH cells."
-  (let* ((text (terminal--spans-text spans))
+  (let* ((text    (terminal--spans-text spans))
          (display (terminal--render-spans terminal spans)))
     (mapcar #'second (clinedi:wrap-styled-text text display (max 1 width)))))
 
@@ -85,11 +84,11 @@
 (defun terminal-ui-onboarding--footer (index count &key (width 76) input-p scrollable-p)
   "Choose a fitting legend, prioritizing scrolling help when space is limited."
   (let ((variables (make-hash-table :test #'eq))
-        (names (if scrollable-p
-                   '("footer-wide" "footer-scroll-compact" "footer-scroll-small"
-                     "footer-small" "footer-minimal")
-                   '("footer-wide" "footer-medium" "footer-compact"
-                     "footer-small" "footer-minimal"))))
+        (names     (if scrollable-p
+                       '("footer-wide" "footer-scroll-compact" "footer-scroll-small"
+                         "footer-small" "footer-minimal")
+                       '("footer-wide" "footer-medium" "footer-compact"
+                         "footer-small" "footer-minimal"))))
     (setf (gethash ':current variables) (1+ index)
           (gethash ':count variables) count
           (gethash ':action variables) (onboarding-source-text (if input-p "action-check" "action-next"))
@@ -109,16 +108,24 @@
 (defun terminal-ui-onboarding--exercise-hint (exercise stage)
   "Return one authored instruction for EXERCISE at STAGE."
   (let ((name (case exercise
-                (:continue "hint-continue")
-                (:help (if (eq stage ':help-output) "hint-help-output" "hint-help-input"))
-                (:async (if (eq stage ':result) "hint-async-result" "hint-async-input"))
-                (:settings (if (eq stage ':result) "hint-settings-result" "hint-settings-input"))
+                (:continue
+                 "hint-continue")
+                (:help
+                 (if (eq stage ':help-output) "hint-help-output" "hint-help-input"))
+                (:async
+                 (if (eq stage ':result) "hint-async-result" "hint-async-input"))
+                (:settings
+                 (if (eq stage ':result) "hint-settings-result" "hint-settings-input"))
                 (:authentication
                  (case stage
-                   (:result "hint-auth-result")
-                   (:failed "hint-auth-failed")
-                   (:cancelled "hint-auth-cancelled")
-                   (otherwise "hint-auth-input"))))))
+                   (:result
+                    "hint-auth-result")
+                   (:failed
+                    "hint-auth-failed")
+                   (:cancelled
+                    "hint-auth-cancelled")
+                   (otherwise
+                    "hint-auth-input"))))))
     (if name
         (onboarding-source-text name)
         "")))
@@ -127,12 +134,18 @@
 (defun terminal-ui-onboarding--exercise-target (exercise stage)
   "Return the submission target for EXERCISE at STAGE."
   (case exercise
-    (:continue "continue")
-    (:help (if (eq stage ':help-output) "continue" "(help)"))
-    (:async (unless (eq stage ':result) "? (+ 1 2)"))
-    (:settings (unless (eq stage ':result) "(settings)"))
-    (:authentication (unless (eq stage ':result) "(auth)"))
-    (otherwise nil)))
+    (:continue
+     "continue")
+    (:help
+     (if (eq stage ':help-output) "continue" "(help)"))
+    (:async
+     (unless (eq stage ':result) "? (+ 1 2)"))
+    (:settings
+     (unless (eq stage ':result) "(settings)"))
+    (:authentication
+     (unless (eq stage ':result) "(auth)"))
+    (otherwise
+     nil)))
 
 (-> terminal-ui-onboarding--help-spans (function &key (:width integer)) list)
 (defun terminal-ui-onboarding--help-spans (help-function &key (width 76))
@@ -166,7 +179,7 @@
                                                                         :separator '(#\Newline))
                                           maximize (text-cell-width line)) into maximum
                            finally (return (or maximum 0))))
-         (padding (make-string (max 0 (floor (- width logo-width) 2)) :initial-element #\Space)))
+         (padding    (make-string (max 0 (floor (- width logo-width) 2)) :initial-element #\Space)))
     (loop for span in spans
           collect (if (member span logo-spans :test #'eq)
                       (terminal-span
@@ -196,8 +209,8 @@
 (-> terminal-ui-onboarding--async-demo (function) integer)
 (defun terminal-ui-onboarding--async-demo (pending-function)
   "Compute the fixed (+ 1 2) lesson in a joined thread, with one pending repaint."
-  (let ((thread (bordeaux-threads:make-thread (lambda () (+ 1 2))
-                                             :name "Autolith onboarding Lisp demo"))
+  (let ((thread   (bordeaux-threads:make-thread (lambda () (+ 1 2))
+                                               :name "Autolith onboarding Lisp demo"))
         (joined-p nil))
     (unwind-protect
          (progn
@@ -218,65 +231,65 @@
   "Compose a centered reading card, pinned real editor, and widget hit regions.
 
 Body scrolling never hides the exercise prompt. Recompute geometry each paint."
-  (let* ((terminal (terminal-ui-terminal ui))
-         (width (max 1 (terminal-columns terminal)))
-         (height (max 1 (terminal-rows terminal)))
+  (let* ((terminal   (terminal-ui-terminal ui))
+         (width      (max 1 (terminal-columns terminal)))
+         (height     (max 1 (terminal-rows terminal)))
          (card-width (min 76 (max 1 (- width (if (> width 10) 4 0)))))
-         (left (floor (- width card-width) 2))
-         (exercise (getf page :exercise))
-         (spans (terminal-ui-onboarding--body-spans page stage help-function :width card-width))
-         (text (terminal--spans-text spans))
-         (wrapped (clinedi:wrap-styled-text text (terminal--render-spans terminal spans) card-width))
-         (title (getf page :title))
+         (left       (floor (- width card-width) 2))
+         (exercise   (getf page :exercise))
+         (spans      (terminal-ui-onboarding--body-spans page stage help-function :width card-width))
+         (text       (terminal--spans-text spans))
+         (wrapped    (clinedi:wrap-styled-text text (terminal--render-spans terminal spans) card-width))
+         (title      (getf page :title))
          (title-rows (terminal-ui-onboarding--wrap-spans
                       terminal (list (terminal-span ':strong title)) card-width))
-         (header (when (>= height 8)
-                   (append
-                    (list (terminal--render-spans
-                           terminal
-                           (list (terminal-span ':brand
-                                                (format nil "AUTOLITH  ~A~A"
-                                                        (make-string (1+ index) :initial-element #\●)
-                                                        (make-string (- count index 1) :initial-element #\○)))))
-                          (if (and (zerop index) (non-empty-string-p introduction-title))
-                              (terminal--render-spans
-                               terminal (list (terminal-span ':dim introduction-title)))
-                              ""))
-                    title-rows
-                    (list (terminal--render-spans
-                           terminal (list (terminal-span ':hint
-                                                        (make-string card-width :initial-element #\─))))))))
-         (hint (terminal-ui-onboarding--exercise-hint exercise stage))
-         (regions nil))
+         (header     (when (>= height 8)
+                       (append
+                        (list (terminal--render-spans
+                               terminal
+                               (list (terminal-span ':brand
+                                                    (format nil "AUTOLITH  ~A~A"
+                                                            (make-string (1+ index) :initial-element #\●)
+                                                            (make-string (- count index 1) :initial-element #\○)))))
+                              (if (and (zerop index) (non-empty-string-p introduction-title))
+                                  (terminal--render-spans
+                                   terminal (list (terminal-span ':dim introduction-title)))
+                                  ""))
+                        title-rows
+                        (list (terminal--render-spans
+                               terminal (list (terminal-span ':hint
+                                                            (make-string card-width :initial-element #\─))))))))
+         (hint       (terminal-ui-onboarding--exercise-hint exercise stage))
+         (regions    nil))
     (multiple-value-bind (prompt-rows prompt-row prompt-column)
         (if exercise (terminal-ui-onboarding--prompt-rows ui card-width) (values nil 0 0))
-      (let* ((hint-rows (when exercise
-                          (terminal-ui-onboarding--wrap-spans
-                           terminal (list (terminal-span ':strong hint)) card-width)))
-             (footer (first (terminal-ui-onboarding--wrap-spans
-                             terminal
-                             (terminal-ui-onboarding--footer
-                              index count :width card-width
-                              :input-p (not (null (terminal-ui-onboarding--exercise-target exercise stage)))
-                              :scrollable-p t)
-                             card-width)))
-             (prompt-height (max 1 (- height (length header)
-                                     (if (and exercise (>= height 6)) (length hint-rows) 0)
-                                     (if (> height 1) 1 0))))
-             (prompt-top (min (max 0 (- prompt-row (1- prompt-height)))
-                              (max 0 (- (length prompt-rows) prompt-height))))
+      (let* ((hint-rows      (when exercise
+                               (terminal-ui-onboarding--wrap-spans
+                                terminal (list (terminal-span ':strong hint)) card-width)))
+             (footer         (first (terminal-ui-onboarding--wrap-spans
+                                     terminal
+                                     (terminal-ui-onboarding--footer
+                                      index count :width card-width
+                                      :input-p           (not (null (terminal-ui-onboarding--exercise-target exercise stage)))
+                                      :scrollable-p      t)
+                                     card-width)))
+             (prompt-height  (max 1 (- height (length header)
+                                      (if (and exercise (>= height 6)) (length hint-rows) 0)
+                                      (if (> height 1) 1 0))))
+             (prompt-top     (min (max 0 (- prompt-row (1- prompt-height)))
+                                  (max 0 (- (length prompt-rows) prompt-height))))
              (visible-prompt (subseq prompt-rows prompt-top
                                      (min (length prompt-rows) (+ prompt-top prompt-height))))
-             (bottom (append (when (and exercise (>= height 6)) hint-rows)
-                             visible-prompt (when (> height 1) (list footer))))
-             (body-height (max 0 (- height (length header) (length bottom))))
+             (bottom         (append (when (and exercise (>= height 6)) hint-rows)
+                                     visible-prompt (when (> height 1) (list footer))))
+             (body-height    (max 0 (- height (length header) (length bottom))))
              (maximum-offset (max 0 (- (length wrapped) body-height)))
-             (offset (min (max 0 scroll-offset) maximum-offset))
-             (shown (subseq wrapped offset (min (length wrapped) (+ offset body-height))))
-             (padding (floor (max 0 (- body-height (length shown))) 2))
-             (source-offset 0)
+             (offset         (min (max 0 scroll-offset) maximum-offset))
+             (shown          (subseq wrapped offset (min (length wrapped) (+ offset body-height))))
+             (padding        (floor (max 0 (- body-height (length shown))) 2))
+             (source-offset  0)
              (widget-regions (termdown:widget-regions spans))
-             (body-row (+ (length header) padding)))
+             (body-row       (+ (length header) padding)))
         ;; Source offsets survive omitted boundary whitespace during word wrap.
         (loop for (plain display) in wrapped
               for row from 0
@@ -292,13 +305,13 @@ Body scrolling never hides the exercise prompt. Recompute geometry each paint."
                                           (+ left (text-cell-width text :start start :end a))
                                           (+ left (text-cell-width text :start start :end b)) action)
                                     regions))))
-        (let* ((content (append header
-                                (make-list padding :initial-element "")
-                                (mapcar #'second shown)
-                                (make-list (max 0 (- body-height padding (length shown))) :initial-element "")
-                                bottom))
-               (overflow (max 0 (- (length content) height)))
-               (rows (subseq content overflow))
+        (let* ((content    (append header
+                                   (make-list padding :initial-element "")
+                                   (mapcar #'second shown)
+                                   (make-list (max 0 (- body-height padding (length shown))) :initial-element "")
+                                   bottom))
+               (overflow   (max 0 (- (length content) height)))
+               (rows       (subseq content overflow))
                (cursor-row (- (+ (- (length content) (length bottom))
                                  (if (and exercise (>= height 6)) (length hint-rows) 0)
                                  (- prompt-row prompt-top)) overflow)))
@@ -359,19 +372,19 @@ Body scrolling never hides the exercise prompt. Recompute geometry each paint."
 (-> terminal-ui-onboarding--apply-exercise-event (terminal-ui t) boolean)
 (defun terminal-ui-onboarding--apply-exercise-event (ui event)
   "Edit freely through the real editor without submitting application work."
-  (let* ((editor (terminal-ui-editor ui))
+  (let* ((editor     (terminal-ui-editor ui))
          (safe-event (terminal-ui--safe-editor-event event))
-         (command (clinedi:line-editor-command-for-event editor safe-event)))
+         (command    (clinedi:line-editor-command-for-event editor safe-event)))
     (when (member command '(:insert :paste :insert-newline :left :right :home :end
-                           :backspace :delete :kill-line :kill-to-end :kill-word
-                           :kill-word-right :word-left :word-right
-                           :history-previous :history-next :toggle-word-delimiter-mode
-                           :up :down) :test #'eq)
+                            :backspace :delete :kill-line :kill-to-end :kill-word
+                            :kill-word-right :word-left :word-right
+                            :history-previous :history-next :toggle-word-delimiter-mode
+                            :up :down) :test #'eq)
       (if (member command '(:up :down) :test #'eq)
           (unless (line-editor-move-vertical
                    editor (if (eq command ':up) -1 1)
-                   :columns (let ((width (terminal-columns (terminal-ui-terminal ui))))
-                              (min 76 (max 1 (- width (if (> width 10) 4 0)))))
+                   :columns      (let ((width (terminal-columns (terminal-ui-terminal ui))))
+                                   (min 76 (max 1 (- width (if (> width 10) 4 0)))))
                    :prompt-width (text-cell-width (terminal-ui-prompt ui)))
             (line-editor-handle-event editor (if (eq command ':up) ':history-previous ':history-next)))
           (line-editor-handle-event editor safe-event))
@@ -401,8 +414,8 @@ reader dispatch and never evaluate input, including quoted topic arguments."
     (handler-case
         (let ((*read-eval* nil)
               (*readtable* (copy-readtable nil))
-              (*package* (find-package '#:autolith))
-              (end (gensym "END")))
+              (*package*   (find-package '#:autolith))
+              (end         (gensym "END")))
           (set-macro-character #\#
                                (lambda (stream character)
                                  (declare (ignore character))
@@ -416,7 +429,7 @@ reader dispatch and never evaluate input, including quoted topic arguments."
                 (let* ((argument (second form))
                        (quoted-p (and (consp argument) (eq (first argument) 'quote)
                                       (= (length argument) 2)))
-                       (topic (if quoted-p (second argument) argument)))
+                       (topic    (if quoted-p (second argument) argument)))
                   (when (or (null topic) (stringp topic) (keywordp topic)
                             (and quoted-p (symbolp topic)))
                     (return-from terminal-ui-onboarding--help-request
@@ -472,24 +485,24 @@ Never evaluate demo input."
    ui
    (lambda ()
      (let* ((*onboarding-source-snapshot* (onboarding-source--read))
-            (terminal (terminal-ui-terminal ui))
-            (saved-editor (clinedi:line-editor-snapshot (terminal-ui-editor ui)))
-            (saved-attachments (terminal-ui-onboarding--copy-attachments
-                                (terminal-ui-image-attachments ui)))
-            (saved-lisp-input-p (terminal-ui-lisp-input-p ui))
-            (saved-selector (terminal-ui-selector ui))
+            (terminal                     (terminal-ui-terminal ui))
+            (saved-editor                 (clinedi:line-editor-snapshot (terminal-ui-editor ui)))
+            (saved-attachments            (terminal-ui-onboarding--copy-attachments
+                                           (terminal-ui-image-attachments ui)))
+            (saved-lisp-input-p           (terminal-ui-lisp-input-p ui))
+            (saved-selector               (terminal-ui-selector ui))
             (saved-completion-dismissed-p (terminal-ui-completion-dismissed-p ui))
-            (saved-output-suspended-p (terminal-ui-live-output-suspended-p ui))
-            (saved-cursor-visible-p (fullscreen-terminal-ui-cursor-visible-p ui))
-            (owned-fullscreen-p (not (fullscreen-terminal-ui-active-p ui)))
-            (index 0)
-            (scroll-offset 0)
-            (link-regions nil)
-            (stage ':input)
-             (help-output "")
-             (help-seen-p nil)
-            (seen-identifiers nil)
-            (outcome ':running))
+            (saved-output-suspended-p     (terminal-ui-live-output-suspended-p ui))
+            (saved-cursor-visible-p       (fullscreen-terminal-ui-cursor-visible-p ui))
+            (owned-fullscreen-p           (not (fullscreen-terminal-ui-active-p ui)))
+            (index                        0)
+            (scroll-offset                0)
+            (link-regions                 nil)
+            (stage                        ':input)
+            (help-output                  "")
+            (help-seen-p                  nil)
+            (seen-identifiers             nil)
+            (outcome                      ':running))
        (labels ((page ()
                   (nth index pages))
 
@@ -550,9 +563,12 @@ Never evaluate demo input."
                        (terminal-ui-onboarding--reset-exercise ui)
                        (setf stage
                              (case (funcall authentication-function)
-                               ((:authenticated :skipped) ':result)
-                               (:cancelled ':cancelled)
-                               (otherwise ':failed))
+                               ((:authenticated :skipped)
+                                ':result)
+                               (:cancelled
+                                ':cancelled)
+                               (otherwise
+                                ':failed))
                              scroll-offset 0)
                        (terminal-ui-onboarding--reset-exercise ui))
                       (:settings
