@@ -28,9 +28,6 @@
   (declare (ignore provider))
   "ChatGPT")
 
-(-> provider-authenticate
-    (model-provider &key (:stream stream) (:open-browser-p boolean))
-    string)
 (defgeneric provider-authenticate (provider &key stream open-browser-p)
   (:documentation
    "Authenticate PROVIDER and return a safe user-visible completion message."))
@@ -173,7 +170,6 @@
     (when (and writes (plusp writes))
       writes)))
 
-(-> provider-child-reference-history-p (model-provider) boolean)
 (defgeneric provider-child-reference-history-p (provider)
   (:documentation
    "Return true when child agents should inherit filtered parent reference history."))
@@ -193,9 +189,6 @@ This follows the filtered fork-history behavior in Codex
   (declare (ignore provider))
   t)
 
-(-> provider-device-authentication-client
-    (subscription-provider)
-    device-authentication-client)
 (defgeneric provider-device-authentication-client (provider)
   (:documentation
    "Return a fresh device authentication client for PROVIDER's account service."))
@@ -206,9 +199,6 @@ This follows the filtered fork-history behavior in Codex
   (declare (ignore provider))
   (device-authentication-client-create))
 
-(-> provider-family-create
-    (keyword configuration &key (:reasoning-summaries-p boolean))
-    model-provider)
 (defgeneric provider-family-create (family configuration &key reasoning-summaries-p)
   (:documentation
    "Create the subscription provider serving FAMILY for CONFIGURATION."))
@@ -322,7 +312,6 @@ credentials and model metadata independently of their cached wire routes."
              :reasoning-summaries-p reasoning-summaries-p
              :registration          registration))))))
 
-(-> provider-authenticated-model (configuration model-provider) (option string))
 (defgeneric provider-authenticated-model (configuration provider)
   (:documentation
    "Return a provider-specific model selection after login, or NIL to keep it."))
@@ -333,9 +322,6 @@ credentials and model metadata independently of their cached wire routes."
   (declare (ignore configuration provider))
   nil)
 
-(-> provider-reconfiguration-initargs
-    (session-preserving-provider-mixin)
-    list)
 (defgeneric provider-reconfiguration-initargs (provider)
   (:method-combination append)
   (:documentation
@@ -390,18 +376,10 @@ credentials and model metadata independently of their cached wire routes."
   (setf (provider-reasoning-summaries-p provider) enabled-p)
   provider)
 
-(-> provider-open-response-stream
-    (model-provider json-object
-     &key (:credentials oauth-credentials) (:conversation conversation))
-    (values stream integer t))
 (defgeneric provider-open-response-stream
     (provider request &key credentials conversation)
   (:documentation "Open an authenticated provider stream and return body, status, and headers."))
 
-(-> provider-open-native-compaction
-    (codex-subscription-provider json-object
-     &key (:credentials oauth-credentials) (:conversation conversation))
-    (values string integer t))
 (defgeneric provider-open-native-compaction
     (provider request &key credentials conversation)
   (:documentation
@@ -465,6 +443,13 @@ root's key, as the Codex reference does at commit 6f51c65958."
            "text" (json-object "verbosity" "low"))
      (when (configuration-codex-fast-mode-active-p configuration)
        (list "service_tier" "priority")))))
+
+(defparameter *provider-history-trimming-p* nil
+  "True while history is projected for a compaction request.
+
+Consumed tool search expansions are replayed empty there, as the Codex
+reference does when trimming, and intact everywhere else so the server keeps
+the expanded tools loaded without another search.")
 
 (-> provider-native-compaction-request-object
     (codex-subscription-provider conversation vector)
@@ -669,7 +654,6 @@ and codes follow the Codex reference at commit 6f51c65958."
         (provider--signal-http-status-failure
          provider status :headers headers :raw-body raw-body))))
 
-(-> provider-signal-transport-failure (subscription-provider condition) null)
 (defgeneric provider-signal-transport-failure (provider condition)
   (:documentation
    "Record CONDITION's response headers and signal its typed provider failure."))
@@ -798,23 +782,12 @@ and codes follow the Codex reference at commit 6f51c65958."
   (:documentation
    "A completed provider response requires retry, while its reported usage remains valid."))
 
-(-> provider-attempt-turn
-    (model-provider conversation
-     &key (:tool-namespaces vector)
-          (:event-callback function)
-          (:force-refresh boolean)
-          (:goal-context (option string))
-          (:compaction-p boolean))
-    provider-result)
 (defgeneric provider-attempt-turn
     (provider conversation
      &key tool-namespaces event-callback force-refresh goal-context compaction-p)
   (:documentation
    "Perform one normalized provider attempt, optionally forcing credential refresh."))
 
-(-> provider-call-with-request-adapter
-    (subscription-provider oauth-credentials function &key (:conversation conversation))
-    provider-result)
 (defgeneric provider-call-with-request-adapter (provider credentials function &key conversation)
   (:documentation
    "Call FUNCTION with the request's wire adapter and additional secret values.
@@ -977,10 +950,6 @@ endpoint reported one, so the compaction request can be metered."
           (values (first (last items))
                   (and (json-object-p usage) usage)))))))
 
-(-> provider-attempt-native-compaction
-    (codex-subscription-provider conversation
-     &key (:tool-namespaces vector) (:force-refresh boolean))
-    (values (option json-object) (option json-object)))
 (defgeneric provider-attempt-native-compaction
     (provider conversation &key tool-namespaces force-refresh)
   (:documentation
