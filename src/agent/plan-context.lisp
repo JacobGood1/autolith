@@ -8,16 +8,16 @@
 ;;; model already saw in its own plan.update or plan.list is not repeated.
 
 (defclass plan-change-contribution (context-contribution)
-  ((count :initarg :count
-          :reader plan-change-contribution-count
-          :type (integer 1)
+  ((count :initarg       :count
+          :reader        plan-change-contribution-count
+          :type          (integer 1)
           :documentation "How many plan steps changed."))
   (:documentation "Advice explaining plan steps changed by their facts."))
 
 (defclass plan-change-event (provider-event)
-  ((count :initarg :count
-          :reader plan-change-event-count
-          :type (integer 1)
+  ((count :initarg       :count
+          :reader        plan-change-event-count
+          :type          (integer 1)
           :documentation "How many changed plan steps were explained to the model."))
   (:documentation "A presentation event for delivered plan change advice."))
 
@@ -56,12 +56,12 @@
 (defun plan-changes-context (request)
   "Explain once per turn which fact-dependent plan steps changed since the model saw them."
   (let ((configuration (request-context-configuration request))
-        (conversation (request-context-conversation request)))
+        (conversation  (request-context-conversation request)))
     (when (and (not (request-context-compaction-p request))
                (knowledge-active-p configuration))
       (let* ((identifier (conversation-identifier conversation))
-             (turn (memory-context--turn-key conversation))
-             (cached (gethash identifier *plan-context-turn-changes*)))
+             (turn       (memory-context--turn-key conversation))
+             (cached     (gethash identifier *plan-context-turn-changes*)))
         (if (and cached (eql (first cached) turn))
             (rest cached)
             (let* ((plan (plan-load configuration))
@@ -80,12 +80,12 @@
                                       (and changes
                                            (change-class
                                             (make-context-contribution
-                                             :identifier "plan-changes"
+                                             :identifier        "plan-changes"
                                              :instruction
                                              "Plan steps that depend on facts changed since you last saw the plan. Adjust the plan or the work in progress accordingly."
-                                             :evidence (format nil "~{~A~^~%~}" changes)
-                                             :priority 30
-                                             :lifetime ':next-request
+                                             :evidence          (format nil "~{~A~^~%~}" changes)
+                                             :priority          30
+                                             :lifetime          ':next-request
                                              :deduplication-key "plan-changes")
                                             'plan-change-contribution
                                             :count (length changes)))))))))))
