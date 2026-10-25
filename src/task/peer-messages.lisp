@@ -45,7 +45,7 @@
 (defvar *peer-message-services-lock* (make-lock "Peer services")
   "Protects registration and lookup by root conversation identity.")
 
-(-> peer-message--reject (keyword &key (:denied-p boolean)) null)
+(-> peer-message--reject (keyword &key (:denied-p boolean)) nil)
 (defun peer-message--reject (reason &key denied-p)
   "Refuse a peer operation without revealing unrelated job or message data."
   (error (if denied-p 'peer-message-authority-denied 'peer-message-error)
@@ -66,8 +66,7 @@
                (do ((tail endpoint (rest tail)) (count 0 (1+ count)))
                    ((= count 6) (null tail))
                  (unless (consp tail) (return nil)))
-               (equal (loop for (key value) on endpoint by #'cddr
-                            collect key)
+               (equal (plist-keys endpoint)
                       '(:session :job :execution)))
     (peer-message--reject ':identity))
   (peer-message--identifier (getf endpoint :session))
