@@ -103,7 +103,7 @@ evaluates or installs the method."
     (let ((form
             (with-standard-io-syntax
               (let ((*read-eval* nil)
-                    (*package* (find-package '#:autolith)))
+                    (*package*   (find-package '#:autolith)))
                 (multiple-value-bind (form position)
                     (handler-case
                         (read-from-string method-source)
@@ -166,23 +166,23 @@ pipeline; nothing is evaluated or installed here."
                             *rlm-distill-maximum-traces*)))
   (multiple-value-bind (provider configuration)
       (rlm--resolve-environment :model model :effort effort
-                                :provider provider
+                                :provider      provider
                                 :configuration configuration)
     (let* ((budget (or budget (rlm-budget-create)))
-           (views (loop for identifier in traces
-                        collect (rlm-distill--trace-view configuration
-                                                         identifier)))
+           (views  (loop for identifier in traces
+                         collect (rlm-distill--trace-view configuration
+                                                          identifier)))
            (instruction-views
              (and (non-empty-string-p instructions)
                   (list (list ':label "instructions"
                               ':content instructions)))))
       (multiple-value-bind (gate-value gate-trace)
           (infer *rlm-distill-gate-task*
-                 :context (append views instruction-views)
-                 :contract *rlm-distill-gate-contract*
-                 :budget budget
-                 :provider provider
-                 :configuration configuration
+                 :context           (append views instruction-views)
+                 :contract          *rlm-distill-gate-contract*
+                 :budget            budget
+                 :provider          provider
+                 :configuration     configuration
                  :activity-callback activity-callback)
         (let ((rationale (rlm-distill--object-field gate-value "rationale")))
           (unless (eq (rlm-distill--object-field gate-value "worth") t)
@@ -199,20 +199,20 @@ pipeline; nothing is evaluated or installed here."
               (declare (ignore attempt))
               (multiple-value-bind (plan-value plan-trace)
                   (infer *rlm-distill-plan-task*
-                         :context (append
-                                   views instruction-views
-                                   (when problem
-                                     (list (list ':label "previous rejection"
-                                                 ':content problem))))
-                         :contract *rlm-distill-plan-contract*
-                         :budget budget
-                         :provider provider
-                         :configuration configuration
+                         :context           (append
+                                             views instruction-views
+                                             (when problem
+                                               (list (list ':label "previous rejection"
+                                                           ':content problem))))
+                         :contract          *rlm-distill-plan-contract*
+                         :budget            budget
+                         :provider          provider
+                         :configuration     configuration
                          :activity-callback activity-callback)
                 (handler-case
-                    (let* ((policy (rlm-distill--policy-keyword
-                                    (rlm-distill--object-field plan-value
-                                                               "policy")))
+                    (let* ((policy        (rlm-distill--policy-keyword
+                                           (rlm-distill--object-field plan-value
+                                                                      "policy")))
                            (method-source (rlm-distill--object-field
                                            plan-value "method-source")))
                       (unless (stringp method-source)
@@ -248,9 +248,9 @@ pipeline; nothing is evaluated or installed here."
   (make-instance
    'rlm-distill-tool
    :namespace "rlm"
-   :name "distill"
-   :provider provider
-   :budget budget
+   :name      "distill"
+   :provider  provider
+   :budget    budget
    :description
    "Review persisted inference traces by identifier and propose one distilled decomposition policy. A cheap gate frame decides whether the evidence justifies promotion and prefers declining; the planner then returns one structurally validated rlm-decompose-inference-task method proposal. Nothing is installed: apply an accepted proposal through the ordinary self.* mutation pipeline, which journals, checks, commits, and can discard it. Returns the proposal or the decline rationale plus the remaining budget."
    :parameters
@@ -288,24 +288,24 @@ pipeline; nothing is evaluated or installed here."
             (instructions
               (let ((value (gethash "instructions" arguments)))
                 (and (non-empty-string-p value) value)))
-            (budget (rlm--tool-budget tool arguments "rlm.distill"))
-            (routing (multiple-value-list
-                      (rlm--tool-routing tool context arguments)))
-            (provider (first routing))
+            (budget        (rlm--tool-budget tool arguments "rlm.distill"))
+            (routing       (multiple-value-list
+                            (rlm--tool-routing tool context arguments)))
+            (provider      (first routing))
             (configuration (second routing)))
        (rlm--tool-invoke
         context arguments
         :tool-name "rlm.distill"
-        :summary (format nil "~D trace~:P" (length traces))
+        :summary   (format nil "~D trace~:P" (length traces))
         :operation-function
         (lambda ()
           (rlm--guarded-tool-result
            (lambda ()
              (let ((proposal
-                     (rlm-distill :traces traces
-                                  :instructions instructions
-                                  :budget budget
-                                  :provider provider
+                     (rlm-distill :traces        traces
+                                  :instructions  instructions
+                                  :budget        budget
+                                  :provider      provider
                                   :configuration configuration
                                   :activity-callback
                                   (rlm--tool-activity-callback tool context))))
