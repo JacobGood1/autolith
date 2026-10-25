@@ -13,11 +13,11 @@
     :documentation "The successful external result, retaining its result protocol.")
    (prefix-length
     :initarg :prefix-length :reader contract-recording-result-prefix-length
-    :type (integer 0)
+    :type          (integer 0)
     :documentation "Characters of external content retained before the diagnostic.")
    (diagnostic
     :initarg :diagnostic :reader contract-recording-result-diagnostic
-    :type string
+    :type          string
     :documentation "Bounded JSON distinguishing external success from mapping failure."))
   (:documentation "A successful external result with failed structured knowledge recording."))
 
@@ -29,10 +29,10 @@
 
 (defmethod tool-result-details ((result contract-recording-result))
   "Retain subtype metadata, original clipped metadata, and the recording diagnostic."
-  (let* ((original (tool-result-details (contract-recording-result-original result)))
-         (retained (tool-contract--prefix-details
-                    (contract-recording-result-original result)
-                    (contract-recording-result-prefix-length result)))
+  (let* ((original   (tool-result-details (contract-recording-result-original result)))
+         (retained   (tool-contract--prefix-details
+                      (contract-recording-result-original result)
+                      (contract-recording-result-prefix-length result)))
          (diagnostic (contract-recording-result-diagnostic result)))
     (if retained
         (append retained (unless (equal original retained) (list :external-details original))
@@ -49,8 +49,8 @@
                  collect (json-object "contract" (bounded-string (json-get error "contract") :limit 80)
                                       "mapping" (json-get error "mapping")
                                       "message" (bounded-string (json-get error "message") :limit 200))))
-         (lower 0)
-         (upper (length content)))
+         (lower   0)
+         (upper   (length content)))
     (labels ((encode (count)
                (let ((object (json-object "externalSuccess" t "contractRecording" "failed"
                                           "contractErrorCount" (length errors)
@@ -73,14 +73,15 @@
 (defun tool-contract--annotated-blocks (blocks annotation)
   "Reserve text budget for ANNOTATION after the original ordered image and text blocks."
   (let ((remaining (- 8000 (length annotation)))
-        (retained nil))
+        (retained  nil))
     (dolist (block blocks)
       (etypecase block
         (string
          (let ((text (subseq block 0 (min remaining (length block)))))
            (push text retained)
            (decf remaining (length text))))
-        (image-attachment (push block retained))))
+        (image-attachment
+         (push block retained))))
     (append (nreverse retained) (list annotation))))
 
 (-> tool-contract--recording-result (tool-result list) tool-result)
@@ -89,42 +90,45 @@
 
 Retain image order and subtype metadata. When text must be shortened, keep its
 original metadata as provenance and adapt visible section ranges to its prefix."
-  (let* ((rich-p (or (tool-result-content-blocks result) (tool-result-details result)))
+  (let* ((rich-p     (or (tool-result-content-blocks result) (tool-result-details result)))
          (diagnostic (tool-contract--recording-diagnostic
                       result errors :include-output-p (not rich-p) :limit (if rich-p 2000 8000)))
          (annotation (concatenate 'string (string #\Newline) diagnostic))
-         (content (tool-result-content result))
-         (images (tool-result-image-attachments result))
-         (prefix (if images (length content) (min (length content) (- 8000 (length annotation))))))
+         (content    (tool-result-content result))
+         (images     (tool-result-image-attachments result))
+         (prefix     (if images (length content) (min (length content) (- 8000 (length annotation))))))
     (make-instance 'contract-recording-result
                    :original result :diagnostic diagnostic :prefix-length (max 0 prefix)
-                   :content (cond
-                              ((not rich-p) diagnostic)
-                              (images content)
-                              (t (concatenate 'string (subseq content 0 prefix) annotation)))
-                   :content-blocks (when rich-p
-                                     (tool-contract--annotated-blocks
-                                      (or (tool-result-content-blocks result) (list content)) annotation))
+                   :content           (cond
+                                        ((not rich-p)
+                                         diagnostic)
+                                        (images
+                                         content)
+                                        (t
+                                         (concatenate 'string (subseq content 0 prefix) annotation)))
+                   :content-blocks    (when rich-p
+                                        (tool-contract--annotated-blocks
+                                         (or (tool-result-content-blocks result) (list content)) annotation))
                    :image-attachments images
-                   :success-p (tool-result-success-p result)
-                   :category (tool-result-category result)
-                   :error-code (tool-result-error-code result)
-                   :denied-p (tool-result-denied-p result))))
+                   :success-p         (tool-result-success-p result)
+                   :category          (tool-result-category result)
+                   :error-code        (tool-result-error-code result)
+                   :denied-p          (tool-result-denied-p result))))
 
 (-> tool-execute-with-contracts (tool tool-context json-object) tool-result)
 (defun tool-execute-with-contracts (tool context arguments)
   "Execute TOOL with ARGUMENTS under CONTEXT, honoring the contracts describing the call."
   (let* ((configuration (tool-context-configuration context))
-         (name (tool-canonical-name tool))
-         (matches (and configuration
-                       (knowledge-capture-p configuration)
-                       (handler-case (knowledge-contracts-for-call configuration name arguments)
-                         (knowledge-error (condition)
-                           (return-from tool-execute-with-contracts
-                             (tool-failure
-                              (format nil "A contract for ~A could not read the call: ~A The call was not made."
-                                      name (autolith-error-message condition))
-                              :code ':precondition-unknown)))))))
+         (name          (tool-canonical-name tool))
+         (matches       (and configuration
+                             (knowledge-capture-p configuration)
+                             (handler-case (knowledge-contracts-for-call configuration name arguments)
+                               (knowledge-error (condition)
+                                 (return-from tool-execute-with-contracts
+                                   (tool-failure
+                                    (format nil "A contract for ~A could not read the call: ~A The call was not made."
+                                            name (autolith-error-message condition))
+                                    :code ':precondition-unknown)))))))
     (if (null matches)
         (tool-execute tool context arguments)
         (multiple-value-bind (refusal admitted)
@@ -137,7 +141,7 @@ original metadata as provenance and adapt visible section ranges to its prefix."
                     (multiple-value-bind (claims errors)
                         (knowledge-contract-record
                          configuration (or admitted matches) arguments result
-                         :tool name
+                         :tool         name
                          :conversation (and (tool-context-conversation context)
                                             (conversation-identifier
                                              (tool-context-conversation context))))
