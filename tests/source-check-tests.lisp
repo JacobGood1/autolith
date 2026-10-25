@@ -372,6 +372,70 @@
                        "large compiler output is bounded in the failure report")))))
   nil)
 
+(-> test-source-warning-ownership () null)
+(defun test-source-warning-ownership ()
+  "Record project compile and load warnings without claiming nested vendored systems."
+  (with-test-configuration (configuration root)
+    (declare (ignore configuration))
+    (uiop:copy-file (asdf:system-relative-pathname "autolith" "script/compile-warnings.lisp")
+                    (ensure-directories-exist
+                     (merge-pathnames "script/compile-warnings.lisp" root)))
+    (source-check-tests--write
+     root ".qlot/setup.lisp"
+     (source-check-tests--text
+      '("(asdf:initialize-source-registry"
+         " `(:source-registry (:directory ,(namestring (uiop:pathname-parent-directory-pathname"
+         "                                            (uiop:pathname-directory-pathname *load-truename*))))"
+         "   :ignore-inherited-configuration))"
+         "(asdf:load-asd (merge-pathnames \"vendor/vendor.asd\" *load-truename*))")))
+    (source-check-tests--write
+     root ".qlot/vendor/vendor.asd"
+     "(asdf:defsystem \"vendor\" :components ((:file \"dependency\")))")
+    (source-check-tests--write
+     root "autolith.asd"
+     (source-check-tests--text
+      '("(asdf:defsystem \"autolith\" :depends-on (\"vendor\")"
+        "  :components ((:module \"src\" :serial t"
+        "                :components ((:file \"project\") (:file \"end\")))))")))
+    (dolist (entry '(("src/project.lisp" "project")
+                     (".qlot/vendor/dependency.lisp" "dependency")))
+      (destructuring-bind (path label) entry
+        (source-check-tests--write
+         root path
+         (format nil "(eval-when (:compile-toplevel)~%~
+                        (warn 'sb-int:simple-style-warning :format-control ~S))~%~
+                      (eval-when (:load-toplevel) (warn ~S))~%"
+                 (concatenate 'string label " compile marker")
+                 (concatenate 'string label " load marker")))))
+    (source-check-tests--write
+     root "src/end.lisp"
+     "(let ((*compile-file-truename* nil) (*load-truename* nil))
+        (warn \"unattributed diagnostic marker\"))")
+    (let* ((findings (source-warning-run-finish
+                      (source-warning-run-start
+                       root :command   (list (lisp-worker-sbcl-command) "--script")
+                            :directory (merge-pathnames "run/" root))))
+           (project  (remove-if-not
+                      (lambda (finding)
+                        (equal (source-finding-path finding) "src/project.lisp"))
+                      findings)))
+      (dolist (marker '("project compile marker" "project load marker"))
+        (test-assert (some (lambda (finding)
+                             (search marker (source-finding-message finding)))
+                           project)
+                     (format nil "the project warning is attributed to its source: ~A" marker)))
+      (test-assert (notany (lambda (finding)
+                             (search "dependency" (source-finding-message finding)))
+                           findings)
+                   "nested dependency source and translated FASL warnings are excluded")
+      (test-assert (some (lambda (finding)
+                           (and (equal (source-finding-path finding) "(end of compilation)")
+                                (search "unattributed diagnostic marker"
+                                        (source-finding-message finding))))
+                         findings)
+                   "diagnostics without a current file are retained")))
+  nil)
+
 (-> test-source-system-platform-support () null)
 (defun test-source-system-platform-support ()
   "Check release-service registration in fresh ASDF images for each host family."

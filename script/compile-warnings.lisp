@@ -17,18 +17,35 @@
     "autolith/debug/tests")
   "Every system autolith.asd defines for this host.")
 
-(defun compile-warnings--source-path (source-root fasl-directory)
-  "Return the repository-relative source path of the file being compiled or loaded, or NIL."
-  (let ((compiled *compile-file-truename*)
-        (loaded   *load-truename*))
-    (cond
-      ((and compiled (uiop:subpathp compiled source-root))
-       (uiop:unix-namestring (uiop:enough-pathname compiled source-root)))
-      ((and loaded (uiop:subpathp loaded fasl-directory))
-       (let ((relative (uiop:enough-pathname loaded fasl-directory)))
-         (uiop:unix-namestring (make-pathname :type "lisp" :defaults relative))))
-      (t
-       nil))))
+(defun compile-warnings--owned-paths (source-root)
+  "Map supported systems' exact source and translated output paths to source names."
+  (let ((paths (make-hash-table :test #+win32 'equalp #-win32 'equal)))
+    (labels ((record (path relative)
+               (setf (gethash path paths) relative)
+               (when (probe-file path)
+                 (setf (gethash (probe-file path) paths) relative)))
+
+             (visit (component)
+               (when (typep component 'asdf:cl-source-file)
+                 (let* ((source   (asdf:component-pathname component))
+                        (relative (uiop:unix-namestring
+                                   (uiop:enough-pathname source source-root))))
+                   (record source relative)
+                   (dolist (output (asdf:output-files 'asdf:compile-op component))
+                     (record output relative))))
+               (when (typep component 'asdf:parent-component)
+                 (mapc #'visit (asdf:component-children component)))))
+      (dolist (name *compile-warnings-systems*)
+        (let ((system (asdf:find-system name nil)))
+          (when system
+            (visit system)))))
+    paths))
+
+(defun compile-warnings--source-path (owned-paths)
+  "Return the owned source name for the current compilation or load, or NIL."
+  ;; A dependency compilation nested in a project load belongs to the compiled
+  ;; file, not to the enclosing load. Output paths come from ASDF, not suffixes.
+  (gethash (or *compile-file-truename* *load-truename*) owned-paths))
 
 (defun compile-warnings--line (source-root path)
   "Return the source line of the form the compiler is processing in PATH, or NIL."
@@ -63,25 +80,26 @@
                            ,(uiop:native-namestring fasl-directory))
                           :inherit-configuration))
   (asdf:load-asd (merge-pathnames "autolith.asd" source-root))
-  (handler-bind ((warning
-                   (lambda (condition)
-                     (when (compile-warnings--interesting-p condition)
-                       (let ((path (compile-warnings--source-path source-root fasl-directory)))
-                         ;; A warning without a file of ours belongs to a
-                         ;; dependency, unless no file is being processed at
-                         ;; all, as for undefined functions reported at the end.
-                         (unless (and (null path) (or *compile-file-truename* *load-truename*))
-                           (push (list :path    path
-                                       :line    (compile-warnings--line source-root path)
-                                       :type    (string-downcase (type-of condition))
-                                       :message (substitute #\Space #\Newline
-                                                            (princ-to-string condition)))
-                                 warnings)))))))
-    (let ((asdf:*compile-file-warnings-behaviour* ':warn)
-          (asdf:*compile-file-failure-behaviour*  ':warn))
-      (dolist (system *compile-warnings-systems*)
-        (when (asdf:find-system system nil)
-          (asdf:load-system system)))))
+  (let ((owned-paths (compile-warnings--owned-paths source-root)))
+    (handler-bind ((warning
+                     (lambda (condition)
+                       (when (compile-warnings--interesting-p condition)
+                         (let ((path (compile-warnings--source-path owned-paths)))
+                           ;; A warning without a file of ours belongs to a
+                           ;; dependency, unless no file is being processed at
+                           ;; all, as for undefined functions reported at the end.
+                           (unless (and (null path) (or *compile-file-truename* *load-truename*))
+                             (push (list :path    path
+                                         :line    (compile-warnings--line source-root path)
+                                         :type    (string-downcase (type-of condition))
+                                         :message (substitute #\Space #\Newline
+                                                              (princ-to-string condition)))
+                                   warnings)))))))
+      (let ((asdf:*compile-file-warnings-behaviour* ':warn)
+            (asdf:*compile-file-failure-behaviour*  ':warn))
+        (dolist (system *compile-warnings-systems*)
+          (when (asdf:find-system system nil)
+            (asdf:load-system system))))))
   (with-open-file (stream result-file :direction ':output :if-exists ':supersede
                                       :external-format ':utf-8)
     (with-standard-io-syntax

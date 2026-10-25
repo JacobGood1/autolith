@@ -1509,4 +1509,5 @@
   test-source-parinfer-missing-library
   test-source-mallet-findings
   test-source-warning-run
+  test-source-warning-ownership
   test-source-system-platform-support)
