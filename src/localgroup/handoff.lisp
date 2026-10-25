@@ -23,8 +23,9 @@
 
 (defparameter *localgroup-handoff-wait-function*
   (lambda (configuration session-id token old-pid)
-    (localgroup-handoff--wait-for-replacement
-     configuration session-id token old-pid))
+    (localgroup-handoff--wait-for-replacement configuration session-id
+                                              :token   token
+                                              :old-pid old-pid))
   "The authenticated replacement readiness boundary used by process handoff.")
 
 (defparameter *localgroup-handoff-setsid-function*
@@ -480,10 +481,10 @@ detach is immediate and never interrupts session work."
    *localgroup-handoff-start-timeout-seconds*))
 
 (-> localgroup-handoff--wait-for-replacement
-    (configuration string string integer)
+    (configuration string &key (:token string) (:old-pid integer))
     boolean)
 (defun localgroup-handoff--wait-for-replacement
-    (configuration session-id token old-pid)
+    (configuration session-id &key token old-pid)
   "Wait boundedly for a live replacement endpoint."
   (not (null
         (image-daemon:daemon-wait-until
