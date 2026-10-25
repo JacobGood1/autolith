@@ -75,9 +75,9 @@ only to itself.")
 (-> knowledge--date-parts (string) (values (option integer) (option integer) (option integer)))
 (defun knowledge--date-parts (text)
   "Return the year, month, and day of TEXT's leading YYYY-MM-DD, or NIL."
-  (let ((year (knowledge--digits text 0 4))
+  (let ((year  (knowledge--digits text 0 4))
         (month (knowledge--digits text 5 7))
-        (day (knowledge--digits text 8 10)))
+        (day   (knowledge--digits text 8 10)))
     (if (and year month day
              (char= (char text 4) #\-)
              (char= (char text 7) #\-)
@@ -90,12 +90,15 @@ only to itself.")
 (defun knowledge--month-days (year month)
   "Return the number of days in MONTH of YEAR."
   (case month
-    ((4 6 9 11) 30)
-    (2 (if (and (zerop (mod year 4))
-                (or (plusp (mod year 100)) (zerop (mod year 400))))
-           29
-           28))
-    (otherwise 31)))
+    ((4 6 9 11)
+     30)
+    (2
+     (if (and (zerop (mod year 4))
+              (or (plusp (mod year 100)) (zerop (mod year 400))))
+         29
+         28))
+    (otherwise
+     31)))
 
 (-> knowledge-parse-instant (string) (option integer))
 (defun knowledge-parse-instant (text)
@@ -110,9 +113,9 @@ or an offset such as +02:00 or -0530. Fractional seconds are truncated."
                    (member (char text 10) '(#\T #\t #\Space))
                    (char= (char text 13) #\:))
         (return nil))
-      (let ((hour (knowledge--digits text 11 13))
-            (minute (knowledge--digits text 14 16))
-            (second 0)
+      (let ((hour     (knowledge--digits text 11 13))
+            (minute   (knowledge--digits text 14 16))
+            (second   0)
             (position 16))
         (unless (and hour minute (<= hour 23) (<= minute 59))
           (return nil))
@@ -126,15 +129,15 @@ or an offset such as +02:00 or -0530. Fractional seconds are truncated."
             (loop while (and (< position (length text))
                              (digit-char-p (char text position)))
                   do (incf position))))
-        (let ((zone (subseq text position))
+        (let ((zone   (subseq text position))
               (offset nil))
           (cond
             ((member zone '("Z" "z") :test #'string=)
              (setf offset 0))
             ((and (member (length zone) '(5 6))
                   (find (char zone 0) "+-"))
-             (let* ((colon-p (= (length zone) 6))
-                    (zone-hours (knowledge--digits zone 1 3))
+             (let* ((colon-p      (= (length zone) 6))
+                    (zone-hours   (knowledge--digits zone 1 3))
                     (zone-minutes (knowledge--digits zone
                                                      (if colon-p 4 3)
                                                      (if colon-p 6 5))))
@@ -180,11 +183,11 @@ Years and months have no fixed length and are rejected."
      nil)
     (t
      (let* ((negative-p (and (plusp (length value)) (char= (char value 0) #\-)))
-            (text (string-upcase (if negative-p (subseq value 1) value)))
-            (total 0)
-            (number nil)
-            (time-p nil)
-            (seen-p nil))
+            (text       (string-upcase (if negative-p (subseq value 1) value)))
+            (total      0)
+            (number     nil)
+            (time-p     nil)
+            (seen-p     nil))
        (block nil
          (unless (and (> (length text) 1) (char= (char text 0) #\P))
            (return nil))
@@ -202,11 +205,16 @@ Years and months have no fixed length and are rejected."
                        (return nil))
                      (let ((factor
                              (cond
-                               ((and (not time-p) (char= character #\W)) 604800)
-                               ((and (not time-p) (char= character #\D)) 86400)
-                               ((and time-p (char= character #\H)) 3600)
-                               ((and time-p (char= character #\M)) 60)
-                               ((and time-p (char= character #\S)) 1))))
+                               ((and (not time-p) (char= character #\W))
+                                604800)
+                               ((and (not time-p) (char= character #\D))
+                                86400)
+                               ((and time-p (char= character #\H))
+                                3600)
+                               ((and time-p (char= character #\M))
+                                60)
+                               ((and time-p (char= character #\S))
+                                1))))
                        (unless factor
                          (return nil))
                        (incf total (* number factor))
@@ -221,7 +229,7 @@ Years and months have no fixed length and are rejected."
   "Return SECONDS as compact text such as 1d 2h 30m."
   (if (zerop seconds)
       "0s"
-      (let ((parts nil)
+      (let ((parts     nil)
             (remaining (abs seconds)))
         (loop for (unit size) in '(("d" 86400) ("h" 3600) ("m" 60) ("s" 1))
               do (multiple-value-bind (count rest) (floor remaining size)
@@ -295,9 +303,12 @@ Strings report :STRING; whether a string is an entity is the schema's choice."
 (defun knowledge--number (value)
   "Return VALUE as an exact rational, or NIL when it is not a real number."
   (typecase value
-    (rational value)
-    (float (rationalize value))
-    (otherwise nil)))
+    (rational
+     value)
+    (float
+     (rationalize value))
+    (otherwise
+     nil)))
 
 (-> knowledge-term-from-input (t keyword) t)
 (defun knowledge-term-from-input (value type)
@@ -327,11 +338,16 @@ VALUE cannot be a TYPE."
            (fail "a number")))
       (:boolean
        (cond
-         ((member value '(t :true)) ':true)
-         ((or (member value '(nil :false)) (json-false-p value)) ':false)
-         ((and (stringp value) (string-equal value "true")) ':true)
-         ((and (stringp value) (string-equal value "false")) ':false)
-         (t (fail "true or false"))))
+         ((member value '(t :true))
+          ':true)
+         ((or (member value '(nil :false)) (json-false-p value))
+          ':false)
+         ((and (stringp value) (string-equal value "true"))
+          ':true)
+         ((and (stringp value) (string-equal value "false"))
+          ':false)
+         (t
+          (fail "true or false"))))
       (:instant
        (cond
          ((eq (knowledge-term-type-of value) ':instant)
@@ -359,14 +375,18 @@ VALUE cannot be a TYPE."
       (:quantity
        (let* ((magnitude
                 (cond
-                  ((eq (knowledge-term-type-of value) ':quantity) (second value))
-                  ((hash-table-p value) (knowledge--number (gethash "magnitude" value)))
+                  ((eq (knowledge-term-type-of value) ':quantity)
+                   (second value))
+                  ((hash-table-p value)
+                   (knowledge--number (gethash "magnitude" value)))
                   ((and (proper-list-p value) (= (length value) 2))
                    (knowledge--number (first value)))))
               (unit
                 (cond
-                  ((eq (knowledge-term-type-of value) ':quantity) (third value))
-                  ((hash-table-p value) (gethash "unit" value))
+                  ((eq (knowledge-term-type-of value) ':quantity)
+                   (third value))
+                  ((hash-table-p value)
+                   (gethash "unit" value))
                   ((and (proper-list-p value) (= (length value) 2))
                    (second value)))))
          (unless (and magnitude (knowledge-unit-dimension unit))
@@ -388,14 +408,21 @@ VALUE cannot be a TYPE."
 Terms compare only within one class: numbers, one quantity dimension,
 instants, dates, durations, or strings."
   (ecase (knowledge-term-type-of term)
-    (:number (values ':number term))
-    (:string (values ':string term))
-    (:boolean (values ':boolean (if (eq term :true) 1 0)))
-    (:instant (values ':instant (knowledge-instant-time term)))
-    (:date (values ':date (knowledge-date-universal-time (second term))))
-    (:duration (values ':duration (second term)))
-    (:quantity (values (list :quantity (knowledge-unit-dimension (third term)))
-                       (knowledge--quantity-base term)))))
+    (:number
+     (values ':number term))
+    (:string
+     (values ':string term))
+    (:boolean
+     (values ':boolean (if (eq term :true) 1 0)))
+    (:instant
+     (values ':instant (knowledge-instant-time term)))
+    (:date
+     (values ':date (knowledge-date-universal-time (second term))))
+    (:duration
+     (values ':duration (second term)))
+    (:quantity
+     (values (list :quantity (knowledge-unit-dimension (third term)))
+             (knowledge--quantity-base term)))))
 
 (-> knowledge-term-compare (t t) (integer -1 1))
 (defun knowledge-term-compare (left right)
@@ -411,12 +438,18 @@ Signal KNOWLEDGE-ERROR when the terms belong to different ordering classes."
                          (knowledge-term-display right)))
       (cond
         ((stringp left-key)
-         (cond ((string< left-key right-key) -1)
-               ((string= left-key right-key) 0)
-               (t 1)))
-        ((< left-key right-key) -1)
-        ((= left-key right-key) 0)
-        (t 1)))))
+         (cond ((string< left-key right-key)
+                -1)
+               ((string= left-key right-key)
+                0)
+               (t
+                1)))
+        ((< left-key right-key)
+         -1)
+        ((= left-key right-key)
+         0)
+        (t
+         1)))))
 
 (-> knowledge-term= (t t) boolean)
 (defun knowledge-term= (left right)
@@ -443,30 +476,45 @@ magnitudes are; terms of different classes are never equal."
 (defun knowledge-term-display (term)
   "Return TERM as short text for people."
   (case (knowledge-term-type-of term)
-    (:string term)
-    (:number (knowledge--format-number term))
-    (:boolean (if (eq term :true) "true" "false"))
-    (:instant (let ((text (second term)))
-                (if (string= (subseq text 16 19) ":00")
-                    (format nil "~A ~A UTC" (subseq text 0 10) (subseq text 11 16))
-                    (format nil "~A ~A UTC" (subseq text 0 10) (subseq text 11 19)))))
-    (:date (second term))
-    (:duration (knowledge-format-duration (second term)))
-    (:quantity (format nil "~A ~A" (knowledge--format-number (second term)) (third term)))
-    (otherwise (format nil "~S" term))))
+    (:string
+     term)
+    (:number
+     (knowledge--format-number term))
+    (:boolean
+     (if (eq term :true) "true" "false"))
+    (:instant
+     (let ((text (second term)))
+       (if (string= (subseq text 16 19) ":00")
+           (format nil "~A ~A UTC" (subseq text 0 10) (subseq text 11 16))
+           (format nil "~A ~A UTC" (subseq text 0 10) (subseq text 11 19)))))
+    (:date
+     (second term))
+    (:duration
+     (knowledge-format-duration (second term)))
+    (:quantity
+     (format nil "~A ~A" (knowledge--format-number (second term)) (third term)))
+    (otherwise
+     (format nil "~S" term))))
 
 (-> knowledge-term->json (t) t)
 (defun knowledge-term->json (term)
   "Return TERM as the JSON value a model reads and can write back."
   (case (knowledge-term-type-of term)
-    (:string term)
-    (:number (knowledge--number-json term))
-    (:boolean (if (eq term :true) t (json-false)))
-    ((:instant :date) (second term))
-    (:duration (format nil "PT~DS" (second term)))
-    (:quantity (json-object "magnitude" (knowledge--number-json (second term))
-                            "unit" (third term)))
-    (otherwise (format nil "~S" term))))
+    (:string
+     term)
+    (:number
+     (knowledge--number-json term))
+    (:boolean
+     (if (eq term :true) t (json-false)))
+    ((:instant :date)
+     (second term))
+    (:duration
+     (format nil "PT~DS" (second term)))
+    (:quantity
+     (json-object "magnitude" (knowledge--number-json (second term))
+                  "unit" (third term)))
+    (otherwise
+     (format nil "~S" term))))
 
 (-> knowledge--number-json (rational) real)
 (defun knowledge--number-json (number)
