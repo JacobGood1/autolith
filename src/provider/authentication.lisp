@@ -140,7 +140,8 @@ The file belongs to another tool, so a symbolic link to it is followed."
                                              :maximum-octets *credential-json-maximum-octets*
                                              :follow-links-p t))))
                  (unless (json-object-p value)
-                   (error "Credential root is not a JSON object."))
+                   (error 'authentication-error
+                          :message "Credential root is not a JSON object."))
                  (return value))
              (error (condition)
                (when (= attempt attempts)
