@@ -6,13 +6,13 @@
   ((stage :initarg :stage :reader gemini-oauth-error-stage :type keyword
           :documentation "The OAuth stage that failed.")
    (status :initarg :status :initform nil :reader gemini-oauth-error-status
-           :type (option integer)
+           :type          (option integer)
            :documentation "The HTTP status returned by Google, if known.")
    (code :initarg :code :initform nil :reader gemini-oauth-error-code
-         :type (option string)
+         :type          (option string)
          :documentation "A bounded non-secret OAuth error code, if supplied.")
    (response :initarg :response :initform nil :reader gemini-oauth-error-response
-             :type (option string)
+             :type          (option string)
              :documentation "A bounded redacted OAuth error description, if supplied."))
   (:documentation "A failure in Google installed-application OAuth for Gemini."))
 
@@ -66,7 +66,7 @@
       (provider-call-with-response-deadline 60 thunk)
     (sb-sys:deadline-timeout ()
       (gemini-oauth--fail
-       :stage ':token-request
+       :stage   ':token-request
        :message "Google OAuth exceeded its response deadline."))))
 
 (defun gemini-oauth--client
@@ -78,23 +78,22 @@
                               (when secret (list (cons "client_secret" secret))))))
   "Build the shared installed-app client with Gemini's endpoint and host policy."
   (make-instance 'browser-authentication-client
-                 :authorization-endpoint authorization-endpoint
+                 :authorization-endpoint  authorization-endpoint
                  :token-endpoint token-endpoint :client-id client-id
-                 :scope (format nil "~{~A~^ ~}" *gemini-oauth-scopes*)
+                 :scope                   (format nil "~{~A~^ ~}" *gemini-oauth-scopes*)
                  :authorization-parameters
                  '(("access_type" . "offline") ("prompt" . "consent"))
-                 :token-parameters token-parameters
+                 :token-parameters        token-parameters
                  :ports '(0) :redirect-host "127.0.0.1" :callback-path "/oauth2callback"
-                 :timeout *gemini-oauth-callback-timeout*
-                 :request-function request-function
-                 :credential-function #'gemini-oauth--credentials-from-document
+                 :timeout                 *gemini-oauth-callback-timeout*
+                 :request-function        request-function
+                 :credential-function     #'gemini-oauth--credentials-from-document
                  :error-function #'gemini-oauth--fail :error-type 'gemini-oauth-error
-                 :secret-function #'call-with-secret-use
+                 :secret-function         #'call-with-secret-use
                  :bounded-string-function #'bounded-string
                  :display-function #'gemini-oauth--display-login :label "Gemini"
-                 :success-response "Gemini authentication succeeded. You may close this tab."
-                 :failure-response "Gemini authentication failed. Return to Autolith."))
-
+                 :success-response        "Gemini authentication succeeded. You may close this tab."
+                 :failure-response        "Gemini authentication failed. Return to Autolith."))
 
 (-> gemini-oauth-create-pkce () (values string string))
 (defun gemini-oauth-create-pkce ()
@@ -137,9 +136,8 @@
   "POST one form-encoded request to Google's OAuth token endpoint."
   (browser-authentication-request
    :url url :content content
-   :headers (list (cons "User-Agent" (provider-user-agent)))
+   :headers         (list (cons "User-Agent" (provider-user-agent)))
    :request-wrapper #'gemini-oauth--request-wrapper))
-
 
 (defun gemini-oauth--token-document (request-function endpoint parameters stage)
   "POST PARAMETERS and validate the JSON token response for STAGE."
@@ -149,10 +147,10 @@
 
 (defun gemini-oauth--credentials-from-document (manager document)
   "Validate login token DOCUMENT and return persisted Gemini credentials."
-  (let* ((access-token (json-get document "access_token"))
+  (let* ((access-token  (json-get document "access_token"))
          (refresh-token (json-get document "refresh_token"))
-         (id-token (json-get document "id_token"))
-         (expires-in (json-get document "expires_in"))
+         (id-token      (json-get document "id_token"))
+         (expires-in    (json-get document "expires_in"))
          (account-id
            (or (and (non-empty-string-p id-token) (jwt-subject id-token))
                "google-main-account")))
@@ -161,7 +159,7 @@
                  (or (null id-token) (non-empty-string-p id-token))
                  (integerp expires-in) (plusp expires-in))
       (gemini-oauth--fail
-       :stage ':token-response
+       :stage   ':token-response
        :message "The Gemini OAuth token response omitted required fields."))
     (make-instance 'oauth-credentials
                    :access-token access-token :refresh-token refresh-token
