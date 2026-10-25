@@ -27,7 +27,7 @@
       (mission--ensure-reservations (mission-context-goal context))
       (when allowance (mission--ensure-reservations allowance))
       (mission--admit context)
-      (let* ((goal (mission-context-goal context))
+      (let* ((goal   (mission-context-goal context))
              (limits (remove nil (list goal allowance))))
         (when (and allowance
                    (or (>= (getf allowance :turns-used) (getf allowance :turn-limit))
@@ -85,19 +85,19 @@ ALLOWANCE optionally charges the same request to an independent reviewer policy.
 Provider-reported billable usage includes input tokens; output reservations are
 ceilings, not estimates of that usage. Preserve all provider return values."
   (let ((reservation nil)
-        (settled-p nil)
-        (failure nil))
+        (settled-p   nil)
+        (failure     nil))
     (unwind-protect
          (progn
            (sb-sys:without-interrupts
              (setf reservation (mission--reserve-inference context :allowance allowance)))
            (handler-case
                (let* ((*provider-maximum-output-tokens* reservation)
-                      (results (mission--supervise
-                                context "Mission inference"
-                                (lambda () (multiple-value-list (funcall function)))))
-                      (tokens (rlm-usage-billable-tokens
-                               (provider-usage-normalize (funcall usage-function results)))))
+                      (results                          (mission--supervise
+                                                         context "Mission inference"
+                                                         (lambda () (multiple-value-list (funcall function)))))
+                      (tokens                           (rlm-usage-billable-tokens
+                                                         (provider-usage-normalize (funcall usage-function results)))))
                  (sb-sys:without-interrupts
                    (setf settled-p t)
                    (mission--settle-inference context reservation tokens :allowance allowance))
@@ -114,4 +114,4 @@ ceilings, not estimates of that usage. Preserve all provider return values."
           (setf settled-p t)
           (mission--settle-inference
            context reservation nil :allowance allowance
-           :failure (or failure "Inference interrupted before usage settlement.")))))))
+           :failure                           (or failure "Inference interrupted before usage settlement.")))))))
