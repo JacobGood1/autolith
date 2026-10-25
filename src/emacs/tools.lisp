@@ -73,11 +73,11 @@
 (defmethod emacs-tool--execute ((tool emacs-visit-tool) context arguments)
   "Show PATH at LINE and COLUMN in a file window of the selected frame."
   (declare (ignore tool))
-  (let ((path (tool-argument arguments "path" :required t))
-        (line (or (tool-argument arguments "line") 1))
+  (let ((path   (tool-argument arguments "path" :required t))
+        (line   (or (tool-argument arguments "line") 1))
         (column (or (tool-argument arguments "column") 0)))
     (unless (and (integerp line) (plusp line) (integerp column) (not (minusp column)))
-      (error 'tool-error :message "line must be positive and column non-negative."
+      (error 'tool-error :message   "line must be positive and column non-negative."
                          :tool-name "emacs.visit"))
     (emacs-server-call (tool-context-configuration context) *emacs-visit-elisp*
                        (uiop:native-namestring
@@ -125,10 +125,10 @@
     (destructuring-bind (class namespace name description parameters) specification
       (tool-registry-register registry
                               (make-instance class
-                                             :namespace namespace
-                                             :name name
+                                             :namespace   namespace
+                                             :name        name
                                              :description description
-                                             :parameters parameters))))
+                                             :parameters  parameters))))
   registry)
 
 (-> emacs-tool--authorized-p (tool-context string) boolean)
