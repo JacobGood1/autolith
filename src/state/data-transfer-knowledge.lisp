@@ -32,20 +32,20 @@
   (let ((records (data-transfer--knowledge-records configuration)))
     (if (null workspace)
         records
-        (let* ((owned (lambda (record)
-                        (and (member (first record)
-                                     '(:schema-defined :claim-asserted :rule-defined
-                                       :rule-admitted :rule-retired :method-defined
-                                       :contract-defined :procedure-defined
-                                       :procedure-admitted :procedure-retired
-                                       :procedure-run :diagnosis-defined
-                                       :diagnosis-recorded))
-                             (eq (getf (rest record) :scope) ':workspace)
-                             (equal (data-transfer--knowledge-owner record) workspace))))
-               (claims (remove-if-not (lambda (record)
-                                        (and (eq (first record) :claim-asserted)
-                                             (funcall owned record)))
-                                      records))
+        (let* ((owned    (lambda (record)
+                           (and (member (first record)
+                                        '(:schema-defined :claim-asserted :rule-defined
+                                          :rule-admitted :rule-retired :method-defined
+                                          :contract-defined :procedure-defined
+                                          :procedure-admitted :procedure-retired
+                                          :procedure-run :diagnosis-defined
+                                          :diagnosis-recorded))
+                                (eq (getf (rest record) :scope) ':workspace)
+                                (equal (data-transfer--knowledge-owner record) workspace))))
+               (claims   (remove-if-not (lambda (record)
+                                          (and (eq (first record) :claim-asserted)
+                                               (funcall owned record)))
+                                        records))
                (supports (mapcar (lambda (record) (getf (rest record) :support)) claims))
                (evidence (remove nil (mapcar (lambda (record) (getf (rest record) :evidence))
                                              claims)))
@@ -105,9 +105,9 @@
 
 Claim and evidence identifiers that depend on the workspace are recomputed and
 every reference to them, in supports and in memory premises, follows."
-  (let ((claims (make-hash-table :test #'equal))
+  (let ((claims   (make-hash-table :test #'equal))
         (evidence (make-hash-table :test #'equal))
-        (copy (copy-tree archive)))
+        (copy     (copy-tree archive)))
     (dolist (record (getf copy :knowledge))
       (let ((properties (rest record)))
         (when (equal (getf properties :workspace) old)
@@ -115,7 +115,7 @@ every reference to them, in supports and in memory premises, follows."
           (case (first record)
             (:claim-asserted
              (let ((identifier (knowledge-claim-identifier (getf properties :proposition)
-                                                           :scope (getf properties :scope)
+                                                           :scope     (getf properties :scope)
                                                            :workspace new)))
                (setf (gethash (getf properties :claim) claims) identifier
                      (getf (rest record) :claim) identifier)))
@@ -146,10 +146,14 @@ every reference to them, in supports and in memory premises, follows."
 (defun data-transfer--knowledge-identity (record)
   "Return the identity under which knowledge RECORD may appear only once."
   (case (first record)
-    (:evidence (list :evidence (getf (rest record) :id)))
-    (:claim-asserted (list :support (getf (rest record) :support)))
-    (:support-retracted (list :retraction (getf (rest record) :support)))
-    (otherwise nil)))
+    (:evidence
+     (list :evidence (getf (rest record) :id)))
+    (:claim-asserted
+     (list :support (getf (rest record) :support)))
+    (:support-retracted
+     (list :retraction (getf (rest record) :support)))
+    (otherwise
+     nil)))
 
 (-> data-transfer--merge-knowledge (list list t) list)
 (defun data-transfer--merge-knowledge (existing imported pathname)
@@ -164,16 +168,16 @@ in the archive, but import contract definitions as inactive proposals."
                                  append (if (eq (first record) :transaction)
                                             (copy-list (getf (rest record) :records))
                                             (list record))))
-      (let* ((record (if (eq (first source-record) :contract-defined)
-                         (let ((copy (copy-tree source-record)))
-                           (remf (rest copy) :admission)
-                           copy)
-                         source-record))
+      (let* ((record   (if (eq (first source-record) :contract-defined)
+                           (let ((copy (copy-tree source-record)))
+                             (remf (rest copy) :admission)
+                             copy)
+                           source-record))
              (identity (data-transfer--knowledge-identity record))
-             (match (if identity
-                        (find identity existing :key #'data-transfer--knowledge-identity
-                                                :test #'equal)
-                        (find record existing :test #'equal))))
+             (match    (if identity
+                           (find identity existing :key  #'data-transfer--knowledge-identity
+                                                   :test #'equal)
+                           (find record existing :test #'equal))))
         (cond
           ((null match)
            (push record added))
