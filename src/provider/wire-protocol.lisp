@@ -64,7 +64,6 @@ stay available because they do not depend on provider web search."
 
 ;;;; -- Responses Protocol --
 
-(-> provider-deferred-tool-loading-p (model-provider) boolean)
 (defgeneric provider-deferred-tool-loading-p (provider)
   (:documentation
    "Return true when PROVIDER supports native deferred namespace discovery."))
@@ -125,18 +124,10 @@ entry with supports_search_tool."
   (provider-deferred-tool-model-p
    (config :model (provider-configuration provider))))
 
-(defparameter *provider-history-trimming-p* nil
-  "True while history is projected for a compaction request.
-
-Consumed tool search expansions are replayed empty there, as the Codex
-reference does when trimming, and intact everywhere else so the server keeps
-the expanded tools loaded without another search.")
-
 (defparameter *codex-tool-search-description*
   (format nil "# Tool discovery~2%Searches the deferred tool namespaces by namespace name, tool name, and description, and exposes the matching tools for the next model call. Some tools are not provided upfront; find them here before calling them. A namespace name such as resource or shell loads that whole namespace. Loaded tools stay available for the rest of the conversation, so search for each namespace once.")
   "The model-visible description of Autolith's client-executed tool search.")
 
-(-> provider-tool-search-namespaces (model-provider vector) vector)
 (defgeneric provider-tool-search-namespaces (provider tool-namespaces)
   (:documentation
    "Return the subset of TOOL-NAMESPACES a tool search may expose for PROVIDER."))
