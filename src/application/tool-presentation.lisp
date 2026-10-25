@@ -22,11 +22,11 @@
   "Render explicit Markdown code fences within a bounded tool-output rail."
   (when (or (search "```" text) (search "~~~" text))
     (let* ((renderer (application--markdown-renderer application))
-           (safe (sanitize-text (bounded-string text :limit 16384)))
-           (rows (append
-                  (loop for line in (uiop:split-string safe :separator '(#\Newline))
-                        append (application--markdown-rows renderer line))
-                  (termdown:markdown-render-finish renderer))))
+           (safe     (sanitize-text (bounded-string text :limit 16384)))
+           (rows     (append
+                      (loop for line in (uiop:split-string safe :separator '(#\Newline))
+                            append (application--markdown-rows renderer line))
+                      (termdown:markdown-render-finish renderer))))
       (append
        (loop for row in (subseq rows 0 (min limit (length rows)))
              collect (cons (terminal-span ':dim "│ ") row))
@@ -52,7 +52,6 @@ assumed to be shell source."
           (application--source-preview-rows
            text :language (language-find "json" :errorp nil) :limit limit)))))
 
-
 (-> application--preview-rows
     (string terminal-style integer &key (:gutter (option string)))
     list)
@@ -61,7 +60,7 @@ assumed to be shell source."
   (let ((lines (application--display-lines text)))
     (when lines
       (let* ((visible-count (min limit (length lines)))
-             (omitted (- (length lines) visible-count)))
+             (omitted       (- (length lines) visible-count)))
         (append
          (loop for line in (subseq lines 0 visible-count)
                collect (append (when gutter
@@ -146,10 +145,10 @@ assumed to be shell source."
 (-> application--tool-row-spans (application list) list)
 (defun application--tool-row-spans (application row)
   "Return one indented, sanitized, width-bounded tool transcript ROW."
-  (let* ((columns (terminal-columns
-                   (terminal-ui-terminal (application-ui application))))
+  (let* ((columns       (terminal-columns
+                         (terminal-ui-terminal (application-ui application))))
          (maximum-width (max 1 (1- columns)))
-         (indented (append (list (terminal-span ':plain "  ")) row)))
+         (indented      (append (list (terminal-span ':plain "  ")) row)))
     (if (<= (terminal--spans-width indented) maximum-width)
         indented
         (append (terminal--clip-spans indented (max 0 (1- maximum-width)))
@@ -221,7 +220,7 @@ header without participating in compaction."
      (or inline-header
          (application--transcript-entry
           application
-          :style style
+          :style  style
           :header (application--tool-header application header)
           :detail detail))
      (loop for row in body-rows
@@ -257,7 +256,7 @@ Each field is a plist containing :LABEL, :VALUE, and an optional :STYLE."
             (loop for field in safe-fields
                   collect (list (getf field :label) (getf field :value)))
             available-width
-            :gap-width 2
+            :gap-width      2
             :minimum-widths '(1 4)))
          (label-width (or (first column-widths) 0))
          (value-width (or (second column-widths) 0)))
@@ -286,7 +285,6 @@ Each field is a plist containing :LABEL, :VALUE, and an optional :STYLE."
 (defun application--tool-section-row (label)
   "Return one dim tool transcript section heading row."
   (list (terminal-span ':dim label)))
-
 
 (defparameter *application-tool-structure-items* 12
   "The maximum nested fields or items shown for one generic tool value.")
@@ -373,7 +371,7 @@ never fall back to raw JSON argument syntax.  DEPTH bounds untrusted nesting."
      (if (plusp depth)
          (application--structured-object-rows application value
                                               :prefix label
-                                              :depth (1- depth))
+                                              :depth  (1- depth))
          (application--tool-field-rows
           application
           (list (list :label label :value "(nested object)" :style ':dim)))))
@@ -386,7 +384,7 @@ never fall back to raw JSON argument syntax.  DEPTH bounds untrusted nesting."
                       :style ':dim)))
          (let* ((visible-count (min *application-tool-structure-items*
                                     (length value)))
-                (omitted (- (length value) visible-count)))
+                (omitted       (- (length value) visible-count)))
            (if (zerop (length value))
                (application--tool-field-rows
                 application
@@ -421,9 +419,9 @@ never fall back to raw JSON argument syntax.  DEPTH bounds untrusted nesting."
 (-> application--structured-key-less-p (string string) boolean)
 (defun application--structured-key-less-p (left right)
   "Order identities and semantic states before potentially lengthy payloads."
-  (let* ((priority '("truncated" "server" "id" "name" "state" "status" "severity" "error"
-                     "objective" "message" "summary" "evidence" "gates" "criteria"))
-         (left-rank (or (position left priority :test #'string=) 100))
+  (let* ((priority   '("truncated" "server" "id" "name" "state" "status" "severity" "error"
+                       "objective" "message" "summary" "evidence" "gates" "criteria"))
+         (left-rank  (or (position left priority :test #'string=) 100))
          (right-rank (or (position right priority :test #'string=) 100)))
     (if (= left-rank right-rank)
         (not (null (string< left right)))
@@ -445,9 +443,9 @@ structural discriminator as a readable heading instead."
             (loop for key being the hash-keys of object
                   unless (member key excluded-keys :test #'string=)
                     collect key)
-           #'application--structured-key-less-p))
+            #'application--structured-key-less-p))
          (visible-count (min *application-tool-structure-items* (length keys)))
-         (omitted (- (length keys) visible-count)))
+         (omitted       (- (length keys) visible-count)))
     (append
      (loop for key in (subseq keys 0 visible-count)
            append (application--structured-value-rows
@@ -503,12 +501,12 @@ structural discriminator as a readable heading instead."
 
            (expand-object (object prefix depth)
              "Expand OBJECT's fields in stable presentation order."
-             (let* ((keys (sort (loop for key being the hash-keys of object
-                                     unless (and (null prefix)
-                                                 (member key excluded-keys
-                                                         :test #'string=))
-                                       collect key)
-                               #'application--structured-key-less-p))
+             (let* ((keys  (sort (loop for key being the hash-keys of object
+                                      unless (and (null prefix)
+                                                  (member key excluded-keys
+                                                          :test #'string=))
+                                        collect key)
+                                #'application--structured-key-less-p))
                     (count (min (length keys) *application-tool-structure-items*)))
                (append
                 (loop for key in (subseq keys 0 count)
@@ -527,7 +525,7 @@ structural discriminator as a readable heading instead."
 (defun application--generic-argument-rows (application arguments &key excluded-keys)
   "Return aligned argument fields followed immediately by multiline previews."
   (when arguments
-    (let* ((fields (application--argument-fields arguments :excluded-keys excluded-keys))
+    (let* ((fields    (application--argument-fields arguments :excluded-keys excluded-keys))
            (multiline (remove-if-not
                        (lambda (field) (find #\Newline (getf field :value))) fields)))
       (append
@@ -550,19 +548,19 @@ structural discriminator as a readable heading instead."
       (cons (application--tool-section-row ":restart-value")
             (application--source-preview-rows
              value :language *application-common-lisp-language*
-             :limit *application-tool-call-lines*)))))
+             :limit          *application-tool-call-lines*)))))
 
 (-> application--generic-tool-call-entry (application json-object) list)
 (defun application--generic-tool-call-entry (application call)
   "Return a readable fallback entry for a function CALL."
   (application--tool-entry
    application
-   :style ':tool
+   :style  ':tool
    :header (format nil "▸ ~A" (or *application-tool-presentation-label*
                                   (function-call-canonical-name call)))
-   :rows (application--generic-argument-rows
-          application
-          (application--function-call-arguments call))))
+   :rows   (application--generic-argument-rows
+            application
+            (application--function-call-arguments call))))
 
 (defmethod application-tool-call-entry :around
     ((tool t) (application application) (call hash-table))
@@ -593,20 +591,19 @@ structural discriminator as a readable heading instead."
   (declare (ignore tool))
   (application--generic-tool-call-entry application call))
 
-
 (defmethod application-tool-call-entry
     ((tool papercut-report-tool) (application application) (call hash-table))
   "Present papercut.report's title without duplicating its complete body."
   (declare (ignore tool))
   (let* ((arguments (application--function-call-arguments call))
-         (title (and arguments (json-get arguments "title"))))
+         (title     (and arguments (json-get arguments "title"))))
     (application--tool-entry
      application
-     :style ':tool
+     :style  ':tool
      :header "▸ papercut.report"
-     :rows (when title
-             (application--tool-field-rows
-              application (list (list :label "title" :value title :style ':strong)))))))
+     :rows   (when title
+               (application--tool-field-rows
+                application (list (list :label "title" :value title :style ':strong)))))))
 
 
 ;;; Tool call specializations
@@ -615,7 +612,7 @@ structural discriminator as a readable heading instead."
 (defun application--lisp-call-entry (application call argument-name)
   "Return a syntax-highlighted Lisp source preview for CALL's ARGUMENT-NAME."
   (let* ((arguments (application--function-call-arguments call))
-         (value (and arguments (json-get arguments argument-name)))
+         (value     (and arguments (json-get arguments argument-name)))
          (source
            (if (and (vectorp value)
                     (not (stringp value))
@@ -624,14 +621,14 @@ structural discriminator as a readable heading instead."
                (application--presentation-value (or value "")))))
     (application--tool-entry
      application
-     :style ':tool
+     :style  ':tool
      :header (format nil "▸ ~A" (function-call-canonical-name call))
-     :rows (append
-            (application--generic-argument-rows
-             application arguments :excluded-keys (list argument-name "restart-value"))
-            (application--source-preview-rows
-             source :language *application-common-lisp-language*)
-            (application--restart-value-rows arguments)))))
+     :rows   (append
+              (application--generic-argument-rows
+               application arguments :excluded-keys (list argument-name "restart-value"))
+              (application--source-preview-rows
+               source :language *application-common-lisp-language*)
+              (application--restart-value-rows arguments)))))
 
 ;; Codex PlanUpdateCell reference: 5c19155cbd93bfa099016e7487259f61669823ff.
 (-> application--plan-update-text (t) (option string))
@@ -660,7 +657,7 @@ structural discriminator as a readable heading instead."
            (max (terminal--spans-width initial-prefix)
                 (terminal--spans-width continuation-prefix)))
          (text-width (max 1 (- columns 3 prefix-width)))
-         (lines (or (wrap-text text text-width) (list ""))))
+         (lines      (or (wrap-text text text-width) (list ""))))
     (loop for line in lines
           for first-p = t then nil
           collect
@@ -675,8 +672,8 @@ structural discriminator as a readable heading instead."
   (let* ((text
            (application--plan-update-text
             (or (json-get step "step") (json-get step "text"))))
-         (status (plan--status (json-get step "status")))
-         (valid-p (and text status))
+         (status              (plan--status (json-get step "status")))
+         (valid-p             (and text status))
          (marker
            (if valid-p
                (if (eq status ':done) "✔ " "□ ")
@@ -692,8 +689,8 @@ structural discriminator as a readable heading instead."
     (application--plan-update-wrapped-rows
      application
      (or text "invalid plan step")
-     :style style
-     :initial-prefix initial-prefix
+     :style               style
+     :initial-prefix      initial-prefix
      :continuation-prefix continuation-prefix)))
 
 (-> application--plan-update-rows
@@ -709,15 +706,15 @@ structural discriminator as a readable heading instead."
     (let* ((explanation
              (application--plan-update-text
               (json-get arguments "explanation")))
-           (steps (json-get arguments "steps"))
-           (rows nil)
+           (steps     (json-get arguments "steps"))
+           (rows      nil)
            (content-p nil))
       (when explanation
         (setf rows
               (application--plan-update-wrapped-rows
                application explanation
-               :style ':hint
-               :initial-prefix (list (terminal-span ':dim "└ "))
+               :style               ':hint
+               :initial-prefix      (list (terminal-span ':dim "└ "))
                :continuation-prefix (list (terminal-span ':plain "  ")))
               content-p t))
       (unless (and (vectorp steps) (not (stringp steps)))
@@ -768,12 +765,12 @@ structural discriminator as a readable heading instead."
            application (application--function-call-arguments call))))
     (application--tool-entry
      application
-     :style ':tool
+     :style  ':tool
      :header "▸ plan.update"
-     :rows (append
-            (list (list (terminal-span ':dim "• ")
-                        (terminal-span ':strong "Updated Plan")))
-            rows))))
+     :rows   (append
+              (list (list (terminal-span ':dim "• ")
+                          (terminal-span ':strong "Updated Plan")))
+              rows))))
 
 (-> application--task-run-arguments
     (task-run-tool json-object)
@@ -797,10 +794,14 @@ structural discriminator as a readable heading instead."
       (gethash "async" object)
     (values
      (cond
-       ((not present-p) ':synchronous)
-       ((eq value t) ':detached)
-       ((json-false-p value) ':synchronous)
-       (t ':invalid))
+       ((not present-p)
+        ':synchronous)
+       ((eq value t)
+        ':detached)
+       ((json-false-p value)
+        ':synchronous)
+       (t
+        ':invalid))
      present-p)))
 
 (-> application--task-run-mode
@@ -864,36 +865,41 @@ structural discriminator as a readable heading instead."
           inherited-mode-p include-context-p)
   "Return one best-effort presentation record for raw task ITEM."
   (if (not (json-object-p item))
-      (list :index index
-            :name nil
-            :role "(invalid role)"
-            :mode ':invalid
+      (list :index      index
+            :name       nil
+            :role       "(invalid role)"
+            :mode       ':invalid
             :assignment "(invalid task definition)"
-            :context nil
-            :invalid-p t)
+            :context    nil
+            :invalid-p  t)
       (let* ((name-value (json-get item "name"))
              (role-value (json-get item "agent"))
              (name
                (cond
-                 ((null name-value) nil)
-                 ((non-empty-string-p name-value) name-value)
-                 (t "(invalid name)")))
+                 ((null name-value)
+                  nil)
+                 ((non-empty-string-p name-value)
+                  name-value)
+                 (t
+                  "(invalid name)")))
              (role
                (cond
-                 ((null role-value) "task")
+                 ((null role-value)
+                  "task")
                  ((non-empty-string-p role-value)
                   (string-downcase role-value))
-                 (t "(invalid role)"))))
-        (list :index index
-              :name name
-              :role role
-              :mode (application--task-run-mode
-                     item inherited-mode inherited-mode-p)
+                 (t
+                  "(invalid role)"))))
+        (list :index      index
+              :name       name
+              :role       role
+              :mode       (application--task-run-mode
+                           item inherited-mode inherited-mode-p)
               :assignment (application--task-run-prose
                            item "task" :required t)
-              :context (and include-context-p
-                            (application--task-run-prose item "context"))
-              :invalid-p nil))))
+              :context    (and include-context-p
+                               (application--task-run-prose item "context"))
+              :invalid-p  nil))))
 
 (-> application--task-run-shared-context
     (json-object boolean)
@@ -917,7 +923,7 @@ structural discriminator as a readable heading instead."
 (defun application--fit-ellipsized (text width)
   "Clip TEXT to WIDTH terminal cells with an ellipsis, then pad it."
   (let* ((width (max 0 width))
-         (safe (sanitize-text text :single-line-p t))
+         (safe  (sanitize-text text :single-line-p t))
          (visible
            (cond
              ((<= (text-cell-width safe) width)
@@ -941,21 +947,21 @@ structural discriminator as a readable heading instead."
     (application text &key (indent "") (style ':plain)
                             (limit *application-tool-call-lines*))
   "Return bounded wrapped prose rows with a subdued rail."
-  (let* ((prefix (format nil "~A│ " indent))
+  (let* ((prefix        (format nil "~A│ " indent))
          (columns
            (terminal-columns
             (terminal-ui-terminal (application-ui application))))
-         (width (max 1
-                     (- columns
-                        3
-                        (text-cell-width prefix))))
-         (bounded (bounded-string text :limit 8000))
+         (width         (max 1
+                             (- columns
+                                3
+                                (text-cell-width prefix))))
+         (bounded       (bounded-string text :limit 8000))
          (wrapped
            (loop for line in (or (application--display-lines bounded)
                                  (list ""))
                  append (or (wrap-text line width) (list ""))))
          (visible-count (min limit (length wrapped)))
-         (omitted (- (length wrapped) visible-count)))
+         (omitted       (- (length wrapped) visible-count)))
     (append
      (loop for line in (subseq wrapped 0 visible-count)
            collect (list (terminal-span ':dim prefix)
@@ -982,9 +988,12 @@ structural discriminator as a readable heading instead."
 (defun application--task-run-mode-label (mode)
   "Return one readable presentation label for task MODE."
   (ecase mode
-    (:detached "detached")
-    (:synchronous "synchronous")
-    (:invalid "(invalid mode)")))
+    (:detached
+     "detached")
+    (:synchronous
+     "synchronous")
+    (:invalid
+     "(invalid mode)")))
 
 (-> application--task-run-compact-context-row
     (application string)
@@ -995,7 +1004,7 @@ structural discriminator as a readable heading instead."
          (columns
            (terminal-columns
             (terminal-ui-terminal (application-ui application))))
-         (width (max 0 (- columns 3 (text-cell-width prefix)))))
+         (width  (max 0 (- columns 3 (text-cell-width prefix)))))
     (list
      (terminal-span ':dim prefix)
      (terminal-span
@@ -1017,9 +1026,12 @@ structural discriminator as a readable heading instead."
                   (or (getf item :name) "(unnamed)")
                   (getf item :role)
                   (case (getf item :mode)
-                    (:detached "detached")
-                    (:invalid "invalid")
-                    (otherwise ""))
+                    (:detached
+                     "detached")
+                    (:invalid
+                     "invalid")
+                    (otherwise
+                     ""))
                   (application--task-run-summary-text
                    (getf item :assignment)))))
          (columns
@@ -1029,7 +1041,7 @@ structural discriminator as a readable heading instead."
            (layout-column-widths
             values
             (max 0 (- columns 3))
-            :gap-width 2
+            :gap-width      2
             :minimum-widths '(1 4 4 0 4)))
          (styles
            '(:dim :agent-name :agent-role :dim :plain)))
@@ -1113,9 +1125,9 @@ structural discriminator as a readable heading instead."
                       collect
                       (application--task-run-item
                        raw-item
-                       :index index
-                       :inherited-mode inherited-mode
-                       :inherited-mode-p (and batch-p inherited-mode-p)
+                       :index             index
+                       :inherited-mode    inherited-mode
+                       :inherited-mode-p  (and batch-p inherited-mode-p)
                        :include-context-p batch-p))))
           (append
            (application--task-run-context-rows
@@ -1156,22 +1168,22 @@ structural discriminator as a readable heading instead."
   (let ((arguments (application--task-run-arguments tool call)))
     (application--tool-entry
      application
-     :style ':tool
+     :style  ':tool
      :header "▸ task.run"
-     :rows (if arguments
-               (application--task-run-rows application arguments)
-               (list
-                (application--tool-section-row
-                 "arguments unavailable"))))))
+     :rows   (if arguments
+                 (application--task-run-rows application arguments)
+                 (list
+                  (application--tool-section-row
+                   "arguments unavailable"))))))
 
 (-> application--resource-operation-heading (json-object integer) string)
 (defun application--resource-operation-heading (operation index)
   "Return a readable verb phrase for resource edit OPERATION at INDEX."
-  (let ((name (let ((value (json-get operation "op")))
-                (if (stringp value) value "")))
-        (start (json-get operation "start-line"))
-        (end (json-get operation "end-line"))
-        (anchor (json-get operation "line"))
+  (let ((name       (let ((value (json-get operation "op")))
+                      (if (stringp value) value "")))
+        (start      (json-get operation "start-line"))
+        (end        (json-get operation "end-line"))
+        (anchor     (json-get operation "line"))
         (identifier (json-get operation "id")))
     (format nil "operation ~D · ~A"
             index
@@ -1218,8 +1230,6 @@ structural discriminator as a readable heading instead."
                name)
               (t
                "invalid operation")))))
-
-
 
 (-> application--file-resource-path (string) (option string))
 (defun application--file-resource-path (uri)
@@ -1311,8 +1321,8 @@ model."
                   (cl-hashline:edit-text
                    (resource-observation-content observation)
                    (map 'list #'workspace-file--json-operation operations)
-                   :visible-lines (workspace-file-observation-state-visible-ranges state)
-                   :split-lines #'text--split-lines
+                   :visible-lines         (workspace-file-observation-state-visible-ranges state)
+                   :split-lines           #'text--split-lines
                    :anchor-maximum-offset *workspace-file-resource-anchor-maximum-offset*)
                   t)
               (error ()
@@ -1324,7 +1334,7 @@ model."
 (defun application--workspace-resource-added-start-lines
     (application operations &key uri revision)
   "Return exact resulting first-line coordinates for valid added content."
-  (let ((starts (make-array (length operations) :initial-element nil))
+  (let ((starts      (make-array (length operations) :initial-element nil))
         (coordinates nil))
     (block nil
       (unless (application--workspace-resource-operation-set-valid-p
@@ -1333,10 +1343,10 @@ model."
       (loop for operation across operations
             for index from 0
             do
-               (let* ((name (json-get operation "op"))
-                      (start (json-get operation "start-line"))
-                      (end (json-get operation "end-line"))
-                      (line (json-get operation "line"))
+               (let* ((name    (json-get operation "op"))
+                      (start   (json-get operation "start-line"))
+                      (end     (json-get operation "end-line"))
+                      (line    (json-get operation "line"))
                       (content (json-get operation "content"))
                       (added-count
                         (and (stringp content)
@@ -1383,10 +1393,10 @@ model."
 
 When exact resulting coordinates are unavailable, added rows fall back to
 OPERATION's own declared target line so they stay numbered."
-  (let* ((name (json-get operation "op"))
-         (start (json-get operation "start-line"))
-         (end (json-get operation "end-line"))
-         (line (json-get operation "line"))
+  (let* ((name    (json-get operation "op"))
+         (start   (json-get operation "start-line"))
+         (end     (json-get operation "end-line"))
+         (line    (json-get operation "line"))
          (content (json-get operation "content"))
          (new-start-line
            (or new-start-line
@@ -1415,11 +1425,11 @@ OPERATION's own declared target line so they stay numbered."
               (new-text (if (string= name "replace-lines") content "")))
          (if old-text
              (change-viewer-render
-              :removed-content old-text
-              :added-content new-text
+              :removed-content    old-text
+              :added-content      new-text
               :removed-start-line start
-              :added-start-line new-start-line
-              :source-path path)
+              :added-start-line   new-start-line
+              :source-path        path)
              (let* ((width (length (princ-to-string end)))
                     (message
                       (format nil "observed line~P ~D~:[~;-~D~] unavailable"
@@ -1435,17 +1445,17 @@ OPERATION's own declared target line so they stay numbered."
                   :span-function #'syntax--terminal-span))
                 (when (string= name "replace-lines")
                   (change-viewer-render
-                   :added-content new-text
+                   :added-content    new-text
                    :added-start-line new-start-line
-                   :source-path path)))))))
+                   :source-path      path)))))))
       ((and (stringp name)
             (member name '("insert-before" "insert-after" "replace-empty")
                     :test #'string=)
             (stringp content))
        (change-viewer-render
-        :added-content content
+        :added-content    content
         :added-start-line new-start-line
-        :source-path path))
+        :source-path      path))
       (t
        nil))))
 
@@ -1466,7 +1476,7 @@ OPERATION's own declared target line so they stay numbered."
                application operations :uri uri :revision revision))
             (visible-count (min *application-tool-structure-items*
                                 (length operations)))
-            (omitted (- (length operations) visible-count)))
+            (omitted       (- (length operations) visible-count)))
        (append
         (loop for index below visible-count
               for operation = (aref operations index)
@@ -1478,9 +1488,9 @@ OPERATION's own declared target line so they stay numbered."
                    (let ((change-rows
                            (application--workspace-resource-operation-change-rows
                             application operation
-                            :uri uri
-                            :revision revision
-                            :path path
+                            :uri            uri
+                            :revision       revision
+                            :path           path
                             :new-start-line (aref new-start-lines index))))
                      (append
                       (list (application--tool-section-row
@@ -1514,7 +1524,7 @@ OPERATION's own declared target line so they stay numbered."
     (t
      (let* ((visible-count (min *application-tool-structure-items*
                                 (length operations)))
-            (omitted (- (length operations) visible-count)))
+            (omitted       (- (length operations) visible-count)))
        (append
         (loop for index below visible-count
               for operation = (aref operations index)
@@ -1550,7 +1560,6 @@ OPERATION's own declared target line so they stay numbered."
   (declare (ignore tool))
   (application--generic-tool-call-entry application call))
 
-
 (-> application--shell-command-rows (string) list)
 (defun application--shell-command-rows (command)
   "Return bounded syntax-highlighted shell source with a green ruler."
@@ -1563,22 +1572,21 @@ OPERATION's own declared target line so they stay numbered."
   "Present shell.run arguments immediately above the shell source rail."
   (declare (ignore tool))
   (let* ((arguments (application--function-call-arguments call))
-         (command (or (and arguments (json-get arguments "command")) "")))
+         (command   (or (and arguments (json-get arguments "command")) "")))
     (application--tool-entry
      application
-     :style ':tool
+     :style  ':tool
      :header "▸ shell.run"
-     :rows (append
-            (application--generic-argument-rows
-             application arguments :excluded-keys '("command"))
-            (application--shell-command-rows command)))))
+     :rows   (append
+              (application--generic-argument-rows
+               application arguments :excluded-keys '("command"))
+              (application--shell-command-rows command)))))
 
 (defmethod application-tool-call-entry
     ((tool lisp-eval-tool) (application application) (call hash-table))
   "Present lisp.eval forms as bounded Lisp source, one form per line."
   (declare (ignore tool))
   (application--lisp-call-entry application call "forms"))
-
 
 (defmethod application-tool-call-entry
     ((tool self-eval-tool) (application application) (call hash-table))
@@ -1616,14 +1624,14 @@ OPERATION's own declared target line so they stay numbered."
             (or (and arguments (json-get arguments "value")) ""))))
     (application--tool-entry
      application
-     :style ':tool
+     :style  ':tool
      :header "▸ self.set"
-     :rows (append
-           (application--generic-argument-rows
-            application arguments :excluded-keys '("value" "restart-value"))
-           (application--source-preview-rows
-            value :language *application-common-lisp-language*)
-           (application--restart-value-rows arguments)))))
+     :rows   (append
+              (application--generic-argument-rows
+               application arguments :excluded-keys '("value" "restart-value"))
+              (application--source-preview-rows
+               value :language *application-common-lisp-language*)
+              (application--restart-value-rows arguments)))))
 
 
 ;;; Tool result layout
@@ -1636,7 +1644,7 @@ OPERATION's own declared target line so they stay numbered."
 (-> application--tool-result-timing (list) (option string))
 (defun application--tool-result-timing (record)
   "Return RECORD's CPU and real duration as a concise detail string."
-  (let ((cpu (getf (rest record) :cpu-microseconds))
+  (let ((cpu  (getf (rest record) :cpu-microseconds))
         (real (getf (rest record) :real-microseconds)))
     (when (and (typep cpu '(integer 0))
                (typep real '(integer 0)))
@@ -1652,19 +1660,21 @@ OPERATION's own declared target line so they stay numbered."
   (let* ((success-p (application--tool-result-success-p record))
          (tool-name (application--tool-display-name
                      application (getf (rest record) :tool)))
-         (timing (application--tool-result-timing record))
+         (timing    (application--tool-result-timing record))
          (complete-detail
            (cond
              ((and detail timing)
               (format nil "~A · ~A" detail timing))
-             (detail detail)
-             (timing timing))))
+             (detail
+              detail)
+             (timing
+              timing))))
     (application--tool-entry
      application
-     :style (if success-p ':success ':failure)
+     :style  (if success-p ':success ':failure)
      :header (format nil "~:[! ~A failed~;✓ ~A~]" success-p tool-name)
      :detail complete-detail
-     :rows rows)))
+     :rows   rows)))
 
 (-> application--section-preview-rows
     (string string terminal-style &key (:limit integer)
@@ -1688,17 +1698,17 @@ OPERATION's own declared target line so they stay numbered."
     (values (option string) (option string)))
 (defun application--evaluation-parts (output)
   "Return captured output and rendered values from an evaluation OUTPUT."
-  (let* ((marker (format nil "Values:~%"))
+  (let* ((marker          (format nil "Values:~%"))
          (values-position (search marker output :from-end t)))
     (if values-position
-        (let* ((prefix (string-right-trim
-                        '(#\Space #\Tab #\Newline #\Return)
-                        (subseq output 0 values-position)))
-               (captured (if (uiop:string-prefix-p "Output:" prefix)
-                             (string-left-trim
-                              '(#\Newline #\Return)
-                              (subseq prefix (length "Output:")))
-                             prefix))
+        (let* ((prefix      (string-right-trim
+                             '(#\Space #\Tab #\Newline #\Return)
+                             (subseq output 0 values-position)))
+               (captured    (if (uiop:string-prefix-p "Output:" prefix)
+                                (string-left-trim
+                                 '(#\Newline #\Return)
+                                 (subseq prefix (length "Output:")))
+                                prefix))
                (values-text (string-trim
                              '(#\Space #\Tab #\Newline #\Return)
                              (subseq output
@@ -1729,9 +1739,9 @@ OPERATION's own declared target line so they stay numbered."
 (defun application--labeled-output-rows
     (output &key (limit *application-tool-inspection-lines*))
   "Return OUTPUT as aligned fields, headings, and readable continuation rows."
-  (let* ((lines (or (application--display-lines output) (list "")))
+  (let* ((lines         (or (application--display-lines output) (list "")))
          (visible-count (min limit (length lines)))
-         (omitted (- (length lines) visible-count)))
+         (omitted       (- (length lines) visible-count)))
     (append
      (loop for line in (subseq lines 0 visible-count)
            for colon = (position #\: line)
@@ -1763,7 +1773,7 @@ OPERATION's own declared target line so they stay numbered."
 (-> application--restart-row (string) list)
 (defun application--restart-row (line)
   "Return one aligned restart NAME and report row parsed from LINE."
-  (let* ((trimmed (string-left-trim '(#\Space #\Tab) line))
+  (let* ((trimmed   (string-left-trim '(#\Space #\Tab) line))
          (separator (position-if (lambda (character)
                                    (member character '(#\Space #\Tab)))
                                  trimmed)))
@@ -1779,14 +1789,14 @@ OPERATION's own declared target line so they stay numbered."
 (-> application--debugger-rows (string) list)
 (defun application--debugger-rows (output)
   "Return separate condition, restart, and retry areas from debugger OUTPUT."
-  (let* ((heading (format nil "Available restarts:~%"))
+  (let* ((heading          (format nil "Available restarts:~%"))
          (heading-position (search heading output))
-         (restart-start (and heading-position
-                             (+ heading-position (length heading))))
-         (retry-position (and restart-start
-                              (search "Retry the identical call"
-                                      output
-                                      :start2 restart-start)))
+         (restart-start    (and heading-position
+                                (+ heading-position (length heading))))
+         (retry-position   (and restart-start
+                                (search "Retry the identical call"
+                                        output
+                                        :start2 restart-start)))
          (condition-text
            (string-trim '(#\Space #\Tab #\Newline #\Return)
                         (subseq output 0 (or heading-position
@@ -1823,18 +1833,18 @@ OPERATION's own declared target line so they stay numbered."
     list)
 (defun application--failure-result-rows (output &key tool-name)
   "Return condition details, omitting TOOL-NAME's redundant failure prefix."
-  (let* ((prefix (and tool-name (format nil "~A failed: " tool-name)))
-         (output (if (and prefix (uiop:string-prefix-p prefix output))
-                     (subseq output (length prefix))
-                     output))
-         (restart-marker (format nil "Available restarts:~%"))
+  (let* ((prefix           (and tool-name (format nil "~A failed: " tool-name)))
+         (output           (if (and prefix (uiop:string-prefix-p prefix output))
+                               (subseq output (length prefix))
+                               output))
+         (restart-marker   (format nil "Available restarts:~%"))
          (backtrace-marker (format nil "~%~%Backtrace:~%")))
     (cond
       ((search restart-marker output)
        (application--debugger-rows output))
       ((search backtrace-marker output)
-       (let* ((position (search backtrace-marker output))
-              (message (subseq output 0 position))
+       (let* ((position  (search backtrace-marker output))
+              (message   (subseq output 0 position))
               (backtrace (subseq output
                                  (+ position (length backtrace-marker)))))
          (append
@@ -1866,8 +1876,10 @@ OPERATION's own declared target line so they stay numbered."
                    (setf quoted-p (not quoted-p)))
                   ((not quoted-p)
                    (case character
-                     ((#\{ #\[) (incf depth))
-                     ((#\} #\]) (decf depth)))))
+                     ((#\{ #\[)
+                      (incf depth))
+                     ((#\} #\])
+                      (decf depth)))))
              never (> depth 32))))
 
 (-> application--structured-output-value (string) (values t boolean))
@@ -1897,9 +1909,9 @@ remains ordinary bounded tool text, including malformed untrusted JSON."
       (application--structured-output-value output)
     (if structured-p
         (let* ((*application-tool-structure-budget* 64)
-               (rows (if (json-object-p value)
-                         (application--structured-object-rows application value :depth 8)
-                         (application--structured-value-rows application "result" value :depth 8))))
+               (rows                                (if (json-object-p value)
+                                                        (application--structured-object-rows application value :depth 8)
+                                                        (application--structured-value-rows application "result" value :depth 8))))
           (if (or (> (length rows) *application-tool-output-lines*)
                   (minusp *application-tool-structure-budget*))
               (append (subseq rows 0 (min (length rows) *application-tool-output-lines*))
@@ -1931,10 +1943,10 @@ remains ordinary bounded tool text, including malformed untrusted JSON."
 (-> application--mcp-content-rows (application list) list)
 (defun application--mcp-content-rows (application record)
   "Format validated MCP content sections independently within one row budget."
-  (let* ((output (or (getf (rest record) :output) ""))
-         (sections (application--mcp-content-sections
-                    (getf (rest record) :details) output))
-         (rows nil)
+  (let* ((output    (or (getf (rest record) :output) ""))
+         (sections  (application--mcp-content-sections
+                     (getf (rest record) :details) output))
+         (rows      nil)
          (processed 0))
     (dolist (section sections)
       (when (>= (length rows) *application-tool-output-lines*)
@@ -1987,7 +1999,7 @@ lists, independently of the producer's transport limits."
                    ((consp value)
                     (if (keywordp (first value))
                         (let ((object (make-hash-table :test #'equal))
-                              (tail value))
+                              (tail   value))
                           (loop repeat 64
                                 while tail
                                 do (unless (and (consp tail) (keywordp (first tail))
@@ -2077,9 +2089,9 @@ lists, independently of the producer's transport limits."
                   (list "condition" failure (if (equal state "cancelled") ':notice ':failure))
                   (list "path" path ':code))
             when value
-              collect (list :label label
-                            :value (bounded-string (application--presentation-value value) :limit 200)
-                            :style style))))))
+            collect (list :label label
+                          :value (bounded-string (application--presentation-value value) :limit 200)
+                          :style style))))))
 
 (-> application--native-details-rows (application list) list)
 (defun application--native-details-rows (application record)
@@ -2087,29 +2099,29 @@ lists, independently of the producer's transport limits."
   (multiple-value-bind (value valid-p)
       (application--native-details-value (getf (rest record) :details))
     (when valid-p
-      (let* ((job (json-get value "job"))
-             (items (or (json-get value "results") (json-get value "jobs")
-                        (json-get value "entries")))
-             (rows (cond
-                     ((json-object-p job)
-                      (application--native-job-rows application job))
-                     ((or (json-get value "classification") (json-get value "job-id"))
-                      (application--native-job-rows application value))
-                     ((and (vectorp items) (not (stringp items)))
-                      (if (zerop (length items))
-                          (list (list (terminal-span ':dim "no entries")))
-                          (loop for item across items
-                                if (json-object-p item)
-                                  append (application--native-job-rows application item)
-                                else
-                                  collect (list (terminal-span ':dim "… more entries")))))
-                     (t
-                      (application--structured-object-rows application value :depth 8))))
-             (paging (when (json-get value "next-offset")
-                       (application--tool-field-rows
-                        application
-                        (list (list :label "next offset"
-                                    :value (princ-to-string (json-get value "next-offset")))))))
+      (let* ((job      (json-get value "job"))
+             (items    (or (json-get value "results") (json-get value "jobs")
+                           (json-get value "entries")))
+             (rows     (cond
+                         ((json-object-p job)
+                          (application--native-job-rows application job))
+                         ((or (json-get value "classification") (json-get value "job-id"))
+                          (application--native-job-rows application value))
+                         ((and (vectorp items) (not (stringp items)))
+                          (if (zerop (length items))
+                              (list (list (terminal-span ':dim "no entries")))
+                              (loop for item across items
+                                    if (json-object-p item)
+                                      append (application--native-job-rows application item)
+                                    else
+                                      collect (list (terminal-span ':dim "… more entries")))))
+                         (t
+                          (application--structured-object-rows application value :depth 8))))
+             (paging   (when (json-get value "next-offset")
+                         (application--tool-field-rows
+                          application
+                          (list (list :label "next offset"
+                                      :value (princ-to-string (json-get value "next-offset")))))))
              (all-rows (append rows paging)))
         (if (> (length all-rows) *application-tool-output-lines*)
             (append (subseq all-rows 0 *application-tool-output-lines*)
@@ -2145,37 +2157,42 @@ re-emitting untrusted serialized JSON."
 (-> application--tool-execution-handoff-entry (application list list) list)
 (defun application--tool-execution-handoff-entry (application record handoff)
   "Present a background handoff as job state and identity rather than serialized output."
-  (let* ((job (getf (rest handoff) :job))
-         (state (getf job :state))
-         (reason (getf (rest handoff) :handoff-reason))
+  (let* ((job         (getf (rest handoff) :job))
+         (state       (getf job :state))
+         (reason      (getf (rest handoff) :handoff-reason))
          (description (getf job :description))
-         (status (case state
-                   (:queued "queued in background")
-                   (:running
-                    (if (eq reason ':grace-expired)
-                        "still running in background"
-                        "running in background"))
-                   (:completed "result ready")
-                   (:failed "failed")
-                   ((:cancelled :aborted) "cancelled")
-                   (otherwise "background handoff"))))
+         (status      (case state
+                        (:queued
+                         "queued in background")
+                        (:running
+                         (if (eq reason ':grace-expired)
+                             "still running in background"
+                             "running in background"))
+                        (:completed
+                         "result ready")
+                        (:failed
+                         "failed")
+                        ((:cancelled :aborted)
+                         "cancelled")
+                        (otherwise
+                         "background handoff"))))
     (application--tool-entry
      application
-     :style (if (eq state ':failed) ':failure ':notice)
+     :style  (if (eq state ':failed) ':failure ':notice)
      :header (format nil "↪ ~A"
                      (application--tool-display-name
                       application (getf (rest record) :tool)))
      :detail (format nil "~A · ~A" status (getf job :id))
-     :rows (unless (application-compact-view-p application)
-             (application--tool-field-rows
-              application
-              (append
-               (when (non-empty-string-p description)
-                 (list (list :label "task"
-                             :value (bounded-string description :limit 200))))
-               (when (eq reason ':grace-expired)
-                 (list (list :label "handoff"
-                             :value "blocking wait expired")))))))))
+     :rows   (unless (application-compact-view-p application)
+               (application--tool-field-rows
+                application
+                (append
+                 (when (non-empty-string-p description)
+                   (list (list :label "task"
+                               :value (bounded-string description :limit 200))))
+                 (when (eq reason ':grace-expired)
+                   (list (list :label "handoff"
+                               :value "blocking wait expired")))))))))
 
 (defmethod application-tool-result-entry :around
     (tool (application application) record)
@@ -2222,7 +2239,7 @@ re-emitting untrusted serialized JSON."
 A report that only repeated an active papercut is presented as such, so the
 user sees the existing report rather than a new one."
   (if (application--tool-result-success-p record)
-      (let* ((output (or (getf (rest record) :output) ""))
+      (let* ((output     (or (getf (rest record) :output) ""))
              (identifier (application--papercut-result-identifier output))
              (papercut
                (and identifier
@@ -2254,16 +2271,16 @@ user sees the existing report rather than a new one."
                     :gutter "│ "))))
         (application--tool-entry
          application
-         :style (if (application--papercut-result-duplicate-p output)
-                    ':notice
-                    ':failure)
+         :style  (if (application--papercut-result-duplicate-p output)
+                     ':notice
+                     ':failure)
          :header (if (application--papercut-result-duplicate-p output)
                      "! PAPERCUT ALREADY REPORTED"
                      "! PAPERCUT RECORDED")
          :detail (and papercut
                       (format nil "id ~A"
                               (papercut-short-identifier papercut)))
-         :rows rows))
+         :rows   rows))
       (call-next-method)))
 
 (-> application--shell-capture-header (string) (option list))
@@ -2272,7 +2289,7 @@ user sees the existing report rather than a new one."
 
 LINE is a shell.run capture header such as \"stdout: 12 bytes retained, 12 bytes
 observed; capture-complete yes; status complete\"; any other line returns NIL."
-  (let ((colon (search ": " line))
+  (let ((colon           (search ": " line))
         (retained-marker (search " bytes retained, " line))
         (observed-marker (search " bytes observed; capture-complete " line)))
     (when (and colon retained-marker observed-marker (< colon retained-marker observed-marker))
@@ -2282,9 +2299,9 @@ observed; capture-complete yes; status complete\"; any other line returns NIL."
                                                     (length " bytes retained, "))
                                           :end observed-marker :junk-allowed t)))
         (when (and retained observed)
-          (list :label (subseq line 0 colon)
-                :retained retained
-                :observed observed
+          (list :label      (subseq line 0 colon)
+                :retained   retained
+                :observed   observed
                 :complete-p (and (search "capture-complete yes" line) t)))))))
 
 (-> application--shell-result-parts (string) list)
@@ -2294,17 +2311,17 @@ observed; capture-complete yes; status complete\"; any other line returns NIL."
 Return a plist with :EXIT, :EXECUTION, :NOTES and :SECTIONS. Each section is a
 capture header plist extended with the :LINES of its preview. Log references
 and byte counts are kept for the model and are not part of any preview."
-  (let ((lines (application--display-lines output))
-        (exit nil)
+  (let ((lines     (application--display-lines output))
+        (exit      nil)
         (execution nil)
-        (notes nil)
-        (sections nil))
+        (notes     nil)
+        (sections  nil))
     (when (and lines (uiop:string-prefix-p "exit " (first lines)))
       (setf exit (pop lines)))
     (when (and lines (uiop:string-prefix-p "Execution: " (first lines)))
       (setf execution (pop lines)))
     (loop while lines
-          do (let* ((line (pop lines))
+          do (let* ((line   (pop lines))
                     (header (application--shell-capture-header line)))
                (cond
                  (header
@@ -2324,16 +2341,16 @@ and byte counts are kept for the model and are not part of any preview."
                                 :complete-p t :lines nil)
                           sections))
                   (push line (getf (first sections) :lines))))))
-    (list :exit exit
+    (list :exit      exit
           :execution execution
-          :notes (nreverse notes)
-          :sections (loop for section in (nreverse sections)
-                          collect (let ((section-lines (getf section :lines)))
-                                    (loop while (and section-lines
-                                                     (string= (first section-lines) ""))
-                                          do (pop section-lines))
-                                    (setf (getf section :lines) (nreverse section-lines))
-                                    section)))))
+          :notes     (nreverse notes)
+          :sections  (loop for section in (nreverse sections)
+                           collect (let ((section-lines (getf section :lines)))
+                                     (loop while (and section-lines
+                                                      (string= (first section-lines) ""))
+                                           do (pop section-lines))
+                                     (setf (getf section :lines) (nreverse section-lines))
+                                     section)))))
 
 (-> application--shell-execution-rows ((option string)) list)
 (defun application--shell-execution-rows (execution)
@@ -2348,15 +2365,15 @@ and byte counts are kept for the model and are not part of any preview."
 (-> application--shell-section-rows (application list boolean) list)
 (defun application--shell-section-rows (application section labeled-p)
   "Return SECTION's preview rows, headed by its stream name when LABELED-P."
-  (let* ((lines (getf section :lines))
+  (let* ((lines    (getf section :lines))
          (stderr-p (string= (getf section :label) "stderr"))
-         (text (format nil "~{~A~^~%~}"
-                       (mapcar (lambda (line)
-                                 (if (and (uiop:string-prefix-p "[" line)
-                                          (search " retained bytes omitted from preview]" line))
-                                     "…"
-                                     line))
-                               lines))))
+         (text     (format nil "~{~A~^~%~}"
+                           (mapcar (lambda (line)
+                                     (if (and (uiop:string-prefix-p "[" line)
+                                              (search " retained bytes omitted from preview]" line))
+                                         "…"
+                                         line))
+                                   lines))))
     (append
      (when labeled-p
        (list (application--tool-section-row (getf section :label))))
@@ -2383,27 +2400,27 @@ appear only when something went wrong, such as a timeout or truncated output;
 log references and byte counts are for the model."
   (let ((output (or (getf (rest record) :output) "")))
     (if (uiop:string-prefix-p "exit " output)
-        (let* ((parts (application--shell-result-parts output))
-               (exit (getf parts :exit))
+        (let* ((parts    (application--shell-result-parts output))
+               (exit     (getf parts :exit))
                (sections (remove-if (lambda (section)
                                       (and (null (getf section :lines))
                                            (getf section :complete-p)))
                                     (getf parts :sections)))
-               (clean-p (and (string= exit "exit 0")
-                             (application--tool-result-success-p record))))
+               (clean-p  (and (string= exit "exit 0")
+                              (application--tool-result-success-p record))))
           (application--tool-entry
            application
-           :style (if clean-p ':success ':failure)
+           :style  (if clean-p ':success ':failure)
            :header (format nil "~:[!~;✓~] ~A ~A"
                            clean-p (getf (rest record) :tool) exit)
            :detail (application--tool-result-timing record)
-           :rows (append
-                  (application--shell-execution-rows (getf parts :execution))
-                  (loop for note in (getf parts :notes)
-                        collect (list (terminal-span ':notice note)))
-                  (loop for section in sections
-                        append (application--shell-section-rows
-                                application section (and (rest (getf parts :sections)) t))))))
+           :rows   (append
+                    (application--shell-execution-rows (getf parts :execution))
+                    (loop for note in (getf parts :notes)
+                          collect (list (terminal-span ':notice note)))
+                    (loop for section in sections
+                          append (application--shell-section-rows
+                                  application section (and (rest (getf parts :sections)) t))))))
         (call-next-method))))
 
 (-> application--first-line-summary (string) string)
@@ -2418,28 +2435,28 @@ log references and byte counts are for the model."
 The call entry already shows the change. The revision, anchors and line window
 that follow are the model's next observation, not something the user reads."
   (if (application--tool-result-success-p record)
-      (let* ((output (or (getf (rest record) :output) ""))
+      (let* ((output  (or (getf (rest record) :output) ""))
              (warning (search "WARNING: " output)))
         (application--tool-result-entry
          application
          record
          :detail (application--first-line-summary output)
-         :rows (when warning
-                 (application--preview-rows (subseq output warning)
-                                            ':failure
-                                            *application-tool-output-lines*))))
+         :rows   (when warning
+                   (application--preview-rows (subseq output warning)
+                                              ':failure
+                                              *application-tool-output-lines*))))
       (call-next-method)))
 
 (defmethod application-tool-result-entry
     ((tool lisp-paren-check-tool) (application application) record)
   "Present a clean delimiter check as one line; problems keep the full report."
   (if (application--tool-result-success-p record)
-      (let* ((output (or (getf (rest record) :output) ""))
+      (let* ((output  (or (getf (rest record) :output) ""))
              (checked (find-if (lambda (line) (uiop:string-prefix-p "Checked " line))
                                (application--display-lines output)))
-             (count (and checked
-                         (parse-integer (remove #\, checked)
-                                        :start (length "Checked ") :junk-allowed t))))
+             (count   (and checked
+                           (parse-integer (remove #\, checked)
+                                          :start (length "Checked ") :junk-allowed t))))
         (application--tool-result-entry
          application
          record
@@ -2474,7 +2491,6 @@ that follow are the model's next observation, not something the user reads."
               (or (getf (rest record) :output) "")))
       (call-next-method)))
 
-
 (defmethod application-tool-result-entry
     ((tool lisp-describe-tool) (application application) record)
   "Present lisp.describe output as structured description and values sections."
@@ -2508,7 +2524,7 @@ that follow are the model's next observation, not something the user reads."
        :rows (application--source-preview-rows
               (or (getf (rest record) :output) "")
               :language *application-common-lisp-language*
-              :limit *application-tool-output-lines*))
+              :limit    *application-tool-output-lines*))
       (call-next-method)))
 
 (defmethod application-tool-result-entry
@@ -2521,7 +2537,7 @@ that follow are the model's next observation, not something the user reads."
        :rows (application--source-preview-rows
               (or (getf (rest record) :output) "")
               :language *application-common-lisp-language*
-              :limit *application-tool-output-lines*))
+              :limit    *application-tool-output-lines*))
       (call-next-method)))
 
 
@@ -2531,7 +2547,7 @@ that follow are the model's next observation, not something the user reads."
 (defun application--numbered-source-line (line)
   "Split a numbered resource LINE into its exact annotation and source text."
   (let* ((start (position-if-not (lambda (character) (char= character #\Space)) line))
-         (end (and start (position-if-not #'digit-char-p line :start start))))
+         (end   (and start (position-if-not #'digit-char-p line :start start))))
     (when (and start end (< start end))
       (let ((separator
               (cond
@@ -2550,20 +2566,20 @@ that follow are the model's next observation, not something the user reads."
 (-> application--resource-source-rows (string) (option list))
 (defun application--resource-source-rows (output)
   "Highlight a retained workspace file window without resolving or rereading it."
-  (let* ((lines (application--display-lines output))
+  (let* ((lines    (application--display-lines output))
          (identity (first lines))
-         (content (member "Content:" lines :test #'string=))
-         (uri (and identity (uiop:string-prefix-p "URI: " identity) (subseq identity 5)))
-         (path (and uri (application--file-resource-path uri))))
+         (content  (member "Content:" lines :test #'string=))
+         (uri      (and identity (uiop:string-prefix-p "URI: " identity) (subseq identity 5)))
+         (path     (and uri (application--file-resource-path uri))))
     (when (and path content (member "Kind: file" lines :test #'string=))
-      (let* ((parts (mapcar #'application--numbered-source-line (rest content)))
+      (let* ((parts         (mapcar #'application--numbered-source-line (rest content)))
              (visible-count (min *application-tool-output-lines* (length parts)))
-             (elision (find-if (lambda (line)
-                                (and (uiop:string-prefix-p "Elided: " line)
-                                     (not (string= line "Elided: none"))))
-                              (ldiff lines content))))
+             (elision       (find-if (lambda (line)
+                                      (and (uiop:string-prefix-p "Elided: " line)
+                                           (not (string= line "Elided: none"))))
+                                    (ldiff lines content))))
         (when (and parts (every #'consp parts))
-          (let* ((source (format nil "~{~A~^~%~}" (mapcar #'rest parts)))
+          (let* ((source      (format nil "~{~A~^~%~}" (mapcar #'rest parts)))
                  (highlighted (syntax--highlight-lines source :pathname path)))
             (append
              (list (list (terminal-span ':dim identity)))
@@ -2598,7 +2614,7 @@ that follow are the model's next observation, not something the user reads."
 (-> application--search-result-path (string) (option string))
 (defun application--search-result-path (line)
   "Extract the path from a retained PATH:LINE:COLUMN search heading."
-  (let* ((end (or (search " [git:" line :from-end t) (length line)))
+  (let* ((end    (or (search " [git:" line :from-end t) (length line)))
          (column (position #\: line :end end :from-end t))
          (number (and column (position #\: line :end column :from-end t))))
     (when (and number column (plusp number)
@@ -2610,9 +2626,9 @@ that follow are the model's next observation, not something the user reads."
 (-> application--search-source-rows (string) (option list))
 (defun application--search-source-rows (output)
   "Highlight bounded search snippets using retained headings, not current files."
-  (let* ((lines (application--display-lines output))
+  (let* ((lines         (application--display-lines output))
          (visible-count (min *application-tool-output-lines* (length lines)))
-         (path nil)
+         (path          nil)
          (highlighted-p nil)
          (rows
            (loop for line in (subseq lines 0 visible-count)
