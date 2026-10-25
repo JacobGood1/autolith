@@ -375,7 +375,7 @@
 
 (-> application-raise-fatal
     (application serious-condition list)
-    null)
+    nil)
 (defun application-raise-fatal (application condition backtrace)
   "Write fatal CONDITION context and leave APPLICATION through recovery status."
   (let ((capsule (application-write-crash-capsule
