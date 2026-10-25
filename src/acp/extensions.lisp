@@ -31,14 +31,14 @@
 (defun acp-extension-tool-context (session)
   "Construct a session-owned context with ACP permission decisions, never terminal prompts."
   (let* ((application (acp-session-application session))
-         (observer (acp-observer-create session)))
+         (observer    (acp-observer-create session)))
     (make-instance 'tool-context
                    :configuration (application-configuration application)
-                   :worker (application-worker application)
-                   :conversation (application-conversation application)
-                   :registry (application-tool-registry application)
-                   :agent (application-agent application)
-                   :observer observer
+                   :worker        (application-worker application)
+                   :conversation  (application-conversation application)
+                   :registry      (application-tool-registry application)
+                   :agent         (application-agent application)
+                   :observer      observer
                    :command-authorization-function
                    (lambda (command directory)
                      (agent-observer-authorize-command observer command directory))
@@ -55,15 +55,20 @@
                (when (or (> (incf nodes) 16384) (> depth 32))
                  (error 'acp-extension-unavailable :reason "The extension value exceeds its structural limit."))
                (cond
-                 ((null item) ':null)
-                 ((eq item t) t)
-                 ((argo:json-false-p item) (argo:json-false))
+                 ((null item)
+                  ':null)
+                 ((eq item t)
+                  t)
+                 ((argo:json-false-p item)
+                  (argo:json-false))
                  ((stringp item)
                   (when (> (length item) 262144)
                     (error 'acp-extension-unavailable :reason "The extension string exceeds its character limit."))
                   (copy-seq item))
-                 ((or (integerp item) (floatp item)) item)
-                 ((pathnamep item) (namestring item))
+                 ((or (integerp item) (floatp item))
+                  item)
+                 ((pathnamep item)
+                  (namestring item))
                  ((keywordp item)
                   (if (eq item ':null) ':null (string-downcase (symbol-name item))))
                  ((hash-table-p item)
@@ -106,7 +111,7 @@
    "methods" (coerce (cons "_autolith/capabilities"
                             (loop for (name handler) in *acp-extension-methods*
                                   when (fboundp handler) collect name))
-                      'vector)
+                     'vector)
    "features" (agentcomms:json-object
                 "events" t "sessionScoped" t
                 "turnEvents" (if (fboundp 'acp-session-run-turn) t (argo:json-false))
@@ -143,13 +148,13 @@
 (-> acp-extension--usage (acp-session) hash-table)
 (defun acp-extension--usage (session)
   "Project measured request usage, using the durable prompt cache when replaying."
-  (let* ((conversation (application-conversation (acp-session-application session)))
-         (usage (with-lock-held ((acp-session-extension-lock session))
-                  (acp-session-extension-usage session)))
+  (let* ((conversation  (application-conversation (acp-session-application session)))
+         (usage         (with-lock-held ((acp-session-extension-lock session))
+                          (acp-session-extension-usage session)))
          (cached-usage
            (with-recursive-lock-held ((conversation-append-lock conversation))
              (copy-tree (conversation-prompt-cache-usage conversation))))
-         (input (conversation--usage-field (or usage cached-usage) "input_tokens"))
+         (input         (conversation--usage-field (or usage cached-usage) "input_tokens"))
          (configuration (application-configuration (acp-session-application session))))
     (agentcomms:json-object
      "input" (or input ':null)
@@ -162,7 +167,7 @@
 (-> acp-extension-live-job-count (acp-session) integer)
 (defun acp-extension-live-job-count (session)
   "Count nonterminal owned jobs without copying their potentially large progress."
-  (let* ((application (acp-session-application session))
+  (let* ((application  (acp-session-application session))
          (orchestrator (application--task-orchestrator application)))
     (if orchestrator
         (count-if-not #'job-terminal-p
@@ -174,15 +179,19 @@
 (defun acp-extension-state (session params)
   "Return current headless session state, marking unavailable measurements null."
   (declare (ignore params))
-  (let* ((application (acp-session-application session))
+  (let* ((application   (acp-session-application session))
          (configuration (application-configuration application))
-         (conversation (application-conversation application))
-         (turn (with-lock-held ((acp-session-lock session))
-                 (cond
-                   ((acp-session-closed-p session) "interrupted")
-                   ((and (acp-session-prompt-thread session) (acp-session-cancelled-p session)) "cancelling")
-                   ((acp-session-prompt-thread session) "running")
-                   (t "idle")))))
+         (conversation  (application-conversation application))
+         (turn          (with-lock-held ((acp-session-lock session))
+                          (cond
+                            ((acp-session-closed-p session)
+                             "interrupted")
+                            ((and (acp-session-prompt-thread session) (acp-session-cancelled-p session))
+                             "cancelling")
+                            ((acp-session-prompt-thread session)
+                             "running")
+                            (t
+                             "idle")))))
     (agentcomms:json-object
      "workspace" (namestring (config :working-directory configuration))
      "title" (or (conversation-title conversation) ':null)
@@ -192,21 +201,24 @@
      "turnState" turn "usage" (acp-extension--usage session)
      "liveJobCount" (acp-extension-live-job-count session)
      "planPresent" (if (plan-load configuration) t (argo:json-false))
-     "health" (cond ((acp-session-closing-p session) "closing")
-                    ((acp-session-completion-report session) "condition")
-                    (t "ready"))
+     "health" (cond ((acp-session-closing-p session)
+                     "closing")
+                    ((acp-session-completion-report session)
+                     "condition")
+                    (t
+                     "ready"))
      "report" (or (acp-session-completion-report session) ':null))))
 
 (-> acp-extension--call (acp-service list hash-table) t)
 (defun acp-extension--call (service entry params)
   "Validate session authority before invoking ENTRY at its required admission boundary."
-  (let* ((identifier (agentcomms:acp-field params "sessionId" :type ':string :required-p t))
-         (session (acp-service--session service identifier))
-         (application (acp-session-application session))
-         (*active-application* application)
-         (*configuration* (application-configuration application))
+  (let* ((identifier                  (agentcomms:acp-field params "sessionId" :type ':string :required-p t))
+         (session                     (acp-service--session service identifier))
+         (application                 (acp-session-application session))
+         (*active-application*        application)
+         (*configuration*             (application-configuration application))
          (*default-pathname-defaults* (config :working-directory *configuration*))
-         (handler (second entry)))
+         (handler                     (second entry)))
     (labels ((invoke ()
                "Own the handler through cancellation and resource retirement."
                (let ((thread (current-thread)))
@@ -249,7 +261,7 @@
         (acp-extension-result ':cancelled))
       (error (condition)
         (acp-extension-result ':condition :report (princ-to-string condition)
-                              :condition-type (string-downcase (symbol-name (type-of condition))))))))
+                              :condition-type     (string-downcase (symbol-name (type-of condition))))))))
 
 (defmethod agent-observer-status :after ((observer acp-observer) status details)
   "Publish measured usage and compaction notices after their ordinary ACP projection."
