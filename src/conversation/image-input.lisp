@@ -112,8 +112,8 @@
 
 (setf yolokuva:*image-error-class* 'image-input-error)
 
-(-> image-input--error (pathname keyword string &optional t) nil)
-(defun image-input--error (pathname stage message &optional cause)
+(-> image-input--error (pathname &key (:stage keyword) (:message string) (:cause t)) nil)
+(defun image-input--error (pathname &key stage message cause)
   "Signal a structured image failure for PATHNAME at STAGE."
   (error 'image-input-error
          :message  message
@@ -135,9 +135,10 @@
       (platform-truename *platform* pathname)
     (error (condition)
       (image-input--error
-       pathname ':recognition
-       (format nil "Image ~A does not exist or cannot be read." pathname)
-       condition))))
+       pathname
+       :stage   ':recognition
+       :message (format nil "Image ~A does not exist or cannot be read." pathname)
+       :cause   condition))))
 
 (-> image-input--inspect
     (pathname)
@@ -186,9 +187,10 @@ JPEG, or WebP image is copied, anything else becomes a resized PNG."
               (error condition))
             (error (condition)
               (image-input--error
-               absolute ':persistence
-               (format nil "Image ~A could not be stored: ~A" absolute condition)
-               condition)))
+               absolute
+               :stage   ':persistence
+               :message (format nil "Image ~A could not be stored: ~A" absolute condition)
+               :cause   condition)))
           (make-instance 'image-attachment
                          :identifier  identifier
                          :pathname    target
@@ -234,18 +236,19 @@ JPEG, or WebP image is copied, anything else becomes a resized PNG."
             (error (condition)
               (image-input--error
                (pathname location)
-               ':recognition
-               (format nil "Image location ~A is not a valid local pathname."
-                       location)
-               condition)))))
+               :stage   ':recognition
+               :message (format nil "Image location ~A is not a valid local pathname."
+                                location)
+               :cause   condition)))))
     (multiple-value-bind (format width height)
         (image-input--inspect pathname)
       (declare (ignore format))
       (if (and (plusp width) (plusp height))
           (platform-truename *platform* pathname)
           (image-input--error
-           pathname ':recognition
-           (format nil "Image ~A has no valid pixel dimensions." pathname))))))
+           pathname
+           :stage   ':recognition
+           :message (format nil "Image ~A has no valid pixel dimensions." pathname))))))
 
 
 ;;;; -- Durable Projection --
@@ -293,13 +296,15 @@ JPEG, or WebP image is copied, anything else becomes a resized PNG."
                  (typep width '(integer 1))
                  (typep height '(integer 1)))
       (image-input--error
-       artifact-root ':loading
-       "A persisted conversation image descriptor is malformed."))
+       artifact-root
+       :stage   ':loading
+       :message "A persisted conversation image descriptor is malformed."))
     (let ((pathname (merge-pathnames artifact artifact-root)))
       (unless (probe-file pathname)
         (image-input--error
-         pathname ':loading
-         (format nil "Conversation image artifact ~A is missing." pathname)))
+         pathname
+         :stage   ':loading
+         :message (format nil "Conversation image artifact ~A is missing." pathname)))
       (make-instance 'image-attachment
                      :identifier  identifier
                      :pathname    pathname
