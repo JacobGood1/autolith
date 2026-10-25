@@ -29,9 +29,9 @@
   (let ((requested (tool-argument arguments "path" :required t)))
     (unless (non-empty-string-p requested)
       (error 'tool-error
-             :message "lisp.paren-check requires a non-empty string path."
+             :message   "lisp.paren-check requires a non-empty string path."
              :tool-name "lisp.paren-check"))
-    (let* ((path (workspace-tool-path context requested :tool-name "lisp.paren-check"))
+    (let* ((path  (workspace-tool-path context requested :tool-name "lisp.paren-check"))
            (roots (workspace-tool-readable-roots context)))
       (multiple-value-bind (success-p content)
           (lisp-paren-check-path
