@@ -7,30 +7,30 @@
   "Run FUNCTION with a durable orphan specification and ordinary task registry."
   (with-test-configuration (configuration root)
     (let* ((configuration (configuration-copy configuration :working-directory root))
-           (registry (task-augment-tool-registry
-                      (make-default-tool-registry :configuration configuration)))
-           (provider (make-instance 'task-test-provider :mode ':concurrent))
-           (parent (agent-create :configuration configuration :provider provider
-                                 :tool-registry registry :worker nil))
-           (run-tool (tool-registry-find registry "task" "run"))
-           (orchestrator (task-run-tool-orchestrator run-tool))
-           (definition (task-agent-definition-create
-                        :name "task" :description "continuity fixture"
-                        :instructions "Return the result through yield.submit." :tools ':all))
-           (job (task-tests--make-job
-                 orchestrator :identifier "orphan" :parent-agent parent
-                 :definition definition :detached-p t
-                 :item (list :agent "task" :task "Return the result." :async t)))
-           (context (make-instance 'tool-context :configuration configuration
-                                   :agent parent :registry registry :worker nil
-                                   :conversation (agent-conversation parent)
-                                   :call-id "continuity-test"))
-           (path (task-continuity-record-job job parent)))
+           (registry      (task-augment-tool-registry
+                           (make-default-tool-registry :configuration configuration)))
+           (provider      (make-instance 'task-test-provider :mode ':concurrent))
+           (parent        (agent-create :configuration configuration :provider provider
+                                        :tool-registry registry :worker nil))
+           (run-tool      (tool-registry-find registry "task" "run"))
+           (orchestrator  (task-run-tool-orchestrator run-tool))
+           (definition    (task-agent-definition-create
+                           :name "task" :description "continuity fixture"
+                           :instructions "Return the result through yield.submit." :tools ':all))
+           (job           (task-tests--make-job
+                           orchestrator :identifier "orphan" :parent-agent parent
+                           :definition definition :detached-p t
+                           :item (list :agent "task" :task "Return the result." :async t)))
+           (context       (make-instance 'tool-context :configuration configuration
+                                         :agent parent :registry registry :worker nil
+                                         :conversation                (agent-conversation parent)
+                                         :call-id                     "continuity-test"))
+           (path          (task-continuity-record-job job parent)))
       (unless (tool-registry-find registry "job" "continuity")
         (tool-registry-register
          registry (make-instance 'task-continuity-tool :namespace "job" :name "continuity"
-                                 :description "Test continuity decisions."
-                                 :parameters (task-continuity-parameters)
+                                 :description  "Test continuity decisions."
+                                 :parameters   (task-continuity-parameters)
                                  :orchestrator orchestrator)))
       (unwind-protect
            (funcall function parent orchestrator context job path)
@@ -99,7 +99,7 @@
         (not (probe-file (merge-pathnames "revive.sexp"
                                           (uiop:pathname-directory-pathname path))))
         "An unauthorized attempt does not claim replay")
-       (let* ((result (task-continuity-revive context orchestrator execution :authorized-p t))
+       (let* ((result  (task-continuity-revive context orchestrator execution :authorized-p t))
               (revived (first (task-orchestrator-list-jobs orchestrator))))
          (test-assert (tool-result-success-p result) "The ordinary task.run pathway admits recovery")
          (test-assert revived "Recovery creates a real supervised child")
@@ -109,10 +109,10 @@
          (test-assert
           (not (equal execution (session-job-execution-identifier revived)))
           "A restarted execution receives a fresh identity")
-         (let* ((row (task-continuity-classify
-                      (task-continuity--find parent execution) parent orchestrator))
+         (let* ((row      (task-continuity-classify
+                           (task-continuity--find parent execution) parent orchestrator))
                 (recovery (getf row :recovery-result))
-                (link (first (getf recovery :new-executions))))
+                (link     (first (getf recovery :new-executions))))
            (test-assert (and (eq :restart (getf row :decision))
                              (eq :dispatched (getf row :recovery-outcome)))
                         "Inventory exposes the durable recovery decision and dispatch outcome")
@@ -146,11 +146,11 @@
    (lambda (parent orchestrator context job path)
      (declare (ignore path))
      (let* ((configuration (agent-configuration parent))
-            (other (agent-create :configuration configuration
-                                 :provider (make-instance 'model-provider)
-                                 :tool-registry (agent-tool-registry parent) :worker nil))
-            (child (task-tests--child-viewer configuration job))
-            (execution (session-job-execution-identifier job)))
+            (other         (agent-create :configuration configuration
+                                         :provider      (make-instance 'model-provider)
+                                         :tool-registry (agent-tool-registry parent) :worker nil))
+            (child         (task-tests--child-viewer configuration job))
+            (execution     (session-job-execution-identifier job)))
        (test-assert (null (task-continuity-records other)) "Another conversation has no durable ownership")
        (test-assert (null (task-continuity-records child)) "A child cannot inspect its parent or siblings")
        (test-assert
@@ -182,7 +182,6 @@
                     "Reattachment does not duplicate execution"))))
   nil)
 
-
 (-> task-continuity-tests--paging () null)
 (defun task-continuity-tests--paging ()
   "Exercise whole-form pagination and bounded persisted metadata through the registry."
@@ -190,9 +189,9 @@
    (lambda (parent orchestrator context job path)
      (declare (ignore job))
      (let* ((record (task-continuity--read path))
-            (root (uiop:pathname-parent-directory-pathname
-                   (uiop:pathname-directory-pathname path)))
-            (body (make-string 20000 :initial-element #\x)))
+            (root   (uiop:pathname-parent-directory-pathname
+                     (uiop:pathname-directory-pathname path)))
+            (body   (make-string 20000 :initial-element #\x)))
        (loop for index below 12
              for execution = (format nil "page-~2,'0D" index)
              for target = (merge-pathnames (format nil "~A/continuity.sexp" execution) root)
@@ -205,10 +204,10 @@
        (task-continuity--write (merge-pathnames "result.sexp" (uiop:pathname-directory-pathname path))
                        (list :status ':success :output body :structured-output body
                              :duration-ms 321 :request-count 7
-                             :usage '(("input_tokens" 42))
+                             :usage                  '(("input_tokens" 42))
                              :worktree-artifact-path "patch.sexp"))
-       (let* ((row (task-continuity-classify (task-continuity--find parent "orphan")
-                                              parent orchestrator))
+       (let* ((row    (task-continuity-classify (task-continuity--find parent "orphan")
+                                                parent orchestrator))
               (result (getf row :result)))
          (test-assert (and (= 321 (getf result :duration-ms))
                            (= 7 (getf result :request-count))
@@ -220,14 +219,14 @@
                            (< (length (task--write-readable-sexp row)) 6000))
                       "Inventory omits full terminal result bodies"))
        (let ((*task-tool-content-limit* 8000)
-             (offset 0)
-             (seen nil))
+             (offset                    0)
+             (seen                      nil))
          (loop
-           (let* ((response (task-continuity-dispatch
-                             context "job" "continuity"
-                             (json-object "action" "list" "offset" offset "limit" 100)))
-                  (content (tool-result-content response))
-                  (page (tool-result-details response))
+           (let* ((response    (task-continuity-dispatch
+                                context "job" "continuity"
+                                (json-object "action" "list" "offset" offset "limit" 100)))
+                  (content     (tool-result-content response))
+                  (page        (tool-result-details response))
                   (*read-eval* nil))
              (test-assert (tool-result-success-p response) "Paged inventory succeeds at the registry boundary")
              (with-input-from-string (stream content)

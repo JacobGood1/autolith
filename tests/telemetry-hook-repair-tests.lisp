@@ -7,13 +7,13 @@
 
 (defun test-telemetry-hooks--repair-fixture (configuration function)
   "Call FUNCTION with a real registry and an isolated image-state identity."
-  (let ((*test-telemetry-repair-setting* :baseline)
-        (*image-state-initialized-p* nil)
+  (let ((*test-telemetry-repair-setting*   :baseline)
+        (*image-state-initialized-p*       nil)
         (*active-image-lineage-identifier* nil)
-        (*active-image-commit-identifier* nil)
-        (*active-image-history-commit* nil)
-        (*exploratory-undo-actions* (make-hash-table :test #'equal))
-        (*image-replay-skips* nil))
+        (*active-image-commit-identifier*  nil)
+        (*active-image-history-commit*     nil)
+        (*exploratory-undo-actions*        (make-hash-table :test #'equal))
+        (*image-replay-skips*              nil))
     (image-state-load configuration)
     (funcall function (make-default-tool-registry)
              (make-instance 'tool-context :configuration configuration :worker nil
@@ -48,7 +48,7 @@
                              (let* ((incident
                                       (when linked-p
                                         (papercut-report configuration
-                                                         :title "Evaluation repair fixture"
+                                                         :title   "Evaluation repair fixture"
                                                          :content "Explicit evaluation repair")))
                                     (arguments (json-object "forms" (vector source))))
                                (when incident
@@ -65,7 +65,7 @@
                                (when incident
                                  (papercut-mark-closed configuration (papercut-identifier incident)
                                                        :resolution "Evaluation fixture complete."))))))))
-                     (body (test-telemetry-hooks--merge-bodies bodies))
+                     (body    (test-telemetry-hooks--merge-bodies bodies))
                      (repairs (test-telemetry-hooks--kind body "repair")))
                 (test-assert
                  (equal (mapcar (lambda (span)
@@ -74,10 +74,10 @@
                         (when linked-p (list "proposed" outcome)))
                  "Only incident-linked evaluations emit repair transitions.")
                 (when linked-p
-                  (let* ((report (first (test-telemetry-hooks--kind body "report")))
+                  (let* ((report      (first (test-telemetry-hooks--kind body "report")))
                          (incident-id (test-telemetry--attribute report "autolith.incident.id"))
-                         (attempt-id (test-telemetry--attribute (first repairs)
-                                                                "autolith.repair.attempt.id")))
+                         (attempt-id  (test-telemetry--attribute (first repairs)
+                                                                 "autolith.repair.attempt.id")))
                     (test-assert (telemetry--report-id-p attempt-id)
                                  "The linked evaluation has a public attempt identity.")
                     (dolist (span repairs)
@@ -110,7 +110,7 @@
             (run (lambda ()
                    (setf incident (papercut-identifier
                                    (papercut-report configuration :title "Private repair fixture"
-                                                    :content "Private repair content"
+                                                    :content             "Private repair content"
                                                     :tool "shell.run" :issue-kind "broken_tool")))
                    (call "set" (json-object "symbol" "*test-telemetry-repair-setting*"
                                             "value" ":private-repair-value" "incident" incident
@@ -157,14 +157,14 @@
                                 "Discard restores the prior setting value.")
                    (papercut-assess configuration incident :verdict ':improved :note "Private assessment note")
                    (papercut-mark-closed configuration incident :resolution "Private closure note")))
-            (let* ((first-body (first bodies))
-                   (later-body (second bodies))
-                   (repairs (test-telemetry-hooks--kind first-body "repair"))
-                   (checks (test-telemetry-hooks--kind first-body "check"))
-                   (export-id (test-telemetry--attribute (first (test-telemetry-hooks--kind first-body "report")) "autolith.incident.id"))
-                   (attempt (test-telemetry--attribute (first repairs) "autolith.repair.attempt.id"))
-                   (later-check (first (test-telemetry-hooks--kind later-body "check")))
-                   (later-repair (first (test-telemetry-hooks--kind later-body "repair")))
+            (let* ((first-body    (first bodies))
+                   (later-body    (second bodies))
+                   (repairs       (test-telemetry-hooks--kind first-body "repair"))
+                   (checks        (test-telemetry-hooks--kind first-body "check"))
+                   (export-id     (test-telemetry--attribute (first (test-telemetry-hooks--kind first-body "report")) "autolith.incident.id"))
+                   (attempt       (test-telemetry--attribute (first repairs) "autolith.repair.attempt.id"))
+                   (later-check   (first (test-telemetry-hooks--kind later-body "check")))
+                   (later-repair  (first (test-telemetry-hooks--kind later-body "repair")))
                    (checker-spans (rest (test-telemetry-hooks--kind later-body "check"))))
               (test-assert (equal (mapcar (lambda (span) (test-telemetry--attribute span "autolith.repair.outcome"))
                                           checker-spans) '("verified" "failed"))
@@ -179,7 +179,7 @@
               (test-assert (equal (mutation-checker-verification-scope (make-instance 'full-suite-mutation-checker)) "full")
                            "Only the full-suite checker declares full-suite verification.")
               (let ((reverted (find "reverted" (test-telemetry-hooks--kind later-body "repair")
-                                    :key (lambda (span) (test-telemetry--attribute span "autolith.repair.outcome"))
+                                    :key  (lambda (span) (test-telemetry--attribute span "autolith.repair.outcome"))
                                     :test #'equal)))
                 (test-assert (equal (test-telemetry--attribute reverted "autolith.repair.attempt.id")
                                     (test-telemetry--attribute later-repair "autolith.repair.attempt.id"))
@@ -242,9 +242,9 @@
              (telemetry-call-with-run
               configuration
               (lambda ()
-                (let* ((first (papercut-report configuration :title "First incident" :content "First fixture"))
+                (let* ((first  (papercut-report configuration :title "First incident" :content "First fixture"))
                        (second (papercut-report configuration :title "Second incident" :content "Second fixture"))
-                       (count (length (mutation-journal-read-records configuration))))
+                       (count  (length (mutation-journal-read-records configuration))))
                   (test-assert
                    (handler-case
                        (progn (call "set" (json-object "symbol" "*test-telemetry-repair-setting*" "value" ":invalid"
@@ -257,7 +257,7 @@
                   (call "set" (json-object "symbol" "*test-telemetry-repair-setting*" "value" ":linked"
                                            "incident" (papercut-identifier first)))
                   (let ((mutation (getf (rest (test-telemetry-hooks--latest-set configuration)) :id))
-                        (count (length (mutation-journal-read-records configuration))))
+                        (count    (length (mutation-journal-read-records configuration))))
                     (test-assert
                      (handler-case
                          (progn (call "exercise" (json-object "mutation" mutation "incident" (papercut-identifier second)
@@ -288,20 +288,20 @@
                               :source "private-source-fixture" :output "private-output-fixture"))))
                    (multiple-value-bind (report duplicate-p)
                        (papercut-report configuration :title "Fixture event dispatch fault"
-                                       :content "Fixture callback invocation loses its event.")
+                                       :content              "Fixture callback invocation loses its event.")
                      (test-assert (not duplicate-p) "First fixture report is new.")
                      (multiple-value-bind (duplicate duplicate-p)
                          (papercut-report configuration :title "Fixture event dispatch fault"
-                                         :content "Fixture callback invocation loses its event.")
+                                         :content              "Fixture callback invocation loses its event.")
                        (test-assert (and duplicate-p
                                          (string= (papercut-identifier report) (papercut-identifier duplicate)))
                                     "Duplicates reuse the active report identifier."))
                      (papercut-mark-closed configuration (papercut-identifier report)
                                            :resolution "Fixture manually closed.")
                      (test-assert (null (papercut-list configuration)) "Closure updates persistent report state."))))))))
-        (let* ((body (first bodies))
+        (let* ((body    (first bodies))
                (repairs (test-telemetry-hooks--kind body "repair"))
-               (checks (test-telemetry-hooks--kind body "check"))
+               (checks  (test-telemetry-hooks--kind body "check"))
                (closure (first (test-telemetry-hooks--kind body "closure")))
                (reports (test-telemetry-hooks--kind body "report")))
           (test-assert (= (length reports) 1) "Only a new papercut emits a report.")

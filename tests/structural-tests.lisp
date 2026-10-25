@@ -22,16 +22,16 @@
   "Run FUNCTION against an isolated ordinary workspace with explicitly approved backend execution."
   (with-test-configuration (configuration root)
     (let* ((configuration (configuration-copy configuration :working-directory root))
-           (registry (make-instance 'tool-registry))
-           (commands nil)
-           (context (make-instance
-                     'tool-context :configuration configuration :registry registry :worker nil
-                     :conversation (conversation-create configuration :identifier "structural")
-                     :command-authorization-function
-                     (lambda (command directory)
-                       (declare (ignore directory))
-                       (push command commands)
-                       ':full-access))))
+           (registry      (make-instance 'tool-registry))
+           (commands      nil)
+           (context       (make-instance
+                           'tool-context :configuration configuration :registry registry :worker nil
+                           :conversation (conversation-create configuration :identifier "structural")
+                           :command-authorization-function
+                           (lambda (command directory)
+                             (declare (ignore directory))
+                             (push command commands)
+                             ':full-access))))
       (default-tools--register-workspace registry)
       (structural-register-tools registry :program (structural-tests--program))
       (unwind-protect
@@ -51,8 +51,8 @@
 (-> structural-tests--revision (tool-context string) string)
 (defun structural-tests--revision (context uri)
   "Observe a workspace URI and retain its ordinary conversation-local revision handle."
-  (let* ((resource (resource-registry-resolve
-                    (tool-registry-resource-registry (tool-context-registry context)) uri context))
+  (let* ((resource    (resource-registry-resolve
+                       (tool-registry-resource-registry (tool-context-registry context)) uri context))
          (observation (workspace-file--call-with-authorized-access
                        resource context ':read (lambda () (resource-observe resource context)))))
     (resource-observation-state-alias
@@ -108,14 +108,14 @@
   (structural-tests--fixture
    (lambda (configuration registry context commands)
      (declare (ignore registry))
-     (let* ((path (structural-tests--write
-                   (merge-pathnames "source.js" (config :working-directory configuration))
-                   "const emoji = '😀'; foo(1); foo(2);"))
-            (revision (structural-tests--revision context "workspace:source.js"))
+     (let* ((path      (structural-tests--write
+                        (merge-pathnames "source.js" (config :working-directory configuration))
+                        "const emoji = '😀'; foo(1); foo(2);"))
+            (revision  (structural-tests--revision context "workspace:source.js"))
             (arguments (structural-tests--arguments revision))
-            (first (structural-tests--call context "query" arguments))
-            (second (structural-tests--call context "query" arguments))
-            (matches (json-get first "matches")))
+            (first     (structural-tests--call context "query" arguments))
+            (second    (structural-tests--call context "query" arguments))
+            (matches   (json-get first "matches")))
        (test-assert (= 2 (length matches)) "real structural matches")
        (test-assert (equal (json-get first "snapshot") (json-get second "snapshot")) "snapshot stable for exact revision")
        (test-assert (equal (json-get (aref matches 0) "match")
@@ -123,8 +123,8 @@
        (test-assert (> (json-get (aref matches 0) "startByte") (json-get (aref matches 0) "start"))
                     "UTF-8 span differs from character span")
        (test-assert (equal "foo(1)" (json-get (aref matches 0) "text")) "validated source match")
-       (let* ((proposal (structural-tests--call context "rewrite"
-                                               (structural-tests--arguments revision :replacement "bar($A)")))
+       (let* ((proposal   (structural-tests--call context "rewrite"
+                                                 (structural-tests--arguments revision :replacement "bar($A)")))
               (identifier (json-get proposal "proposal")))
          (test-assert (equal "const emoji = '😀'; foo(1); foo(2);" (uiop:read-file-string path))
                       "preview stages without publication")
@@ -151,13 +151,13 @@
   (structural-tests--fixture
    (lambda (configuration registry context commands)
      (declare (ignore commands))
-     (let* ((path (structural-tests--write (merge-pathnames "source.js" (config :working-directory configuration)) "foo(1);"))
-            (revision (structural-tests--revision context "workspace:source.js"))
-            (proposal (structural-tests--call context "rewrite" (structural-tests--arguments revision :replacement "bar($A)")))
+     (let* ((path       (structural-tests--write (merge-pathnames "source.js" (config :working-directory configuration)) "foo(1);"))
+            (revision   (structural-tests--revision context "workspace:source.js"))
+            (proposal   (structural-tests--call context "rewrite" (structural-tests--arguments revision :replacement "bar($A)")))
             (identifier (json-get proposal "proposal"))
             (apply-tool (tool-registry-find registry "structural" "apply"))
-            (other (make-instance 'tool-context :configuration configuration :registry registry :worker nil
-                                  :conversation (conversation-create configuration :identifier "other"))))
+            (other      (make-instance 'tool-context :configuration configuration :registry registry :worker nil
+                                       :conversation (conversation-create configuration :identifier "other"))))
        (test-assert (structural-tests--rejected
                      (lambda () (tool-execute apply-tool other (json-object "proposal" identifier))))
                     "proposal scoped to originating conversation")
@@ -171,9 +171,9 @@
        (test-assert (equal identifier (json-get (structural-tests--call context "inspect" (json-object "proposal" identifier)) "proposal"))
                     "failed application retains inspection evidence")
        (let* ((*structural-maximum-proposals* 1)
-              (new-revision (structural-tests--revision context "workspace:source.js"))
-              (new (structural-tests--call context "rewrite"
-                                          (structural-tests--arguments new-revision :pattern "changed($A)" :replacement "next($A)"))))
+              (new-revision                   (structural-tests--revision context "workspace:source.js"))
+              (new                            (structural-tests--call context "rewrite"
+                                                                     (structural-tests--arguments new-revision :pattern "changed($A)" :replacement "next($A)"))))
          (test-assert (structural-tests--rejected
                        (lambda () (tool-execute (tool-registry-find registry "structural" "inspect") context
                                                 (json-object "proposal" identifier)))) "oldest proposal evicted")
@@ -188,10 +188,10 @@
   (structural-tests--fixture
    (lambda (configuration registry context commands)
      (declare (ignore commands))
-     (let* ((path (structural-tests--write (merge-pathnames "source.js" (config :working-directory configuration)) "foo(1);"))
-            (revision (structural-tests--revision context "workspace:source.js"))
+     (let* ((path      (structural-tests--write (merge-pathnames "source.js" (config :working-directory configuration)) "foo(1);"))
+            (revision  (structural-tests--revision context "workspace:source.js"))
             (arguments (structural-tests--arguments revision :replacement "bar($A)"))
-            (query (tool-registry-find registry "structural" "query")))
+            (query     (tool-registry-find registry "structural" "query")))
        (dolist (decision '(:deny :sandboxed))
          (let ((denied (make-instance
                         'tool-context :configuration configuration :registry registry :worker nil
@@ -224,13 +224,13 @@
   (structural-tests--fixture
    (lambda (configuration registry context commands)
      (declare (ignore commands))
-     (let* ((path (structural-tests--write (merge-pathnames "source.js" (config :working-directory configuration)) "foo(1);"))
-            (revision (structural-tests--revision context "workspace:source.js"))
-            (proposal (structural-tests--call context "rewrite"
-                                               (structural-tests--arguments revision :pattern "missing($A)" :replacement "bar($A)")))
+     (let* ((path       (structural-tests--write (merge-pathnames "source.js" (config :working-directory configuration)) "foo(1);"))
+            (revision   (structural-tests--revision context "workspace:source.js"))
+            (proposal   (structural-tests--call context "rewrite"
+                                                 (structural-tests--arguments revision :pattern "missing($A)" :replacement "bar($A)")))
             (identifier (json-get proposal "proposal"))
             (apply-tool (tool-registry-find registry "structural" "apply"))
-            (entry (structural--find (structural-tool-state apply-tool) context identifier)))
+            (entry      (structural--find (structural-tool-state apply-tool) context identifier)))
        (test-assert (zerop (length (json-get proposal "edits"))) "no-match rewrite has empty edit plan")
        (test-assert (structural-tests--rejected
                      (lambda () (structural--apply (structural-tool-state apply-tool) context entry :cancelled-p (lambda () t))))
@@ -238,8 +238,8 @@
        (test-assert (equal "foo(1);" (uiop:read-file-string path)) "cancelled apply writes nothing")
        (test-assert (= 0 (json-get (structural-tests--call context "apply" (json-object "proposal" identifier)) "resources"))
                     "no-match apply validates and consumes without publishing")
-       (let* ((new (structural-tests--call context "rewrite"
-                                          (structural-tests--arguments revision :pattern "missing($A)" :replacement "bar($A)")))
+       (let* ((new    (structural-tests--call context "rewrite"
+                                             (structural-tests--arguments revision :pattern "missing($A)" :replacement "bar($A)")))
               (new-id (json-get new "proposal")))
          (structural-tests--write path "changed(1);")
          (test-assert (structural-tests--rejected
@@ -247,36 +247,35 @@
                       "no-match apply checks stale original too")))))
   nil)
 
-
 (-> test-structural-external-path-authority () null)
 (defun test-structural-external-path-authority ()
   "Authorize out-of-root source, executable and publication paths independently through ordinary boundaries."
   (structural-tests--fixture
    (lambda (configuration registry original commands)
      (declare (ignore commands))
-     (let* ((root (config :working-directory configuration))
-            (workspace (merge-pathnames "workspace/" root))
+     (let* ((root          (config :working-directory configuration))
+            (workspace     (merge-pathnames "workspace/" root))
             (configuration (configuration-copy configuration :working-directory workspace :source-root workspace))
-            (source (structural-tests--write (merge-pathnames "external.js" root) "foo(1);"))
-            (uri (concatenate 'string "workspace:" (workspace-file--encode-identifier (uiop:native-namestring source))))
-            (phase ':allow)
-            (requests nil)
-            (context (make-instance
-                      'tool-context :configuration configuration :registry registry :worker nil
-                      :conversation (tool-context-conversation original)
-                      :command-authorization-function
-                      (lambda (command directory)
-                        (declare (ignore directory))
-                        (push command requests)
-                        (if (or (and (eq phase ':deny-read) (uiop:string-prefix-p "resource.read --" command))
-                                (and (eq phase ':deny-program) (uiop:string-prefix-p "structural --" command))
-                                (and (eq phase ':deny-edit) (uiop:string-prefix-p "resource.edit --" command)))
-                            ':deny ':full-access)))))
+            (source        (structural-tests--write (merge-pathnames "external.js" root) "foo(1);"))
+            (uri           (concatenate 'string "workspace:" (workspace-file--encode-identifier (uiop:native-namestring source))))
+            (phase         ':allow)
+            (requests      nil)
+            (context       (make-instance
+                            'tool-context :configuration configuration :registry registry :worker nil
+                            :conversation (tool-context-conversation original)
+                            :command-authorization-function
+                            (lambda (command directory)
+                              (declare (ignore directory))
+                              (push command requests)
+                              (if (or (and (eq phase ':deny-read) (uiop:string-prefix-p "resource.read --" command))
+                                      (and (eq phase ':deny-program) (uiop:string-prefix-p "structural --" command))
+                                      (and (eq phase ':deny-edit) (uiop:string-prefix-p "resource.edit --" command)))
+                                  ':deny ':full-access)))))
        (ensure-directories-exist workspace)
-       (let* ((revision (structural-tests--revision context uri))
-              (arguments (structural-tests--arguments revision :replacement "bar($A)"))
-              (query (tool-registry-find registry "structural" "query"))
-              (rewrite (tool-registry-find registry "structural" "rewrite"))
+       (let* ((revision   (structural-tests--revision context uri))
+              (arguments  (structural-tests--arguments revision :replacement "bar($A)"))
+              (query      (tool-registry-find registry "structural" "query"))
+              (rewrite    (tool-registry-find registry "structural" "rewrite"))
               (apply-tool (tool-registry-find registry "structural" "apply")))
          (setf (gethash "uri" arguments) uri
                phase ':deny-read)
@@ -294,7 +293,7 @@
          (test-assert (structural-tests--rejected (lambda () (tool-execute rewrite context arguments)))
                       "preview staging needs ordinary edit approval")
          (setf phase ':allow)
-         (let* ((proposal (structural-tests--call context "rewrite" arguments))
+         (let* ((proposal   (structural-tests--call context "rewrite" arguments))
                 (identifier (json-get proposal "proposal")))
            (setf phase ':deny-edit)
            (test-assert (structural-tests--rejected
@@ -317,11 +316,11 @@
    (lambda (configuration registry context commands)
      (declare (ignore commands))
      (let* ((*workspace-file-resource-maximum-observations* 1)
-            (root (config :working-directory configuration))
-            (source (structural-tests--write (merge-pathnames "source.js" root) "foo(1);"))
-            (revision (structural-tests--revision context "workspace:source.js"))
-            (proposal (structural-tests--call context "rewrite"
-                                               (structural-tests--arguments revision :replacement "bar($A)"))))
+            (root                                           (config :working-directory configuration))
+            (source                                         (structural-tests--write (merge-pathnames "source.js" root) "foo(1);"))
+            (revision                                       (structural-tests--revision context "workspace:source.js"))
+            (proposal                                       (structural-tests--call context "rewrite"
+                                                                                     (structural-tests--arguments revision :replacement "bar($A)"))))
        (structural-tests--write (merge-pathnames "other.js" root) "other(1);")
        (structural-tests--revision context "workspace:other.js")
        (test-assert (structural-tests--rejected
@@ -333,12 +332,11 @@
                                               (structural-tests--arguments revision)))) "expired query revision rejected")
        (test-assert (equal "foo(1);" (uiop:read-file-string source)) "expired proposal publishes nothing")
        (let* ((new-revision (structural-tests--revision context "workspace:source.js"))
-              (query (structural-tests--call context "query" (structural-tests--arguments new-revision))))
+              (query        (structural-tests--call context "query" (structural-tests--arguments new-revision))))
          (test-assert (not (equal (json-get proposal "snapshot") (json-get query "snapshot")))
                       "new revision produces a distinct snapshot identity despite equal source")
          (test-assert (= 1 (length (json-get query "matches"))) "reread revision supports a fresh query")))))
   nil)
-
 
 (-> test-structural-concurrent-proposal-application () null)
 (defun test-structural-concurrent-proposal-application ()
@@ -346,21 +344,21 @@
   (structural-tests--fixture
    (lambda (configuration registry context commands)
      (declare (ignore commands))
-     (let* ((source (structural-tests--write
-                     (merge-pathnames "source.js" (config :working-directory configuration)) "foo(1);"))
-            (revision (structural-tests--revision context "workspace:source.js"))
-            (arguments (structural-tests--arguments revision :pattern "missing($A)" :replacement "bar($A)"))
-            (proposal (structural-tests--call context "rewrite" arguments))
-            (identifier (json-get proposal "proposal"))
-            (call (json-object "namespace" "structural" "name" "apply"
-                               "arguments" (json-encode (json-object "proposal" identifier))))
+     (let* ((source        (structural-tests--write
+                            (merge-pathnames "source.js" (config :working-directory configuration)) "foo(1);"))
+            (revision      (structural-tests--revision context "workspace:source.js"))
+            (arguments     (structural-tests--arguments revision :pattern "missing($A)" :replacement "bar($A)"))
+            (proposal      (structural-tests--call context "rewrite" arguments))
+            (identifier    (json-get proposal "proposal"))
+            (call          (json-object "namespace" "structural" "name" "apply"
+                                        "arguments" (json-encode (json-object "proposal" identifier))))
             (first-context (make-instance 'tool-context :configuration configuration :registry registry :worker nil
                                           :conversation (tool-context-conversation context)))
-            (entered (sb-thread:make-semaphore :count 0))
-            (release (sb-thread:make-semaphore :count 0))
-            (original (symbol-function 'cl-resources:resource-check-revision))
-            (thread nil)
-            (first-result nil))
+            (entered       (sb-thread:make-semaphore :count 0))
+            (release       (sb-thread:make-semaphore :count 0))
+            (original      (symbol-function 'cl-resources:resource-check-revision))
+            (thread        nil)
+            (first-result  nil))
        (test-call-with-function-replacements
         (list
          (list 'cl-resources:resource-check-revision
@@ -386,9 +384,9 @@
                                      (json-get (structural-tests--call context "inspect" (json-object "proposal" identifier)) "proposal"))
                               "reserved proposal remains inspectable")
                  (let* ((*structural-maximum-proposals* 1)
-                        (capacity (tool-registry-execute-call
-                                   registry (json-object "namespace" "structural" "name" "rewrite"
-                                                         "arguments" (json-encode arguments)) context)))
+                        (capacity                       (tool-registry-execute-call
+                                                         registry (json-object "namespace" "structural" "name" "rewrite"
+                                                                               "arguments" (json-encode arguments)) context)))
                    (test-assert (eq ':proposal-limit (tool-result-error-code capacity))
                                 "bounded retention cannot evict an active application")))
             (sb-thread:signal-semaphore release)
@@ -396,8 +394,8 @@
        (test-assert (tool-result-success-p first-result) "reserved no-match invocation succeeds once")
        (test-assert (eq ':unknown-proposal (tool-result-error-code (tool-registry-execute-call registry call context)))
                     "successful application consumes its reservation")
-       (let* ((retry (structural-tests--call context "rewrite" arguments))
-              (retry-id (json-get retry "proposal"))
+       (let* ((retry      (structural-tests--call context "rewrite" arguments))
+              (retry-id   (json-get retry "proposal"))
               (retry-call (json-object "namespace" "structural" "name" "apply"
                                        "arguments" (json-encode (json-object "proposal" retry-id)))))
          (test-call-with-function-replacements

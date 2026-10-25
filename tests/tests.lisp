@@ -21,10 +21,10 @@
                '((:linux) (:darwin :bsd) (:bsd) nil))
         (test-assert
          (handler-case
-             (let ((*features* (append platform-features native-features))
+             (let ((*features*  (append platform-features native-features))
                    (*read-eval* nil))
                (with-open-file (stream source-path
-                                       :direction ':input
+                                       :direction       ':input
                                        :external-format ':utf-8)
                  (loop until (eq (read stream nil ':eof) ':eof)))
                t)
@@ -33,7 +33,6 @@
          "POSIX adapter source reads with each supported platform feature set"))))
   nil)
 
-
 (-> tests--restore-environment (string (or null string)) null)
 (defun tests--restore-environment (name value)
   "Restore environment variable NAME to VALUE."
@@ -41,7 +40,6 @@
       (platform-setenv name value)
       (platform-unsetenv name))
   nil)
-
 
 (-> test-context-window-environment () null)
 (defun test-context-window-environment ()
@@ -77,10 +75,10 @@
              (flet ((configuration (&key defer-provider-validation-p)
                       "Create a configuration without reading user preferences or model caches."
                       (configuration-create
-                       :source-root (config :source-root fixture)
-                       :working-directory (config :working-directory fixture)
-                       :cache-root (config :cache-root fixture)
-                       :durable-p nil
+                       :source-root                 (config :source-root fixture)
+                       :working-directory           (config :working-directory fixture)
+                       :cache-root                  (config :cache-root fixture)
+                       :durable-p                   nil
                        :defer-provider-validation-p defer-provider-validation-p)))
                (test-assert
                 (handler-case
@@ -98,7 +96,6 @@
         (provider--registry-restore snapshot))))
   nil)
 
-
 (-> test-text-line-splitting () null)
 (defun test-text-line-splitting ()
   "Test line splitting distinguishes CRLF delimiters from a final bare CR."
@@ -112,12 +109,11 @@
      "line splitting preserves a final bare carriage return"))
   nil)
 
-
 (-> test-xdg-directory-selection () null)
 (defun test-xdg-directory-selection ()
   "Test XDG roots reject invalid values, report state, and use private modes."
-  (let* ((source-root (asdf:system-source-directory :autolith))
-         (home (user-homedir-pathname))
+  (let* ((source-root     (asdf:system-source-directory :autolith))
+         (home            (user-homedir-pathname))
          (direct-variable "AUTOLITH_TEST_XDG_DIRECTORY")
          ;; Each case names the variable, the root it selects, and the
          ;; directory the XDG convention chooses without it; the host's own
@@ -162,9 +158,9 @@
                         "Return the root ACCESSOR selects for a fresh configuration."
                         (funcall accessor
                                  (configuration-create
-                                  :source-root source-root
-                                  :working-directory source-root
-                                  :durable-p nil
+                                  :source-root                 source-root
+                                  :working-directory           source-root
+                                  :durable-p                   nil
                                   :defer-provider-validation-p t))))
                  (platform-unsetenv variable)
                  (let ((fallback (root)))
@@ -185,55 +181,54 @@
                (environment-api-key-credential-source--pathname "fixture")
                (merge-pathnames "autolith/fixture-auth.sexp" state-home))
               "environment API-key reporting includes one autolith state component")))
-           (let* ((configuration (test-configuration))
-                  (root (test-configuration-root configuration)))
-             (unwind-protect
-                  (progn
-                    (configuration-ensure-directories configuration)
+         (let* ((configuration (test-configuration))
+                (root          (test-configuration-root configuration)))
+           (unwind-protect
+                (progn
+                  (configuration-ensure-directories configuration)
+                  (test-assert
+                   (every
+                    (lambda (directory)
+                      (test-fixture-permissions-p
+                       *platform* directory ':private-directory))
+                    (list (config :config-root configuration)
+                          (config :data-root configuration)
+                          (config :state-root configuration)
+                          (config :cache-root configuration)))
+                   "new XDG application roots are private to the user")
+                  ;; A file that plain OPEN creates below a private root
+                  ;; must stay usable by its creator: Windows gives it the
+                  ;; root's inheritable entries, POSIX the process umask.
+                  (let ((created (merge-pathnames "created-inside.txt"
+                                                  (config :state-root configuration))))
+                    (with-open-file (stream created
+                                            :direction         ':output
+                                            :if-exists         ':supersede
+                                            :if-does-not-exist ':create
+                                            :external-format   ':utf-8)
+                      (write-line "inside" stream))
                     (test-assert
-                     (every
-                      (lambda (directory)
-                        (test-fixture-permissions-p
-                         *platform* directory ':private-directory))
-                      (list (config :config-root configuration)
-                            (config :data-root configuration)
-                            (config :state-root configuration)
-                            (config :cache-root configuration)))
-                     "new XDG application roots are private to the user")
-                    ;; A file that plain OPEN creates below a private root
-                    ;; must stay usable by its creator: Windows gives it the
-                    ;; root's inheritable entries, POSIX the process umask.
-                    (let ((created (merge-pathnames "created-inside.txt"
-                                                    (config :state-root configuration))))
-                      (with-open-file (stream created
-                                              :direction ':output
-                                              :if-exists ':supersede
-                                              :if-does-not-exist ':create
-                                              :external-format ':utf-8)
-                        (write-line "inside" stream))
-                      (test-assert
-                       (and (string= (with-open-file (stream created :external-format ':utf-8)
-                                       (read-line stream))
-                                     "inside")
-                            (eq (platform-file-status-kind
-                                 (platform-path-status *platform* created))
-                                ':file))
-                       "files created below a private root stay readable by their creator")))
-               (platform-delete-directory-tree
-                *platform*
-                root :validate t :if-does-not-exist ':ignore)))
+                     (and (string= (with-open-file (stream created :external-format ':utf-8)
+                                     (read-line stream))
+                                   "inside")
+                          (eq (platform-file-status-kind
+                               (platform-path-status *platform* created))
+                              ':file))
+                     "files created below a private root stay readable by their creator")))
+             (platform-delete-directory-tree
+              *platform*
+              root :validate t :if-does-not-exist ':ignore)))
       (dolist (entry saved)
         (tests--restore-environment (first entry) (rest entry)))))
   nil)
-
 
 (-> test-core-defaults () null)
 (defun test-core-defaults ()
   "Test configuration defaults and basic JSON and presentation behavior."
   (let ((configuration (configuration-create
-                        :source-root (asdf:system-source-directory :autolith)
+                        :source-root       (asdf:system-source-directory :autolith)
                         :working-directory (asdf:system-source-directory :autolith)
-                        :durable-p nil)))
+                        :durable-p         nil)))
     (test-assert (string= (config :model configuration) "gpt-6.1-sol")
                  "the default model is gpt-6.1-sol")
     (let ((*default-model* "gpt-5.6-luna"))
@@ -243,7 +238,7 @@
                   :source-root (asdf:system-source-directory :autolith)
                   :working-directory
                   (asdf:system-source-directory :autolith)
-                  :durable-p nil))
+                  :durable-p   nil))
                 "gpt-5.6-luna")
        "live default parameters affect newly created configurations"))
     (test-assert (string= (config :model
@@ -312,7 +307,7 @@
      (handler-case
          (progn
            (configuration-copy configuration
-                               :model "gpt-5.6-terra"
+                               :model            "gpt-5.6-terra"
                                :reasoning-effort "none")
            nil)
        (setting-invalid ()
@@ -323,7 +318,7 @@
        (search "Condition text."
                (bounded-string
                 (make-condition 'simple-error
-                                :format-control "Condition text."
+                                :format-control   "Condition text."
                                 :format-arguments nil)))
        "bounded presentation renders unreadable conditions safely")))
   nil)

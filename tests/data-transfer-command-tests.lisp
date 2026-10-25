@@ -8,10 +8,10 @@
   (with-test-configuration (configuration root)
     (declare (ignore root))
     (let* ((application (make-instance 'application :configuration configuration))
-           (observed nil)
-           (report (list :pathname "archive.sexp" :workspace nil :workspaces nil
-                         :conversations 0 :memories 0 :agendas 0 :plans 0
-                         :papercuts 0 :files 0)))
+           (observed    nil)
+           (report      (list :pathname "archive.sexp" :workspace nil :workspaces nil
+                              :conversations 0 :memories 0 :agendas 0 :plans 0
+                              :papercuts 0 :files 0)))
       (labels ((transfer (operation pathname &key workspace received-configuration)
                  (test-assert (eq configuration received-configuration)
                               "both entry points use their explicit configuration")
@@ -20,7 +20,7 @@
 
                (cli (arguments)
                  (let ((*standard-output* (make-string-output-stream))
-                       (*error-output* (make-string-output-stream)))
+                       (*error-output*    (make-string-output-stream)))
                    (catch 'data-command-exit
                      (main arguments)
                      0))))
@@ -33,11 +33,11 @@
                   configuration))
           (list 'data-export
                 (lambda (pathname &key workspace configuration)
-                  (transfer ':export pathname :workspace workspace
+                  (transfer ':export pathname :workspace              workspace
                                               :received-configuration configuration)))
           (list 'data-import
                 (lambda (pathname &key workspace configuration)
-                  (transfer ':import pathname :workspace workspace
+                  (transfer ':import pathname :workspace              workspace
                                               :received-configuration configuration)))
           (list 'application-present
                 (lambda (&rest arguments) (declare (ignore arguments)) nil))
@@ -85,10 +85,10 @@
                (test-assert (not (wild-pathname-p path))
                             "command pathnames preserve literal wildcard characters")
                (test-assert (equal name (uiop:native-namestring (make-pathname :name (pathname-name path)
-                                                                             :type (pathname-type path))))
+                                                                             :type   (pathname-type path))))
                             "command pathnames preserve native backslashes")))
            (dolist (operation '("export" "import"))
-             (let ((archive #P"Mixed Case/archive.sexp")
+             (let ((archive   #P"Mixed Case/archive.sexp")
                    (workspace #P"Mixed Case/workspace/"))
                (setf observed nil)
                (application-operation-call application (format nil "data.~A" operation)
@@ -143,16 +143,15 @@
              (test-assert (null observed) "help performs no transfer")))))))
   nil)
 
-
 (-> test-data-transfer-receipt-presentation () null)
 (defun test-data-transfer-receipt-presentation ()
   "Exercise typed receipts and fullscreen reflow of long, wide native paths."
-  (let* ((path (uiop:native-namestring
-                #P"猫/wide archive/subdirectory/another directory/archive.sexp"))
+  (let* ((path   (uiop:native-namestring
+                  #P"猫/wide archive/subdirectory/another directory/archive.sexp"))
          (report (list :pathname path :workspace "猫/workspace/"
                        :conversations 11 :memories 12 :agendas 13
                        :plans 14 :papercuts 15 :files 16))
-         (entry (data-transfer-report-entry "Exported" report)))
+         (entry  (data-transfer-report-entry "Exported" report)))
     (test-assert (terminal-styled-text-p entry) "transfer receipt is a semantic transcript entry")
     (test-assert (command-view-tests--role-p entry ':success "Exported") "completed transfer uses success severity")
     (test-assert (command-view-tests--role-p entry ':code path) "archive pathname has code styling")
@@ -163,9 +162,9 @@
         (terminal-ui-append-finalized ui ':transfer-receipt entry)
         (dolist (width '(12 37 90))
           (terminal-ui-resize ui width :rows 12)
-          (let* ((viewport (fullscreen-terminal-ui-viewport ui))
-                 (texts (loop for index below (clinedi:transcript-viewport-row-count viewport)
-                              collect (clinedi:transcript-viewport-row-text viewport index)))
+          (let* ((viewport  (fullscreen-terminal-ui-viewport ui))
+                 (texts     (loop for index below (clinedi:transcript-viewport-row-count viewport)
+                                  collect (clinedi:transcript-viewport-row-text viewport index)))
                  (flattened (remove #\Space (format nil "~{~A~}" texts))))
             (test-assert (every (lambda (text) (<= (text-cell-width text) width)) texts)
                          "narrow and wide fullscreen rows fit in terminal cells")

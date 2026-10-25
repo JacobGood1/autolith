@@ -6,9 +6,9 @@
 (defun test-command-permission-persistence ()
   "Test exact command approvals persist, remain directory-scoped, and clear."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (other (merge-pathnames "other/" root))
-         (state (permissions-load configuration)))
+         (root          (test-configuration-root configuration))
+         (other         (merge-pathnames "other/" root))
+         (state         (permissions-load configuration)))
     (unwind-protect
          (progn
            (test-assert
@@ -20,19 +20,19 @@
            (test-assert
             (not (permissions-allowed-p state "git status" root))
             "unknown commands are denied by persistent permission lookup")
-            (let ((stale-a (permissions-load configuration))
-                  (stale-b (permissions-load configuration)))
-              (permissions-allow :configuration configuration
-                                 :state         stale-a
-                                 :command       "git diff"
-                                 :directory     root)
-              (permissions-allow :configuration configuration
-                                 :state         stale-b
-                                 :command       "git show"
-                                 :directory     root)
-              (test-assert (and (permissions-allowed-p stale-b "git diff" root)
-                                (permissions-allowed-p stale-b "git show" root))
-                           "stale approval callers merge fresh persisted permissions"))
+           (let ((stale-a (permissions-load configuration))
+                 (stale-b (permissions-load configuration)))
+             (permissions-allow :configuration configuration
+                                :state         stale-a
+                                :command       "git diff"
+                                :directory     root)
+             (permissions-allow :configuration configuration
+                                :state         stale-b
+                                :command       "git show"
+                                :directory     root)
+             (test-assert (and (permissions-allowed-p stale-b "git diff" root)
+                               (permissions-allowed-p stale-b "git show" root))
+                          "stale approval callers merge fresh persisted permissions"))
            (permissions-allow :configuration configuration
                               :state         state
                               :command       "git status"
@@ -70,7 +70,7 @@
                         "(:permissions :version 1 :rules ((:command \"anything\" :directory \"/\" :command \"other\")))"))
         (snapshot-write-text pathname source)
         (let ((warned-p nil)
-              (state nil))
+              (state    nil))
           (handler-bind
               ((permissions-load-warning
                  (lambda (condition)
@@ -102,8 +102,8 @@
 (defun test-command-permission-write-failure ()
   "Test that a failed approval publication does not mutate its caller state."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (state (permissions-load configuration)))
+         (root          (test-configuration-root configuration))
+         (state         (permissions-load configuration)))
     (unwind-protect
          (progn
            (ensure-directories-exist
@@ -113,9 +113,9 @@
             (handler-case
                 (progn
                   (permissions-allow :configuration configuration
-                                     :state state
-                                     :command "git status"
-                                     :directory root)
+                                     :state         state
+                                     :command       "git status"
+                                     :directory     root)
                   nil)
               (permissions-error () t))
             "a permission publication failure is reported")
@@ -183,21 +183,21 @@
 (defun test-external-tool-permission-modes ()
   "Exercise external calls through shared modes, picker choices, and exact rules."
   (with-test-configuration (configuration root)
-    (let* ((tool (make-instance 'tool :namespace "service" :name "lookup"
-                                :description "Read one service record."
-                                :parameters (json-object "type" "object")))
-           (arguments (json-object "record" "one"))
-           (state (permissions-load configuration))
-           (application (make-instance 'application :configuration configuration
-                                       :permission-state state
-                                       :ui (terminal-ui-create
-                                            :terminal (make-instance 'recording-terminal))
-                                       :provider (make-instance 'rlm-inference-test-provider
-                                                                :results nil)))
-           (choice "once")
-           (pick-count 0)
+    (let* ((tool           (make-instance 'tool :namespace "service" :name "lookup"
+                                          :description "Read one service record."
+                                          :parameters  (json-object "type" "object")))
+           (arguments      (json-object "record" "one"))
+           (state          (permissions-load configuration))
+           (application    (make-instance 'application :configuration configuration
+                                          :permission-state           state
+                                          :ui                         (terminal-ui-create
+                                                                       :terminal (make-instance 'recording-terminal))
+                                          :provider                   (make-instance 'rlm-inference-test-provider
+                                                                                     :results nil)))
+           (choice         "once")
+           (pick-count     0)
            (classify-count 0)
-           (decision ':full-access))
+           (decision       ':full-access))
       (setf (application-input-controller application)
             (make-instance 'application-input-controller :application application))
       (test-call-with-function-replacements
@@ -266,7 +266,7 @@
          (test-assert (and (eq (application-authorize-tool application tool arguments) ':allow)
                            (eq (application-permission-mode application) ':auto))
                       "auto selects the shared session policy")
-         (let ((before pick-count)
+         (let ((before     pick-count)
                (classified classify-count))
            (test-assert (and (eq (application-authorize-tool application tool arguments) ':allow)
                              (= before pick-count)
@@ -284,7 +284,7 @@
 (-> test-external-tool-permission-keys () null)
 (defun test-external-tool-permission-keys ()
   "Verify exact typed identity and order-independent JSON object keys."
-  (let ((first (make-instance 'tool :namespace "service" :name "first"))
+  (let ((first  (make-instance 'tool :namespace "service" :name "first"))
         (second (make-instance 'tool :namespace "service" :name "second")))
     (test-assert
      (string=
@@ -320,7 +320,7 @@
           (arguments (json-object))
           (application
            (make-instance 'application :configuration configuration :ui nil))
-          (key (application--tool-permission-key tool arguments)))
+          (key       (application--tool-permission-key tool arguments)))
      (test-assert
       (eq (application-authorize-tool application tool arguments) ':deny)
       "a headless session without a classifier cannot silently grant an external call")

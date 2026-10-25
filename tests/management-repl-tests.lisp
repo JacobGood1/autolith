@@ -36,8 +36,8 @@
   (let ((pathname (config :management-repl-token-file-path configuration)))
     (ensure-directories-exist pathname)
     (with-open-file (stream pathname
-                            :direction ':output
-                            :if-exists ':supersede
+                            :direction       ':output
+                            :if-exists       ':supersede
                             :external-format ':utf-8)
       (write-string token stream))
     (platform-make-private *platform* pathname))
@@ -59,7 +59,7 @@
 (defun management-repl-test-free-port ()
   "Return a currently free IPv4 loopback TCP port."
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
-                               :type ':stream
+                               :type     ':stream
                                :protocol ':tcp)))
     (unwind-protect
          (progn
@@ -76,12 +76,12 @@
   (every
    (lambda (reader)
      (equal (config reader left) (config reader right)))
-   (list :management-repl-enabled-p :management-repl-transport
-         :management-repl-unix-socket-path :management-repl-tcp-address
-         :management-repl-tcp-port :management-repl-token-file-path
-         :management-repl-evaluation-timeout :management-repl-maximum-frame-size
+   (list :management-repl-enabled-p           :management-repl-transport
+         :management-repl-unix-socket-path    :management-repl-tcp-address
+         :management-repl-tcp-port            :management-repl-token-file-path
+         :management-repl-evaluation-timeout  :management-repl-maximum-frame-size
          :management-repl-maximum-source-size :management-repl-maximum-output-size
-         :management-repl-queue-capacity :management-repl-maximum-clients
+         :management-repl-queue-capacity      :management-repl-maximum-clients
          :management-repl-authentication-timeout)))
 
 
@@ -90,10 +90,10 @@
 (-> test-management-repl-configuration () null)
 (defun test-management-repl-configuration ()
   "Test secure defaults, explicit settings, cloning, and loopback validation."
-  (let* ((root (uiop:ensure-directory-pathname
-                (merge-pathnames
-                 (format nil "management-config-~A/" (make-identifier))
-                 (uiop:temporary-directory))))
+  (let* ((root  (uiop:ensure-directory-pathname
+                 (merge-pathnames
+                  (format nil "management-config-~A/" (make-identifier))
+                  (uiop:temporary-directory))))
          (configuration
            (management-repl-test-configuration
             root :transport ':tcp :address "127.0.0.2" :port 4545
@@ -118,11 +118,11 @@
             "management endpoint is disabled by default")
            (let ((relative
                    (configuration-create
-                    :source-root (asdf:system-source-directory :autolith)
+                    :source-root                      (asdf:system-source-directory :autolith)
                     :working-directory
                     (asdf:system-source-directory :autolith)
                     :management-repl-unix-socket-path #P"relative/repl.sock"
-                    :management-repl-token-file-path #P"relative/token")))
+                    :management-repl-token-file-path  #P"relative/token")))
              (test-assert
               (and
                (uiop:absolute-pathname-p
@@ -143,7 +143,7 @@
                        (null (application-management-repl-endpoint application)))))
               "management TCP rejects non-loopback addresses as a configuration error")))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -159,11 +159,11 @@
   "Drive the Unix management transport through its application lifecycle."
   ;; A short MKDTEMP root keeps the socket path within the 104-byte macOS
   ;; limit below the long per-user TMPDIR.
-  (let* ((root (test-make-temporary-root))
+  (let* ((root          (test-make-temporary-root))
          (configuration (management-repl-test-configuration root))
-         (token "test-management-token")
-         (application (make-instance 'application :configuration configuration))
-         (stream nil))
+         (token         "test-management-token")
+         (application   (make-instance 'application :configuration configuration))
+         (stream        nil))
     (unwind-protect
          (progn
            (management-repl-test-write-token configuration token)
@@ -198,7 +198,7 @@
                 (and restarted (not (eq restarted endpoint))))
               "checkpoint quiescence restarts a fresh endpoint"))
            (let ((successor (make-instance 'application :configuration configuration))
-                 (endpoint (application-management-repl-endpoint application)))
+                 (endpoint  (application-management-repl-endpoint application)))
              (management-repl-transfer application successor)
              (test-assert
               (and (null (application-management-repl-endpoint application))
@@ -214,17 +214,17 @@
         (ignore-errors (close stream)))
       (ignore-errors (management-repl-stop application))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
 (-> test-management-repl-tcp-lifecycle () null)
 (defun test-management-repl-tcp-lifecycle ()
   "Test authenticated loopback TCP startup and deterministic shutdown."
-  (let* ((root (uiop:ensure-directory-pathname
-                (merge-pathnames
-                 (format nil "management-tcp-~A/" (make-identifier))
-                 (uiop:temporary-directory))))
+  (let* ((root        (uiop:ensure-directory-pathname
+                       (merge-pathnames
+                        (format nil "management-tcp-~A/" (make-identifier))
+                        (uiop:temporary-directory))))
          (configuration
            (management-repl-test-configuration
             root :transport ':tcp :port (management-repl-test-free-port)))
@@ -239,6 +239,6 @@
                         "management TCP shuts down deterministically"))
       (ignore-errors (management-repl-stop application))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)

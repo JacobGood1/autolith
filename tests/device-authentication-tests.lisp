@@ -34,27 +34,26 @@
           (device-authentication-test--base64url (json-encode payload))))
 
 
-
 ;;;; -- ChatGPT Device Authentication Tests --
 
 (-> device-authentication-test--complete-flow () null)
 (defun device-authentication-test--complete-flow ()
   "Exercise request, pending poll, exchange, display, and secure publication."
-  (let* ((account-id "account-test-123")
+  (let* ((account-id                                     "account-test-123")
          (id-token
            (device-authentication-test--jwt
             (json-object
              "https://api.openai.com/auth"
              (json-object "chatgpt_account_id" account-id))))
-         (requests nil)
-         (poll-count 0)
-         (clock 0)
-         (sleeps nil)
-         (opened-url nil)
+         (requests                                       nil)
+         (poll-count                                     0)
+         (clock                                          0)
+         (sleeps                                         nil)
+         (opened-url                                     nil)
          (*device-authentication-test-saved-credentials* nil))
     (flet ((request (&key method url headers content)
-             (push (list :method method
-                         :url url
+             (push (list :method  method
+                         :url     url
                          :headers headers
                          :content content)
                    requests)
@@ -108,12 +107,12 @@
              t))
       (let* ((client
                (device-authentication-client-create
-                :issuer "https://issuer.test/"
+                :issuer           "https://issuer.test/"
                 :request-function #'request
-                :sleep-function #'pause
-                :clock-function #'now
+                :sleep-function   #'pause
+                :clock-function   #'now
                 :browser-function #'open-browser))
-             (manager (device-authentication-test--manager))
+             (manager          (device-authentication-test--manager))
              (output
                (with-output-to-string (stream)
                  (test-assert
@@ -128,7 +127,7 @@
                (device-authentication-test--request
                 ordered-requests
                 "/oauth/token"))
-             (saved *device-authentication-test-saved-credentials*))
+             (saved            *device-authentication-test-saved-credentials*))
         (test-assert (= poll-count 2)
                      "pending authorization is polled until approved")
         (test-assert (equal sleeps '(2))
@@ -186,12 +185,12 @@
 (-> device-authentication-test--injected-poll () null)
 (defun device-authentication-test--injected-poll ()
   "Verify high-level authentication accepts an injected polling effect."
-  (let* ((account-id "account-from-access")
+  (let* ((account-id                                     "account-from-access")
          (access-token
            (device-authentication-test--jwt
             (json-object "chatgpt_account_id" account-id)))
-         (poll-calls 0)
-         (secret-guard-observed-p nil)
+         (poll-calls                                     0)
+         (secret-guard-observed-p                        nil)
          (*device-authentication-test-saved-credentials* nil))
     (flet ((request (&key method url headers content)
              (declare (ignore method headers content))
@@ -230,22 +229,22 @@
               "the injected poll receives the requested authorization")
              (make-instance 'device-authorization-code
                             :authorization-code "authorization-injected"
-                            :code-verifier "verifier-injected"))
+                            :code-verifier      "verifier-injected"))
 
            (unexpected-sleep (seconds)
              (declare (ignore seconds))
              (error "The injected poll must not sleep.")))
       (let ((client
               (device-authentication-client-create
-               :issuer "https://issuer.test"
+               :issuer           "https://issuer.test"
                :request-function #'request
-               :poll-function #'poll
-               :sleep-function #'unexpected-sleep)))
+               :poll-function    #'poll
+               :sleep-function   #'unexpected-sleep)))
         (with-output-to-string (stream)
           (device-authentication-login
            client
            (device-authentication-test--manager)
-           :stream stream
+           :stream         stream
            :open-browser-p nil))
         (test-assert (= poll-calls 1)
                      "the injected polling function is called exactly once")
@@ -262,9 +261,9 @@
 (-> device-authentication-test--timeout () null)
 (defun device-authentication-test--timeout ()
   "Verify pending responses stop at the configured polling deadline."
-  (let ((clock 0)
-        (poll-count 0)
-        (request-guard-observed-p nil)
+  (let ((clock                                          0)
+        (poll-count                                     0)
+        (request-guard-observed-p                       nil)
         (*device-authentication-test-saved-credentials* nil))
     (flet ((request (&key method url headers content)
              (declare (ignore method headers content))
@@ -293,11 +292,11 @@
              clock))
       (let* ((client
                (device-authentication-client-create
-                :issuer "https://issuer.test"
+                :issuer           "https://issuer.test"
                 :request-function #'request
-                :sleep-function #'pause
-                :clock-function #'now
-                :poll-timeout 10))
+                :sleep-function   #'pause
+                :clock-function   #'now
+                :poll-timeout     10))
              (authorization (device-authentication-request-code client)))
         (test-assert
          request-guard-observed-p
@@ -318,8 +317,8 @@
 (-> device-authentication-test--error-echo-containment () null)
 (defun device-authentication-test--error-echo-containment ()
   "Verify device-flow failures cannot echo transient request credentials."
-  (let ((device-id "device-secret-echo")
-        (user-code "USER-SECRET-ECHO")
+  (let ((device-id                                      "device-secret-echo")
+        (user-code                                      "USER-SECRET-ECHO")
         (*device-authentication-test-saved-credentials* nil))
     (flet ((request (&key method url headers content)
              (declare (ignore method headers content))
@@ -344,7 +343,7 @@
                nil))))
       (let* ((client
                (device-authentication-client-create
-                :issuer "https://issuer.test"
+                :issuer           "https://issuer.test"
                 :request-function #'request))
              (authorization (device-authentication-request-code client))
              (condition
@@ -366,8 +365,8 @@
            condition
            *device-authentication-redaction-marker*))
          "poll failures redact echoed device identifiers and user codes"))))
-  (let ((authorization-code "authorization-secret-echo")
-        (code-verifier "verifier-secret-echo")
+  (let ((authorization-code                             "authorization-secret-echo")
+        (code-verifier                                  "verifier-secret-echo")
         (*device-authentication-test-saved-credentials* nil))
     (flet ((request (&key method url headers content)
              (declare (ignore method headers content))
@@ -407,7 +406,7 @@
                  nil)))))
       (let* ((client
                (device-authentication-client-create
-                :issuer "https://issuer.test"
+                :issuer           "https://issuer.test"
                 :request-function #'request))
              (authorization (device-authentication-request-code client))
              (condition
@@ -459,7 +458,7 @@
                   nil))))
       (let* ((client
                (device-authentication-client-create
-                :issuer "https://issuer.test"
+                :issuer           "https://issuer.test"
                 :request-function #'request))
              (authorization (device-authentication-request-code client)))
         (device-authentication-test--signals
@@ -470,7 +469,7 @@
             (device-authentication-test--manager)))
          ':poll
          :status 401
-         :code "authorization_declined")
+         :code   "authorization_declined")
         (test-assert (null *device-authentication-test-saved-credentials*)
                      "declined authentication publishes no credentials")))
     nil))
@@ -516,7 +515,7 @@
                  nil)))))
       (let* ((client
                (device-authentication-client-create
-                :issuer "https://issuer.test"
+                :issuer           "https://issuer.test"
                 :request-function #'request))
              (authorization (device-authentication-request-code client)))
         (device-authentication-test--signals

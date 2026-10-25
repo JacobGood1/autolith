@@ -7,8 +7,8 @@
   "Test unbounded history, filtering and maintenance without archived reads."
   (with-test-configuration (configuration)
     (let* ((conversation (conversation-create configuration))
-           (identity (conversation-pathname conversation))
-           (expected nil))
+           (identity     (conversation-pathname conversation))
+           (expected     nil))
       (dotimes (index 130)
         (let ((input (format nil "input ~D" index)))
           (push input expected)
@@ -50,13 +50,13 @@
 (defun test-conversation-input-history-rebuild ()
   "Test a missing sidecar is built once, then appended rather than rewritten."
   (with-test-configuration (configuration)
-    (let* ((conversation (conversation-create configuration))
-           (identity (conversation-pathname conversation))
-           (sidecar (conversation-input-history-pathname identity))
-           (original-map (symbol-function 'conversation--map-storage-records))
+    (let* ((conversation   (conversation-create configuration))
+           (identity       (conversation-pathname conversation))
+           (sidecar        (conversation-input-history-pathname identity))
+           (original-map   (symbol-function 'conversation--map-storage-records))
            (original-write (symbol-function 'sexp-store:log-write))
-           (scans 0)
-           (publications 0))
+           (scans          0)
+           (publications   0))
       (conversation-append-user-message conversation "retired")
       (conversation-append-summary conversation "checkpoint")
       (conversation-append-user-message conversation "active")
@@ -92,9 +92,9 @@
   (dolist (write-first-p '(nil t))
     (with-test-configuration (configuration)
       (let* ((conversation (conversation-create configuration))
-             (identity (conversation-pathname conversation))
-             (sidecar (conversation-input-history-pathname identity))
-             (original (symbol-function 'log-append)))
+             (identity     (conversation-pathname conversation))
+             (sidecar      (conversation-input-history-pathname identity))
+             (original     (symbol-function 'log-append)))
         (conversation-append-user-message conversation "first")
         (test-call-with-function-replacements
          (list (list 'log-append
@@ -119,9 +119,9 @@
   "Test compaction cannot retire an input whose sidecar append keeps failing."
   (with-test-configuration (configuration)
     (let* ((conversation (conversation-create configuration))
-           (identity (conversation-pathname conversation))
-           (sidecar (conversation-input-history-pathname identity))
-           (original (symbol-function 'log-append)))
+           (identity     (conversation-pathname conversation))
+           (sidecar      (conversation-input-history-pathname identity))
+           (original     (symbol-function 'log-append)))
       (conversation-append-user-message conversation "first")
       (let ((active (conversation-log-pathname conversation)))
         (test-call-with-function-replacements
@@ -154,8 +154,8 @@
   "Test torn tails, invalid indices and stale checkpoints repair from authoritative inputs."
   (with-test-configuration (configuration)
     (let* ((conversation (conversation-create configuration))
-           (identity (conversation-pathname conversation))
-           (sidecar (conversation-input-history-pathname identity)))
+           (identity     (conversation-pathname conversation))
+           (sidecar      (conversation-input-history-pathname identity)))
       (conversation-append-user-message conversation "retired")
       (conversation-append-summary conversation "checkpoint")
       (conversation-append-user-message conversation "active")
@@ -180,16 +180,15 @@
                    "deleting the conversation removes its owned input history")))
   nil)
 
-
 (-> test-conversation-input-history-interruption () null)
 (defun test-conversation-input-history-interruption ()
   "Test nonlocal exits during publication and catch-up invalidate incomplete heap state."
   (dolist (operation '(:append :repair))
     (with-test-configuration (configuration)
       (let* ((conversation (conversation-create configuration))
-             (identity (conversation-pathname conversation))
-             (sidecar (conversation-input-history-pathname identity))
-             (original (symbol-function 'log-append)))
+             (identity     (conversation-pathname conversation))
+             (sidecar      (conversation-input-history-pathname identity))
+             (original     (symbol-function 'log-append)))
         (conversation-append-user-message conversation "first")
         (when (eq operation ':repair)
           (test-call-with-function-replacements
@@ -211,8 +210,10 @@
                                 (throw 'history-interrupted ':interrupted)))))
                 (lambda ()
                   (ecase operation
-                    (:append (conversation-append-user-message conversation "second"))
-                    (:repair (conversation-input-history conversation))))))
+                    (:append
+                     (conversation-append-user-message conversation "second"))
+                    (:repair
+                     (conversation-input-history conversation))))))
              ':interrupted)
          "a nonlocal exit interrupts sidecar publication after its durable write")
         (test-call-with-function-replacements

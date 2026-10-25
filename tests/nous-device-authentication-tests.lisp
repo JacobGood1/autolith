@@ -59,15 +59,15 @@
 (-> nous-device-test--complete-flow () null)
 (defun nous-device-test--complete-flow ()
   "Exercise device request, polling backoff, display, and locked publication."
-  (let ((requests nil)
-        (poll-count 0)
-        (clock 0)
-        (sleeps nil)
-        (opened-url nil)
+  (let ((requests                                       nil)
+        (poll-count                                     0)
+        (clock                                          0)
+        (sleeps                                         nil)
+        (opened-url                                     nil)
         (*device-authentication-test-saved-credentials* nil))
     (flet ((request (&key method url headers content)
-             (push (list :method method
-                         :url url
+             (push (list :method  method
+                         :url     url
                          :headers headers
                          :content content)
                    requests)
@@ -113,10 +113,10 @@
              t))
       (let* ((client
                (nous-device-authentication-client-create
-                :portal-url "https://portal.test/"
+                :portal-url       "https://portal.test/"
                 :request-function #'request
-                :sleep-function #'pause
-                :clock-function #'now
+                :sleep-function   #'pause
+                :clock-function   #'now
                 :browser-function #'open-browser))
              (output (make-string-output-stream))
              (result
@@ -170,7 +170,7 @@
                 (search
                  "urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code"
                  (getf token-request :content)))
-            "the Nous token poll uses the RFC 8628 device grant")))))
+           "the Nous token poll uses the RFC 8628 device grant")))))
   nil)
 
 (-> nous-device-test--rejections () null)
@@ -179,15 +179,15 @@
   (labels ((client-for (responder &key (poll-timeout 10))
              (let ((clock 0))
                (nous-device-authentication-client-create
-                :portal-url "https://portal.test"
+                :portal-url       "https://portal.test"
                 :request-function responder
-                :sleep-function (lambda (seconds)
-                                  (incf clock seconds))
-                :clock-function (lambda () clock)
+                :sleep-function   (lambda (seconds)
+                                    (incf clock seconds))
+                :clock-function   (lambda () clock)
                 :browser-function (lambda (url)
                                     (declare (ignore url))
                                     t)
-                :poll-timeout poll-timeout)))
+                :poll-timeout     poll-timeout)))
 
            (poll-responder (body status)
              (lambda (&key method url headers content)
@@ -201,7 +201,7 @@
            (login (responder &key (poll-timeout 10))
              (nous-device-test--login
               (client-for responder :poll-timeout poll-timeout)
-              :stream (make-string-output-stream)
+              :stream         (make-string-output-stream)
               :open-browser-p nil)))
     (device-authentication-test--signals
      (lambda ()
@@ -211,7 +211,7 @@
          400)))
      ':poll
      :status 400
-     :code "access_denied")
+     :code   "access_denied")
     (device-authentication-test--signals
      (lambda ()
        (login (poll-responder "not-json" 200)))
@@ -261,7 +261,7 @@
        ':poll)
       (test-assert (= poll-count 1)
                    "Nous polling does not issue a request at the deadline"))
-  nil))
+   nil))
 
 (-> nous-device-test--secret-redaction () null)
 (defun nous-device-test--secret-redaction ()
@@ -270,7 +270,7 @@
     (handler-case
         (nous-device-test--login
          (nous-device-authentication-client-create
-          :portal-url "https://portal.test"
+          :portal-url       "https://portal.test"
           :request-function
           (lambda (&key method url headers content)
             (declare (ignore method headers content))
@@ -285,14 +285,14 @@
                    "failure-nous-device-code-1-echo"))
                  400
                  nil)))
-          :sleep-function (lambda (seconds) (declare (ignore seconds)))
-          :clock-function (let ((clock 0))
-                            (lambda () (incf clock)))
+          :sleep-function   (lambda (seconds) (declare (ignore seconds)))
+          :clock-function   (let ((clock 0))
+                              (lambda () (incf clock)))
           :browser-function (lambda (url)
                               (declare (ignore url))
                               t)
-          :poll-timeout 10)
-         :stream (make-string-output-stream)
+          :poll-timeout     10)
+         :stream         (make-string-output-stream)
          :open-browser-p nil)
       (device-authentication-error (condition)
         (setf signaled-p t)
@@ -341,4 +341,4 @@
           "user_code" "NOUS-CODE"
           "verification_uri" "https://portal.test/device"))))
      ':request-code)
-  nil))
+   nil))

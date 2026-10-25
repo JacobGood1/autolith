@@ -10,9 +10,9 @@
       (multiple-value-bind (frame cursor)
           (terminal-ui--boot-screen-frame ui :phase "phase" :detail "detail" :height 24)
         (let* ((first-row (position-if (lambda (row) (plusp (length row))) frame))
-               (last-row (1- (length frame)))
-               (plain (clinedi:ansi-strip (nth first-row frame)))
-               (left (position-if-not (lambda (character) (char= character #\Space)) plain)))
+               (last-row  (1- (length frame)))
+               (plain     (clinedi:ansi-strip (nth first-row frame)))
+               (left      (position-if-not (lambda (character) (char= character #\Space)) plain)))
           (test-assert (<= (abs (- first-row (- 23 last-row))) 1) "panel is vertically centered")
           (test-assert (= left (floor (- 80 64) 2)) "panel is horizontally centered")
           (test-assert (> cursor last-row) "provider prompts start below the panel")))
@@ -64,7 +64,6 @@
         (test-assert (= 1 (fullscreen-test--chunk-count ui)) "authentication presentation is not transcript content"))))
   nil)
 
-
 (-> test-fullscreen-boot-cursor-lifecycle () null)
 (defun test-fullscreen-boot-cursor-lifecycle ()
   "Hide the input cursor during boot and restore it on normal and interrupted handoff."
@@ -72,7 +71,7 @@
     (with-terminal-ui (ui (fullscreen-test--ui terminal))
       (flet ((cursor-visible-p ()
                (let* ((output (recording-terminal-output terminal))
-                      (shown (search (format nil "~C[?25h" #\Escape) output :from-end t))
+                      (shown  (search (format nil "~C[?25h" #\Escape) output :from-end t))
                       (hidden (search (format nil "~C[?25l" #\Escape) output :from-end t)))
                  (and shown (or (null hidden) (> shown hidden)) t))))
         (let ((visibility nil))
@@ -91,7 +90,7 @@
           (test-assert (cursor-visible-p) "the composer handoff restores the input cursor"))
         (handler-case
             (terminal-ui-boot-sequence
-             ui :duration 0
+             ui :duration      0
                 :wait-function (lambda (seconds)
                                  (declare (ignore seconds))
                                  (error "Expected boot interruption.")))
@@ -106,14 +105,14 @@
     (with-terminal-ui (ui (fullscreen-test--ui terminal))
       (setf (fullscreen-terminal-ui-welcome-tip ui)
             (list (terminal-span ':hint "operator advice")))
-      (let ((frames nil)
+      (let ((frames  nil)
             (seconds 0))
         (terminal-ui-boot-sequence
          ui :wait-function
          (lambda (duration)
            (incf seconds duration)
            (push (fullscreen-test--frame ui) frames)
-           (let* ((frame (first frames))
+           (let* ((frame   (first frames))
                   (tip-row (find-if (lambda (row) (search "operator advice" row)) frame)))
              (test-assert tip-row "each boot stage displays the tip")
              (test-assert (= 32 (search "operator advice" (clinedi:ansi-strip tip-row)))
@@ -132,18 +131,17 @@
       (test-assert
        (handler-case
            (terminal-ui-boot-sequence ui :wait-function (lambda (seconds)
-                                                        (declare (ignore seconds))
-                                                        (error "Interrupted boot.")))
+                                                         (declare (ignore seconds))
+                                                         (error "Interrupted boot.")))
          (simple-error () t)) "boot interruption propagates")
       (test-assert (not (terminal-ui-live-output-suspended-p ui)) "interrupted boot restores output ownership")))
   nil)
-
 
 (-> test-fullscreen-boot-disabled () null)
 (defun test-fullscreen-boot-disabled ()
   "Open the listener at once when the boot screen is turned off."
   (let ((terminal (make-instance 'recording-terminal :columns 80 :rows 24))
-        (waits 0))
+        (waits    0))
     (with-terminal-ui (ui (fullscreen-test--ui terminal))
       (test-assert (eq ':start
                        (terminal-ui-boot-sequence
@@ -159,19 +157,18 @@
                    "no boot phase is painted")))
   nil)
 
-
 (-> test-fullscreen-boot-linger () null)
 (defun test-fullscreen-boot-linger ()
   "Hold the boot screen for Space, rotate tips on schedule, and report interrupts."
   (let ((terminal (make-instance 'queued-recording-terminal :columns 80 :rows 24 :styled-p t))
-        (tips 0))
+        (tips     0))
     (with-terminal-ui (ui (fullscreen-test--ui terminal))
       (test-call-with-function-replacements
        (list (list 'application--startup-tip-spans
                    (lambda ()
                      (list (terminal-span ':hint (format nil "advice ~D" (incf tips)))))))
        (lambda ()
-         (let* ((seconds 0)
+         (let* ((seconds       0)
                 (waiting-frame nil)
                 (result
                   (terminal-ui-boot-sequence
@@ -189,7 +186,7 @@
                         "the rotated tip is painted")
            (test-assert (find-if (lambda (row) (search "Space: start" row)) waiting-frame)
                         "the lingering panel's console line advertises Space")
-           (let ((tip-row (position-if (lambda (row) (search "advice 3" row)) waiting-frame))
+           (let ((tip-row    (position-if (lambda (row) (search "advice 3" row)) waiting-frame))
                  (prompt-row (position-if (lambda (row) (search "PRESS SPACE TO START" row))
                                           waiting-frame)))
              (test-assert (and tip-row prompt-row (= prompt-row (+ tip-row 2)))
@@ -251,10 +248,10 @@
          (eq (terminal-ui-boot-sequence
               ui :duration 0 :linger-p t
                  :direct-input-p-function (constantly nil)
-                 :wait-function (lambda (seconds)
-                                  (declare (ignore seconds))
-                                  (when (= (incf polls) 5)
-                                    (terminal-ui-boot-divert-event ui '(:insert " ")))))
+                 :wait-function           (lambda (seconds)
+                                            (declare (ignore seconds))
+                                            (when (= (incf polls) 5)
+                                              (terminal-ui-boot-divert-event ui '(:insert " ")))))
              ':start)
          "a start key diverted by the reader ends the wait")
         (test-assert (terminal-input-ready-p terminal)
@@ -266,10 +263,10 @@
          (eq (terminal-ui-boot-sequence
               ui :duration 0 :linger-p t
                  :direct-input-p-function (constantly nil)
-                 :halted-function (lambda () (> polls 3))
-                 :wait-function (lambda (seconds)
-                                  (declare (ignore seconds))
-                                  (incf polls)))
+                 :halted-function         (lambda () (> polls 3))
+                 :wait-function           (lambda (seconds)
+                                            (declare (ignore seconds))
+                                            (incf polls)))
              ':interrupt)
          "an exit requested through the reader ends the wait as an interrupt"))
       (test-assert
@@ -280,16 +277,15 @@
        "the queued direct key still starts once direct input is allowed")))
   nil)
 
-
 (-> test-fullscreen-boot-idle-resize () null)
 (defun test-fullscreen-boot-idle-resize ()
   "Repaint a waiting boot screen on a relayed resize without waiting for input."
-  (let* ((terminal (make-instance 'queued-recording-terminal :columns 80 :rows 24))
-         (waits 0)
-         (repainted-p nil)
+  (let* ((terminal                    (make-instance 'queued-recording-terminal :columns 80 :rows 24))
+         (waits                       0)
+         (repainted-p                 nil)
          (*terminal-resize-pending-p* nil)
-         (*terminal-relayed-resize* nil)
-         (boot-screen (symbol-function 'terminal-ui-boot-screen)))
+         (*terminal-relayed-resize*   nil)
+         (boot-screen                 (symbol-function 'terminal-ui-boot-screen)))
     (with-terminal-ui (ui (terminal-ui-create :terminal terminal :fullscreen-p t))
       (test-call-with-function-replacements
        (list (list 'terminal-ui-boot-screen

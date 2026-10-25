@@ -6,23 +6,23 @@
 (defun peer-message-tests--fixture (function)
   "Call FUNCTION with a primary, two siblings, normal tools and a durable peer service."
   (with-test-configuration (configuration root)
-    (let* ((registry (make-instance 'tool-registry))
+    (let* ((registry     (make-instance 'tool-registry))
            (orchestrator (task-tests--orchestrator))
            (conversation (conversation-create configuration))
-           (owner (agent-create :configuration configuration :conversation conversation
-                                :provider (make-instance 'model-provider) :tool-registry registry :worker nil))
-           (definition (task-agent-definition-create :name "peer-worker" :description "Peer fixture"
-                                                     :instructions "Return one bounded result."))
-           (jobs (loop repeat 2
-                       collect (task-tests--attach-job
-                                orchestrator (lambda (id index)
-                                               (task-tests--make-job orchestrator :identifier id :index index
-                                                                    :definition definition :parent-agent owner
-                                                                    :item (list :task "Peer fixture"))))))
-           (first-child (task-tests--child-viewer configuration (first jobs) :registry registry))
+           (owner        (agent-create :configuration configuration :conversation conversation
+                                       :provider (make-instance 'model-provider) :tool-registry registry :worker nil))
+           (definition   (task-agent-definition-create :name "peer-worker" :description "Peer fixture"
+                                                       :instructions "Return one bounded result."))
+           (jobs         (loop repeat 2
+                               collect (task-tests--attach-job
+                                        orchestrator (lambda (id index)
+                                                       (task-tests--make-job orchestrator :identifier id :index index
+                                                                            :definition definition :parent-agent owner
+                                                                            :item (list :task "Peer fixture"))))))
+           (first-child  (task-tests--child-viewer configuration (first jobs) :registry registry))
            (second-child (task-tests--child-viewer configuration (second jobs) :registry registry))
-           (path (merge-pathnames "peer-state.sexp" root))
-           (service (peer-message-service-create owner orchestrator :path path)))
+           (path         (merge-pathnames "peer-state.sexp" root))
+           (service      (peer-message-service-create owner orchestrator :path path)))
       (peer-message-service-register service)
       (peer-message-register-tools registry :orchestrator orchestrator)
       (unwind-protect
@@ -37,7 +37,7 @@
   "Grant one exact directional peer relation as the owning primary."
   (peer-message-grant service owner :id "first-to-second"
                       :sender (peer-message--actor-endpoint sender) :receiver (peer-message--actor-endpoint receiver)
-                      :context-p context-p))
+                      :context-p        context-p))
 
 (-> peer-message-tests--context (agent tool-registry) tool-context)
 (defun peer-message-tests--context (actor registry)
@@ -54,14 +54,14 @@
      (let ((context (peer-message-tests--context sender registry)))
        (test-assert (null (peer-message-discover service sender)) "ungranted child has no global peer inventory")
        (test-assert (not (tool-result-success-p
-                         (tool-registry-execute-call registry
-                                                     (agent-test-call :namespace "peer" :name "grant"
-                                                                      :arguments "{\"id\":\"escalate\",\"sender\":\"primary\",\"receiver\":\"primary\"}") context)))
+                          (tool-registry-execute-call registry
+                                                      (agent-test-call :namespace "peer" :name "grant"
+                                                                       :arguments "{\"id\":\"escalate\",\"sender\":\"primary\",\"receiver\":\"primary\"}") context)))
                     "the tool boundary rejects child grant escalation")
        (test-assert (not (tool-result-success-p
-                         (tool-registry-execute-call registry
-                                                     (agent-test-call :namespace "peer" :name "send"
-                                                                      :arguments (json-encode (json-object "id" "denied" "receiver" (peer-message--endpoint-id (peer-message--actor-endpoint receiver)) "text" "Denied"))) context)))
+                          (tool-registry-execute-call registry
+                                                      (agent-test-call :namespace "peer" :name "send"
+                                                                       :arguments (json-encode (json-object "id" "denied" "receiver" (peer-message--endpoint-id (peer-message--actor-endpoint receiver)) "text" "Denied"))) context)))
                     "ungranted sibling communication is denied")
        (peer-message-tests--grant service owner :sender sender :receiver receiver)
        (test-assert (= 1 (length (peer-message-discover service sender))) "an explicit grant adds exactly one sibling relation")
@@ -78,11 +78,11 @@
        (test-assert (handler-case (progn (peer-message-receive service receiver :id "message") nil)
                       (peer-message-error () t)) "targeted receive refuses revoked work")
        (peer-message-grant service owner :id "primary-to-second"
-                           :sender (peer-message--actor-endpoint owner)
-                           :receiver (peer-message--actor-endpoint receiver))
+                           :sender           (peer-message--actor-endpoint owner)
+                           :receiver         (peer-message--actor-endpoint receiver))
        (peer-message-send service owner :id "later-permitted"
-                          :receiver (peer-message--endpoint-id (peer-message--actor-endpoint receiver))
-                          :text "Permitted after revoked work")
+                          :receiver         (peer-message--endpoint-id (peer-message--actor-endpoint receiver))
+                          :text             "Permitted after revoked work")
        (test-assert (equal "later-permitted" (getf (peer-message-receive service receiver) :id))
                     "revoked queued candidate cannot starve a later permitted message")
        (peer-message-revoke service owner "primary-to-second")
@@ -97,7 +97,7 @@
      (declare (ignore configuration))
      (peer-message-tests--grant service owner :sender sender :receiver receiver)
      (let* ((endpoint (peer-message--endpoint-id (peer-message--actor-endpoint receiver)))
-            (first (peer-message-send service sender :id "stable" :receiver endpoint :text "Payload")))
+            (first    (peer-message-send service sender :id "stable" :receiver endpoint :text "Payload")))
        (test-assert (equal first (peer-message-send service sender :id "stable" :receiver endpoint :text "Payload"))
                     "identical retries retain one stable message")
        (test-assert (handler-case (progn (peer-message-send service sender :id "stable" :receiver endpoint :text "Different") nil)
@@ -138,10 +138,10 @@
                                    (task-tests--terminal-result (task-child-agent-job sender)))
      (test-assert (handler-case
                      (progn (peer-message-send service sender :id "after-finish"
-                                               :receiver (peer-message--endpoint-id (peer-message--actor-endpoint receiver))
-                                               :text "Denied") nil)
+                                               :receiver          (peer-message--endpoint-id (peer-message--actor-endpoint receiver))
+                                               :text              "Denied") nil)
                    (peer-message-error () t)) "a finished sender cannot admit new messages")
-     (let* ((entries (peer-message-take-context receiver))
+     (let* ((entries    (peer-message-take-context receiver))
             (identifier (agent-steering-input-identifier (first entries))))
        (test-assert (= 1 (length entries)) "safe boundary provides one bounded peer steering input")
        (test-assert (null (peer-message-take-context receiver)) "in-flight context is not implicitly redelivered")
@@ -160,9 +160,9 @@
    (lambda (&key configuration owner sender receiver service path registry)
      (declare (ignore configuration receiver path registry))
      (let* ((primary (list :session "remote" :job nil :execution nil))
-            (child (list :session "remote" :job "job-one" :execution "primary"))
-            (other (list :session "remote" :job "job-two" :execution "primary"))
-            (target (peer-message--actor-endpoint owner)))
+            (child   (list :session "remote" :job "job-one" :execution "primary"))
+            (other   (list :session "remote" :job "job-two" :execution "primary"))
+            (target  (peer-message--actor-endpoint owner)))
        (peer-message-grant service owner :id "remote-primary" :sender primary :receiver target)
        (test-assert (handler-case
                        (progn (peer-message-dispatch service
@@ -188,15 +188,17 @@
                          (progn (peer-message-grant service owner :id "malformed" :sender bad :receiver target) nil)
                        (peer-message-error () t)) "asymmetric and empty child identities are refused"))
        (dolist (mode '(:revoke :replace))
-         (let* ((id (string-downcase (symbol-name mode)))
+         (let* ((id       (string-downcase (symbol-name mode)))
                 (grant-id (format nil "transport-~A" id)))
            (peer-message-grant service owner :id grant-id :sender (peer-message--actor-endpoint sender) :receiver primary)
            (setf (peer-message-remote-call service)
                  (lambda (session envelope &key cancelled-p)
                    (declare (ignore session envelope cancelled-p))
                    (ecase mode
-                     (:revoke (peer-message-revoke service owner grant-id))
-                     (:replace (setf (slot-value (task-child-agent-job sender) 'execution-identifier) (make-identifier))))
+                     (:revoke
+                      (peer-message-revoke service owner grant-id))
+                     (:replace
+                      (setf (slot-value (task-child-agent-job sender) 'execution-identifier) (make-identifier))))
                    (list :state ':acknowledged)))
            (test-assert (handler-case
                            (progn (peer-message-send service sender :id id :receiver (peer-message--endpoint-id primary) :text "Remote work") nil)
@@ -213,9 +215,9 @@
      (declare (ignore configuration registry))
      (peer-message-tests--grant service owner :sender sender :receiver receiver)
      (let* ((*peer-message-snapshot-maximum-octets* 4096)
-            (endpoint (peer-message--endpoint-id (peer-message--actor-endpoint receiver)))
-            (payload (format nil "~A ~A ~A" (make-string 100 :initial-element (code-char #x3bb))
-                             (make-string 100 :initial-element #\") (make-string 100 :initial-element #\\))))
+            (endpoint                               (peer-message--endpoint-id (peer-message--actor-endpoint receiver)))
+            (payload                                (format nil "~A ~A ~A" (make-string 100 :initial-element (code-char #x3bb))
+                                                            (make-string 100 :initial-element #\") (make-string 100 :initial-element #\\))))
        (peer-message-send service sender :id "bounded" :receiver endpoint :text payload)
        (test-assert (handler-case
                        (progn (peer-message-send service sender :id "too-large" :receiver endpoint
@@ -244,27 +246,27 @@
        (test-assert (null (peer-message-discover service sender)) "replacement execution does not inherit a peer grant")
        (test-assert (handler-case (progn (peer-message-send service sender :id "stale" :receiver endpoint :text "Denied") nil)
                       (peer-message-error () t)) "stale receiver execution is refused"))
-       (let ((replacement (task-tests--child-viewer (agent-configuration owner)
-                                                   (task-child-agent-job receiver))))
-         (peer-message-grant service owner :id "current" :sender (peer-message--actor-endpoint sender)
-                             :receiver (peer-message--actor-endpoint replacement))
-         (peer-message-send service sender :id "replacement-only"
-                            :receiver (peer-message--endpoint-id (peer-message--actor-endpoint replacement))
-                            :text "Only the new child may receive")
-         (test-assert (handler-case (progn (peer-message-discover service receiver) nil)
-                        (peer-message-error () t)) "retained actor cannot discover the replacement's grant")
-         (test-assert (handler-case (progn (peer-message-receive service receiver :id "replacement-only") nil)
-                        (peer-message-error () t)) "retained actor cannot consume the replacement's message")
-         (test-assert (equal "replacement-only" (getf (peer-message-receive service replacement) :id))
-                      "a newly constructed actor can use its own exact execution grant")
-         (peer-message-service-close service)
-         (test-assert (eq ':closed (getf (peer-message-wait service replacement :timeout 0) :state))
-                      "finish closes waits without dropping retained IDs")
-         (test-assert (handler-case
-                         (progn (peer-message-send service sender :id "closed"
-                                                   :receiver (peer-message--endpoint-id (peer-message--actor-endpoint replacement))
-                                                   :text "Denied") nil)
-                       (cl-jobpond:durable-state-error () t)) "session finish refuses new messages")))))
+     (let ((replacement (task-tests--child-viewer (agent-configuration owner)
+                                                 (task-child-agent-job receiver))))
+       (peer-message-grant service owner :id "current" :sender (peer-message--actor-endpoint sender)
+                           :receiver (peer-message--actor-endpoint replacement))
+       (peer-message-send service sender :id "replacement-only"
+                          :receiver          (peer-message--endpoint-id (peer-message--actor-endpoint replacement))
+                          :text              "Only the new child may receive")
+       (test-assert (handler-case (progn (peer-message-discover service receiver) nil)
+                      (peer-message-error () t)) "retained actor cannot discover the replacement's grant")
+       (test-assert (handler-case (progn (peer-message-receive service receiver :id "replacement-only") nil)
+                      (peer-message-error () t)) "retained actor cannot consume the replacement's message")
+       (test-assert (equal "replacement-only" (getf (peer-message-receive service replacement) :id))
+                    "a newly constructed actor can use its own exact execution grant")
+       (peer-message-service-close service)
+       (test-assert (eq ':closed (getf (peer-message-wait service replacement :timeout 0) :state))
+                    "finish closes waits without dropping retained IDs")
+       (test-assert (handler-case
+                       (progn (peer-message-send service sender :id "closed"
+                                                 :receiver          (peer-message--endpoint-id (peer-message--actor-endpoint replacement))
+                                                 :text              "Denied") nil)
+                     (cl-jobpond:durable-state-error () t)) "session finish refuses new messages")))))
 
 (-> test-peer-message-daemon-transport () null)
 (defun test-peer-message-daemon-transport ()
@@ -273,22 +275,22 @@
    (lambda (&key configuration owner sender receiver service path registry)
      (declare (ignore sender receiver service path registry))
      (let* ((remote-conversation (conversation-create configuration))
-            (remote-owner (agent-create :configuration configuration :conversation remote-conversation
-                                       :provider (make-instance 'model-provider) :tool-registry (make-instance 'tool-registry) :worker nil))
-            (orchestrator (task-tests--orchestrator))
-            (source (peer-message-service-create
-                     owner orchestrator :remote-call (lambda (session envelope &key cancelled-p)
-                                                       (peer-message-daemon-call configuration session envelope :cancelled-p cancelled-p))))
-            (target (peer-message-service-create remote-owner orchestrator))
-            (sender (peer-message--actor-endpoint owner))
-            (receiver (peer-message--actor-endpoint remote-owner))
-            (endpoint (peer-message--endpoint-id receiver))
-            (runtime (image-daemon:daemon-message-endpoint-create
-                      :directory (localgroup-registry-directory configuration)
-                      :identifier (peer-message-session target)
-                      :dispatcher (lambda (envelope &key cancelled-p)
-                                    (peer-message-dispatch target envelope :cancelled-p cancelled-p))
-                      :character-limit 32768 :request-timeout 2)))
+            (remote-owner        (agent-create :configuration configuration :conversation remote-conversation
+                                              :provider (make-instance 'model-provider) :tool-registry (make-instance 'tool-registry) :worker nil))
+            (orchestrator        (task-tests--orchestrator))
+            (source              (peer-message-service-create
+                                  owner orchestrator :remote-call (lambda (session envelope &key cancelled-p)
+                                                                    (peer-message-daemon-call configuration session envelope :cancelled-p cancelled-p))))
+            (target              (peer-message-service-create remote-owner orchestrator))
+            (sender              (peer-message--actor-endpoint owner))
+            (receiver            (peer-message--actor-endpoint remote-owner))
+            (endpoint            (peer-message--endpoint-id receiver))
+            (runtime             (image-daemon:daemon-message-endpoint-create
+                                  :directory  (localgroup-registry-directory configuration)
+                                  :identifier (peer-message-session target)
+                                  :dispatcher (lambda (envelope &key cancelled-p)
+                                                (peer-message-dispatch target envelope :cancelled-p cancelled-p))
+                                  :character-limit 32768 :request-timeout 2)))
        (unwind-protect
             (progn
               (peer-message-grant source owner :id "outgoing" :sender sender :receiver receiver)
@@ -312,7 +314,6 @@
                              "semantic acknowledgment is durable in the source outbox")))
          (image-daemon:daemon-runtime-stop runtime))))))
 
-
 (-> test-peer-message-child-provider-boundary () null)
 (defun test-peer-message-child-provider-boundary ()
   "Exercise the actual child observer callbacks and provider request, not a copied callback fixture."
@@ -320,14 +321,14 @@
    (lambda (&key configuration owner sender receiver service path registry)
      (declare (ignore configuration path registry))
      (let* ((provider (make-instance 'task-test-provider :mode ':concurrent))
-            (job (task-child-agent-job receiver)))
+            (job      (task-child-agent-job receiver)))
        (setf (slot-value owner 'provider) provider)
        (with-lock-held ((cl-jobpond::job--lock job)) (setf (job-state job) ':running))
        (task-job--set-progress-state job ':running)
        (peer-message-tests--grant service owner :sender sender :receiver receiver :context-p t)
        (peer-message-send service sender :id "provider-context"
-                          :receiver (peer-message--endpoint-id (peer-message--actor-endpoint receiver))
-                          :text "The peer boundary marker is ready.")
+                          :receiver          (peer-message--endpoint-id (peer-message--actor-endpoint receiver))
+                          :text              "The peer boundary marker is ready.")
        (let ((result (task-run-child job)))
          (test-assert (eq ':success (getf result :status)) "the ordinary child runtime completes through terminal yield")
          (test-assert (test-object-contains-string-p (task-test-provider-request-inputs provider)

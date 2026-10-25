@@ -4,30 +4,30 @@
 
 (defclass tool-test-runtime-tool (tool)
   ((runtime-identity
-    :initarg :runtime-identity
-    :reader tool-test-runtime-identity
-    :type t
+    :initarg       :runtime-identity
+    :reader        tool-test-runtime-identity
+    :type          t
     :documentation "The shared test runtime identity.")
    (close-function
-    :initarg :close-function
-    :reader tool-test-runtime-close-function
-    :type function
+    :initarg       :close-function
+    :reader        tool-test-runtime-close-function
+    :type          function
     :documentation "The callback recording runtime closure.")
    (resume-function
-    :initarg :resume-function
-    :reader tool-test-runtime-resume-function
-    :type function
+    :initarg       :resume-function
+    :reader        tool-test-runtime-resume-function
+    :type          function
     :documentation "The callback recording runtime restart.")
    (close-priority
-    :initarg :close-priority
-    :initform 0
-    :reader tool-test-runtime-close-priority
-    :type integer
+    :initarg       :close-priority
+    :initform      0
+    :reader        tool-test-runtime-close-priority
+    :type          integer
     :documentation "The deterministic test runtime dependency priority.")
    (detach-function
-    :initarg :detach-function
-    :reader tool-test-runtime-detach-function
-    :type function
+    :initarg       :detach-function
+    :reader        tool-test-runtime-detach-function
+    :type          function
     :documentation "The callback recording runtime detachment."))
   (:documentation "A tool exposing deterministic ephemeral-runtime callbacks."))
 
@@ -70,28 +70,28 @@
                 (context
                   (make-instance 'tool-context
                                  :configuration configuration
-                                 :worker nil
-                                 :conversation conversation))
+                                 :worker        nil
+                                 :conversation  conversation))
                 (tool
                   (make-instance 'web-run-tool
-                                 :namespace "web"
-                                 :name "run"
+                                 :namespace   "web"
+                                 :name        "run"
                                  :description "Test web search."
-                                 :parameters (web-run-parameters)))
+                                 :parameters  (web-run-parameters)))
                 (credentials
                   (make-instance 'oauth-credentials
-                                 :access-token "grok-web-token"
+                                 :access-token  "grok-web-token"
                                  :refresh-token nil
-                                 :id-token nil
-                                 :account-id "grok-user"
-                                 :expires-at nil
+                                 :id-token      nil
+                                 :account-id    "grok-user"
+                                 :expires-at    nil
                                  :source-path
                                  (configuration-grok-auth-path configuration)))
                 (arguments
                   (json-object
                    "open"
                    (json-array (json-object "ref_id" "https://example.com"))))
-                (captured-url nil)
+                (captured-url     nil)
                 (captured-headers nil))
            (test-call-with-function-replacements
             (list
@@ -158,35 +158,35 @@
 (-> test-tool-result-overflow () null)
 (defun test-tool-result-overflow ()
   "Test oversized tool results staying readable through context objects."
-  (let* ((registry (make-default-tool-registry))
+  (let* ((registry      (make-default-tool-registry))
          (configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation (conversation-create configuration
                                                    :identifier "tool-overflow"))
-                (context (make-instance 'tool-context
-                                        :configuration configuration
-                                        :worker nil
-                                        :conversation conversation))
-                (full-text (tool-tests--overflow-text)))
+                (context      (make-instance 'tool-context
+                                             :configuration configuration
+                                             :worker        nil
+                                             :conversation  conversation))
+                (full-text    (tool-tests--overflow-text)))
            (tool-registry-register
             registry
             (make-instance 'tool-test-overflow-tool
-                           :namespace "test"
-                           :name "overflow"
+                           :namespace   "test"
+                           :name        "overflow"
                            :description "Return an oversized test result."
-                           :parameters (json-object
-                                        "type" "object"
-                                        "properties" (json-object)
-                                        "additionalProperties" (json-false))))
-           (let* ((result (tool-registry-execute-call
-                           registry
-                           (json-object "namespace" "test"
-                                        "name" "overflow"
-                                        "arguments" "{}")
-                           context))
-                  (content (tool-result-content result))
-                  (marker "read the complete result at context:")
+                           :parameters  (json-object
+                                         "type" "object"
+                                         "properties" (json-object)
+                                         "additionalProperties" (json-false))))
+           (let* ((result       (tool-registry-execute-call
+                                 registry
+                                 (json-object "namespace" "test"
+                                              "name" "overflow"
+                                              "arguments" "{}")
+                                 context))
+                  (content      (tool-result-content result))
+                  (marker       "read the complete result at context:")
                   (marker-start (search marker content)))
              (test-assert (tool-result-success-p result)
                           "oversized tool results still succeed")
@@ -195,13 +195,13 @@
              (test-assert marker-start
                           "truncation notices name a durable context URI")
              (let* ((digest-start (+ marker-start (length marker)))
-                    (digest-end (or (position-if-not
-                                     (lambda (character)
-                                       (find character "0123456789abcdef"))
-                                     content
-                                     :start digest-start)
-                                    (length content)))
-                    (digest (subseq content digest-start digest-end)))
+                    (digest-end   (or (position-if-not
+                                       (lambda (character)
+                                         (find character "0123456789abcdef"))
+                                       content
+                                       :start digest-start)
+                                      (length content)))
+                    (digest       (subseq content digest-start digest-end)))
                (multiple-value-bind (object stored)
                    (rlm-context-object-find configuration digest)
                  (test-assert (and object (string= stored full-text))
@@ -246,11 +246,11 @@
   "Test web_extra.gist registration and URL validation without network access."
   (with-test-configuration (configuration)
     (let* ((registry (make-default-tool-registry))
-           (tool (tool-registry-find registry "web_extra" "gist"))
-           (context (make-instance
-                     'tool-context :configuration configuration :worker nil
-                     :conversation (conversation-create configuration)))
-           (fetched nil))
+           (tool     (tool-registry-find registry "web_extra" "gist"))
+           (context  (make-instance
+                      'tool-context :configuration configuration :worker nil
+                      :conversation (conversation-create configuration)))
+           (fetched  nil))
       (test-assert tool "the default registry contains web_extra.gist")
       (test-assert (null (tool-registry-find registry "web" "gist"))
                    "the default registry does not contain the old web.gist name")
@@ -299,12 +299,12 @@
 (defun test-web-gist-retrieval ()
   "Exercise the pinned fetch-gist API, native HTTP failures, and result bounds."
   (with-test-configuration (configuration)
-    (let* ((registry (make-default-tool-registry))
-           (context (make-instance
-                     'tool-context :configuration configuration :worker nil
-                     :conversation (conversation-create configuration)))
-           (url "https://example.com/page")
-           (markdown (format nil "# Markdown~%~%Some content."))
+    (let* ((registry       (make-default-tool-registry))
+           (context        (make-instance
+                            'tool-context :configuration configuration :worker nil
+                            :conversation (conversation-create configuration)))
+           (url            "https://example.com/page")
+           (markdown       (format nil "# Markdown~%~%Some content."))
            (large-markdown (make-string 12000 :initial-element #\a)))
       (dolist (case (list (list "text/markdown; charset=utf-8" markdown t)
                           (list "text/html" "<h1>Title</h1><p>Some content.</p>" t)
@@ -353,8 +353,8 @@
                              (json-object "content-type" "text/markdown")
                              (quri:uri requested)))))
        (lambda ()
-         (let* ((result (tool-tests--web-gist-call
-                         registry context (json-object "url" url)))
+         (let* ((result  (tool-tests--web-gist-call
+                          registry context (json-object "url" url)))
                 (content (tool-result-content result)))
            (test-assert
             (and (tool-result-success-p result)
@@ -366,22 +366,22 @@
 (-> test-tool-registry () null)
 (defun test-tool-registry ()
   "Test tool schemas, dispatch failure handling, and runtime lifecycle cleanup."
-  (let* ((registry (make-default-tool-registry))
+  (let* ((registry      (make-default-tool-registry))
          (configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation (conversation-create configuration
                                                    :identifier "tool-registry"))
-                (context (make-instance 'tool-context
-                                        :configuration configuration
-                                        :worker nil
-                                        :conversation conversation))
+                (context      (make-instance 'tool-context
+                                             :configuration configuration
+                                             :worker        nil
+                                             :conversation  conversation))
                 (unknown-call (json-object
                                "namespace" "missing"
                                "name" "operation"
                                "arguments" "{}"))
-                (result (tool-registry-execute-call
-                         registry unknown-call context)))
+                (result       (tool-registry-execute-call
+                               registry unknown-call context)))
            (let ((immutable-registry
                    (make-default-tool-registry :immutable-p t)))
              (dolist (name '("status" "diff" "generations"))
@@ -405,10 +405,10 @@
                            candidate
                            (make-instance
                             'tool
-                            :namespace (subseq canonical-name 0 separator)
-                            :name (subseq canonical-name (1+ separator))
+                            :namespace   (subseq canonical-name 0 separator)
+                            :name        (subseq canonical-name (1+ separator))
                             :description "Tool capability diff test."
-                            :parameters (tool-object-schema (json-object) nil))))))
+                            :parameters  (tool-object-schema (json-object) nil))))))
                (dolist (name '("z.last" "a.keep" "m.remove"))
                  (register-name old-registry name))
                (dolist (name '("y.add" "a.keep" "b.add"))
@@ -463,7 +463,7 @@
                                      :configuration
                                      (configuration-copy configuration
                                                            :web-search-mode "live")
-                                     :worker nil
+                                     :worker       nil
                                      :conversation conversation)
                       (provider-create configuration)
                       commands)))
@@ -477,7 +477,7 @@
                                      :configuration
                                      (configuration-copy configuration
                                                            :web-search-mode "indexed")
-                                     :worker nil
+                                     :worker       nil
                                      :conversation conversation)
                       (provider-create configuration)
                       commands)))
@@ -498,32 +498,32 @@
                 (null (gethash "query" (json-get parameters "properties")))
                 "web.run no longer declares its incompatible query shim"))))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
-  (let* ((registry (make-instance 'tool-registry))
+  (let* ((registry     (make-instance 'tool-registry))
          (empty-schema (tool-object-schema (json-object) nil))
          (replaceable
            (make-instance 'tool
-                          :namespace "second"
-                          :name "replaceable"
+                          :namespace   "second"
+                          :name        "replaceable"
                           :description "Original registered tool."
-                          :parameters empty-schema))
+                          :parameters  empty-schema))
          (first
            (make-instance 'tool
-                          :namespace "first"
-                          :name "one"
+                          :namespace   "first"
+                          :name        "one"
                           :description "Later namespace tool."
-                          :parameters empty-schema))
+                          :parameters  empty-schema))
          (second
            (make-instance 'tool
-                          :namespace "second"
-                          :name "two"
+                          :namespace   "second"
+                          :name        "two"
                           :description "Later tool in the first namespace."
-                          :parameters empty-schema))
+                          :parameters  empty-schema))
          (replacement
            (make-instance 'tool
-                          :namespace "second"
-                          :name "replaceable"
+                          :namespace   "second"
+                          :name        "replaceable"
                           :description "Replacement registered tool."
-                          :parameters empty-schema)))
+                          :parameters  empty-schema)))
     (dolist (tool (list replaceable first second replacement))
       (tool-registry-register registry tool))
     (test-assert
@@ -547,24 +547,24 @@
                   (lambda (schema) (json-get schema "name"))
                   (json-get (aref schemas 0) "tools"))
              #("replaceable" "two")))
-        "provider schemas preserve first-seen namespace and tool order"))
+       "provider schemas preserve first-seen namespace and tool order"))
     (test-assert
      (zerop (length (tool-registry-provider-schemas registry :canonical-names nil)))
      "an explicit empty selection advertises no tools"))
-  (let ((registry (make-instance 'tool-registry))
+  (let ((registry         (make-instance 'tool-registry))
         (runtime-identity (list ':shared-runtime))
-        (close-count 0)
-        (resume-count 0)
-        (detach-count 0)
-        (events nil))
+        (close-count      0)
+        (resume-count     0)
+        (detach-count     0)
+        (events           nil))
     (flet ((make-runtime-tool (name)
              "Return one test tool sharing the lexical runtime counters."
              (make-instance
               'tool-test-runtime-tool
-              :namespace "test"
-              :name name
-              :description "Exercise the runtime lifecycle protocol."
-              :parameters (tool-object-schema (json-object) nil)
+              :namespace        "test"
+              :name             name
+              :description      "Exercise the runtime lifecycle protocol."
+              :parameters       (tool-object-schema (json-object) nil)
               :runtime-identity runtime-identity
               :close-function
               (lambda ()
@@ -593,28 +593,28 @@
        (equal (nreverse events)
               '(("second" :close) ("first" :resume) ("first" :detach)))
        "runtime operations select the representative for their traversal direction")))
-  (let ((registry (make-instance 'tool-registry))
-        (close-order nil)
+  (let ((registry     (make-instance 'tool-registry))
+        (close-order  nil)
         (resume-order nil)
-        (failure nil))
+        (failure      nil))
     (flet ((make-runtime-tool
                (&key name identity priority close-function resume-function)
              "Return one independently identified close-test tool."
              (make-instance
               'tool-test-runtime-tool
-              :namespace "failure-test"
-              :name name
-              :description "Exercise complete runtime cleanup after failure."
-              :parameters (tool-object-schema (json-object) nil)
+              :namespace        "failure-test"
+              :name             name
+              :description      "Exercise complete runtime cleanup after failure."
+              :parameters       (tool-object-schema (json-object) nil)
               :runtime-identity identity
-              :close-priority priority
-              :close-function close-function
-              :resume-function resume-function
-              :detach-function (lambda () nil))))
+              :close-priority   priority
+              :close-function   close-function
+              :resume-function  resume-function
+              :detach-function  (lambda () nil))))
       (tool-registry-register
        registry
        (make-runtime-tool
-        :name "failure"
+        :name     "failure"
         :identity (list ':failure)
         :priority 50
         :close-function
@@ -626,10 +626,10 @@
       (tool-registry-register
        registry
        (make-runtime-tool
-        :name "later"
-        :identity (list ':later)
-        :priority 100
-        :close-function (lambda () (push ':later close-order))
+        :name            "later"
+        :identity        (list ':later)
+        :priority        100
+        :close-function  (lambda () (push ':later close-order))
         :resume-function (lambda () (push ':later resume-order))))
       (setf failure
             (handler-case
@@ -647,13 +647,12 @@
                    "runtime restart restores dependencies before dependents")))
   nil)
 
-
 (-> test-workspace-tools () null)
 (defun test-workspace-tools ()
   "Test workspace image inspection and bounded shell commands."
-  (let* ((registry (make-default-tool-registry))
+  (let* ((registry           (make-default-tool-registry))
          (base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
+         (root               (test-configuration-root base-configuration))
          (configuration
            (configuration-copy base-configuration :working-directory root)))
     (unwind-protect
@@ -670,17 +669,17 @@
                                                         arguments)))
                        (make-instance 'tool-context
                                       :configuration configuration
-                                      :worker nil
-                                      :conversation conversation
+                                      :worker        nil
+                                      :conversation  conversation
                                       :command-authorization-function
                                       (lambda (command directory)
                                         (declare (ignore command directory))
                                         ':full-access)))))
 
-             (let* ((image-path (merge-pathnames "tool-image.png" root))
-                    (image (test-conversation--write-tiny-png image-path))
-                    (result (run "fs" "view-image"
-                                 "path" (namestring image)))
+             (let* ((image-path  (merge-pathnames "tool-image.png" root))
+                    (image       (test-conversation--write-tiny-png image-path))
+                    (result      (run "fs" "view-image"
+                                      "path" (namestring image)))
                     (attachments (tool-result-image-attachments result)))
                (test-assert
                 (and (tool-result-success-p result)
@@ -735,8 +734,8 @@
                                    (namestring target))))))
                        (make-instance 'tool-context
                                       :configuration configuration
-                                      :worker nil
-                                      :conversation conversation))))
+                                      :worker        nil
+                                      :conversation  conversation))))
                (test-assert (not (tool-result-success-p result))
                             "shell.run denies execution without authorization")
                (test-assert (not (probe-file target))
@@ -770,8 +769,8 @@
                                  (make-instance
                                   'tool-context
                                   :configuration sandbox-configuration
-                                  :worker nil
-                                  :conversation conversation
+                                  :worker        nil
+                                  :conversation  conversation
                                   :command-authorization-function
                                   (lambda (command directory)
                                     (declare (ignore command directory))
@@ -817,9 +816,9 @@
                "Return a tool context whose command authorization answers DECISION."
                (make-instance 'tool-context
                               :configuration configuration
-                              :worker nil
-                              :conversation nil
-                              :registry registry
+                              :worker        nil
+                              :conversation  nil
+                              :registry      registry
                               :command-authorization-function
                               (lambda (command directory)
                                 (declare (ignore directory))
@@ -851,7 +850,7 @@
                       (search "requires full-access approval" (princ-to-string condition))))
                   (format nil "a ~(~A~) decision refuses an outside path" decision)))
                (let* ((full-access (context ':full-access))
-                      (tool (tool-registry-find registry "lisp" "paren-check")))
+                      (tool        (tool-registry-find registry "lisp" "paren-check")))
                  (setf requests nil)
                  (test-assert
                   (and (tool-result-success-p

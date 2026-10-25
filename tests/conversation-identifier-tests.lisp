@@ -41,18 +41,18 @@ match a new library version is never the correct repair."
 (-> test-conversation-identifier-allocation () null)
 (defun test-conversation-identifier-allocation ()
   "Test seeded allocation, storage collision probing, and structured exhaustion."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (storage (configuration-conversation-root configuration))
-         (timestamp 3994000000)
+  (let* ((configuration           (test-configuration))
+         (root                    (test-configuration-root configuration))
+         (storage                 (configuration-conversation-root configuration))
+         (timestamp               3994000000)
          (*random-index-function* (lambda (limit)
                                     (declare (ignore limit))
                                     10)))
     (unwind-protect
          (progn
            (identifier-clear-reservations)
-           (let ((first (conversation-identifier-generate
-                         storage :timestamp timestamp))
+           (let ((first  (conversation-identifier-generate
+                          storage :timestamp timestamp))
                  (second (conversation-identifier-generate
                           storage :timestamp timestamp)))
              (test-assert (string= first "B4JFq84")
@@ -65,8 +65,8 @@ match a new library version is never the correct repair."
                              storage)))
              (ensure-directories-exist pathname)
              (with-open-file (stream pathname
-                                     :direction ':output
-                                     :if-exists ':supersede
+                                     :direction         ':output
+                                     :if-exists         ':supersede
                                      :if-does-not-exist ':create)
                (write-string "occupied" stream))
              (test-assert
@@ -80,7 +80,7 @@ match a new library version is never the correct repair."
                   (progn
                     (conversation-identifier-generate
                      storage
-                     :timestamp timestamp
+                     :timestamp            timestamp
                      :reserved-identifiers reserved)
                     nil)
                 (conversation-identifier-space-exhausted (condition)
@@ -106,10 +106,10 @@ match a new library version is never the correct repair."
 (-> test-conversation-identifier-migration () null)
 (defun test-conversation-identifier-migration ()
   "Test complete durable-reference migration, aliases, and idempotence."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (old "cb472f21-969d-48f5-9c1e-e793d19054b9")
-         (other "de916e8a-8227-443d-9e10-11794a62ebd6")
+  (let* ((configuration           (test-configuration))
+         (root                    (test-configuration-root configuration))
+         (old                     "cb472f21-969d-48f5-9c1e-e793d19054b9")
+         (other                   "de916e8a-8227-443d-9e10-11794a62ebd6")
          (*random-index-function* (lambda (limit)
                                     (declare (ignore limit))
                                     10)))
@@ -120,8 +120,8 @@ match a new library version is never the correct repair."
                 (other-conversation
                   (test-conversation-identifier--legacy-conversation
                    configuration other "second legacy conversation"))
-                (old-path (conversation-pathname conversation))
-                (old-active (conversation-log-pathname conversation))
+                (old-path        (conversation-pathname conversation))
+                (old-active      (conversation-log-pathname conversation))
                 (old-sidecars
                   (conversation-picker-sidecar-pathnames old-path))
                 (old-image-root
@@ -160,8 +160,8 @@ match a new library version is never the correct repair."
             "explicit conversation creation rejects escaping identifiers")
            (ensure-directories-exist (merge-pathnames "image.png" old-image-root))
            (with-open-file (stream (merge-pathnames "image.png" old-image-root)
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create)
              (write-string "artifact" stream))
            (snapshot-write
@@ -176,33 +176,33 @@ match a new library version is never the correct repair."
             crash
             (list :crash :version 1 :id "crash" :conversation-id old))
            (memory-remember configuration
-                            :title "migration memory"
-                            :content "remember the migrated conversation"
-                            :scope ':global
-                            :tags nil
+                            :title               "migration memory"
+                            :content             "remember the migrated conversation"
+                            :scope               ':global
+                            :tags                nil
                             :source-conversation old)
            (conversation-picker-search-close conversation)
            (test-assert (every #'probe-file old-sidecars)
                         "legacy conversation setup publishes picker sidecars")
            (with-open-file (stream old-active
-                                   :direction ':output
-                                   :if-exists ':append
+                                   :direction       ':output
+                                   :if-exists       ':append
                                    :external-format ':utf-8)
              (write-string "(:interrupted" stream))
            (let* ((old-write-date (file-write-date old-active))
-                  (entries (conversation-identifier-migrate configuration))
+                  (entries        (conversation-identifier-migrate configuration))
                   (entry
                     (conversation-identifier-migration--entry-for-old
                      old entries))
                   (other-entry
                     (conversation-identifier-migration--entry-for-old
                      other entries))
-                  (new (getf entry :new))
-                  (other-new (getf other-entry :new))
+                  (new            (getf entry :new))
+                  (other-new      (getf other-entry :new))
                   (new-path
                     (conversation-identifier-migration--conversation-path
                      configuration new))
-                  (new-active (conversation-storage-active-pathname new-path))
+                  (new-active     (conversation-storage-active-pathname new-path))
                   (new-image-root
                     (merge-pathnames
                      (format nil "conversation-images/~A/" new)
@@ -212,8 +212,8 @@ match a new library version is never the correct repair."
                                      (config :data-root configuration)))
                   (new-task-result
                     (merge-pathnames "run/result.sexp" new-task-root))
-                  (task-record (snapshot-read new-task-result))
-                  (memory (first (memory-list configuration :visibility ':all)))
+                  (task-record    (snapshot-read new-task-result))
+                  (memory         (first (memory-list configuration :visibility ':all)))
                   (record
                     (snapshot-read
                      (configuration-conversation-identifier-migration-path
@@ -291,17 +291,17 @@ match a new library version is never the correct repair."
 (defun test-conversation-identifier-migration-validation ()
   "Test exact target validation preserves every source before cleanup."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (first-old "36ef35a6-4167-4a91-858b-83a1c9d4dd89")
-         (second-old "83b25dd1-9424-4be2-b149-f4457c5c9137")
-         (first-new (identifier-from-seed 3994000100 1))
-         (second-new (identifier-from-seed 3994000100 2))
+         (root          (test-configuration-root configuration))
+         (first-old     "36ef35a6-4167-4a91-858b-83a1c9d4dd89")
+         (second-old    "83b25dd1-9424-4be2-b149-f4457c5c9137")
+         (first-new     (identifier-from-seed 3994000100 1))
+         (second-new    (identifier-from-seed 3994000100 2))
          (entries
-           (list (list :old first-old
-                       :new first-new
+           (list (list :old        first-old
+                       :new        first-new
                        :created-at 1000)
-                 (list :old second-old
-                       :new second-new
+                 (list :old        second-old
+                       :new        second-new
                        :created-at 1001))))
     (unwind-protect
          (let* ((first-conversation
@@ -310,7 +310,7 @@ match a new library version is never the correct repair."
                 (second-conversation
                   (test-conversation-identifier--legacy-conversation
                    configuration second-old "second legacy conversation"))
-                (first-source (conversation-pathname first-conversation))
+                (first-source  (conversation-pathname first-conversation))
                 (second-source (conversation-pathname second-conversation))
                 (first-target
                   (conversation-identifier-migration--conversation-path
@@ -378,9 +378,9 @@ match a new library version is never the correct repair."
 (-> test-conversation-identifier-migration-resumption () null)
 (defun test-conversation-identifier-migration-resumption ()
   "Test restart from a durable phase after new conversations were published."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (old "88e2a524-d03c-48ea-99ad-fcfa17416f10")
+  (let* ((configuration           (test-configuration))
+         (root                    (test-configuration-root configuration))
+         (old                     "88e2a524-d03c-48ea-99ad-fcfa17416f10")
          (*random-index-function* (lambda (limit)
                                     (declare (ignore limit))
                                     31)))
@@ -404,7 +404,7 @@ match a new library version is never the correct repair."
              (conversation-identifier-migration--write
               configuration ':conversations entries)
              (let* ((completed (conversation-identifier-migrate configuration))
-                    (new (getf (first completed) :new)))
+                    (new       (getf (first completed) :new)))
                 (test-assert
                  (and
                   (not

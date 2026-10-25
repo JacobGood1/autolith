@@ -23,7 +23,7 @@
   (let (session)
     (application-lisp-call-with-debugger
      (lambda () (error "test failure"))
-     :source "(error \"test failure\")"
+     :source          "(error \"test failure\")"
      :return-values-p t
      :restart-selector
      (lambda (condition restarts)
@@ -33,14 +33,13 @@
        (values nil nil)))
     session))
 
-
 (-> lisp-machine-tests--application
     (&key (:terminal (option terminal)))
     (values application pathname))
 (defun lisp-machine-tests--application (&key terminal)
   "Return a temporary application using TERMINAL and its data root."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration
                                 :identifier (make-identifier)))
@@ -49,14 +48,14 @@
             :terminal
             (or terminal
                 (make-instance 'recording-terminal
-                               :columns 100
+                               :columns  100
                                :styled-p t))))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
+                          :conversation  conversation
                           :tool-registry (make-default-tool-registry)
-                          :ui ui)))
+                          :ui            ui)))
     (values application root)))
 
 (-> lisp-machine-tests--controller (application) application-input-controller)
@@ -159,11 +158,11 @@
      "Autolith operation controls complete evaluation with their loop action"))
   (dolist (condition
            (list (make-condition 'rollback-requested
-                                 :message "requested rollback"
+                                 :message       "requested rollback"
                                  :generation-id "generation")
                  (make-condition 'update-requested
                                  :message "requested update"
-                                 :tag "v9.9.9")))
+                                 :tag     "v9.9.9")))
     (let ((selector-calls 0))
       (test-assert
        (handler-case
@@ -199,20 +198,19 @@
        "restart argument source resolves AUTOLITH symbols from CL-USER")))
   nil)
 
-
 (-> test-application-debugger-diagnosis () null)
 (defun test-application-debugger-diagnosis ()
   "Test a real debugger diagnosis thread with a scripted agent response."
   (with-test-configuration (configuration)
-    (let ((session (lisp-machine-tests--debugger-session))
+    (let ((session           (lisp-machine-tests--debugger-session))
           (diagnosis-context nil))
       (let* ((datum (format nil "bad~Cvalue" *terminal-escape-character*))
              (condition
                (make-condition 'type-error
-                               :datum datum
+                               :datum         datum
                                :expected-type 'integer))
              (entry (application-lisp--debugger-condition-entry condition))
-             (text (terminal--spans-text entry))
+             (text  (terminal--spans-text entry))
              (fallback
                (terminal--spans-text
                 (application-lisp--debugger-condition-entry
@@ -260,39 +258,38 @@
                      "a completed diagnosis has no failure"))))
   nil)
 
-
 (-> test-application-command-debugger () null)
 (defun test-application-command-debugger ()
   "Test command debugger ownership for missing arguments and typed failures."
-  (let ((snapshot (application-command--registry-snapshot))
-        (observed-value nil)
-        (selector-calls 0)
+  (let ((snapshot           (application-command--registry-snapshot))
+        (observed-value     nil)
+        (selector-calls     0)
         (expected-condition nil)
-        (fatal-condition nil))
+        (fatal-condition    nil))
     (unwind-protect
          (progn
            (register-application-command
             (application-command-create
-             :definition-name 'lisp-machine-tests--required-debugger-command
-             :name "/debug-required"
-             :aliases nil
-             :argument "VALUE"
-             :description "exercise required command recovery"
-             :tip "tests required command recovery."
-             :busy-behavior ':execute
+             :definition-name   'lisp-machine-tests--required-debugger-command
+             :name              "/debug-required"
+             :aliases           nil
+             :argument          "VALUE"
+             :description       "exercise required command recovery"
+             :tip               "tests required command recovery."
+             :busy-behavior     ':execute
              :terminal-behavior ':shared
-             :lambda-list '(value)
-             :callable-p t
-             :handler (lambda (application value)
-                        (declare (ignore application))
-                        (setf observed-value value)
-                        ':continue)))
+             :lambda-list       '(value)
+             :callable-p        t
+             :handler           (lambda (application value)
+                                  (declare (ignore application))
+                                  (setf observed-value value)
+                                  ':continue)))
            (multiple-value-bind (application root)
                (lisp-machine-tests--application)
              (unwind-protect
-                  (let* ((ui (application-ui application))
+                  (let* ((ui         (application-ui application))
                          (controller (lisp-machine-tests--controller application))
-                         (command (application-command-find "/debug-required"))
+                         (command    (application-command-find "/debug-required"))
                          (invocation (application-command-invocation-parse
                                       "/debug-required")))
                     (terminal-ui-start ui)
@@ -318,7 +315,7 @@
                         "responsive command recovery reaches its semantic handler")))
                     (test-assert (and (string= observed-value "recovered")
                                       (= selector-calls 2))
-                                    "both command paths supply required arguments")
+                                 "both command paths supply required arguments")
                     (setf observed-value nil)
                     (test-call-with-function-replacements
                      (list
@@ -368,8 +365,8 @@
                              application
                              (lambda ()
                                (error 'active-image-corruption
-                                      :message "corruption"
-                                      :original-condition (make-condition 'simple-error)
+                                      :message               "corruption"
+                                      :original-condition    (make-condition 'simple-error)
                                       :restoration-condition (make-condition 'simple-error))))
                             ':fatal)
                         "active-image corruption uses fatal command handling")))
@@ -382,7 +379,7 @@
                  (tool-registry-close-runtime-state
                   (application-tool-registry application)))
                (platform-delete-directory-tree *platform* root
-                                               :validate t
+                                               :validate          t
                                                :if-does-not-exist ':ignore))))
       (application-command--registry-restore snapshot)))
   nil)
@@ -419,9 +416,9 @@
                             (string= selected "ABORT-USER-OPERATION"))
                        "Escape in the visible restart modal aborts its operation"))))
                  (let* ((live-items (remove-if-not
-                                    (lambda (item)
-                                      (equal (getf item :group) "live restarts"))
-                                    items))
+                                     (lambda (item)
+                                       (equal (getf item :group) "live restarts"))
+                                     items))
                         (value-item (find-if
                                      (lambda (item)
                                        (search "use-value" (getf item :description)))
@@ -431,8 +428,8 @@
                                        (search "abort-user-operation"
                                                (getf item :description)))
                                      live-items))
-                        (output (clinedi:ansi-strip
-                                 (recording-terminal-output terminal))))
+                        (output     (clinedi:ansi-strip
+                                     (recording-terminal-output terminal))))
                    (test-assert
                     (and value-item abort-item
                          (every #'terminal-completion-p items)
@@ -457,16 +454,16 @@
                      (search (terminal-style-sequence ':syntax-number)
                              (recording-terminal-output terminal)))
                 "argument input uses Lisp highlighting and restores the draft")
-               (let* ((saved-image (merge-pathnames "saved.png" root))
+               (let* ((saved-image     (merge-pathnames "saved.png" root))
                       (temporary-image (merge-pathnames "temporary.png" root))
-                      (saved-input (user-message-input-create
-                                    :text "[Image #1] saved image draft"
-                                    :image-pathnames (list saved-image)))
+                      (saved-input     (user-message-input-create
+                                        :text            "[Image #1] saved image draft"
+                                        :image-pathnames (list saved-image)))
                       (temporary-input (user-message-input-create
-                                        :text "[Image #1] 42"
+                                        :text            "[Image #1] 42"
                                         :image-pathnames (list temporary-image)))
-                      (events (list (list ':submit temporary-input)
-                                    (list ':escape nil))))
+                      (events          (list (list ':submit temporary-input)
+                                             (list ':escape nil))))
                  (terminal-ui-set-input ui saved-input)
                  (recording-terminal-reset terminal)
                  (test-call-with-function-replacements
@@ -494,13 +491,13 @@
                                  (clinedi:ansi-strip
                                   (recording-terminal-output terminal))))
                     "argument editing rejects submitted images and restores saved attachments")))
-               (let ((choices (list "ask-autolith" "AUTOLITH-RECOVERY-1"))
-                     (cancel-count 0)
+               (let ((choices           (list "ask-autolith" "AUTOLITH-RECOVERY-1"))
+                     (cancel-count      0)
                      (all-items-valid-p t)
                      (proposal
                        (lambda-debugger:make-recovery
-                        :kind ':return-values
-                        :report "Use replacement values."
+                        :kind          ':return-values
+                        :report        "Use replacement values."
                         :return-source "(values :modal-recovery 9)")))
                  (test-call-with-function-replacements
                   (list
@@ -539,9 +536,9 @@
                          application
                          (lambda ()
                            (error "modal recovery"))
-                         :source nil
-                         :operation-kind ':command
-                         :retry-p t
+                         :source          nil
+                         :operation-kind  ':command
+                         :retry-p         t
                          :return-values-p t)
                       (declare (ignore condition restart-names))
                       (test-assert all-items-valid-p
@@ -556,7 +553,7 @@
                                    "selected diagnosis recovery returns replacement values")
                       (test-assert (string= selected-restart-name "RETURN-VALUES")
                                    "diagnosis resolves a stable name to its recovery object")))))
-               (let ((choices (list "ask-autolith" "0"))
+               (let ((choices      (list "ask-autolith" "0"))
                      (cancel-count 0))
                  (test-call-with-function-replacements
                   (list
@@ -594,67 +591,67 @@
                             (eq status ':ok)
                             (equal values '(:continued))
                             (string= selected-restart-name "CONTINUE"))
-                      "selecting a live restart cancels an active diagnosis"))))))
-                (let ((choices (list "ask-autolith" "diagnosis-info" "0"))
-                      (cancel-count 0)
-                      (explanation-visible-p nil))
-                  (test-call-with-function-replacements
-                   (list
-                    (list 'terminal-ui-select
-                          (lambda (ignored &key items on-event poll-interval
-                                             &allow-other-keys)
-                            (declare (ignore ignored items))
-                            (when poll-interval
-                              (let* ((replacement (funcall on-event ':poll nil))
-                                     (replacement-items (third replacement)))
-                                (setf explanation-visible-p
-                                      (some (lambda (item)
-                                              (and (string= (getf item :value)
-                                                            "diagnosis-info")
-                                                   (search "The failure is understood."
-                                                           (getf item :description))))
-                                            replacement-items))))
-                            (pop choices)))
-                    (list 'application-debugger-start-diagnosis
-                          (lambda (session configuration)
-                            (declare (ignore configuration))
-                            (setf (application-debugger-diagnosis-state session)
-                                  ':complete
-                                  (application-debugger-explanation session)
-                                  "The failure is understood.")
-                            session))
-                    (list 'application-debugger-cancel-diagnosis
-                          (lambda (session)
-                            (incf cancel-count)
-                            (setf (application-debugger-diagnosis-state session)
-                                  ':cancelled)
-                            session)))
-                   (lambda ()
-                     (multiple-value-bind
-                           (values status condition restart-names
-                                   selected-restart-name)
-                         (application-lisp-call-with-ui-debugger
-                          application
-                          (lambda ()
-                            (restart-case
-                                (error "explain and return")
-                              (continue ()
-                                :continued-after-explanation))))
-                       (declare (ignore condition restart-names))
-                       (test-assert
-                        (and (null choices)
-                             explanation-visible-p
-                             (zerop cancel-count)
-                             (eq status ':ok)
-                             (equal values '(:continued-after-explanation))
-                             (string= selected-restart-name "CONTINUE"))
-                        "diagnosis explanation returns to the same live restart selector")))))
+                       "selecting a live restart cancels an active diagnosis"))))))
+             (let ((choices               (list "ask-autolith" "diagnosis-info" "0"))
+                   (cancel-count          0)
+                   (explanation-visible-p nil))
+               (test-call-with-function-replacements
+                (list
+                 (list 'terminal-ui-select
+                       (lambda (ignored &key items on-event poll-interval
+                                          &allow-other-keys)
+                         (declare (ignore ignored items))
+                         (when poll-interval
+                           (let* ((replacement       (funcall on-event ':poll nil))
+                                  (replacement-items (third replacement)))
+                             (setf explanation-visible-p
+                                   (some (lambda (item)
+                                           (and (string= (getf item :value)
+                                                         "diagnosis-info")
+                                                (search "The failure is understood."
+                                                        (getf item :description))))
+                                         replacement-items))))
+                         (pop choices)))
+                 (list 'application-debugger-start-diagnosis
+                       (lambda (session configuration)
+                         (declare (ignore configuration))
+                         (setf (application-debugger-diagnosis-state session)
+                               ':complete
+                               (application-debugger-explanation session)
+                               "The failure is understood.")
+                         session))
+                 (list 'application-debugger-cancel-diagnosis
+                       (lambda (session)
+                         (incf cancel-count)
+                         (setf (application-debugger-diagnosis-state session)
+                               ':cancelled)
+                         session)))
+                (lambda ()
+                  (multiple-value-bind
+                        (values status condition restart-names
+                                selected-restart-name)
+                      (application-lisp-call-with-ui-debugger
+                       application
+                       (lambda ()
+                         (restart-case
+                             (error "explain and return")
+                           (continue ()
+                             :continued-after-explanation))))
+                    (declare (ignore condition restart-names))
+                    (test-assert
+                     (and (null choices)
+                          explanation-visible-p
+                          (zerop cancel-count)
+                          (eq status ':ok)
+                          (equal values '(:continued-after-explanation))
+                          (string= selected-restart-name "CONTINUE"))
+                     "diagnosis explanation returns to the same live restart selector")))))
           (ignore-errors (terminal-ui-stop ui))
           (ignore-errors
             (tool-registry-close-runtime-state
              (application-tool-registry application)))
           (platform-delete-directory-tree *platform* root
-                                          :validate t
+                                          :validate          t
                                           :if-does-not-exist ':ignore)))))
   nil)
 
@@ -688,7 +685,7 @@
           (tool-registry-close-runtime-state
            (application-tool-registry application)))
         (platform-delete-directory-tree *platform* root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   nil)
 
@@ -714,8 +711,8 @@
    "leading whitespace preserves prose routing")
   (multiple-value-bind (application root)
       (lisp-machine-tests--application)
-    (let* ((ui (application-ui application))
-           (terminal (terminal-ui-terminal ui))
+    (let* ((ui         (application-ui application))
+           (terminal   (terminal-ui-terminal ui))
            (controller (lisp-machine-tests--controller application))
            (work-items (application-input-controller-work-items controller)))
       (unwind-protect
@@ -862,7 +859,7 @@
           (tool-registry-close-runtime-state
            (application-tool-registry application)))
         (platform-delete-directory-tree *platform* root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   nil)
 
@@ -871,10 +868,10 @@
   "Test that an idle prompt is marked before its terminal reader can accept input."
   (multiple-value-bind (application root)
       (lisp-machine-tests--application)
-    (let* ((ui (application-ui application))
-           (terminal (terminal-ui-terminal ui))
-           (controller nil)
-           (reader-state nil)
+    (let* ((ui            (application-ui application))
+           (terminal      (terminal-ui-terminal ui))
+           (controller    nil)
+           (reader-state  nil)
            (reader-output nil)
            (prompt-start
              (terminal--prompt-marker-sequence ':prompt-start 0))
@@ -894,13 +891,13 @@
                              reader-output
                              (recording-terminal-output terminal))
                        nil)))
-               (lambda ()
-                 (setf controller
-                       (application-input-controller-create
-                        application
-                        :initial-work-items
-                        '((:recovery-diagnosis "internal"))
-                        :load-pending-p nil))))
+              (lambda ()
+                (setf controller
+                      (application-input-controller-create
+                       application
+                       :initial-work-items
+                       '((:recovery-diagnosis "internal"))
+                       :load-pending-p nil))))
              (test-assert
               (and (eq reader-state ':input)
                    (= (terminal-tests--substring-count
@@ -912,7 +909,7 @@
                    (< (search prompt-start reader-output)
                       (search input-start reader-output))
                    (not (application-input-controller-reader-live-p controller)))
-               "initial work still emits A/B before starting its reader"))
+              "initial work still emits A/B before starting its reader"))
         (when controller
           (ignore-errors (application-input-controller-stop controller)))
         (ignore-errors (terminal-ui-stop ui))
@@ -920,7 +917,7 @@
           (tool-registry-close-runtime-state
            (application-tool-registry application)))
         (platform-delete-directory-tree *platform* root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   nil)
 
@@ -929,8 +926,8 @@
   "Test prompt blocks around foreground, failed, cancelled, and immediate Lisp."
   (multiple-value-bind (application root)
       (lisp-machine-tests--application)
-    (let* ((ui (application-ui application))
-           (terminal (terminal-ui-terminal ui))
+    (let* ((ui         (application-ui application))
+           (terminal   (terminal-ui-terminal ui))
            (controller (lisp-machine-tests--controller application)))
       (labels ((marker (payload)
                  (if (string= payload "A")
@@ -945,7 +942,7 @@
                  (block nil
                    (let ((start 0))
                      (dolist (payload payloads t)
-                       (let* ((control (marker payload))
+                       (let* ((control  (marker payload))
                               (position (search control output :start2 start)))
                          (unless position
                            (return nil))
@@ -1054,6 +1051,6 @@
             (tool-registry-close-runtime-state
              (application-tool-registry application)))
           (platform-delete-directory-tree *platform* root
-                                          :validate t
+                                          :validate          t
                                           :if-does-not-exist ':ignore)))))
   nil)

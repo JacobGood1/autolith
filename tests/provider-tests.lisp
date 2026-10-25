@@ -34,18 +34,18 @@
             "{\"error\":{\"message\":\"model_not_found means this model is unavailable\"}}"))
    "HTTP errors surface the provider's own explanation")
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (provider (provider-create configuration))
+         (root          (test-configuration-root configuration))
+         (provider      (provider-create configuration))
          (condition
            (make-condition
             'http-request-failed
-            :body "rate limited"
-            :status 429
+            :body    "rate limited"
+            :status  429
             :headers '(("x-request-id" . "request-429")
                        ("x-codex-primary-used-percent" . "100")
                        ("x-codex-primary-window-minutes" . "300"))
-            :uri nil
-            :method ':post)))
+            :uri     nil
+            :method  ':post)))
     (unwind-protect
          (progn
            (test-assert
@@ -77,12 +77,12 @@
            (let ((stream-condition
                    (make-condition
                     'http-request-failed
-                    :body (make-string-input-stream
-                           "{\"error\":{\"message\":\"input item is not supported\"}}")
-                    :status 400
+                    :body    (make-string-input-stream
+                              "{\"error\":{\"message\":\"input item is not supported\"}}")
+                    :status  400
                     :headers '(("request-id" . "request-400"))
-                    :uri nil
-                    :method ':post)))
+                    :uri     nil
+                    :method  ':post)))
              (test-assert
               (handler-case
                   (progn
@@ -98,23 +98,23 @@
                                (or (provider-error-response error) ""))
                        t)))
               "a streamed failure body reaches both the message and the response"))
-            (dolist (status '(500 503))
-              (let ((transient-condition
-                      (make-condition
-                       'http-request-failed
-                       :body "temporary provider failure"
-                       :status status
-                       :headers nil
-                       :uri nil
-                       :method ':post)))
-                (test-assert
-                 (handler-case
-                     (progn
-                       (provider-signal-http-failure provider transient-condition)
-                       nil)
-                   (provider-retryable-error (error)
-                     (= (provider-error-status error) status)))
-                 (format nil "HTTP ~D is eligible for bounded retry" status)))))
+           (dolist (status '(500 503))
+             (let ((transient-condition
+                     (make-condition
+                      'http-request-failed
+                      :body    "temporary provider failure"
+                      :status  status
+                      :headers nil
+                      :uri     nil
+                      :method  ':post)))
+               (test-assert
+                (handler-case
+                    (progn
+                      (provider-signal-http-failure provider transient-condition)
+                      nil)
+                  (provider-retryable-error (error)
+                    (= (provider-error-status error) status)))
+                (format nil "HTTP ~D is eligible for bounded retry" status)))))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
@@ -129,9 +129,9 @@
   "Return REQUEST's first standard Responses tool whose type equals TYPE."
   (find type
         (provider-tests--request-tools request)
-        :key (lambda (tool)
-               (and (json-object-p tool)
-                    (json-get tool "type")))
+        :key  (lambda (tool)
+                (and (json-object-p tool)
+                     (json-get tool "type")))
         :test #'equal))
 
 (-> provider-tests--search-filter-schemas () vector)
@@ -160,14 +160,14 @@
 (defun test-provider-reserved-web-schema ()
   "Exercise reserved web parameters through registered eager and deferred requests."
   (with-test-configuration (configuration)
-    (let* ((registry (make-default-tool-registry :configuration configuration))
+    (let* ((registry     (make-default-tool-registry :configuration configuration))
            (conversation (conversation-create configuration)))
       (unwind-protect
            (dolist (model '("gpt-5.3-codex" "gpt-6.1-sol"))
              (let* ((provider
                       (provider-family-create
                        ':codex
-                       (configuration-copy configuration :model model
+                       (configuration-copy configuration :model   model
                                            :provider-validation-p nil)))
                     (request
                       (provider-request-object
@@ -177,14 +177,14 @@
                       (if (provider-deferred-tool-loading-p provider)
                           (let ((namespace
                                   (find "web" tools
-                                        :key (lambda (entry) (json-get entry "name"))
+                                        :key  (lambda (entry) (json-get entry "name"))
                                         :test #'equal)))
                             (and namespace
                                  (find "run" (json-get namespace "tools")
-                                       :key (lambda (entry) (json-get entry "name"))
+                                       :key  (lambda (entry) (json-get entry "name"))
                                        :test #'equal)))
                           (find (provider-wire-tool-name provider "web" "run") tools
-                                :key (lambda (entry) (json-get entry "name"))
+                                :key  (lambda (entry) (json-get entry "name"))
                                 :test #'equal))))
                (test-assert
                 (and web (equalp (json-get web "parameters") (web-run-parameters)))
@@ -196,10 +196,10 @@
 (defun test-provider-request-tool-filtering ()
   "Test local web schemas are sent only when the request can execute them."
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
+         (root               (test-configuration-root base-configuration))
          (disabled-configuration
            (configuration-copy base-configuration :web-search-mode "disabled"))
-         (schemas (provider-tests--search-filter-schemas)))
+         (schemas            (provider-tests--search-filter-schemas)))
     (unwind-protect
          (progn
            (let ((filtered
@@ -236,14 +236,14 @@
            (let* ((conversation
                     (conversation-create disabled-configuration
                                          :identifier "responses-search-filter"))
-                  (provider (provider-create disabled-configuration))
+                  (provider  (provider-create disabled-configuration))
                   (request
                     (progn
                       (conversation-append-user-message conversation "inspect")
                       (provider-request-object provider conversation schemas)))
-                  (tools (json-get request "tools"))
+                  (tools     (json-get request "tools"))
                   (namespace (aref tools 0))
-                  (web (aref tools 1)))
+                  (web       (aref tools 1)))
              (test-assert
               (and (= (length tools) 3)
                    (json-string= (json-get namespace "type") "namespace")
@@ -262,9 +262,9 @@
                   (provider
                     (openai-compatible-provider-create
                      disabled-configuration
-                     :name "search-filter"
-                     :family ':codex
-                     :headers nil
+                     :name                "search-filter"
+                     :family              ':codex
+                     :headers             nil
                      :reasoning-parameter nil))
                   (request
                     (progn
@@ -295,7 +295,7 @@
                     (progn
                       (conversation-append-user-message conversation "inspect")
                       (provider-request-object provider conversation schemas)))
-                  (tools (json-get request "tools")))
+                  (tools    (json-get request "tools")))
              (test-assert
               (and (= (length tools) 2)
                    (string= (json-get (aref tools 0) "description")
@@ -308,7 +308,7 @@
                       (provider-responses-request-namespaces
                        (grok-provider-create configuration) schemas))
                     (web (find "web" filtered
-                               :key (lambda (entry) (json-get entry "name"))
+                               :key  (lambda (entry) (json-get entry "name"))
                                :test #'equal)))
                (test-assert
                 (and web
@@ -361,12 +361,11 @@
              (first entry) (rest entry))))
   nil)
 
-
 (-> test-provider-deferred-tool-loading () null)
 (defun test-provider-deferred-tool-loading ()
   "Test Codex native namespace discovery and exact eager fallback."
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
+         (root               (test-configuration-root base-configuration))
          (schemas
            (json-array
             (json-object
@@ -386,21 +385,21 @@
     (unwind-protect
          (let* ((configuration
                   (configuration-copy base-configuration
-                                        :model "gpt-5.6-terra"
+                                        :model             "gpt-5.6-terra"
                                         :working-directory root))
-                (provider (provider-create configuration))
+                (provider  (provider-create configuration))
                 (conversation
                   (conversation-create configuration
                                        :identifier "deferred-tools"))
-                (request (provider-request-object provider conversation schemas))
-                (tools (json-get request "tools"))
+                (request   (provider-request-object provider conversation schemas))
+                (tools     (json-get request "tools"))
                 (namespace (aref tools 0))
-                (child (aref (json-get namespace "tools") 0))
-                (call (json-object "type" "function_call"
-                                   "call_id" "call-1"
-                                   "namespace" "resource"
-                                   "name" "read"
-                                   "arguments" "{}")))
+                (child     (aref (json-get namespace "tools") 0))
+                (call      (json-object "type" "function_call"
+                                        "call_id" "call-1"
+                                        "namespace" "resource"
+                                        "name" "read"
+                                        "arguments" "{}")))
            (test-assert
             (and (provider-deferred-tool-loading-p provider)
                  (= (length tools) 2)
@@ -415,17 +414,17 @@
             "native namespaced calls replay without flattening")
            (let* ((future-configuration
                     (configuration-copy configuration
-                                        :model "gpt-5.7-codex"
+                                        :model                 "gpt-5.7-codex"
                                         :provider-validation-p nil))
                   (future-provider (provider-create future-configuration)))
              (test-assert
               (provider-deferred-tool-loading-p future-provider)
               "future GPT models retain documented deferred-tool support"))
            (let* ((fallback-configuration
-                    (configuration-copy configuration :model "gpt-5.3-codex"
+                    (configuration-copy configuration :model   "gpt-5.3-codex"
                                         :provider-validation-p nil))
                   (fallback-provider (provider-create fallback-configuration))
-                  (fallback-tools (provider-wire-tools fallback-provider schemas))
+                  (fallback-tools    (provider-wire-tools fallback-provider schemas))
                   (fallback-call
                     (provider-wire-input-item fallback-provider call)))
              (test-assert
@@ -434,7 +433,7 @@
                    (json-string= (json-get (aref fallback-tools 0) "type")
                                  "function")
                    (null (find "tool_search" fallback-tools
-                               :key (lambda (tool) (json-get tool "type"))
+                               :key  (lambda (tool) (json-get tool "type"))
                                :test #'string=))
                    (null (json-get fallback-call "namespace"))
                    (not (string= (json-get fallback-call "name") "read")))
@@ -444,7 +443,7 @@
                              (provider-wire-tools
                               (provider-create
                                (configuration-copy configuration :model "gpt-5.3-codex"
-                                        :provider-validation-p nil))
+                                        :provider-validation-p          nil))
                               schemas))))
                   (visible-characters
                     (length
@@ -498,11 +497,11 @@
                                          "defer_loading" t
                                          "parameters" nil
                                          "output_schema" nil))))))
-                  (replayed (provider-wire-input-item provider search-output))
+                  (replayed           (provider-wire-input-item provider search-output))
                   (replayed-namespace (aref (json-get replayed "tools") 0))
-                  (replayed-child (aref (json-get replayed-namespace "tools") 0))
-                  (trimmed (let ((*provider-history-trimming-p* t))
-                             (provider-wire-input-item provider search-output))))
+                  (replayed-child     (aref (json-get replayed-namespace "tools") 0))
+                  (trimmed            (let ((*provider-history-trimming-p* t))
+                                        (provider-wire-input-item provider search-output))))
              (test-assert
               (and (json-string= (json-get replayed "type") "tool_search_output")
                    (= (length (json-get replayed "tools")) 1)
@@ -531,27 +530,27 @@
 (defun test-provider-request ()
   "Test the standard Codex Responses request shape without network access."
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
+         (root               (test-configuration-root base-configuration))
          (configuration
            (configuration-copy base-configuration
                                  :working-directory root
-                                 :reasoning-effort "ultra")))
+                                 :reasoning-effort  "ultra")))
     (unwind-protect
          (let* ((conversation (conversation-create configuration
                                                    :identifier "request-shape"))
-                (provider (provider-create configuration))
-                (schemas (json-array
-                          (json-object
-                           "type" "namespace"
-                           "name" "test"
-                           "description" "Test tools."
-                           "tools"
-                           (json-array
-                            (json-object
-                             "name" "inspect"
-                             "description" "Inspect a value."
-                             "parameters" (json-object "type" "object"))))))
-                (request nil))
+                (provider     (provider-create configuration))
+                (schemas      (json-array
+                               (json-object
+                                "type" "namespace"
+                                "name" "test"
+                                "description" "Test tools."
+                                "tools"
+                                (json-array
+                                 (json-object
+                                  "name" "inspect"
+                                  "description" "Inspect a value."
+                                  "parameters" (json-object "type" "object"))))))
+                (request      nil))
            (conversation-append-user-message conversation "hello")
            (setf request (provider-request-object provider conversation schemas))
            (test-assert (provider-child-reference-history-p provider)
@@ -571,8 +570,8 @@
               "a supported Codex model requests the Fast service tier"))
            (let* ((unknown-configuration
                     (configuration-copy configuration
-                                        :model "gpt-future-unknown"
-                                        :codex-fast-mode-p t
+                                        :model                 "gpt-future-unknown"
+                                        :codex-fast-mode-p     t
                                         :provider-validation-p nil))
                   (unknown-provider (provider-create unknown-configuration))
                   (unknown-request
@@ -597,7 +596,7 @@
            (test-assert
             (non-empty-string-p (json-get request "instructions"))
             "standard Responses uses top-level stable instructions")
-           (let* ((goal-text "<goal_context>persist</goal_context>")
+           (let* ((goal-text  "<goal_context>persist</goal_context>")
                   (goal-request
                     (provider-request-object
                      provider conversation schemas :goal-context goal-text))
@@ -614,10 +613,10 @@
               "goal context stays outside the stable instructions"))
            (with-recursive-lock-held (*agenda-lock*)
              (let ((state (agenda-load configuration)))
-               (agenda-add :configuration configuration
-                           :state state
-                           :text "cache-prefix mutation"
-                           :status ':doing
+               (agenda-add :configuration      configuration
+                           :state              state
+                           :text               "cache-prefix mutation"
+                           :status             ':doing
                            :memory-identifiers nil)))
            (let* ((mutated-request
                     (provider-request-object provider conversation schemas))
@@ -734,10 +733,10 @@
             (string= (json-get (json-get request "text") "verbosity") "low")
             "the provider request asks for restrained text verbosity")
            (let* ((fallback-configuration
-                    (configuration-copy configuration :model "gpt-5.3-codex"
+                    (configuration-copy configuration :model   "gpt-5.3-codex"
                                         :provider-validation-p nil))
                   (fallback-provider (provider-create fallback-configuration))
-                  (tools (provider-wire-tools fallback-provider schemas))
+                  (tools             (provider-wire-tools fallback-provider schemas))
                   (wire-name
                     (provider-wire-tool-name fallback-provider "test" "inspect")))
              (test-assert
@@ -756,28 +755,28 @@
                    (search "Do not call tools"
                            (json-get compaction-request "instructions")))
               "portable compaction fallback explicitly requires tool-free text"))
-            (let* ((fallback-configuration
-                     (configuration-copy configuration :model "gpt-5.3-codex"
-                                        :provider-validation-p nil))
-                   (fallback-provider (provider-create fallback-configuration))
-                   (local-call
-                     (json-object
-                      "type" "function_call"
-                      "namespace" "test"
-                      "name" "inspect"
-                      "call_id" "call-standard"))
-                   (wire-call
-                     (provider-wire-input-item fallback-provider local-call))
-                   (normalized
-                     (provider-normalize-output-item
-                      fallback-provider (json-object-copy wire-call))))
-              (test-assert
-               (and (null (json-get wire-call "namespace"))
-                    (provider-wire-function-name--valid-p
-                     (json-get wire-call "name"))
-                    (string= (json-get normalized "namespace") "test")
-                    (string= (json-get normalized "name") "inspect"))
-               "eager Codex wire hooks round-trip the local tool namespace")))
+           (let* ((fallback-configuration
+                    (configuration-copy configuration :model  "gpt-5.3-codex"
+                                       :provider-validation-p nil))
+                  (fallback-provider (provider-create fallback-configuration))
+                  (local-call
+                    (json-object
+                     "type" "function_call"
+                     "namespace" "test"
+                     "name" "inspect"
+                     "call_id" "call-standard"))
+                  (wire-call
+                    (provider-wire-input-item fallback-provider local-call))
+                  (normalized
+                    (provider-normalize-output-item
+                     fallback-provider (json-object-copy wire-call))))
+             (test-assert
+              (and (null (json-get wire-call "namespace"))
+                   (provider-wire-function-name--valid-p
+                    (json-get wire-call "name"))
+                   (string= (json-get normalized "namespace") "test")
+                   (string= (json-get normalized "name") "inspect"))
+              "eager Codex wire hooks round-trip the local tool namespace")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
@@ -785,11 +784,11 @@
 (defun test-provider-native-compaction ()
   "Test the Codex native checkpoint request, transport, and fallback boundary."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "native-request"))
-         (provider (provider-create configuration))
-         (credentials (provider-tests--credentials configuration))
+         (provider      (provider-create configuration))
+         (credentials   (provider-tests--credentials configuration))
          (schemas
            (json-array
             (json-object "type" "namespace"
@@ -844,8 +843,8 @@
                 "Codex Fast mode applies to native compaction"))
              (let* ((unknown-configuration
                       (configuration-copy configuration
-                                          :model "gpt-future-unknown"
-                                          :codex-fast-mode-p t
+                                          :model                 "gpt-future-unknown"
+                                          :codex-fast-mode-p     t
                                           :provider-validation-p nil))
                     (unknown-provider (provider-create unknown-configuration))
                     (unknown-request
@@ -860,7 +859,7 @@
                  (declare (ignore value))
                  (test-assert (not present-p)
                               (format nil "native compaction omits ~A" name)))))
-           (let ((captured-url nil)
+           (let ((captured-url     nil)
                  (captured-headers nil)
                  (captured-content nil))
              (test-call-with-function-replacements
@@ -876,7 +875,7 @@
                 (provider-open-native-compaction
                  provider
                  (json-object "model" *default-model*)
-                 :credentials credentials
+                 :credentials  credentials
                  :conversation conversation)))
              (flet ((header (name)
                       (rest (assoc name captured-headers :test #'string-equal))))
@@ -935,7 +934,7 @@
                       (provider-native-compact-conversation
                        provider conversation
                        :tool-namespaces schemas
-                       :event-callback #'identity))))
+                       :event-callback  #'identity))))
              (test-assert (native-compaction-item-p result)
                           "native compaction finds its opaque checkpoint among output")
              (multiple-value-bind (value present-p) (gethash "id" result)
@@ -989,7 +988,7 @@
                 (provider-native-compact-conversation
                  provider conversation
                  :tool-namespaces schemas
-                 :event-callback #'identity))
+                 :event-callback  #'identity))
                "an unavailable native endpoint falls back without failing compaction"))))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
@@ -1002,21 +1001,21 @@
 (defclass test-character-input-stream
     (trivial-gray-streams:fundamental-character-input-stream)
   ((source
-    :initarg :source
-    :reader test-character-input-stream-source
-    :type string
+    :initarg       :source
+    :reader        test-character-input-stream-source
+    :type          string
     :documentation "The deterministic character source.")
    (position
-    :initform 0
-    :accessor test-character-input-stream-position
-    :type integer
+    :initform      0
+    :accessor      test-character-input-stream-position
+    :type          integer
     :documentation "The next source character offset."))
   (:documentation "A test stream implementing character reads but not line reads."))
 
 (defmethod trivial-gray-streams:stream-read-char ((stream test-character-input-stream))
   "Read one character from STREAM, returning the Gray-stream EOF marker at its end."
   (let ((position (test-character-input-stream-position stream))
-        (source (test-character-input-stream-source stream)))
+        (source   (test-character-input-stream-source stream)))
     (if (< position (length source))
         (prog1 (char source position)
           (incf (test-character-input-stream-position stream)))
@@ -1024,9 +1023,9 @@
 
 (defclass test-failing-close-stream (test-character-input-stream)
   ((close-abort-p
-    :initform nil
-    :accessor test-failing-close-stream-close-abort-p
-    :type boolean
+    :initform      nil
+    :accessor      test-failing-close-stream-close-abort-p
+    :type          boolean
     :documentation "Whether the attempted close was abortive."))
   (:documentation "A deterministic provider stream whose close operation fails."))
 
@@ -1035,17 +1034,17 @@
   (setf (test-failing-close-stream-close-abort-p stream)
         (not (null abort)))
   (error 'ssl-error-syscall
-         :queue nil
+         :queue         nil
          :printed-queue nil
-         :ret -1
-         :handle nil
-         :syscall 'close))
+         :ret           -1
+         :handle        nil
+         :syscall       'close))
 
 (define-condition test-provider-tls-error (cl+ssl-error)
   ((detail
-    :initarg :detail
-    :reader test-provider-tls-error-detail
-    :type string
+    :initarg       :detail
+    :reader        test-provider-tls-error-detail
+    :type          string
     :documentation "The synthetic TLS diagnostic shown by the condition."))
   (:report
    (lambda (condition stream)
@@ -1054,14 +1053,14 @@
 
 (defclass test-transport-provider (codex-subscription-provider)
   ((outcomes
-    :initarg :outcomes
-    :accessor test-transport-provider-outcomes
-    :type list
+    :initarg       :outcomes
+    :accessor      test-transport-provider-outcomes
+    :type          list
     :documentation "The connection outcomes returned or signaled in order.")
    (attempt-count
-    :initform 0
-    :accessor test-transport-provider-attempt-count
-    :type integer
+    :initform      0
+    :accessor      test-transport-provider-attempt-count
+    :type          integer
     :documentation "The number of response streams requested."))
   (:documentation "A subscription provider injecting transport boundary outcomes."))
 
@@ -1076,11 +1075,11 @@
     (cond
       ((eq outcome ':syscall)
        (error 'ssl-error-syscall
-              :queue nil
+              :queue         nil
               :printed-queue nil
-              :ret -1
-              :handle nil
-              :syscall 'connect))
+              :ret           -1
+              :handle        nil
+              :syscall       'connect))
       ((eq outcome ':tls)
        (error 'test-provider-tls-error
               :detail "certificate verification failed"))
@@ -1088,8 +1087,8 @@
        (error 'test-provider-tls-error :detail (second outcome)))
       ((eq outcome ':name-service)
        (error 'sb-bsd-sockets:name-service-error
-              :errno 1
-              :symbol 'getaddrinfo
+              :errno   1
+              :symbol  'getaddrinfo
               :syscall 'getaddrinfo))
       ((eq outcome ':simple-error)
        (error "Synthetic provider transport failure."))
@@ -1109,8 +1108,8 @@
     (cond
       ((eq outcome ':name-service)
        (error 'sb-bsd-sockets:name-service-error
-              :errno 1
-              :symbol 'getaddrinfo
+              :errno   1
+              :symbol  'getaddrinfo
               :syscall 'getaddrinfo))
       ((eq outcome ':tls)
        (error 'test-provider-tls-error
@@ -1143,34 +1142,34 @@
   "Return a test provider yielding transport OUTCOMES."
   (make-instance
    'test-transport-provider
-   :configuration configuration
+   :configuration      configuration
    :credential-manager (credential-manager-create configuration)
-   :session-id (make-identifier)
-   :outcomes outcomes))
+   :session-id         (make-identifier)
+   :outcomes           outcomes))
 
 (-> test-provider-context-presentation () null)
 (defun test-provider-context-presentation ()
   "Exercise presentation events through authenticated ordinary and compaction requests."
   (with-test-configuration (configuration)
-    (let* ((*context-contributors* nil)
-           (*context-resolver* (cl-llm-provider-api:make-context-resolver))
-           (*context-last-deliveries* (make-hash-table :test #'equal))
+    (let* ((*context-contributors*        nil)
+           (*context-resolver*            (cl-llm-provider-api:make-context-resolver))
+           (*context-last-deliveries*     (make-hash-table :test #'equal))
            (*context-last-delivery-order* nil)
-           (conversation (conversation-create configuration))
-           (credentials (provider-tests--credentials configuration)))
+           (conversation                  (conversation-create configuration))
+           (credentials                   (provider-tests--credentials configuration)))
       (memory-remember configuration
-                       :title "Granite reference"
+                       :title   "Granite reference"
                        :content "Inspect this reference before use."
-                       :scope ':workspace
-                       :tags '("granite"))
+                       :scope   ':workspace
+                       :tags    '("granite"))
       (register-context-contributor "related-memories" 'memory-related-context
                                     :source ':built-in)
       (conversation-append-user-message conversation "granite")
       (dolist (compaction-p '(nil t))
-        (let* ((response-id (if compaction-p "compaction-presentation" "ordinary-presentation"))
-               (stream (make-instance 'test-character-input-stream
-                                      :source (provider-tests--completed-sse-source response-id)))
-               (provider (provider-tests--transport-provider configuration (list stream)))
+        (let* ((response-id    (if compaction-p "compaction-presentation" "ordinary-presentation"))
+               (stream         (make-instance 'test-character-input-stream
+                                              :source (provider-tests--completed-sse-source response-id)))
+               (provider       (provider-tests--transport-provider configuration (list stream)))
                (memory-notices 0))
           (credential-source-save
            (credential-manager-primary-source (provider-credential-manager provider))
@@ -1178,11 +1177,11 @@
           (let ((result (provider-attempt-turn
                          provider conversation
                          :tool-namespaces #()
-                         :event-callback (lambda (event)
-                                           (when (typep event 'memory-context-event)
-                                             (incf memory-notices)))
-                         :force-refresh nil
-                         :compaction-p compaction-p)))
+                         :event-callback  (lambda (event)
+                                            (when (typep event 'memory-context-event)
+                                              (incf memory-notices)))
+                         :force-refresh   nil
+                         :compaction-p    compaction-p)))
             (test-assert (and (string= (provider-result-response-id result) response-id)
                               (= (test-transport-provider-attempt-count provider) 1))
                          "both request modes reach transport and complete with a callback")
@@ -1194,11 +1193,11 @@
 (defun test-provider-transport-boundary ()
   "Test connection normalization and failure-proof provider stream cleanup."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration
                                 :identifier "provider-transport"))
-         (credentials (provider-tests--credentials configuration)))
+         (credentials   (provider-tests--credentials configuration)))
     (unwind-protect
          (progn
            (let* ((success-stream
@@ -1223,7 +1222,7 @@
                         provider
                         conversation
                         :tool-namespaces #()
-                        :event-callback #'identity)))
+                        :event-callback  #'identity)))
                  (test-assert
                   (string= (provider-result-response-id result)
                            "transport-retry-success")
@@ -1253,7 +1252,7 @@
                         provider
                         conversation
                         :tool-namespaces #()
-                        :event-callback #'identity)))
+                        :event-callback  #'identity)))
                  (test-assert
                   (string= (provider-result-response-id result)
                            "name-service-retry-success")
@@ -1261,7 +1260,7 @@
                  (test-assert
                   (= (test-transport-provider-attempt-count provider) 2)
                   "an SBCL name-service error remains inside the retry boundary"))))
-           (let* ((*provider-active-credential-values* '("tls-secret"))
+           (let* ((*provider-active-credential-values*           '("tls-secret"))
                   (*provider-active-credential-redaction-marker* "[redacted]")
                   (provider
                     (provider-tests--transport-provider
@@ -1273,7 +1272,7 @@
                     (provider--open-response-stream
                      provider
                      (json-object)
-                     :credentials credentials
+                     :credentials  credentials
                      :conversation conversation)
                     nil)
                 (provider-error (condition)
@@ -1293,7 +1292,7 @@
                     (provider--open-native-compaction
                      provider
                      (json-object)
-                     :credentials credentials
+                     :credentials  credentials
                      :conversation conversation)
                     nil)
                 (provider-error (condition)
@@ -1311,7 +1310,7 @@
                     (provider--open-native-compaction
                      provider
                      (json-object)
-                     :credentials credentials
+                     :credentials  credentials
                      :conversation conversation)
                     nil)
                 (provider-transport-error ()
@@ -1327,7 +1326,7 @@
                     (provider--open-response-stream
                      provider
                      (json-object)
-                     :credentials credentials
+                     :credentials  credentials
                      :conversation conversation)
                     nil)
                 (provider-error (condition)
@@ -1355,10 +1354,10 @@
                       provider
                       conversation
                       :tool-namespaces #()
-                      :event-callback #'identity
-                      :force-refresh nil
-                      :goal-context nil
-                      :compaction-p nil)))
+                      :event-callback  #'identity
+                      :force-refresh   nil
+                      :goal-context    nil
+                      :compaction-p    nil)))
                (test-assert
                 (string= (provider-result-response-id result)
                          "close-failure-success")
@@ -1385,10 +1384,10 @@
                      provider
                      conversation
                      :tool-namespaces #()
-                     :event-callback #'identity
-                     :force-refresh nil
-                     :goal-context nil
-                     :compaction-p nil)
+                     :event-callback  #'identity
+                     :force-refresh   nil
+                     :goal-context    nil
+                     :compaction-p    nil)
                     nil)
                 (provider-protocol-error (condition)
                   (not (typep condition 'provider-retryable-error))))
@@ -1422,10 +1421,10 @@
                       provider
                       conversation
                       :tool-namespaces #()
-                      :event-callback #'identity
-                      :force-refresh nil
-                      :goal-context nil
-                      :compaction-p nil)))
+                      :event-callback  #'identity
+                      :force-refresh   nil
+                      :goal-context    nil
+                      :compaction-p    nil)))
                 (simple-error ()
                   t))
               "status normalization failures retain their original condition")
@@ -1447,10 +1446,10 @@
                      provider
                      conversation
                      :tool-namespaces #()
-                     :event-callback #'identity
-                     :force-refresh nil
-                     :goal-context nil
-                     :compaction-p nil)
+                     :event-callback  #'identity
+                     :force-refresh   nil
+                     :goal-context    nil
+                     :compaction-p    nil)
                     nil)
                 (provider-error (condition)
                   (not (typep condition 'provider-retryable-error))))
@@ -1463,12 +1462,12 @@
   "Return four distinct synthetic credentials for provider containment tests."
   (make-instance
    'oauth-credentials
-   :access-token "provider-test-access-7f386d"
+   :access-token  "provider-test-access-7f386d"
    :refresh-token "provider-test-refresh-a280c4"
-   :id-token "provider-test-identity-f969b1"
-   :account-id "provider-test-account-a0542e"
-   :expires-at nil
-   :source-path (configuration-auth-path configuration)))
+   :id-token      "provider-test-identity-f969b1"
+   :account-id    "provider-test-account-a0542e"
+   :expires-at    nil
+   :source-path   (configuration-auth-path configuration)))
 
 (-> provider-tests--assert-credential-free (t list string) null)
 (defun provider-tests--assert-credential-free (root secrets description)
@@ -1483,13 +1482,13 @@
 (defun test-provider-credential-echo-containment ()
   "Test provider wire data cannot echo request credentials into retained state."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration
                                 :identifier "provider-secret-echo"))
-         (provider (provider-create configuration))
-         (credentials (provider-tests--credentials configuration))
-         (secrets (oauth-credentials-secret-values credentials)))
+         (provider      (provider-create configuration))
+         (credentials   (provider-tests--credentials configuration))
+         (secrets       (oauth-credentials-secret-values credentials)))
     (labels
         ((attempt (response-function event-callback)
            "Run one real provider attempt against RESPONSE-FUNCTION."
@@ -1509,10 +1508,10 @@
                provider
                conversation
                :tool-namespaces #()
-               :event-callback event-callback
-               :force-refresh nil
-               :goal-context nil
-               :compaction-p nil)))))
+               :event-callback  event-callback
+               :force-refresh   nil
+               :goal-context    nil
+               :compaction-p    nil)))))
       (unwind-protect
            (progn
              (credential-source-save
@@ -1698,11 +1697,11 @@
                                       (error
                                        (make-condition
                                         'http-request-failed
-                                        :body body
-                                        :status 400
+                                        :body    body
+                                        :status  400
                                         :headers headers
-                                        :uri nil
-                                        :method ':post))
+                                        :uri     nil
+                                        :method  ':post))
                                       (values
                                        (make-string-input-stream body)
                                        400
@@ -1739,14 +1738,14 @@
 
 (defclass test-codex-provider (codex-subscription-provider)
   ((outcomes
-    :initarg :outcomes
-    :accessor test-codex-provider-outcomes
-    :type list
+    :initarg       :outcomes
+    :accessor      test-codex-provider-outcomes
+    :type          list
     :documentation "The attempt outcomes returned in order.")
    (refresh-flags
-    :initform nil
-    :accessor test-codex-provider-refresh-flags
-    :type list
+    :initform      nil
+    :accessor      test-codex-provider-refresh-flags
+    :type          list
     :documentation "The force-refresh values observed by attempts."))
   (:documentation "A direct-provider test double for bounded authentication retries."))
 
@@ -1754,11 +1753,11 @@
     ((provider test-codex-provider)
      (conversation conversation)
      &key
-       tool-namespaces
-       event-callback
-       force-refresh
-       goal-context
-       compaction-p)
+     tool-namespaces
+     event-callback
+     force-refresh
+     goal-context
+     compaction-p)
   "Return the next scripted PROVIDER outcome and record FORCE-REFRESH."
   (declare (ignore conversation tool-namespaces event-callback goal-context
                    compaction-p))
@@ -1769,48 +1768,48 @@
        outcome)
       ((eq outcome :unauthorized)
        (error 'provider-unauthorized
-              :message "Injected unauthorized response."
-              :status 401
+              :message    "Injected unauthorized response."
+              :status     401
               :request-id nil
-              :response nil))
+              :response   nil))
       ((eq outcome :stream-error)
        (error 'response-stream-error
-              :message "Injected stream interruption."
-              :status nil
+              :message    "Injected stream interruption."
+              :status     nil
               :request-id nil
-              :response nil))
+              :response   nil))
       ((eq outcome :server-error)
        (error 'provider-retryable-error
-              :message "Injected transient server failure."
-              :status nil
-              :code "server_error"
-              :request-id "request-server-error"
+              :message     "Injected transient server failure."
+              :status      nil
+              :code        "server_error"
+              :request-id  "request-server-error"
               :response-id "response-server-error"
-              :response nil))
+              :response    nil))
       ((eq outcome :overloaded)
        (error 'provider-retryable-error
-              :message "Injected provider overload."
-              :status nil
-              :code "server_is_overloaded"
-              :request-id "request-overloaded"
+              :message     "Injected provider overload."
+              :status      nil
+              :code        "server_is_overloaded"
+              :request-id  "request-overloaded"
               :response-id "response-overloaded"
-              :response nil))
+              :response    nil))
       ((eq outcome :slow-down)
        (error 'provider-retryable-error
-              :message "Injected provider slowdown."
-              :status nil
-              :code "slow_down"
-              :request-id "request-slow-down"
+              :message     "Injected provider slowdown."
+              :status      nil
+              :code        "slow_down"
+              :request-id  "request-slow-down"
               :response-id "response-slow-down"
-              :response nil))
+              :response    nil))
       ((eq outcome :resample)
        (error 'provider-resample-requested
-              :message "Injected provider loop report."
-              :status nil
-              :request-id nil
-              :response nil
-              :triggers (list "tail_repetition:4@thinking")
-              :attempt 1
+              :message          "Injected provider loop report."
+              :status           nil
+              :request-id       nil
+              :response         nil
+              :triggers         (list "tail_repetition:4@thinking")
+              :attempt          1
               :maximum-attempts 2))
       (t
        (error "Invalid scripted provider outcome ~S." outcome)))))
@@ -1819,24 +1818,24 @@
 (defun test-codex-provider-create (configuration outcomes)
   "Return a test direct provider yielding OUTCOMES."
   (make-instance 'test-codex-provider
-                 :configuration configuration
+                 :configuration      configuration
                  :credential-manager (credential-manager-create configuration)
-                 :session-id (make-identifier)
-                 :outcomes outcomes))
+                 :session-id         (make-identifier)
+                 :outcomes           outcomes))
 
 (-> test-provider-authentication-retries () null)
 (defun test-provider-authentication-retries ()
   "Test immediate bounded credential refresh and final unauthorized normalization."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (conversation (conversation-create configuration :identifier "provider-retry"))
+         (root          (test-configuration-root configuration))
+         (conversation  (conversation-create configuration :identifier "provider-retry"))
          (result
            (make-instance 'provider-result
-                          :response-id "retry-success"
+                          :response-id  "retry-success"
                           :output-items nil
-                          :tool-calls nil
-                          :usage nil
-                          :turn-state nil)))
+                          :tool-calls   nil
+                          :usage        nil
+                          :turn-state   nil)))
     (unwind-protect
          (progn
            (let ((provider
@@ -1846,7 +1845,7 @@
              (test-assert
               (eq (provider-stream-turn provider conversation
                                         :tool-namespaces #()
-                                        :event-callback #'identity)
+                                        :event-callback  #'identity)
                   result)
               "one forced refresh may satisfy the first unauthorized response")
              (test-assert
@@ -1862,7 +1861,7 @@
                   (progn
                     (provider-stream-turn provider conversation
                                           :tool-namespaces #()
-                                          :event-callback #'identity)
+                                          :event-callback  #'identity)
                     nil)
                 (authentication-error ()
                   t))
@@ -1874,19 +1873,19 @@
            (let* ((manager
                     (api-key-credential-manager-create
                      :provider-name "retry-api-key"
-                     :pathname (configuration-api-keys-path configuration)))
+                     :pathname      (configuration-api-keys-path configuration)))
                   (provider
                     (make-instance 'test-codex-provider
-                                   :configuration configuration
+                                   :configuration      configuration
                                    :credential-manager manager
-                                   :session-id (make-identifier)
-                                   :outcomes '(:unauthorized :unexpected))))
+                                   :session-id         (make-identifier)
+                                   :outcomes           '(:unauthorized :unexpected))))
              (test-assert
               (handler-case
                   (progn
                     (provider-stream-turn provider conversation
                                           :tool-namespaces #()
-                                          :event-callback #'identity)
+                                          :event-callback  #'identity)
                     nil)
                 (authentication-error (condition)
                   (search "run autolith auth retry-api-key"
@@ -1903,18 +1902,18 @@
 (defun provider-tests--stream-failure ()
   "Return a retryable stream failure carrying identifiers for the audit trail."
   (make-condition 'response-stream-error
-                  :message "Injected stream interruption."
-                  :status nil
-                  :code nil
-                  :request-id "req-stream"
+                  :message     "Injected stream interruption."
+                  :status      nil
+                  :code        nil
+                  :request-id  "req-stream"
                   :response-id "resp-stream"
-                  :response nil))
+                  :response    nil))
 
 (-> test-agent-attempt-failure-metadata () null)
 (defun test-agent-attempt-failure-metadata ()
   "Test failed provider attempts persist an audit record under their request."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration :identifier "attempt-audit"))
@@ -1926,15 +1925,15 @@
                                            nil)))
                 (callback (agent--provider-event-callback
                            observer
-                           :conversation conversation
+                           :conversation   conversation
                            :request-number 4)))
            (funcall callback
                     (make-instance 'provider-attempt-failed-event
-                                   :attempt 2
-                                   :elapsed-seconds 17
+                                   :attempt           2
+                                   :elapsed-seconds   17
                                    :output-received-p t
-                                   :retryable-p t
-                                   :condition (provider-tests--stream-failure)))
+                                   :retryable-p       t
+                                   :condition         (provider-tests--stream-failure)))
            (let ((records nil))
              (conversation-map-records
               conversation
@@ -1962,12 +1961,11 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> provider-tests--connected-stream-pair () (values stream t t t))
 (defun provider-tests--connected-stream-pair ()
   "Return a loopback character stream plus the sockets holding it open."
   (let ((listener (make-instance 'sb-bsd-sockets:inet-socket
-                                 :type ':stream
+                                 :type     ':stream
                                  :protocol ':tcp)))
     (setf (sb-bsd-sockets:sockopt-reuse-address listener) t)
     (sb-bsd-sockets:socket-bind listener
@@ -1976,13 +1974,13 @@
     (sb-bsd-sockets:socket-listen listener 1)
     (multiple-value-bind (address port) (sb-bsd-sockets:socket-name listener)
       (let ((client (make-instance 'sb-bsd-sockets:inet-socket
-                                   :type ':stream
+                                   :type     ':stream
                                    :protocol ':tcp)))
         (sb-bsd-sockets:socket-connect client address port)
         (let ((accepted (sb-bsd-sockets:socket-accept listener)))
           (values (sb-bsd-sockets:socket-make-stream client
-                                                     :input t
-                                                     :output t
+                                                     :input        t
+                                                     :output       t
                                                      :element-type 'character)
                   client
                   accepted
@@ -2009,10 +2007,10 @@
 (-> provider-tests--audit-dexador-deadlines () (values integer list))
 (defun provider-tests--audit-dexador-deadlines ()
   "Inspect every provider source form and report Dexador calls outside a deadline."
-  (let ((count 0)
+  (let ((count      0)
         (violations nil)
-        (root (merge-pathnames "src/provider/"
-                               (asdf:system-source-directory :autolith))))
+        (root       (merge-pathnames "src/provider/"
+                                     (asdf:system-source-directory :autolith))))
     (labels ((walk (form deadline-p pathname)
                "Walk FORM under DEADLINE-P, recording violations from PATHNAME."
                (when (consp form)
@@ -2030,7 +2028,7 @@
       (dolist (pathname (directory (merge-pathnames "**/*.lisp" root)))
         (with-open-file (stream pathname :direction ':input)
           (let ((*read-eval* nil)
-                (*package* (find-package '#:autolith)))
+                (*package*   (find-package '#:autolith)))
             (loop for form = (read stream nil stream)
                   until (eq form stream)
                   do (walk form nil pathname))))))
@@ -2050,7 +2048,7 @@
       (provider-tests--connected-stream-pair)
     (unwind-protect
          (let ((*provider-error-body-deadline-seconds* 1)
-               (started (get-universal-time)))
+               (started                                (get-universal-time)))
            (test-assert (null (provider--drain-error-body stream))
                         "a silent optional error body produces no diagnostic text")
            (test-assert (< (- (get-universal-time) started) 30)
@@ -2063,17 +2061,17 @@
       (ignore-errors (sb-bsd-sockets:socket-close listener))))
   (multiple-value-bind (stream client accepted listener)
       (provider-tests--connected-stream-pair)
-    (let* ((configuration (test-configuration))
-           (root (test-configuration-root configuration))
-           (provider (provider-create configuration))
+    (let* ((configuration                          (test-configuration))
+           (root                                   (test-configuration-root configuration))
+           (provider                               (provider-create configuration))
            (*provider-error-body-deadline-seconds* 1)
            (condition
              (make-condition 'http-request-failed
-                             :body stream
-                             :status 500
+                             :body    stream
+                             :status  500
                              :headers nil
-                             :uri nil
-                             :method ':post)))
+                             :uri     nil
+                             :method  ':post)))
       (unwind-protect
            (test-assert
             (handler-case
@@ -2098,11 +2096,11 @@
        (lambda (&rest arguments)
          (declare (ignore arguments))
          (error 'http-request-failed
-                :body stream
-                :status 500
+                :body    stream
+                :status  500
                 :headers nil
-                :uri nil
-                :method ':post))))
+                :uri     nil
+                :method  ':post))))
      (lambda ()
        (multiple-value-bind (body status headers)
            (credential-manager-refresh-request
@@ -2110,7 +2108,7 @@
                            :primary-source
                            (make-instance 'autolith-credential-source
                                           :pathname #P"/tmp/grok-auth.sexp"))
-            :url "https://provider.invalid/oauth"
+            :url     "https://provider.invalid/oauth"
             :headers nil
             :content "")
          (declare (ignore headers))
@@ -2120,11 +2118,11 @@
                (test-failing-close-stream-close-abort-p stream))
           "OAuth refresh drains and abort-closes a streamed error body")))))
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (manager
            (api-key-credential-manager-create
             :provider-name "deadline-model-errors"
-            :pathname (configuration-api-keys-path configuration)))
+            :pathname      (configuration-api-keys-path configuration)))
          (stream
            (make-instance 'test-failing-close-stream
                           :source "{\"error\":\"synthetic\"}")))
@@ -2138,20 +2136,20 @@
               (lambda (&rest arguments)
                 (declare (ignore arguments))
                 (error 'http-request-failed
-                       :body stream
-                       :status 500
+                       :body    stream
+                       :status  500
                        :headers nil
-                       :uri nil
-                       :method ':get))))
+                       :uri     nil
+                       :method  ':get))))
             (lambda ()
               (test-assert
                (handler-case
                    (progn
                      (openai-compatible--fetch-models
                       configuration
-                      :provider-name "deadline-model-errors"
-                      :endpoint "https://provider.invalid/models"
-                      :headers nil
+                      :provider-name      "deadline-model-errors"
+                      :endpoint           "https://provider.invalid/models"
+                      :headers            nil
                       :credential-manager manager)
                      nil)
                  (configuration-error ()
@@ -2161,13 +2159,13 @@
                         "model discovery drains and abort-closes a streamed error body"))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (credentials
            (make-instance 'oauth-credentials
-                          :access-token "deadline-access"
+                          :access-token  "deadline-access"
                           :refresh-token "deadline-refresh"
-                          :account-id "deadline-account"
-                          :expires-at nil))
+                          :account-id    "deadline-account"
+                          :expires-at    nil))
          (grok-manager
            (make-instance
             'grok-credential-manager
@@ -2211,24 +2209,24 @@
                "OAuth refresh deadlines map to a typed token failure"))))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (conversation (conversation-create configuration :identifier "response-deadlines"))
+         (root          (test-configuration-root configuration))
+         (conversation  (conversation-create configuration :identifier "response-deadlines"))
          (credentials
            (make-instance 'oauth-credentials
-                          :access-token "deadline-access"
+                          :access-token  "deadline-access"
                           :refresh-token "deadline-refresh"
-                          :account-id "deadline-account"
-                          :expires-at (+ (get-universal-time) 3600)))
-         (codex (provider-create configuration))
+                          :account-id    "deadline-account"
+                          :expires-at    (+ (get-universal-time) 3600)))
+         (codex         (provider-create configuration))
          (openai
            (openai-compatible-provider-create
             configuration
-            :name "deadline-openai"
-            :family ':openai
-            :headers nil
+            :name                "deadline-openai"
+            :family              ':openai
+            :headers             nil
             :reasoning-parameter nil
-            :stream-usage-p t))
-         (anthropic (anthropic-provider-create configuration))
+            :stream-usage-p      t))
+         (anthropic     (anthropic-provider-create configuration))
          (gemini
            (gemini-code-assist-provider-create
             configuration
@@ -2236,8 +2234,8 @@
          (model-manager
            (api-key-credential-manager-create
             :provider-name "deadline-models"
-            :pathname (configuration-api-keys-path configuration)))
-         (deadlines nil))
+            :pathname      (configuration-api-keys-path configuration)))
+         (deadlines     nil))
     (unwind-protect
          (progn
            (api-key-credential-manager-save-key model-manager "deadline-key")
@@ -2269,9 +2267,9 @@
                codex (json-object) :credentials credentials :conversation conversation)
               (openai-compatible--fetch-models
                configuration
-               :provider-name "deadline-models"
-               :endpoint "https://provider.invalid/models"
-               :headers nil
+               :provider-name      "deadline-models"
+               :endpoint           "https://provider.invalid/models"
+               :headers            nil
                :credential-manager model-manager)
               (provider-open-response-stream
                openai (json-object) :credentials credentials :conversation conversation)
@@ -2291,16 +2289,16 @@
 (defun test-provider-stream-retries ()
   "Test bounded stream reconnection, observer events, and final failure."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "provider-stream-retry"))
          (result
            (make-instance 'provider-result
-                          :response-id "stream-retry-success"
+                          :response-id  "stream-retry-success"
                           :output-items nil
-                          :tool-calls nil
-                          :usage nil
-                          :turn-state nil)))
+                          :tool-calls   nil
+                          :usage        nil
+                          :turn-state   nil)))
     (unwind-protect
          (let ((*bounded-retry-sleep-function*
                  (lambda (seconds)
@@ -2317,7 +2315,7 @@
                      provider
                      conversation
                      :tool-namespaces #()
-                     :event-callback (lambda (event) (push event events)))
+                     :event-callback  (lambda (event) (push event events)))
                     result)
                 "transient stream and server failures retry the provider turn")
                (let* ((retry-events
@@ -2326,7 +2324,7 @@
                                           (typep event 'provider-retry-event))
                                         events)))
                       (announcement (first retry-events))
-                      (in-flight (second retry-events)))
+                      (in-flight    (second retry-events)))
                  (test-assert
                   (and announcement
                        (= (provider-retry-event-attempt announcement) 1)
@@ -2356,7 +2354,7 @@
                      provider
                      conversation
                      :tool-namespaces #()
-                     :event-callback #'identity)
+                     :event-callback  #'identity)
                     result)
                 "provider overload retries may recover")
                (test-assert
@@ -2379,7 +2377,7 @@
                        provider
                        conversation
                        :tool-namespaces #()
-                       :event-callback #'identity)
+                       :event-callback  #'identity)
                       nil)
                   (application-turn-cancelled ()
                     t))
@@ -2389,24 +2387,24 @@
                     (test-codex-provider-refresh-flags provider))
                    1)
                 "turn cancellation prevents another provider attempt")))
-            (let ((provider
-                    (test-codex-provider-create
-                     configuration
-                     (append (make-list 7 :initial-element :server-error)
-                             (list result)))))
-              (test-assert
-               (handler-case
-                   (progn
-                     (provider-stream-turn provider conversation
-                                           :tool-namespaces #()
-                                           :event-callback #'identity)
-                     nil)
-                 (provider-retryable-error ()
-                   t))
-               "transient provider recovery stops after six retries")
-              (test-assert
-               (= (length (test-codex-provider-refresh-flags provider)) 7)
-               "retry exhaustion permits exactly seven total attempts")))
+           (let ((provider
+                   (test-codex-provider-create
+                    configuration
+                    (append (make-list 7 :initial-element :server-error)
+                            (list result)))))
+             (test-assert
+              (handler-case
+                  (progn
+                    (provider-stream-turn provider conversation
+                                          :tool-namespaces #()
+                                          :event-callback  #'identity)
+                    nil)
+                (provider-retryable-error ()
+                  t))
+              "transient provider recovery stops after six retries")
+             (test-assert
+              (= (length (test-codex-provider-refresh-flags provider)) 7)
+              "retry exhaustion permits exactly seven total attempts")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
@@ -2414,11 +2412,11 @@
 (defun test-provider-codex-request-headers ()
   "Test Codex requests carry conversation identity and only pinned turn state."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "provider-headers"))
-         (provider (provider-tests--transport-provider configuration nil))
-         (credentials (provider-tests--credentials configuration)))
+         (provider      (provider-tests--transport-provider configuration nil))
+         (credentials   (provider-tests--credentials configuration)))
     (unwind-protect
          (flet ((header (headers name)
                   (rest (assoc name headers :test #'string=))))
@@ -2453,8 +2451,8 @@
 (defun test-provider-usage-limit-terminal ()
   "Test an exhausted ChatGPT allowance fails at once while rate limits still retry."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (provider (provider-create configuration)))
+         (root          (test-configuration-root configuration))
+         (provider      (provider-create configuration)))
     (unwind-protect
          (flet ((failure (body)
                   "Return the condition signaled for an HTTP 429 carrying BODY."
@@ -2463,12 +2461,12 @@
                         (provider-signal-transport-failure
                          provider
                          (make-condition 'http-request-failed
-                                         :body body
-                                         :status 429
+                                         :body    body
+                                         :status  429
                                          :headers '(("x-request-id" . "request-quota")
                                                     ("x-codex-primary-used-percent" . "100"))
-                                         :uri nil
-                                         :method ':post))
+                                         :uri     nil
+                                         :method  ':post))
                         nil)
                     (provider-error (condition)
                       condition))))
@@ -2507,24 +2505,23 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-provider-truncation-recovery () null)
 (defun test-provider-truncation-recovery ()
   "Exercise Chat truncation recovery and exhaustion through authenticated requests."
   (with-test-configuration (configuration)
-    (let ((snapshot (provider--registry-snapshot))
+    (let ((snapshot                             (provider--registry-snapshot))
           (*provider-maximum-transient-retries* 6)
           (*provider-maximum-streaming-retries* 2))
       (unwind-protect
            (progn
              (register-openai-compatible-provider
-              :name "truncation-test"
+              :name     "truncation-test"
               :endpoint "https://provider.invalid/v1/chat/completions"
-              :models '("retry/chat-model"))
+              :models   '("retry/chat-model"))
              (openai-compatible-provider-tests--save-key
               configuration "truncation-test" "synthetic-truncation-key")
-             (let* ((selected (configuration-copy configuration :model "retry/chat-model"))
-                    (provider (provider-create selected))
+             (let* ((selected     (configuration-copy configuration :model "retry/chat-model"))
+                    (provider     (provider-create selected))
                     (conversation (conversation-create selected :identifier "truncation-recovery")))
                (labels ((source (truncated-p)
                           "Return a complete SSE response, optionally ending in truncation."
@@ -2551,10 +2548,10 @@
                                       "finish_reason" (if truncated-p "length" "stop"))))))))
                  (dolist (mode '(:recover :exhaust))
                    (let ((attempts 0)
-                         (streams nil)
-                         (delays nil)
-                         (result nil)
-                         (failure nil))
+                         (streams  nil)
+                         (delays   nil)
+                         (result   nil)
+                         (failure  nil))
                      (let ((*bounded-retry-sleep-function* (lambda (delay) (push delay delays))))
                        (test-call-with-function-replacements
                         (list
@@ -2570,7 +2567,7 @@
                           (handler-case
                               (setf result (provider-stream-turn provider conversation
                                                                  :tool-namespaces #()
-                                                                 :event-callback #'identity))
+                                                                 :event-callback  #'identity))
                             (provider-stream-abandoned (condition)
                               (setf failure condition))))))
                      (test-assert (= attempts (if (eq mode ':recover) 2 3))
@@ -2592,18 +2589,17 @@
         (provider--registry-restore snapshot))))
   nil)
 
-
 (-> test-codex-context-anchoring () null)
 (defun test-codex-context-anchoring ()
   "Exercise current-only context reuse, prefix extension and history changes."
-  (let* ((user (json-object "type" "message" "role" "user"
-                            "content" "Unicode datum: λ."))
-         (call (json-object "type" "function_call" "name" "sample"
-                            "call_id" "a" "arguments" "{}"))
-         (output (json-object "type" "function_call_output"
-                              "call_id" "a" "output" "one"))
+  (let* ((user    (json-object "type" "message" "role" "user"
+                               "content" "Unicode datum: λ."))
+         (call    (json-object "type" "function_call" "name" "sample"
+                               "call_id" "a" "arguments" "{}"))
+         (output  (json-object "type" "function_call_output"
+                               "call_id" "a" "output" "one"))
          (context (responses-developer-message "current goal"))
-         (data (responses-developer-message "current local data"))
+         (data    (responses-developer-message "current local data"))
          (initial (vector user context data)))
     (multiple-value-bind (first state)
         (provider--codex-anchor-context initial 2 nil)
@@ -2616,8 +2612,8 @@
                    '(:context-digest :history-digest)))
        "placement evidence contains only two positions and two digests")
       (let* ((fresh-context (responses-developer-message "current goal"))
-             (fresh-data (responses-developer-message "current local data"))
-             (request (vector user call output fresh-context fresh-data)))
+             (fresh-data    (responses-developer-message "current local data"))
+             (request       (vector user call output fresh-context fresh-data)))
         (multiple-value-bind (anchored second-state)
             (provider--codex-anchor-context request 2 state)
           (test-assert
@@ -2690,22 +2686,22 @@
 (-> test-codex-context-boundaries () null)
 (defun test-codex-context-boundaries ()
   "Reset context placement at instruction boundaries and on case-only changes."
-  (let* ((user (json-object "type" "message" "role" "user" "content" "synthetic"))
+  (let* ((user    (json-object "type" "message" "role" "user" "content" "synthetic"))
          (context (responses-developer-message "Current")))
     (multiple-value-bind (first state)
         (provider--codex-anchor-context (vector user context) 1 nil)
       (declare (ignore first))
       (dolist (role '("user" "developer" "system"))
         (let* ((boundary (json-object "type" "message" "role" role "content" "new"))
-               (input (vector user boundary context)))
+               (input    (vector user boundary context)))
           (multiple-value-bind (result next)
               (provider--codex-anchor-context input 1 state)
             (test-assert (equalp result input) "instruction boundary resets placement")
             (test-assert (= 2 (getf next :anchor)) "anchor follows the new instruction"))))
-      (let* ((call (json-object "type" "function_call" "name" "sample"
-                                "call_id" "a" "arguments" "{}"))
+      (let* ((call    (json-object "type" "function_call" "name" "sample"
+                                   "call_id" "a" "arguments" "{}"))
              (changed (responses-developer-message "current"))
-             (input (vector user call changed)))
+             (input   (vector user call changed)))
         (multiple-value-bind (result next)
             (provider--codex-anchor-context input 1 state)
           (test-assert (equalp result input) "case-only change uses current tail")
@@ -2716,31 +2712,31 @@
 (defun test-codex-context-request ()
   "Exercise actual Codex request construction without provider network calls."
   (with-test-configuration (configuration)
-    (let* ((*context-contributors* nil)
-           (*context-resolver* (cl-llm-provider-api:make-context-resolver))
-           (*context-last-deliveries* (make-hash-table :test #'equal))
+    (let* ((*context-contributors*        nil)
+           (*context-resolver*            (cl-llm-provider-api:make-context-resolver))
+           (*context-last-deliveries*     (make-hash-table :test #'equal))
            (*context-last-delivery-order* nil)
            (*codex-context-anchor-states* (make-hash-table :test #'eq :weakness :key))
-           (conversation (conversation-create configuration))
-           (provider (provider-create configuration)))
+           (conversation                  (conversation-create configuration))
+           (provider                      (provider-create configuration)))
       (conversation-append-user-message conversation "synthetic task")
-      (let* ((first (provider-request-object provider conversation #() :goal-context "current goal"))
+      (let* ((first       (provider-request-object provider conversation #() :goal-context "current goal"))
              (first-input (json-get first "input"))
-             (cache-key (json-get first "prompt_cache_key")))
+             (cache-key   (json-get first "prompt_cache_key")))
         (conversation-append-provider-item
          conversation (json-object "type" "function_call" "name" "sample"
                                    "call_id" "a" "arguments" "{}"))
         (conversation-append-provider-item
          conversation (json-object "type" "function_call_output" "call_id" "a" "output" "one"))
-        (let* ((history (json-encode (conversation-input-items-for-family conversation (provider-family provider))))
-               (second (provider-request-object provider conversation #() :goal-context "current goal"))
+        (let* ((history      (json-encode (conversation-input-items-for-family conversation (provider-family provider))))
+               (second       (provider-request-object provider conversation #() :goal-context "current goal"))
                (second-input (json-get second "input")))
           (test-assert (equalp first-input (subseq second-input 0 (length first-input)))
                        "tool round extends the complete prior input")
           (test-assert (equal cache-key (json-get second "prompt_cache_key"))
                        "context placement preserves root cache identity")
           (let* ((changed (provider-request-object provider conversation #() :goal-context "updated goal"))
-                 (input (json-get changed "input")))
+                 (input   (json-get changed "input")))
             (test-assert (equalp (aref input (1- (length input)))
                                 (responses-developer-message "updated goal"))
                          "changed goal is supplied at the current boundary"))
@@ -2757,13 +2753,13 @@
                          "ordinary goal context is omitted from compaction"))
           (let* ((request (provider-request-object provider conversation #()
                                                    :goal-context "current goal"))
-                 (input (json-get request "input")))
+                 (input   (json-get request "input")))
             (test-assert
              (string= (json-encode (aref input (1- (length input))))
                       (json-encode (responses-developer-message "current goal")))
              "the first ordinary request after compaction starts at the current tail"))
           (test-assert (equal history (json-encode (conversation-input-items-for-family
-                                                  conversation (provider-family provider))))
+                                                    conversation (provider-family provider))))
                        "request placement does not mutate durable history")))))
   nil)
 
@@ -2771,26 +2767,26 @@
 (defun test-codex-rendered-context-request ()
   "Exercise actual goal plus rendered-context ordering and partial omission."
   (with-test-configuration (configuration)
-    (let* ((*context-contributors* nil)
-           (*context-resolver* (cl-llm-provider-api:make-context-resolver))
-           (*context-last-deliveries* (make-hash-table :test #'equal))
+    (let* ((*context-contributors*        nil)
+           (*context-resolver*            (cl-llm-provider-api:make-context-resolver))
+           (*context-last-deliveries*     (make-hash-table :test #'equal))
            (*context-last-delivery-order* nil)
            (*codex-context-anchor-states* (make-hash-table :test #'eq :weakness :key))
-           (instruction "Current request data: λ.")
-           (conversation (conversation-create configuration))
-           (provider (provider-create configuration)))
+           (instruction                   "Current request data: λ.")
+           (conversation                  (conversation-create configuration))
+           (provider                      (provider-create configuration)))
       (register-context-contributor
        "codex-placement-test"
        (lambda (context)
          (declare (ignore context))
          (when instruction
-           (make-context-contribution :identifier "codex-placement-test"
+           (make-context-contribution :identifier  "codex-placement-test"
                                       :instruction instruction))))
       (conversation-append-user-message conversation "synthetic task")
       (multiple-value-bind (first delivery)
           (provider-request-object provider conversation #() :goal-context "current goal")
         (let* ((first-input (json-get first "input"))
-               (rendered (context-delivery-rendered delivery)))
+               (rendered    (context-delivery-rendered delivery)))
           (test-assert
            (string= (json-encode (subseq first-input (- (length first-input) 2)))
                     (json-encode (vector (responses-developer-message "current goal")
@@ -2803,7 +2799,7 @@
            conversation (json-object "type" "function_call_output"
                                      "call_id" "a" "output" "one"))
           (let* ((history (json-encode (conversation-input-items-for-family
-                                      conversation (provider-family provider))))
+                                        conversation (provider-family provider))))
                  (second-input
                    (json-get (provider-request-object provider conversation #()
                                                       :goal-context "current goal")
@@ -2831,7 +2827,7 @@
                "omitting all context clears evidence without replaying data"))
             (test-assert
              (string= history (json-encode (conversation-input-items-for-family
-                                           conversation (provider-family provider))))
+                                            conversation (provider-family provider))))
              "rendered context placement leaves durable history unchanged"))))))
   nil)
 
@@ -2839,15 +2835,15 @@
 (defun test-codex-anchored-contributions-request ()
   "Keep the goal and ordinary tail stable alongside separately anchored context."
   (with-test-configuration (configuration)
-    (let* ((*context-contributors* nil)
-           (*context-resolver* (cl-llm-provider-api:make-context-resolver))
-           (*context-last-deliveries* (make-hash-table :test #'equal))
+    (let* ((*context-contributors*        nil)
+           (*context-resolver*            (cl-llm-provider-api:make-context-resolver))
+           (*context-last-deliveries*     (make-hash-table :test #'equal))
            (*context-last-delivery-order* nil)
            (*codex-context-anchor-states* (make-hash-table :test #'eq :weakness :key))
-           (anchored-p t)
-           (tail-p t)
-           (conversation (conversation-create configuration))
-           (provider (provider-create configuration)))
+           (anchored-p                    t)
+           (tail-p                        t)
+           (conversation                  (conversation-create configuration))
+           (provider                      (provider-create configuration)))
       (register-context-contributor
        "codex-anchored-placement-test"
        (lambda (context)
@@ -2855,17 +2851,17 @@
          (append
           (when anchored-p
             (list (change-class
-                   (make-context-contribution :identifier "anchored-block"
+                   (make-context-contribution :identifier  "anchored-block"
                                               :instruction "Anchored current block.")
                    'anchored-context-contribution)))
           (when tail-p
-            (list (make-context-contribution :identifier "trailing-block"
+            (list (make-context-contribution :identifier  "trailing-block"
                                              :instruction "Trailing current block."))))))
       (conversation-append-user-message conversation "synthetic task")
       (multiple-value-bind (first delivery)
           (provider-request-object provider conversation #() :goal-context "current goal")
         (let* ((previous (json-get first "input"))
-               (tail (aref previous (1- (length previous)))))
+               (tail     (aref previous (1- (length previous)))))
           (test-assert (= 4 (length previous))
                        "initial wire input contains user, anchored block, goal and tail")
           (test-assert
@@ -2884,21 +2880,21 @@
                conversation (json-object "type" "function_call_output"
                                          "call_id" call-id "output" "one")))
             (let ((input (json-get (provider-request-object
-                                   provider conversation #() :goal-context "current goal")
+                                    provider conversation #() :goal-context "current goal")
                                   "input")))
               (test-assert
                (string= (json-encode previous)
                         (json-encode (subseq input 0 (length previous))))
                "goal and ordinary tail extend the complete prefix beside anchored context")
               (test-assert (= 2 (getf (gethash conversation *codex-context-anchor-states*)
-                                          :anchor))
+                                      :anchor))
                            "goal suffix stays after the projected anchored block")
               (setf previous input)))
           (let ((history (json-encode (conversation-input-items-for-family
-                                      conversation (provider-family provider)))))
+                                       conversation (provider-family provider)))))
             (setf tail-p nil)
             (let ((input (json-get (provider-request-object
-                                   provider conversation #() :goal-context "current goal")
+                                    provider conversation #() :goal-context "current goal")
                                   "input")))
               (test-assert
                (and (equalp (aref input (1- (length input)))
@@ -2925,7 +2921,7 @@
             (provider-request-object provider conversation #() :goal-context "current goal")
             (setf anchored-p nil)
             (let ((input (json-get (provider-request-object
-                                   provider conversation #() :goal-context "current goal")
+                                    provider conversation #() :goal-context "current goal")
                                   "input")))
               (test-assert
                (and (not (search "Anchored current block" (json-encode input)))
@@ -2934,7 +2930,7 @@
                "omitting anchored context resets full-prefix evidence without replaying it"))
             (test-assert
              (string= history (json-encode (conversation-input-items-for-family
-                                           conversation (provider-family provider))))
+                                            conversation (provider-family provider))))
              "combined projection and all omissions leave durable history untouched"))
           ;; A still-active contribution keeps its own boundary; it must not
           ;; allow the goal suffix to cross a new durable user instruction.
@@ -2942,7 +2938,7 @@
           (provider-request-object provider conversation #() :goal-context "current goal")
           (conversation-append-user-message conversation "new instruction")
           (let ((input (json-get (provider-request-object
-                                 provider conversation #() :goal-context "current goal")
+                                  provider conversation #() :goal-context "current goal")
                                 "input")))
             (test-assert
              (and (equalp (aref input (- (length input) 2))

@@ -12,7 +12,6 @@
     (knowledge-error (condition)
       (knowledge-error-code condition))))
 
-
 (-> test-knowledge-terms () null)
 (defun test-knowledge-terms ()
   "Test term parsing, canonical forms, comparison, and presentation."
@@ -82,29 +81,28 @@
   (knowledge-make-schema :predicate "event.start"
                          :arguments '((:name "event" :type :entity)
                                       (:name "time" :type :instant))
-                         :key '("event")
-                         :template "{event} starts at {time}"))
-
+                         :key       '("event")
+                         :template  "{event} starts at {time}"))
 
 (-> test-knowledge-schemas () null)
 (defun test-knowledge-schemas ()
   "Test schemas, canonical propositions, claim identity, and conflict keys."
   (let* ((schema (knowledge-tests--event-schema))
-         (start (knowledge-make-proposition
-                 schema '("review" "2026-10-22T15:00+02:00")))
-         (same (knowledge-make-proposition
-                schema '("review" "2026-10-22T13:00:00Z")))
-         (later (knowledge-make-proposition
-                 schema '("review" "2026-10-22T14:00:00Z")))
+         (start  (knowledge-make-proposition
+                  schema '("review" "2026-10-22T15:00+02:00")))
+         (same   (knowledge-make-proposition
+                  schema '("review" "2026-10-22T13:00:00Z")))
+         (later  (knowledge-make-proposition
+                  schema '("review" "2026-10-22T14:00:00Z")))
          (denied (knowledge-make-proposition
                   schema '("review" "2026-10-22T13:00:00Z") :negated t)))
     (test-assert (equal start '("event.start" "review" (:instant "2026-10-22T13:00:00Z")))
                  "propositions are canonical whatever the input zone")
-    (test-assert (and (string= (knowledge-claim-identifier start :scope ':workspace
+    (test-assert (and (string= (knowledge-claim-identifier start :scope      ':workspace
                                                                   :workspace "/w/")
-                               (knowledge-claim-identifier same :scope ':workspace
+                               (knowledge-claim-identifier same :scope     ':workspace
                                                                 :workspace "/w/"))
-                      (string/= (knowledge-claim-identifier start :scope ':workspace
+                      (string/= (knowledge-claim-identifier start :scope     ':workspace
                                                                   :workspace "/w/")
                                 (knowledge-claim-identifier start :scope ':global))
                       (string/= (knowledge-claim-identifier start :scope ':global)
@@ -152,7 +150,7 @@
                                           :predicate "a.b"
                                           :arguments '((:name "x" :type :entity)
                                                        (:name "y" :type :number))
-                                          :key '("z"))))
+                                          :key       '("z"))))
                         (list "a unit on a number"
                               (lambda () (knowledge-make-schema
                                           :predicate "a.b"
@@ -174,9 +172,9 @@
 (-> knowledge-tests--statement (string) list)
 (defun knowledge-tests--statement (quote)
   "Return evidence that the user said QUOTE in a test conversation."
-  (knowledge-make-evidence :source (list :user :quote quote :conversation "test")
+  (knowledge-make-evidence :source      (list :user :quote quote :conversation "test")
                            :observed-at 1
-                           :adapter "test/1"))
+                           :adapter     "test/1"))
 
 (-> knowledge-tests--reread (configuration) knowledge-base)
 (defun knowledge-tests--reread (configuration)
@@ -184,38 +182,37 @@
   (clrhash *knowledge-base-cache*)
   (knowledge-base-read configuration))
 
-
 (-> test-knowledge-store () null)
 (defun test-knowledge-store ()
   "Test knowledge persistence, support identity, retraction, schemas, and log tolerance."
   (with-test-configuration (configuration)
-    (let* ((schema (knowledge-tests--event-schema))
+    (let* ((schema   (knowledge-tests--event-schema))
            (thirteen (knowledge-make-proposition schema '("review" "2026-10-22T13:00:00Z"))))
       (test-assert (eq (knowledge-tests--error-code
                         (lambda ()
                           (knowledge-assert configuration thirteen
                                             :evidence (knowledge-tests--statement "it is at one")
-                                            :basis ':user-assertion)))
+                                            :basis    ':user-assertion)))
                        ':unknown-predicate)
                    "claims need a defined predicate")
       (knowledge-define-schema configuration schema)
       (test-assert (eq (knowledge-tests--error-code
                         (lambda ()
                           (knowledge-assert configuration thirteen
-                                            :scope ':global
+                                            :scope    ':global
                                             :evidence (knowledge-tests--statement "it is at one")
-                                            :basis ':user-assertion)))
+                                            :basis    ':user-assertion)))
                        ':unknown-predicate)
                    "a global claim needs a global predicate")
       (multiple-value-bind (claim support)
           (knowledge-assert configuration thirteen
                             :evidence (knowledge-tests--statement "the review is at one")
-                            :basis ':user-assertion)
+                            :basis    ':user-assertion)
         (let ((revision (knowledge-base-revision (knowledge-base-read configuration))))
           (multiple-value-bind (same-claim same-support)
               (knowledge-assert configuration thirteen
                                 :evidence (knowledge-tests--statement "the review is at one")
-                                :basis ':user-assertion)
+                                :basis    ':user-assertion)
             (test-assert (and (string= claim same-claim)
                               (string= support same-support)
                               (= revision (knowledge-base-revision
@@ -224,7 +221,7 @@
         (multiple-value-bind (second-claim second-support)
             (knowledge-assert configuration thirteen
                               :evidence (knowledge-tests--statement "review moved to one")
-                              :basis ':user-assertion)
+                              :basis    ':user-assertion)
           (let ((entry (knowledge-base-claim (knowledge-tests--reread configuration) claim)))
             (test-assert (and (string= claim second-claim)
                               (string/= support second-support)
@@ -260,8 +257,8 @@
       (let ((retemplated (knowledge-make-schema :predicate "event.start"
                                                 :arguments '((:name "event" :type :entity)
                                                              (:name "time" :type :instant))
-                                                :key '("event")
-                                                :template "{event} begins {time}")))
+                                                :key       '("event")
+                                                :template  "{event} begins {time}")))
         (test-assert (= 2 (nth-value 1 (knowledge-define-schema configuration retemplated)))
                      "changing a template redefines the schema as version 2")
         (test-assert (eq (knowledge-tests--error-code
@@ -277,7 +274,7 @@
         (test-assert (eq base (knowledge-base-read configuration))
                      "an unchanged log is read once"))
       (let* ((pathname (configuration-knowledge-path configuration))
-             (forms (sexp-store:log-read pathname))
+             (forms    (sexp-store:log-read pathname))
              (revision (knowledge-base-revision (knowledge-tests--reread configuration))))
         (sexp-store:log-write pathname (append forms (list '(:future-kind :version 9 :x 1))))
         (with-open-file (stream pathname :direction ':output :if-exists ':append)
@@ -298,7 +295,6 @@
   "Return EVIDENCE's applicability under CHECK, from its plist."
   (values (evidence-check-evidence check (rest evidence))))
 
-
 (-> test-knowledge-applicability () null)
 (defun test-knowledge-applicability ()
   "Test when evidence and supports apply: files, expiry, memories, retraction, validity."
@@ -309,26 +305,26 @@
       (let* ((schedule (memory-source-tests--write
                         (merge-pathnames "schedule.txt" workspace)
                         (format nil "Review at 13:00 in room 4.~%")))
-             (quoted (knowledge-observe-file schedule :quote "Review at 13:00"
-                                                      :workspace (namestring workspace)
-                                                      :time 1000))
-             (whole (knowledge-observe-file schedule :workspace (namestring workspace)
-                                                     :time 1000))
-             (page (knowledge-observe :source '(:url :url "https://example.com/times")
-                                      :adapter "web/1" :time 1000))
-             (said (knowledge-observe :source '(:user :quote "the review is at one")
-                                      :adapter "user/1" :time 1000))
-             (memory (memory-remember base :title "Room" :content "Room 4."))
-             (cited (knowledge-observe
-                     :source (list :memory :id (memory-identifier memory)
-                                   :digest (memory-content-digest "Room" "Room 4."))
-                     :adapter "memory/1" :time 1000)))
+             (quoted   (knowledge-observe-file schedule :quote     "Review at 13:00"
+                                                        :workspace (namestring workspace)
+                                                        :time      1000))
+             (whole    (knowledge-observe-file schedule :workspace (namestring workspace)
+                                                        :time      1000))
+             (page     (knowledge-observe :source '(:url :url "https://example.com/times")
+                                          :adapter "web/1" :time 1000))
+             (said     (knowledge-observe :source '(:user :quote "the review is at one")
+                                          :adapter "user/1" :time 1000))
+             (memory   (memory-remember base :title "Room" :content "Room 4."))
+             (cited    (knowledge-observe
+                        :source (list :memory :id (memory-identifier memory)
+                                      :digest (memory-content-digest "Room" "Room 4."))
+                        :adapter "memory/1" :time 1000)))
         (test-assert (and (equal (getf (rest (getf (rest quoted) :source)) :path)
                                  "schedule.txt")
                           (getf (rest (getf (rest quoted) :source)) :relative))
                      "file evidence inside the workspace is recorded relatively")
         (flet ((check (now)
-                 (evidence-check-create :now now
+                 (evidence-check-create :now      now
                                         :memories (memory-list base :visibility ':all))))
           (let ((check (check 2000)))
             (test-assert (every (lambda (evidence)
@@ -359,13 +355,13 @@
             (setf (gethash (getf (rest said) :id) (knowledge-base-evidence store))
                   (rest said))
             (dolist (case (list (list (list :evidence (getf (rest said) :id)) ':current)
-                                (list (list :evidence (getf (rest said) :id)
+                                (list (list :evidence     (getf (rest said) :id)
                                             :retracted-at 1500)
                                       ':retracted)
-                                (list (list :evidence (getf (rest said) :id)
+                                (list (list :evidence   (getf (rest said) :id)
                                             :valid-from 3000)
                                       ':pending)
-                                (list (list :evidence (getf (rest said) :id)
+                                (list (list :evidence    (getf (rest said) :id)
                                             :valid-until 1500)
                                       ':expired)
                                 (list (list :basis :assumption) ':current)))
@@ -379,18 +375,18 @@
   "Test that an obsolete section cannot support current facts through a surviving quote."
   (with-test-configuration (base root)
     (let* ((configuration (configuration-copy base :working-directory root))
-           (context (make-instance 'tool-context :configuration configuration :worker nil))
-           (quote "The report is ready for release.")
-           (file (memory-source-tests--write
-                  (merge-pathnames "status.txt" root) (format nil "Current status~%~A~%" quote)))
-           (observed (knowledge-observe-file file :quote quote :workspace (namestring root))))
+           (context       (make-instance 'tool-context :configuration configuration :worker nil))
+           (quote         "The report is ready for release.")
+           (file          (memory-source-tests--write
+                           (merge-pathnames "status.txt" root) (format nil "Current status~%~A~%" quote)))
+           (observed      (knowledge-observe-file file :quote quote :workspace (namestring root))))
       (dolist (predicate '("report.ready" "report.sendable"))
         (knowledge-define-schema
          configuration (knowledge-make-schema :predicate predicate
                                               :arguments '((:name "report" :type :entity)))))
       (knowledge-propose-rule configuration :id "sendable"
-                              :premises '(("report.ready" "?r"))
-                              :conclusion '("report.sendable" "?r"))
+                              :premises         '(("report.ready" "?r"))
+                              :conclusion       '("report.sendable" "?r"))
       (knowledge-admit-rule configuration "sendable")
       (knowledge-assert configuration '("report.ready" "q3")
                         :evidence observed :basis ':observation)
@@ -404,19 +400,19 @@
         (let* ((view (knowledge-view-current configuration))
                (node (knowledge-view-node
                       view (knowledge-claim-identifier '("report.ready" "q3")
-                                                       :scope ':workspace
+                                                       :scope     ':workspace
                                                        :workspace (namestring root)))))
           (test-assert (eq (knowledge-node-applicability node) ':stale)
                        "changing the context invalidates the original observation")
           (test-assert (not (gate '("report.sendable" "q3")))
                        "a surviving obsolete quote cannot justify a derived fact gate"))
-        (let ((refreshed (knowledge-observe-file file :quote "The report still needs review."
+        (let ((refreshed (knowledge-observe-file file :quote   "The report still needs review."
                                                     :workspace (namestring root))))
           (knowledge-assert configuration '(:not ("report.ready" "q3"))
                             :evidence refreshed :basis ':observation))
         (test-assert (gate '(:not ("report.ready" "q3")))
                      "an explicit observation of the new status supports the corrected fact")
-        (let* ((store (knowledge-tests--reread configuration))
+        (let* ((store      (knowledge-tests--reread configuration))
                (historical (knowledge-base-evidence-record store (getf (rest observed) :id))))
           (test-assert (equal historical (rest observed))
                        "replay preserves the original quotation, source digest, and time")
@@ -442,19 +438,19 @@
       (knowledge-define-schema configuration
                                (knowledge-make-schema :predicate predicate
                                                       :arguments arguments
-                                                      :key key
-                                                      :template template))))
+                                                      :key       key
+                                                      :template  template))))
   nil)
 
 (-> knowledge-tests--departure-rule (&key (:id string)) list)
 (defun knowledge-tests--departure-rule (&key (id "departure"))
   "Return the departure rule's input fields as keyword arguments."
-  (list :id id
-        :premises '(("event.start" "?event" "?start")
-                    ("event.travel" "?event" "?travel")
-                    ("event.buffer" "?event" "?buffer")
-                    (:not ("event.cancelled" "?event")))
-        :bindings '(("?leave" ("-" "?start" ("+" "?travel" "?buffer"))))
+  (list :id         id
+        :premises   '(("event.start" "?event" "?start")
+                      ("event.travel" "?event" "?travel")
+                      ("event.buffer" "?event" "?buffer")
+                      (:not ("event.cancelled" "?event")))
+        :bindings   '(("?leave" ("-" "?start" ("+" "?travel" "?buffer"))))
         :conclusion '("event.departure" "?event" "?leave")))
 
 (-> knowledge-tests--schema-function (configuration) function)
@@ -464,7 +460,6 @@
     (lambda (predicate)
       (knowledge-base-schema base predicate
                              :workspace (namestring (config :working-directory configuration))))))
-
 
 (-> test-knowledge-rule-validation () null)
 (defun test-knowledge-rule-validation ()
@@ -479,40 +474,40 @@
       (dolist (case
                `(("an unbound conclusion variable"
                   :invalid-rule
-                  (:premises (("event.start" "?event" "?start"))
+                  (:premises   (("event.start" "?event" "?start"))
                    :conclusion ("event.departure" "?event" "?leave")))
                  ("a computation on the wrong types"
                   :invalid-rule
-                  (:premises (("event.start" "?event" "?start"))
-                   :bindings (("?leave" ("-" "?start" 5)))
+                  (:premises   (("event.start" "?event" "?start"))
+                   :bindings   (("?leave" ("-" "?start" 5)))
                    :conclusion ("event.departure" "?event" "?leave")))
                  ("an unknown computation"
                   :invalid-rule
-                  (:premises (("event.start" "?event" "?start"))
-                   :bindings (("?leave" ("later" "?start")))
+                  (:premises   (("event.start" "?event" "?start"))
+                   :bindings   (("?leave" ("later" "?start")))
                    :conclusion ("event.departure" "?event" "?leave")))
                  ("a negation of an unbound variable"
                   :invalid-rule
-                  (:premises (("event.start" "?event" "?start")
-                              (:not ("event.cancelled" "?other")))
+                  (:premises   (("event.start" "?event" "?start")
+                                (:not ("event.cancelled" "?other")))
                    :conclusion ("event.departure" "?event" "?start")))
                  ("a guard across types"
                   :invalid-rule
-                  (:premises (("event.start" "?event" "?start")
-                              ("event.travel" "?event" "?travel"))
-                   :guards (("<" "?start" "?travel"))
+                  (:premises   (("event.start" "?event" "?start")
+                                ("event.travel" "?event" "?travel"))
+                   :guards     (("<" "?start" "?travel"))
                    :conclusion ("event.departure" "?event" "?start")))
                  ("a conclusion of a premise predicate"
                   :rule-cycle
-                  (:premises (("event.start" "?event" "?start"))
+                  (:premises   (("event.start" "?event" "?start"))
                    :conclusion ("event.start" "?event" "?start")))
                  ("an undefined predicate"
                   :unknown-predicate
-                  (:premises (("event.room" "?event" "?room"))
+                  (:premises   (("event.room" "?event" "?room"))
                    :conclusion ("event.departure" "?event" "?room")))
                  ("a literal of the wrong type"
                   :invalid-term
-                  (:premises (("event.start" "review" "one o'clock"))
+                  (:premises   (("event.start" "review" "one o'clock"))
                    :conclusion ("event.departure" "review" "2026-10-22T12:00:00Z")))))
         (destructuring-bind (label code fields) case
           (test-assert (eq (knowledge-tests--error-code
@@ -592,16 +587,16 @@
                               :arguments '((:name "event" :type :entity)
                                            (:name "time" :type :instant))))
       (knowledge-propose-rule configuration
-                              :id "reminder"
-                              :premises '(("event.departure" "?event" "?leave"))
-                              :bindings '(("?ping" ("-" "?leave" "PT10M")))
+                              :id         "reminder"
+                              :premises   '(("event.departure" "?event" "?leave"))
+                              :bindings   '(("?ping" ("-" "?leave" "PT10M")))
                               :conclusion '("event.reminder" "?event" "?ping"))
       (knowledge-admit-rule configuration "reminder")
       (test-assert (eq (knowledge-tests--error-code
                         (lambda ()
                           (knowledge-propose-rule configuration
-                                                  :id "loop"
-                                                  :premises '(("event.reminder" "?event" "?t"))
+                                                  :id         "loop"
+                                                  :premises   '(("event.reminder" "?event" "?t"))
                                                   :conclusion '("event.start" "?event" "?t"))))
                        ':rule-cycle)
                    "a rule closing a cycle through admitted rules is refused")
@@ -618,9 +613,9 @@
   "Return CONFIGURATION's knowledge evaluated from its workspace at NOW."
   (knowledge-evaluate (knowledge-base-read configuration)
                       :workspace (namestring (config :working-directory configuration))
-                      :check (evidence-check-create
-                              :now now
-                              :memories (memory-list configuration :visibility ':all))))
+                      :check     (evidence-check-create
+                                  :now      now
+                                  :memories (memory-list configuration :visibility ':all))))
 
 (-> knowledge-tests--claim (configuration string list &key (:negated boolean)) list)
 (defun knowledge-tests--claim (configuration predicate inputs &key negated)
@@ -637,9 +632,9 @@
   "Assert PREDICATE of INPUTS as something the user said in QUOTE."
   (knowledge-assert configuration
                     (knowledge-tests--claim configuration predicate inputs :negated negated)
-                    :evidence (knowledge-observe :source (list :user :quote quote)
+                    :evidence (knowledge-observe :source  (list :user :quote quote)
                                                  :adapter "user/1")
-                    :basis ':user-assertion))
+                    :basis    ':user-assertion))
 
 (-> knowledge-tests--departures (knowledge-view) list)
 (defun knowledge-tests--departures (view)
@@ -647,7 +642,6 @@
   (mapcar (lambda (node)
             (second (third (knowledge-node-proposition node))))
           (knowledge-view-holds view '("event.departure" "?event" "?time"))))
-
 
 (-> test-knowledge-derivation () null)
 (defun test-knowledge-derivation ()
@@ -657,11 +651,11 @@
         (memory-source-tests--workspace base root)
       (knowledge-tests--define-appointments configuration)
       (knowledge-propose-rule configuration
-                              :id "departure"
-                              :premises '(("event.start" "?event" "?start")
-                                          ("event.travel" "?event" "?travel")
-                                          ("event.buffer" "?event" "?buffer"))
-                              :bindings '(("?leave" ("-" "?start" ("+" "?travel" "?buffer"))))
+                              :id         "departure"
+                              :premises   '(("event.start" "?event" "?start")
+                                            ("event.travel" "?event" "?travel")
+                                            ("event.buffer" "?event" "?buffer"))
+                              :bindings   '(("?leave" ("-" "?start" ("+" "?travel" "?buffer"))))
                               :conclusion '("event.departure" "?event" "?leave"))
       (knowledge-admit-rule configuration "departure")
       (let ((schedule (memory-source-tests--write
@@ -671,15 +665,15 @@
                           (knowledge-tests--claim configuration "event.start"
                                                   '("review" "2026-10-22T13:00:00Z"))
                           :evidence (knowledge-observe-file schedule
-                                                            :quote "review at 13:00"
+                                                            :quote     "review at 13:00"
                                                             :workspace (namestring workspace))
-                          :basis ':observation)
+                          :basis    ':observation)
         (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
                                "it takes half an hour to get there")
         (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
                                "be there ten minutes early")
-        (let* ((view (knowledge-tests--view configuration))
-               (node (first (knowledge-view-holds view '("event.departure" "review" "?t"))))
+        (let* ((view          (knowledge-tests--view configuration))
+               (node          (first (knowledge-view-holds view '("event.departure" "review" "?t"))))
                (justification (first (knowledge-node-justifications node))))
           (test-assert (equal (knowledge-tests--departures view) '("2026-10-22T12:20:00Z"))
                        "the departure is derived from start, travel, and buffer")
@@ -711,9 +705,9 @@
                           (knowledge-tests--claim configuration "event.start"
                                                   '("review" "2026-10-22T14:00:00Z"))
                           :evidence (knowledge-observe-file schedule
-                                                            :quote "review at 14:00"
+                                                            :quote     "review at 14:00"
                                                             :workspace (namestring workspace))
-                          :basis ':observation)
+                          :basis    ':observation)
         (test-assert (equal (knowledge-tests--departures (knowledge-tests--view configuration))
                             '("2026-10-22T13:20:00Z"))
                      "recording the new start recomputes the departure without a model")
@@ -724,7 +718,7 @@
                                  "make it twenty minutes early")
           (let ((view (knowledge-tests--view configuration)))
             (test-assert (and (= 2 (length (knowledge-view-holds
-                                           view '("event.buffer" "review" "?b"))))
+                                            view '("event.buffer" "review" "?b"))))
                               (every (lambda (node)
                                        (eq (knowledge-node-status view node) ':conflicted))
                                      (knowledge-view-holds view '("event.departure" "review" "?t"))))
@@ -741,11 +735,11 @@
   (apply #'knowledge-propose-rule configuration
          (if negation
              (knowledge-tests--departure-rule)
-             (list :id "departure"
-                   :premises '(("event.start" "?event" "?start")
-                               ("event.travel" "?event" "?travel")
-                               ("event.buffer" "?event" "?buffer"))
-                   :bindings '(("?leave" ("-" "?start" ("+" "?travel" "?buffer"))))
+             (list :id         "departure"
+                   :premises   '(("event.start" "?event" "?start")
+                                 ("event.travel" "?event" "?travel")
+                                 ("event.buffer" "?event" "?buffer"))
+                   :bindings   '(("?leave" ("-" "?start" ("+" "?travel" "?buffer"))))
                    :conclusion '("event.departure" "?event" "?leave"))))
   (knowledge-admit-rule configuration "departure")
   nil)
@@ -764,7 +758,6 @@
       (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
                              "half an hour to get there"))
   nil)
-
 
 (-> test-knowledge-justifications-and-conflicts () null)
 (defun test-knowledge-justifications-and-conflicts ()
@@ -804,7 +797,7 @@
       (knowledge-retract configuration cancelled))
     (knowledge-tests--said configuration "event.departure" '("review" "2026-10-22T12:00:00Z")
                            "I am leaving at noon")
-    (let* ((view (knowledge-tests--view configuration))
+    (let* ((view       (knowledge-tests--view configuration))
            (departures (knowledge-view-holds view '("event.departure" "review" "?t"))))
       (test-assert (and (= 2 (length departures))
                         (every (lambda (node) (eq (knowledge-node-status view node) ':conflicted))
@@ -839,7 +832,7 @@
                         :evidence (knowledge-observe
                                    :source '(:url :url "https://maps.example.com/route")
                                    :adapter "web/1" :time 1000)
-                        :basis ':observation)
+                        :basis    ':observation)
       (test-assert (knowledge-tests--departures
                     (knowledge-tests--view configuration :now 2000))
                    "a fresh route estimate supports the departure")
@@ -852,7 +845,7 @@
                                 (knowledge-claim-identifier
                                  (knowledge-tests--claim configuration "event.travel"
                                                          '("review" "PT30M"))
-                                 :scope ':workspace
+                                 :scope     ':workspace
                                  :workspace (namestring (config :working-directory
                                                                 configuration)))))
                               ':expired))
@@ -878,8 +871,8 @@
                           (knowledge-evaluate (knowledge-base-read configuration)
                                               :workspace (namestring (config :working-directory
                                                                              configuration))
-                                              :check (evidence-check-create :now 2000)
-                                              :goals '("event.cancelled"))))
+                                              :check     (evidence-check-create :now 2000)
+                                              :goals     '("event.cancelled"))))
                    "goals skip rules that cannot contribute to them")
       (knowledge-define-schema configuration
                                (knowledge-make-schema
@@ -887,10 +880,10 @@
                                 :arguments '((:name "event" :type :entity)
                                              (:name "ratio" :type :number))))
       (knowledge-propose-rule configuration
-                              :id "pace"
-                              :premises '(("event.travel" "?event" "?travel")
-                                          ("event.buffer" "?event" "?buffer"))
-                              :bindings '(("?ratio" ("/" "?travel" "?buffer")))
+                              :id         "pace"
+                              :premises   '(("event.travel" "?event" "?travel")
+                                            ("event.buffer" "?event" "?buffer"))
+                              :bindings   '(("?ratio" ("/" "?travel" "?buffer")))
                               :conclusion '("event.pace" "?event" "?ratio"))
       (knowledge-admit-rule configuration "pace")
       (let ((view (knowledge-tests--view configuration :now 2000)))
@@ -912,11 +905,10 @@
                                                     (format nil "2026-10-22T~A:00Z" time)))
                       :evidence (knowledge-observe-file
                                  schedule
-                                 :quote (format nil "review at ~A" time)
+                                 :quote     (format nil "review at ~A" time)
                                  :workspace (namestring workspace))
-                      :basis ':observation)
+                      :basis    ':observation)
     schedule))
-
 
 (-> test-knowledge-explanations () null)
 (defun test-knowledge-explanations ()
@@ -931,10 +923,10 @@
                              "be there ten minutes early")
       (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
                              "half an hour to get there")
-      (let* ((view (knowledge-tests--view configuration))
-             (departure (knowledge-node-identifier
-                         (first (knowledge-view-holds view '("event.departure" "?e" "?t")))))
-             (tree (first (knowledge-explain view departure)))
+      (let* ((view          (knowledge-tests--view configuration))
+             (departure     (knowledge-node-identifier
+                             (first (knowledge-view-holds view '("event.departure" "?e" "?t")))))
+             (tree          (first (knowledge-explain view departure)))
              (justification (first (getf tree :justifications))))
         (test-assert (and (equal (getf tree :text) "leave for review at 2026-10-22 12:20 UTC")
                           (eq (getf tree :status) ':supported)
@@ -978,7 +970,7 @@
           (test-assert (null (knowledge-view-changes snapshot (knowledge-tests--view configuration)))
                        "an unchanged view reports no changes")
           (knowledge-tests--schedule-review configuration workspace "14:00")
-          (let* ((changes (knowledge-view-changes snapshot (knowledge-tests--view configuration)))
+          (let* ((changes   (knowledge-view-changes snapshot (knowledge-tests--view configuration)))
                  (departure (find "leave for review at 2026-10-22 13:20 UTC" changes
                                   :key (lambda (change) (getf change :to)) :test #'equal)))
             (test-assert (and departure
@@ -1017,19 +1009,19 @@
       (let* ((departure (knowledge-node-identifier
                          (first (knowledge-view-holds (knowledge-tests--view configuration)
                                                       '("event.departure" "?e" "?t")))))
-             (note (memory-remember configuration
-                                    :title "Review logistics"
-                                    :content "Book the 12:15 bus to the review."
-                                    :premises (list departure))))
+             (note      (memory-remember configuration
+                                         :title    "Review logistics"
+                                         :content  "Book the 12:15 bus to the review."
+                                         :premises (list departure))))
         (test-assert (and (eq (getf (first (memory-premises note)) :kind) ':claim)
                           (eq (memory-source-tests--status configuration note) ':current))
                      "a memory derived from a derived fact is current while the fact holds")
         (test-assert (eq (memory-source-tests--error-p
                           (lambda ()
                             (memory-remember configuration
-                                             :scope ':global
-                                             :title "Global logistics"
-                                             :content "Too broad."
+                                             :scope    ':global
+                                             :title    "Global logistics"
+                                             :content  "Too broad."
                                              :premises (list departure))))
                          t)
                      "a global memory cannot rely on a workspace fact")
@@ -1047,9 +1039,9 @@
 (-> knowledge-tests--recall (configuration conversation) list)
 (defun knowledge-tests--recall (configuration conversation)
   "Return the contributions memory recall makes for CONVERSATION's latest input."
-  (let ((*context-contributors* nil)
-        (*context-resolver* (cl-llm-provider-api:make-context-resolver))
-        (*context-last-deliveries* (make-hash-table :test #'equal))
+  (let ((*context-contributors*        nil)
+        (*context-resolver*            (cl-llm-provider-api:make-context-resolver))
+        (*context-last-deliveries*     (make-hash-table :test #'equal))
         (*context-last-delivery-order* nil))
     (register-context-contributor "related-memories" 'memory-related-context
                                   :source ':built-in)
@@ -1059,7 +1051,6 @@
 (defun knowledge-tests--contribution (contributions identifier)
   "Return the contribution IDENTIFIER among CONTRIBUTIONS."
   (find identifier contributions :key #'context-contribution-identifier :test #'string=))
-
 
 (-> test-knowledge-recall () null)
 (defun test-knowledge-recall ()
@@ -1077,7 +1068,7 @@
       (let ((conversation (conversation-create configuration)))
         (conversation-append-user-message conversation "When should I leave for the review?")
         (let* ((contributions (knowledge-tests--recall configuration conversation))
-               (advice (knowledge-tests--contribution contributions "related-memories")))
+               (advice        (knowledge-tests--contribution contributions "related-memories")))
           (test-assert (and advice
                             (search "\"fact\":\"leave for review at 2026-10-22 12:20 UTC\""
                                     (context-contribution-evidence advice))
@@ -1128,7 +1119,7 @@
         (memory-source-tests--workspace base root)
       (let ((application (make-instance 'application
                                         :configuration configuration
-                                        :conversation (conversation-create configuration))))
+                                        :conversation  (conversation-create configuration))))
         (flet ((text (entry)
                  "Return ENTRY's plain text."
                  (memory-source-tests--text entry)))
@@ -1158,11 +1149,11 @@
             (test-assert (search "Nothing changed since"
                                  (text (application-knowledge-changes-entry application)))
                          "(what-changed) reports each change once")
-            (let* ((view (application-knowledge--view application))
+            (let* ((view      (application-knowledge--view application))
                    (departure (first (knowledge-view-holds view '("event.departure" "?e" "?t"))))
-                   (why (text (application-memory-entry
-                               application
-                               (subseq (knowledge-node-identifier departure) 0 7)))))
+                   (why       (text (application-memory-entry
+                                     application
+                                     (subseq (knowledge-node-identifier departure) 0 7)))))
               (test-assert (and (search "fact  supported" why)
                                 (search "derived by departure v1" why)
                                 (search "observation: schedule.txt \"review at 14:00\"" why))
@@ -1198,14 +1189,13 @@
      (vector (tool-provider-schema (tool-registry-find registry "resource" "read"))
              (tool-provider-schema (tool-registry-find registry "resource" "edit"))))))
 
-
 (-> test-knowledge-activation () null)
 (defun test-knowledge-activation ()
   "Test that passive and off modes leave the model's requests as they were."
   (with-test-configuration (base root)
     (multiple-value-bind (configuration workspace)
         (memory-source-tests--workspace base root)
-      (let ((off (configuration-copy configuration :knowledge-mode "off"))
+      (let ((off     (configuration-copy configuration :knowledge-mode "off"))
             (passive (configuration-copy configuration :knowledge-mode "passive")))
         (knowledge-tests--define-appointments configuration)
         (knowledge-tests--admit-departure configuration)
@@ -1215,7 +1205,7 @@
         (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
                                "half an hour to get there")
         (let ((active-surface (knowledge-tests--tool-surface configuration))
-              (off-surface (knowledge-tests--tool-surface off)))
+              (off-surface    (knowledge-tests--tool-surface off)))
           (test-assert (and (search "fact-assert" active-surface)
                             (search "memory:facts" active-surface))
                        "active mode offers knowledge operations and views")
@@ -1244,16 +1234,15 @@
                                               '("autolith.mission.gate" "?m" "?g" "?s"))))
         #'string<))
 
-
 (-> test-knowledge-mission-observations () null)
 (defun test-knowledge-mission-observations ()
   "Test that mission status and gate results become facts, each report replacing the last."
   (dolist (mode '("active" "off"))
     (with-test-configuration (base root)
       (let* ((configuration (configuration-copy base :working-directory root :knowledge-mode mode))
-             (application (mission-test--application configuration))
-             (gates '((:id "first" :kind :artifact :path "first")
-                      (:id "second" :kind :artifact :path "second" :attempt-limit 1))))
+             (application   (mission-test--application configuration))
+             (gates         '((:id "first" :kind :artifact :path "first")
+                              (:id "second" :kind :artifact :path "second" :attempt-limit 1))))
         (application-mission-start application (mission-test--specification :gates gates))
         (test-call-with-function-replacements
          (list (list 'application-tool-context (lambda (app) (mission-test--context app)))
@@ -1263,7 +1252,7 @@
                        (values (equal (getf gate :id) "first") "bounded test evidence"))))
          (lambda ()
            (application-mission-verify application)))
-        (let ((facts (knowledge-tests--mission-facts configuration))
+        (let ((facts   (knowledge-tests--mission-facts configuration))
               (mission (format nil "mission/~A/~D"
                                (conversation-identifier (application-conversation application))
                                (getf (application-goal application) :created-at))))
@@ -1282,9 +1271,9 @@
   "Test exporting a workspace's knowledge and importing it into another directory."
   (with-test-configuration (base root)
     (with-test-configuration (target target-root)
-      (let* ((source (test-data-transfer--workspace base (merge-pathnames "project/" root)))
-             (workspace (merge-pathnames "project/" root))
-             (path (merge-pathnames "workspace.sexp" root))
+      (let* ((source      (test-data-transfer--workspace base (merge-pathnames "project/" root)))
+             (workspace   (merge-pathnames "project/" root))
+             (path        (merge-pathnames "workspace.sexp" root))
              (destination (merge-pathnames "moved/" target-root)))
         (knowledge-tests--define-appointments source)
         (knowledge-tests--admit-departure source)
@@ -1297,20 +1286,20 @@
           (memory-remember source :title "Travel note" :content "Half an hour by tram."
                                   :premises (list travel)))
         (test-assert (plusp (getf (data-export path
-                                               :workspace (config :working-directory source)
+                                               :workspace     (config :working-directory source)
                                                :configuration source)
                                   :facts))
                      "a workspace export carries its facts")
         (memory-source-tests--write (merge-pathnames "schedule.txt" destination)
                                     (format nil "Design review at 13:00 UTC on 22 October.~%"))
         (data-import path :workspace (namestring destination) :configuration target)
-        (let* ((moved (test-data-transfer--workspace target destination))
-               (view (knowledge-tests--view moved))
+        (let* ((moved  (test-data-transfer--workspace target destination))
+               (view   (knowledge-tests--view moved))
                (travel (knowledge-claim-identifier
                         (knowledge-tests--claim moved "event.travel" '("review" "PT30M"))
                         :scope ':workspace :workspace (namestring destination)))
-               (note (find "Travel note" (memory-list moved) :key #'memory-title
-                                                             :test #'string=)))
+               (note   (find "Travel note" (memory-list moved) :key  #'memory-title
+                                                               :test #'string=)))
           (test-assert (equal (knowledge-tests--departures view) '("2026-10-22T12:20:00Z"))
                        "the imported facts and rule derive the departure in the new directory")
           (test-assert (knowledge-node-supported-p (knowledge-view-node view travel))
@@ -1320,7 +1309,7 @@
                             (eq (memory-source-tests--status moved note) ':current))
                        "a memory premise naming a claim follows the recomputed identity"))
         (test-assert (zerop (getf (data-import path :workspace (namestring destination)
-                                               :configuration target)
+                                               :configuration  target)
                                   :installed-files))
                      "importing the same archive again writes nothing"))))
   nil)
@@ -1347,11 +1336,11 @@
                               "answer" (list (agent-test-message "Leave at noon."))
                               :usage (json-object "input_tokens" 1100 "output_tokens" 20
                                                   "total_tokens" 1120)))))
-           (agent (agent-create :configuration configuration :conversation conversation
-                                :provider provider
-                                :tool-registry (make-default-tool-registry
-                                                :configuration configuration)
-                                :worker :unused)))
+           (agent        (agent-create :configuration configuration :conversation conversation
+                                       :provider      provider
+                                       :tool-registry (make-default-tool-registry
+                                                       :configuration configuration)
+                                       :worker        :unused)))
       (agent-run-user-turn agent "When does the review start?")
       (test-assert (equal (knowledge-usage-report conversation)
                           '(:requests 1 :facts 0 :changes 0 :tool-calls 1
@@ -1382,9 +1371,9 @@
         (knowledge-assert configuration
                           (knowledge-tests--claim configuration "event.travel" '("review" "PT30M"))
                           :evidence (knowledge-observe
-                                     :source '(:url :url "https://maps.example.com/route")
+                                     :source  '(:url :url "https://maps.example.com/route")
                                      :adapter "web/1")
-                          :basis ':observation)
+                          :basis    ':observation)
         (let ((view (knowledge-view-current configuration)))
           (test-assert (eq view (knowledge-view-current configuration))
                        "an unchanged state reuses the evaluated view")
@@ -1419,7 +1408,7 @@
                                 :predicate "event.room"
                                 :arguments '((:name "event" :type :entity)
                                              (:name "room" :type :string))
-                                :key '("event")))
+                                :key       '("event")))
       (knowledge-tests--admit-departure configuration)
       (knowledge-tests--schedule-review configuration workspace "13:00")
       (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
@@ -1427,10 +1416,10 @@
       (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
                              "half an hour to get there")
       (let* ((registry (make-default-tool-registry :configuration configuration))
-             (context (make-instance 'tool-context
-                                     :configuration configuration
-                                     :worker nil
-                                     :conversation (conversation-create configuration))))
+             (context  (make-instance 'tool-context
+                                      :configuration configuration
+                                      :worker        nil
+                                      :conversation  (conversation-create configuration))))
         (flet ((update (&rest steps)
                  (tool-result-content
                   (memory-resource-tests--call registry context "plan" "update"
@@ -1477,15 +1466,14 @@
 (-> knowledge-tests--plan-advice (configuration conversation) (option context-contribution))
 (defun knowledge-tests--plan-advice (configuration conversation)
   "Return the plan change advice a request for CONVERSATION carries, if any."
-  (let ((*context-contributors* nil)
-        (*context-resolver* (cl-llm-provider-api:make-context-resolver))
-        (*context-last-deliveries* (make-hash-table :test #'equal))
+  (let ((*context-contributors*        nil)
+        (*context-resolver*            (cl-llm-provider-api:make-context-resolver))
+        (*context-last-deliveries*     (make-hash-table :test #'equal))
         (*context-last-delivery-order* nil))
     (register-context-contributor "plan-changes" 'plan-changes-context :source ':built-in)
     (knowledge-tests--contribution
      (context-delivery-contributions (context-resolve-request configuration conversation #()))
      "plan-changes")))
-
 
 (-> test-knowledge-plan-changes () null)
 (defun test-knowledge-plan-changes ()
@@ -1501,9 +1489,9 @@
       (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
                              "half an hour to get there")
       (let* ((conversation (conversation-create configuration))
-             (registry (make-default-tool-registry :configuration configuration))
-             (context (make-instance 'tool-context :configuration configuration :worker nil
-                                                   :conversation conversation)))
+             (registry     (make-default-tool-registry :configuration configuration))
+             (context      (make-instance 'tool-context :configuration configuration :worker nil
+                                                        :conversation conversation)))
         (conversation-append-user-message conversation "Plan my afternoon.")
         (memory-resource-tests--call
          registry context "plan" "update"
@@ -1536,11 +1524,11 @@
       (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
                              "be there ten minutes early")
       (let* ((registry (make-default-tool-registry :configuration configuration))
-             (context (make-instance 'tool-context :configuration configuration :worker nil
-                                                   :conversation (conversation-create configuration)))
-             (travel (nth-value 0 (knowledge-tests--said configuration "event.travel"
-                                                         '("review" "PT30M")
-                                                         "half an hour to get there"))))
+             (context  (make-instance 'tool-context :configuration configuration :worker nil
+                                                    :conversation (conversation-create configuration)))
+             (travel   (nth-value 0 (knowledge-tests--said configuration "event.travel"
+                                                           '("review" "PT30M")
+                                                           "half an hour to get there"))))
         (flet ((define (&rest operations)
                  (tool-result-content
                   (memory-resource-tests--call
@@ -1612,7 +1600,7 @@
     (destructuring-bind (travel-basis expected) case
       (with-test-configuration (base root)
         (let* ((configuration (configuration-copy base :working-directory root))
-               (application (mission-test--application configuration)))
+               (application   (mission-test--application configuration)))
           (knowledge-tests--define-appointments configuration)
           (knowledge-tests--admit-departure configuration)
           (knowledge-tests--review configuration :travel-basis travel-basis)
@@ -1638,30 +1626,30 @@
 (defun test-knowledge-expiry-lifecycle ()
   "Test that a fact expires on time after a cached evaluation and applies again when reobserved."
   (with-test-configuration (base root)
-    (let* ((configuration (configuration-copy base :working-directory root))
-           (now 100000)
+    (let* ((configuration     (configuration-copy base :working-directory root))
+           (now               100000)
            (*knowledge-clock* (lambda () now))
-           (until (+ now *knowledge-url-lifetime*)))
+           (until             (+ now *knowledge-url-lifetime*)))
       (knowledge-define-schema configuration
                                (knowledge-make-schema
                                 :predicate "price.listed"
                                 :arguments '((:name "item" :type :entity)
                                              (:name "price" :type :number))
-                                :key '("item")))
+                                :key       '("item")))
       (flet ((observe ()
                (knowledge-assert configuration '("price.listed" "lamp" 40)
                                  :evidence (knowledge-observe
-                                            :source '(:url :url "https://example.com/lamp")
-                                            :digest (memory-source-text-digest "Lamp: 40")
+                                            :source  '(:url :url "https://example.com/lamp")
+                                            :digest  (memory-source-text-digest "Lamp: 40")
                                             :adapter "web/1")
-                                 :basis ':observation))
+                                 :basis    ':observation))
 
              (state ()
                (knowledge-node-applicability
                 (knowledge-view-node (knowledge-view-current configuration)
                                      (knowledge-claim-identifier
                                       '("price.listed" "lamp" 40)
-                                      :scope ':workspace
+                                      :scope     ':workspace
                                       :workspace (knowledge--workspace configuration))))))
         (observe)
         (setf now until)
@@ -1685,21 +1673,21 @@
   (dolist (global-negated '(nil t))
     (with-test-configuration (base root)
       (let* ((configuration (configuration-copy base :working-directory root))
-             (other (configuration-copy
-                     base :working-directory
-                     (ensure-directories-exist (merge-pathnames "other/" root))))
-             (context (make-instance 'tool-context :configuration configuration :worker nil
-                                                  :conversation (conversation-create configuration)))
+             (other         (configuration-copy
+                             base :working-directory
+                             (ensure-directories-exist (merge-pathnames "other/" root))))
+             (context       (make-instance 'tool-context :configuration configuration :worker nil
+                                                        :conversation (conversation-create configuration)))
              (other-context (make-instance 'tool-context :configuration other :worker nil))
-             (registry (make-default-tool-registry :configuration configuration))
-             (mail (make-instance 'knowledge-tests--mail-tool
-                                  :namespace "mail" :name "send" :description "Send a report."
-                                  :parameters (tool-object-schema
-                                               (json-object "report" (tool-string-property "Report."))
-                                               '("report"))))
-             (positive '("report.ready" "q3"))
-             (negative '(:not ("report.ready" "q3")))
-             (global (if global-negated negative positive)))
+             (registry      (make-default-tool-registry :configuration configuration))
+             (mail          (make-instance 'knowledge-tests--mail-tool
+                                           :namespace "mail" :name "send" :description "Send a report."
+                                           :parameters (tool-object-schema
+                                                        (json-object "report" (tool-string-property "Report."))
+                                                        '("report"))))
+             (positive      '("report.ready" "q3"))
+             (negative      '(:not ("report.ready" "q3")))
+             (global        (if global-negated negative positive)))
         (tool-registry-register registry mail)
         (dolist (predicate '("report.ready" "report.eligible" "report.blocked" "report.known"))
           (knowledge-define-schema
@@ -1708,23 +1696,23 @@
                                   :arguments '((:name "report" :type :entity)))
            :scope ':global))
         (knowledge-propose-rule configuration :id "eligible"
-                                :premises '(("report.ready" "?r"))
-                                :conclusion '("report.eligible" "?r"))
+                                :premises         '(("report.ready" "?r"))
+                                :conclusion       '("report.eligible" "?r"))
         (knowledge-admit-rule configuration "eligible")
         (knowledge-tests--said configuration "report.known" '("q3") "q3 is known")
         (knowledge-propose-rule configuration :id "blocked"
-                                :premises '(("report.known" "?r") (:not ("report.ready" "?r")))
-                                :conclusion '("report.blocked" "?r"))
+                                :premises         '(("report.known" "?r") (:not ("report.ready" "?r")))
+                                :conclusion       '("report.blocked" "?r"))
         (knowledge-admit-rule configuration "blocked")
         (knowledge-assert configuration global :scope ':global
-                          :evidence (knowledge-observe :source '(:user :quote "global report status")
-                                                       :adapter "user/1")
-                          :basis ':user-assertion)
+                          :evidence                   (knowledge-observe :source  '(:user :quote "global report status")
+                                                                         :adapter "user/1")
+                          :basis                      ':user-assertion)
         (knowledge-assert configuration (if global-negated positive negative)
-                          :evidence (knowledge-observe :source '(:user :quote "local opposite status")
+                          :evidence (knowledge-observe :source  '(:user :quote "local opposite status")
                                                        :adapter "user/1")
-                          :basis ':user-assertion)
-        (let* ((view (knowledge-view-current configuration))
+                          :basis    ':user-assertion)
+        (let* ((view  (knowledge-view-current configuration))
                (nodes (append (knowledge-view-holds view positive)
                               (knowledge-view-holds view negative))))
           (test-assert (= 2 (length nodes)) "both scoped identities are visible")
@@ -1738,14 +1726,14 @@
         (dolist (pattern (list positive negative '("report.eligible" "q3")
                               '("report.blocked" "q3")))
           (test-assert (not (mission--fact-gate-support
-                            (list :kind :fact :pattern pattern
-                                  :accepted '(:observation :user-assertion)) context))
+                             (list :kind :fact :pattern pattern
+                                   :accepted '(:observation :user-assertion)) context))
                        "neither disputed premise nor its conclusion satisfies a fact gate")
           (knowledge-define-contract configuration :id "send-report" :tool "mail.send"
                                      :requires (list pattern))
           (test-assert (and (not (tool-result-success-p
-                                 (memory-resource-tests--call registry context "mail" "send"
-                                                              "report" "q3")))
+                                  (memory-resource-tests--call registry context "mail" "send"
+                                                               "report" "q3")))
                             (zerop (knowledge-tests--mail-tool-calls mail)))
                        "a contract refuses the disputed requirement before the action"))
         (test-assert (mission--fact-gate-support
@@ -1754,10 +1742,10 @@
                      "the other workspace can use the unopposed global claim")
         (dolist (scope '(:global :workspace))
           (knowledge-assert configuration '("report.ready" "clean") :scope scope
-                            :evidence (knowledge-observe :source '(:user :quote "clean is ready")
-                                                         :adapter "user/1")
-                            :basis ':user-assertion))
-        (let* ((view (knowledge-view-current configuration))
+                            :evidence                                      (knowledge-observe :source  '(:user :quote "clean is ready")
+                                                                                              :adapter "user/1")
+                            :basis                                         ':user-assertion))
+        (let* ((view  (knowledge-view-current configuration))
                (nodes (knowledge-view-holds view '("report.ready" "clean"))))
           (test-assert (and (= 2 (length nodes))
                             (every (lambda (node) (knowledge-node-admissible-p view node)) nodes))
@@ -1769,15 +1757,15 @@
   "Test that gates use only undisputed facts on accepted bases, negated premises included."
   (with-test-configuration (base root)
     (let* ((configuration (configuration-copy base :working-directory root))
-           (context (make-instance 'tool-context :configuration configuration :worker nil)))
+           (context       (make-instance 'tool-context :configuration configuration :worker nil)))
       (dolist (predicate '("item.exists" "item.blocked" "item.ready" "item.paid"))
         (knowledge-define-schema configuration
                                  (knowledge-make-schema
                                   :predicate predicate
                                   :arguments '((:name "item" :type :entity)))))
       (knowledge-propose-rule configuration
-                              :id "readiness"
-                              :premises '(("item.exists" "?x") (:not ("item.blocked" "?x")))
+                              :id         "readiness"
+                              :premises   '(("item.exists" "?x") (:not ("item.blocked" "?x")))
                               :conclusion '("item.ready" "?x"))
       (knowledge-admit-rule configuration "readiness")
       (knowledge-tests--said configuration "item.exists" '("a") "a exists")
@@ -1791,7 +1779,7 @@
       (knowledge-tests--said configuration "item.exists" '("d") "d exists")
       (knowledge-tests--said configuration "item.blocked" '("d") "d is not blocked" :negated t)
       (knowledge-tests--said configuration "item.blocked" '("d") "d is blocked")
-      (let* ((view (knowledge-view-current configuration))
+      (let* ((view    (knowledge-view-current configuration))
              (ready-a (first (knowledge-view-holds view '("item.ready" "a")))))
         (test-assert (and ready-a
                           (= 2 (length (getf (first (knowledge-node-justifications ready-a))
@@ -1816,19 +1804,19 @@
                             description))))
   (with-test-configuration (base root)
     (let* ((configuration (configuration-copy base :working-directory root))
-           (context (make-instance 'tool-context :configuration configuration :worker nil)))
+           (context       (make-instance 'tool-context :configuration configuration :worker nil)))
       (dolist (predicate '("item.exists" "item.ready" "item.sent"))
         (knowledge-define-schema configuration
                                  (knowledge-make-schema
                                   :predicate predicate
                                   :arguments '((:name "item" :type :entity)))))
       (knowledge-propose-rule configuration :id "ready"
-                              :premises '(("item.exists" "?x"))
-                              :conclusion '("item.ready" "?x"))
+                              :premises         '(("item.exists" "?x"))
+                              :conclusion       '("item.ready" "?x"))
       (knowledge-admit-rule configuration "ready")
       (knowledge-propose-rule configuration :id "send"
-                              :premises '(("item.ready" "?x"))
-                              :conclusion '("item.sent" "?x"))
+                              :premises         '(("item.ready" "?x"))
+                              :conclusion       '("item.sent" "?x"))
       (knowledge-admit-rule configuration "send")
       (knowledge-tests--said configuration "item.exists" '("a") "a exists")
       (knowledge-tests--said configuration "item.exists" '("a") "a does not exist" :negated t)
@@ -1864,7 +1852,7 @@
   (dolist (bases '((:assumption :user-assertion) (:user-assertion :assumption)))
     (with-test-configuration (base root)
       (let* ((configuration (configuration-copy base :working-directory root))
-             (context (make-instance 'tool-context :configuration configuration :worker nil)))
+             (context       (make-instance 'tool-context :configuration configuration :worker nil)))
         (knowledge-tests--define-appointments configuration)
         (knowledge-tests--admit-departure configuration)
         (knowledge-tests--said configuration "event.start" '("review" "2026-10-22T13:00:00Z")
@@ -1879,7 +1867,7 @@
                                 (knowledge-tests--claim configuration "event.travel"
                                                         '("review" "PT30M"))
                                 :basis basis)))
-        (let* ((view (knowledge-view-current configuration))
+        (let* ((view      (knowledge-view-current configuration))
                (departure (first (knowledge-view-holds view '("event.departure" "review" "?t")))))
           (test-assert (and (member '(:user-assertion) (knowledge-node-bases departure) :test #'equal)
                             (knowledge-node-observed-p departure))
@@ -1889,7 +1877,7 @@
                           :accepted (:user-assertion)) context)
                        "the clean path passes regardless of support insertion order"))
         (let* ((*knowledge-match-limit* 0)
-               (view (knowledge-tests--view configuration)))
+               (view                    (knowledge-tests--view configuration)))
           (test-assert (knowledge-view-incomplete view) "a bounded view reports unfinished inference")
           (test-call-with-function-replacements
            (list (list 'knowledge-view-current (lambda (&rest arguments)
@@ -1908,15 +1896,15 @@
                         :predicate predicate
                         :arguments '((:name "item" :type :entity)))))
       (knowledge-propose-rule configuration :id "failed-contradiction"
-                              :premises '(("item.exists" "?x"))
-                              :bindings '(("?unused" ("/" 1 0)))
-                              :conclusion '(:not ("item.ready" "?x")))
+                              :premises         '(("item.exists" "?x"))
+                              :bindings         '(("?unused" ("/" 1 0)))
+                              :conclusion       '(:not ("item.ready" "?x")))
       (knowledge-admit-rule configuration "failed-contradiction")
       (knowledge-tests--said configuration "item.exists" '("a") "a exists")
       (let ((source (memory-source-tests--write (merge-pathnames "ready.txt" root) "a is ready")))
         (knowledge-assert configuration '("item.ready" "a") :basis ':observation
-                          :evidence (knowledge-observe-file source :quote "a is ready"
-                                                            :workspace (namestring root))))
+                          :evidence                                (knowledge-observe-file source :quote "a is ready"
+                                                                                           :workspace    (namestring root))))
       (let* ((view (knowledge-tests--view configuration))
              (node (first (knowledge-view-holds view '("item.ready" "a")))))
         (test-assert (and node (knowledge-node-observed-p node :accepted '(:observation)))
@@ -1934,8 +1922,8 @@
                         :predicate predicate
                         :arguments '((:name "item" :type :entity)))))
       (knowledge-propose-rule configuration :id "negative-alternatives"
-                              :premises '(("item.exists" "?x") (:not ("item.blocked" "?x")))
-                              :conclusion '("item.ready" "?x"))
+                              :premises         '(("item.exists" "?x") (:not ("item.blocked" "?x")))
+                              :conclusion       '("item.ready" "?x"))
       (knowledge-admit-rule configuration "negative-alternatives")
       (knowledge-tests--said configuration "item.exists" '("a") "a exists")
       ;; Distinct visible scopes provide independent proofs of the same negation.
@@ -1955,7 +1943,7 @@
           (setf (gethash "item.blocked" (knowledge-view-negated view))
                 (if reverse-p (reverse negations) negations))
           (dolist (item (knowledge-base-active-rules
-                        (knowledge-view-base view) :workspace (knowledge-view-workspace view)))
+                         (knowledge-view-base view) :workspace (knowledge-view-workspace view)))
             (knowledge--run-rule view item))
           (let ((ready (first (knowledge-view-holds view '("item.ready" "a")))))
             (test-assert (= 2 (length (knowledge-node-justifications ready)))
@@ -1977,8 +1965,8 @@
 
 (defclass knowledge-tests--mail-tool (tool)
   ((calls
-    :initform 0
-    :accessor knowledge-tests--mail-tool-calls
+    :initform      0
+    :accessor      knowledge-tests--mail-tool-calls
     :documentation "How many times the tool ran."))
   (:documentation "A mail tool answering with a JSON receipt, for contract tests."))
 
@@ -1988,21 +1976,20 @@
   (incf (knowledge-tests--mail-tool-calls tool))
   (tool-success (json-encode (json-object "id" "msg-1" "status" "queued"))))
 
-
 (-> test-knowledge-action-contracts () null)
 (defun test-knowledge-action-contracts ()
   "Test contracts refusing calls on unmet requirements and recording predictions and observations."
   (dolist (mode '("active" "passive"))
     (with-test-configuration (base root)
       (let* ((configuration (configuration-copy base :working-directory root :knowledge-mode mode))
-             (registry (make-default-tool-registry :configuration configuration))
-             (mail (make-instance 'knowledge-tests--mail-tool
-                                  :namespace "mail" :name "send" :description "Send a report."
-                                  :parameters (tool-object-schema
-                                               (json-object "report" (tool-string-property "Report."))
-                                               '("report"))))
-             (context (make-instance 'tool-context :configuration configuration :worker nil
-                                                   :conversation (conversation-create configuration))))
+             (registry      (make-default-tool-registry :configuration configuration))
+             (mail          (make-instance 'knowledge-tests--mail-tool
+                                           :namespace "mail" :name "send" :description "Send a report."
+                                           :parameters (tool-object-schema
+                                                        (json-object "report" (tool-string-property "Report."))
+                                                        '("report"))))
+             (context       (make-instance 'tool-context :configuration configuration :worker nil
+                                                         :conversation (conversation-create configuration))))
         (tool-registry-register registry mail)
         (dolist (definition '(("report.ready" (("report" :entity)) nil)
                               ("report.sent" (("report" :entity)) nil)
@@ -2015,13 +2002,13 @@
                                                          (list :name (first argument)
                                                                :type (second argument)))
                                                        arguments)
-                                    :key key))))
+                                    :key       key))))
         (knowledge-define-contract
          configuration
          :id "send-report" :tool "mail.send"
-         :when (json-object "report" "?report")
+         :when     (json-object "report" "?report")
          :requires #(#("report.ready" "?report"))
-         :effects #(#("report.sent" "?report"))
+         :effects  #(#("report.sent" "?report"))
          :observes (vector (json-object "predicate" "mail.message"
                                         "arguments" #("$arg.report" "$result.id"))))
         (flet ((send ()
@@ -2051,8 +2038,8 @@
                                     :predicate "report.drafted"
                                     :arguments '((:name "report" :type :entity))))
           (knowledge-propose-rule configuration :id "draft-ready"
-                                  :premises '(("report.drafted" "?report"))
-                                  :conclusion '("report.ready" "?report"))
+                                  :premises         '(("report.drafted" "?report"))
+                                  :conclusion       '("report.ready" "?report"))
           (knowledge-admit-rule configuration "draft-ready")
           (knowledge-tests--said configuration "report.drafted" '("q3") "q3 is drafted")
           (knowledge-tests--said configuration "report.drafted" '("q3") "q3 is not drafted" :negated t)
@@ -2064,7 +2051,7 @@
           (when (string= mode "active")
             (test-assert (tool-result-success-p (send))
                          "the call runs once its requirement holds on the user's statement"))
-          (let ((sent (first (holding '("report.sent" "q3"))))
+          (let ((sent    (first (holding '("report.sent" "q3"))))
                 (message (first (holding '("mail.message" "q3" "?m")))))
             (test-assert (and sent (not (knowledge-node-observed-p sent)))
                          "the predicted effect is recorded as a prediction, not an observation")

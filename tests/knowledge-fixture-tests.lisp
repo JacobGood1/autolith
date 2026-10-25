@@ -13,28 +13,28 @@
 
 (defclass knowledge-fixture ()
   ((configuration
-    :initarg :configuration
-    :reader knowledge-fixture-configuration
+    :initarg       :configuration
+    :reader        knowledge-fixture-configuration
     :documentation "The fixture's workspace configuration.")
    (workspace
-    :initarg :workspace
-    :reader knowledge-fixture-workspace
+    :initarg       :workspace
+    :reader        knowledge-fixture-workspace
     :documentation "The fixture's workspace directory.")
    (conversation
-    :initarg :conversation
-    :reader knowledge-fixture-conversation
+    :initarg       :conversation
+    :reader        knowledge-fixture-conversation
     :documentation "The conversation whose tool calls the fixture replays.")
    (context
-    :initarg :context
-    :reader knowledge-fixture-context
+    :initarg       :context
+    :reader        knowledge-fixture-context
     :documentation "A tool context with full access, as an approving user grants.")
    (registry
-    :initarg :registry
-    :reader knowledge-fixture-registry
+    :initarg       :registry
+    :reader        knowledge-fixture-registry
     :documentation "The default tool registry.")
    (label
-    :initarg :label
-    :reader knowledge-fixture-label
+    :initarg       :label
+    :reader        knowledge-fixture-label
     :documentation "The scenario's name in assertion messages."))
   (:documentation "One fixture scenario's workspace, conversation, and tools."))
 
@@ -45,12 +45,12 @@
 (defun knowledge-fixture--call-with (label function)
   "Call FUNCTION with a fresh fixture named LABEL, asserting it makes no provider request."
   (with-test-configuration (base root)
-    (let* ((workspace (merge-pathnames "workspace/" root))
+    (let* ((workspace     (merge-pathnames "workspace/" root))
            (configuration (progn
                             (ensure-directories-exist workspace)
                             (configuration-copy base :working-directory workspace)))
-           (conversation (conversation-create configuration))
-           (requests 0))
+           (conversation  (conversation-create configuration))
+           (requests      0))
       (test-call-with-function-replacements
        (list (list 'provider-stream-turn
                    (lambda (&rest arguments)
@@ -61,20 +61,20 @@
          (funcall function
                   (make-instance 'knowledge-fixture
                                  :configuration configuration
-                                 :workspace workspace
-                                 :conversation conversation
-                                 :registry (make-default-tool-registry
-                                            :configuration configuration)
-                                 :context (make-instance
-                                           'tool-context
-                                           :configuration configuration
-                                           :worker nil
-                                           :conversation conversation
-                                           :command-authorization-function
-                                           (lambda (command directory)
-                                             (declare (ignore command directory))
-                                             ':full-access))
-                                 :label label))))
+                                 :workspace     workspace
+                                 :conversation  conversation
+                                 :registry      (make-default-tool-registry
+                                                 :configuration configuration)
+                                 :context       (make-instance
+                                                 'tool-context
+                                                 :configuration configuration
+                                                 :worker        nil
+                                                 :conversation  conversation
+                                                 :command-authorization-function
+                                                 (lambda (command directory)
+                                                   (declare (ignore command directory))
+                                                   ':full-access))
+                                 :label         label))))
       (test-assert (zerop requests) (format nil "~A makes no provider request" label))))
   nil)
 
@@ -195,12 +195,12 @@
 (-> knowledge-fixture--appointment (integer integer) null)
 (defun knowledge-fixture--appointment (index variant)
   "Run appointment scenario INDEX in VARIANT: derive a departure, change one input."
-  (let* ((kind (mod index 5))
-         (event (format nil "review-~D" index))
-         (start (+ (* 8 60) (* 45 index) (* 15 variant)))
+  (let* ((kind   (mod index 5))
+         (event  (format nil "review-~D" index))
+         (start  (+ (* 8 60) (* 45 index) (* 15 variant)))
          (travel (+ 10 (* 5 index)))
          (buffer (* 5 (1+ variant)))
-         (label (format nil "appointment ~D/~D" index variant)))
+         (label  (format nil "appointment ~D/~D" index variant)))
     (knowledge-fixture--call-with
      label
      (lambda (fixture)
@@ -340,11 +340,11 @@
 (-> knowledge-fixture--document (integer integer) null)
 (defun knowledge-fixture--document (index variant)
   "Run document scenario INDEX in VARIANT: limits from two documents, usage from metrics."
-  (let* ((kind (mod index 5))
+  (let* ((kind    (mod index 5))
          (service (format nil "svc-~D" index))
-         (limit (+ 100 (* 10 index)))
-         (usage (+ limit (if (zerop variant) 20 -20)))
-         (label (format nil "document ~D/~D" index variant)))
+         (limit   (+ 100 (* 10 index)))
+         (usage   (+ limit (if (zerop variant) 20 -20)))
+         (label   (format nil "document ~D/~D" index variant)))
     (knowledge-fixture--call-with
      label
      (lambda (fixture)
@@ -420,7 +420,7 @@
            (2
             (write-spec (+ limit 30))
             (knowledge-fixture--edit fixture (limit-fact (+ limit 30) "SPEC.md"))
-            (let* ((view (knowledge-fixture--view fixture))
+            (let* ((view   (knowledge-fixture--view fixture))
                    (limits (knowledge-view-holds view '("service.limit" "?s" "?l"))))
               (knowledge-fixture--check
                fixture
@@ -445,7 +445,7 @@
                    (knowledge-fixture--view fixture)
                    (knowledge-claim-identifier
                     (list "service.usage" service (list :quantity usage "MB"))
-                    :scope ':workspace
+                    :scope     ':workspace
                     :workspace (namestring (knowledge-fixture-workspace fixture)))))
                  ':stale)
              "the usage fact is stale once its file is gone")))))))
@@ -486,12 +486,12 @@
 (-> knowledge-fixture--sales (integer integer) null)
 (defun knowledge-fixture--sales (index variant)
   "Run CSV scenario INDEX in VARIANT: per-row margins, one source line changing at a time."
-  (let* ((kind (mod index 5))
+  (let* ((kind  (mod index 5))
          (label (format nil "sales ~D/~D" index variant))
-         (rows (loop for row from 1 to 3
-                     collect (list (format nil "o-~D-~D" index row)
-                                   (+ 100 (* 10 row) index)
-                                   (+ 80 (* 5 row) (if (and (= variant 1) (= row 3)) 60 0))))))
+         (rows  (loop for row from 1 to 3
+                      collect (list (format nil "o-~D-~D" index row)
+                                    (+ 100 (* 10 row) index)
+                                    (+ 80 (* 5 row) (if (and (= variant 1) (= row 3)) 60 0))))))
     (knowledge-fixture--call-with
      label
      (lambda (fixture)
@@ -603,15 +603,15 @@
 
 Records are appended in transactions of twenty, as interactive writes would."
   (let* ((workspace (knowledge--workspace configuration))
-         (time (get-universal-time))
-         (records nil))
+         (time      (get-universal-time))
+         (records   nil))
     (dotimes (index events)
       (let ((event (format nil "event-~D" index)))
         (dolist (proposition
                  (list (list "event.start" event (knowledge-make-instant (+ time (* 60 index))))
                        (list "event.travel" event (list :duration (* 60 (mod index 50))))
                        (list "event.buffer" event (list :duration 600))))
-          (let ((claim (knowledge-claim-identifier proposition :scope ':workspace
+          (let ((claim (knowledge-claim-identifier proposition :scope     ':workspace
                                                                :workspace workspace)))
             (dotimes (k supports)
               (let ((evidence (knowledge-observe
@@ -619,7 +619,7 @@ Records are appended in transactions of twenty, as interactive writes would."
                                                                   k event))
                                :adapter "user/1" :time time)))
                 (push evidence records)
-                (push (list :claim-asserted :version *knowledge-format-version*
+                (push (list :claim-asserted      :version *knowledge-format-version*
                             :support (make-identifier) :claim claim
                             :scope ':workspace :workspace workspace :proposition proposition
                             :evidence (getf (rest evidence) :id) :basis ':user-assertion
@@ -627,14 +627,14 @@ Records are appended in transactions of twenty, as interactive writes would."
                             :source-conversation nil)
                       records)))))))
     (let* ((pathname (configuration-knowledge-path configuration))
-           (ordered (nreverse records)))
+           (ordered  (nreverse records)))
       (sexp-store:log-write
        pathname
        (append (or (sexp-store:log-read pathname) (list (knowledge--header)))
                (loop while ordered
                      collect (list :transaction :version *knowledge-format-version*
-                                   :records (loop repeat 20 while ordered
-                                                  collect (pop ordered))))))))
+                                   :records     (loop repeat 20 while ordered
+                                                      collect (pop ordered))))))))
   nil)
 
 (-> knowledge-benchmark (&key (:events integer) (:supports integer)) list)
@@ -659,34 +659,34 @@ bytes, heap bytes, and the machine measured on."
                       (float internal-time-units-per-second 1d0)))))
           (clrhash *knowledge-base-cache*)
           (clrhash *knowledge-view-cache*)
-          (let* ((cold (seconds (lambda () (knowledge-base-read configuration))))
-                 (view nil)
-                 (evaluate (seconds (lambda () (setf view (knowledge-view-current configuration)))))
-                 (reuse (seconds (lambda () (knowledge-view-current configuration))))
-                 (recall (seconds (lambda ()
-                                    (memory-context--relevant-facts view "leave for event-17"))))
-                 (assert (seconds (lambda ()
-                                    (knowledge-tests--said configuration "event.buffer"
-                                                           '("event-1" "PT20M")
-                                                           "a later buffer statement"))))
+          (let* ((cold       (seconds (lambda () (knowledge-base-read configuration))))
+                 (view       nil)
+                 (evaluate   (seconds (lambda () (setf view (knowledge-view-current configuration)))))
+                 (reuse      (seconds (lambda () (knowledge-view-current configuration))))
+                 (recall     (seconds (lambda ()
+                                        (memory-context--relevant-facts view "leave for event-17"))))
+                 (assert     (seconds (lambda ()
+                                        (knowledge-tests--said configuration "event.buffer"
+                                                               '("event-1" "PT20M")
+                                                               "a later buffer statement"))))
                  (reevaluate (seconds (lambda () (setf view (knowledge-view-current configuration))))))
             (sb-ext:gc :full t)
             (setf result
-                  (list :claims (hash-table-count
-                                 (knowledge-base-claims (knowledge-base-read configuration)))
-                        :supports (hash-table-count
-                                   (knowledge-base-supports (knowledge-base-read configuration)))
-                        :derived (length (knowledge-view-holds view '("event.departure" "?e" "?t")))
+                  (list :claims     (hash-table-count
+                                     (knowledge-base-claims (knowledge-base-read configuration)))
+                        :supports   (hash-table-count
+                                     (knowledge-base-supports (knowledge-base-read configuration)))
+                        :derived    (length (knowledge-view-holds view '("event.departure" "?e" "?t")))
                         :incomplete (knowledge-view-incomplete view)
                         :cold-read cold :evaluate evaluate :reuse reuse :recall recall
                         :assert assert :reevaluate reevaluate
-                        :log-bytes (with-open-file (stream (configuration-knowledge-path configuration)
-                                                           :element-type '(unsigned-byte 8))
-                                     (file-length stream))
+                        :log-bytes  (with-open-file (stream (configuration-knowledge-path configuration)
+                                                            :element-type '(unsigned-byte 8))
+                                      (file-length stream))
                         :heap-bytes (sb-kernel:dynamic-usage)
-                        :machine (list (machine-type) (machine-version)
-                                       (lisp-implementation-type)
-                                       (lisp-implementation-version))))))))
+                        :machine    (list (machine-type) (machine-version)
+                                          (lisp-implementation-type)
+                                          (lisp-implementation-version))))))))
     result))
 
 (-> test-knowledge-scale () null)
@@ -706,7 +706,7 @@ bytes, heap bytes, and the machine measured on."
       (knowledge-tests--admit-departure configuration)
       (knowledge-benchmark--populate configuration 334 1)
       (let* ((pathname (configuration-knowledge-path configuration))
-             (before (platform-path-status *platform* pathname :follow-links-p t))
+             (before   (platform-path-status *platform* pathname :follow-links-p t))
              (revision (knowledge-base-revision (knowledge-base-read configuration))))
         (knowledge-tests--said configuration "event.buffer" '("event-1" "PT20M")
                                "a later buffer statement")

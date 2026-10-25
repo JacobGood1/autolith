@@ -6,15 +6,15 @@
   "Mission, review and schedule emitters preserve authority without relabeling validation."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((application (mission-test--application configuration))
+     (let* ((application  (mission-test--application configuration))
             (conversation (conversation-create configuration)))
        (let ((spans (test-telemetry-hooks--tool-attempts
                      configuration
                      (loop for namespace in '("mission-review" "mission-schedule")
                            collect (agent-test-call :call-id namespace :namespace namespace :name "inspect" :arguments "{}"))
-                     :agent (application-agent application)
+                     :agent        (application-agent application)
                      :conversation (application-conversation application)
-                     :registry (application-tool-registry application))))
+                     :registry     (application-tool-registry application))))
          (test-assert (= 2 (length spans)) "Both tool families run as the legitimate primary without a mission.")
          (dolist (span spans)
            (test-telemetry-hooks--assert-failure span "error" "tool-failure")))
@@ -37,9 +37,9 @@
                                     :call-id decision :namespace "mission-review" :name "decide"
                                     :arguments (json-encode (json-object "id" "missing" "finding" "missing"
                                                                          "decision" decision "reason" reason))))
-                     :agent (application-agent application)
+                     :agent        (application-agent application)
                      :conversation (application-conversation application)
-                     :registry (application-tool-registry application))))
+                     :registry     (application-tool-registry application))))
          (test-assert (= 2 (length spans)) "Both primary review validation branches run.")
          (loop for span in spans for code in '("type-error" "tool-failure")
                do (test-telemetry-hooks--assert-failure span "error" code)))
@@ -63,7 +63,7 @@
   (test-telemetry--call
    (lambda (configuration)
      (let* ((orchestrator (task-tests--orchestrator))
-            (registry (make-instance 'tool-registry)))
+            (registry     (make-instance 'tool-registry)))
        (unwind-protect
             (progn
               (tool-registry-register registry
@@ -88,8 +88,8 @@
   (test-telemetry--call
    (lambda (configuration)
      (let* ((*peer-message-services* (make-hash-table :test #'equal))
-            (orchestrator (task-tests--orchestrator))
-            (registry (peer-message-register-tools (make-instance 'tool-registry) :orchestrator orchestrator)))
+            (orchestrator            (task-tests--orchestrator))
+            (registry                (peer-message-register-tools (make-instance 'tool-registry) :orchestrator orchestrator)))
        (unwind-protect
             (let ((spans (test-telemetry-hooks--tool-attempts
                           configuration
@@ -113,7 +113,7 @@
           (peer-message-send service sender :id "owned" :receiver (peer-message--endpoint-id (peer-message--actor-endpoint receiver))
                                            :text "Private peer payload")
           (let* ((delivery (peer-message-receive service receiver :id "owned"))
-                 (token (getf delivery :token)))
+                 (token    (getf delivery :token)))
             (multiple-value-bind (ack-spans outputs)
                 (test-telemetry-hooks--tool-attempts
                  configuration
@@ -160,7 +160,7 @@
                      configuration
                      (loop for (requested) in cases for index from 1
                            collect (agent-test-call
-                                    :call-id (format nil "host-admission-~D" index)
+                                    :call-id   (format nil "host-admission-~D" index)
                                     :namespace "lisp" :name "eval"
                                     :arguments (json-encode
                                                 (json-object "forms" #("42") "host-tools" requested)))))))
@@ -174,14 +174,14 @@
   (test-telemetry--call
    (lambda (configuration)
      (let* ((orchestrator (task-tests--orchestrator))
-            (job (task-tests--make-job
-                  orchestrator :identifier "worktree-child" :root-identifier "worktree-owner"
-                  :definition (task-agent-definition-create :name "worker" :description "Worktree fixture."
-                                                            :instructions "Return a result.")))
-            (child (task-tests--child-viewer configuration job))
-            (registry (make-instance 'tool-registry))
-            (context (make-instance 'tool-context :configuration configuration :agent child
-                                    :conversation (agent-conversation child) :registry registry :worker nil)))
+            (job          (task-tests--make-job
+                           orchestrator :identifier "worktree-child" :root-identifier "worktree-owner"
+                           :definition (task-agent-definition-create :name "worker" :description "Worktree fixture."
+                                                                     :instructions "Return a result.")))
+            (child        (task-tests--child-viewer configuration job))
+            (registry     (make-instance 'tool-registry))
+            (context      (make-instance 'tool-context :configuration configuration :agent child
+                                         :conversation (agent-conversation child) :registry registry :worker nil)))
        (unwind-protect
             (progn
               (task-worktree-register-tool registry orchestrator)
@@ -201,13 +201,13 @@
                                                           :error-code (tool-result-error-code result)))
                                    (let* ((primary-context (make-instance 'tool-context :configuration configuration
                                                                          :registry registry :worker nil))
-                                          (result (tool-registry-execute-call
-                                                   registry (agent-test-call :call-id "invalid" :namespace "task" :name "worktree"
-                                                                             :arguments "{\"action\":\"inspect\"}")
-                                                   primary-context)))
+                                          (result          (tool-registry-execute-call
+                                                            registry (agent-test-call :call-id "invalid" :namespace "task" :name "worktree"
+                                                                                      :arguments "{\"action\":\"inspect\"}")
+                                                            primary-context)))
                                      (telemetry-note-tool :tool "task.worktree" :outcome "error"
                                                           :error-code (tool-result-error-code result))))))))
-                     (span (first (test-telemetry-hooks--kind (first bodies) "tool"))))
+                     (span   (first (test-telemetry-hooks--kind (first bodies) "tool"))))
                 (test-telemetry-hooks--assert-failure span "permission_denied" "authority")
                 (test-telemetry-hooks--assert-failure
                  (second (test-telemetry-hooks--kind (first bodies) "tool")) "error" "invalid-arguments")))
@@ -218,21 +218,21 @@
   "Export child image and spawn refusals while retaining ordinary argument errors."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((registry (task-augment-tool-registry (make-default-tool-registry)))
+     (let* ((registry     (task-augment-tool-registry (make-default-tool-registry)))
             (orchestrator (task-run-tool-orchestrator (tool-registry-find registry "task" "run")))
-            (job (task-tests--make-job
-                  orchestrator :identifier "authority-child" :root-identifier "authority-owner"
-                  :definition (task-agent-definition-create
-                               :name "worker" :description "Authority fixture."
-                               :instructions "Return a result." :spawns '("allowed"))))
+            (job          (task-tests--make-job
+                           orchestrator :identifier "authority-child" :root-identifier "authority-owner"
+                           :definition (task-agent-definition-create
+                                        :name "worker" :description "Authority fixture."
+                                        :instructions "Return a result." :spawns '("allowed"))))
             ;; Use the parent registry to reach emitters normally withheld from children.
-            (child (task-tests--child-viewer configuration job :registry registry))
-            (cases '(("lisp" "describe" "{\"designator\":\"CL:CAR\",\"target\":\"self\"}" "permission_denied" "authority")
-                     ("lisp" "source" "{\"name\":\"CL:CAR\",\"target\":\"self\"}" "permission_denied" "authority")
-                     ("lisp" "apropos" "{\"query\":\"CAR\"}" "permission_denied" "authority")
-                     ("task" "run" "{\"agent\":\"forbidden\",\"task\":\"Return a result.\"}" "permission_denied" "authority")
-                     ("lisp" "describe" "{\"designator\":\"CL:CAR\",\"target\":\"invalid\"}" "error" "invalid-arguments")
-                     ("task" "run" "{\"agent\":\"allowed\",\"task\":\"Return a result.\"}" "error" "invalid-arguments"))))
+            (child        (task-tests--child-viewer configuration job :registry registry))
+            (cases        '(("lisp" "describe" "{\"designator\":\"CL:CAR\",\"target\":\"self\"}" "permission_denied" "authority")
+                            ("lisp" "source" "{\"name\":\"CL:CAR\",\"target\":\"self\"}" "permission_denied" "authority")
+                            ("lisp" "apropos" "{\"query\":\"CAR\"}" "permission_denied" "authority")
+                            ("task" "run" "{\"agent\":\"forbidden\",\"task\":\"Return a result.\"}" "permission_denied" "authority")
+                            ("lisp" "describe" "{\"designator\":\"CL:CAR\",\"target\":\"invalid\"}" "error" "invalid-arguments")
+                            ("task" "run" "{\"agent\":\"allowed\",\"task\":\"Return a result.\"}" "error" "invalid-arguments"))))
        (with-lock-held ((cl-jobpond::job--lock job))
          (setf (job-state job) ':running))
        (task-job--set-progress-state job ':running)

@@ -7,10 +7,10 @@
   "Write a sparse file large enough to pass saved-core shape validation."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :element-type '(unsigned-byte 8))
+                          :element-type      '(unsigned-byte 8))
     (file-position stream (minimum-lisp-image-core-size))
     (write-byte 0 stream))
   pathname)
@@ -20,10 +20,10 @@
   "Replace PATHNAME with exact UTF-8 CONTENT."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :external-format ':utf-8)
+                          :external-format   ':utf-8)
     (write-string content stream))
   pathname)
 
@@ -47,21 +47,21 @@
 (defun test-lisp-image-manifests ()
   "Test immutable saved worker-image manifests, notes, and compatibility."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (identifier "instrumented-compiler")
-         (directory (lisp-image--directory configuration identifier))
-         (core (merge-pathnames "worker.core" directory)))
+         (root          (test-configuration-root configuration))
+         (identifier    "instrumented-compiler")
+         (directory     (lisp-image--directory configuration identifier))
+         (core          (merge-pathnames "worker.core" directory)))
     (unwind-protect
          (progn
            (test--write-sparse-lisp-core core)
            (let ((image
                    (lisp-image-publish-manifest
                     configuration
-                    :identifier identifier
+                    :identifier        identifier
                     :parent-identifier (pristine-lisp-image-identifier)
-                    :note "Traces compiler type derivation for comparison."
-                    :core-pathname core
-                    :source-commit "0123456789abcdef")))
+                    :note              "Traces compiler type derivation for comparison."
+                    :core-pathname     core
+                    :source-commit     "0123456789abcdef")))
              (test-assert (string= (lisp-image-identifier image) identifier)
                           "saved Lisp images retain their identifier")
              (test-assert
@@ -71,8 +71,8 @@
              (test-assert (lisp-image-compatible-p image)
                           "a manifest written by this runtime is compatible")
              (test-assert
-             (search "instrumented-compiler"
-                      (lisp-image-render-inventory configuration))
+              (search "instrumented-compiler"
+                       (lisp-image-render-inventory configuration))
               "the image inventory reminds the model about saved images")
              (test-assert
               (search "Traces compiler type derivation"
@@ -82,10 +82,10 @@
                (progn
                  (lisp-image-publish-manifest
                   configuration
-                  :identifier identifier
+                  :identifier        identifier
                   :parent-identifier (pristine-lisp-image-identifier)
-                  :note "A duplicate image."
-                  :core-pathname core)
+                  :note              "A duplicate image."
+                  :core-pathname     core)
                  (test-assert nil "saved image identifiers are immutable"))
              (lisp-image-error ()
                (test-assert t "saved image identifiers are immutable")))
@@ -110,8 +110,8 @@
     (test-assert
      (string= (get-output-stream-string host-error-output) "")
      "worker subprocess diagnostics do not leak into the host error stream"))
-  (let ((worker (allocate-instance (find-class 'sbcl-worker)))
-        (cancel-count 0)
+  (let ((worker        (allocate-instance (find-class 'sbcl-worker)))
+        (cancel-count  0)
         (request-count 0))
     (test-call-with-function-replacements
      (list
@@ -121,9 +121,9 @@
               (incf request-count)
               (if (= request-count 1)
                   (error 'job-aborted
-                         :message "Synthetic request cancellation."
+                         :message    "Synthetic request cancellation."
                          :identifier "request-cancellation"
-                         :reason ':cancelled)
+                         :reason     ':cancelled)
                   '(:response :id 1 :status :ok :values ("42")))))
       (list 'sbcl-worker-cancel-request
             (lambda (ignored-worker)
@@ -145,9 +145,9 @@
         "a later worker request can complete normally")
        (handler-case
            (error 'job-aborted
-                  :message "Synthetic post-request cancellation."
+                  :message    "Synthetic post-request cancellation."
                   :identifier "post-request-cancellation"
-                  :reason ':cancelled)
+                  :reason     ':cancelled)
          (job-aborted ()
            nil))))
     (test-assert
@@ -194,8 +194,8 @@
           (platform-setenv "AUTOLITH_SBCL" previous-command)
           (platform-unsetenv "AUTOLITH_SBCL"))))
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (worker (lisp-worker-create configuration)))
+         (root          (test-configuration-root configuration))
+         (worker        (lisp-worker-create configuration)))
     (unwind-protect
          (let ((evaluation
                  (lisp-worker-request worker :eval '(:forms ("(+ 40 2)"))))
@@ -216,7 +216,7 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   (with-test-fixture (':posix-shell "the stable launcher exporting worker source")
     (let* ((source-root (asdf:system-source-directory :autolith))
-           (launcher (merge-pathnames "bin/autolith" source-root))
+           (launcher    (merge-pathnames "bin/autolith" source-root))
            (output
              (with-input-from-string
                  (input
@@ -230,27 +230,27 @@
                         (test-active-core-environment)
                         (list (namestring launcher)
                               "--worker"))
-                :input input
-                :output ':string
+                :input        input
+                :output       ':string
                 :error-output *error-output*))))
       (let ((*read-eval* nil))
         (with-input-from-string (stream output)
           (let ((handshake (read stream t nil))
-                (response (read stream t nil)))
+                (response  (read stream t nil)))
             (test-assert (and (eq (first handshake) :autolith-worker)
                               (eq (getf (rest response) :status) :ok)
                               (search "src/code/list.lisp"
                                       (getf (rest response) :output)))
                          "the stable launcher exports matching source to workers")))))
-    (let* ((source-root (asdf:system-source-directory :autolith))
-           (launcher (merge-pathnames "bin/autolith" source-root))
+    (let* ((source-root    (asdf:system-source-directory :autolith))
+           (launcher       (merge-pathnames "bin/autolith" source-root))
            (runtime-source (uiop:getenv "AUTOLITH_SBCL_SOURCE_ROOT"))
            (temporary-root
              (merge-pathnames
               (format nil "autolith-inherited-source-~A/" (make-identifier))
               (uiop:temporary-directory)))
-           (data-home (merge-pathnames "data/" temporary-root))
-           (state-home (merge-pathnames "state/" temporary-root)))
+           (data-home      (merge-pathnames "data/" temporary-root))
+           (state-home     (merge-pathnames "state/" temporary-root)))
       (unwind-protect
            (progn
              (unless (non-empty-string-p runtime-source)
@@ -272,13 +272,13 @@
                                 (test-active-core-environment)
                                 (list (namestring launcher)
                                       "--worker"))
-                        :input input
-                        :output ':string
+                        :input        input
+                        :output       ':string
                         :error-output *error-output*))))
                (let ((*read-eval* nil))
                  (with-input-from-string (stream output)
                    (let ((handshake (read stream t nil))
-                         (response (read stream t nil)))
+                         (response  (read stream t nil)))
                      (test-assert
                       (and (eq (first handshake) :autolith-worker)
                            (eq (getf (rest response) :status) :ok)
@@ -286,14 +286,14 @@
                                    (getf (rest response) :output)))
                       "the stable launcher preserves inherited matching source"))))))
         (platform-delete-directory-tree *platform* temporary-root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (pool (lisp-worker-pool-create configuration)))
+         (root          (test-configuration-root configuration))
+         (pool          (lisp-worker-pool-create configuration)))
     (unwind-protect
          (let* ((alpha (lisp-worker-pool-start pool "alpha" "pristine"))
-                (beta (lisp-worker-pool-start pool "beta" "pristine")))
+                (beta  (lisp-worker-pool-start pool "beta" "pristine")))
            (lisp-worker-request alpha :eval '(:forms ("(defparameter *pool-value* 41)")))
            (let ((alpha-result
                    (lisp-worker-request alpha :eval '(:forms ("(1+ *pool-value*)"))))
@@ -306,10 +306,10 @@
            (let* ((registry (make-default-tool-registry))
                   (conversation
                     (conversation-create configuration :identifier "repl-routing"))
-                  (context (make-instance 'tool-context
-                                          :configuration configuration
-                                          :worker pool
-                                          :conversation conversation))
+                  (context  (make-instance 'tool-context
+                                           :configuration configuration
+                                           :worker        pool
+                                           :conversation  conversation))
                   (result
                     (tool-execute
                      (tool-registry-find registry "lisp" "eval")
@@ -349,7 +349,7 @@
            (test-assert (search "alpha  running  image pristine"
                                 (lisp-worker-pool-render pool))
                         "the worker pool lists each active REPL and image")
-           (let* ((workspace (merge-pathnames "moved-workspace/" root))
+           (let* ((workspace           (merge-pathnames "moved-workspace/" root))
                   (moved-configuration nil))
              (ensure-directories-exist workspace)
              (setf moved-configuration
@@ -432,14 +432,14 @@
 (defun test-lisp-execution-jobs ()
   "Test inspectable Lisp jobs, named REPL affinity, cancellation, and restart."
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
+         (root               (test-configuration-root base-configuration))
          (configuration
            (configuration-copy base-configuration :working-directory root))
-         (pool (lisp-worker-pool-create configuration))
+         (pool               (lisp-worker-pool-create configuration))
          (registry
            (task-augment-tool-registry (make-default-tool-registry)))
-         (run-tool (tool-registry-find registry "task" "run"))
-         (orchestrator (task-run-tool-orchestrator run-tool))
+         (run-tool           (tool-registry-find registry "task" "run"))
+         (orchestrator       (task-run-tool-orchestrator run-tool))
          (primary
            (task-tests--primary-agent
             configuration "lisp-execution-primary" registry))
@@ -447,16 +447,16 @@
            (make-instance
             'tool-context
             :configuration configuration
-            :worker pool
-            :conversation (agent-conversation primary)
-            :registry registry
-            :agent primary
-            :call-id "lisp-execution-test"))
-         (cancel-marker (merge-pathnames "lisp-cancel-started" root))
-         (alpha nil)
-         (beta nil)
-         (cancel-worker nil)
-         (scratch-worker nil))
+            :worker        pool
+            :conversation  (agent-conversation primary)
+            :registry      registry
+            :agent         primary
+            :call-id       "lisp-execution-test"))
+         (cancel-marker      (merge-pathnames "lisp-cancel-started" root))
+         (alpha              nil)
+         (beta               nil)
+         (cancel-worker      nil)
+         (scratch-worker     nil))
     (labels ((run-lisp (name &rest arguments)
                "Execute lisp.NAME with decoded test ARGUMENTS."
                (tool-execute
@@ -466,9 +466,9 @@
 
              (handoff-job (result)
                "Return RESULT's visible handed-off execution job."
-               (let* ((details (tool-result-details result))
-                      (record (and (listp details)
-                                   (getf (rest details) :job)))
+               (let* ((details    (tool-result-details result))
+                      (record     (and (listp details)
+                                       (getf (rest details) :job)))
                       (identifier (and record (getf record :id))))
                  (and identifier
                       (task-orchestrator-find-visible-job
@@ -477,7 +477,7 @@
              (run-completed-lisp (name &rest arguments)
                "Await lifecycle work even when a cold worker outlives the tool grace."
                (let* ((result (apply #'run-lisp name arguments))
-                      (job (handoff-job result)))
+                      (job    (handoff-job result)))
                  (if job
                      (multiple-value-bind (snapshot terminal-p)
                          (session-job-await job 90)
@@ -507,15 +507,15 @@
                   (and (json-object-p property)
                        (string= (json-get property "type") "boolean"))))
 
-              (asd-schema-p (name)
-                "Return true when lisp.NAME advertises one optional ASD string."
-                (let* ((tool (tool-registry-find registry "lisp" name))
-                       (properties
-                         (and tool
-                              (json-get (tool-parameters tool) "properties")))
-                       (property (and properties (gethash "asd" properties))))
-                  (and (json-object-p property)
-                       (string= (json-get property "type") "string")))))
+             (asd-schema-p (name)
+               "Return true when lisp.NAME advertises one optional ASD string."
+               (let* ((tool     (tool-registry-find registry "lisp" name))
+                      (properties
+                        (and tool
+                             (json-get (tool-parameters tool) "properties")))
+                      (property (and properties (gethash "asd" properties))))
+                 (and (json-object-p property)
+                      (string= (json-get property "type") "string")))))
       (unwind-protect
            (progn
              (setf alpha (lisp-worker-pool-start pool "alpha" "pristine")
@@ -524,26 +524,26 @@
                    (lisp-worker-pool-start pool "cancel" "pristine")
                    scratch-worker
                    (lisp-worker-pool-start pool "scratch-async" "pristine"))
-              (test-assert
-               (every #'async-schema-p
-                      '("eval" "load-system" "run-tests" "scratchpad-run"))
-               "only execution-oriented Lisp tools advertise asynchronous jobs")
-              (test-assert
-               (notany #'async-schema-p
-                       '("describe" "source" "reset" "start" "stop" "repls"
-                         "images" "save-image"))
-               "Lisp inspection and lifecycle tools stay synchronous")
-              (test-assert
-               (every #'asd-schema-p '("load-system" "run-tests"))
-               "system execution tools advertise an optional exact ASD file")
-              (let* ((eval-tool (tool-registry-find registry "lisp" "eval"))
-                     (properties (json-get (tool-parameters eval-tool) "properties"))
-                     (compile-property (json-get properties "compile")))
-                (test-assert
-                 (and (null (tool-registry-find registry "lisp" "compile"))
-                      (json-object-p compile-property)
-                      (string= (json-get compile-property "type") "boolean"))
-                 "lisp.eval owns compilation mode and lisp.compile is absent"))
+             (test-assert
+              (every #'async-schema-p
+                     '("eval" "load-system" "run-tests" "scratchpad-run"))
+              "only execution-oriented Lisp tools advertise asynchronous jobs")
+             (test-assert
+              (notany #'async-schema-p
+                      '("describe" "source" "reset" "start" "stop" "repls"
+                        "images" "save-image"))
+              "Lisp inspection and lifecycle tools stay synchronous")
+             (test-assert
+              (every #'asd-schema-p '("load-system" "run-tests"))
+              "system execution tools advertise an optional exact ASD file")
+             (let* ((eval-tool        (tool-registry-find registry "lisp" "eval"))
+                    (properties       (json-get (tool-parameters eval-tool) "properties"))
+                    (compile-property (json-get properties "compile")))
+               (test-assert
+                (and (null (tool-registry-find registry "lisp" "compile"))
+                     (json-object-p compile-property)
+                     (string= (json-get compile-property "type") "boolean"))
+                "lisp.eval owns compilation mode and lisp.compile is absent"))
              (let* ((*tool-execution-blocking-grace-seconds* 5)
                     (result
                       (run-lisp "eval"
@@ -561,9 +561,9 @@
                        "forms"
                        (vector "(progn (defparameter *async-once* (1+ (if (boundp '*async-once*) *async-once* 0))) (sleep 1) *async-once*)")
                        "repl" "alpha"))
-                    (details (tool-result-details result))
-                    (job (handoff-job result))
-                    (identifier (and job (session-job-identifier job))))
+                    (details                                 (tool-result-details result))
+                    (job                                     (handoff-job result))
+                    (identifier                              (and job (session-job-identifier job))))
                (test-assert
                 (and (typep result 'task-tool-result)
                      (eq (getf (rest details) :handoff-reason)
@@ -581,27 +581,27 @@
                        (equal (worker-values beta "(boundp '*async-once*)")
                               '("NIL")))
                   "the handed-off evaluation runs once in its selected named REPL")))
-              (let* ((result
-                       (run-lisp
-                        "eval"
-                        "forms" (vector "(progn (sleep 1) (+ 2 3))")
-                        "compile" t
-                        "repl" "beta"
-                        "async" t))
+             (let* ((result
+                      (run-lisp
+                       "eval"
+                       "forms" (vector "(progn (sleep 1) (+ 2 3))")
+                       "compile" t
+                       "repl" "beta"
+                       "async" t))
                     (details (tool-result-details result))
-                    (job (handoff-job result)))
-               (test-assert
-                (and (typep result 'task-tool-result)
-                     (eq (getf (rest details) :handoff-reason) :requested)
-                     job)
-                "explicit async returns an inspectable Lisp compilation job")
-               (multiple-value-bind (snapshot terminal-p)
-                   (session-job-await job 5)
-                 (test-assert
-                  (and terminal-p
-                       (eq (getf snapshot :state) :completed)
-                       (search "5" (getf (getf snapshot :result) :content)))
-                  "the asynchronous Lisp compilation retains its result")))
+                    (job     (handoff-job result)))
+              (test-assert
+               (and (typep result 'task-tool-result)
+                    (eq (getf (rest details) :handoff-reason) :requested)
+                    job)
+               "explicit async returns an inspectable Lisp compilation job")
+              (multiple-value-bind (snapshot terminal-p)
+                  (session-job-await job 5)
+                (test-assert
+                 (and terminal-p
+                      (eq (getf snapshot :state) :completed)
+                      (search "5" (getf (getf snapshot :result) :content)))
+                 "the asynchronous Lisp compilation retains its result")))
              (let* ((form
                       (format nil
                               "(progn (with-open-file (stream ~A :direction :output :if-exists :supersede :if-does-not-exist :create) (write-string \"started\" stream)) (sleep 30) :done)"
@@ -611,7 +611,7 @@
                                 "forms" (vector form)
                                 "repl" "cancel"
                                 "async" t))
-                    (job (handoff-job result))
+                    (job        (handoff-job result))
                     (identifier (and job (session-job-identifier job))))
                (test-assert
                 (and job
@@ -656,78 +656,78 @@
                (test-assert
                 (tool-result-success-p load-result)
                 "lisp.load-system uses the shared execution path"))
-              (let* ((audit-root (merge-pathnames "lisp-source-audit/" root))
-                     (old-asd
-                       (test--write-lisp-worker-audit-system
-                        (merge-pathnames "old/" audit-root) ':old))
-                     (new-asd
-                       (test--write-lisp-worker-audit-system
-                        (merge-pathnames "new/" audit-root) ':new)))
-                (lisp-worker-request
-                 alpha
-                 :load-system
-                 (list :system ':autolith-worker-source-audit
-                       :asd-pathname (namestring old-asd)))
-                (test-assert
-                 (equal
-                  (worker-values
-                   alpha "cl-user::*autolith-worker-source-audit-loaded*")
-                  '(":OLD"))
-                 "the exact-ASD fixture starts from its stale definition")
-                (let* ((*tool-execution-blocking-grace-seconds* 5)
-                       (load-result
-                         (run-completed-lisp
-                          "load-system"
-                          "system" "autolith-worker-source-audit"
-                          "asd" (namestring new-asd)
-                          "repl" "alpha")))
-                  (test-assert
-                   (and (tool-result-success-p load-result)
-                        (equal
-                         (worker-values
-                          alpha
-                          "cl-user::*autolith-worker-source-audit-loaded*")
-                         '(":NEW")))
-                   "lisp.load-system replaces stale registration from a canonical ASD file"))
-                (lisp-worker-request
-                 alpha
-                 :load-system
-                 (list :system ':autolith-worker-source-audit
-                       :asd-pathname (namestring old-asd)))
-                (let* ((*tool-execution-blocking-grace-seconds* 5)
-                       (test-result
-                         (run-completed-lisp
-                          "run-tests"
-                          "system" "autolith-worker-source-audit"
-                          "asd" (namestring new-asd)
-                          "repl" "alpha")))
-                  (test-assert
-                   (and (tool-result-success-p test-result)
-                        (equal
-                         (worker-values
-                          alpha
-                          "cl-user::*autolith-worker-source-audit-tested*")
-                         '(":NEW")))
-                   "lisp.run-tests replaces stale registration from a canonical ASD file")))
-              (let* ((read-result
-                       (workspace-resource-tests--call
-                        registry context "resource" "read"
-                        "uri" "scratchpad:async-program.lisp"))
-                     (revision
-                       (workspace-resource-tests--field
-                        (tool-result-content read-result) "Revision: "))
-                     (write-result
-                       (workspace-resource-tests--call
-                        registry context "resource" "edit"
-                        "uri" "scratchpad:async-program.lisp"
-                        "base-revision" revision
-                        "operations"
-                        (vector
-                         (workspace-resource-tests--operation
-                          "replace-empty"
-                          "content"
-                          (format nil
-                                  "(defparameter *async-scratchpad-value* 41)~%~
+             (let* ((audit-root (merge-pathnames "lisp-source-audit/" root))
+                    (old-asd
+                      (test--write-lisp-worker-audit-system
+                       (merge-pathnames "old/" audit-root) ':old))
+                    (new-asd
+                      (test--write-lisp-worker-audit-system
+                       (merge-pathnames "new/" audit-root) ':new)))
+               (lisp-worker-request
+                alpha
+                :load-system
+                (list :system       ':autolith-worker-source-audit
+                      :asd-pathname (namestring old-asd)))
+               (test-assert
+                (equal
+                 (worker-values
+                  alpha "cl-user::*autolith-worker-source-audit-loaded*")
+                 '(":OLD"))
+                "the exact-ASD fixture starts from its stale definition")
+               (let* ((*tool-execution-blocking-grace-seconds* 5)
+                      (load-result
+                        (run-completed-lisp
+                         "load-system"
+                         "system" "autolith-worker-source-audit"
+                         "asd" (namestring new-asd)
+                         "repl" "alpha")))
+                 (test-assert
+                  (and (tool-result-success-p load-result)
+                       (equal
+                        (worker-values
+                         alpha
+                         "cl-user::*autolith-worker-source-audit-loaded*")
+                        '(":NEW")))
+                  "lisp.load-system replaces stale registration from a canonical ASD file"))
+               (lisp-worker-request
+                alpha
+                :load-system
+                (list :system       ':autolith-worker-source-audit
+                      :asd-pathname (namestring old-asd)))
+               (let* ((*tool-execution-blocking-grace-seconds* 5)
+                      (test-result
+                        (run-completed-lisp
+                         "run-tests"
+                         "system" "autolith-worker-source-audit"
+                         "asd" (namestring new-asd)
+                         "repl" "alpha")))
+                 (test-assert
+                  (and (tool-result-success-p test-result)
+                       (equal
+                        (worker-values
+                         alpha
+                         "cl-user::*autolith-worker-source-audit-tested*")
+                        '(":NEW")))
+                  "lisp.run-tests replaces stale registration from a canonical ASD file")))
+             (let* ((read-result
+                      (workspace-resource-tests--call
+                       registry context "resource" "read"
+                       "uri" "scratchpad:async-program.lisp"))
+                    (revision
+                      (workspace-resource-tests--field
+                       (tool-result-content read-result) "Revision: "))
+                    (write-result
+                      (workspace-resource-tests--call
+                       registry context "resource" "edit"
+                       "uri" "scratchpad:async-program.lisp"
+                       "base-revision" revision
+                       "operations"
+                       (vector
+                        (workspace-resource-tests--operation
+                         "replace-empty"
+                         "content"
+                         (format nil
+                                 "(defparameter *async-scratchpad-value* 41)~%~
                                    (sleep 1)~%~
                                    (incf *async-scratchpad-value*)~%")))))
                     (run-result
@@ -736,41 +736,40 @@
                                 "repl" "scratch-async"
                                 "async" t))
                     (job (handoff-job run-result)))
-               (test-assert
-                (and (tool-result-success-p write-result)
-                     (typep run-result 'task-tool-result)
-                     job)
-                "lisp.scratchpad-run returns an inspectable execution job")
-               (multiple-value-bind (snapshot terminal-p)
-                   (session-job-await job 90)
-                 (test-assert
-                  (and terminal-p
-                       (eq (getf snapshot :state) :completed)
-                       (equal
-                        (worker-values
-                         scratch-worker "*async-scratchpad-value*")
-                        '("42")))
-                  "the asynchronous scratchpad loads once into its selected REPL"))))
+              (test-assert
+               (and (tool-result-success-p write-result)
+                    (typep run-result 'task-tool-result)
+                    job)
+               "lisp.scratchpad-run returns an inspectable execution job")
+              (multiple-value-bind (snapshot terminal-p)
+                  (session-job-await job 90)
+                (test-assert
+                 (and terminal-p
+                      (eq (getf snapshot :state) :completed)
+                      (equal
+                       (worker-values
+                        scratch-worker "*async-scratchpad-value*")
+                       '("42")))
+                 "the asynchronous scratchpad loads once into its selected REPL"))))
         (ignore-errors (tool-registry-close-runtime-state registry))
         (ignore-errors (lisp-worker-pool-stop-all pool))
         (platform-delete-directory-tree *platform* root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   nil)
-
 
 (-> test-lisp-busy-worker-operations () null)
 (defun test-lisp-busy-worker-operations ()
   "Test worker inspection and lifecycle calls hand off instead of blocking."
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
+         (root               (test-configuration-root base-configuration))
          (configuration
            (configuration-copy base-configuration :working-directory root))
-         (pool (lisp-worker-pool-create configuration))
+         (pool               (lisp-worker-pool-create configuration))
          (registry
            (task-augment-tool-registry (make-default-tool-registry)))
-         (run-tool (tool-registry-find registry "task" "run"))
-         (orchestrator (task-run-tool-orchestrator run-tool))
+         (run-tool           (tool-registry-find registry "task" "run"))
+         (orchestrator       (task-run-tool-orchestrator run-tool))
          (primary
            (task-tests--primary-agent
             configuration "lisp-busy-worker-primary" registry))
@@ -778,11 +777,11 @@
            (make-instance
             'tool-context
             :configuration configuration
-            :worker pool
-            :conversation (agent-conversation primary)
-            :registry registry
-            :agent primary
-            :call-id "lisp-busy-worker-test")))
+            :worker        pool
+            :conversation  (agent-conversation primary)
+            :registry      registry
+            :agent         primary
+            :call-id       "lisp-busy-worker-test")))
     (labels ((run-lisp (name &rest arguments)
                "Execute lisp.NAME with decoded test ARGUMENTS."
                (tool-execute
@@ -792,9 +791,9 @@
 
              (execution-job (result tool-name)
                "Return RESULT's visible execution job for TOOL-NAME."
-               (let* ((details (tool-result-details result))
-                      (record (and (listp details)
-                                   (getf (rest details) :job)))
+               (let* ((details    (tool-result-details result))
+                      (record     (and (listp details)
+                                       (getf (rest details) :job)))
                       (identifier (and record (getf record :id))))
                  (and identifier
                       (task-orchestrator-find-visible-job
@@ -834,13 +833,13 @@
 
              (exercise (repl-name tool-name arguments &key after)
                "Queue one Lisp TOOL-NAME behind a blocker and verify handoff."
-               (let* ((blocker (start-blocker repl-name))
+               (let* ((blocker                                 (start-blocker repl-name))
                       (*tool-execution-blocking-grace-seconds* 0.01)
                       (result
                         (apply #'run-lisp
                                tool-name
                                (append arguments (list "repl" repl-name))))
-                      (details (tool-result-details result))
+                      (details                                 (tool-result-details result))
                       (job
                         (execution-job
                          result (format nil "lisp.~A" tool-name))))
@@ -880,39 +879,38 @@
               (lambda ()
                 (exercise "busy" "reset" nil)
                 (exercise "busy" "stop" nil))))
-             (let ((worker
-                     (lisp-worker-pool-start
-                      pool "busy" "pristine")))
-               (test-call-with-function-replacements
-                (list
-                 (list 'lisp-worker-manager-worker
-                       (lambda (manager name)
-                         (declare (ignore manager name))
-                         (sleep 1)
-                         worker)))
-                (lambda ()
-                  (let* ((*tool-execution-blocking-grace-seconds* 0.01)
-                         (result
-                           (run-lisp "eval"
-                                     "forms" (vector "(+ 20 22)")
-                                     "repl" "busy"))
-                         (details (tool-result-details result))
-                         (job (execution-job result "lisp.eval")))
-                    (test-assert
-                     (and (typep result 'task-tool-result)
-                          (eq (getf (rest details) :handoff-reason)
-                              :grace-expired)
-                          job)
-                     "Lisp worker resolution runs inside the execution job")
-                    (await-state job :completed
-                                 "the delayed worker resolution completes")))))
+           (let ((worker
+                   (lisp-worker-pool-start
+                    pool "busy" "pristine")))
+             (test-call-with-function-replacements
+              (list
+               (list 'lisp-worker-manager-worker
+                     (lambda (manager name)
+                       (declare (ignore manager name))
+                       (sleep 1)
+                       worker)))
+              (lambda ()
+                (let* ((*tool-execution-blocking-grace-seconds* 0.01)
+                       (result
+                         (run-lisp "eval"
+                                   "forms" (vector "(+ 20 22)")
+                                   "repl" "busy"))
+                       (details                                 (tool-result-details result))
+                       (job                                     (execution-job result "lisp.eval")))
+                  (test-assert
+                   (and (typep result 'task-tool-result)
+                        (eq (getf (rest details) :handoff-reason)
+                            :grace-expired)
+                        job)
+                   "Lisp worker resolution runs inside the execution job")
+                  (await-state job :completed
+                               "the delayed worker resolution completes")))))
         (ignore-errors (tool-registry-close-runtime-state registry))
         (ignore-errors (lisp-worker-pool-stop-all pool))
         (platform-delete-directory-tree *platform* root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   nil)
-
 
 (-> test-lisp-scratchpad-tools () null)
 (defun test-lisp-scratchpad-tools ()
@@ -1030,28 +1028,28 @@
                 (and (tool-result-success-p result)
                      (search "λ café" (tool-result-content result)))
                 "scratchpad resources decode exact UTF-8 content"))
-              (create-resource context "scratchpad:c++/x.lisp" "(+ 1 2)")
-              (let ((result (read-resource context "scratchpad:c++/x.lisp")))
-                (test-assert
-                 (and (tool-result-success-p result)
-                      (search "(+ 1 2)" (tool-result-content result)))
-                 "scratchpad URIs preserve literal plus characters"))
-              (with-test-fixture (':wildcard-file-names
-                                  "scratchpad names holding pathname metacharacters")
-                (create-resource
-                 context "scratchpad:notes*[1]?\\x.lisp" "(+ 2 3)")
-                (let ((result
-                        (read-resource
-                         context "scratchpad:notes*[1]?\\x.lisp")))
-                  (test-assert
-                   (and (tool-result-success-p result)
-                        (search "URI: scratchpad:notes%2A%5B1%5D%3F%5Cx.lisp"
-                                (tool-result-content result))
-                        (search "(+ 2 3)" (tool-result-content result)))
-                   "scratchpad resources preserve native pathname metacharacters")))
+             (create-resource context "scratchpad:c++/x.lisp" "(+ 1 2)")
+             (let ((result (read-resource context "scratchpad:c++/x.lisp")))
+               (test-assert
+                (and (tool-result-success-p result)
+                     (search "(+ 1 2)" (tool-result-content result)))
+                "scratchpad URIs preserve literal plus characters"))
+             (with-test-fixture (':wildcard-file-names
+                                 "scratchpad names holding pathname metacharacters")
+               (create-resource
+                context "scratchpad:notes*[1]?\\x.lisp" "(+ 2 3)")
+               (let ((result
+                       (read-resource
+                        context "scratchpad:notes*[1]?\\x.lisp")))
+                 (test-assert
+                  (and (tool-result-success-p result)
+                       (search "URI: scratchpad:notes%2A%5B1%5D%3F%5Cx.lisp"
+                               (tool-result-content result))
+                       (search "(+ 2 3)" (tool-result-content result)))
+                  "scratchpad resources preserve native pathname metacharacters")))
              (create-resource context "scratchpad:oversized.txt" "123456789")
              (let* ((*workspace-file-resource-maximum-bytes* 8)
-                    (result (read-resource context "scratchpad:oversized.txt")))
+                    (result                                  (read-resource context "scratchpad:oversized.txt")))
                (test-assert
                 (and (not (tool-result-success-p result))
                      (search "up to 8 bytes"
@@ -1085,14 +1083,14 @@
              (with-test-fixture (':symbolic-links
                                  "scratchpad URI resolution through escaping symlinks")
                (let* ((outside (merge-pathnames "outside/" root))
-                      (escape (merge-pathnames "escape"
-                                               (lisp-scratchpad-root context))))
+                      (escape  (merge-pathnames "escape"
+                                                (lisp-scratchpad-root context))))
                  (ensure-directories-exist (merge-pathnames "secret.txt" outside))
                  (with-open-file (stream (merge-pathnames "secret.txt" outside)
-                                         :direction ':output
-                                         :if-exists ':supersede
+                                         :direction         ':output
+                                         :if-exists         ':supersede
                                          :if-does-not-exist ':create
-                                         :external-format ':utf-8)
+                                         :external-format   ':utf-8)
                    (write-string "secret" stream))
                  (test-fixture-make-symbolic-link
                   *platform* (namestring outside) (namestring escape))
@@ -1109,11 +1107,11 @@
                   "scratchpad URI resolution rejects missing descendants through escaping symlinks")
                  (test-fixture-remove-link *platform* (namestring escape))))
              (let* ((observed (read-resource context "scratchpad:program.lisp"))
-                    (path (merge-pathnames "program.lisp"
-                                           (lisp-scratchpad-root context))))
+                    (path     (merge-pathnames "program.lisp"
+                                               (lisp-scratchpad-root context))))
                (with-open-file (stream path
-                                       :direction ':output
-                                       :if-exists ':append
+                                       :direction       ':output
+                                       :if-exists       ':append
                                        :external-format ':utf-8)
                  (write-string "; changed" stream))
                (let ((stale
@@ -1153,7 +1151,7 @@
              (create-resource context "scratchpad:crowded/a.txt" "a")
              (create-resource context "scratchpad:crowded/b.txt" "b")
              (let* ((*workspace-file-resource-maximum-directory-entries* 1)
-                    (directory (read-resource context "scratchpad:crowded/"))
+                    (directory                                           (read-resource context "scratchpad:crowded/"))
                     (rejected
                       (edit-resource
                        context directory
@@ -1181,7 +1179,7 @@
         (ignore-errors (tool-registry-close-runtime-state registry))
         (ignore-errors (lisp-worker-pool-stop-all pool))
         (platform-delete-directory-tree *platform* root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   nil)
 
@@ -1189,8 +1187,8 @@
 (defun test-lisp-worker-image-snapshot ()
   "Test saving a modified REPL core and starting an independent clone from it."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (pool (lisp-worker-pool-create configuration)))
+         (root          (test-configuration-root configuration))
+         (pool          (lisp-worker-pool-create configuration)))
     (unwind-protect
          (let ((source (lisp-worker-pool-start pool "source" "pristine")))
            (lisp-worker-request
@@ -1242,7 +1240,7 @@
 (defun test-lisp-worker-failure-diagnostics ()
   "Test a failed system load reports the compiler diagnostic that caused it."
   (with-test-configuration (configuration root)
-    (let ((asd (merge-pathnames "diagnostic-fixture/autolith-diagnostic-fixture.asd" root))
+    (let ((asd    (merge-pathnames "diagnostic-fixture/autolith-diagnostic-fixture.asd" root))
           (worker (lisp-worker-create configuration :name "diagnostics")))
       (ensure-directories-exist asd)
       (with-open-file (stream asd :direction ':output :if-exists ':supersede)
@@ -1269,16 +1267,16 @@
               "Unknown worker classes use a fixed category instead of exporting their names.")
              (let ((result (worker-response-tool-result
                             (lisp-worker-request worker ':load-system
-                                                 (list :system "autolith-diagnostic-fixture"
+                                                 (list :system       "autolith-diagnostic-fixture"
                                                        :asd-pathname (namestring asd))))))
                (test-assert (not (tool-result-success-p result))
                             "a system with a compile error fails to load")
-               (let* ((content (tool-result-content result))
+               (let* ((content      (tool-result-content result))
                       (output-start (search "Output:" content))
-                      (output (and output-start
-                                   (subseq content output-start
-                                           (search "Backtrace:" content
-                                                   :start2 output-start)))))
+                      (output       (and output-start
+                                         (subseq content output-start
+                                                 (search "Backtrace:" content
+                                                         :start2 output-start)))))
                  (test-assert (and output
                                    (search "AUTOLITH-NOT-EXTERNAL-SYMBOL" (string-upcase output)))
                               "the failed load reports the compiler diagnostic, not only the condition"))))

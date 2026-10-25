@@ -7,7 +7,7 @@
   (with-test-configuration (configuration root)
     (declare (ignore root))
     (let* ((conversation (conversation-create configuration :identifier (make-identifier)))
-           (identifier (conversation-append-async-lisp-event conversation "? *x*" nil)))
+           (identifier   (conversation-append-async-lisp-event conversation "? *x*" nil)))
       (conversation-append-async-lisp-event conversation "? *x*" "42"
                                            :submission-identifier identifier)
       (let ((reloaded (conversation-load (conversation-pathname conversation))))
@@ -46,7 +46,7 @@
   (with-test-configuration (configuration root)
     (declare (ignore root))
     (let* ((conversation (conversation-create configuration :identifier (make-identifier)))
-           (agent (make-instance 'agent :conversation conversation)))
+           (agent        (make-instance 'agent :conversation conversation)))
       (dolist (identifier '("first" "second"))
         (conversation-append-provider-item
          conversation
@@ -72,8 +72,8 @@
   (with-test-configuration (configuration root)
     (declare (ignore root))
     (let* ((conversation (conversation-create configuration :identifier (make-identifier)))
-           (first (conversation-append-async-lisp-event conversation "? same" nil))
-           (second (conversation-append-async-lisp-event conversation "? same" nil)))
+           (first        (conversation-append-async-lisp-event conversation "? same" nil))
+           (second       (conversation-append-async-lisp-event conversation "? same" nil)))
       (test-assert (not (string= first second)) "each submission has an independent identity")
       (conversation-append-async-lisp-event conversation "? same" "second result"
                                            :submission-identifier second)

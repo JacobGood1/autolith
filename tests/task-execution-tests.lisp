@@ -16,17 +16,17 @@
     (tool-registry-register
      registry
      (make-instance 'task-test-authorization-tool
-                    :namespace "test"
-                    :name "authorize"
+                    :namespace   "test"
+                    :name        "authorize"
                     :description "Authorize a harmless command."
-                    :parameters (tool-object-schema (json-object) nil)))
+                    :parameters  (tool-object-schema (json-object) nil)))
     (tool-registry-register
      registry
      (make-instance 'task-test-effect-tool
-                    :namespace "test"
-                    :name "effect"
+                    :namespace   "test"
+                    :name        "effect"
                     :description "Record an observable test effect."
-                    :parameters (tool-object-schema (json-object) nil)))
+                    :parameters  (tool-object-schema (json-object) nil)))
     registry))
 
 (-> test-task-abort-control-condition () null)
@@ -39,16 +39,16 @@
          (tool
            (make-instance
             'task-test-abort-tool
-            :namespace "test"
-            :name "abort"
+            :namespace   "test"
+            :name        "abort"
             :description "Signal a task cancellation."
-            :parameters (tool-object-schema (json-object) nil)))
+            :parameters  (tool-object-schema (json-object) nil)))
          (context
            (make-instance 'tool-context
                           :configuration configuration
-                          :worker nil
-                          :conversation conversation
-                          :registry registry)))
+                          :worker        nil
+                          :conversation  conversation
+                          :registry      registry)))
     (unwind-protect
          (progn
            (tool-registry-register registry tool)
@@ -70,7 +70,7 @@
                 nil))
             "tool registry dispatch propagates job-aborted as control flow"))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
 
 (-> test-task-orchestration () null)
@@ -92,73 +92,73 @@
                             (format nil "task augmentation registers job.~A" name)))
              (test-assert (eq registry (task-augment-tool-registry registry))
                           "task augmentation is idempotent")
-              (let* ((orchestrator
-                       (task-run-tool-orchestrator
-                        (tool-registry-find registry "task" "run")))
-                     (definition
-                       (task-find-agent-definition
-                        (task-bundled-agent-definitions)
-                        "task"))
-                     (child-registry
-                       (task-child-tool-registry
-                        registry definition orchestrator 1))
-                     (non-spawning-definition
-                       (task-agent-definition-create
-                        :name "no-spawn-jobs"
-                        :description "Inspect no asynchronous work."
-                        :instructions "Do not delegate."
-                        :spawns nil
-                        :source ':test))
-                     (non-spawning-registry
-                       (task-child-tool-registry
-                        registry non-spawning-definition orchestrator 1)))
-                (test-assert
-                 (tool-registry-find child-registry "search" "content")
-                 "general task children inherit native repository search")
-                (test-assert
-                 (null (tool-registry-find child-registry "self" "status"))
-                 "task children never inherit active-image tools")
-                (test-assert
-                 (and
-                  (tool-registry-find child-registry "task" "run")
-                  (tool-registry-find child-registry "task" "agents")
-                  (every
-                   (lambda (name)
-                     (tool-registry-find child-registry "job" name))
-                   '("list" "get" "wait" "cancel" "send")))
-                 "task children can manage jobs within their existing visibility scope")
-                (test-assert
-                 (and
-                  (null (tool-registry-find non-spawning-registry "task" "run"))
-                  (null (tool-registry-find non-spawning-registry "task" "agents"))
-                  (every
-                   (lambda (name)
-                     (null
-                      (tool-registry-find non-spawning-registry "job" name)))
-                   '("list" "get" "wait" "cancel")))
-                 "children without spawn authority receive no task controls")))
+             (let* ((orchestrator
+                      (task-run-tool-orchestrator
+                       (tool-registry-find registry "task" "run")))
+                    (definition
+                      (task-find-agent-definition
+                       (task-bundled-agent-definitions)
+                       "task"))
+                    (child-registry
+                      (task-child-tool-registry
+                       registry definition orchestrator 1))
+                    (non-spawning-definition
+                      (task-agent-definition-create
+                       :name         "no-spawn-jobs"
+                       :description  "Inspect no asynchronous work."
+                       :instructions "Do not delegate."
+                       :spawns       nil
+                       :source       ':test))
+                    (non-spawning-registry
+                      (task-child-tool-registry
+                       registry non-spawning-definition orchestrator 1)))
+               (test-assert
+                (tool-registry-find child-registry "search" "content")
+                "general task children inherit native repository search")
+               (test-assert
+                (null (tool-registry-find child-registry "self" "status"))
+                "task children never inherit active-image tools")
+               (test-assert
+                (and
+                 (tool-registry-find child-registry "task" "run")
+                 (tool-registry-find child-registry "task" "agents")
+                 (every
+                  (lambda (name)
+                    (tool-registry-find child-registry "job" name))
+                  '("list" "get" "wait" "cancel" "send")))
+                "task children can manage jobs within their existing visibility scope")
+               (test-assert
+                (and
+                 (null (tool-registry-find non-spawning-registry "task" "run"))
+                 (null (tool-registry-find non-spawning-registry "task" "agents"))
+                 (every
+                  (lambda (name)
+                    (null
+                     (tool-registry-find non-spawning-registry "job" name)))
+                  '("list" "get" "wait" "cancel")))
+                "children without spawn authority receive no task controls")))
            (let* ((registry (make-default-tool-registry))
                   (local-definition
                     (task-agent-definition-create
-                     :name "local-grant"
-                     :description "Use one available local tool."
+                     :name         "local-grant"
+                     :description  "Use one available local tool."
                      :instructions "Read one file."
-                     :tools '("resource.read")
-                     :source ':test))
+                     :tools        '("resource.read")
+                     :source       ':test))
                   (hosted-definition
                     (task-agent-definition-create
-                     :name "hosted-grant"
-                     :description "Use hosted provider search."
+                     :name         "hosted-grant"
+                     :description  "Use hosted provider search."
                      :instructions "Search one authoritative source."
-                     :tools '("web_search")
-                     :source ':test))
+                     :tools        '("web_search")
+                     :source       ':test))
                   (missing-definition
                     (task-agent-definition-create
-                     :name "missing-grant"
-                     :description "Request one unavailable local tool."
+                     :name         "missing-grant"
+                     :description  "Request one unavailable local tool."
                      :instructions "Exercise fail-closed grant validation."
-                     :tools '("missing.operation")
-                     :source ':test)))
+                     :tools        '("missing.operation")
+                     :source       ':test)))
              (test-assert
               (handler-case
                   (progn
@@ -189,25 +189,25 @@
            (let* ((parent-registry (make-instance 'tool-registry))
                   (definition
                     (task-agent-definition-create
-                     :name "extension-boundary"
-                     :description "Exercise extension capability defaults."
+                     :name         "extension-boundary"
+                     :description  "Exercise extension capability defaults."
                      :instructions "Use only explicitly child-safe extensions."
-                     :tools ':all
-                     :source ':test))
-                  (orchestrator (task-tests--orchestrator)))
+                     :tools        ':all
+                     :source       ':test))
+                  (orchestrator    (task-tests--orchestrator)))
              (tool-registry-register
               parent-registry
               (make-instance 'task-test-default-deny-tool
-                             :namespace "extension"
-                             :name "denied"
+                             :namespace   "extension"
+                             :name        "denied"
                              :description "Remain unavailable to children."
                              :parameters
                              (tool-object-schema (json-object) nil)))
              (tool-registry-register
               parent-registry
               (make-instance 'task-test-child-safe-tool
-                             :namespace "extension"
-                             :name "allowed"
+                             :namespace   "extension"
+                             :name        "allowed"
                              :description "Opt into child availability."
                              :parameters
                              (tool-object-schema (json-object) nil)))
@@ -250,17 +250,17 @@
                   (parent
                     (agent-create
                      :configuration configuration
-                     :provider (make-instance 'model-provider)
-                     :conversation conversation
+                     :provider      (make-instance 'model-provider)
+                     :conversation  conversation
                      :tool-registry registry
-                     :worker nil))
+                     :worker        nil))
                   (context
                     (make-instance 'tool-context
                                    :configuration configuration
-                                   :worker nil
-                                   :conversation conversation
-                                   :registry registry
-                                   :agent parent))
+                                   :worker        nil
+                                   :conversation  conversation
+                                   :registry      registry
+                                   :agent         parent))
                   (tool
                     (tool-registry-find registry "task" "run"))
                   (orchestrator (task-run-tool-orchestrator tool)))
@@ -336,11 +336,11 @@
                    "tasks" (json-array (json-object "task" "First")))
                   "batch task normalization rejects a top-level agent")
                  (list
-                 (json-object
-                   "context" "Shared batch context."
-                   "tasks"
-                   (json-array
-                    (json-object "task" "First" "legacy" t)))
+                  (json-object
+                    "context" "Shared batch context."
+                    "tasks"
+                    (json-array
+                     (json-object "task" "First" "legacy" t)))
                   "batch items reject unknown fields")
                  (list
                   (json-object
@@ -374,28 +374,28 @@
                             "agent discovery retains native role instructions")))
            (let* ((immutable
                     (configuration-copy configuration
-                                        :immutable-p t
-                                        :reasoning-effort "xhigh"
+                                        :immutable-p       t
+                                        :reasoning-effort  "xhigh"
                                         :codex-fast-mode-p t))
                   (definition
                     (task-agent-definition-create
-                     :name "inheritance"
-                     :description "Exercise configuration inheritance."
+                     :name         "inheritance"
+                     :description  "Exercise configuration inheritance."
                      :instructions "Preserve inherited runtime configuration."
-                     :tools ':all
-                     :models '("@parent")
-                     :source ':test))
+                     :tools        ':all
+                     :models       '("@parent")
+                     :source       ':test))
                   (child-configuration
                     (task-configuration-for-definition immutable definition))
                   (explicit-definition
                     (task-agent-definition-create
-                     :name "explicit-effort"
-                     :description "Exercise an explicit child effort."
-                     :instructions "Reason at the declared effort."
-                     :tools ':all
-                     :models '("@parent")
+                     :name             "explicit-effort"
+                     :description      "Exercise an explicit child effort."
+                     :instructions     "Reason at the declared effort."
+                     :tools            ':all
+                     :models           '("@parent")
                      :reasoning-effort ':high
-                     :source ':test))
+                     :source           ':test))
                   (explicit-configuration
                     (task-configuration-for-definition
                      immutable explicit-definition)))
@@ -425,48 +425,48 @@
               "task model selection preserves every parent runtime boundary"))
            (let* ((definition
                     (task-agent-definition-create
-                     :name "structured"
-                     :description "Yield structured data."
+                     :name         "structured"
+                     :description  "Yield structured data."
                      :instructions "Yield data matching the native output contract."
-                     :output '(:type :object
-                               :properties (("answer" (:type :string)))
-                               :required ("answer"))
-                     :source ':test))
-                  (completion (make-instance 'task-completion))
+                     :output       '(:type :object
+                                     :properties (("answer" (:type :string)))
+                                     :required ("answer"))
+                     :source       ':test))
+                  (completion   (make-instance 'task-completion))
                   (orchestrator (task-tests--orchestrator))
-                  (parent (agent-create
-                           :configuration configuration
-                           :provider (make-instance 'model-provider)
-                           :conversation (conversation-create configuration)
-                           :tool-registry (make-instance 'tool-registry)
-                           :worker nil))
-                  (job (task-tests--make-job orchestrator
-                                            :identifier "yield-test"
-                                            :definition definition
-                                            :item (list :task "Yield")
-                                            :parent-agent parent))
-                  (child (make-instance 'task-child-agent
-                                        :configuration configuration
-                                        :provider (make-instance 'model-provider)
-                                        :conversation (conversation-create configuration)
-                                        :tool-registry (make-instance 'tool-registry)
-                                        :worker nil
-                                        :definition definition
-                                        :identity (task-job-identity job)
-                                        :depth 1
-                                        :completion completion
-                                        :orchestrator orchestrator
-                                        :job job))
-                  (context (make-instance 'tool-context
-                                          :configuration configuration
-                                          :worker nil
-                                          :conversation nil
-                                          :agent child))
-                  (tool (make-instance 'task-yield-tool
-                                       :namespace "yield"
-                                       :name "submit"
-                                       :description ""
-                                       :parameters (json-object))))
+                  (parent       (agent-create
+                                 :configuration configuration
+                                 :provider      (make-instance 'model-provider)
+                                 :conversation  (conversation-create configuration)
+                                 :tool-registry (make-instance 'tool-registry)
+                                 :worker        nil))
+                  (job          (task-tests--make-job orchestrator
+                                                     :identifier   "yield-test"
+                                                     :definition   definition
+                                                     :item         (list :task "Yield")
+                                                     :parent-agent parent))
+                  (child        (make-instance 'task-child-agent
+                                               :configuration configuration
+                                               :provider      (make-instance 'model-provider)
+                                               :conversation  (conversation-create configuration)
+                                               :tool-registry (make-instance 'tool-registry)
+                                               :worker        nil
+                                               :definition    definition
+                                               :identity      (task-job-identity job)
+                                               :depth         1
+                                               :completion    completion
+                                               :orchestrator  orchestrator
+                                               :job           job))
+                  (context      (make-instance 'tool-context
+                                               :configuration configuration
+                                               :worker        nil
+                                               :conversation  nil
+                                               :agent         child))
+                  (tool         (make-instance 'task-yield-tool
+                                               :namespace   "yield"
+                                               :name        "submit"
+                                               :description ""
+                                               :parameters  (json-object))))
              (test-assert
               (handler-case
                   (progn
@@ -480,7 +480,6 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-task-child-cancels-lisp-executions () null)
 (defun test-task-child-cancels-lisp-executions ()
   "Test child cleanup aborts asynchronous Lisp work before stopping its REPL pool."
@@ -493,25 +492,25 @@
          (orchestrator  (task-run-tool-orchestrator run-tool))
          (definition
            (task-agent-definition-create
-            :name "lisp-cleanup"
-            :description "Exercise asynchronous Lisp cleanup."
+            :name         "lisp-cleanup"
+            :description  "Exercise asynchronous Lisp cleanup."
             :instructions "Start asynchronous Lisp work, then finish."
-            :tools '("lisp.eval")
-            :spawns ':all
-            :source ':test))
+            :tools        '("lisp.eval")
+            :spawns       ':all
+            :source       ':test))
          (parent
            (agent-create
             :configuration configuration
-            :provider (make-instance 'model-provider)
-            :conversation (conversation-create configuration)
+            :provider      (make-instance 'model-provider)
+            :conversation  (conversation-create configuration)
             :tool-registry registry
-            :worker nil))
+            :worker        nil))
          (job
            (task-tests--make-job
             orchestrator
-            :identifier "lisp-cleanup-child"
-            :definition definition
-            :item (list :task "Exercise asynchronous Lisp cleanup.")
+            :identifier   "lisp-cleanup-child"
+            :definition   definition
+            :item         (list :task "Exercise asynchronous Lisp cleanup.")
             :parent-agent parent))
          (child-registry
            (task-child-tool-registry registry definition orchestrator 1))
@@ -519,27 +518,27 @@
            (make-instance
             'task-child-agent
             :configuration configuration
-            :provider (make-instance 'model-provider)
-            :conversation (conversation-create configuration)
+            :provider      (make-instance 'model-provider)
+            :conversation  (conversation-create configuration)
             :tool-registry child-registry
-            :worker worker-pool
-            :definition definition
-            :identity (task-job-identity job)
-            :depth 1
-            :completion (make-instance 'task-completion)
-            :orchestrator orchestrator
-            :job job))
+            :worker        worker-pool
+            :definition    definition
+            :identity      (task-job-identity job)
+            :depth         1
+            :completion    (make-instance 'task-completion)
+            :orchestrator  orchestrator
+            :job           job))
          (context
            (make-instance
             'tool-context
             :configuration configuration
-            :worker worker-pool
-            :conversation (agent-conversation child)
-            :registry child-registry
-            :agent child
-            :call-id "child-lisp-cleanup"))
-         (execution nil)
-         (worker nil))
+            :worker        worker-pool
+            :conversation  (agent-conversation child)
+            :registry      child-registry
+            :agent         child
+            :call-id       "child-lisp-cleanup"))
+         (execution     nil)
+         (worker        nil))
     (with-lock-held ((cl-jobpond::job--lock job))
       (setf (job-state job) ':running))
     (task-job--set-progress-state job ':running)
@@ -555,8 +554,8 @@
                    (json-object "forms" (vector form)
                                 "repl" "child-cleanup"
                                 "async" t)))
-                (details (tool-result-details result))
-                (record (and (listp details) (getf (rest details) :job)))
+                (details    (tool-result-details result))
+                (record     (and (listp details) (getf (rest details) :job)))
                 (identifier (and record (getf record :id))))
            (setf execution
                  (and identifier
@@ -595,11 +594,10 @@
       ;; execution turns terminal; joining the pools ends that write.
       (unless (task-orchestrator-close orchestrator)
         (error 'task-error
-               :message "Task job pools did not stop before test cleanup."
+               :message   "Task job pools did not stop before test cleanup."
                :tool-name "task.run"))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
-
 
 (-> test-task-child-shared-agent-loop () null)
 (defun test-task-child-shared-agent-loop ()
@@ -608,25 +606,25 @@
          (root          (test-configuration-root configuration))
          (definition
            (task-agent-definition-create
-            :name "runtime"
-            :description "Exercise the shared child runtime."
+            :name         "runtime"
+            :description  "Exercise the shared child runtime."
             :instructions "Yield after checking authorization."
-            :source ':test))
-         (orchestrator (task-tests--orchestrator))
+            :source       ':test))
+         (orchestrator  (task-tests--orchestrator))
          (parent
            (agent-create
             :configuration configuration
-            :provider (make-instance 'model-provider)
-            :conversation (conversation-create configuration)
+            :provider      (make-instance 'model-provider)
+            :conversation  (conversation-create configuration)
             :tool-registry (make-instance 'tool-registry)
-            :worker nil))
+            :worker        nil))
          (job
            (task-tests--make-job orchestrator
-                                 :identifier "runtime-child"
-                                 :definition definition
-                                 :item (list :task "Exercise the shared loop.")
+                                 :identifier   "runtime-child"
+                                 :definition   definition
+                                 :item         (list :task "Exercise the shared loop.")
                                  :parent-agent parent))
-         (completion (make-instance 'task-completion))
+         (completion    (make-instance 'task-completion))
          (conversation
            (conversation-create configuration :identifier "task-shared-loop"))
          (provider
@@ -637,32 +635,32 @@
              (agent-test-result
               "child-yield"
               (list
-               (agent-test-call :call-id "authorize"
+               (agent-test-call :call-id   "authorize"
                                 :namespace "test"
-                                :name "authorize")
+                                :name      "authorize")
                (agent-test-call
-                :call-id "yield"
+                :call-id   "yield"
                 :namespace "yield"
-                :name "submit"
+                :name      "submit"
                 :arguments
                 "{\"status\":\"success\",\"text\":\"done\"}")
-               (agent-test-call :call-id "effect"
+               (agent-test-call :call-id   "effect"
                                 :namespace "test"
-                                :name "effect"))))))
+                                :name      "effect"))))))
          (child
            (make-instance 'task-child-agent
                           :configuration configuration
-                          :provider provider
-                          :conversation conversation
+                          :provider      provider
+                          :conversation  conversation
                           :tool-registry
                           (task-tests--child-registry definition orchestrator)
-                          :worker nil
-                          :definition definition
-                          :identity (task-job-identity job)
-                          :depth 1
-                          :completion completion
-                          :orchestrator orchestrator
-                          :job job))
+                          :worker        nil
+                          :definition    definition
+                          :identity      (task-job-identity job)
+                          :depth         1
+                          :completion    completion
+                          :orchestrator  orchestrator
+                          :job           job))
          (observer
            (callback-agent-observer-create
             :command-authorization-callback
@@ -674,7 +672,7 @@
     (task-job--set-progress-state job ':running)
     (unwind-protect
          (let ((*task-test-command-decision* nil)
-               (*task-test-effect-count* 0))
+               (*task-test-effect-count*     0))
            (agent-run-user-turn child "Run the shared loop." :observer observer)
            (test-assert (task-completion-called-p completion)
                         "yield.submit completes a child through the shared loop")
@@ -704,12 +702,11 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-task-child-execution-job-controls () null)
 (defun test-task-child-execution-job-controls ()
   "Collect child-owned asynchronous results without exposing parent jobs."
   (with-test-configuration (configuration)
-    (let* ((registry (task-augment-tool-registry (make-default-tool-registry)))
+    (let* ((registry       (task-augment-tool-registry (make-default-tool-registry)))
            (orchestrator
              (task-run-tool-orchestrator (tool-registry-find registry "task" "run")))
            (definition
@@ -717,16 +714,16 @@
               :name "job-reader" :description "Inspect owned asynchronous work."
               :instructions "Await the result." :tools ':all :spawns nil
               :source ':test))
-           (primary (task-tests--primary-agent configuration "child-jobs" registry))
-           (child-job (task-tests--register-job orchestrator primary definition
-                                                 :name "child-owner"))
+           (primary        (task-tests--primary-agent configuration "child-jobs" registry))
+           (child-job      (task-tests--register-job orchestrator primary definition
+                                                      :name "child-owner"))
            (child-registry (task-child-tool-registry registry definition orchestrator 1))
-           (child (task-tests--child-viewer configuration child-job
-                                             :registry child-registry))
-           (context (make-instance 'tool-context
-                                   :configuration configuration
-                                   :conversation (agent-conversation child)
-                                   :registry child-registry :agent child :worker nil)))
+           (child          (task-tests--child-viewer configuration child-job
+                                                      :registry child-registry))
+           (context        (make-instance 'tool-context
+                                          :configuration configuration
+                                          :conversation  (agent-conversation child)
+                                          :registry child-registry :agent child :worker nil)))
       (unwind-protect
            (progn
              (dolist (role '("reviewer" "librarian"))
@@ -740,7 +737,7 @@
                       (tool-execution-invoke
                        orchestrator child :tool-name "test.async" :summary "child result"
                        :operation-function (lambda () (tool-success "owned-result"))
-                       :async-p t))
+                       :async-p            t))
                     (identifier (getf (getf (rest (tool-result-details handoff)) :job) :id)))
                (test-assert (and identifier
                                  (null (tool-registry-find child-registry "task" "run")))

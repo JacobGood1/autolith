@@ -47,49 +47,49 @@
 
 (defclass task-test-blocking-tool (task-test-child-safe-tool)
   ((lock
-    :initform (make-lock "Autolith blocking tool test")
-    :reader task-test-blocking-tool-lock
+    :initform      (make-lock "Autolith blocking tool test")
+    :reader        task-test-blocking-tool-lock
     :documentation "The lock protecting the test barrier.")
    (condition-variable
-    :initform (make-condition-variable)
-    :reader task-test-blocking-tool-condition-variable
+    :initform      (make-condition-variable)
+    :reader        task-test-blocking-tool-condition-variable
     :documentation "The condition coordinating tool entry and release.")
    (started-p
-    :initform nil
-    :accessor task-test-blocking-tool-started-p
-    :type boolean
+    :initform      nil
+    :accessor      task-test-blocking-tool-started-p
+    :type          boolean
     :documentation "True after a child enters the ordinary tool call.")
    (released-p
-    :initform nil
-    :accessor task-test-blocking-tool-released-p
-    :type boolean
+    :initform      nil
+    :accessor      task-test-blocking-tool-released-p
+    :type          boolean
     :documentation "True when the test permits normal tool completion."))
   (:documentation "Block an ordinary child-safe tool call at a test barrier."))
 
 (defclass task-test-publication-barrier ()
   ((lock
-    :initform (make-lock "Autolith publication print test")
-    :reader task-test-publication-barrier-lock
+    :initform      (make-lock "Autolith publication print test")
+    :reader        task-test-publication-barrier-lock
     :documentation "The lock protecting the publication barrier.")
    (condition-variable
-    :initform (make-condition-variable)
-    :reader task-test-publication-barrier-condition-variable
+    :initform      (make-condition-variable)
+    :reader        task-test-publication-barrier-condition-variable
     :documentation "The condition coordinating artifact printing.")
    (reached-p
-    :initform nil
-    :accessor task-test-publication-barrier-reached-p
-    :type boolean
+    :initform      nil
+    :accessor      task-test-publication-barrier-reached-p
+    :type          boolean
     :documentation "True while terminal publication is printing the artifact.")
    (released-p
-    :initform nil
-    :accessor task-test-publication-barrier-released-p
-    :type boolean
+    :initform      nil
+    :accessor      task-test-publication-barrier-released-p
+    :type          boolean
     :documentation "True when artifact printing may finish.")
    (failure
-    :initarg :failure
-    :initform nil
-    :reader task-test-publication-barrier-failure
-    :type (option keyword)
+    :initarg       :failure
+    :initform      nil
+    :reader        task-test-publication-barrier-failure
+    :type          (option keyword)
     :documentation "The optional ordinary error or task abort signalled on release."))
   (:documentation "A readable test value that pauses terminal artifact output."))
 
@@ -131,75 +131,75 @@
     (:abort
      (error 'job-aborted
             :message "Deliberate post-claim task abort."
-            :reason ':test-cancel))
+            :reason  ':test-cancel))
     (otherwise
      (write-string ":TASK-TEST-PUBLICATION-BARRIER" stream))))
 
 (defclass task-test-provider (model-provider)
   ((reference-history-p
-    :initarg :reference-history-p
-    :initform t
-    :reader task-test-provider-reference-history-p
-    :type boolean
+    :initarg       :reference-history-p
+    :initform      t
+    :reader        task-test-provider-reference-history-p
+    :type          boolean
     :documentation "Whether the parent provider opts into inherited history.")
    (child-reference-history-p
-    :initarg :child-reference-history-p
-    :initform t
-    :reader task-test-provider-child-reference-history-p
-    :type boolean
+    :initarg       :child-reference-history-p
+    :initform      t
+    :reader        task-test-provider-child-reference-history-p
+    :type          boolean
     :documentation "Whether reconfigured child providers opt into inherited history.")
    (lock
-    :initform (make-lock "Autolith task test provider")
-    :reader task-test-provider-lock
+    :initform      (make-lock "Autolith task test provider")
+    :reader        task-test-provider-lock
     :documentation "The lock protecting deterministic request counters.")
    (mode
     :initarg :mode
-   :reader task-test-provider-mode
-   :type keyword
-   :documentation
+    :reader  task-test-provider-mode
+    :type    keyword
+    :documentation
      "The :CONCURRENT, :NESTED, :NESTED-CANCEL, :BLOCKING-TOOL, or :MANIFEST script.")
    (active-count
-    :initform 0
-    :accessor task-test-provider-active-count
-    :type (integer 0)
+    :initform      0
+    :accessor      task-test-provider-active-count
+    :type          (integer 0)
     :documentation "The provider requests currently executing.")
    (maximum-active-count
-    :initform 0
-    :accessor task-test-provider-maximum-active-count
-    :type (integer 0)
+    :initform      0
+    :accessor      task-test-provider-maximum-active-count
+    :type          (integer 0)
     :documentation "The largest observed concurrent request count.")
    (request-count
-    :initform 0
-    :accessor task-test-provider-request-count
-    :type (integer 0)
+    :initform      0
+    :accessor      task-test-provider-request-count
+    :type          (integer 0)
     :documentation "The total scripted requests observed.")
    (conversation-identifiers
-    :initform nil
-    :accessor task-test-provider-conversation-identifiers
-    :type list
+    :initform      nil
+    :accessor      task-test-provider-conversation-identifiers
+    :type          list
     :documentation "The child conversation identifiers observed by the provider.")
    (request-inputs
-    :initform nil
-    :accessor task-test-provider-request-inputs
-    :type list
+    :initform      nil
+    :accessor      task-test-provider-request-inputs
+    :type          list
     :documentation "Detached child provider projections observed in request order.")
    (threads
-    :initform nil
-    :accessor task-test-provider-threads
-    :type list
+    :initform      nil
+    :accessor      task-test-provider-threads
+    :type          list
     :documentation "The distinct reusable workers that reached the provider."))
   (:documentation "A thread-safe provider for scheduler integration tests."))
 
 (defclass task-test-child-provider (model-provider)
   ((parent
-    :initarg :parent
-    :reader task-test-child-provider-parent
-    :type task-test-provider
+    :initarg       :parent
+    :reader        task-test-child-provider-parent
+    :type          task-test-provider
     :documentation "The shared provider retaining scripted counters and requests.")
    (reference-history-p
-    :initarg :reference-history-p
-    :reader task-test-child-provider-reference-history-p
-    :type boolean
+    :initarg       :reference-history-p
+    :reader        task-test-child-provider-reference-history-p
+    :type          boolean
     :documentation "Whether this child provider accepts inherited history."))
   (:documentation "A reconfigured task test provider with child-specific policy."))
 
@@ -236,9 +236,9 @@
    (task-test-child-provider-parent provider)
    conversation
    :tool-namespaces tool-namespaces
-   :event-callback event-callback
-   :goal-context goal-context
-   :compaction-p compaction-p))
+   :event-callback  event-callback
+   :goal-context    goal-context
+   :compaction-p    compaction-p))
 
 (defmethod provider-stream-turn
     ((provider task-test-provider)
@@ -276,9 +276,9 @@
                              :test #'eq)
                      (= request-number 1))
                 (agent-test-call
-                 :call-id "nested-task"
+                 :call-id   "nested-task"
                  :namespace "task"
-                 :name "run"
+                 :name      "run"
                  :arguments
                  (json-encode
                   (json-object "agent" "task"
@@ -291,16 +291,16 @@
                              :nested-cancel)
                          (= request-number 2)))
                 (agent-test-call
-                 :call-id "blocking-tool"
+                 :call-id   "blocking-tool"
                  :namespace "test"
-                 :name "block"
+                 :name      "block"
                  :arguments "{}"))
                ((and (eq (task-test-provider-mode provider) :manifest)
                      (= request-number *task-maximum-batch-size*))
                 (agent-test-call
-                 :call-id (format nil "yield-~D" request-number)
+                 :call-id   (format nil "yield-~D" request-number)
                  :namespace "yield"
-                 :name "submit"
+                 :name      "submit"
                  :arguments
                  (json-encode
                   (json-object
@@ -309,9 +309,9 @@
                    "error" "AUTOLITH-LAST-MANIFEST-CHILD-FAILED"))))
                (t
                 (agent-test-call
-                 :call-id (format nil "yield-~D" request-number)
+                 :call-id   (format nil "yield-~D" request-number)
                  :namespace "yield"
-                 :name "submit"
+                 :name      "submit"
                  :arguments
                  (json-encode
                   (json-object
@@ -341,17 +341,17 @@
   (declare (ignore tool context arguments))
   (error 'job-aborted
          :message "Task test was cancelled."
-         :reason ':test-cancel))
+         :reason  ':test-cancel))
 
 (-> task-tests--write-text (pathname string) pathname)
 (defun task-tests--write-text (pathname contents)
   "Write CONTENTS to PATHNAME and return PATHNAME."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :external-format ':utf-8)
+                          :external-format   ':utf-8)
     (write-string contents stream))
   pathname)
 
@@ -373,13 +373,13 @@
   "Write exactly one readable native FORM to PATHNAME and return PATHNAME."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :external-format ':utf-8)
+                          :external-format   ':utf-8)
     (let ((*print-readably* t)
-          (*print-pretty* t)
-          (*print-circle* t))
+          (*print-pretty*   t)
+          (*print-circle*   t))
       (prin1 form stream)
       (terpri stream)))
   pathname)
@@ -398,8 +398,8 @@
 (-> task-tests--role-form (string string string &rest t) list)
 (defun task-tests--role-form (name description instructions &rest properties)
   "Return a minimal native role form extended by PROPERTIES."
-  (append (list :name name
-                :description description
+  (append (list :name         name
+                :description  description
                 :instructions instructions)
           properties))
 
@@ -409,7 +409,7 @@
 (defun task-tests--yield-fixture
     (configuration definition identifier &key (state ':running))
   "Return an isolated child, yield registry, and completion fixture in STATE."
-  (let* ((orchestrator (task-tests--orchestrator))
+  (let* ((orchestrator    (task-tests--orchestrator))
          (parent-registry (make-instance 'tool-registry))
          (parent-conversation
            (conversation-create
@@ -418,19 +418,19 @@
          (parent
            (agent-create
             :configuration configuration
-            :provider (make-instance 'model-provider)
-            :conversation parent-conversation
+            :provider      (make-instance 'model-provider)
+            :conversation  parent-conversation
             :tool-registry parent-registry
-            :worker nil))
+            :worker        nil))
          (job
            (task-tests--make-job
             orchestrator
-            :identifier identifier
-            :definition definition
-            :item (list :task "Exercise the terminal yield contract.")
-            :parent-agent parent
+            :identifier      identifier
+            :definition      definition
+            :item            (list :task "Exercise the terminal yield contract.")
+            :parent-agent    parent
             :root-identifier (conversation-identifier parent-conversation)))
-         (completion (make-instance 'task-completion))
+         (completion      (make-instance 'task-completion))
          (registry
            (task-child-tool-registry
             parent-registry definition orchestrator 1))
@@ -442,23 +442,23 @@
            (make-instance
             'task-child-agent
             :configuration configuration
-            :provider (make-instance 'model-provider)
-            :conversation conversation
+            :provider      (make-instance 'model-provider)
+            :conversation  conversation
             :tool-registry registry
-            :worker nil
-            :definition definition
-            :identity (task-job-identity job)
-            :depth 1
-            :completion completion
-            :orchestrator orchestrator
-            :job job))
+            :worker        nil
+            :definition    definition
+            :identity      (task-job-identity job)
+            :depth         1
+            :completion    completion
+            :orchestrator  orchestrator
+            :job           job))
          (context
            (make-instance 'tool-context
                           :configuration configuration
-                          :worker nil
-                          :conversation conversation
-                          :registry registry
-                          :agent child)))
+                          :worker        nil
+                          :conversation  conversation
+                          :registry      registry
+                          :agent         child)))
     (ecase state
       (:queued
        nil)
@@ -466,11 +466,11 @@
        (with-lock-held ((cl-jobpond::job--lock job))
          (setf (job-state job) ':running))
        (task-job--set-progress-state job ':running)))
-    (list :registry registry
-          :context context
-          :completion completion
-          :job job
-          :child child
+    (list :registry     registry
+          :context      context
+          :completion   completion
+          :job          job
+          :child        child
           :conversation conversation)))
 
 (-> task-tests--execute-yield (list string) tool-result)
@@ -489,7 +489,7 @@
   (with-input-from-string (stream source)
     (let ((*read-eval* nil)
           (*readtable* (copy-readtable nil))
-          (end (gensym "END")))
+          (end         (gensym "END")))
       (let ((value (read stream nil end)))
         (when (eq value end)
           (error "Expected one readable native value."))
@@ -505,10 +505,10 @@
   "Return a primary test agent with conversation IDENTIFIER."
   (agent-create
    :configuration configuration
-   :provider (make-instance 'model-provider)
-   :conversation (conversation-create configuration :identifier identifier)
+   :provider      (make-instance 'model-provider)
+   :conversation  (conversation-create configuration :identifier identifier)
    :tool-registry registry
-   :worker nil))
+   :worker        nil))
 
 (-> task-tests--register-job
     (task-orchestrator agent task-agent-definition
@@ -538,30 +538,30 @@
      (lambda (identifier index)
        (make-instance
         'task-job
-        :pool (task-orchestrator-pool orchestrator)
-        :identifier identifier
-        :index index
-        :name name
-        :payload nil
-        :owner-identifiers owners
-        :root-identifier root
-        :body-function #'task-job--run
-        :terminal-result-function #'task-job--terminal-record
-        :maximum-runtime-milliseconds 0
-        :orchestrator orchestrator
-        :execution-identifier (make-identifier)
-        :session-order session-order
-        :definition definition
-        :item (list :name name
-                    :agent (task-agent-definition-name definition)
-                    :task
-                    (format nil "Hold ~A for a scheduler test."
-                            (or name "this unnamed job"))
-                    :context nil
-                    :async detached-p)
-        :parent-agent parent
-        :parent-call-id nil
-        :detached-p detached-p
+        :pool                           (task-orchestrator-pool orchestrator)
+        :identifier                     identifier
+        :index                          index
+        :name                           name
+        :payload                        nil
+        :owner-identifiers              owners
+        :root-identifier                root
+        :body-function                  #'task-job--run
+        :terminal-result-function       #'task-job--terminal-record
+        :maximum-runtime-milliseconds   0
+        :orchestrator                   orchestrator
+        :execution-identifier           (make-identifier)
+        :session-order                  session-order
+        :definition                     definition
+        :item                           (list :name    name
+                                              :agent   (task-agent-definition-name definition)
+                                              :task
+                                              (format nil "Hold ~A for a scheduler test."
+                                                      (or name "this unnamed job"))
+                                              :context nil
+                                              :async   detached-p)
+        :parent-agent                   parent
+        :parent-call-id                 nil
+        :detached-p                     detached-p
         :command-authorization-function nil))
      :name (or name (task-agent-definition-name definition)))))
 
@@ -594,25 +594,25 @@ the tests that require a single-threaded image do."
   "Return one unregistered job for tests that only need a job object."
   (make-instance
    'task-job
-   :pool (task-orchestrator-pool orchestrator)
-   :identifier identifier
-   :index index
-   :name identifier
-   :payload nil
-   :owner-identifiers owner-identifiers
-   :root-identifier (or root-identifier
-                        (and parent-agent
-                             (conversation-identifier
-                              (agent-conversation parent-agent))))
-   :body-function #'task-job--run
-   :terminal-result-function #'task-job--terminal-record
+   :pool                         (task-orchestrator-pool orchestrator)
+   :identifier                   identifier
+   :index                        index
+   :name                         identifier
+   :payload                      nil
+   :owner-identifiers            owner-identifiers
+   :root-identifier              (or root-identifier
+                                     (and parent-agent
+                                          (conversation-identifier
+                                           (agent-conversation parent-agent))))
+   :body-function                #'task-job--run
+   :terminal-result-function     #'task-job--terminal-record
    :maximum-runtime-milliseconds 0
-   :orchestrator orchestrator
-   :execution-identifier (make-identifier)
-   :definition definition
-   :item item
-   :parent-agent parent-agent
-   :detached-p detached-p))
+   :orchestrator                 orchestrator
+   :execution-identifier         (make-identifier)
+   :definition                   definition
+   :item                         item
+   :parent-agent                 parent-agent
+   :detached-p                   detached-p))
 
 (defun task-tests--attach-job (orchestrator build-function &key name)
   "Register the job BUILD-FUNCTION returns without queueing it for a worker.
@@ -621,12 +621,12 @@ BUILD-FUNCTION receives the identifier and admission index the pool would have
 assigned. This reaches into the pool's own tables deliberately: these tests need a
 job that is findable and counted but that no worker will ever pick up, and
 admission offers no such thing on purpose."
-  (let* ((pool (task-orchestrator-pool orchestrator))
-         (index (incf (cl-jobpond::job-pool--next-index pool)))
+  (let* ((pool       (task-orchestrator-pool orchestrator))
+         (index      (incf (cl-jobpond::job-pool--next-index pool)))
          (identifier (format nil "~A-~D"
                              (or (task--identifier-fragment name) "job")
                              index))
-         (job (funcall build-function identifier index)))
+         (job        (funcall build-function identifier index)))
     (with-lock-held ((cl-jobpond::job-pool--lock pool))
       (setf (gethash identifier (cl-jobpond::job-pool--jobs pool)) job)
       (incf (cl-jobpond::job-pool--live-count pool)))
@@ -647,19 +647,19 @@ admission offers no such thing on purpose."
     (make-instance
      'task-child-agent
      :configuration configuration
-     :provider (make-instance 'model-provider)
+     :provider      (make-instance 'model-provider)
      :conversation
      (conversation-create
       configuration
       :identifier (format nil "~A-viewer" identifier))
      :tool-registry (or registry (make-instance 'tool-registry))
-     :worker nil
-     :definition (task-job-definition job)
-     :identity (task-job-identity job)
-     :depth depth
-     :completion (make-instance 'task-completion)
-     :orchestrator (task-job-orchestrator job)
-     :job job)))
+     :worker        nil
+     :definition    (task-job-definition job)
+     :identity      (task-job-identity job)
+     :depth         depth
+     :completion    (make-instance 'task-completion)
+     :orchestrator  (task-job-orchestrator job)
+     :job           job)))
 
 (-> task-tests--terminal-result
     (task-job &key (:status keyword) (:output string)
@@ -669,26 +669,26 @@ admission offers no such thing on purpose."
     (job &key (status :success) (output "done") error)
   "Return one portable terminal RESULT for JOB."
   (let ((identifier (job-identifier job)))
-    (list :id identifier
-          :name identifier
-          :agent (task-agent-definition-name (task-job-definition job))
-          :agent-source (task-agent-definition-source
-                         (task-job-definition job))
-          :assignment (getf (task-job-item job) :task)
-          :status status
-          :output output
-          :error error
-          :yielded-p t
+    (list :id                          identifier
+          :name                        identifier
+          :agent                       (task-agent-definition-name (task-job-definition job))
+          :agent-source                (task-agent-definition-source
+                                        (task-job-definition job))
+          :assignment                  (getf (task-job-item job) :task)
+          :status                      status
+          :output                      output
+          :error                       error
+          :yielded-p                   t
           :structured-output-present-p nil
-          :structured-output nil
-          :label nil
-          :request-count 1
-          :usage nil
-          :duration-ms 1
-          :model (config :model
-                  (agent-configuration (task-job-parent-agent job)))
-          :conversation-file nil
-          :detached (task-job-detached-p job))))
+          :structured-output           nil
+          :label                       nil
+          :request-count               1
+          :usage                       nil
+          :duration-ms                 1
+          :model                       (config :model
+                                        (agent-configuration (task-job-parent-agent job)))
+          :conversation-file           nil
+          :detached                    (task-job-detached-p job))))
 
 (-> task-tests--job-tool-error-report
     (task-orchestrator agent &key (:operation string) (:identifier string))
@@ -700,17 +700,17 @@ admission offers no such thing on purpose."
            (make-instance
             'task-job-tool
             :orchestrator orchestrator
-            :namespace "job"
-            :name operation
-            :description "Exercise nondisclosing job lookup."
-            :parameters (tool-object-schema (json-object) nil)))
+            :namespace    "job"
+            :name         operation
+            :description  "Exercise nondisclosing job lookup."
+            :parameters   (tool-object-schema (json-object) nil)))
          (context
            (make-instance 'tool-context
                           :configuration (agent-configuration viewer)
-                          :worker nil
-                          :conversation (agent-conversation viewer)
-                          :registry (agent-tool-registry viewer)
-                          :agent viewer))
+                          :worker        nil
+                          :conversation  (agent-conversation viewer)
+                          :registry      (agent-tool-registry viewer)
+                          :agent         viewer))
          (arguments
            (if (string= operation "wait")
                (json-object "id" identifier "timeout-seconds" 0)

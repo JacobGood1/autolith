@@ -23,10 +23,10 @@
 (defun test-onboarding-state-selection ()
   "Exercise missing, partial, completed, refused and revised lesson selection."
   (with-test-configuration (configuration)
-    (let* ((first (list :id "intro" :version 1 :opaque (make-hash-table)))
+    (let* ((first  (list :id "intro" :version 1 :opaque (make-hash-table)))
            (second (list :id "prompt" :version 2))
-           (third (list :id "vault" :version 1))
-           (pages (list first second third)))
+           (third  (list :id "vault" :version 1))
+           (pages  (list first second third)))
       (test-assert (equal (onboarding-state-pending configuration pages) pages)
                    "A missing mark leaves every lesson pending")
       (test-assert (not (probe-file (onboarding-state-path configuration)))
@@ -38,10 +38,10 @@
       (onboarding-state-record configuration (list second) ':refused)
       (test-assert (eq (first (onboarding-state-pending configuration pages)) third)
                    "Completion and refusal both suppress their recorded revision")
-      (let* ((new-first (list :id "intro" :version 2))
+      (let* ((new-first  (list :id "intro" :version 2))
              (old-second (list :id "prompt" :version 1))
-             (new-page (list :id "agents" :version 1))
-             (updated (list third new-first old-second new-page)))
+             (new-page   (list :id "agents" :version 1))
+             (updated    (list third new-first old-second new-page)))
         (test-assert (equal (onboarding-state-pending configuration updated)
                             (list third new-first new-page))
                      "New IDs and newer revisions are pending in caller order"))
@@ -53,8 +53,8 @@
                           (every (lambda (page) (= (length page) 6)) saved))
                      "Opaque lesson content is omitted from portable roundtrip state")
         (test-assert (eq (getf (find "prompt" saved :test #'string=
-                                   :key (lambda (page) (getf page :id))) :status)
-                          ':refused)
+                                   :key                   (lambda (page) (getf page :id))) :status)
+                         ':refused)
                      "Refusal status survives the persisted roundtrip"))))
   nil)
 
@@ -70,7 +70,7 @@
                  (push
                   (make-thread
                    (lambda ()
-                     (let ((pages (list (list :id (format nil "slide-~D" index)
+                     (let ((pages (list (list :id      (format nil "slide-~D" index)
                                               :version 1))))
                        (onboarding-state-record configuration pages ':completed)
                        (loop for version downfrom 8 to 1
@@ -82,9 +82,9 @@
              (dolist (thread threads)
                (join-thread thread))
              (setf threads nil)
-             (let* ((saved (sexp-store:store-read (onboarding-state--store configuration)))
+             (let* ((saved  (sexp-store:store-read (onboarding-state--store configuration)))
                     (shared (find "shared" saved :test #'string=
-                                  :key (lambda (page) (getf page :id)))))
+                                  :key                 (lambda (page) (getf page :id)))))
                (test-assert (= (length saved) 9)
                             "Concurrent fresh store instances preserve all distinct slides")
                (test-assert (= (getf shared :version) 8)
@@ -119,7 +119,7 @@
           (lambda () (onboarding-state-record configuration pages ':completed)))
          "Recording does not silently overwrite an unreadable snapshot")
         (test-assert (string= text (uiop:read-file-string
-                                   (onboarding-state-path configuration)))
+                                    (onboarding-state-path configuration)))
                      "A failed read or record preserves the original bytes"))
       (let ((evaluated-p nil))
         (declare (special evaluated-p))
@@ -202,8 +202,8 @@
                 (lambda (&rest arguments)
                   (declare (ignore arguments))
                   (error 'sexp-store:store-error
-                         :message "Injected publication failure."
-                         :pathname (onboarding-state-path configuration)
+                         :message   "Injected publication failure."
+                         :pathname  (onboarding-state-path configuration)
                          :operation ':publish))))
          (lambda ()
            (test-assert
@@ -212,7 +212,7 @@
                (onboarding-state-record configuration '((:id "intro" :version 2)) ':completed)))
             "Publication failures propagate without falsely acknowledging a page")))
         (test-assert (string= before (uiop:read-file-string
-                                     (onboarding-state-path configuration)))
+                                      (onboarding-state-path configuration)))
                      "Publication failure preserves old snapshot bytes")
         (test-assert (equal (onboarding-state-pending configuration
                                                     '((:id "intro" :version 2)))
@@ -242,9 +242,9 @@
                 ':completed)))
           (test-assert (and reaped-p clean-exit-p)
                        "The independent state writer exits cleanly"))
-        (let* ((saved (sexp-store:store-read original-store))
+        (let* ((saved  (sexp-store:store-read original-store))
                (shared (find "shared" saved :test #'string=
-                             :key (lambda (page) (getf page :id)))))
+                             :key                 (lambda (page) (getf page :id)))))
           (test-assert (= (length saved) 3)
                        "A previously opened store reads both sessions' merged slides")
           (test-assert (and (= (getf shared :version) 4)

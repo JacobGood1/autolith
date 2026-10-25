@@ -23,24 +23,24 @@
 (-> test-terminal-compact-success-groups () null)
 (defun test-terminal-compact-success-groups ()
   "Group mixed single-line tool results across append and batch boundaries."
-  (let* ((edit (list (terminal-span ':success "✓ resource.edit")
-                     (terminal-span ':dim "  applied")))
-         (check (list (terminal-span ':success "✓ lisp.paren-check")))
-         (custom (list (terminal-span ':success "✓ extension.probe")))
-         (body (list (terminal-span ':success "✓ resource.read")
-                     (terminal-span ':plain (format nil "~%  │ body"))))
-         (failure (list (terminal-span ':failure "✗ resource.read failed")))
-         (call (list (terminal-span ':plain "▸ (shell.run)")))
-         (message (list (terminal-span ':success "✓ goal complete")))
-         (entries (list (list 0 edit) (list 0 "duplicate") (list 1 edit)
-                        (list 2 check) (list 3 custom) (list 4 body)
-                        (list 5 edit) (list 6 failure) (list 7 edit)
-                        (list 8 call) (list 9 edit) (list 10 message)))
+  (let* ((edit     (list (terminal-span ':success "✓ resource.edit")
+                         (terminal-span ':dim "  applied")))
+         (check    (list (terminal-span ':success "✓ lisp.paren-check")))
+         (custom   (list (terminal-span ':success "✓ extension.probe")))
+         (body     (list (terminal-span ':success "✓ resource.read")
+                         (terminal-span ':plain (format nil "~%  │ body"))))
+         (failure  (list (terminal-span ':failure "✗ resource.read failed")))
+         (call     (list (terminal-span ':plain "▸ (shell.run)")))
+         (message  (list (terminal-span ':success "✓ goal complete")))
+         (entries  (list (list 0 edit) (list 0 "duplicate") (list 1 edit)
+                         (list 2 check) (list 3 custom) (list 4 body)
+                         (list 5 edit) (list 6 failure) (list 7 edit)
+                         (list 8 call) (list 9 edit) (list 10 message)))
          (expected (format nil "✓ resource.edit  applied~%✓ resource.edit  applied~%✓ lisp.paren-check~%✓ extension.probe~%~%✓ resource.read~%  │ body~%~%✓ resource.edit  applied~%~%✗ resource.read failed~%~%✓ resource.edit  applied~%~%▸ (shell.run)~%~%✓ resource.edit  applied~%~%✓ goal complete~%~%")))
     (dolist (fullscreen-p '(nil t))
       (dolist (batch-p '(nil t))
         (let* ((terminal (make-instance 'recording-terminal :columns 100 :rows 24))
-               (ui (terminal-ui-create :terminal terminal :fullscreen-p fullscreen-p)))
+               (ui       (terminal-ui-create :terminal terminal :fullscreen-p fullscreen-p)))
           ;; Exercise durable noninteractive output and interactive deferred output.
           (dolist (deferred-p '(nil t))
             (setf (terminal-ui-live-output-suspended-p ui) deferred-p
@@ -77,10 +77,10 @@
   (let ((entry (list (terminal-span ':success "✓ extension.probe"))))
     (dolist (fullscreen-p '(nil t))
       (let* ((terminal (make-instance 'failing-recording-terminal :columns 100 :rows 24))
-             (ui (terminal-ui-create :terminal terminal :fullscreen-p fullscreen-p)))
+             (ui       (terminal-ui-create :terminal terminal :fullscreen-p fullscreen-p)))
         (with-terminal-ui (ui ui)
           (terminal-ui-append-finalized ui 0 entry)
-          (let ((count (hash-table-count (terminal-ui-finalized-identifiers ui)))
+          (let ((count  (hash-table-count (terminal-ui-finalized-identifiers ui)))
                 (before (terminal-ui-compact-tail-group ui)))
             (terminal-ui--finalized-content ui "capture only")
             (test-assert (and (eql before (terminal-ui-compact-tail-group ui))
@@ -94,7 +94,7 @@
           (setf (failing-recording-terminal-fail-next-write-p terminal) t)
           (test-assert
            (handler-case (progn (terminal-ui-append-finalized-batch
-                                ui (list (list 1 entry) (list 2 "boundary"))) nil)
+                                 ui (list (list 1 entry) (list 2 "boundary"))) nil)
              (terminal-error () t))
            "append error is propagated")
           (test-assert (and (eq (terminal-ui-compact-tail-group ui) ':success)
@@ -104,7 +104,7 @@
           (setf (terminal-ui-live-output-suspended-p ui) t)
           (terminal-ui-append-finalized ui 1 entry)
           (terminal-ui-stream-update ui :rows (list (list (terminal-span ':plain "stream")))
-                                     :tail "tail")
+                                     :tail    "tail")
           (terminal-ui-stream-update ui :rows (list (list (terminal-span ':plain "next"))))
           (test-assert (string= (terminal-ui-deferred-live-appended-text ui)
                                 (format nil "✓ extension.probe~%~%stream~%next~%"))
@@ -124,7 +124,7 @@
               (terminal-ui-append-finalized-batch
                ui (list (list 1 entry)
                         (list 2 (list (termdown:make-widget
-                                      ':code-copy "copy" '(:copy "boundary"))))))
+                                       ':code-copy "copy" '(:copy "boundary"))))))
               (terminal-ui-process-event ui '(:click 1 4))
               (test-assert (equal '(:copy "boundary") (first actions))
                            "batch widgets retain their regions across the inserted gap")
@@ -132,7 +132,7 @@
               (terminal-ui-append-finalized ui 0 entry)
               (terminal-ui-append-finalized-batch
                ui (list (list 2 (list (termdown:make-widget
-                                      ':code-copy "copy" '(:copy "external"))))))
+                                       ':code-copy "copy" '(:copy "external"))))))
               (terminal-ui-process-event ui '(:click 1 3))
               (test-assert (equal '(:copy "external") (first actions))
                            "leading batch gap shifts widget regions with the text")))))))
@@ -141,38 +141,38 @@
 (-> test-terminal-compact-call-groups () null)
 (defun test-terminal-compact-call-groups ()
   "Group exact call names across append boundaries in both transcript modes."
-  (let* ((call (list (terminal-span ':tool "▸ (resource.read)")))
-         (inline (list (terminal-span ':tool "▸ (resource.read")
-                       (terminal-span ':plain " ")
-                       (terminal-span ':syntax-keyword ":uri")
-                       (terminal-span ':plain " workspace:x")
-                       (terminal-span ':tool ")")))
-         (other (list (terminal-span ':tool "▸ (resource.edit)")))
-         (success (list (terminal-span ':success "✓ resource.read")))
-         (body (append call (list (terminal-span ':plain (format nil "~%  │ body")))))
-         (clipped (list (terminal-span ':tool "▸ (resource.re…")))
-         (mcp (list (terminal-span ':tool "▸ (MCP server / read)")))
-         (mcp-other (list (terminal-span ':tool "▸ (MCP server / write)")))
-         (handoff (list (terminal-span ':notice "↪ shell.run")
-                        (terminal-span ':dim "  running in background · exec:16")))
-         (handoff-next (list (terminal-span ':notice "↪ shell.run")
-                             (terminal-span ':dim "  running in background · exec:17")))
-         (handoff-other (list (terminal-span ':notice "↪ lisp.eval")))
-         (handoff-body (append handoff
-                               (list (terminal-span ':plain (format nil "~%  │ task")))))
+  (let* ((call            (list (terminal-span ':tool "▸ (resource.read)")))
+         (inline          (list (terminal-span ':tool "▸ (resource.read")
+                                (terminal-span ':plain " ")
+                                (terminal-span ':syntax-keyword ":uri")
+                                (terminal-span ':plain " workspace:x")
+                                (terminal-span ':tool ")")))
+         (other           (list (terminal-span ':tool "▸ (resource.edit)")))
+         (success         (list (terminal-span ':success "✓ resource.read")))
+         (body            (append call (list (terminal-span ':plain (format nil "~%  │ body")))))
+         (clipped         (list (terminal-span ':tool "▸ (resource.re…")))
+         (mcp             (list (terminal-span ':tool "▸ (MCP server / read)")))
+         (mcp-other       (list (terminal-span ':tool "▸ (MCP server / write)")))
+         (handoff         (list (terminal-span ':notice "↪ shell.run")
+                                (terminal-span ':dim "  running in background · exec:16")))
+         (handoff-next    (list (terminal-span ':notice "↪ shell.run")
+                                (terminal-span ':dim "  running in background · exec:17")))
+         (handoff-other   (list (terminal-span ':notice "↪ lisp.eval")))
+         (handoff-body    (append handoff
+                                  (list (terminal-span ':plain (format nil "~%  │ task")))))
          (handoff-clipped (list (terminal-span ':notice "↪ shell.r…")))
-         (handoff-failed (list (terminal-span ':failure "↪ shell.run")))
-         (entries (list call inline call other other success success call
-                        clipped call body call mcp mcp mcp-other
-                        handoff handoff-next handoff-other handoff-body
-                        handoff handoff-failed handoff-clipped handoff-clipped))
-         (pairs (loop for entry in entries for index from 0 collect (list index entry)))
-         (expected (format nil "▸ (resource.read)~%▸ (resource.read :uri workspace:x)~%▸ (resource.read)~%~%▸ (resource.edit)~%▸ (resource.edit)~%~%✓ resource.read~%✓ resource.read~%~%▸ (resource.read)~%~%▸ (resource.re…~%~%▸ (resource.read)~%~%▸ (resource.read)~%  │ body~%~%▸ (resource.read)~%~%▸ (MCP server / read)~%▸ (MCP server / read)~%~%▸ (MCP server / write)~%~%↪ shell.run  running in background · exec:16~%↪ shell.run  running in background · exec:17~%~%↪ lisp.eval~%~%↪ shell.run  running in background · exec:16~%  │ task~%~%↪ shell.run  running in background · exec:16~%~%↪ shell.run~%~%↪ shell.r…~%~%↪ shell.r…")))
+         (handoff-failed  (list (terminal-span ':failure "↪ shell.run")))
+         (entries         (list call inline call other other success success call
+                                clipped call body call mcp mcp mcp-other
+                                handoff handoff-next handoff-other handoff-body
+                                handoff handoff-failed handoff-clipped handoff-clipped))
+         (pairs           (loop for entry in entries for index from 0 collect (list index entry)))
+         (expected        (format nil "▸ (resource.read)~%▸ (resource.read :uri workspace:x)~%▸ (resource.read)~%~%▸ (resource.edit)~%▸ (resource.edit)~%~%✓ resource.read~%✓ resource.read~%~%▸ (resource.read)~%~%▸ (resource.re…~%~%▸ (resource.read)~%~%▸ (resource.read)~%  │ body~%~%▸ (resource.read)~%~%▸ (MCP server / read)~%▸ (MCP server / read)~%~%▸ (MCP server / write)~%~%↪ shell.run  running in background · exec:16~%↪ shell.run  running in background · exec:17~%~%↪ lisp.eval~%~%↪ shell.run  running in background · exec:16~%  │ task~%~%↪ shell.run  running in background · exec:16~%~%↪ shell.run~%~%↪ shell.r…~%~%↪ shell.r…")))
     (dolist (fullscreen-p '(nil t))
       (dolist (deferred-p '(nil t))
         (dolist (batch-p '(nil t))
           (let* ((terminal (make-instance 'recording-terminal :columns 100 :rows 24))
-                 (ui (terminal-ui-create :terminal terminal :fullscreen-p fullscreen-p)))
+                 (ui       (terminal-ui-create :terminal terminal :fullscreen-p fullscreen-p)))
             (setf (terminal-ui-live-output-suspended-p ui) deferred-p
                   (terminal-interactive-p terminal) deferred-p)
             (if batch-p
@@ -196,8 +196,8 @@
                            "same-tool calls share rows, while changes and bodies separate groups")))))))
   (dolist (fullscreen-p '(nil t))
     (let* ((terminal (make-instance 'failing-recording-terminal :columns 100 :rows 24))
-           (ui (terminal-ui-create :terminal terminal :fullscreen-p fullscreen-p))
-           (call (list (terminal-span ':tool "▸ (resource.read)"))))
+           (ui       (terminal-ui-create :terminal terminal :fullscreen-p fullscreen-p))
+           (call     (list (terminal-span ':tool "▸ (resource.read)"))))
       (with-terminal-ui (active ui)
         (terminal-ui-append-finalized active 0 call)
         (setf (failing-recording-terminal-fail-next-write-p terminal) t)
@@ -254,7 +254,7 @@
         (terminal-ui-append-finalized ui ':later "new output")
         (terminal-ui-stream-update ui :tail "still streaming")
         (test-assert (= top (fullscreen-test--top ui)) "streaming preserves the scrolled position")
-        (let* ((text (fullscreen-test--row-text ui top))
+        (let* ((text       (fullscreen-test--row-text ui top))
                (first-word (subseq text 0 (min 3 (length text)))))
           (terminal-ui-resize ui 17 :rows 12)
           (test-assert (and (integerp (fullscreen-test--top ui))
@@ -262,8 +262,8 @@
                                     (fullscreen-test--row-text ui (fullscreen-test--top ui))))
                        "resize keeps the scrolled source line on top")))
       (let* ((viewport (fullscreen-terminal-ui-viewport ui))
-             (rows (clinedi:transcript-viewport-row-count viewport))
-             (count (clinedi:transcript-viewport-chunk-count viewport)))
+             (rows     (clinedi:transcript-viewport-row-count viewport))
+             (count    (clinedi:transcript-viewport-chunk-count viewport)))
         (terminal-ui--paint-live ui)
         (test-assert (= rows (clinedi:transcript-viewport-row-count viewport))
                      "redraw adds no transcript rows")
@@ -281,8 +281,8 @@
 (defun test-terminal-fullscreen-pinned-activities ()
   "Keep live chrome beside the draft while unfinished output scrolls with history."
   (let* ((terminal (make-instance 'recording-terminal :columns 100 :rows 36))
-         (markers '("REPL" "exec:1" "exec:2" "review-3" "receiving response"
-                    "preview-live" "notice-live" "steer-live" "queued-live")))
+         (markers  '("REPL" "exec:1" "exec:2" "review-3" "receiving response"
+                     "preview-live" "notice-live" "steer-live" "queued-live")))
     (with-terminal-ui (ui (terminal-ui-create :terminal terminal :fullscreen-p t
                                              :prompt "> " :clock-function (constantly 10)))
       (terminal-ui-set-input ui "draft")
@@ -311,8 +311,8 @@
                (positions (rows)
                  (loop for marker in markers
                        collect (position-if (lambda (row) (search marker row)) rows))))
-        (let* ((initial (frame))
-               (pinned (positions initial))
+        (let* ((initial   (frame))
+               (pinned    (positions initial))
                (input-row (position-if (lambda (row) (search "draft" row)) initial)))
           (test-assert (every #'integerp pinned) "all active chrome fits above the draft")
           (test-assert (some (lambda (row) (search "unfinished-output" row)) initial)
@@ -370,18 +370,21 @@
 (-> test-terminal-fullscreen-flush-wrap-cursor () null)
 (defun test-terminal-fullscreen-flush-wrap-cursor ()
   "Hide the space at a flush wrap and keep the composer cursor on its character."
-  (let* ((draft "aaaa bbbb of the string")
-         (hanging (position #\Space draft :start 10))
+  (let* ((draft    "aaaa bbbb of the string")
+         (hanging  (position #\Space draft :start 10))
          (terminal (make-instance 'recording-terminal :columns 14 :rows 12)))
     (with-terminal-ui (ui (fullscreen-test--ui terminal))
       (terminal-ui-set-input ui draft)
       (loop for cursor downfrom (length draft) to 0
             do (multiple-value-bind (frame row column) (terminal-ui-fullscreen--frame ui nil)
-                 (let* ((line (clinedi:ansi-strip (nth row frame)))
-                        (shown (if (< column (length line)) (char line column) #\Space))
-                        (expected (cond ((= cursor (length draft)) #\Space)
-                                        ((= cursor hanging) (char draft (1+ cursor)))
-                                        (t (char draft cursor)))))
+                 (let* ((line     (clinedi:ansi-strip (nth row frame)))
+                        (shown    (if (< column (length line)) (char line column) #\Space))
+                        (expected (cond ((= cursor (length draft))
+                                         #\Space)
+                                        ((= cursor hanging)
+                                         (char draft (1+ cursor)))
+                                        (t
+                                         (char draft cursor)))))
                    (when (= cursor (length draft))
                      (test-assert (search "aaaa bbbb of" (clinedi:ansi-strip (nth (1- row) frame)))
                                   "the flush row keeps its last word")
@@ -396,7 +399,7 @@
 (defun test-terminal-fullscreen-failure-and-lifecycle ()
   "Roll back failed transcript paints and release an owned alternate screen exactly once."
   (let* ((terminal (make-instance 'failing-recording-terminal :columns 40 :rows 12))
-         (ui (fullscreen-test--ui terminal)))
+         (ui       (fullscreen-test--ui terminal)))
     (unwind-protect
          (progn
            (terminal-ui-start ui)
@@ -413,18 +416,18 @@
       (terminal-ui-stop ui)
       (test-assert (= count (length (recording-terminal-chunks terminal))) "repeated stop emits no control bytes"))
     (test-assert (not (fullscreen-terminal-ui-active-p ui)) "alternate ownership released")
-    (let* ((output (recording-terminal-output terminal))
-           (enter (search (alternate-screen-enter-sequence) output))
-           (enable (search (terminal-keyboard-enhancement-enable-sequence) output))
+    (let* ((output  (recording-terminal-output terminal))
+           (enter   (search (alternate-screen-enter-sequence) output))
+           (enable  (search (terminal-keyboard-enhancement-enable-sequence) output))
            (disable (search (terminal-keyboard-enhancement-disable-sequence) output))
-           (leave (search (alternate-screen-leave-sequence) output)))
+           (leave   (search (alternate-screen-leave-sequence) output)))
       (test-assert (and enter enable disable leave (< enter enable disable leave))
                    "keyboard protocol is acquired and restored inside the alternate buffer")
       (test-assert (= 1 (terminal-tests--substring-count
-                        (terminal-keyboard-enhancement-enable-sequence) output))
+                         (terminal-keyboard-enhancement-enable-sequence) output))
                    "repeated startup pushes one alternate keyboard mode")))
   (let* ((terminal (make-instance 'recording-terminal :columns 30 :rows 10))
-         (ui (fullscreen-test--ui terminal)))
+         (ui       (fullscreen-test--ui terminal)))
     (with-terminal-ui (active ui)
       (terminal-ui-append-finalized active ':before "before detach")
       (setf (terminal-interactive-p terminal) nil)
@@ -442,19 +445,18 @@
                      "detach and reattach balance alternate keyboard modes"))))
   nil)
 
-
 (-> test-terminal-fullscreen-relayed-wheel () null)
 (defun test-terminal-fullscreen-relayed-wheel ()
   "Decode framed remote wheel packets and scroll the viewport across reattachment."
-  (let* ((terminal (localgroup-terminal-create))
-         (packets (with-output-to-string (stream)
-                    (dolist (event '((:scroll 0) (:scroll "up") (:scroll -1 :extra)
-                                     (:scroll -1) (:scroll 1)))
-                      (daemon-write-packet stream (list :event event)))))
-         (output (make-string-output-stream))
+  (let* ((terminal   (localgroup-terminal-create))
+         (packets    (with-output-to-string (stream)
+                       (dolist (event '((:scroll 0) (:scroll "up") (:scroll -1 :extra)
+                                        (:scroll -1) (:scroll 1)))
+                         (daemon-write-packet stream (list :event event)))))
+         (output     (make-string-output-stream))
          (attachment (make-instance 'image-daemon:attachment :socket nil :mode ':control
                                     :stream (make-two-way-stream (make-string-input-stream packets) output)))
-         (ui (fullscreen-test--ui terminal)))
+         (ui         (fullscreen-test--ui terminal)))
     (image-daemon:relay-attach terminal attachment :rows 12 :columns 40 :styled-p nil :session-id "wheel-test")
     (unwind-protect
          (with-terminal-ui (active ui)
@@ -486,17 +488,16 @@
                    "prompt reopening restores mouse reporting")))
   nil)
 
-
 (-> test-terminal-fullscreen-relay-startup-output () null)
 (defun test-terminal-fullscreen-relay-startup-output ()
   "Test a detached fullscreen relay keeps transcript text out of its retained output."
-  (let* ((terminal (localgroup-terminal-create))
-         (output (make-string-output-stream))
+  (let* ((terminal   (localgroup-terminal-create))
+         (output     (make-string-output-stream))
          (attachment (make-instance 'image-daemon:attachment
                                     :socket nil :mode ':control
                                     :stream (make-two-way-stream
                                              (make-string-input-stream "") output)))
-         (ui (fullscreen-test--ui terminal)))
+         (ui         (fullscreen-test--ui terminal)))
     (unwind-protect
          (with-terminal-ui (active ui)
            (terminal-ui-append-finalized-batch
@@ -507,9 +508,9 @@
                                       :rows 12 :columns 40 :styled-p nil
                                       :session-id "startup-test")
            (terminal-ui-open-prompt-block active)
-           (let* ((history (image-daemon:relay-history-text terminal))
+           (let* ((history   (image-daemon:relay-history-text terminal))
                   (alternate (search (alternate-screen-enter-sequence) history))
-                  (row (search "row 29" history)))
+                  (row       (search "row 29" history)))
              (test-assert (and alternate row (< alternate row))
                           "the attached client sees the transcript only in its fullscreen paint")))
       (ignore-errors (image-daemon:relay-detach terminal attachment))
@@ -522,18 +523,18 @@
   (dolist (initially-attached-p '(nil t))
     (with-test-configuration (configuration)
       (let* ((conversation (conversation-create configuration))
-             (terminal (localgroup-terminal-create))
-             (ui (fullscreen-test--ui terminal))
-             (application (make-instance 'application
-                                         :configuration configuration
-                                         :conversation conversation
-                                         :ui ui))
-             (observer (application-agent-observer application))
-             (send-text (callback-agent-observer-text-callback observer))
-             (send-status (callback-agent-observer-status-callback observer))
-             (question "May I proceed with the startup wrapper?")
-             (answer (format nil "The patch is verified.~%~A" question))
-             (attachment nil))
+             (terminal     (localgroup-terminal-create))
+             (ui           (fullscreen-test--ui terminal))
+             (application  (make-instance 'application
+                                          :configuration configuration
+                                          :conversation  conversation
+                                          :ui            ui))
+             (observer     (application-agent-observer application))
+             (send-text    (callback-agent-observer-text-callback observer))
+             (send-status  (callback-agent-observer-status-callback observer))
+             (question     "May I proceed with the startup wrapper?")
+             (answer       (format nil "The patch is verified.~%~A" question))
+             (attachment   nil))
         (labels ((attach ()
                    "Attach a fresh terminal client and apply its repaint dimensions."
                    (setf attachment
@@ -606,7 +607,7 @@
 (defun test-terminal-fullscreen-clicks ()
   "Test clicks resolve to copy widgets and web URLs across streaming, scrolling, and deferral."
   (let ((terminal (make-instance 'recording-terminal :columns 40 :rows 12))
-        (actions nil))
+        (actions  nil))
     (with-terminal-ui (ui (fullscreen-test--ui terminal))
       (setf (terminal-ui-action-function ui)
             (lambda (action)
@@ -691,8 +692,8 @@
 (defun test-terminal-fullscreen-message-jumps ()
   "Test Ctrl-Page jumps land on user and assistant headers while skipping activity rows."
   (let* ((terminal (make-instance 'recording-terminal :columns 40 :rows 12))
-         (ui (terminal-ui-create :terminal terminal :fullscreen-p t :prompt "> "
-                                 :message-header-prefixes '("❯ you" "● autolith"))))
+         (ui       (terminal-ui-create :terminal terminal :fullscreen-p t :prompt "> "
+                                       :message-header-prefixes '("❯ you" "● autolith"))))
     (with-terminal-ui (active ui)
       (terminal-ui-append-finalized-batch
        active
@@ -736,7 +737,7 @@
 (defun test-terminal-fullscreen-exit-epilogue ()
   "Test epilogue text reaches the normal screen after the alternate buffer is left."
   (let* ((terminal (make-instance 'recording-terminal :columns 40 :rows 12))
-         (ui (fullscreen-test--ui terminal)))
+         (ui       (fullscreen-test--ui terminal)))
     (terminal-ui-start ui)
     (terminal-ui-append-finalized ui ':first "transcript row")
     (terminal-ui-set-epilogue ui (list (terminal-span ':dim "To resume this conversation, run:")
@@ -745,37 +746,36 @@
     (recording-terminal-reset terminal)
     (terminal-ui-stop ui)
     (let* ((output (recording-terminal-output terminal))
-           (leave (search (format nil "~C[?1049l" #\Escape) output))
+           (leave  (search (format nil "~C[?1049l" #\Escape) output))
            (advice (search "autolith resume abc" output)))
       (test-assert (and leave advice (< leave advice))
                    "the epilogue is written after the alternate buffer is restored")))
   nil)
 
-
 (-> test-terminal-fullscreen-forced-exit-resume () null)
 (defun test-terminal-fullscreen-forced-exit-resume ()
   "Test forced Ctrl-C restores fullscreen before printing the resume command."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (conversation (conversation-create configuration :identifier "fullscreen-force-resume"))
-         (terminal (make-instance 'recording-terminal :columns 40 :rows 12))
-         (ui (fullscreen-test--ui terminal))
-         (application (make-instance 'application
-                                      :configuration configuration
-                                      :conversation conversation
-                                      :ui ui))
+         (root          (test-configuration-root configuration))
+         (conversation  (conversation-create configuration :identifier "fullscreen-force-resume"))
+         (terminal      (make-instance 'recording-terminal :columns 40 :rows 12))
+         (ui            (fullscreen-test--ui terminal))
+         (application   (make-instance 'application
+                                        :configuration configuration
+                                        :conversation  conversation
+                                        :ui            ui))
          (forced-status nil)
-         (controller nil))
+         (controller    nil))
     (unwind-protect
          (progn
            (conversation-append-user-message conversation "keep this conversation")
            (setf controller
                  (make-instance 'application-input-controller
-                                :application application
-                                :main-thread (current-thread)
+                                :application              application
+                                :main-thread              (current-thread)
                                 :interrupt-clock-function (lambda () 10)
-                                :forced-exit-function (lambda (status)
-                                                        (setf forced-status status))))
+                                :forced-exit-function     (lambda (status)
+                                                            (setf forced-status status))))
            (setf (application-input-controller application) controller
                  (application-input-controller-active-p controller) t)
            (with-terminal-ui (active-ui ui)
@@ -783,7 +783,7 @@
              (application-input-controller--process-event controller ':interrupt)
              (application-input-controller--process-event controller ':interrupt))
            (let* ((output (recording-terminal-output terminal))
-                  (leave (search (format nil "~C[?1049l" #\Escape) output))
+                  (leave  (search (format nil "~C[?1049l" #\Escape) output))
                   (resume (search "autolith resume fullscreen-force-resume" output)))
              (test-assert (= forced-status *application-forced-interrupt-status*)
                           "fullscreen forced interruption exits with status 130")
@@ -792,17 +792,16 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore))
     nil))
 
-
 (-> test-terminal-fullscreen-new-conversation () null)
 (defun test-terminal-fullscreen-new-conversation ()
   "Start a new conversation through command dispatch and replace the fullscreen ledger."
   (with-test-configuration (configuration)
     (let* ((conversation (conversation-create configuration :identifier "old-ledger"))
-           (terminal (make-instance 'recording-terminal :columns 80 :rows 16))
-           (ui (fullscreen-test--ui terminal))
-           (application (make-instance 'application :configuration configuration
-                                                   :conversation conversation :ui ui))
-           (fail-p t))
+           (terminal     (make-instance 'recording-terminal :columns 80 :rows 16))
+           (ui           (fullscreen-test--ui terminal))
+           (application  (make-instance 'application :configuration configuration
+                                                    :conversation conversation :ui ui))
+           (fail-p       t))
       (conversation-append-user-message conversation "OLD-LEDGER")
       (with-terminal-ui (active ui)
         (terminal-ui-append-finalized active ':ledger "OLD-LEDGER")
@@ -826,7 +825,7 @@
            (test-assert
             (and (eq (application-conversation application) conversation)
                  (search "OLD-LEDGER" (clinedi:transcript-viewport-chunk-text
-                                      (fullscreen-terminal-ui-viewport active) 0)))
+                                       (fullscreen-terminal-ui-viewport active) 0)))
             "a failed switch retains its current fullscreen ledger")
            (setf fail-p nil)
            (test-assert (eq (application-command application "/new") ':continue)

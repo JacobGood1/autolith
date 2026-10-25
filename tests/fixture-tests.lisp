@@ -13,10 +13,10 @@
 (defun test-run-temporary-root-cleanup ()
   "Test scoped run ownership, nested cleanup, thread visibility and every exit."
   (let ((unrelated (test-make-temporary-root))
-        (previous (sb-ext:symbol-global-value '*test-temporary-root*)))
+        (previous  (sb-ext:symbol-global-value '*test-temporary-root*)))
     (unwind-protect
          (dolist (exit '(:normal :error :throw))
-           (let ((saved-root nil)
+           (let ((saved-root         nil)
                  (configuration-root nil))
              (test-assert
               (equal
@@ -61,9 +61,12 @@
                  (test-fixture-error ()
                    :failed))
                (ecase exit
-                 (:normal '(:finished 42))
-                 (:error :failed)
-                 (:throw :escaped)))
+                 (:normal
+                  '(:finished 42))
+                 (:error
+                  :failed)
+                 (:throw
+                  :escaped)))
               "run scopes preserve multiple values, errors and nonlocal exits")
              (test-assert (and saved-root (not (probe-file saved-root))
                                (not (probe-file configuration-root)))
@@ -150,7 +153,7 @@
 (-> test-environment-fixture-restoration () null)
 (defun test-environment-fixture-restoration ()
   "Test nested environment fixtures restore absent, empty, and nonempty values."
-  (let* ((name (format nil "AUTOLITH_FIXTURE_~A" (make-identifier)))
+  (let* ((name     (format nil "AUTOLITH_FIXTURE_~A" (make-identifier)))
          (original (uiop:getenv name)))
     (unless (test-fixture-available-p *platform* ':empty-environment-values)
       (test-withheld ':empty-environment-values
@@ -190,8 +193,8 @@
 (-> test-environment-fixture-evaluation () null)
 (defun test-environment-fixture-evaluation ()
   "Test binding expressions run once and invalid setup cannot leak earlier edits."
-  (let ((name (format nil "AUTOLITH_FIXTURE_~A" (make-identifier)))
-        (name-count 0)
+  (let ((name        (format nil "AUTOLITH_FIXTURE_~A" (make-identifier)))
+        (name-count  0)
         (value-count 0))
     (with-test-environment ((name "outer"))
       (with-test-environment (((progn (incf name-count) name)
@@ -214,10 +217,10 @@
 (-> test-function-replacement-fixture-restoration () null)
 (defun test-function-replacement-fixture-restoration ()
   "Test nested function replacements restore their definitions after errors."
-  (let* ((name (gensym "FIXTURE-FUNCTION"))
+  (let* ((name     (gensym "FIXTURE-FUNCTION"))
          (original (lambda () :original))
-         (outer (lambda () :outer))
-         (inner (lambda () :inner)))
+         (outer    (lambda () :outer))
+         (inner    (lambda () :inner)))
     (unwind-protect
          (progn
            (setf (symbol-function name) original)
@@ -255,8 +258,8 @@
                                                    (format nil "~A/" (make-string 50 :initial-element #\x))
                                                    path)
                              finally (return path)))
-             (target (merge-pathnames "target.txt" directory))
-             (link (merge-pathnames "link.txt" directory)))
+             (target    (merge-pathnames "target.txt" directory))
+             (link      (merge-pathnames "link.txt" directory)))
         (ensure-directories-exist target)
         (with-open-file (stream target :direction ':output)
           (write-string "long-link-target" stream))
@@ -274,8 +277,8 @@
   (with-test-fixture (':file-modes "complete POSIX permission copying")
     (with-test-configuration (configuration root)
       (declare (ignore configuration))
-      (let ((source (merge-pathnames "source.txt" root))
-            (target (merge-pathnames "target.txt" root))
+      (let ((source           (merge-pathnames "source.txt" root))
+            (target           (merge-pathnames "target.txt" root))
             (source-directory (merge-pathnames "source/" root))
             (target-directory (merge-pathnames "target/" root)))
         (dolist (path (list source target))

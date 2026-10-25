@@ -24,6 +24,7 @@
                         (terminal-span-text item)))
                   items)))
 
+
 ;;;; -- Selection and Discovery --
 
 (-> test-help-selection-and-bounds () null)
@@ -32,9 +33,9 @@
   (with-help-tests-application (application terminal)
     (declare (ignore terminal))
     (let* ((overview (application-operation-help application))
-           (section (application-operation-help application ':conversations))
-           (command (application-operation-help application 'conversations))
-           (tool (application-operation-help application "test-operation.echo")))
+           (section  (application-operation-help application ':conversations))
+           (command  (application-operation-help application 'conversations))
+           (tool     (application-operation-help application "test-operation.echo")))
       (test-assert (and (search "(new)" section) (not (search "(new)" command)))
                    "keywords choose sections while quoted symbols choose commands")
       (test-assert (equal (application-operation-help application " ReSuMe ")
@@ -58,7 +59,7 @@
        (application-tool-registry application)
        (make-instance 'tool :namespace "large-help" :name "entry"
                            :description (make-string 4096 :initial-element #\x)
-                           :parameters (tool-object-schema (json-object) nil)))
+                           :parameters  (tool-object-schema (json-object) nil)))
       (test-assert (<= (length (application-operation-help application)) (length overview))
                    "adding a large tool description does not enlarge the overview")
       (test-assert (search "large-help.entry" (application-operation-help application ':all))
@@ -76,13 +77,13 @@
               (application-command-create
                :definition-name 'help-tests--dynamic-command
                :name "/commands" :aliases nil :argument nil
-               :description "A dynamically registered help test command."
-               :tip "Exercise dynamic help discovery."
+               :description     "A dynamically registered help test command."
+               :tip             "Exercise dynamic help discovery."
                :busy-behavior ':inspect :terminal-behavior ':shared
                :lambda-list nil :callable-p t :static-options nil
-               :handler (lambda (application)
-                          (declare (ignore application))
-                          ':continue))
+               :handler         (lambda (application)
+                                  (declare (ignore application))
+                                  ':continue))
               :source ':test)
              (let ((section (application-operation-help application ':commands))
                    (command (application-operation-help application 'commands)))
@@ -93,7 +94,7 @@
                      (not (search "(new)" command))
                      (equal command (application-operation-help application "COMMANDS")))
                 "reserved keyword topics take precedence over live commands"))
-             (let* ((ui (application-ui application))
+             (let* ((ui     (application-ui application))
                     (editor (terminal-ui-editor ui)))
                (test-assert
                 (= 1 (count "/help commands"
@@ -111,7 +112,7 @@
                  (dolist (name '("(help :workspace)" "(help \"commands\")"
                                  "(help \"test-operation.echo\")"))
                    (let ((entry (find name matches :test #'string=
-                                                   :key (lambda (entry) (getf entry :name)))))
+                                                   :key  (lambda (entry) (getf entry :name)))))
                      (test-assert entry "help completion offers live subjects after the command")
                      (when entry
                        (terminal-ui--accept-completion ui entry)
@@ -120,6 +121,7 @@
         (application-command--registry-restore snapshot))))
   nil)
 
+
 ;;;; -- Public Invocation and Rendering --
 
 (-> test-help-public-invocation () null)
@@ -127,7 +129,7 @@
   "Test Lisp and ergonomic command invocation, readable errors, and provider isolation."
   (with-help-tests-application (application terminal)
     (let* ((conversation (application-conversation application))
-           (before (conversation-next-sequence conversation)))
+           (before       (conversation-next-sequence conversation)))
       (dolist (source '("(help)" "(help :workspace)" "(help 'resume)"
                         "(help \"test-operation.echo\")" "(help 42)"
                         "(help \"definitely-unknown\")"))
@@ -143,8 +145,8 @@
       (test-assert (= before (conversation-next-sequence conversation))
                    "help output does not append provider conversation records")
       (test-assert (zerop (application-operation-test-tool-calls
-                          (tool-registry-find (application-tool-registry application)
-                                              "test-operation" "echo")))
+                           (tool-registry-find (application-tool-registry application)
+                                               "test-operation" "echo")))
                    "looking up a tool never invokes it")
       (dolist (case '(("(help)" :execute)
                       ("(help :workspace)" :execute)
@@ -184,7 +186,7 @@
                 "heading colors preserve hierarchy markers, text, and wrapping")
                (let* ((terminal-heading (find ':syntax-heading spans
                                               :key #'terminal-span-style))
-                      (display (terminal--render-spans terminal (list terminal-heading))))
+                      (display          (terminal--render-spans terminal (list terminal-heading))))
                  (test-assert (search (terminal-style-sequence ':syntax-heading) display)
                               "styled terminals render heading colors from the current theme"))
                (test-assert
@@ -210,8 +212,8 @@
   "Test semantic colors, Lisp highlighting, copy widgets, and narrow-terminal wrapping."
   (with-help-tests-application (application terminal)
     (let* ((document (application-operation-help application))
-           (items (application--markdown-body application document))
-           (styles (mapcar #'terminal-span-style (remove-if #'termdown:widget-p items))))
+           (items    (application--markdown-body application document))
+           (styles   (mapcar #'terminal-span-style (remove-if #'termdown:widget-p items))))
       (test-assert (and (member ':brand styles) (member ':code styles)
                         (member ':syntax-heading styles))
                    "help uses semantic colors for its menu and inline command forms")
@@ -221,7 +223,7 @@
                    "rendered examples include source-copy widgets")
       (dolist (width '(40 80))
         (setf (terminal-columns terminal) width)
-        (let* ((text (help-tests--text (application--markdown-body application document)))
+        (let* ((text  (help-tests--text (application--markdown-body application document)))
                (lines (uiop:split-string text :separator '(#\Newline))))
           (test-assert (every (lambda (line) (<= (text-cell-width line) width)) lines)
                        "help prose and examples fit the current terminal width")))))

@@ -8,13 +8,12 @@
   (let ((pathname (merge-pathnames relative root)))
     (ensure-directories-exist pathname)
     (with-open-file (stream pathname
-                            :direction ':output
-                            :if-exists ':supersede
+                            :direction         ':output
+                            :if-exists         ':supersede
                             :if-does-not-exist ':create
-                            :external-format ':utf-8)
+                            :external-format   ':utf-8)
       (write-string content stream))
     pathname))
-
 
 (-> skill-tests--definition
     (string string string &key (:version t))
@@ -22,8 +21,8 @@
 (defun skill-tests--definition
     (name description instructions &key (version 1))
   "Return one native skill definition string."
-  (let ((*print-pretty* nil)
-        (*print-circle* nil)
+  (let ((*print-pretty*   nil)
+        (*print-circle*   nil)
         (*print-readably* nil))
     (format nil
             "(:autolith-skill~% :version ~S~% :name ~S~% :description ~S~% :instructions ~S)~%"
@@ -41,13 +40,12 @@
           description
           instructions))
 
-
 (-> skill-tests--contribution (list string) (option context-contribution))
 (defun skill-tests--contribution (contributions identifier)
   "Return the contribution named IDENTIFIER from CONTRIBUTIONS."
   (find identifier
         contributions
-        :key #'context-contribution-identifier
+        :key  #'context-contribution-identifier
         :test #'string=))
 
 (-> skill-tests--contribution-identifiers (list) list)
@@ -60,10 +58,9 @@
   "Delete temporary test ROOT when it exists."
   (when (probe-file root)
     (platform-delete-directory-tree *platform* root
-                                    :validate t
+                                    :validate          t
                                     :if-does-not-exist ':ignore))
   nil)
-
 
 (-> skill-tests--tool-namespaces (&key (:load-p boolean)) vector)
 (defun skill-tests--tool-namespaces (&key (load-p t))
@@ -95,8 +92,8 @@
                    (uiop:ensure-directory-pathname
                     (truename site-root)))
              (test-configuration :site-config-root site-root)))
-         (root (test-configuration-root base-configuration))
-         (project (merge-pathnames "project/" root))
+         (root              (test-configuration-root base-configuration))
+         (project           (merge-pathnames "project/" root))
          (working-directory (merge-pathnames "src/module/" project))
          (configuration
            (progn
@@ -107,12 +104,12 @@
              (configuration-copy
               base-configuration :working-directory
               working-directory)))
-         (project-skills (merge-pathnames ".autolith/skills/" project))
-          (user-skills
-            (merge-pathnames
-             "skills/"
-             (config :config-root configuration)))
-          (site-skills (merge-pathnames "skills/" site-root)))
+         (project-skills    (merge-pathnames ".autolith/skills/" project))
+         (user-skills
+           (merge-pathnames
+            "skills/"
+            (config :config-root configuration)))
+         (site-skills       (merge-pathnames "skills/" site-root)))
     (unwind-protect
          (progn
            (let ((roots (skill-roots configuration)))
@@ -196,7 +193,7 @@
                  (format nil "Instructions ~D." index)))))
            (let* ((catalog
                     (skill-catalog-for-configuration configuration))
-                  (winner (skill-catalog-find catalog "winner"))
+                  (winner   (skill-catalog-find catalog "winner"))
                   (standard (skill-catalog-find catalog "standard")))
              (test-assert
               (equal
@@ -256,16 +253,15 @@
   nil)
 
 
-
 ;;;; -- Ephemeral Selection Tests --
 
 (-> skill-tests--ephemeral-selection () null)
 (defun skill-tests--ephemeral-selection ()
   "Test fresh reads, explicit tool selection, stacking, and observability."
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
-         (project (merge-pathnames "project/" root))
-         (skill-root (merge-pathnames ".autolith/skills/" project))
+         (root               (test-configuration-root base-configuration))
+         (project            (merge-pathnames "project/" root))
+         (skill-root         (merge-pathnames ".autolith/skills/" project))
          (configuration
            (progn
              (ensure-directories-exist
@@ -379,8 +375,8 @@
                 (skill-context-contributor
                  (make-instance
                   'request-context
-                  :configuration configuration
-                  :conversation conversation
+                  :configuration   configuration
+                  :conversation    conversation
                   :tool-namespaces #())))
                "restricted child requests without skill.load receive no catalog")
               (test-assert
@@ -389,7 +385,7 @@
                  (make-instance
                   'request-context
                   :configuration configuration
-                  :conversation conversation
+                  :conversation  conversation
                   :tool-namespaces
                   (skill-tests--tool-namespaces :load-p nil))))
                "a skill namespace without load does not enable the catalog")
@@ -400,7 +396,7 @@
                   (make-instance
                    'request-context
                    :configuration configuration
-                   :conversation conversation
+                   :conversation  conversation
                    :tool-namespaces
                    (skill-tests--tool-namespaces))))
                 '("skill-catalog"
@@ -413,10 +409,10 @@
                  (make-instance
                   'request-context
                   :configuration configuration
-                  :conversation conversation
+                  :conversation  conversation
                   :tool-namespaces
                   (skill-tests--tool-namespaces)
-                  :compaction-p t)))
+                  :compaction-p  t)))
                "skills are absent from compaction side requests")))
            (test-assert
              (not (skill-logical-turn-active-p))
@@ -451,9 +447,9 @@
 (defun skill-tests--concurrent-parent-child-selection ()
   "Test concurrent parent and child logical turns keep selections isolated."
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
-         (project (merge-pathnames "project/" root))
-         (skills (merge-pathnames ".autolith/skills/" project))
+         (root               (test-configuration-root base-configuration))
+         (project            (merge-pathnames "project/" root))
+         (skills             (merge-pathnames ".autolith/skills/" project))
          (configuration
            (progn
              (ensure-directories-exist
@@ -464,14 +460,14 @@
          (conversation
            (conversation-create configuration
                                 :identifier "skill-thread-isolation"))
-         (barrier-lock (make-lock "Autolith Skill selection isolation"))
-         (barrier (make-condition-variable))
-         (child-ready-p nil)
-         (release-child-p nil)
-         (child-identifiers nil)
-         (child-selection nil)
-         (child-error nil)
-         (child-thread nil))
+         (barrier-lock       (make-lock "Autolith Skill selection isolation"))
+         (barrier            (make-condition-variable))
+         (child-ready-p      nil)
+         (release-child-p    nil)
+         (child-identifiers  nil)
+         (child-selection    nil)
+         (child-error        nil)
+         (child-thread       nil))
     (unwind-protect
          (progn
            (skill-tests--write
@@ -559,9 +555,9 @@
 (defun skill-tests--selection-failures-and-limits ()
   "Test selected-file failures and aggregate instruction limits."
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
-         (project (merge-pathnames "project/" root))
-         (skills (merge-pathnames ".autolith/skills/" project))
+         (root               (test-configuration-root base-configuration))
+         (project            (merge-pathnames "project/" root))
+         (skills             (merge-pathnames ".autolith/skills/" project))
          (lower-skills
            (merge-pathnames
             "skills/"
@@ -702,7 +698,7 @@
                   (skill-select-for-logical-turn configuration name))
                 (dolist (pathname warning-paths)
                   (delete-file pathname))
-                (let* ((*skill-warning-character-limit* 96)
+                (let* ((*skill-warning-character-limit*           96)
                        (*skill-warning-aggregate-character-limit* 120)
                        (contributions
                          (skill-request-contributions

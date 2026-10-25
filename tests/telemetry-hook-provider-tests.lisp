@@ -6,10 +6,10 @@
   "Exercise inherited subscription streaming, authentication refresh and transport retry."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((conversation (conversation-create configuration :identifier "telemetry-retry"))
-            (result (agent-test-result "retry-result" nil))
-            (provider (test-codex-provider-create
-                       configuration (list :unauthorized :server-error :unauthorized result)))
+     (let* ((conversation                   (conversation-create configuration :identifier "telemetry-retry"))
+            (result                         (agent-test-result "retry-result" nil))
+            (provider                       (test-codex-provider-create
+                                             configuration (list :unauthorized :server-error :unauthorized result)))
             (*bounded-retry-sleep-function* (lambda (seconds) (declare (ignore seconds)))))
        (multiple-value-bind (bodies results)
            (test-telemetry-hooks--capture
@@ -39,12 +39,12 @@
   (test-telemetry--call
    (lambda (configuration)
      (setf (config :model configuration) "grok-4.7")
-     (let* ((provider (grok-provider-create configuration))
-            (conversation (conversation-create configuration))
-            (outputs (list nil
-                           (list (json-object "type" "reasoning" "id" "fixture-reasoning"))
-                           (list (agent-test-message "Visible answer."))))
-            (requests 0)
+     (let* ((provider                       (grok-provider-create configuration))
+            (conversation                   (conversation-create configuration))
+            (outputs                        (list nil
+                                                  (list (json-object "type" "reasoning" "id" "fixture-reasoning"))
+                                                  (list (agent-test-message "Visible answer."))))
+            (requests                       0)
             (*bounded-retry-sleep-function* (lambda (seconds) (declare (ignore seconds)))))
        (credential-source-save
         (credential-manager-primary-source (provider-credential-manager provider))
@@ -108,16 +108,16 @@
   (test-telemetry--call
    (lambda (configuration)
      (dolist (mode '(:connection :inactivity))
-       (let* ((conversation (conversation-create configuration))
-              (source (provider-tests--completed-sse-source "recovered"))
-              (provider (provider-tests--transport-provider
-                         configuration
-                         (list (if (eq mode ':connection)
-                                   ':syscall
-                                   (make-string-input-stream source))
-                               (make-string-input-stream source))))
-              (failures nil)
-              (expired nil)
+       (let* ((conversation                   (conversation-create configuration))
+              (source                         (provider-tests--completed-sse-source "recovered"))
+              (provider                       (provider-tests--transport-provider
+                                               configuration
+                                               (list (if (eq mode ':connection)
+                                                         ':syscall
+                                                         (make-string-input-stream source))
+                                                     (make-string-input-stream source))))
+              (failures                       nil)
+              (expired                        nil)
               (*bounded-retry-sleep-function* (lambda (seconds) (declare (ignore seconds)))))
          (credential-source-save
           (credential-manager-primary-source (provider-credential-manager provider))
@@ -138,9 +138,9 @@
                  (lambda ()
                    (provider-stream-turn
                     provider conversation :tool-namespaces #()
-                    :event-callback (lambda (event)
-                                      (when (typep event 'provider-attempt-failed-event)
-                                        (push (provider-attempt-failed-event-condition event) failures))))))
+                    :event-callback                        (lambda (event)
+                                                             (when (typep event 'provider-attempt-failed-event)
+                                                               (push (provider-attempt-failed-event-condition event) failures))))))
               (test-assert (equal (provider-result-response-id (first results)) "recovered")
                            "The real subscription retry loop recovers from transport failure.")
               (test-assert (and (= (length failures) 1)
@@ -173,7 +173,7 @@
                              configuration
                              (if cancel-p (list :overloaded (agent-test-result "unused" nil))
                                  '(:unauthorized :unauthorized))))
-                  (caught nil)
+                  (caught   nil)
                   (*bounded-retry-sleep-function*
                     (lambda (seconds)
                       (declare (ignore seconds))
@@ -197,8 +197,8 @@
                                       '("authentication" "provider") :test #'equal)
                               (format nil "~A: Structured failures export a bounded error category." case-name)))
                (test-assert (equal (test-telemetry--attribute
-                                   (first (test-telemetry-hooks--kind (first bodies) "run"))
-                                   "autolith.run.outcome")
+                                    (first (test-telemetry-hooks--kind (first bodies) "run"))
+                                    "autolith.run.outcome")
                                   outcome)
                             (format nil "~A: Standalone terminal roots distinguish cancellation and failure." case-name))
                (test-assert
@@ -239,10 +239,10 @@
   "Compose enabled telemetry with mission admission and both usage protocols."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((result (mission-test--result "done"))
-            (provider (make-instance 'telemetry-test-mission-provider
-                                     :configuration configuration :results (list result result)))
-            (application (mission-test--application configuration))
+     (let* ((result       (mission-test--result "done"))
+            (provider     (make-instance 'telemetry-test-mission-provider
+                                         :configuration configuration :results (list result result)))
+            (application  (mission-test--application configuration))
             (conversation (application-conversation application)))
        (setf (application-provider application) provider)
        (application-mission-start application (mission-test--specification :turns 2))
@@ -287,9 +287,9 @@
   (test-telemetry--call
    (lambda (configuration)
      (let* ((conversation (conversation-create configuration :identifier "telemetry-fallback"))
-            (result (agent-test-result "custom-result" nil))
-            (provider (make-instance 'telemetry-test-values-provider
-                                     :configuration configuration :results (list result))))
+            (result       (agent-test-result "custom-result" nil))
+            (provider     (make-instance 'telemetry-test-values-provider
+                                         :configuration configuration :results (list result))))
        (multiple-value-bind (bodies results)
            (test-telemetry-hooks--capture
             configuration
@@ -305,8 +305,8 @@
        ;; Scripted fixtures with no configuration are valid when telemetry is off.
        (let ((bare (make-instance 'telemetry-test-values-provider :results (list result))))
          (test-assert (equal (multiple-value-list
-                             (provider-stream-turn bare conversation
-                                                   :tool-namespaces #() :event-callback #'identity))
+                              (provider-stream-turn bare conversation
+                                                    :tool-namespaces #() :event-callback #'identity))
                             (list result :secondary 17))
                       "An unconfigured provider is usable outside an ambient run.")))))
   (test-telemetry-hooks--mission-accounting)

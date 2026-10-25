@@ -19,14 +19,14 @@
     (acp-session-test--call-with-client
      configuration
      (lambda (service client)
-       (let* ((identifier (agentcomms:client-new-session client (namestring root)))
-              (session (acp-service--session service identifier))
+       (let* ((identifier  (agentcomms:client-new-session client (namestring root)))
+              (session     (acp-service--session service identifier))
               (application (acp-session-application session))
-              (agent (application-agent application))
-              (runtime (task-completion--runtime agent))
-              (provider (application-provider application))
-              (controller (acp-session-completion-thread session))
-              (jobs nil))
+              (agent       (application-agent application))
+              (runtime     (task-completion--runtime agent))
+              (provider    (application-provider application))
+              (controller  (acp-session-completion-thread session))
+              (jobs        nil))
          (agentcomms:client-prompt client identifier (list (agentcomms:acp-text-content "start")))
          (test-assert (task-completion-wakeup-connected-p agent) "ACP connects a completion wakeup")
          (acp-service--call-with-operation
@@ -66,14 +66,14 @@
   (with-test-configuration (configuration root)
     (let ((provider (make-instance 'acp-session-test-gated-provider
                                    :configuration configuration
-                                   :results (list (acp-session-test-text-result "resumed")))))
+                                   :results       (list (acp-session-test-text-result "resumed")))))
       (acp-session-test--call-with-client
        configuration
        (lambda (service client)
-         (let* ((identifier (agentcomms:client-new-session client (namestring root)))
-                (session (acp-service--session service identifier))
+         (let* ((identifier  (agentcomms:client-new-session client (namestring root)))
+                (session     (acp-service--session service identifier))
                 (application (acp-session-application session))
-                (agent (application-agent application)))
+                (agent       (application-agent application)))
            (conversation-append-user-message (application-conversation application) "start")
            (job-completion-tests--start agent (task-completion--runtime agent))
            (acp-completion-test--wait (lambda () (acp-session-test-gated-entered-p provider)))
@@ -102,7 +102,7 @@
      configuration
      (lambda (service client)
        (let ((failed-session nil)
-             (rejected-p nil))
+             (rejected-p     nil))
          (test-call-with-function-replacements
           (list (list 'acp-completion-start
                       (lambda (session)
@@ -131,12 +131,12 @@
     (acp-session-test--call-with-client
      configuration
      (lambda (service client)
-       (let* ((identifier (agentcomms:client-new-session client (namestring root)))
-              (session (acp-service--session service identifier))
+       (let* ((identifier  (agentcomms:client-new-session client (namestring root)))
+              (session     (acp-service--session service identifier))
               (application (acp-session-application session))
-              (agent (application-agent application))
-              (attempts 0)
-              (original (symbol-function 'agent-run-user-turn)))
+              (agent       (application-agent application))
+              (attempts    0)
+              (original    (symbol-function 'agent-run-user-turn)))
          (conversation-append-user-message (application-conversation application) "start")
          (test-call-with-function-replacements
           (list (list 'agent-run-user-turn

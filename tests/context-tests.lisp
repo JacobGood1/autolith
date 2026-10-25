@@ -22,9 +22,9 @@
   (declare (ignore context))
   (when *context-test-next-request-p*
     (make-context-contribution
-     :identifier "next"
+     :identifier  "next"
      :instruction "This appears on the next completed request only."
-     :lifetime ':next-request)))
+     :lifetime    ':next-request)))
 
 (-> context-tests--failure (request-context) null)
 (defun context-tests--failure (context)
@@ -38,7 +38,7 @@
   (let ((identifier
           (conversation-identifier (request-context-conversation context))))
     (make-context-contribution
-     :identifier "conversation-advice"
+     :identifier  "conversation-advice"
      :instruction (format nil "Advice for conversation ~A." identifier))))
 
 (-> context-tests--serialized (request-context) context-contribution)
@@ -47,7 +47,7 @@
   (declare (ignore context))
   (incf (first *context-test-invocation-state*))
   (make-context-contribution
-   :identifier "serialized"
+   :identifier  "serialized"
    :instruction "Serialized contributor invocation."))
 
 (-> context-tests--sensitive (request-context) context-contribution)
@@ -55,16 +55,16 @@
   "Return a contribution whose payload must not enter retained diagnostics."
   (declare (ignore context))
   (make-context-contribution
-   :identifier "sensitive"
+   :identifier  "sensitive"
    :instruction *context-test-sensitive-instruction*
-   :evidence *context-test-sensitive-evidence*
-   :priority 42
-   :class ':mandatory))
+   :evidence    *context-test-sensitive-evidence*
+   :priority    42
+   :class       ':mandatory))
 
 (-> context-tests--defining-form () null)
 (defun context-tests--defining-form ()
   "Test durable contributor definition installation and exact undo."
-  (let* ((name 'context-tests--defined)
+  (let* ((name       'context-tests--defined)
          (source
            "(define-context-contributor context-tests--defined (context) (declare (ignore context)) (make-context-contribution :identifier \"defined-advice\" :instruction \"Defined advice.\"))")
          (definition (self-read-form source))
@@ -96,30 +96,30 @@
     null)
 (defun context-tests--serialized-invocation (configuration conversation)
   "Test that a concurrent request cannot invoke contributors through the lock."
-  (let* ((*context-contributors* nil)
-         (*context-resolver* (cl-llm-provider-api:make-context-resolver))
-         (*context-last-deliveries* (make-hash-table :test #'equal))
-         (*context-last-delivery-order* nil)
-         (state (list 0))
+  (let* ((*context-contributors*          nil)
+         (*context-resolver*              (cl-llm-provider-api:make-context-resolver))
+         (*context-last-deliveries*       (make-hash-table :test #'equal))
+         (*context-last-delivery-order*   nil)
+         (state                           (list 0))
          (*context-test-invocation-state* state)
-         (ready-lock (make-lock "Autolith context test ready"))
-         (ready-condition (make-condition-variable))
-         (ready-p nil)
-         (thread nil)
-         (thread-error nil))
+         (ready-lock                      (make-lock "Autolith context test ready"))
+         (ready-condition                 (make-condition-variable))
+         (ready-p                         nil)
+         (thread                          nil)
+         (thread-error                    nil))
     (register-context-contributor "serialized" 'context-tests--serialized)
-    (let ((registrations *context-contributors*)
-          (receipts *context-resolver*)
-          (deliveries *context-last-deliveries*)
+    (let ((registrations  *context-contributors*)
+          (receipts       *context-resolver*)
+          (deliveries     *context-last-deliveries*)
           (delivery-order *context-last-delivery-order*))
       (with-lock-held (*context-contributor-invocation-lock*)
         (setf thread
               (make-thread
                (lambda ()
-                 (let ((*context-contributors* registrations)
-                       (*context-resolver* receipts)
-                       (*context-last-deliveries* deliveries)
-                       (*context-last-delivery-order* delivery-order)
+                 (let ((*context-contributors*          registrations)
+                       (*context-resolver*              receipts)
+                       (*context-last-deliveries*       deliveries)
+                       (*context-last-delivery-order*   delivery-order)
                        (*context-test-invocation-state* state))
                    (with-lock-held (ready-lock)
                      (setf ready-p t)
@@ -145,7 +145,7 @@
 (defun test-session-state-context-contributor ()
   "Test the protected built-in mutable session-state contribution."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "session-state-context")))
     (unwind-protect
@@ -158,7 +158,7 @@
                     (find "session-state"
                           (context-delivery-contributions delivery)
                           :test #'string=
-                          :key #'context-contribution-identifier)))
+                          :key  #'context-contribution-identifier)))
              (test-assert
               (and contribution
                    (search "HURRY-UP MODE IS ACTIVE"
@@ -171,7 +171,7 @@
               (not (find "session-state"
                          (context-delivery-contributions delivery)
                          :test #'string=
-                         :key #'context-contribution-identifier))
+                         :key  #'context-contribution-identifier))
               "a compact prompt override suppresses full session-state context"))
            (test-assert
             (handler-case
@@ -193,13 +193,13 @@
 (defun test-request-local-context ()
   "Test contributor registration, product diagnostics, and request projection."
   (context-tests--defining-form)
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (conversation (conversation-create configuration
-                                            :identifier "context-test"))
-         (*context-contributors* nil)
-         (*context-resolver* (cl-llm-provider-api:make-context-resolver))
-         (*context-last-deliveries* (make-hash-table :test #'equal))
+  (let* ((configuration                 (test-configuration))
+         (root                          (test-configuration-root configuration))
+         (conversation                  (conversation-create configuration
+                                                             :identifier "context-test"))
+         (*context-contributors*        nil)
+         (*context-resolver*            (cl-llm-provider-api:make-context-resolver))
+         (*context-last-deliveries*     (make-hash-table :test #'equal))
          (*context-last-delivery-order* nil)
          (*context-test-next-request-p* t))
     (unwind-protect
@@ -280,8 +280,8 @@
              (context-resolve-request configuration conversation #())
              (context-resolve-request configuration other-conversation #())
              (let ((current-status (context-status conversation))
-                   (other-status (context-status other-conversation))
-                   (latest-status (context-status)))
+                   (other-status   (context-status other-conversation))
+                   (latest-status  (context-status)))
                (test-assert
                 (and (search "conversation context-test" current-status)
                      (search "conversation-advice" current-status)
@@ -323,10 +323,10 @@
            (setf *context-contributors* nil)
            (register-context-contributor "next" 'context-tests--next-request)
            (let* ((provider (provider-create configuration))
-                  (before (copy-list
-                           (conversation-input-items conversation)))
-                  (request (provider-request-object provider conversation #()))
-                  (input (json-get request "input")))
+                  (before   (copy-list
+                             (conversation-input-items conversation)))
+                  (request  (provider-request-object provider conversation #()))
+                  (input    (json-get request "input")))
              (test-assert
               (and (= (length input) (1+ (length before)))
                    (string= (json-get (aref input (1- (length input))) "role")
@@ -350,8 +350,8 @@
               "product completion forwards successful delivery to the generic resolver"))
            (let ((request
                    (make-instance 'request-context
-                                  :configuration configuration
-                                  :conversation conversation
+                                  :configuration   configuration
+                                  :conversation    conversation
                                   :tool-namespaces #())))
              (test-assert
               (string= (request-context-latest-user-text request)
@@ -361,26 +361,25 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-known-context-estimate () null)
 (defun test-known-context-estimate ()
   "Account for known prompt, session state, history, and schemas before usage arrives."
   (with-test-configuration (configuration)
-    (let ((conversation (conversation-create configuration))
-          (registry (make-instance 'tool-registry))
-          (prompt (make-string 64 :initial-element #\p))
+    (let ((conversation  (conversation-create configuration))
+          (registry      (make-instance 'tool-registry))
+          (prompt        (make-string 64 :initial-element #\p))
           (session-state "")
-          (schemas (vector (json-object "description"
-                                        (make-string 800 :initial-element #\s)))))
+          (schemas       (vector (json-object "description"
+                                              (make-string 800 :initial-element #\s)))))
       (test-call-with-function-replacements
        (list (list 'system-prompt
                    (lambda (configuration)
                      (declare (ignore configuration))
                      prompt))
-              (list 'request-context-session-state
-                    (lambda (configuration &key hurry-up-p)
-                      (declare (ignore configuration hurry-up-p))
-                      session-state))
+             (list 'request-context-session-state
+                   (lambda (configuration &key hurry-up-p)
+                     (declare (ignore configuration hurry-up-p))
+                     session-state))
              (list 'tool-registry-provider-schemas
                    (lambda (registry &key canonical-names)
                      (declare (ignore registry canonical-names))
@@ -397,7 +396,7 @@
                (test-assert (> with-history with-state)
                             "retained conversation input contributes to the estimate")
                (test-assert (> (context-estimate-known-tokens
-                               configuration conversation :tool-registry registry)
+                                configuration conversation :tool-registry registry)
                               with-history)
                             "known tool schemas contribute to the estimate")
                (conversation-append-summary conversation "short handoff")
@@ -406,22 +405,21 @@
                             "compaction estimates the replacement input rather than old history"))))))))
   nil)
 
-
 (-> test-context-estimate-cache () null)
 (defun test-context-estimate-cache ()
   "Cache known-input counts across progress repaints and invalidate at state boundaries."
   (with-test-configuration (configuration)
-    (let* ((conversation (conversation-create configuration))
-           (registry (make-instance 'tool-registry))
-           (ui (terminal-ui-create
-                :terminal (make-instance 'recording-terminal :columns 100)))
-           (application (make-instance 'application
-                                       :configuration configuration
-                                       :conversation conversation
-                                       :provider nil :tool-registry registry :ui ui))
-           (prompt-calls 0)
-           (session-calls 0)
-           (schema-calls 0)
+    (let* ((conversation       (conversation-create configuration))
+           (registry           (make-instance 'tool-registry))
+           (ui                 (terminal-ui-create
+                                :terminal (make-instance 'recording-terminal :columns 100)))
+           (application        (make-instance 'application
+                                              :configuration configuration
+                                              :conversation  conversation
+                                              :provider nil :tool-registry registry :ui ui))
+           (prompt-calls       0)
+           (session-calls      0)
+           (schema-calls       0)
            (session-hurry-up-p nil))
       (test-call-with-function-replacements
        (list
@@ -473,7 +471,7 @@
                            (= prompt-calls 6))
                       "positive provider totals are authoritative without estimate builders")
          (setf (conversation-last-total-tokens conversation) 0)
-         (let ((before (application-context-usage application))
+         (let ((before   (application-context-usage application))
                (sequence (conversation-next-sequence conversation)))
            (conversation--append-ephemeral-input-item
             conversation
@@ -496,7 +494,7 @@
             (application-tool-registry application)
             (make-instance 'tool :namespace "test" :name "estimate"
                                  :description "Known estimate tool."
-                                 :parameters (json-object "type" "object")))
+                                 :parameters  (json-object "type" "object")))
            (application-set-activity application "tool replacement")
            (test-assert (= schema-calls (+ 9 index))
                         "in-place registration and same-name replacement refresh schema counts"))))))
@@ -507,13 +505,13 @@
   "Estimate only the checkpoint or portable handoff usable by the active provider."
   (with-test-configuration (configuration)
     (let* ((conversation (conversation-create configuration))
-           (application (make-instance 'application
-                                       :configuration configuration
-                                       :conversation conversation
-                                       :provider (make-instance 'native-scripted-provider)))
-           (checkpoint (json-object "type" "context_compaction"
-                                    "encrypted_content"
-                                    (make-string 4000 :initial-element #\c))))
+           (application  (make-instance 'application
+                                        :configuration configuration
+                                        :conversation  conversation
+                                        :provider      (make-instance 'native-scripted-provider)))
+           (checkpoint   (json-object "type" "context_compaction"
+                                      "encrypted_content"
+                                      (make-string 4000 :initial-element #\c))))
       (conversation-append-native-compaction
        conversation checkpoint :family ':codex :summary "Portable handoff.")
       (test-call-with-function-replacements

@@ -5,20 +5,20 @@
 (defclass test-short-character-input-stream
     (trivial-gray-streams:fundamental-character-input-stream)
   ((content
-    :initarg :content
-    :reader test-short-character-input-stream-content
+    :initarg       :content
+    :reader        test-short-character-input-stream-content
     :documentation "The characters returned by the test stream.")
    (position
-    :initform 0
-    :accessor test-short-character-input-stream-position
+    :initform      0
+    :accessor      test-short-character-input-stream-position
     :documentation "The next unread character in CONTENT.")
    (maximum-read-size
-    :initarg :maximum-read-size
-    :reader test-short-character-input-stream-maximum-read-size
+    :initarg       :maximum-read-size
+    :reader        test-short-character-input-stream-maximum-read-size
     :documentation "The largest short read returned before end of input.")
    (request-sizes
-    :initform nil
-    :accessor test-short-character-input-stream-request-sizes
+    :initform      nil
+    :accessor      test-short-character-input-stream-request-sizes
     :documentation "The character counts requested through READ-SEQUENCE."))
   (:documentation "A character stream that records and shortens sequence reads."))
 
@@ -48,8 +48,8 @@
 (defun test-bounded-character-reads ()
   "Exercise bounded character reads across full, short, and empty inputs."
   (let* ((*character-read-sequence-window* 3)
-         (content "příliš žluťoučký kůň")
-         (buffer (make-string (length content))))
+         (content                          "příliš žluťoučký kůň")
+         (buffer                           (make-string (length content))))
     (with-input-from-string (stream content)
       (test-assert
        (= (read-character-sequence buffer stream) (length content))
@@ -58,11 +58,11 @@
        (string= buffer content)
        "bounded character reads preserve multibyte character content")))
   (let* ((*character-read-sequence-window* 3)
-         (content "žluť")
-         (stream (make-instance 'test-short-character-input-stream
-                                :content content
-                                :maximum-read-size 2))
-         (buffer (make-string 8 :initial-element #\?)))
+         (content                          "žluť")
+         (stream                           (make-instance 'test-short-character-input-stream
+                                                          :content           content
+                                                          :maximum-read-size 2))
+         (buffer                           (make-string 8 :initial-element #\?)))
     (test-assert
      (= (read-character-sequence buffer stream) (length content))
      "bounded character reads continue after short reads")

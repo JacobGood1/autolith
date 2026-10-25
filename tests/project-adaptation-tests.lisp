@@ -13,8 +13,8 @@
   (let ((record
           (list :message
                 :seq (conversation-next-sequence conversation)
-                :time (+ (conversation-created-at conversation) seconds-after)
-                :role ':user
+                :time    (+ (conversation-created-at conversation) seconds-after)
+                :role    ':user
                 :content "later project work")))
     (log-append (conversation-log-pathname conversation) record)
     (conversation--note-activity conversation record)
@@ -44,8 +44,8 @@
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui (terminal-ui-create :terminal terminal))))
+                          :conversation  conversation
+                          :ui            (terminal-ui-create :terminal terminal))))
     (with-terminal-ui (active-ui (application-ui application))
       (declare (ignore active-ui))
       (application-maybe-offer-project-adaptation application))
@@ -54,10 +54,10 @@
 (-> test-project-adaptations () null)
 (defun test-project-adaptations ()
   "Test project notes, offer decisions, qualification, and ephemeral advice."
-  (let* ((base (test-configuration))
+  (let* ((base           (test-configuration))
          (temporary-root (test-configuration-root base))
-         (repository (merge-pathnames "project/" temporary-root))
-         (nested (merge-pathnames "src/deep/" repository)))
+         (repository     (merge-pathnames "project/" temporary-root))
+         (nested         (merge-pathnames "src/deep/" repository)))
     (unwind-protect
          (progn
            (ensure-directories-exist (merge-pathnames ".git/" repository))
@@ -65,8 +65,8 @@
            (let* ((configuration
                     (configuration-copy base :working-directory nested))
                   (project-root (workspace-project-root nested))
-                  (notes (workspace-autolith-notes-path nested))
-                  (now 4000000000))
+                  (notes        (workspace-autolith-notes-path nested))
+                  (now          4000000000))
              (configuration-ensure-directories configuration)
              (test-assert (equal project-root (truename repository))
                           "project identity walks from a nested workspace to Git")
@@ -118,8 +118,8 @@
                       configuration)))
                (setf *project-adaptation-test-read-eval-p* nil)
                (with-open-file (stream state-pathname
-                                       :direction ':output
-                                       :if-exists ':supersede
+                                       :direction         ':output
+                                       :if-exists         ':supersede
                                        :if-does-not-exist ':create)
                  (write-string
                   "#.(setf autolith::*project-adaptation-test-read-eval-p* t)"
@@ -185,8 +185,8 @@
                (project-adaptation-tests--append-late-turn
                 malformed *project-adaptation-substantial-seconds*)
                (with-open-file (stream (conversation-log-pathname malformed)
-                                       :direction ':output
-                                       :if-exists ':append
+                                       :direction       ':output
+                                       :if-exists       ':append
                                        :external-format ':utf-8)
                  (write-char #\( stream))
                (test-assert
@@ -213,24 +213,24 @@
                       "legacy-incomplete.sexp"
                       (configuration-conversation-root configuration))))
                (with-open-file (stream legacy-pathname
-                                       :direction ':output
-                                       :if-exists ':supersede
+                                       :direction         ':output
+                                       :if-exists         ':supersede
                                        :if-does-not-exist ':create
-                                       :external-format ':utf-8)
+                                       :external-format   ':utf-8)
                  (write (list :conversation
                               :version 1
-                              :id "legacy-incomplete"
+                              :id         "legacy-incomplete"
                               :created-at nil
-                              :directory (namestring nested))
-                        :stream stream
+                              :directory  (namestring nested))
+                        :stream   stream
                         :readably t)
                  (terpri stream)
                  (dotimes (index *project-adaptation-fallback-user-turns*)
                    (write (list :message
                                 :seq (1+ index)
-                                :role ':user
+                                :role    ':user
                                 :content "legacy turn")
-                          :stream stream
+                          :stream   stream
                           :readably t)
                    (terpri stream))
                  (write-char #\( stream))
@@ -256,20 +256,20 @@
                 "history from another project does not qualify the current path"))
              (test-assert
               (project-adaptation--substantial-conversation-p
-               (list :created-at 100
+               (list :created-at       100
                      :last-activity-at 3700
-                     :user-turns 1))
+                     :user-turns       1))
               "a recorded one-hour activity span is substantial")
              (test-assert
               (not
                (project-adaptation--substantial-conversation-p
-                (list :created-at 100
+                (list :created-at       100
                       :last-activity-at 3699
-                      :user-turns 20)))
+                      :user-turns       20)))
               "recorded duration takes precedence over the legacy turn fallback")
              (test-assert
               (project-adaptation--substantial-conversation-p
-               (list :created-at nil
+               (list :created-at       nil
                      :last-activity-at nil
                      :user-turns
                      *project-adaptation-fallback-user-turns*))
@@ -328,8 +328,8 @@
                       (uiop:read-file-string notes))
               "the generated ledger explains its non-executable boundary")
              (with-open-file (stream notes
-                                     :direction ':output
-                                     :if-exists ':supersede
+                                     :direction       ':output
+                                     :if-exists       ':supersede
                                      :external-format ':utf-8)
                (write-string "adaptation-marker" stream))
              (project-adaptation-notes-create project-root)
@@ -341,15 +341,15 @@
                                            :identifier "context"))
                     (request
                       (make-instance 'request-context
-                                     :configuration configuration
-                                     :conversation conversation
+                                     :configuration   configuration
+                                     :conversation    conversation
                                      :tool-namespaces #()))
                     (compaction-request
                       (make-instance 'request-context
-                                     :configuration configuration
-                                     :conversation conversation
+                                     :configuration   configuration
+                                     :conversation    conversation
                                      :tool-namespaces #()
-                                     :compaction-p t))
+                                     :compaction-p    t))
                     (contribution
                       (project-adaptation--context-contributor request))
                     (registration
@@ -385,6 +385,6 @@
                (test-assert (not (conversation-persisted-p conversation))
                             "project advice never creates conversation history"))))
       (platform-delete-directory-tree *platform* temporary-root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)

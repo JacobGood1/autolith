@@ -18,9 +18,9 @@
     (emacs-register-tools registry)
     (make-instance 'tool-context
                    :configuration configuration
-                   :registry registry
-                   :worker nil
-                   :conversation (conversation-create configuration :identifier "emacs")
+                   :registry      registry
+                   :worker        nil
+                   :conversation  (conversation-create configuration :identifier "emacs")
                    :command-authorization-function
                    (lambda (command directory)
                      (declare (ignore command directory))
@@ -76,9 +76,9 @@
      (lambda ()
        (unwind-protect
             (let* ((connection (sb-bsd-sockets:socket-accept listener))
-                   (stream (sb-bsd-sockets:socket-make-stream
-                            connection :input t :output t :element-type 'character
-                                       :external-format ':utf-8 :buffering ':full)))
+                   (stream     (sb-bsd-sockets:socket-make-stream
+                                connection :input t :output t :element-type 'character
+                                           :external-format ':utf-8 :buffering ':full)))
               (unwind-protect
                    (progn
                      (funcall function (read-line stream nil "") stream)
@@ -123,12 +123,12 @@
   "Resolve native PATH entries, spaces, empty entries and Windows executable names."
   (with-test-configuration (configuration root)
     (declare (ignore configuration))
-    (let* ((first (merge-pathnames "Program Files/Emacs/bin/" root))
-           (second (merge-pathnames "later/bin/" root))
-           (missing (merge-pathnames "missing/" root))
-           (first-executable (merge-pathnames "emacs.exe" first))
+    (let* ((first             (merge-pathnames "Program Files/Emacs/bin/" root))
+           (second            (merge-pathnames "later/bin/" root))
+           (missing           (merge-pathnames "missing/" root))
+           (first-executable  (merge-pathnames "emacs.exe" first))
            (second-executable (merge-pathnames "emacs.exe" second))
-           (separator (uiop:inter-directory-separator)))
+           (separator         (uiop:inter-directory-separator)))
       (dolist (executable (list first-executable second-executable))
         (ensure-directories-exist executable)
         (publish-file executable "Emacs discovery fixture")
@@ -173,7 +173,7 @@
   (with-platform-capability (':local-sockets "Emacs server protocol")
     (let ((directory (emacs-test-short-directory)))
       (unwind-protect
-           (let ((socket (merge-pathnames "server" directory))
+           (let ((socket  (merge-pathnames "server" directory))
                  (request nil))
              (join-thread
               (prog1 (emacs-test-serve-once
@@ -249,8 +249,8 @@
                    "A named socket that does not exist registers nothing.")
       (with-platform-capability (':local-sockets "Emacs tool registration")
         (let* ((directory (emacs-test-short-directory))
-               (socket (merge-pathnames "server" directory))
-               (listener (platform-local-listener *platform* socket)))
+               (socket    (merge-pathnames "server" directory))
+               (listener  (platform-local-listener *platform* socket)))
           (unwind-protect
                (test-assert (registered-p (emacs-test-configuration root socket))
                             "An existing Emacs server socket registers the tools and scheme.")
@@ -263,10 +263,10 @@
 (-> emacs-test-resource-authority (pathname configuration &key (:file pathname) (:outside pathname)) null)
 (defun emacs-test-resource-authority (socket configuration &key file outside)
   "Exercise filtered snapshots, region authorization and retargeted edits in real Emacs."
-  (let* ((sandbox (emacs-test-context configuration :authorization ':sandboxed))
-         (full (emacs-test-context configuration))
+  (let* ((sandbox      (emacs-test-context configuration :authorization ':sandboxed))
+         (full         (emacs-test-context configuration))
          (outside-name (file-namestring outside))
-         (outside-uri (emacs-buffer-uri outside-name)))
+         (outside-uri  (emacs-buffer-uri outside-name)))
     (emacs-server-evaluate
      socket
      (format nil "(progn (make-frame-visible (selected-frame)) (switch-to-buffer ~S) (auto-save-mode -1) (erase-buffer) (insert \"OUTSIDE-REGION-SECRET\") (goto-char (point-min)) (set-mark (point-max)) (setq transient-mark-mode t mark-active t autolith-secret-reads 0) (advice-add 'buffer-substring-no-properties :before (lambda (&rest ignored) (when (equal (buffer-name) ~S) (setq autolith-secret-reads (1+ autolith-secret-reads))))))"
@@ -299,7 +299,7 @@
      socket "(progn (switch-to-buffer \"notes.lisp\") (goto-char (point-min)) (set-mark (point-max)) (setq mark-active t))")
     (test-assert (search "λ unsaved" (emacs-test-read sandbox "emacs:current"))
                  "Workspace selected regions are usable without full access.")
-    (let* ((text (emacs-test-read sandbox "emacs:buffer/notes.lisp"))
+    (let* ((text     (emacs-test-read sandbox "emacs:buffer/notes.lisp"))
            (revision (emacs-test-revision text)))
       (emacs-server-evaluate
        socket (format nil "(with-current-buffer \"notes.lisp\" (setq buffer-file-name ~S))"
@@ -322,12 +322,12 @@
         (test-withheld ':emacs "real Emacs server tools")
         (with-test-configuration (base root)
           (declare (ignore base))
-          (let* ((runtime (emacs-test-short-directory))
-                 (name "autolith-test")
-                 (socket (merge-pathnames (format nil "emacs/~A" name) runtime))
-                 (file (merge-pathnames "notes.lisp" root))
-                 (outside (merge-pathnames "outside.txt" runtime))
-                 (configuration (emacs-test-configuration root socket))
+          (let* ((runtime           (emacs-test-short-directory))
+                 (name              "autolith-test")
+                 (socket            (merge-pathnames (format nil "emacs/~A" name) runtime))
+                 (file              (merge-pathnames "notes.lisp" root))
+                 (outside           (merge-pathnames "outside.txt" runtime))
+                 (configuration     (emacs-test-configuration root socket))
                  (daemon-process-id nil))
             (publish-file file (format nil "(defun greet ()~%  \"hello\")~%"))
             (publish-file outside (format nil "outside~%"))
@@ -347,7 +347,7 @@
                             (uiop:native-namestring file) (uiop:native-namestring outside)))
                    (emacs-test-resource-authority socket configuration :file file :outside outside)
                    (let ((context (emacs-test-context configuration))
-                         (uri "emacs:buffer/notes.lisp"))
+                         (uri     "emacs:buffer/notes.lisp"))
                      (test-assert (search "- emacs:buffer/notes.lisp, visiting"
                                           (emacs-test-read context "emacs:current"))
                                   "emacs:current lists file buffers by their URI.")
@@ -419,7 +419,7 @@
                          (not (emacs-test-await-exit daemon-process-id 10)))
                 (error 'emacs-server-error
                        :message "The test Emacs daemon did not exit before cleanup."
-                       :reason ':timeout))
+                       :reason  ':timeout))
               (platform-delete-directory-tree *platform* runtime :validate t :if-does-not-exist ':ignore)))))))
 
 
@@ -448,7 +448,6 @@
                            (format nil "autolith.el compiles cleanly: ~A" error-output))
               (test-assert (probe-file (merge-pathnames "autolith.elc" root))
                            "Compilation writes autolith.elc.")))))))
-
 
 (-> test-autolith-el-layout () t)
 (defun test-autolith-el-layout ()

@@ -15,10 +15,10 @@
         (lambda (registry context)
           (let* ((explanation (format nil "Observed retries returned success without a result. ~A Contact fixture@example.org token=fixture-token"
                                       (apply #'concatenate 'string (make-list 40 :initial-element "The cause is still a hypothesis. "))))
-                 (incident nil)
-                 (mutation nil)
-                 (bodies nil)
-                 (redactions 0)
+                 (incident    nil)
+                 (mutation    nil)
+                 (bodies      nil)
+                 (redactions  0)
                  (*telemetry-process-function*
                    (lambda (run request)
                      (declare (ignore run))
@@ -28,7 +28,8 @@
                         (test-assert (not (search "fixture-token" (second request)))
                                      "Pre-redaction masks credentials before native work.")
                         (second request))
-                       (:upload (push (third request) bodies) t)))))
+                       (:upload
+                        (push (third request) bodies) t)))))
             (labels ((call (namespace name arguments)
                        (tool-execute (tool-registry-find registry namespace name) context arguments)))
               (telemetry-call-with-run
@@ -68,13 +69,13 @@
                  (papercut-assess configuration incident :verdict ':improved :note "PRIVATE_LOCAL_ASSESSMENT"
                                   :diagnostic "The focused setting check passed; the retry cause remains uncertain.")
                  (papercut-mark-closed configuration incident :resolution "PRIVATE_LOCAL_RESOLUTION"
-                                      :diagnostic "Closed this synthetic incident after rollback; no claim of a full fix.")))
-              (let* ((body (test-telemetry-hooks--merge-bodies (nreverse bodies)))
-                     (report (first (test-telemetry-hooks--kind body "report")))
-                     (checks (test-telemetry-hooks--kind body "check"))
+                                      :diagnostic                         "Closed this synthetic incident after rollback; no claim of a full fix.")))
+              (let* ((body        (test-telemetry-hooks--merge-bodies (nreverse bodies)))
+                     (report      (first (test-telemetry-hooks--kind body "report")))
+                     (checks      (test-telemetry-hooks--kind body "check"))
                      (incident-id (test-telemetry--attribute report "autolith.incident.id"))
-                     (repairs (test-telemetry-hooks--kind body "repair"))
-                     (attempt-id (test-telemetry--attribute (first repairs) "autolith.repair.attempt.id")))
+                     (repairs     (test-telemetry-hooks--kind body "repair"))
+                     (attempt-id  (test-telemetry--attribute (first repairs) "autolith.repair.attempt.id")))
                 (dolist (span (append repairs checks))
                   (test-assert (and (equal incident-id (test-telemetry--attribute span "autolith.incident.id"))
                                     (equal attempt-id (test-telemetry--attribute span "autolith.repair.attempt.id")))
@@ -102,8 +103,8 @@
 
 (defun test-telemetry-diagnostic-redactor-pieces ()
   "Retain the entire narrative through the bounded native API, or discard it all."
-  (let* ((text (apply #'concatenate 'string (make-list 200 :initial-element "Check the retry result. ")))
-         (pieces nil)
+  (let* ((text    (apply #'concatenate 'string (make-list 200 :initial-element "Check the retry result. ")))
+         (pieces  nil)
          (fail-at nil))
     (test-call-with-function-replacements
      (list (list 'defingerprinter:redact
@@ -132,15 +133,17 @@
            (config :telemetry-diagnostics-p configuration) t)
      (telemetry-attach configuration)
      (let* ((registry (make-default-tool-registry))
-            (context (make-instance 'tool-context :configuration configuration :worker nil
-                                   :conversation (conversation-create configuration)))
-            (bodies nil)
+            (context  (make-instance 'tool-context :configuration configuration :worker nil
+                                    :conversation (conversation-create configuration)))
+            (bodies   nil)
             (*telemetry-process-function*
               (lambda (run request)
                 (declare (ignore run))
                 (ecase (first request)
-                  (:redact (second request))
-                  (:upload (push (third request) bodies) t)))))
+                  (:redact
+                   (second request))
+                  (:upload
+                   (push (third request) bodies) t)))))
        (labels ((read-resource (uri)
                   (papercut-resource-tests--call registry context "resource" "read" "uri" uri))
 
@@ -160,7 +163,7 @@
                                                     "diagnostic" "Observed a resource failure; the cause is unknown.")))
              "Resource reporting accepts its explicit diagnostic field.")
             (let* ((report (first (papercut-list configuration)))
-                   (uri (resource-item-uri "papercut" (papercut-identifier report))))
+                   (uri    (resource-item-uri "papercut" (papercut-identifier report))))
               (test-assert
                (not (tool-result-success-p
                      (edit uri (json-object "op" "papercut-assess" "verdict" "improved" "note" "PRIVATE_RESOURCE_NOTE"
@@ -178,9 +181,9 @@
                 (edit uri (json-object "op" "papercut-close" "resolution" "PRIVATE_RESOURCE_RESOLUTION"
                                        "diagnostic" "Closed after the focused probe; full verification remains absent.")))
                "Resource closure accepts its explicit explanation."))))
-         (let* ((body (test-telemetry-hooks--merge-bodies bodies))
+         (let* ((body       (test-telemetry-hooks--merge-bodies bodies))
                 (assessment (first (test-telemetry-hooks--kind body "assessment")))
-                (closure (first (test-telemetry-hooks--kind body "closure"))))
+                (closure    (first (test-telemetry-hooks--kind body "closure"))))
            (test-assert (null (test-telemetry-hooks--kind body "repair")) "Assessments and closure are separate from repairs.")
            (test-assert (and (equal (test-telemetry--attribute assessment "autolith.repair.outcome") "improved")
                              (equal (test-telemetry--attribute closure "autolith.repair.outcome") "closed"))
@@ -196,13 +199,15 @@
            (config :telemetry-diagnostics-p configuration) t)
      (telemetry-attach configuration)
      (let ((bodies nil)
-           (text (apply #'concatenate 'string (make-list 2000 :initial-element "é\\ \""))))
+           (text   (apply #'concatenate 'string (make-list 2000 :initial-element "é\\ \""))))
        (let ((*telemetry-process-function*
                (lambda (run request)
                  (declare (ignore run))
                  (ecase (first request)
-                   (:redact (second request))
-                   (:upload (push (third request) bodies) t)))))
+                   (:redact
+                    (second request))
+                   (:upload
+                    (push (third request) bodies) t)))))
          (telemetry-call-with-run
           configuration
           (lambda ()
@@ -228,17 +233,20 @@
     (declare (ignore configuration))
     (let ((library (merge-pathnames "redactor-library" root))
           (context (list ':fixture))
-          (text (apply #'concatenate 'string
-                       (make-list 500 :initial-element "Detailed observation. "))))
+          (text    (apply #'concatenate 'string
+                          (make-list 500 :initial-element "Detailed observation. "))))
       (with-open-file (stream library :direction ':output :if-exists ':supersede)
         (write-string "fixture" stream))
       (dolist (case '(:success :failure :saturated :expanded :unbroken :oversized))
         (let ((loads 0) (creates 0) (closes 0) (pieces nil)
               (input (case case
-                       (:unbroken (make-string 600 :initial-element #\a))
-                       (:oversized (make-string (1+ *telemetry-diagnostic-limit*)
-                                                :initial-element #\Space))
-                       (otherwise (subseq text 0 (min (length text) *telemetry-diagnostic-limit*))))))
+                       (:unbroken
+                        (make-string 600 :initial-element #\a))
+                       (:oversized
+                        (make-string (1+ *telemetry-diagnostic-limit*)
+                                     :initial-element #\Space))
+                       (otherwise
+                        (subseq text 0 (min (length text) *telemetry-diagnostic-limit*))))))
           (test-call-with-function-replacements
            (list (list 'defingerprinter:load-library
                        (lambda (path) (declare (ignore path)) (incf loads)))

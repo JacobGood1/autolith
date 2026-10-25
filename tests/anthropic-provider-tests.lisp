@@ -14,7 +14,7 @@
   (test-assert (eq (model-family "claude-haiku-4-5-20251001") ':anthropic)
                "Claude identifiers resolve to the Anthropic family")
   (let* ((configuration (anthropic-provider-test--configuration))
-         (provider (anthropic-provider-create configuration)))
+         (provider      (anthropic-provider-create configuration)))
     (test-assert
      (string= (config :provider-endpoint configuration)
               *anthropic-messages-endpoint*)
@@ -37,21 +37,21 @@
   "Project the default tool registry for Messages and enforce search arguments locally."
   (with-test-configuration (configuration)
     (setf (config :model configuration) "claude-haiku-4-5-20251001")
-    (let* ((provider (anthropic-provider-create configuration))
-           (registry (make-default-tool-registry :configuration configuration))
+    (let* ((provider     (anthropic-provider-create configuration))
+           (registry     (make-default-tool-registry :configuration configuration))
            (conversation (conversation-create configuration))
-           (search-tool (tool-registry-find registry "search" "content"))
-           (canonical (json-encode (tool-parameters search-tool)))
-           (context (make-instance 'tool-context
-                                   :configuration configuration
-                                   :conversation conversation
-                                   :registry registry
-                                   :worker nil))
-           (request (json-decode
-                     (json-encode
-                      (provider-request-object
-                       provider conversation (tool-registry-provider-schemas registry)))))
-           (tools (json-get request "tools")))
+           (search-tool  (tool-registry-find registry "search" "content"))
+           (canonical    (json-encode (tool-parameters search-tool)))
+           (context      (make-instance 'tool-context
+                                        :configuration configuration
+                                        :conversation  conversation
+                                        :registry      registry
+                                        :worker        nil))
+           (request      (json-decode
+                          (json-encode
+                           (provider-request-object
+                            provider conversation (tool-registry-provider-schemas registry)))))
+           (tools        (json-get request "tools")))
       (test-assert
        (and (plusp (length tools))
             (every (lambda (tool)
@@ -82,13 +82,13 @@
   (with-test-configuration (configuration)
     (setf (config :model configuration) "claude-haiku-4-5-20251001")
     (dolist (thinking '("reasoning text" ""))
-      (let* ((provider (anthropic-provider-create configuration))
+      (let* ((provider     (anthropic-provider-create configuration))
              (conversation (conversation-create configuration))
-             (signed (json-object "type" "thinking"
-                                  "thinking" thinking
-                                  "signature" "fixture-signature"))
-             (redacted (json-object "type" "redacted_thinking"
-                                    "data" "opaque-fixture-payload")))
+             (signed       (json-object "type" "thinking"
+                                        "thinking" thinking
+                                        "signature" "fixture-signature"))
+             (redacted     (json-object "type" "redacted_thinking"
+                                        "data" "opaque-fixture-payload")))
         (conversation-append-user-message conversation "First question.")
         (dolist (part (list signed redacted
                             (json-object "type" "output_text" "text" "Answer.")))
@@ -97,13 +97,13 @@
            (json-object "type" "message" "role" "assistant"
                         "content" (json-array part))))
         (conversation-append-user-message conversation "Follow-up question.")
-        (let* ((loaded (conversation-load (conversation-pathname conversation)))
-               (request (json-decode
-                         (json-encode (provider-request-object provider loaded #()))))
-               (messages (json-get request "messages"))
+        (let* ((loaded    (conversation-load (conversation-pathname conversation)))
+               (request   (json-decode
+                           (json-encode (provider-request-object provider loaded #()))))
+               (messages  (json-get request "messages"))
                (assistant (find "assistant" messages :test #'string=
-                                :key (lambda (message) (json-get message "role"))))
-               (content (json-get assistant "content")))
+                                :key                       (lambda (message) (json-get message "role"))))
+               (content   (json-get assistant "content")))
           (test-assert
            (equal (loop for message across messages collect (json-get message "role"))
                   '("user" "assistant" "user"))
@@ -120,8 +120,8 @@
 (defun anthropic-provider-test--credential-source ()
   "Test Anthropic credential precedence at the provider boundary."
   (let* ((configuration (anthropic-provider-test--configuration))
-         (manager (anthropic-credential-manager-create configuration))
-         (saved (uiop:getenv "ANTHROPIC_API_KEY")))
+         (manager       (anthropic-credential-manager-create configuration))
+         (saved         (uiop:getenv "ANTHROPIC_API_KEY")))
     (unwind-protect
          (progn
            (platform-setenv "ANTHROPIC_API_KEY" "")
@@ -145,8 +145,8 @@
 (defun anthropic-provider-test--ephemeral-cache-boundary ()
   "Test volatile input follows the explicit durable-history cache breakpoint."
   (let* ((configuration (anthropic-provider-test--configuration))
-         (root (test-configuration-root configuration))
-         (provider (anthropic-provider-create configuration))
+         (root          (test-configuration-root configuration))
+         (provider      (anthropic-provider-create configuration))
          (conversation
            (conversation-create configuration
                                 :identifier "anthropic-ephemeral-cache")))
@@ -169,14 +169,14 @@
                          "call_id" "volatile-call"
                          "arguments" "{}")
             :persistence ':next-response)
-           (let* ((request (provider-request-object provider conversation #()))
+           (let* ((request  (provider-request-object provider conversation #()))
                   (messages (json-get request "messages"))
                   (assistant
                     (find "assistant" messages
                           :test #'string=
-                          :key (lambda (message)
-                                 (json-get message "role"))))
-                  (content (json-get assistant "content")))
+                          :key  (lambda (message)
+                                  (json-get message "role"))))
+                  (content  (json-get assistant "content")))
              (test-assert
               (and (= (length content) 2)
                    (json-string=
@@ -202,8 +202,8 @@
 (defun anthropic-provider-test--inherited-reference-order ()
   "Test that a child-reference boundary retains its transcript position."
   (let* ((configuration (anthropic-provider-test--configuration))
-         (provider (anthropic-provider-create configuration))
-         (conversation (conversation-create configuration)))
+         (provider      (anthropic-provider-create configuration))
+         (conversation  (conversation-create configuration)))
     (conversation-append-inherited-reference
      conversation
      "parent-conversation"
@@ -227,47 +227,47 @@
     (multiple-value-bind (request delivery)
         (provider-request-object provider conversation #())
       (declare (ignore delivery))
-      (let* ((messages (json-get request "messages"))
-             (system (json-get request "system"))
-             (final-user (aref messages (1- (length messages))))
+      (let* ((messages      (json-get request "messages"))
+             (system        (json-get request "system"))
+             (final-user    (aref messages (1- (length messages))))
              (final-content (json-get final-user "content")))
         (test-assert
          (equal (loop for message across messages
                       collect (json-get message "role"))
                 '("user" "assistant" "user"))
          "inherited history and child input preserve transcript role order")
-         (test-assert
-          (and (= (length final-content) 4)
-               (string= (json-get (aref final-content 0) "text")
-                        *conversation-inherited-reference-boundary*)
-               (string= (json-get (aref final-content 1) "text")
-                        "Child guidance.")
-               (string= (json-get (aref final-content 2) "text")
-                        "Child assignment.")
-               (json-string=
-                (json-get
-                 (json-get (aref final-content 2) "cache_control") "type")
-                "ephemeral")
-               (search "Temporary context"
-                       (json-get (aref final-content 3) "text")))
-          "developer guidance and child input retain transcript order")
-         (test-assert
-          (not
-           (some (lambda (block)
-                   (or (search *conversation-inherited-reference-boundary*
-                               (or (json-get block "text") ""))
-                       (search "Child guidance."
-                               (or (json-get block "text") ""))))
-                 (coerce system 'list)))
-           "positional developer content is not hoisted into system"))))
+        (test-assert
+         (and (= (length final-content) 4)
+              (string= (json-get (aref final-content 0) "text")
+                       *conversation-inherited-reference-boundary*)
+              (string= (json-get (aref final-content 1) "text")
+                       "Child guidance.")
+              (string= (json-get (aref final-content 2) "text")
+                       "Child assignment.")
+              (json-string=
+               (json-get
+                (json-get (aref final-content 2) "cache_control") "type")
+               "ephemeral")
+              (search "Temporary context"
+                      (json-get (aref final-content 3) "text")))
+         "developer guidance and child input retain transcript order")
+        (test-assert
+         (not
+          (some (lambda (block)
+                  (or (search *conversation-inherited-reference-boundary*
+                              (or (json-get block "text") ""))
+                      (search "Child guidance."
+                              (or (json-get block "text") ""))))
+                (coerce system 'list)))
+         "positional developer content is not hoisted into system"))))
   nil)
 
 (-> anthropic-provider-test--compaction-request () null)
 (defun anthropic-provider-test--compaction-request ()
   "Test Anthropic's tool-free portable compaction request."
   (let* ((configuration (anthropic-provider-test--configuration))
-         (provider (anthropic-provider-create configuration))
-         (conversation (conversation-create configuration)))
+         (provider      (anthropic-provider-create configuration))
+         (conversation  (conversation-create configuration)))
     (conversation-append-user-message conversation "Conversation to summarize.")
     (multiple-value-bind (request delivery)
         (provider-request-object
@@ -281,10 +281,10 @@
                                              (json-object "type" "object")))))
          :goal-context "request-local goal"
          :compaction-p t)
-      (let* ((system (json-get request "system"))
+      (let* ((system   (json-get request "system"))
              (messages (json-get request "messages"))
-             (texts (loop for block across system
-                          collect (json-get block "text"))))
+             (texts    (loop for block across system
+                             collect (json-get block "text"))))
         (test-assert (null delivery)
                      "compaction resolves no request-local context delivery")
         (test-assert (and (null (json-get request "tools"))
@@ -306,16 +306,16 @@
 (-> anthropic-provider-test--transport () null)
 (defun anthropic-provider-test--transport ()
   "Test Anthropic transport endpoints, headers, and UTF-8 request bodies."
-  (let* ((configuration (anthropic-provider-test--configuration))
-         (provider (anthropic-provider-create configuration))
-         (conversation (conversation-create configuration))
+  (let* ((configuration    (anthropic-provider-test--configuration))
+         (provider         (anthropic-provider-create configuration))
+         (conversation     (conversation-create configuration))
          (credentials
            (make-instance 'oauth-credentials
                           :access-token "synthetic-anthropic-key"
-                          :account-id "anthropic"
+                          :account-id   "anthropic"
                           :source-path
                           (configuration-api-keys-path configuration)))
-         (captured-url nil)
+         (captured-url     nil)
          (captured-headers nil)
          (captured-content nil)
          (captured-options nil))
@@ -337,7 +337,7 @@
        (provider-open-response-stream
         provider
         (json-object "model" "claude-haiku-4-5-20251001" "stream" t)
-        :credentials credentials
+        :credentials  credentials
         :conversation conversation)))
     (test-assert (string= captured-url *anthropic-messages-endpoint*)
                  "Anthropic turns post to the Messages endpoint")
@@ -359,7 +359,7 @@
             "model")
            "claude-haiku-4-5-20251001"))
      "Anthropic transport sends bounded streaming options and UTF-8 JSON")
-    (let ((validation-url nil)
+    (let ((validation-url     nil)
           (validation-headers nil))
       (test-call-with-function-replacements
        (list

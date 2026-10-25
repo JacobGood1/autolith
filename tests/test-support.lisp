@@ -116,7 +116,7 @@ TEMPORARY-ROOT transfers ownership of an existing directory to this scope.
 Otherwise create a fresh root, nested below any enclosing run. Restore the
 process-global fixture parent on exit; parallel runs need separate processes."
   (let* ((previous (sb-ext:symbol-global-value '*test-temporary-root*))
-         (root (or temporary-root (test-make-temporary-root previous))))
+         (root     (or temporary-root (test-make-temporary-root previous))))
     (unwind-protect
          (progn
            (setf (sb-ext:symbol-global-value '*test-temporary-root*) root)
@@ -128,12 +128,12 @@ process-global fixture parent on exit; parallel runs need separate processes."
                            (:telemetry-defaults-p boolean)) configuration)
 (defun test-configuration (&key site-config-root telemetry-defaults-p)
   "Return an isolated configuration, disabling telemetry unless testing its defaults."
-  (let* ((parent (sb-ext:symbol-global-value '*test-temporary-root*))
-         (root (uiop:ensure-directory-pathname
-                (merge-pathnames
-                 (format nil "~A~A/" (if parent "" "autolith-tests-")
-                         (make-identifier))
-                 (or parent (uiop:temporary-directory)))))
+  (let* ((parent      (sb-ext:symbol-global-value '*test-temporary-root*))
+         (root        (uiop:ensure-directory-pathname
+                       (merge-pathnames
+                        (format nil "~A~A/" (if parent "" "autolith-tests-")
+                                (make-identifier))
+                        (or parent (uiop:temporary-directory)))))
          (source-root (asdf:system-source-directory :autolith)))
     (uiop:ensure-all-directories-exist (list root))
     ;; Canonicalize ROOT so tests compare paths on the same terms as the
@@ -142,15 +142,15 @@ process-global fixture parent on exit; parallel runs need separate processes."
     (setf root (uiop:ensure-directory-pathname (truename root)))
     (apply
      #'make-configuration
-     :source-root source-root
-     :working-directory source-root
-     :config-root (merge-pathnames "config/" root)
-     :site-config-root site-config-root
-     :onboarding-p nil
-     :data-root (merge-pathnames "data/" root)
-     :state-root (merge-pathnames "state/" root)
-     :cache-root (merge-pathnames "cache/" root)
-     :codex-auth-path (merge-pathnames "missing-auth.json" root)
+     :source-root              source-root
+     :working-directory        source-root
+     :config-root              (merge-pathnames "config/" root)
+     :site-config-root         site-config-root
+     :onboarding-p             nil
+     :data-root                (merge-pathnames "data/" root)
+     :state-root               (merge-pathnames "state/" root)
+     :cache-root               (merge-pathnames "cache/" root)
+     :codex-auth-path          (merge-pathnames "missing-auth.json" root)
      :grok-bootstrap-auth-path (merge-pathnames "missing-grok-auth.json" root)
      ;; The check runner builds one active core per run, so fresh Autolith
      ;; processes boot it instead of loading the system from source.
@@ -183,7 +183,7 @@ built instead of loading the system; outside the runner this is empty."
   "Call FUNCTION with a fresh configuration and its canonical temporary root.
 Delete that root on every exit and return all values produced by FUNCTION."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (funcall function configuration root)
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore))))
@@ -237,13 +237,13 @@ and return all of BODY's values. Use process isolation for parallel execution."
   "Return an isolated configuration whose tracked source is SOURCE-ROOT."
   (let ((state-root (merge-pathnames ".autolith-test-state/" source-root)))
     (make-configuration
-     :source-root source-root
+     :source-root       source-root
      :working-directory source-root
-     :config-root (merge-pathnames "config/" state-root)
-     :data-root (merge-pathnames "data/" state-root)
-     :state-root (merge-pathnames "state/" state-root)
-     :cache-root (merge-pathnames "cache/" state-root)
-     :codex-auth-path (merge-pathnames "missing-auth.json" state-root)
+     :config-root       (merge-pathnames "config/" state-root)
+     :data-root         (merge-pathnames "data/" state-root)
+     :state-root        (merge-pathnames "state/" state-root)
+     :cache-root        (merge-pathnames "cache/" state-root)
+     :codex-auth-path   (merge-pathnames "missing-auth.json" state-root)
      :grok-bootstrap-auth-path
      (merge-pathnames "missing-grok-auth.json" state-root))))
 
@@ -256,19 +256,19 @@ output."
   (flet ((variable-name (entry)
            "Return the variable ENTRY assigns."
            (subseq entry 0 (position #\= entry))))
-    (let* ((names (mapcar #'variable-name environment))
+    (let* ((names     (mapcar #'variable-name environment))
            (inherited (remove-if (lambda (entry)
                                    (member (variable-name entry) names
                                            :test #'string=))
                                  (sb-ext:posix-environ)))
-           (output (make-string-output-stream))
-           (process (sb-ext:run-program (first command) (rest command)
-                                        :search t
-                                        :environment (append environment inherited)
-                                        :input nil
-                                        :output output
-                                        :error ':output
-                                        :wait t)))
+           (output    (make-string-output-stream))
+           (process   (sb-ext:run-program (first command) (rest command)
+                                          :search      t
+                                          :environment (append environment inherited)
+                                          :input       nil
+                                          :output      output
+                                          :error       ':output
+                                          :wait        t)))
       (values (sb-ext:process-exit-code process)
               (get-output-stream-string output)))))
 

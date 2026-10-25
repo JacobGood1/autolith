@@ -29,11 +29,11 @@
 (-> memory-resource-tests--field (string string) string)
 (defun memory-resource-tests--field (content label)
   "Return the single-line value following LABEL in memory resource CONTENT."
-  (let* ((start (search label content))
+  (let* ((start       (search label content))
          (value-start (and start (+ start (length label))))
-         (end (and value-start
-                   (or (position #\Newline content :start value-start)
-                       (length content)))))
+         (end         (and value-start
+                           (or (position #\Newline content :start value-start)
+                               (length content)))))
     (unless (and value-start end)
       (error "Missing memory resource field ~S in ~S." label content))
     (subseq content value-start end)))
@@ -69,16 +69,16 @@
   (let* ((now (get-universal-time))
          (memory
            (make-instance 'memory
-                          :identifier identifier
-                          :created-at now
-                          :updated-at now
-                          :scope ':workspace
+                          :identifier          identifier
+                          :created-at          now
+                          :updated-at          now
+                          :scope               ':workspace
                           :workspace
                           (namestring
                            (config :working-directory configuration))
-                          :title title
-                          :content content
-                          :tags '("resource-uri-fixture")
+                          :title               title
+                          :content             content
+                          :tags                '("resource-uri-fixture")
                           :source-conversation "memory-resource-first")))
     (with-recursive-lock-held (*memory-lock*)
       (memory--transact
@@ -94,15 +94,15 @@
 (-> test-memory-resources () null)
 (defun test-memory-resources ()
   "Test scoped and exact memory resource reads and compatibility."
-  (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
-         (first-workspace (merge-pathnames "memory-first/" root))
-         (second-workspace (merge-pathnames "memory-second/" root))
-         (configuration nil)
+  (let* ((base-configuration   (test-configuration))
+         (root                 (test-configuration-root base-configuration))
+         (first-workspace      (merge-pathnames "memory-first/" root))
+         (second-workspace     (merge-pathnames "memory-second/" root))
+         (configuration        nil)
          (second-configuration nil)
-         (empty-configuration (test-configuration))
-         (empty-root (test-configuration-root empty-configuration))
-         (registry (make-default-tool-registry)))
+         (empty-configuration  (test-configuration))
+         (empty-root           (test-configuration-root empty-configuration))
+         (registry             (make-default-tool-registry)))
     (ensure-directories-exist (merge-pathnames "marker" first-workspace))
     (ensure-directories-exist (merge-pathnames "marker" second-workspace))
     (setf configuration
@@ -124,51 +124,51 @@
                 (first-context
                   (make-instance 'tool-context
                                  :configuration configuration
-                                 :worker nil
-                                 :conversation first-conversation))
+                                 :worker        nil
+                                 :conversation  first-conversation))
                 (second-context
                   (make-instance 'tool-context
                                  :configuration configuration
-                                 :worker nil
-                                 :conversation second-conversation))
+                                 :worker        nil
+                                 :conversation  second-conversation))
                 (other-workspace-context
                   (make-instance 'tool-context
                                  :configuration second-configuration
-                                 :worker nil
-                                 :conversation second-conversation))
+                                 :worker        nil
+                                 :conversation  second-conversation))
                 (empty-context
                   (make-instance 'tool-context
                                  :configuration empty-configuration
-                                 :worker nil
-                                 :conversation empty-conversation))
+                                 :worker        nil
+                                 :conversation  empty-conversation))
                 (child-context
                   (make-instance 'tool-context
                                  :configuration configuration
-                                 :worker nil
-                                 :conversation first-conversation
-                                 :agent (allocate-instance
-                                         (find-class 'task-child-agent))))
+                                 :worker        nil
+                                 :conversation  first-conversation
+                                 :agent         (allocate-instance
+                                                 (find-class 'task-child-agent))))
                 (workspace-memory
                   (memory-remember
                    configuration
-                   :title "First workspace guidance"
-                   :content "Use the first workspace release procedure in full."
-                   :tags '("first" "release")
+                   :title               "First workspace guidance"
+                   :content             "Use the first workspace release procedure in full."
+                   :tags                '("first" "release")
                    :source-conversation "memory-resource-first"))
                 (global-memory
                   (memory-remember
                    configuration
-                   :title "Global response preference"
-                   :content "Keep persistent answers direct and evidence based."
-                   :scope ':global
-                   :tags '("global" "style")
+                   :title               "Global response preference"
+                   :content             "Keep persistent answers direct and evidence based."
+                   :scope               ':global
+                   :tags                '("global" "style")
                    :source-conversation "memory-resource-first"))
                 (other-memory
                   (memory-remember
                    second-configuration
-                   :title "Second workspace secret"
-                   :content "Only the second workspace collection may list this."
-                   :tags '("second")
+                   :title               "Second workspace secret"
+                   :content             "Only the second workspace collection may list this."
+                   :tags                '("second")
                    :source-conversation "memory-resource-second"))
                 (reserved-memories
                   (loop for identifier in '("relevant" "workspace" "global")
@@ -210,12 +210,12 @@
                        (tool-registry-resource-registry registry) "memory")))
                (test-assert (typep resolver 'memory-resolver)
                             "default tools register the memory resource resolver"))
-             (let* ((relevant (read-resource first-context "memory:relevant"))
-                    (workspace (read-resource first-context "memory:workspace"))
-                    (global (read-resource first-context "memory:global"))
-                    (relevant-content (tool-result-content relevant))
+             (let* ((relevant          (read-resource first-context "memory:relevant"))
+                    (workspace         (read-resource first-context "memory:workspace"))
+                    (global            (read-resource first-context "memory:global"))
+                    (relevant-content  (tool-result-content relevant))
                     (workspace-content (tool-result-content workspace))
-                    (global-content (tool-result-content global)))
+                    (global-content    (tool-result-content global)))
                (test-assert (and (tool-result-success-p relevant)
                                  (tool-result-success-p workspace)
                                  (tool-result-success-p global))
@@ -238,7 +238,7 @@
                (test-assert
                 (and (search (format nil "uri: ~A"
                                      (resource-item-uri
-                     "memory"
+                                      "memory"
                                       (memory-identifier workspace-memory)))
                              relevant-content)
                      (search "created:" relevant-content)
@@ -253,11 +253,11 @@
                 (and (search (memory-identifier other-memory) content)
                      (not (search (memory-identifier workspace-memory) content)))
                 "memory:workspace follows the calling configuration"))
-             (let* ((uri (format nil "memory:~A"
-                                 (memory-identifier other-memory)))
-                    (exact (read-resource first-context uri))
+             (let* ((uri     (format nil "memory:~A"
+                                     (memory-identifier other-memory)))
+                    (exact   (read-resource first-context uri))
                     (content (tool-result-content exact))
-                    (alias (revision exact))
+                    (alias   (revision exact))
                     (observation
                       (memory-resource-tests--observation first-conversation alias)))
                (test-assert (tool-result-success-p exact)
@@ -273,12 +273,12 @@
                                  (string=
                                   (resource-observation-uri observation)
                                   (resource-item-uri
-                     "memory"
+                                   "memory"
                                    (memory-identifier other-memory)))
                                  (search
                                   (format nil "URI: ~A"
                                           (resource-item-uri
-                     "memory"
+                                           "memory"
                                            (memory-identifier other-memory)))
                                   content))
                             "compatible direct item reads render the canonical exact URI")
@@ -298,8 +298,8 @@
                   "exact memory resources reject non-memory operations")))
              (dolist (memory reserved-memories)
                (let* ((identifier (memory-identifier memory))
-                      (uri (resource-item-uri "memory" identifier))
-                      (exact (read-resource first-context uri))
+                      (uri        (resource-item-uri "memory" identifier))
+                      (exact      (read-resource first-context uri))
                       (collection (read-resource
                                    first-context
                                    (format nil "memory:~A" identifier))))
@@ -314,8 +314,8 @@
                                (tool-result-content collection)))
                   "canonical item URIs prevent reserved collection names from shadowing exact memories")))
              (let* ((identifier (memory-identifier encoded-memory))
-                    (uri (resource-item-uri "memory" identifier))
-                    (exact (read-resource first-context uri)))
+                    (uri        (resource-item-uri "memory" identifier))
+                    (exact      (read-resource first-context uri)))
                (test-assert
                 (and (tool-result-success-p exact)
                      (string= (memory-resource-tests--uri-identifier uri)
@@ -338,12 +338,12 @@
              (let* ((revision-memory
                       (memory-remember
                        configuration
-                       :title "Revision fixture"
+                       :title   "Revision fixture"
                        :content "First exact snapshot."
-                       :tags '("revision")))
-                    (uri (format nil "memory:~A"
-                                 (memory-identifier revision-memory)))
-                    (before-read (read-resource first-context uri))
+                       :tags    '("revision")))
+                    (uri          (format nil "memory:~A"
+                                          (memory-identifier revision-memory)))
+                    (before-read  (read-resource first-context uri))
                     (before-alias (revision before-read))
                     (before-observation
                       (memory-resource-tests--observation
@@ -351,10 +351,10 @@
                (memory-remember
                 configuration
                 :identifier (memory-identifier revision-memory)
-                :title "Revision fixture"
-                :content "Second exact snapshot."
-                :tags '("revision"))
-               (let* ((after-read (read-resource first-context uri))
+                :title      "Revision fixture"
+                :content    "Second exact snapshot."
+                :tags       '("revision"))
+               (let* ((after-read  (read-resource first-context uri))
                       (after-alias (revision after-read))
                       (after-observation
                         (memory-resource-tests--observation
@@ -365,9 +365,9 @@
                              (resource-observation-revision before-observation)
                              (resource-observation-revision after-observation))))
                   "exact memory content changes produce a new snapshot identity")))
-             (let* ((empty (read-resource empty-context "memory:relevant"))
+             (let* ((empty       (read-resource empty-context "memory:relevant"))
                     (empty-again (read-resource empty-context "memory:relevant"))
-                    (alias (revision empty))
+                    (alias       (revision empty))
                     (again-alias (revision empty-again))
                     (observation
                       (memory-resource-tests--observation empty-conversation alias)))
@@ -380,18 +380,18 @@
                             "an unchanged empty collection reuses its exact snapshot alias")
                (test-assert
                 (equal (memory-observation-snapshot observation)
-                       (list :kind ':collection
+                       (list :kind       ':collection
                              :identifier "relevant"
                              :workspace
                              (namestring
                               (platform-truename *platform*
                                (config :working-directory
                                 empty-configuration)))
-                             :records nil))
+                             :records    nil))
                 "empty relevant revision identity includes workspace and exact empty state"))
-             (let* ((first-read (read-resource first-context "memory:global"))
-                    (second-read (read-resource second-context "memory:global"))
-                    (first-alias (revision first-read))
+             (let* ((first-read   (read-resource first-context "memory:global"))
+                    (second-read  (read-resource second-context "memory:global"))
+                    (first-alias  (revision first-read))
                     (second-alias (revision second-read))
                     (first-observation
                       (memory-resource-tests--observation
@@ -405,11 +405,11 @@
                 (string= (resource-observation-revision first-observation)
                          (resource-observation-revision second-observation))
                 "equal collection snapshots have equal content-addressed identity")
-                (test-assert
-                 (null (fifo-cache-get
-                        (conversation-resource-observations second-conversation)
-                        first-alias))
-                 "one conversation cannot resolve another conversation's alias"))
+               (test-assert
+                (null (fifo-cache-get
+                       (conversation-resource-observations second-conversation)
+                       first-alias))
+                "one conversation cannot resolve another conversation's alias"))
              (let ((line-window
                      (read-resource first-context "memory:relevant"
                                     "start-line" 1)))
@@ -434,9 +434,9 @@
              (let* ((forgotten
                       (memory-remember
                        configuration
-                       :title "Temporary memory"
+                       :title   "Temporary memory"
                        :content "Forget this exact test fixture."
-                       :tags nil))
+                       :tags    nil))
                     (forgotten-uri
                       (format nil "memory:~A" (memory-identifier forgotten))))
                (memory-forget configuration (memory-identifier forgotten))
@@ -469,37 +469,37 @@
                 "exact memory resources remain denied to task child agents"))
              (let ((sample (merge-pathnames "sample.lisp" first-workspace)))
                (with-open-file (stream sample
-                                       :direction ':output
-                                       :if-exists ':supersede
+                                       :direction         ':output
+                                       :if-exists         ':supersede
                                        :if-does-not-exist ':create)
                  (write-line "(in-package #:autolith)" stream))
-                (read-resource first-context "workspace:sample.lisp")
-                (read-resource first-context "agenda:current"))
+               (read-resource first-context "workspace:sample.lisp")
+               (read-resource first-context "agenda:current"))
              (let* ((expiry-conversation
                       (conversation-create configuration
                                            :identifier "memory-resource-expiry"))
                     (expiry-context
                       (make-instance 'tool-context
                                      :configuration configuration
-                                     :worker nil
-                                     :conversation expiry-conversation))
+                                     :worker        nil
+                                     :conversation  expiry-conversation))
                     (workspace-read
                       (read-resource expiry-context "workspace:sample.lisp"))
                     (agenda-read
                       (read-resource expiry-context "agenda:current"))
-                    (old-read (read-resource expiry-context "memory:global"))
+                    (old-read        (read-resource expiry-context "memory:global"))
                     (workspace-alias (revision workspace-read))
-                    (agenda-alias (revision agenda-read))
-                    (old-alias (revision old-read))
+                    (agenda-alias    (revision agenda-read))
+                    (old-alias       (revision old-read))
                     (states
                       (conversation-resource-observations expiry-conversation)))
                (let ((*memory-resource-maximum-observations* 1))
                  (memory-remember
                   configuration
-                  :title "New global snapshot"
+                  :title   "New global snapshot"
                   :content "Change collection identity for retention testing."
-                  :scope ':global
-                  :tags '("retention"))
+                  :scope   ':global
+                  :tags    '("retention"))
                  (read-resource expiry-context "memory:global")
                  (test-assert
                   (null (resource-observation-state-find
@@ -511,61 +511,61 @@
                        (typep (fifo-cache-get states agenda-alias)
                               'agenda-observation-state))
                   "memory observation expiry preserves workspace and agenda states")))
-              (let* ((all-read (read-resource first-context "memory:all"))
-                     (search-read
-                       (read-resource first-context "memory:all"
-                                      "query" "response preference"))
-                     (limited-read
-                       (read-resource first-context "memory:all"
-                                      "max-results" 1))
-                     (exact-read
-                       (read-resource
-                        first-context
-                        (resource-item-uri
-                     "memory"
-                         (memory-identifier global-memory)))))
-                (test-assert
-                 (and (tool-result-success-p all-read)
-                      (search (memory-identifier workspace-memory)
-                              (tool-result-content all-read))
-                      (search (memory-identifier other-memory)
-                              (tool-result-content all-read)))
-                 "memory:all crosses workspace scopes")
-                (test-assert
-                 (and (tool-result-success-p search-read)
-                      (search (memory-identifier global-memory)
-                              (tool-result-content search-read))
-                      (not (search (memory-identifier workspace-memory)
-                                   (tool-result-content search-read))))
-                 "memory collection query preserves weighted lexical search")
-                (test-assert
-                 (and (tool-result-success-p limited-read)
-                      (search "count: 1" (tool-result-content limited-read)))
-                 "memory collection max-results bounds returned entries")
-                (test-assert
-                 (and (tool-result-success-p exact-read)
-                      (search (memory-resource--render-item
-                               (memory-assess (memory-assessor-create configuration)
-                                              global-memory)
-                               nil)
-                              (tool-result-content exact-read)))
-                 "canonical memory item resources return complete content"))))
+             (let* ((all-read (read-resource first-context "memory:all"))
+                    (search-read
+                      (read-resource first-context "memory:all"
+                                     "query" "response preference"))
+                    (limited-read
+                      (read-resource first-context "memory:all"
+                                     "max-results" 1))
+                    (exact-read
+                      (read-resource
+                       first-context
+                       (resource-item-uri
+                        "memory"
+                        (memory-identifier global-memory)))))
+               (test-assert
+                (and (tool-result-success-p all-read)
+                     (search (memory-identifier workspace-memory)
+                             (tool-result-content all-read))
+                     (search (memory-identifier other-memory)
+                             (tool-result-content all-read)))
+                "memory:all crosses workspace scopes")
+               (test-assert
+                (and (tool-result-success-p search-read)
+                     (search (memory-identifier global-memory)
+                             (tool-result-content search-read))
+                     (not (search (memory-identifier workspace-memory)
+                                  (tool-result-content search-read))))
+                "memory collection query preserves weighted lexical search")
+               (test-assert
+                (and (tool-result-success-p limited-read)
+                     (search "count: 1" (tool-result-content limited-read)))
+                "memory collection max-results bounds returned entries")
+               (test-assert
+                (and (tool-result-success-p exact-read)
+                     (search (memory-resource--render-item
+                              (memory-assess (memory-assessor-create configuration)
+                                             global-memory)
+                              nil)
+                             (tool-result-content exact-read)))
+                "canonical memory item resources return complete content"))))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)
       (platform-delete-directory-tree *platform* empty-root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
 (-> test-memory-resource-mutations () null)
 (defun test-memory-resource-mutations ()
   "Test guarded memory resource mutation, validation, staleness, and locking."
-  (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
-         (workspace (merge-pathnames "memory-mutations/" root))
-         (switched-workspace (merge-pathnames "memory-mutations-switched/" root))
-         (configuration nil)
+  (let* ((base-configuration     (test-configuration))
+         (root                   (test-configuration-root base-configuration))
+         (workspace              (merge-pathnames "memory-mutations/" root))
+         (switched-workspace     (merge-pathnames "memory-mutations-switched/" root))
+         (configuration          nil)
          (switched-configuration nil)
-         (registry (make-default-tool-registry)))
+         (registry               (make-default-tool-registry)))
     (ensure-directories-exist (merge-pathnames "marker" workspace))
     (ensure-directories-exist (merge-pathnames "marker" switched-workspace))
     (setf configuration
@@ -584,25 +584,25 @@
                 (context
                   (make-instance 'tool-context
                                  :configuration configuration
-                                 :worker nil
-                                 :conversation conversation))
+                                 :worker        nil
+                                 :conversation  conversation))
                 (other-context
                   (make-instance 'tool-context
                                  :configuration configuration
-                                 :worker nil
-                                 :conversation other-conversation))
+                                 :worker        nil
+                                 :conversation  other-conversation))
                 (switched-context
                   (make-instance 'tool-context
                                  :configuration switched-configuration
-                                 :worker nil
-                                 :conversation conversation))
+                                 :worker        nil
+                                 :conversation  conversation))
                 (child-context
                   (make-instance 'tool-context
                                  :configuration configuration
-                                 :worker nil
-                                 :conversation conversation
-                                 :agent (allocate-instance
-                                         (find-class 'task-child-agent)))))
+                                 :worker        nil
+                                 :conversation  conversation
+                                 :agent         (allocate-instance
+                                                 (find-class 'task-child-agent)))))
            (labels ((read-resource (selected-context uri)
                       "Read one complete memory resource."
                       (memory-resource-tests--call
@@ -671,9 +671,9 @@
                        "relevant"
                        "Reserved mutation fixture"
                        "Canonical exact item operations must reach this memory."))
-                    (uri (resource-item-uri
-                     "memory"
-                          (memory-identifier fixture)))
+                    (uri      (resource-item-uri
+                               "memory"
+                               (memory-identifier fixture)))
                     (observed (read-resource context uri))
                     (replaced
                       (edit-resource
@@ -703,8 +703,8 @@
                         "title" "Resource workspace memory"
                         "content" "Created through the guarded resource protocol."
                         "tags" (json-array "resource" "workspace"))))
-                    (uri (and (tool-result-success-p created)
-                              (exact-uri created)))
+                    (uri    (and (tool-result-success-p created)
+                                 (exact-uri created)))
                     (identifier
                       (and uri (memory-resource-tests--uri-identifier uri)))
                     (memory (and identifier
@@ -768,8 +768,8 @@
                         "op" "memory-remember"
                         "title" "Resource global memory"
                         "content" "This guidance applies across workspaces.")))
-                    (uri (and (tool-result-success-p created)
-                              (exact-uri created)))
+                    (uri         (and (tool-result-success-p created)
+                                      (exact-uri created)))
                     (memory
                       (and uri
                            (memory-find
@@ -784,20 +784,20 @@
              (let* ((fixture
                       (memory-remember
                        configuration
-                       :title "Stale memory fixture"
-                       :content "Snapshot A."
-                       :tags '("stale")
+                       :title               "Stale memory fixture"
+                       :content             "Snapshot A."
+                       :tags                '("stale")
                        :source-conversation "legacy-a"))
                     (identifier (memory-identifier fixture))
-                    (uri (format nil "memory:~A" identifier))
-                    (observed (read-resource context uri))
-                    (alias (revision observed)))
+                    (uri        (format nil "memory:~A" identifier))
+                    (observed   (read-resource context uri))
+                    (alias      (revision observed)))
                (memory-remember
                 configuration
-                :identifier identifier
-                :title "Stale memory fixture"
-                :content "Snapshot B."
-                :tags '("stale")
+                :identifier          identifier
+                :title               "Stale memory fixture"
+                :content             "Snapshot B."
+                :tags                '("stale")
                 :source-conversation "legacy-b")
                (let ((before (form-count))
                      (stale
@@ -830,11 +830,11 @@
              (let* ((workspace-read
                       (read-resource context "memory:workspace"))
                     (global-read (read-resource context "memory:global"))
-                    (item (first (memory-list configuration :visibility ':all)))
-                    (item-uri (format nil "memory:~A"
-                                      (memory-identifier item)))
-                    (item-read (read-resource context item-uri))
-                    (before (form-count))
+                    (item        (first (memory-list configuration :visibility ':all)))
+                    (item-uri    (format nil "memory:~A"
+                                         (memory-identifier item)))
+                    (item-read   (read-resource context item-uri))
+                    (before      (form-count))
                     (results
                       (list
                        (edit-resource
@@ -873,20 +873,20 @@
              (let* ((expiring
                       (memory-remember
                        configuration
-                       :title "Expiring item"
+                       :title   "Expiring item"
                        :content "Its resource alias will expire."
-                       :tags nil))
-                    (uri (format nil "memory:~A"
-                                 (memory-identifier expiring)))
+                       :tags    nil))
+                    (uri      (format nil "memory:~A"
+                                      (memory-identifier expiring)))
                     (observed (read-resource other-context uri))
-                    (alias (revision observed)))
+                    (alias    (revision observed)))
                (let ((*memory-resource-maximum-observations* 1))
                  (let ((other
                          (memory-remember
                           configuration
-                          :title "Replacement observation"
+                          :title   "Replacement observation"
                           :content "Force another memory observation."
-                          :tags nil)))
+                          :tags    nil)))
                    (read-resource
                     other-context
                     (format nil "memory:~A" (memory-identifier other))))
@@ -900,14 +900,14 @@
                       "title" "Expired edit"
                       "content" "This must not append."))))
                   "expired memory resource aliases cannot mutate")))
-             (let* ((collection (read-resource context "memory:workspace"))
-                    (alias (revision collection))
-                    (gate (make-lock "Memory resource compatibility gate"))
-                    (condition (make-condition-variable))
-                    (started-p nil)
-                    (legacy-memory nil)
+             (let* ((collection      (read-resource context "memory:workspace"))
+                    (alias           (revision collection))
+                    (gate            (make-lock "Memory resource compatibility gate"))
+                    (condition       (make-condition-variable))
+                    (started-p       nil)
+                    (legacy-memory   nil)
                     (resource-result nil)
-                    (thread nil))
+                    (thread          nil))
                (with-recursive-lock-held (*memory-lock*)
                  (setf thread
                        (make-thread
@@ -918,9 +918,9 @@
                           (setf legacy-memory
                                 (memory-remember
                                  configuration
-                                 :title "Concurrent legacy memory"
+                                 :title   "Concurrent legacy memory"
                                  :content "Legacy mutation waits for the guarded edit."
-                                 :tags nil)))
+                                 :tags    nil)))
                         :name "memory legacy compatibility"))
                  (with-lock-held (gate)
                    (loop until started-p
@@ -958,13 +958,13 @@
                         (json-get (tool-parameters edit-tool) "properties")
                         "operations")
                        "items"))
-                    (variants (json-get operations "oneOf"))
+                    (variants  (json-get operations "oneOf"))
                     (memory-variants
                       (remove-if-not
                        (lambda (variant)
                          (let* ((properties (json-get variant "properties"))
-                                (op (json-get properties "op"))
-                                (values (and op (json-get op "enum"))))
+                                (op         (json-get properties "op"))
+                                (values     (and op (json-get op "enum"))))
                            (and values
                                 (search "memory-" (aref values 0)))))
                        (coerce variants 'list))))
@@ -974,16 +974,15 @@
                               (json-false-p (gethash "additionalProperties" variant)))
                             memory-variants))
                 "resource.edit advertises three closed memory operation variants")))
-      (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
-  nil))
-
+          (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
+   nil))
 
 (-> test-memory-resource-filtered-read-write () null)
 (defun test-memory-resource-filtered-read-write ()
   "Test that a filtered collection read provides a usable write revision."
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
-         (workspace (merge-pathnames "memory-filtered-read-write/" root))
+         (root               (test-configuration-root base-configuration))
+         (workspace          (merge-pathnames "memory-filtered-read-write/" root))
          (configuration
            (progn
              (ensure-directories-exist (merge-pathnames "marker" workspace))
@@ -993,19 +992,19 @@
          (context
            (make-instance 'tool-context
                           :configuration configuration
-                          :worker nil
-                          :conversation conversation))
-         (registry (make-default-tool-registry)))
+                          :worker        nil
+                          :conversation  conversation))
+         (registry           (make-default-tool-registry)))
     (unwind-protect
          (let* ((matching-memory
                   (memory-remember
                    configuration
-                   :title "Matching filtered revision probe"
+                   :title   "Matching filtered revision probe"
                    :content "needle"))
                 (unmatched-memory
                   (memory-remember
                    configuration
-                   :title "Unmatched filtered revision probe"
+                   :title   "Unmatched filtered revision probe"
                    :content "This memory must still affect the collection revision."))
                 (read-result
                   (memory-resource-tests--call
@@ -1055,7 +1054,7 @@
            (test-assert (tool-result-success-p write-result)
                         "a filtered memory collection revision permits memory-remember"))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -1063,20 +1062,20 @@
 (defun test-memory-resource-sources ()
   "Test cited evidence and premises through memory: resource edits and reads."
   (with-test-configuration (base root)
-    (let* ((workspace (merge-pathnames "sourced/" root))
+    (let* ((workspace     (merge-pathnames "sourced/" root))
            (configuration (progn
                             (ensure-directories-exist workspace)
                             (configuration-copy base :working-directory workspace)))
-           (registry (make-default-tool-registry))
-           (conversation (conversation-create configuration
-                                              :identifier "memory-sources"))
-           (context (make-instance 'tool-context
-                                   :configuration configuration
-                                   :worker nil
-                                   :conversation conversation))
-           (notes (memory-source-tests--write
-                   (merge-pathnames "NOTES.md" workspace)
-                   (format nil "Deploy with make release-prod after tagging.~%"))))
+           (registry      (make-default-tool-registry))
+           (conversation  (conversation-create configuration
+                                               :identifier "memory-sources"))
+           (context       (make-instance 'tool-context
+                                         :configuration configuration
+                                         :worker        nil
+                                         :conversation  conversation))
+           (notes         (memory-source-tests--write
+                           (merge-pathnames "NOTES.md" workspace)
+                           (format nil "Deploy with make release-prod after tagging.~%"))))
       (conversation-append-user-message
        conversation "Please always use tabs for indentation here.")
       (labels ((read-resource (uri)
@@ -1113,18 +1112,18 @@
                  (and (not (tool-result-success-p result))
                       (search text (tool-result-content result))
                       t)))
-        (let* ((deploy (remember "Deploy command"
-                                 "Deploy with make release-prod."
-                                 "sources"
-                                 (vector (json-object "file" "NOTES.md"
-                                                      "quote" "with make release-prod")
-                                         (json-object "user" "always use tabs"))))
-               (deploy-uri (created-uri deploy))
+        (let* ((deploy            (remember "Deploy command"
+                                            "Deploy with make release-prod."
+                                            "sources"
+                                            (vector (json-object "file" "NOTES.md"
+                                                                 "quote" "with make release-prod")
+                                                    (json-object "user" "always use tabs"))))
+               (deploy-uri        (created-uri deploy))
                (deploy-identifier (memory-resource-tests--uri-identifier deploy-uri))
-               (derived (remember "Release day"
-                                  "Releases need a tag and make release-prod."
-                                  "premises" (vector deploy-uri)))
-               (derived-uri (created-uri derived)))
+               (derived           (remember "Release day"
+                                            "Releases need a tag and make release-prod."
+                                            "premises" (vector deploy-uri)))
+               (derived-uri       (created-uri derived)))
           (test-assert (and (tool-result-success-p deploy)
                             (= 2 (length (memory-sources
                                           (memory-find configuration deploy-identifier)))))
@@ -1205,19 +1204,19 @@
 (defun test-memory-knowledge-resources ()
   "Test defining, asserting, deriving, explaining, and retracting through memory:facts."
   (with-test-configuration (base root)
-    (let* ((workspace (merge-pathnames "facts/" root))
+    (let* ((workspace     (merge-pathnames "facts/" root))
            (configuration (progn
                             (ensure-directories-exist workspace)
                             (configuration-copy base :working-directory workspace)))
-           (registry (make-default-tool-registry))
-           (conversation (conversation-create configuration :identifier "memory-facts"))
-           (context (make-instance 'tool-context
-                                   :configuration configuration
-                                   :worker nil
-                                   :conversation conversation))
-           (schedule (memory-source-tests--write
-                      (merge-pathnames "schedule.txt" workspace)
-                      (format nil "Design review at 13:00 UTC on 22 October.~%"))))
+           (registry      (make-default-tool-registry))
+           (conversation  (conversation-create configuration :identifier "memory-facts"))
+           (context       (make-instance 'tool-context
+                                         :configuration configuration
+                                         :worker        nil
+                                         :conversation  conversation))
+           (schedule      (memory-source-tests--write
+                           (merge-pathnames "schedule.txt" workspace)
+                           (format nil "Design review at 13:00 UTC on 22 October.~%"))))
       (conversation-append-user-message conversation "It takes half an hour to get there.")
       (labels ((read-resource (uri &rest arguments)
                  "Read URI with optional ARGUMENTS and return the result."
@@ -1284,9 +1283,9 @@
                                     (content defined)))
                        "one edit defines predicates, asserts facts, and proposes a rule"))
         (knowledge-admit-rule configuration "departure")
-        (let* ((facts (content (read-resource "memory:facts")))
-               (line (find-if (lambda (line) (search "leave for review" line))
-                              (uiop:split-string facts :separator '(#\Newline))))
+        (let* ((facts     (content (read-resource "memory:facts")))
+               (line      (find-if (lambda (line) (search "leave for review" line))
+                                   (uiop:split-string facts :separator '(#\Newline))))
                (departure (and line (json-get (json-decode line) "id"))))
           (test-assert (and line (search "\"derived\":\"departure v1\"" line)
                             (search "\"basis\":[\"observation+user-assertion+model-proposal\"]"
@@ -1348,10 +1347,10 @@
                          (format nil "~A fails correctively" label))))
         (flet ((asserted-bases (result)
                  "Return the bases of the supports of the claim RESULT asserted."
-                 (let* ((text (content result))
+                 (let* ((text  (content result))
                         (start (+ (search "Asserted " text) (length "Asserted ")))
                         (claim (subseq text start (position #\: text :start start)))
-                        (base (knowledge-base-read configuration)))
+                        (base  (knowledge-base-read configuration)))
                    (sort (remove-duplicates
                           (mapcar (lambda (support)
                                     (getf (knowledge-base-support base support) :basis))
@@ -1375,12 +1374,12 @@
              (let* ((fetch-context (make-instance 'tool-context
                                                  :configuration configuration :worker nil
                                                  :conversation conversation :call-id "fetch-1"))
-                    (result (memory-resource-tests--call
-                             registry fetch-context "web_extra" "gist"
-                             "url" "https://example.com/agenda")))
+                    (result        (memory-resource-tests--call
+                                    registry fetch-context "web_extra" "gist"
+                                    "url" "https://example.com/agenda")))
                (conversation-append-tool-result conversation "fetch-1"
                                                 :tool-name "web_extra.gist"
-                                                :output (tool-result-content result)
+                                                :output    (tool-result-content result)
                                                 :success-p (tool-result-success-p result)))))
           (let ((retrieved (edit (json-object "op" "fact-assert" "predicate" "event.buffer"
                                               "arguments" (vector "standup" "PT5M")
@@ -1425,29 +1424,29 @@
 (defun memory-resource-tests--check-url-receipts (&key long-p (spill-p t))
   "Test completed retrievals, retained quotations, authenticity, and original observation times."
   (with-test-configuration (base root)
-    (let* ((configuration (configuration-copy base :working-directory root :knowledge-mode "active"))
-           (registry (make-default-tool-registry :configuration configuration))
-           (conversation (conversation-create configuration))
-           (context (make-instance 'tool-context :configuration configuration :worker nil
-                                                :conversation conversation))
-           (url "https://example.com/ready")
-           (text (if long-p
-                     (let ((prefix "The report is ready for publication.")
-                           (suffix "The appendix is verified."))
-                       (concatenate 'string prefix
-                                    (make-string (- 9000 (length prefix) (length suffix))
-                                                 :initial-element #\Space)
-                                    suffix))
-                     "The report is ready for publication."))
-           (now 100000)
+    (let* ((configuration     (configuration-copy base :working-directory root :knowledge-mode "active"))
+           (registry          (make-default-tool-registry :configuration configuration))
+           (conversation      (conversation-create configuration))
+           (context           (make-instance 'tool-context :configuration configuration :worker nil
+                                                          :conversation conversation))
+           (url               "https://example.com/ready")
+           (text              (if long-p
+                                  (let ((prefix "The report is ready for publication.")
+                                        (suffix "The appendix is verified."))
+                                    (concatenate 'string prefix
+                                                 (make-string (- 9000 (length prefix) (length suffix))
+                                                              :initial-element #\Space)
+                                                 suffix))
+                                  "The report is ready for publication."))
+           (now               100000)
            (*knowledge-clock* (lambda () now)))
       (knowledge-define-schema configuration
                                (knowledge-make-schema :predicate "site.ready"
                                                       :arguments '((:name "site" :type :entity))))
       (labels ((assert-fact (&optional quote (page "page"))
                  "Assert from URL through a fresh resource revision and return its evaluated node."
-                 (let* ((read (memory-resource-tests--call registry context "resource" "read"
-                                                          "uri" "memory:facts"))
+                 (let* ((read   (memory-resource-tests--call registry context "resource" "read"
+                                                            "uri" "memory:facts"))
                         (source (if quote (json-object "url" url "quote" quote)
                                     (json-object "url" url)))
                         (result (memory-resource-tests--call
@@ -1461,8 +1460,8 @@
                    (test-assert (tool-result-success-p result) "the sourced assertion is recorded")
                    (knowledge-view-node
                     (knowledge-view-current configuration)
-                     (knowledge-claim-identifier (list "site.ready" page) :scope ':workspace
-                                                 :workspace (knowledge--workspace configuration)))))
+                    (knowledge-claim-identifier (list "site.ready" page) :scope ':workspace
+                                                :workspace                      (knowledge--workspace configuration)))))
 
                (retrieve (call-id &key fail-p corrupt-p)
                  "Fetch a scripted page and persist its actual result, optionally failing or corrupting it."
@@ -1483,12 +1482,12 @@
                     (let* ((fetch-context (make-instance 'tool-context
                                                         :configuration configuration :worker nil
                                                         :conversation conversation :call-id call-id))
-                           (result (memory-resource-tests--call registry fetch-context
-                                                                "web_extra" "gist" "url" url)))
+                           (result        (memory-resource-tests--call registry fetch-context
+                                                                       "web_extra" "gist" "url" url)))
                       (conversation-append-tool-result
                        conversation call-id :tool-name "web_extra.gist"
-                       :output (if corrupt-p "Different result, ready for publication." (tool-result-content result))
-                       :success-p (tool-result-success-p result))
+                       :output                         (if corrupt-p "Different result, ready for publication." (tool-result-content result))
+                       :success-p                      (tool-result-success-p result))
                       (when (and long-p (not fail-p))
                         (test-assert (and (< (length (tool-result-content result)) 8300)
                                           (not (search "The appendix is verified."
@@ -1523,7 +1522,7 @@
                              (assert-fact "The appendix is verified." "appendix")))
                        "a tail quotation requires verified retained overflow content")
           (test-assert (not (knowledge-node-observed-p
-                            (assert-fact "characters omitted" "notice")))
+                             (assert-fact "characters omitted" "notice")))
                        "the presentation notice is not retrieved evidence"))
         (incf now 10)
         (test-assert (= 100000
@@ -1540,8 +1539,8 @@
         (when (and long-p spill-p)
           (let* ((receipt (memory-knowledge--url-receipt
                            conversation url "The appendix is verified." :configuration configuration))
-                 (object (rlm-context-object-find configuration
-                                                  (subseq (getf receipt :content-object) 8))))
+                 (object  (rlm-context-object-find configuration
+                                                   (subseq (getf receipt :content-object) 8))))
             (test-assert (= now (getf receipt :observed-at))
                          "fresh retrieval evidence has the new retrieval time")
             (with-open-file (stream (rlm-context-object-pathname object)
@@ -1558,15 +1557,15 @@
   "Test that a proposed rule is admitted exactly when command authorization allows it."
   (with-test-configuration (configuration)
     (knowledge-tests--define-appointments configuration)
-    (let* ((registry (make-default-tool-registry))
+    (let* ((registry     (make-default-tool-registry))
            (conversation (conversation-create configuration :identifier "rule-admission"))
-           (requests nil))
+           (requests     nil))
       (flet ((propose (decision description)
                "Propose a departure rule version as a context deciding DECISION would."
                (let ((context (make-instance 'tool-context
                                              :configuration configuration
-                                             :worker nil
-                                             :conversation conversation
+                                             :worker        nil
+                                             :conversation  conversation
                                              :command-authorization-function
                                              (lambda (command directory)
                                                (declare (ignore directory))

@@ -7,15 +7,15 @@
   "Test exact archive verification before extraction or installation selection."
   (with-test-configuration (configuration root)
     (declare (ignore configuration))
-    (let* ((source-root (asdf:system-source-directory :autolith))
-           (release-root (merge-pathnames "release/" root))
-           (fixtures (merge-pathnames "downloads/" root))
-           (commands (merge-pathnames "commands/" root))
-           (installation (merge-pathnames "installation/" root))
-           (current (merge-pathnames "current" installation))
+    (let* ((source-root       (asdf:system-source-directory :autolith))
+           (release-root      (merge-pathnames "release/" root))
+           (fixtures          (merge-pathnames "downloads/" root))
+           (commands          (merge-pathnames "commands/" root))
+           (installation      (merge-pathnames "installation/" root))
+           (current           (merge-pathnames "current" installation))
            (extraction-marker (merge-pathnames "extracted" root))
-           (installer (merge-pathnames "script/install" source-root))
-           (tar-command (release-archive--command-pathname "tar"))
+           (installer         (merge-pathnames "script/install" source-root))
+           (tar-command       (release-archive--command-pathname "tar"))
            (environment
              (list (format nil "PATH=~A:~A" commands (uiop:getenv "PATH"))
                    (format nil "AUTOLITH_TEST_RELEASE_FIXTURE=~A" fixtures)
@@ -55,8 +55,8 @@
                     release-root fixtures :tag "v1.0.1" :platform "x86_64-linux"
                                           :record-platform "x86_64-linux")
                  (let* ((valid-checksum (uiop:read-file-string checksum))
-                        (digest (subseq valid-checksum 0 64))
-                        (filename (file-namestring archive)))
+                        (digest         (subseq valid-checksum 0 64))
+                        (filename       (file-namestring archive)))
                    (release-script-tests--write-file
                     (merge-pathnames "tar" commands)
                     (format nil "#!/bin/sh~%touch ~A~%exec ~A \"$@\"~%"

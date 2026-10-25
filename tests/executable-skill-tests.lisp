@@ -27,15 +27,15 @@
 (-> executable-skill-tests--fixture (function) null)
 (defun executable-skill-tests--fixture (function)
   "Use the installed search library with otherwise isolated executable skill state."
-  (let* ((source-root (asdf:system-source-directory "autolith"))
-         (configuration (configuration-create :source-root source-root
-                                              :working-directory source-root))
+  (let* ((source-root        (asdf:system-source-directory "autolith"))
+         (configuration      (configuration-create :source-root       source-root
+                                                   :working-directory source-root))
          (configured-library (uiop:getenv "AUTOLITH_FFF_LIBRARY"))
-         (library (if (non-empty-string-p configured-library)
-                      configured-library
-                      (namestring
-                       (merge-pathnames (format nil "native/fff/~A" (fff-library-file-name))
-                                        (config :data-root configuration))))))
+         (library            (if (non-empty-string-p configured-library)
+                                 configured-library
+                                 (namestring
+                                  (merge-pathnames (format nil "native/fff/~A" (fff-library-file-name))
+                                                   (config :data-root configuration))))))
     (with-test-environment (("AUTOLITH_FFF_LIBRARY" library))
       (executable-skill-tests--call-with-fixture function))))
 
@@ -43,26 +43,26 @@
 (defun executable-skill-tests--call-with-fixture (function)
   "Provide real registry, command authorizer and executable workflow source."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (configuration (configuration-copy configuration :working-directory root))
-         (directory (merge-pathnames "executable-fixture/" (skill-global-root configuration)))
-         (marker (merge-pathnames "loaded.marker" directory))
-         (sidecar (merge-pathnames "EXECUTABLE.sexp" directory))
-         (registry (make-default-tool-registry :configuration configuration))
-         (conversation (conversation-create configuration))
-         (pool (lisp-worker-pool-create configuration))
-         (agent (make-instance 'agent :configuration configuration :conversation conversation
-                                :worker pool :tool-registry registry))
-         (decision ':full-access)
-         (admissions nil)
-         (context (make-instance 'tool-context :configuration configuration :conversation conversation
-                                  :worker pool :registry registry :agent agent :call-id "skill-origin"
-                                  :command-authorization-function
-                                  (lambda (command directory)
-                                    (declare (ignore directory))
-                                    (push command admissions)
-                                    (if (functionp decision) (funcall decision command) decision))))
-         (asd (merge-pathnames "executable-skill-fixture.asd" directory)))
+         (directory     (merge-pathnames "executable-fixture/" (skill-global-root configuration)))
+         (marker        (merge-pathnames "loaded.marker" directory))
+         (sidecar       (merge-pathnames "EXECUTABLE.sexp" directory))
+         (registry      (make-default-tool-registry :configuration configuration))
+         (conversation  (conversation-create configuration))
+         (pool          (lisp-worker-pool-create configuration))
+         (agent         (make-instance 'agent :configuration configuration :conversation conversation
+                                        :worker pool :tool-registry registry))
+         (decision      ':full-access)
+         (admissions    nil)
+         (context       (make-instance 'tool-context :configuration configuration :conversation conversation
+                                        :worker pool :registry registry :agent agent :call-id "skill-origin"
+                                        :command-authorization-function
+                                        (lambda (command directory)
+                                          (declare (ignore directory))
+                                          (push command admissions)
+                                          (if (functionp decision) (funcall decision command) decision))))
+         (asd           (merge-pathnames "executable-skill-fixture.asd" directory)))
     (unwind-protect
          (progn
            (executable-skill-tests--write
@@ -108,7 +108,7 @@
   nil)
 
 (-> executable-skill-tests--call (tool-context string &key (:asd pathname) (:input t)
-                                (:entrypoint (option string))) tool-result)
+                                  (:entrypoint (option string))) tool-result)
 (defun executable-skill-tests--call (context operation &key asd (input (json-object)) entrypoint)
   "Use ordinary model-facing registry dispatch for a fixture operation."
   (let ((arguments (json-object "name" "executable-fixture" "asd" (namestring asd))))
@@ -157,8 +157,8 @@
        (let ((result (executable-skill-tests--call context "invoke" :asd asd)))
          (test-assert (tool-result-success-p result) (format nil "workflow runs: ~A" (tool-result-content result)))
          (when (tool-result-success-p result)
-           (let* ((record (executable-skill-result-record result))
-                  (value (getf record :value))
+           (let* ((record   (executable-skill-result-record result))
+                  (value    (getf record :value))
                   (identity (getf record :identity)))
              (test-assert (search "skill-payload" (second (assoc "read" (rest value) :test #'string=))) "actual resource read")
              (test-assert (second (assoc "search" (rest value) :test #'string=))
@@ -178,7 +178,7 @@
        (test-assert (every (lambda (record) (equal (getf (rest record) :parent-call-id) "skill-origin")) calls)
                     "callback audit retains parent identity"))
      (let* ((pathname (merge-pathnames "SKILL.sexp" (uiop:pathname-directory-pathname sidecar)))
-            (source (uiop:read-file-string pathname))
+            (source   (uiop:read-file-string pathname))
             (manifest (uiop:read-file-string sidecar)))
        (dolist (mutation '( :sidecar :name :removed))
          (when (probe-file marker) (delete-file marker))
@@ -210,8 +210,8 @@
 (defun executable-skill-tests--transport (context)
   "Reject unsafe envelopes and clean partial publications on job cancellation."
   (let* ((configuration (tool-context-configuration context))
-         (directory (merge-pathnames "transport-fixture/" (config :cache-root configuration)))
-         (pathname (merge-pathnames "result.sexp" directory)))
+         (directory     (merge-pathnames "transport-fixture/" (config :cache-root configuration)))
+         (pathname      (merge-pathnames "result.sexp" directory)))
     (unwind-protect
          (progn
            (ensure-directories-exist pathname)
@@ -227,18 +227,18 @@
                     (progn (executable-skill--read-result pathname "fixture" :directory-status status) nil)
                   (error () t)) "unsafe or extra-form publication rejected"))
              (dolist (source (list
-                             (concatenate 'string (make-string 140 :initial-element #\()
-                                          "0" (make-string 140 :initial-element #\)))
-                             (format nil "(:token ~S :record (~{~D ~}))"
-                                     "fixture" (make-list 262145 :initial-element 0))))
+                              (concatenate 'string (make-string 140 :initial-element #\()
+                                           "0" (make-string 140 :initial-element #\)))
+                              (format nil "(:token ~S :record (~{~D ~}))"
+                                      "fixture" (make-list 262145 :initial-element 0))))
                (executable-skill-tests--write pathname source)
                (test-assert
                 (handler-case
                     (progn (executable-skill--read-result pathname "fixture" :directory-status status) nil)
                   (executable-skill-error () t)) "preconstruction depth and node bounds reject publication"))
              (let ((saved-directory (merge-pathnames "transport-original/" (config :cache-root configuration)))
-                   (open-function (symbol-function 'platform-open-regular-file))
-                   (opened-stream nil))
+                   (open-function   (symbol-function 'platform-open-regular-file))
+                   (opened-stream   nil))
                (unwind-protect
                     (test-call-with-function-replacements
                      (list
@@ -322,7 +322,7 @@
        (test-assert (tool-result-success-p result) (format nil "large portable output runs: ~A" (tool-result-content result)))
        (when (tool-result-success-p result)
          (let* ((value (getf (executable-skill-result-record result) :value))
-                (deep (second (assoc "deep" (rest value) :test #'string=))))
+                (deep  (second (assoc "deep" (rest value) :test #'string=))))
            (test-assert (= 16000 (length (second (assoc "large" (rest value) :test #'string=)))) "native transport preserves more than 12k characters")
            (dotimes (index 15) (declare (ignorable index)) (setf deep (second deep)))
            (test-assert (equal deep "leaf") "native transport preserves deep portable arrays"))))

@@ -11,7 +11,7 @@
       (test-assert (search "output truncated" text) "async output marks truncation")))
   (let* ((*application-async-lisp-output-capture-limit* 64)
          (*application-async-lisp-output-pending-limit* 8)
-         (stream (application-async-lisp-output-stream-create)))
+         (stream                                        (application-async-lisp-output-stream-create)))
     (let ((*application-async-lisp-output-capture-limit* 512)
           (*application-async-lisp-output-pending-limit* 512))
       (write-string (make-string 256 :initial-element #\x) stream)
@@ -20,7 +20,7 @@
 
 (defun test-async-lisp-output-captures-standard-text ()
   "Capture ordinary characters, newlines, and tabs."
-  (let ((stream (application-async-lisp-output-stream-create))
+  (let ((stream   (application-async-lisp-output-stream-create))
         (expected (format nil "one~C~Ctwo" #\Newline #\Tab)))
     (write-string expected stream)
     (test-assert (string= (application-async-lisp-output-text stream) expected)
@@ -65,7 +65,7 @@
 
 (defun test-async-lisp-output-concurrent-writes ()
   "Concurrent writes produce bounded, valid captured text."
-  (let ((stream (application-async-lisp-output-stream-create))
+  (let ((stream  (application-async-lisp-output-stream-create))
         (threads nil))
     (dotimes (index 4)
       (push (make-thread (lambda ()

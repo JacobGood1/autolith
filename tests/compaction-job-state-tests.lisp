@@ -13,8 +13,8 @@
        (job-completion-tests--start
         parent runtime :operation (lambda () (tool-success "output must not enter job context"))))
      (let* ((snapshot (task-unfinished-work-snapshot parent :limit 3))
-            (rows (getf snapshot :jobs))
-            (text (task-unfinished-work--encode snapshot)))
+            (rows     (getf snapshot :jobs))
+            (text     (task-unfinished-work--encode snapshot)))
        (test-assert (task-unfinished-work-snapshot-p snapshot) "checkpoint data is portable and validated")
        (test-assert (= 24 (getf snapshot :total)) "all outstanding jobs count before request bounds")
        (test-assert (= 3 (length rows)) "row count respects the requested limit")
@@ -23,15 +23,15 @@
        (test-assert (= 24 (length (task-continuity-inventory parent runtime)))
                     "omitted jobs are independently inspectable")
        (let* ((*task-unfinished-work-maximum-octets* 650)
-              (bounded (task-unfinished-work-snapshot parent :limit 24))
-              (encoded (task-unfinished-work--encode bounded)))
+              (bounded                               (task-unfinished-work-snapshot parent :limit 24))
+              (encoded                               (task-unfinished-work--encode bounded)))
          (test-assert (<= (length (utf8-string-to-octets (json-encode encoded))) 650)
                       "wire-encoded evidence is bounded without slicing rows")
          (test-assert (= 24 (+ (length (getf bounded :jobs)) (getf bounded :omitted-count)))
                       "encoded-byte omissions preserve total accounting")
          (test-assert (task-unfinished-work-snapshot-p bounded) "whole bounded rows retain the checkpoint contract"))
        (let* ((*task-unfinished-work-field-limit* 40)
-              (bounded (task-unfinished-work-snapshot parent :limit 24)))
+              (bounded                            (task-unfinished-work-snapshot parent :limit 24)))
          (test-assert (and (null (getf bounded :jobs)) (= 24 (getf bounded :omitted-count)))
                       "oversized references omit whole rows without truncating identities"))
        (let ((zero (task-unfinished-work-snapshot parent :limit 0)))
@@ -44,14 +44,14 @@
   "Derive outstanding results from authoritative receipts before and after restart."
   (job-completion-tests--fixture
    (lambda (parent runtime configuration)
-     (let* ((job (job-completion-tests--start parent runtime :policy ':notify))
+     (let* ((job        (job-completion-tests--start parent runtime :policy ':notify))
             (identifier (session-job-execution-identifier job))
-            (before (task-unfinished-work-snapshot parent)))
+            (before     (task-unfinished-work-snapshot parent)))
        (test-assert (= 1 (getf before :total)) "notify-only terminal work awaits delivery")
        (test-assert (eq ':undelivered (getf (first (getf before :jobs)) :delivery))
                     "settled work without an owner receipt is undelivered")
-       (let* ((offline (make-instance 'agent :configuration configuration
-                                      :conversation (agent-conversation parent)))
+       (let* ((offline  (make-instance 'agent :configuration configuration
+                                       :conversation         (agent-conversation parent)))
               (snapshot (task-unfinished-work-snapshot offline)))
          (test-assert (= 1 (getf snapshot :total))
                       "configured agents inspect durable undelivered work without a live runtime")
@@ -80,21 +80,21 @@
    (lambda (parent runtime configuration)
      (let* ((definition (make-instance 'task-agent-definition :name "fixture" :description "fixture"
                                                             :instructions "fixture" :source ':test))
-            (owner-job (task-tests--make-job runtime :identifier "owner" :parent-agent parent
-                                            :definition definition :item (list :task "fixture")))
-            (child (make-instance 'task-child-agent
-                                 :configuration configuration :conversation (conversation-create configuration)
-                                 :provider (agent-provider parent) :tool-registry (agent-tool-registry parent)
-                                 :worker nil :definition definition :identity nil :depth 1
-                                 :completion (make-instance 'task-completion) :orchestrator runtime :job owner-job)))
+            (owner-job  (task-tests--make-job runtime :identifier "owner" :parent-agent parent
+                                             :definition definition :item (list :task "fixture")))
+            (child      (make-instance 'task-child-agent
+                                      :configuration configuration :conversation (conversation-create configuration)
+                                      :provider (agent-provider parent) :tool-registry (agent-tool-registry parent)
+                                      :worker nil :definition definition :identity nil :depth 1
+                                      :completion (make-instance 'task-completion) :orchestrator runtime :job owner-job)))
        (conversation-append-user-message (agent-conversation child) "Child-owned work.")
-       (let* ((primary-job (job-completion-tests--start parent runtime))
-              (child-job (job-completion-tests--start child runtime))
-              (identifier (session-job-execution-identifier child-job))
-              (owner (conversation-identifier (agent-conversation child)))
+       (let* ((primary-job  (job-completion-tests--start parent runtime))
+              (child-job    (job-completion-tests--start child runtime))
+              (identifier   (session-job-execution-identifier child-job))
+              (owner        (conversation-identifier (agent-conversation child)))
               (primary-view (task-unfinished-work-snapshot parent))
-              (child-row (find identifier (getf primary-view :jobs)
-                               :key (lambda (row) (getf row :execution-id)) :test #'equal)))
+              (child-row    (find identifier (getf primary-view :jobs)
+                                  :key (lambda (row) (getf row :execution-id)) :test #'equal)))
          (declare (ignore primary-job))
          (test-assert (and child-row (equal owner (getf child-row :owner-conversation))
                            (eq ':other-conversation (getf child-row :delivery)))
@@ -120,20 +120,20 @@
   "Expose live and interrupted records without executing, delivering or reviving work."
   (job-completion-tests--fixture
    (lambda (parent runtime configuration)
-     (let* ((lock (make-lock "Unfinished job gate"))
-            (condition (make-condition-variable))
+     (let* ((lock       (make-lock "Unfinished job gate"))
+            (condition  (make-condition-variable))
             (released-p nil)
-            (job (task-orchestrator-start-execution-job
-                  runtime parent :tool-name "compaction.fixture" :summary "running work"
-                  :operation-function (lambda ()
-                                        (with-lock-held (lock)
-                                          (loop until released-p do (condition-wait condition lock)))
-                                        (tool-success "done"))
-                  :detached-p t))
-            (owner (conversation-identifier (agent-conversation parent)))
+            (job        (task-orchestrator-start-execution-job
+                         runtime parent :tool-name "compaction.fixture" :summary "running work"
+                         :operation-function (lambda ()
+                                               (with-lock-held (lock)
+                                                 (loop until released-p do (condition-wait condition lock)))
+                                               (tool-success "done"))
+                         :detached-p         t))
+            (owner      (conversation-identifier (agent-conversation parent)))
             (identifier (make-identifier))
-            (directory (merge-pathnames (format nil "~A/" identifier)
-                                        (task--artifact-group-root configuration owner))))
+            (directory  (merge-pathnames (format nil "~A/" identifier)
+                                         (task--artifact-group-root configuration owner))))
        (unwind-protect
             (progn
               (task-completion-watch job parent)
@@ -143,12 +143,12 @@
                (list :version 1 :kind ':tool :job-id "interrupted" :execution-id identifier
                      :root-conversation owner :owners nil :created-at (get-universal-time)
                      :detached-p t :completion-owner-conversation owner :completion-policy ':continue))
-              (let* ((before (conversation-next-sequence (agent-conversation parent)))
+              (let* ((before   (conversation-next-sequence (agent-conversation parent)))
                      (snapshot (task-unfinished-work-snapshot parent))
-                     (running (find (session-job-execution-identifier job) (getf snapshot :jobs)
-                                    :key (lambda (row) (getf row :execution-id)) :test #'equal))
-                     (unknown (find identifier (getf snapshot :jobs)
-                                    :key (lambda (row) (getf row :execution-id)) :test #'equal)))
+                     (running  (find (session-job-execution-identifier job) (getf snapshot :jobs)
+                                     :key (lambda (row) (getf row :execution-id)) :test #'equal))
+                     (unknown  (find identifier (getf snapshot :jobs)
+                                     :key (lambda (row) (getf row :execution-id)) :test #'equal)))
                 (test-assert (= 2 (getf snapshot :total)) "both live and uncertain work are authoritative")
                 (test-assert (and (member (getf running :status) '(:queued :running))
                                   (eq ':pending (getf running :delivery)))
@@ -172,15 +172,15 @@
   (job-completion-tests--fixture
    (lambda (parent runtime configuration)
      (job-completion-tests--start parent runtime)
-     (let* ((application (mission-test--application configuration))
-            (request (make-instance 'request-context :configuration configuration
-                                   :conversation (agent-conversation parent) :tool-namespaces #()))
+     (let* ((application                  (mission-test--application configuration))
+            (request                      (make-instance 'request-context :configuration configuration
+                                                        :conversation (agent-conversation parent) :tool-namespaces #()))
             (*task-unfinished-work-agent* parent))
        (application-mission-start application (mission-test--specification))
        (let ((goal (application-goal application)))
          (dolist (status '(:paused :cancelled :completed :failed :exhausted))
            (setf (getf goal :status) status)
-           (let ((before (copy-tree goal))
+           (let ((before   (copy-tree goal))
                  (sequence (conversation-next-sequence (agent-conversation parent))))
              (test-assert (task-unfinished-work request) "ordinary safe boundaries offer outstanding references")
              (test-assert (equal before goal) "request projection never resets mission budgets or status")

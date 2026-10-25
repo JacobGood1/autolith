@@ -7,8 +7,8 @@
 
 (define-condition test-selection-error (error)
   ((selector
-    :initarg :selector
-    :reader test-selection-error-selector
+    :initarg       :selector
+    :reader        test-selection-error-selector
     :documentation "The unknown suite or test selector."))
   (:report (lambda (condition stream)
              (format stream "Unknown test selector ~S. Use --list to see available tests."
@@ -39,6 +39,7 @@ Reloading a suite replaces its registration without duplicating cases."
              (append (remove ,label *test-suites* :key #'first :test #'string=)
                      (list (cons ,label ',cases)))))))
 
+
 ;;;; -- Selection and Execution --
 
 (-> tests-select (&key (:suites list) (:tests list)) list)
@@ -47,7 +48,7 @@ Reloading a suite replaces its registration without duplicating cases."
 
 Names are case-insensitive. No selectors means the complete catalog. Unknown
 selectors signal TEST-SELECTION-ERROR instead of silently running nothing."
-  (let* ((all (loop for suite in *test-suites* append (rest suite)))
+  (let* ((all      (loop for suite in *test-suites* append (rest suite)))
          (selected nil))
     (dolist (selector suites)
       (let ((entry (assoc (string selector) *test-suites* :test #'string-equal)))
@@ -56,7 +57,7 @@ selectors signal TEST-SELECTION-ERROR instead of silently running nothing."
         (setf selected (append selected (rest entry)))))
     (dolist (selector tests)
       (let ((name (find (string selector) all :key #'symbol-name
-                                            :test #'string-equal)))
+                                            :test  #'string-equal)))
         (unless name
           (error 'test-selection-error :selector selector))
         (push name selected)))
@@ -88,29 +89,29 @@ ownership of TEMPORARY-ROOT when supplied or allocating a fresh run directory."
   (test-call-with-temporary-root
    (lambda (root)
      (declare (ignore root))
-     (let ((checks 0)
-           (failures nil)
-           (timings nil)
-           (fiveam:*print-names* nil)
-           (fiveam:*on-error* nil)
-           (fiveam:*on-failure* nil)
-           (fiveam:*debug-on-error* nil)
+     (let ((checks                    0)
+           (failures                  nil)
+           (timings                   nil)
+           (fiveam:*print-names*      nil)
+           (fiveam:*on-error*         nil)
+           (fiveam:*on-failure*       nil)
+           (fiveam:*debug-on-error*   nil)
            (fiveam:*debug-on-failure* nil)
-           (fiveam:*test-dribble* (make-broadcast-stream)))
+           (fiveam:*test-dribble*     (make-broadcast-stream)))
        (dolist (name cases)
          (unless (member name (tests-select))
            (error 'test-selection-error :selector name))
-          (format stream "~&RUN ~(~A~)~%" name)
-          (finish-output stream)
-         (let* ((start (get-internal-real-time))
+         (format stream "~&RUN ~(~A~)~%" name)
+         (finish-output stream)
+         (let* ((start   (get-internal-real-time))
                 (results (fiveam:run name))
                 (elapsed (/ (- (get-internal-real-time) start)
                             (float internal-time-units-per-second 1d0)))
-                (passed (fiveam:results-status results)))
+                (passed  (fiveam:results-status results)))
            (incf checks (length results))
            (push (list (string-downcase name) elapsed) timings)
            (unless passed
-             (push (list :test (string-downcase name)
+             (push (list :test   (string-downcase name)
                          :detail (with-output-to-string (output)
                                    (let ((fiveam:*test-dribble* output))
                                      (fiveam:explain! results))))
@@ -132,7 +133,7 @@ Include each case's timing unless CASE-TIMINGS-P is NIL."
     (dolist (timing (getf result ':timings))
       (format stream "~&~A ~,3Fs ~A~%"
               (if (find (first timing) (getf result ':failures)
-                        :key (lambda (failure) (getf failure ':test))
+                        :key  (lambda (failure) (getf failure ':test))
                         :test #'string=)
                   "FAIL" "PASS")
               (second timing) (first timing))))

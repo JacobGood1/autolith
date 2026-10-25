@@ -8,10 +8,10 @@
   (task-continuity-tests--fixture
    (lambda (parent orchestrator context job path)
      (declare (ignore parent))
-     (let* ((directory (uiop:pathname-directory-pathname path))
-            (transcript (merge-pathnames "conversation.sexp" directory))
+     (let* ((directory   (uiop:pathname-directory-pathname path))
+            (transcript  (merge-pathnames "conversation.sexp" directory))
             (result-path (merge-pathnames "result.sexp" directory))
-            (execution (session-job-execution-identifier job)))
+            (execution   (session-job-execution-identifier job)))
        (test-assert
         (task-continuity-tests--refused-p
          (lambda () (task-inspector-transcript context orchestrator execution)))
@@ -21,7 +21,7 @@
                        (list :status ':success :conversation-file (namestring transcript)
                              :output (make-string 20000 :initial-element #\x)
                              :duration-ms 321 :request-count 7
-                             :usage '(("input_tokens" 42))))
+                             :usage  '(("input_tokens" 42))))
        (let ((result (getf (first (task-inspector-rows context orchestrator)) :result)))
          (test-assert (and (null (getf result :output))
                            (= 321 (getf result :duration-ms))
@@ -48,7 +48,7 @@
                                        (config :working-directory
                                                (tool-context-configuration context)))))
          (snapshot-write-text foreign "not this child's transcript")
-         (snapshot-write result-path (list :status ':success
+         (snapshot-write result-path (list :status           ':success
                                           :conversation-file (namestring foreign)))
          (test-assert
           (task-continuity-tests--refused-p
@@ -57,19 +57,19 @@
        (let* ((conversation (conversation-create
                              (tool-context-configuration context)
                              :identifier execution :storage-root directory))
-              (identity (conversation-pathname conversation)))
+              (identity     (conversation-pathname conversation)))
          (conversation-append-user-message conversation "actual persisted conversation")
          (conversation-append-summary conversation "persisted compacted checkpoint")
          (conversation-append-user-message conversation "after compaction")
          (snapshot-write result-path (list :status ':success :conversation-file (namestring identity)))
          (let* ((segments (conversation-storage-pathnames identity))
-                (text (with-output-to-string (output)
-                        (dolist (segment segments)
-                          (write-string (uiop:read-file-string segment) output))))
+                (text     (with-output-to-string (output)
+                            (dolist (segment segments)
+                              (write-string (uiop:read-file-string segment) output))))
                 (boundary (length (uiop:read-file-string (first segments))))
-                (offset (- boundary 2))
-                (window (task-inspector-transcript context orchestrator execution
-                                                   :offset offset :limit 6)))
+                (offset   (- boundary 2))
+                (window   (task-inspector-transcript context orchestrator execution
+                                                     :offset offset :limit 6)))
            (test-assert (and (not (probe-file identity)) (> (length segments) 1))
                         "Actual conversation persistence uses compacted chunk storage")
            (test-assert (and (equal (subseq text offset (+ offset 6)) (getf window :text))
@@ -105,13 +105,13 @@
          (setf (job-state job) ':running
                (job-started-at job) (get-internal-real-time)))
        (task-job--set-progress-state job ':running)
-       (let* ((text (concatenate 'string (make-string 7000 :initial-element #\x)
-                                "LATEST NOTE"))
+       (let* ((text     (concatenate 'string (make-string 7000 :initial-element #\x)
+                                    "LATEST NOTE"))
               (snapshot (task-job-snapshot job)))
          (setf (getf (getf snapshot :progress) :recent-output) text)
          (dolist (limit '(0 256))
-           (let* ((record (task--job-native-record snapshot :preview-limit limit
-                                                  :include-progress-p t))
+           (let* ((record  (task--job-native-record snapshot :preview-limit limit
+                                                   :include-progress-p      t))
                   (preview (getf (getf record :progress) :recent-output)))
              (test-assert
               (and (equal (subseq text (- (length text) limit)) (getf preview :tail))
@@ -125,80 +125,80 @@
           "Short progress is readable inline")
          (test-assert
           (string= (task--write-readable-sexp
-                    (list :id (coerce "exec:1" 'base-string)
+                    (list :id   (coerce "exec:1" 'base-string)
                           :pair (cons 1 (coerce "x" 'base-string))))
                    "(:ID \"exec:1\" :PAIR (1 . \"x\"))")
           "Native records print base strings as plain strings"))
        (test-assert (= 1 (length (task-inspector-rows context orchestrator)))
                     "A live job and durable record merge into one inspector row")
-        (let* ((application (mission-test--application (agent-configuration parent)))
-               (message "Use the corrected assignment, preserving these spaces.")
-               (invocation (application-command-invocation-parse
+       (let* ((application (mission-test--application (agent-configuration parent)))
+              (message     "Use the corrected assignment, preserving these spaces.")
+              (invocation  (application-command-invocation-parse
                             (format nil "/tasks send ~A ~A"
                                     (session-job-identifier job) message))))
-          (unwind-protect
-               (progn
-                 (setf (application-agent application) parent
-                       (application-tool-registry application) (agent-tool-registry parent)
-                       (application-conversation application) (agent-conversation parent))
-                 (test-assert (eq ':ok (application-lisp-evaluation-status
+         (unwind-protect
+              (progn
+                (setf (application-agent application) parent
+                      (application-tool-registry application) (agent-tool-registry parent)
+                      (application-conversation application) (agent-conversation parent))
+                (test-assert (eq ':ok (application-lisp-evaluation-status
                                        (application-lisp-evaluate "(tasks)" :application application)))
-                              "native tasks list is callable from the Lisp prompt")
-                 (let ((id (session-job-identifier job))
-                       (literal "Keep Case, \"quotes\",  doubled spaces and an unmatched \""))
-                   (dolist (arguments (list (list "send" id :message literal)
-                                           (list ':send id :message nil)
-                                           (list ':transcript id :offset "2" :limit 3)
-                                           (list ':transcript id :offset 0 :limit 0)
-                                           (list ':revive id :authorize "authorize")
-                                           (list ':cancel id :extra t)))
-                     (test-assert
-                      (handler-case
-                          (progn (apply #'application-operation-call application "tasks" arguments) nil)
-                        (task-continuity-error () t))
-                      "invalid native task values receive typed rejections"))
-                   (test-assert (zerop (task-job-steering-pending-count job))
-                                "rejected task calls do not enqueue steering")
-                   (test-assert (not (job-cancellation-requested-p job))
-                                "rejected task calls do not cancel the job")
-                   (application-operation-call application "tasks" ':send id :message literal)
-                   (test-assert (= 1 (task-job-steering-pending-count job))
-                                "native send enters the ordinary child queue once")
-                   (let ((entry (first (task-job-take-steering job))))
-                     (test-assert
-                      (search literal (user-message-input-text (agent-steering-input-content entry)))
-                      "native task message retains quotes, case and whitespace")
-                     (task-job-acknowledge-steering job (agent-steering-input-identifier entry))))
-                 (let ((observed nil))
-                   (test-call-with-function-replacements
-                    (list (list 'task-inspector-action
-                                (lambda (owner-context owner-orchestrator action &rest options)
-                                  (declare (ignore owner-context owner-orchestrator))
-                                  (push (cons action options) observed)
-                                  "inspected")))
-                    (lambda ()
-                      (application-operation-call application "tasks" ':revive
-                                                  (session-job-identifier job) :authorize nil)
-                      (application-operation-call application "tasks" ':abandon
-                                                  (session-job-identifier job) :authorize t)
-                      (application-operation-call application "tasks" ':transcript
-                                                  (session-job-identifier job) :offset 2 :limit 3)))
-                   (test-assert
-                    (and (= 2 (getf (rest (first observed)) :offset))
-                         (= 3 (getf (rest (first observed)) :limit))
-                         (eq t (getf (rest (second observed)) :authorized-p))
-                         (null (getf (rest (third observed)) :authorized-p)))
-                    "native transcript integers and explicit true/false authority reach ordinary task dispatch"))
-                 (application-command-execute
-                  (application-command-invocation-command invocation) application invocation)
-                 (test-assert (= 1 (task-job-steering-pending-count job))
-                              "The slash inspector enters the ordinary durable child input queue")
-                 (test-assert
-                  (search message
-                          (user-message-input-text
-                           (agent-steering-input-content (first (task-job-take-steering job)))))
-                  "Multiword slash steering reaches the child without tokenization loss"))
-            (terminal-ui-stop (application-ui application))))
+                             "native tasks list is callable from the Lisp prompt")
+                (let ((id      (session-job-identifier job))
+                      (literal "Keep Case, \"quotes\",  doubled spaces and an unmatched \""))
+                  (dolist (arguments (list (list "send" id :message literal)
+                                          (list ':send id :message nil)
+                                          (list ':transcript id :offset "2" :limit 3)
+                                          (list ':transcript id :offset 0 :limit 0)
+                                          (list ':revive id :authorize "authorize")
+                                          (list ':cancel id :extra t)))
+                    (test-assert
+                     (handler-case
+                         (progn (apply #'application-operation-call application "tasks" arguments) nil)
+                       (task-continuity-error () t))
+                     "invalid native task values receive typed rejections"))
+                  (test-assert (zerop (task-job-steering-pending-count job))
+                               "rejected task calls do not enqueue steering")
+                  (test-assert (not (job-cancellation-requested-p job))
+                               "rejected task calls do not cancel the job")
+                  (application-operation-call application "tasks" ':send id :message literal)
+                  (test-assert (= 1 (task-job-steering-pending-count job))
+                               "native send enters the ordinary child queue once")
+                  (let ((entry (first (task-job-take-steering job))))
+                    (test-assert
+                     (search literal (user-message-input-text (agent-steering-input-content entry)))
+                     "native task message retains quotes, case and whitespace")
+                    (task-job-acknowledge-steering job (agent-steering-input-identifier entry))))
+                (let ((observed nil))
+                  (test-call-with-function-replacements
+                   (list (list 'task-inspector-action
+                               (lambda (owner-context owner-orchestrator action &rest options)
+                                 (declare (ignore owner-context owner-orchestrator))
+                                 (push (cons action options) observed)
+                                 "inspected")))
+                   (lambda ()
+                     (application-operation-call application "tasks" ':revive
+                                                 (session-job-identifier job) :authorize nil)
+                     (application-operation-call application "tasks" ':abandon
+                                                 (session-job-identifier job) :authorize t)
+                     (application-operation-call application "tasks" ':transcript
+                                                 (session-job-identifier job) :offset 2 :limit 3)))
+                  (test-assert
+                   (and (= 2 (getf (rest (first observed)) :offset))
+                        (= 3 (getf (rest (first observed)) :limit))
+                        (eq t (getf (rest (second observed)) :authorized-p))
+                        (null (getf (rest (third observed)) :authorized-p)))
+                   "native transcript integers and explicit true/false authority reach ordinary task dispatch"))
+                (application-command-execute
+                 (application-command-invocation-command invocation) application invocation)
+                (test-assert (= 1 (task-job-steering-pending-count job))
+                             "The slash inspector enters the ordinary durable child input queue")
+                (test-assert
+                 (search message
+                         (user-message-input-text
+                          (agent-steering-input-content (first (task-job-take-steering job)))))
+                 "Multiword slash steering reaches the child without tokenization loss"))
+           (terminal-ui-stop (application-ui application))))
        (let ((count (length (task-orchestrator-list-jobs orchestrator))))
          (task-inspector-action context orchestrator "revive"
                                 :id (session-job-execution-identifier job) :authorized-p t)
@@ -212,7 +212,7 @@
        (tool-registry-register
         registry (make-instance 'task-test-authorization-tool :namespace "test" :name "authorize"
                                 :description "Check forwarded command authority."
-                                :parameters (tool-object-schema (json-object) nil)))
+                                :parameters  (tool-object-schema (json-object) nil)))
        (let ((authorized-context
                (make-instance
                 'tool-context :configuration (tool-context-configuration context)
@@ -227,7 +227,6 @@
        (test-assert (and called-p (eq :deny *task-test-command-decision*))
                     "Ordinary action dispatch retains the originating authorization callback"))))
   nil)
-
 
 (-> test-task-inspector-bounded-usage () null)
 (defun test-task-inspector-bounded-usage ()
@@ -244,20 +243,20 @@
   (task-continuity-tests--fixture
    (lambda (parent orchestrator context orphan path)
      (declare (ignore path))
-     (let* ((job (task-tests--register-job
-                  orchestrator parent (task-job-definition orphan) :name "bounded-usage"))
-            (progress (task-job-progress job))
+     (let* ((job         (task-tests--register-job
+                          orchestrator parent (task-job-definition orphan) :name "bounded-usage"))
+            (progress    (task-job-progress job))
             (attribution (loop for tree = '("provider") then (list tree tree)
                                repeat 22 finally (return tree)))
-            (usage (list (list "input_tokens" 3)
-                         (list "output_tokens" 2)
-                         (list "input_tokens_details" '(("cached_tokens" 1)))
-                         (list "attribution" attribution)))
-            (expected '(("input_tokens" 6) ("output_tokens" 4)
-                        ("input_tokens_details" (("cached_tokens" 2)))))
+            (usage       (list (list "input_tokens" 3)
+                               (list "output_tokens" 2)
+                               (list "input_tokens_details" '(("cached_tokens" 1)))
+                               (list "attribution" attribution)))
+            (expected    '(("input_tokens" 6) ("output_tokens" 4)
+                           ("input_tokens_details" (("cached_tokens" 2)))))
             (application (make-instance 'application
                                         :configuration (agent-configuration parent)
-                                        :conversation (agent-conversation parent)
+                                        :conversation  (agent-conversation parent)
                                         :tool-registry (agent-tool-registry parent)
                                         :agent parent :ui nil)))
        (task-continuity-record-job job parent)
@@ -270,7 +269,7 @@
                     "Supervisory projection leaves provider audit data untouched")
        (let* ((directory (uiop:pathname-directory-pathname
                           (task-continuity-record-job job parent)))
-              (activity (task-continuity--read (merge-pathnames "activity.sexp" directory))))
+              (activity  (task-continuity--read (merge-pathnames "activity.sexp" directory))))
          (test-assert (equal expected (getf (getf activity :progress) :usage))
                       "Published activity can be reread within ordinary artifact limits"))
        ;; Simulate progress retained by a pre-fix image before another event arrives.
@@ -287,9 +286,9 @@
        (setf (getf (job-result job) :usage) usage
              (task-progress-usage progress) usage)
        (let* ((snapshot (session-job-snapshot job))
-              (rows (task-inspector-rows context orchestrator))
-              (row (find (session-job-execution-identifier job) rows
-                         :key (lambda (value) (getf value :execution-id)) :test #'equal)))
+              (rows     (task-inspector-rows context orchestrator))
+              (row      (find (session-job-execution-identifier job) rows
+                              :key (lambda (value) (getf value :execution-id)) :test #'equal)))
          (test-assert
           (and (eq ':failed (getf snapshot :state))
                (equal (task-progress--usage-summary usage)
@@ -301,21 +300,20 @@
           "Terminal snapshots and the inspector project oversized retained result usage")))))
   nil)
 
-
 (-> test-task-inspector-presentation () null)
 (defun test-task-inspector-presentation ()
   "Present native task state and metadata through bounded, navigable inspector pages."
   (task-continuity-tests--fixture
    (lambda (parent orchestrator context job path)
      (let* ((application (mission-test--application (agent-configuration parent)))
-            (transcript (merge-pathnames "conversation.sexp" path))
-            (rows (list (list :job-id "failed-child" :state ':failed :updated-at 3
-                              :execution-id "failed-execution" :owners '("primary" "parent")
-                              :error "lost worker" :decision ':abandon
-                              :progress '(:usage (("input_tokens" 42)))
-                              :result '(:status :failed :duration-ms 1200))
-                        (list :job-id "live-child" :state ':running :updated-at 1
-                              :progress '(:current-tool "shell.run" :request-count 2)))))
+            (transcript  (merge-pathnames "conversation.sexp" path))
+            (rows        (list (list :job-id "failed-child" :state ':failed :updated-at 3
+                                     :execution-id "failed-execution" :owners '("primary" "parent")
+                                     :error "lost worker" :decision ':abandon
+                                     :progress '(:usage (("input_tokens" 42)))
+                                     :result   '(:status :failed :duration-ms 1200))
+                               (list :job-id "live-child" :state ':running :updated-at 1
+                                     :progress '(:current-tool "shell.run" :request-count 2)))))
        (unwind-protect
             (progn
               (setf (application-agent application) parent

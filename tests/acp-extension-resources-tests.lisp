@@ -15,18 +15,18 @@
   "Exercise real revisions, bounded defaults, line offsets and oversized requests."
   (with-test-configuration (configuration root)
     (let ((path (merge-pathnames "known-resource.txt" root))
-          (uri "workspace:known-resource.txt"))
+          (uri  "workspace:known-resource.txt"))
       (with-open-file (stream path :direction ':output :if-exists ':supersede)
         (dotimes (index 450) (format stream "line-~D~%" (1+ index))))
       (acp-session-test--call-with-client
        configuration
        (lambda (service client)
          (let* ((identifier (agentcomms:client-new-session client (namestring root)))
-                (session (acp-service--session service identifier))
-                (one (acp-extension-resource
-                      session (agentcomms:json-object "uri" uri "startLine" 2 "lineCount" 1)))
-                (default (acp-extension-resource session (agentcomms:json-object "uri" uri)))
-                (window (gethash "window" default)))
+                (session    (acp-service--session service identifier))
+                (one        (acp-extension-resource
+                             session (agentcomms:json-object "uri" uri "startLine" 2 "lineCount" 1)))
+                (default    (acp-extension-resource session (agentcomms:json-object "uri" uri)))
+                (window     (gethash "window" default)))
            (test-assert (equal "line-2" (gethash "content" one)) "Exact nonempty line content")
            (test-assert (equal (gethash "revision" one) (gethash "revision" default))
                         "Two unchanged observations share their real revision")
@@ -65,14 +65,14 @@
      configuration
      (lambda (service client)
        (let* ((identifier (agentcomms:client-new-session client (namestring root)))
-              (session (acp-service--session service identifier))
-              (context (acp-extension-tool-context session))
-              (artifact (shell-log-allocate context))
-              (path (merge-pathnames "output.bin" (shell-log-capture-directory artifact)))
-              (bytes (utf8-string-to-octets
-                      (concatenate 'string "abcdef" (make-string 5000 :initial-element #\x))))
-              (capture (make-instance 'cl-exec-sandbox:sandbox-capture :path path))
-              (uri (shell-log-reference artifact ':output)))
+              (session    (acp-service--session service identifier))
+              (context    (acp-extension-tool-context session))
+              (artifact   (shell-log-allocate context))
+              (path       (merge-pathnames "output.bin" (shell-log-capture-directory artifact)))
+              (bytes      (utf8-string-to-octets
+                           (concatenate 'string "abcdef" (make-string 5000 :initial-element #\x))))
+              (capture    (make-instance 'cl-exec-sandbox:sandbox-capture :path path))
+              (uri        (shell-log-reference artifact ':output)))
          (with-open-file (stream path :direction ':output :if-exists ':supersede
                                       :element-type '(unsigned-byte 8))
            (write-sequence bytes stream))
@@ -84,12 +84,12 @@
           artifact (make-instance 'cl-exec-sandbox:sandbox-result
                                   :output-capture capture :exit-code 0
                                   :timed-out-p nil :cancelled-p nil :status ':exited))
-         (let* ((result (acp-extension-resource
-                         session (agentcomms:json-object "uri" uri "byteOffset" 2 "byteCount" 3)))
-                (window (gethash "window" result))
+         (let* ((result  (acp-extension-resource
+                          session (agentcomms:json-object "uri" uri "byteOffset" 2 "byteCount" 3)))
+                (window  (gethash "window" result))
                 (default (acp-extension-resource session (agentcomms:json-object "uri" uri)))
-                (end (acp-extension-resource
-                      session (agentcomms:json-object "uri" uri "byteOffset" 99999))))
+                (end     (acp-extension-resource
+                          session (agentcomms:json-object "uri" uri "byteOffset" 99999))))
            (test-assert (equal "cde" (gethash "content" result)) "Owned raw bytes are content")
            (test-assert (and (= 2 (gethash "byteOffset" window))
                              (= 3 (gethash "byteCount" window))

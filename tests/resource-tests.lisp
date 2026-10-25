@@ -4,27 +4,27 @@
 
 (defclass test-resource (resource)
   ((identifier
-    :initarg :identifier
-    :reader test-resource-identifier
-    :type non-empty-string
+    :initarg       :identifier
+    :reader        test-resource-identifier
+    :type          non-empty-string
     :documentation "The identifier resolved by a test resolver.")
    (marker
-    :initarg :marker
-    :reader test-resource-marker
-    :type keyword
+    :initarg       :marker
+    :reader        test-resource-marker
+    :type          keyword
     :documentation "The resolver marker retained by this fixture."))
   (:documentation "A resource used to test registry dispatch."))
 
 (defclass test-resource-resolver (resource-resolver)
   ((marker
-    :initarg :marker
-    :reader test-resource-resolver-marker
-    :type keyword
+    :initarg       :marker
+    :reader        test-resource-resolver-marker
+    :type          keyword
     :documentation "The marker copied into resolved test resources.")
    (last-context
-    :initform nil
-    :accessor test-resource-resolver-last-context
-    :type t
+    :initform      nil
+    :accessor      test-resource-resolver-last-context
+    :type          t
     :documentation "The exact authority context received by the last resolution."))
   (:documentation "A resolver recording explicit context for protocol tests."))
 
@@ -82,17 +82,17 @@
               (tool-registry-resource-registry second-tools)))
      "resource resolver registries remain isolated per agent tool registry"))
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (registry (make-default-tool-registry))
-         (resolver (make-instance 'test-resource-resolver
-                                  :scheme "test"
-                                  :marker ':tool-dispatch))
+         (root          (test-configuration-root configuration))
+         (registry      (make-default-tool-registry))
+         (resolver      (make-instance 'test-resource-resolver
+                                       :scheme "test"
+                                       :marker ':tool-dispatch))
          (conversation
            (conversation-create configuration :identifier "resource-dispatch"))
-         (context (make-instance 'tool-context
-                                 :configuration configuration
-                                 :worker nil
-                                 :conversation conversation)))
+         (context       (make-instance 'tool-context
+                                       :configuration configuration
+                                       :worker        nil
+                                       :conversation  conversation)))
     (unwind-protect
          (progn
            (resource-registry-register
@@ -144,7 +144,7 @@
                         "resource tool dispatch preserves the exact authority context"))
       (tool-registry-close-runtime-state registry)
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -156,8 +156,8 @@ Bare {\"required\": [...]} anyOf variants carry no type declaration, and the
 Fireworks JSON Schema validator rejects them with \"could not understand the
 instance\", failing the entire request before the model runs. Every anyOf
 variant must therefore declare its object type explicitly."
-  (let* ((schema (default-tools--resource-operation-schema))
-         (variants (json-get schema "oneOf"))
+  (let* ((schema      (default-tools--resource-operation-schema))
+         (variants    (json-get schema "oneOf"))
          (anyof-count 0))
     (test-assert (and (vectorp variants) (plusp (length variants)))
                  "resource.edit operations offer one closed variant per operation")

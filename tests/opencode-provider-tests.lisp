@@ -31,23 +31,23 @@
 (defun opencode-provider-test--selection ()
   "Test OpenCode endpoint defaults and independent environment overrides."
   (let* ((registry-snapshot (provider--registry-snapshot))
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (saved-chat (uiop:getenv "AUTOLITH_OPENCODE_PROVIDER_ENDPOINT"))
+         (configuration     (test-configuration))
+         (root              (test-configuration-root configuration))
+         (saved-chat        (uiop:getenv "AUTOLITH_OPENCODE_PROVIDER_ENDPOINT"))
          (saved-models
            (uiop:getenv *opencode-models-environment-variable*)))
     (unwind-protect
          (progn
            (register-provider
             "opencode-endpoint-test"
-            :family ':opencode
-            :models '("opencode/endpoint-test")
+            :family   ':opencode
+            :models   '("opencode/endpoint-test")
             :endpoint *opencode-chat-completions-endpoint*
             :factory
             (lambda (selected &key reasoning-summaries-p)
               (declare (ignore reasoning-summaries-p))
               (opencode-provider-create selected))
-            :source ':runtime)
+            :source   ':runtime)
            (platform-setenv "AUTOLITH_OPENCODE_PROVIDER_ENDPOINT" "")
            (platform-setenv *opencode-models-environment-variable* "")
            (let ((selected
@@ -71,15 +71,15 @@
               (string= (config :provider-endpoint selected)
                        "https://chat.invalid/v1/chat/completions")
               "the OpenCode chat override takes precedence over registration metadata")
-             (let* ((provider (opencode-provider-create selected))
+             (let* ((provider     (opencode-provider-create selected))
                     (conversation
                       (conversation-create
                        selected :identifier "opencode-chat-endpoint"))
                     (credentials
                       (make-instance 'oauth-credentials
                                      :access-token "synthetic-opencode-key"
-                                     :account-id "opencode"
-                                     :source-path #P"/tmp/opencode-test-key"))
+                                     :account-id   "opencode"
+                                     :source-path  #P"/tmp/opencode-test-key"))
                     (observed-url nil))
                (test-call-with-function-replacements
                 (list
@@ -92,7 +92,7 @@
                   (provider-open-response-stream
                    provider
                    (json-object "model" "endpoint-test")
-                   :credentials credentials
+                   :credentials  credentials
                    :conversation conversation)))
                (test-assert
                 (string= observed-url "https://chat.invalid/v1/chat/completions")
@@ -113,19 +113,19 @@
 (defun opencode-provider-test--credential-source ()
   "Test the OpenCode environment credential source without network access."
   (let* ((configuration (opencode-provider-test--configuration))
-         (root (test-configuration-root configuration))
-         (manager (opencode-credential-manager-create configuration))
-         (saved (uiop:getenv "OPENCODE_API_KEY")))
+         (root          (test-configuration-root configuration))
+         (manager       (opencode-credential-manager-create configuration))
+         (saved         (uiop:getenv "OPENCODE_API_KEY")))
     (unwind-protect
          (progn
            (credential-source-save
             (credential-manager-primary-source manager)
             (make-instance 'oauth-credentials
-                           :access-token "saved-opencode-key"
+                           :access-token  "saved-opencode-key"
                            :refresh-token nil
-                           :id-token nil
-                           :account-id "opencode"
-                           :expires-at nil
+                           :id-token      nil
+                           :account-id    "opencode"
+                           :expires-at    nil
                            :source-path
                            (configuration-opencode-auth-path configuration)))
            (platform-setenv "OPENCODE_API_KEY" "environment-key-a")
@@ -147,16 +147,16 @@
 (-> opencode-provider-test--login () null)
 (defun opencode-provider-test--login ()
   "Test hidden OpenCode key entry, secret scope, and private persistence."
-  (let* ((configuration (opencode-provider-test--configuration))
-         (root (test-configuration-root configuration))
-         (manager (opencode-credential-manager-create configuration))
-         (original-save (symbol-function 'credential-source-save))
+  (let* ((configuration            (opencode-provider-test--configuration))
+         (root                     (test-configuration-root configuration))
+         (manager                  (opencode-credential-manager-create configuration))
+         (original-save            (symbol-function 'credential-source-save))
          (read-secret-use-active-p nil)
          (save-secret-use-active-p nil)
-         (observed-provider nil)
-         (observed-note nil)
-         (observed-descriptor nil)
-         (stored nil))
+         (observed-provider        nil)
+         (observed-note            nil)
+         (observed-descriptor      nil)
+         (stored                   nil))
     (unwind-protect
          (test-call-with-function-replacements
           (list
@@ -180,9 +180,9 @@
                 (opencode-api-key-login
                  manager
                  :stream (make-string-output-stream)
-                 :input *standard-input*)
+                 :input  *standard-input*)
                 "OpenCode authentication was saved by Autolith.")
-                "OpenCode login reports successful private persistence"))
+               "OpenCode login reports successful private persistence"))
             (setf stored
                   (credential-source-load
                    (credential-manager-primary-source manager)))))
@@ -203,7 +203,7 @@
                    "opencode-test-key"))
      "OpenCode trims and persists the entered key"))
   (let* ((configuration (opencode-provider-test--configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (test-call-with-function-replacements
           (list
@@ -220,7 +220,7 @@
                    (opencode-api-key-login
                     (opencode-credential-manager-create configuration)
                     :stream (make-string-output-stream)
-                    :input (make-string-input-stream ""))
+                    :input  (make-string-input-stream ""))
                    nil)
                (authentication-error ()
                  t))
@@ -233,17 +233,17 @@
 (-> opencode-provider-test--authentication-bootstrap () null)
 (defun opencode-provider-test--authentication-bootstrap ()
   "Test named authentication bootstraps OpenCode and refreshes model discovery."
-  (let* ((registry-snapshot (provider--registry-snapshot))
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((registry-snapshot  (provider--registry-snapshot))
+         (configuration      (test-configuration))
+         (root               (test-configuration-root configuration))
          (discovery-called-p nil)
-         (login-called-p nil))
+         (login-called-p     nil))
     (unwind-protect
          (progn
            (register-provider
             "opencode"
-            :family ':opencode
-            :endpoint *opencode-chat-completions-endpoint*
+            :family                   ':opencode
+            :endpoint                 *opencode-chat-completions-endpoint*
             :model-discovery
             (lambda (selected)
               (declare (ignore selected))
@@ -254,8 +254,8 @@
             (lambda (selected &key reasoning-summaries-p)
               (declare (ignore reasoning-summaries-p))
               (opencode-provider-create selected))
-            :authenticator #'provider--opencode-registration-authenticator
-            :source ':runtime)
+            :authenticator            #'provider--opencode-registration-authenticator
+            :source                   ':runtime)
            (test-call-with-function-replacements
             (list
              (list 'opencode-api-key-login
@@ -271,7 +271,7 @@
                      (message
                        (provider-authenticate
                         provider
-                        :stream (make-string-output-stream)
+                        :stream         (make-string-output-stream)
                         :open-browser-p nil)))
                 (test-assert
                  (typep provider 'opencode-chat-completions-provider)
@@ -291,14 +291,13 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> opencode-provider-test--request-model () null)
 (defun opencode-provider-test--request-model ()
   "Test namespaced model selection and raw OpenCode wire transmission."
   (let* ((configuration
            (opencode-provider-test--configuration
             :model (opencode--model-name "gpt-5.6-luna")))
-         (root (test-configuration-root configuration))
+         (root     (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "opencode-wire-model"))
          (provider (opencode-provider-create configuration)))
@@ -330,29 +329,29 @@
 (defun opencode-provider-test--session-header ()
   "Test that OpenCode transport sends its stable session caching header."
   (let* ((registry-snapshot (provider--registry-snapshot))
-         (configuration (opencode-provider-test--configuration))
-         (root (test-configuration-root configuration))
+         (configuration     (opencode-provider-test--configuration))
+         (root              (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "opencode-session"))
-         (provider (opencode-provider-create configuration))
+         (provider          (opencode-provider-create configuration))
          (credentials
            (make-instance 'oauth-credentials
                           :access-token "synthetic-opencode-key"
-                          :account-id "opencode"
-                          :source-path #P"/tmp/opencode-test-key"))
-         (captured-headers nil))
+                          :account-id   "opencode"
+                          :source-path  #P"/tmp/opencode-test-key"))
+         (captured-headers  nil))
     (unwind-protect
          (progn
            (register-provider
             "opencode-session-test"
-            :family ':opencode
-            :models '("opencode/session-test")
+            :family   ':opencode
+            :models   '("opencode/session-test")
             :endpoint *opencode-chat-completions-endpoint*
             :factory
             (lambda (selected &key reasoning-summaries-p)
               (declare (ignore reasoning-summaries-p))
               (opencode-provider-create selected))
-            :source ':runtime)
+            :source   ':runtime)
            (test-call-with-function-replacements
             (list
              (list 'dexador:post
@@ -364,7 +363,7 @@
               (provider-open-response-stream
                provider
                (json-object "model" "gpt-5.6-luna")
-               :credentials credentials
+               :credentials  credentials
                :conversation conversation)))
            (test-assert
             (string= (rest (assoc "x-opencode-session" captured-headers
@@ -395,23 +394,22 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> opencode-provider-test--discovery () null)
 (defun opencode-provider-test--discovery ()
   "Test OpenCode discovery namespacing, collisions, caching, and failures."
-  (let* ((registry-snapshot (provider--registry-snapshot))
-         (configuration (opencode-provider-test--configuration))
-         (root (test-configuration-root configuration))
-         (original-get (symbol-function 'dexador:get))
+  (let* ((registry-snapshot     (provider--registry-snapshot))
+         (configuration         (opencode-provider-test--configuration))
+         (root                  (test-configuration-root configuration))
+         (original-get          (symbol-function 'dexador:get))
          (original-registration (provider-registration-find "opencode"))
          (saved-discovered-models
            (copy-list
             (provider-registration-discovered-models original-registration)))
-         (saved-key (uiop:getenv *opencode-environment-variable*))
+         (saved-key             (uiop:getenv *opencode-environment-variable*))
          (saved-endpoint
            (uiop:getenv *opencode-models-environment-variable*))
-         (observed-url nil)
-         (observed-headers nil)
+         (observed-url          nil)
+         (observed-headers      nil)
          (body
            "{\"data\":[{\"id\":\"gpt-5.6-luna\"},{\"id\":\"grok-4.5\"},{\"id\":\"kimi-k3\"}]}"))
     (unwind-protect
@@ -474,8 +472,8 @@
                     (getf (rest (provider--read-model-cache configuration)) :providers))
                   (entry
                     (find "opencode" entries
-                          :key (lambda (candidate)
-                                 (getf candidate :provider-name))
+                          :key  (lambda (candidate)
+                                  (getf candidate :provider-name))
                           :test #'string=))
                   (models
                     (mapcar (lambda (model) (getf model :name)) (getf entry :models))))
@@ -488,16 +486,16 @@
               "the provider cache persists only namespaced OpenCode models"))
            (register-provider
             "opencode"
-            :description "OpenCode (zen/go)"
-            :family ':opencode
-            :protocol ':chat-completions
-            :endpoint *opencode-chat-completions-endpoint*
-            :factory #'provider--opencode-registration-factory
-            :authenticator #'provider--opencode-registration-authenticator
-            :model-discovery #'opencode--fetch-models
-            :model-discovery-endpoint *opencode-models-endpoint*
+            :description                       "OpenCode (zen/go)"
+            :family                            ':opencode
+            :protocol                          ':chat-completions
+            :endpoint                          *opencode-chat-completions-endpoint*
+            :factory                           #'provider--opencode-registration-factory
+            :authenticator                     #'provider--opencode-registration-authenticator
+            :model-discovery                   #'opencode--fetch-models
+            :model-discovery-endpoint          *opencode-models-endpoint*
             :model-discovery-endpoint-resolver #'opencode-models-endpoint
-            :source ':builtin)
+            :source                            ':builtin)
            (let ((registration (provider-registration-find "opencode")))
              (test-assert
               (and (null (provider-registration-discovered-models registration))
@@ -533,11 +531,11 @@
                    (error
                     (make-condition
                      'dexador.error:http-request-unauthorized
-                     :body "unauthorized"
-                     :status 401
+                     :body    "unauthorized"
+                     :status  401
                      :headers nil
-                     :uri "https://models.invalid/v1/models"
-                     :method ':get))))
+                     :uri     "https://models.invalid/v1/models"
+                     :method  ':get))))
            (test-assert
             (handler-case
                 (progn
@@ -554,11 +552,11 @@
                    (error
                     (make-condition
                      'http-request-failed
-                     :body "overloaded"
-                     :status 503
+                     :body    "overloaded"
+                     :status  503
                      :headers nil
-                     :uri "https://models.invalid/v1/models"
-                     :method ':get))))
+                     :uri     "https://models.invalid/v1/models"
+                     :method  ':get))))
            (test-assert
             (handler-case
                 (progn

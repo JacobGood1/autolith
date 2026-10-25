@@ -41,22 +41,22 @@
   "Call FUNCTION with a disposable real repository, parent, job and operation tool."
   (declare (ignore ignored))
   (with-test-configuration (initial root)
-    (let* ((source (merge-pathnames "source/" root))
+    (let* ((source        (merge-pathnames "source/" root))
            (configuration (progn (ensure-directories-exist (merge-pathnames "probe" source))
                                  (configuration-copy initial :working-directory source)))
-           (orchestrator (task-orchestrator-create))
-           (parent (task-tests--primary-agent configuration "worktree-fixture"))
-           (definition (task-agent-definition-create :name "isolated" :description "Isolated edits."
-                                                     :instructions "Edit only the child workspace."
-                                                     :source ':test))
-           (job (task-tests--make-job orchestrator :identifier "isolated-task"
-                                     :parent-agent parent :definition definition
-                                     :item (list :task "Modify one tracked file."
-                                                 :isolation (task-worktree-normalize-options (json-object)))))
-           (registry (make-instance 'tool-registry))
-           (context (make-instance 'tool-context :configuration configuration :worker nil
-                                   :agent parent :conversation (agent-conversation parent)
-                                   :command-authorization-function #'task-worktree-tests--authorize)))
+           (orchestrator  (task-orchestrator-create))
+           (parent        (task-tests--primary-agent configuration "worktree-fixture"))
+           (definition    (task-agent-definition-create :name "isolated" :description "Isolated edits."
+                                                        :instructions "Edit only the child workspace."
+                                                        :source       ':test))
+           (job           (task-tests--make-job orchestrator :identifier "isolated-task"
+                                               :parent-agent parent :definition definition
+                                               :item                     (list :task      "Modify one tracked file."
+                                                                               :isolation (task-worktree-normalize-options (json-object)))))
+           (registry      (make-instance 'tool-registry))
+           (context       (make-instance 'tool-context :configuration configuration :worker nil
+                                         :agent parent :conversation (agent-conversation parent)
+                                         :command-authorization-function #'task-worktree-tests--authorize)))
       (unwind-protect
            (progn
              (setf (task-job-command-authorization-function job) #'task-worktree-tests--authorize)
@@ -91,7 +91,7 @@
   (test-assert (equal '(:baseline "HEAD" :dirty-policy :reject :artifact-kind "patch")
                       (task-worktree-normalize-options (json-object))) "Default policy rejects dirty source.")
   (test-assert (equal ':ignore (getf (task-worktree-normalize-options
-                                     (json-object "dirtyPolicy" "ignore")) :dirty-policy))
+                                      (json-object "dirtyPolicy" "ignore")) :dirty-policy))
                "Only explicit ignore selects the committed baseline.")
   (dolist (object (list (json-object "dirtyPolicy" "stash")
                        (json-object "artifactKind" "snapshot")
@@ -115,8 +115,8 @@
                   "Parent edits survive rejected admission.")
      (setf (getf (task-job-item job) :isolation)
            (task-worktree-normalize-options (json-object "dirtyPolicy" "ignore")))
-     (let* ((child (task-worktree-configuration job configuration))
-            (path (config :working-directory child))
+     (let* ((child    (task-worktree-configuration job configuration))
+            (path     (config :working-directory child))
             (metadata (getf (task-job-item job) :worktree)))
        (test-assert (not (equal path source)) "Child has a distinct workspace.")
        (test-assert (equal "baseline" (uiop:read-file-string (merge-pathnames "file" path)))
@@ -142,15 +142,15 @@
    (lambda (configuration source parent job tool context)
      (declare (ignore parent))
      (let* ((child (task-worktree-configuration job configuration))
-            (path (config :working-directory child)))
+            (path  (config :working-directory child)))
        (task-worktree-tests--write (merge-pathnames "file" path) "child edits")
-       (let* ((result (task-worktree-tests--publish job ':success))
-              (id (task-job-execution-identifier job))
+       (let* ((result   (task-worktree-tests--publish job ':success))
+              (id       (task-job-execution-identifier job))
               (artifact (task-worktree--read-artifact (getf result :worktree))))
          (test-assert (eq ':success (getf result :status)) "A terminal artifact was extracted.")
          (test-assert (equal '("file") (cl-worktree:artifact-paths artifact)) "Artifact records touched paths.")
          (let ((*task-worktree-artifact-limit* 32)
-               (too-large-path (merge-pathnames "too-large.sexp" (task--artifact-root configuration job))))
+               (too-large-path                 (merge-pathnames "too-large.sexp" (task--artifact-root configuration job))))
            (test-assert (handler-case
                            (progn (task-worktree--write-artifact too-large-path artifact) nil)
                          (task-worktree-error () t)) "Incomplete size-limited artifacts are refused.")
@@ -192,23 +192,23 @@
                     (task-worktree-error () t)) "Creation needs command authorization.")
      (setf (task-job-command-authorization-function job) #'task-worktree-tests--authorize)
      (with-test-environment (("GIT_DIR" "/nonexistent-selector")
-                            ("GIT_WORK_TREE" "/nonexistent-workspace")
-                            ("GIT_INDEX_FILE" "/nonexistent-index")
-                            ("GIT_COMMON_DIR" "/nonexistent-common")
-                            ("GIT_OBJECT_DIRECTORY" "/nonexistent-objects")
-                            ("GIT_ALTERNATE_OBJECT_DIRECTORIES" "/nonexistent-alternates")
-                            ("GIT_NAMESPACE" "wrong-namespace")
-                            ("GIT_CONFIG_PARAMETERS" "malformed")
-                            ("GIT_CONFIG_COUNT" "1")
-                            ("GIT_CONFIG_KEY_0" "core.bare")
-                            ("GIT_CONFIG_VALUE_0" "true"))
-       (let* ((child (task-worktree-configuration job configuration))
-              (path (config :working-directory child))
+                             ("GIT_WORK_TREE" "/nonexistent-workspace")
+                             ("GIT_INDEX_FILE" "/nonexistent-index")
+                             ("GIT_COMMON_DIR" "/nonexistent-common")
+                             ("GIT_OBJECT_DIRECTORY" "/nonexistent-objects")
+                             ("GIT_ALTERNATE_OBJECT_DIRECTORIES" "/nonexistent-alternates")
+                             ("GIT_NAMESPACE" "wrong-namespace")
+                             ("GIT_CONFIG_PARAMETERS" "malformed")
+                             ("GIT_CONFIG_COUNT" "1")
+                             ("GIT_CONFIG_KEY_0" "core.bare")
+                             ("GIT_CONFIG_VALUE_0" "true"))
+       (let* ((child    (task-worktree-configuration job configuration))
+              (path     (config :working-directory child))
               (metadata (getf (task-job-item job) :worktree))
-              (other (cl-worktree:create-worktree
-                      (task-worktree--manager configuration #'task-worktree-tests--authorize)
-                      :source source :path (merge-pathnames "unrelated/" (test-configuration-root configuration))
-                      :baseline "HEAD" :owner "other-conversation/task")))
+              (other    (cl-worktree:create-worktree
+                         (task-worktree--manager configuration #'task-worktree-tests--authorize)
+                         :source source :path (merge-pathnames "unrelated/" (test-configuration-root configuration))
+                         :baseline "HEAD" :owner "other-conversation/task")))
          (test-assert (probe-file (merge-pathnames "file" path)) "Inherited Git selectors cannot redirect checkout.")
          (test-assert (equal "/nonexistent-selector" (uiop:getenv "GIT_DIR"))
                       "Runner sanitation does not alter process-global environment.")
@@ -231,7 +231,7 @@
        (setf (getf (task-job-item live) :isolation)
              (task-worktree-normalize-options (json-object))
              (task-job-command-authorization-function live) #'task-worktree-tests--authorize)
-       (let* ((child (task-worktree-configuration live configuration))
+       (let* ((child    (task-worktree-configuration live configuration))
               (metadata (getf (task-job-item live) :worktree)))
          (test-assert (handler-case
                          (progn (task-worktree-tests--call
@@ -251,7 +251,7 @@
    (lambda (configuration source parent job tool context)
      (declare (ignore source parent))
      (let* ((child (task-worktree-configuration job configuration))
-            (path (config :working-directory child)))
+            (path  (config :working-directory child)))
        (task-worktree-tests--write (merge-pathnames "file" path) "interrupted edits")
        (let ((result (task-worktree-tests--publish job ':aborted)))
          (test-assert (eq ':aborted (getf result :status)) "Cancellation is not reclassified as success.")
@@ -264,7 +264,7 @@
    (lambda (configuration source parent job tool context)
      (declare (ignore source parent))
      (let* ((child (task-worktree-configuration job configuration))
-            (path (config :working-directory child)))
+            (path  (config :working-directory child)))
        (task-worktree-tests--write (merge-pathnames "untracked" path) "new file")
        (let ((result (task-worktree-tests--publish job ':success)))
          (test-assert (eq ':failed (getf result :status)) "Missing complete artifact downgrades child success.")
@@ -282,11 +282,11 @@
   (task-worktree-tests--fixture
    (lambda (configuration source parent job tool context)
      (declare (ignore source parent))
-     (let ((entered (sb-thread:make-semaphore))
-           (release (sb-thread:make-semaphore))
+     (let ((entered  (sb-thread:make-semaphore))
+           (release  (sb-thread:make-semaphore))
            (paused-p nil)
-           (outcome nil)
-           (thread nil))
+           (outcome  nil)
+           (thread   nil))
        (setf (task-job-command-authorization-function job)
              (lambda (command directory)
                (declare (ignore directory))
@@ -341,12 +341,12 @@
      (setf (getf (task-job-item job) :isolation)
            (task-worktree-normalize-options (json-object "artifactKind" "commit-range")))
      (let* ((child (task-worktree-configuration job configuration))
-            (path (config :working-directory child)))
+            (path  (config :working-directory child)))
        (task-worktree-tests--write (merge-pathnames "file" path) "child commit")
        (task-worktree-tests--git configuration path '("add" "file"))
        (task-worktree-tests--git configuration path '("commit" "-m" "child"))
        (let ((result (task-worktree-tests--publish job ':success))
-             (id (task-job-execution-identifier job)))
+             (id     (task-job-execution-identifier job)))
           (test-assert (getf result :worktree-artifact-path)
                        (format nil "Commit-range extraction succeeds: ~S" result))
          (test-assert (eq ':commit-range (cl-worktree:artifact-kind
@@ -361,7 +361,7 @@
                                    tool context (json-object "action" "commits" "id" id "target" (namestring source))) nil)
                          (cl-worktree:integration-conflict () t)) "Conflicting commit range is reported.")
            (test-assert (equal '("file") (getf (task-worktree-tests--call
-                                               tool context (json-object "action" "conflicts" "target" (namestring source)))
+                                                tool context (json-object "action" "conflicts" "target" (namestring source)))
                                              :conflicts)) "Conflict paths are available for inspection.")
            (task-worktree-tests--call tool context (json-object "action" "abort" "target" (namestring source)))
            (test-assert (equal tip (task-worktree-tests--git configuration source '("rev-parse" "HEAD")))
@@ -370,7 +370,6 @@
          (test-assert (equal "parent commit" (uiop:read-file-string (merge-pathnames "file" source)))
                       "Owned cleanup preserves the parent conflict resolution baseline.")))))
   nil)
-
 
 (-> test-task-worktree-sandboxed-authorization () null)
 (defun test-task-worktree-sandboxed-authorization ()
@@ -391,26 +390,26 @@
        (setf (task-job-command-authorization-function job) #'task-worktree-tests--sandboxed
              (getf (task-job-item job) :isolation)
              (task-worktree-normalize-options (json-object "artifactKind" "commit-range")))
-       (let* ((child (task-worktree-configuration job configuration))
-              (path (config :working-directory child))
-              (conversation (conversation-create child))
-              (agent (make-instance 'task-child-agent
-                                    :configuration child :conversation conversation
-                                    :provider (agent-provider parent)
-                                    :tool-registry (agent-tool-registry parent)
-                                    :worker nil :definition (task-job-definition job)
-                                    :identity (task-job-identity job) :depth 1
-                                    :completion (make-instance 'task-completion)
-                                    :orchestrator (task-job-orchestrator job) :job job))
-              (child-context (make-instance 'tool-context :configuration child :worker nil
-                                           :agent agent :conversation conversation
-                                           :command-authorization-function #'task-worktree-tests--sandboxed))
+       (let* ((child          (task-worktree-configuration job configuration))
+              (path           (config :working-directory child))
+              (conversation   (conversation-create child))
+              (agent          (make-instance 'task-child-agent
+                                             :configuration child :conversation conversation
+                                             :provider      (agent-provider parent)
+                                             :tool-registry (agent-tool-registry parent)
+                                             :worker nil :definition (task-job-definition job)
+                                             :identity (task-job-identity job) :depth 1
+                                             :completion    (make-instance 'task-completion)
+                                             :orchestrator (task-job-orchestrator job) :job job))
+              (child-context  (make-instance 'tool-context :configuration child :worker nil
+                                            :agent agent :conversation conversation
+                                            :command-authorization-function #'task-worktree-tests--sandboxed))
               (parent-context (make-instance 'tool-context :configuration configuration :worker nil
                                             :agent parent :conversation (agent-conversation parent)
                                             :command-authorization-function #'task-worktree-tests--sandboxed))
-              (shell (make-instance 'shell-run-tool :namespace "shell" :name "run"
-                                   :description "Run the sandbox fixture."))
-              (unrelated (merge-pathnames "unrelated-config" source)))
+              (shell          (make-instance 'shell-run-tool :namespace "shell" :name "run"
+                                            :description "Run the sandbox fixture."))
+              (unrelated      (merge-pathnames "unrelated-config" source)))
          (declare (ignore context))
          (test-assert (probe-file (merge-pathnames "file" path)) "The owned checkout is created in the sandbox.")
          (task-worktree-tests--write (merge-pathnames "file" path) "isolated commit")
@@ -435,7 +434,7 @@
                 nil)
             (task-worktree-error () t))
           "Denied authorization prevents the Git operation.")
-         (let* ((result (task-worktree-tests--publish job ':success))
+         (let* ((result     (task-worktree-tests--publish job ':success))
                 (identifier (task-job-execution-identifier job)))
            (test-assert (getf result :worktree-artifact-path)
                         (format nil "Sandboxed extraction retains the commit artifact: ~S" result))

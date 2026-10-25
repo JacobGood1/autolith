@@ -3,7 +3,6 @@
 (in-package #:autolith)
 
 (-> workspace-change-tests--context (configuration tool-registry) tool-context)
-
 (defun workspace-change-tests--context (configuration registry)
   "Create a conversation with independent retained resource revisions."
   (make-instance 'tool-context :configuration configuration :registry registry
@@ -14,19 +13,18 @@
      &key (:permission-donor (option workspace-file-observation))) cl-resources:resource-change)
 (defun workspace-change-tests--request (context uri content &key permission-donor)
   "Observe URI and construct a content request at its retained revision alias."
-  (let* ((registry (tool-context-registry context))
-         (resource (resource-registry-resolve
-                    (tool-registry-resource-registry registry) uri context))
+  (let* ((registry    (tool-context-registry context))
+         (resource    (resource-registry-resolve
+                       (tool-registry-resource-registry registry) uri context))
          (observation (resource-observe resource context))
-         (state (resource-observation-state-ensure
-                 (tool-context-conversation context) observation :visible-ranges nil)))
+         (state       (resource-observation-state-ensure
+                       (tool-context-conversation context) observation :visible-ranges nil)))
     (cl-resources:make-resource-change
      resource :base-revision (resource-observation-state-alias state)
-     :operations (list (make-instance 'workspace-content-operation
-                                     :content content :permission-donor permission-donor)))))
+     :operations             (list (make-instance 'workspace-content-operation
+                                                 :content content :permission-donor permission-donor)))))
 
 (-> workspace-change-tests--failure (function) (option condition))
-
 (defun workspace-change-tests--failure (thunk)
   "Return the expected typed boundary failure from THUNK."
   (handler-case (progn (funcall thunk) nil)
@@ -34,18 +32,17 @@
                 (tool-error (condition) condition)))
 
 (-> test-workspace-change-publication nil null)
-
 (defun test-workspace-change-publication ()
   "Publish replacement, creation and deletion using conversation-local revisions."
   (with-test-configuration (configuration fixture-root)
    (let* ((configuration
            (configuration-copy configuration :working-directory fixture-root))
-          (registry (make-default-tool-registry :configuration configuration))
-          (context (workspace-change-tests--context configuration registry))
-          (root (config :working-directory configuration))
+          (registry    (make-default-tool-registry :configuration configuration))
+          (context     (workspace-change-tests--context configuration registry))
+          (root        (config :working-directory configuration))
           (replacement (merge-pathnames "replace.txt" root))
-          (deleted (merge-pathnames "delete.txt" root))
-          (created (merge-pathnames "create.txt" root)))
+          (deleted     (merge-pathnames "delete.txt" root))
+          (created     (merge-pathnames "create.txt" root)))
      (unwind-protect
          (progn
           (workspace-resource-tests--write-text replacement "before")
@@ -84,18 +81,17 @@
   nil)
 
 (-> test-workspace-change-stale-and-authority nil null)
-
 (defun test-workspace-change-stale-and-authority ()
   "Reject any stale member before publication and reject aliases from another caller."
   (with-test-configuration (configuration fixture-root)
    (let* ((configuration
            (configuration-copy configuration :working-directory fixture-root))
           (registry (make-default-tool-registry :configuration configuration))
-          (context (workspace-change-tests--context configuration registry))
-          (other (workspace-change-tests--context configuration registry))
-          (root (config :working-directory configuration))
-          (first (merge-pathnames "first.txt" root))
-          (second (merge-pathnames "second.txt" root)))
+          (context  (workspace-change-tests--context configuration registry))
+          (other    (workspace-change-tests--context configuration registry))
+          (root     (config :working-directory configuration))
+          (first    (merge-pathnames "first.txt" root))
+          (second   (merge-pathnames "second.txt" root)))
      (unwind-protect
          (progn
           (workspace-resource-tests--write-text first "first")
@@ -135,7 +131,6 @@
   nil)
 
 (-> test-workspace-change-compensation nil null)
-
 (defun test-workspace-change-compensation ()
   "Undo already installed changes when later publication fails, including partial failure."
   (dolist (partial-p '(nil t))
@@ -146,9 +141,9 @@
             (registry
              (make-default-tool-registry :configuration configuration))
             (context (workspace-change-tests--context configuration registry))
-            (root (config :working-directory configuration))
-            (first (merge-pathnames "first.txt" root))
-            (second (merge-pathnames "second.txt" root)))
+            (root    (config :working-directory configuration))
+            (first   (merge-pathnames "first.txt" root))
+            (second  (merge-pathnames "second.txt" root)))
        (unwind-protect
            (progn
             (workspace-resource-tests--write-text first "first")
@@ -160,7 +155,7 @@
                       "workspace:first.txt" "changed-first")
                      (workspace-change-tests--request context
                       "workspace:second.txt" "changed-second")))
-                   (publish *workspace-file-resource-publish-function*)
+                   (publish  *workspace-file-resource-publish-function*)
                    (failed-p nil)
                    (*workspace-file-resource-publish-function*
                     (lambda (temporary target)
@@ -191,17 +186,16 @@
   nil)
 
 (-> test-workspace-change-recovery nil null)
-
 (defun test-workspace-change-recovery ()
   "Retain undo ownership when an external writer intervenes, then recover explicitly."
   (with-test-configuration (configuration fixture-root)
    (let* ((configuration
            (configuration-copy configuration :working-directory fixture-root))
           (registry (make-default-tool-registry :configuration configuration))
-          (context (workspace-change-tests--context configuration registry))
-          (root (config :working-directory configuration))
-          (first (merge-pathnames "first.txt" root))
-          (second (merge-pathnames "second.txt" root)))
+          (context  (workspace-change-tests--context configuration registry))
+          (root     (config :working-directory configuration))
+          (first    (merge-pathnames "first.txt" root))
+          (second   (merge-pathnames "second.txt" root)))
      (unwind-protect
          (progn
           (workspace-resource-tests--write-text first "first")
@@ -250,15 +244,14 @@
        (tool-registry-close-runtime-state registry))))
   nil)
 
-
 (-> test-workspace-change-partial-deletion () null)
 (defun test-workspace-change-partial-deletion ()
   "Compensate publication that removes its destination before signalling."
   (with-test-configuration (configuration root)
     (let* ((configuration (configuration-copy configuration :working-directory root))
-           (registry (make-default-tool-registry :configuration configuration))
-           (context (workspace-change-tests--context configuration registry))
-           (path (merge-pathnames "original.txt" root)))
+           (registry      (make-default-tool-registry :configuration configuration))
+           (context       (workspace-change-tests--context configuration registry))
+           (path          (merge-pathnames "original.txt" root)))
       (unwind-protect
            (progn
              (workspace-resource-tests--write-text path "original")
@@ -283,11 +276,11 @@
   "Restore destination permissions even when replacement content equals its baseline."
   (with-test-configuration (configuration root)
     (let* ((configuration (configuration-copy configuration :working-directory root))
-           (registry (make-default-tool-registry :configuration configuration))
-           (context (workspace-change-tests--context configuration registry))
-           (target (merge-pathnames "target.txt" root))
-           (donor (merge-pathnames "donor.txt" root))
-           (later (merge-pathnames "later.txt" root)))
+           (registry      (make-default-tool-registry :configuration configuration))
+           (context       (workspace-change-tests--context configuration registry))
+           (target        (merge-pathnames "target.txt" root))
+           (donor         (merge-pathnames "donor.txt" root))
+           (later         (merge-pathnames "later.txt" root)))
       (unwind-protect
            (progn
              (workspace-resource-tests--write-text target "same")
@@ -296,15 +289,15 @@
              (platform-make-read-only *platform* target)
              (platform-make-private *platform* donor)
              (let* ((original-permissions (platform-file-permissions *platform* target))
-                    (donor-resource (resource-registry-resolve
-                                     (tool-registry-resource-registry registry)
-                                     "workspace:donor.txt" context))
-                    (requests (list (workspace-change-tests--request
-                                     context "workspace:target.txt" "same"
-                                     :permission-donor (resource-observe donor-resource context))
-                                    (workspace-change-tests--request
-                                     context "workspace:later.txt" "replacement")))
-                    (publish *workspace-file-resource-publish-function*)
+                    (donor-resource       (resource-registry-resolve
+                                           (tool-registry-resource-registry registry)
+                                           "workspace:donor.txt" context))
+                    (requests             (list (workspace-change-tests--request
+                                                 context "workspace:target.txt" "same"
+                                                 :permission-donor (resource-observe donor-resource context))
+                                                (workspace-change-tests--request
+                                                 context "workspace:later.txt" "replacement")))
+                    (publish              *workspace-file-resource-publish-function*)
                     (*workspace-file-resource-publish-function*
                       (lambda (temporary path)
                         (if (equal path later)
@@ -325,11 +318,11 @@
 (defun test-workspace-change-linked-undo ()
   "Retain and release undo source ownership across interrupted new-file restoration."
   (with-test-configuration (configuration root)
-    (let* ((configuration (configuration-copy configuration :working-directory root))
-           (registry (make-default-tool-registry :configuration configuration))
-           (context (workspace-change-tests--context configuration registry))
-           (target (merge-pathnames "target.txt" root))
-           (later (merge-pathnames "later.txt" root))
+    (let* ((configuration  (configuration-copy configuration :working-directory root))
+           (registry       (make-default-tool-registry :configuration configuration))
+           (context        (workspace-change-tests--context configuration registry))
+           (target         (merge-pathnames "target.txt" root))
+           (later          (merge-pathnames "later.txt" root))
            (restore-source nil))
       (unwind-protect
            (progn
@@ -337,8 +330,8 @@
              (workspace-resource-tests--write-text later "later")
              (platform-make-read-only *platform* target)
              (let* ((original-permissions (platform-file-permissions *platform* target))
-                    (requests (list (workspace-change-tests--request context "workspace:target.txt" nil)
-                                    (workspace-change-tests--request context "workspace:later.txt" "replacement")))
+                    (requests             (list (workspace-change-tests--request context "workspace:target.txt" nil)
+                                                (workspace-change-tests--request context "workspace:later.txt" "replacement")))
                     (failure
                       (let ((*workspace-file-resource-publish-function*
                               (lambda (temporary path)

@@ -7,16 +7,16 @@
   "Call FUNCTION with a real mission, durable scheduler and observable ordinary admission."
   (with-test-configuration (configuration root)
     (let* ((application (mission-test--application configuration))
-           (path (merge-pathnames "mission-wakeups.sexp" root))
+           (path        (merge-pathnames "mission-wakeups.sexp" root))
            (now 100) (commands nil) (executions nil)
-           (service (mission-schedule-service-create
-                     application :path path :clock (lambda () now)
-                     :enqueue (lambda (owner command)
-                                (test-assert (eq owner application) "admission retains the owning primary")
-                                (push command commands) t)
-                     :run (lambda (owner content)
-                            (test-assert (eq owner application) "execution retains the owning primary")
-                            (push content executions)))))
+           (service     (mission-schedule-service-create
+                         application :path path :clock (lambda () now)
+                         :enqueue (lambda (owner command)
+                                    (test-assert (eq owner application) "admission retains the owning primary")
+                                    (push command commands) t)
+                         :run     (lambda (owner content)
+                                    (test-assert (eq owner application) "execution retains the owning primary")
+                                    (push content executions)))))
       (application-mission-start application (mission-test--specification))
       (setf (gethash application *mission-schedule-services*) service)
       (unwind-protect
@@ -52,8 +52,8 @@
        (test-assert (= 4 (length (getf (cl-jobpond:scheduler-snapshot (mission-schedule-scheduler service)) :wakeups)))
                     "occurrence history retains duplicate proof")
        (let* ((scheduler (mission-schedule-scheduler service))
-              (before (cl-jobpond:scheduler-snapshot scheduler))
-              (ticket (mission-schedule-tests--ticket (first wakeups))))
+              (before    (cl-jobpond:scheduler-snapshot scheduler))
+              (ticket    (mission-schedule-tests--ticket (first wakeups))))
          (dolist (invalid (list nil "(:id (1) :token 1)" '(:id (1) :token "1")
                                '(:id (1) :token 1 :extra t)))
            (test-assert
@@ -114,8 +114,8 @@
   (mission-schedule-tests--fixture
    (lambda (application service path clock commands executions)
      (declare (ignore service clock commands executions))
-     (let* ((scheduler (mission-schedule-scheduler (application-mission-schedules application)))
-            (before (cl-jobpond:scheduler-snapshot scheduler))
+     (let* ((scheduler                              (mission-schedule-scheduler (application-mission-schedules application)))
+            (before                                 (cl-jobpond:scheduler-snapshot scheduler))
             (*mission-schedule-snapshot-byte-limit* 256))
        (test-assert
         (handler-case
@@ -130,13 +130,13 @@
                     "storage refusal preserves the previously published scheduler"))
      (application-mission-schedule-add application :id "recover" :content "Recover safely" :at 100)
      (let* ((original (first (application-mission-schedules-wake application)))
-            (effects 0)
+            (effects  0)
             (restored (mission-schedule-service-create application :path path :clock (lambda () 100)
                                                        :enqueue (lambda (owner command) (declare (ignore owner command)) t)
-                                                       :run (lambda (owner content) (declare (ignore owner content)) (incf effects)))))
+                                                       :run     (lambda (owner content) (declare (ignore owner content)) (incf effects)))))
        (setf (gethash application *mission-schedule-services*) restored)
        (test-assert (eq ':unknown (getf (first (getf (cl-jobpond:scheduler-snapshot
-                                                     (mission-schedule-scheduler restored)) :wakeups)) :state))
+                                                      (mission-schedule-scheduler restored)) :wakeups)) :state))
                     "restart never implies repeated admission")
        (test-assert (null (application-mission-schedules-wake application)) "unknown claims are not automatically replayed")
        (test-assert (handler-case
@@ -157,16 +157,16 @@
    (lambda (application service path clock commands executions)
      (declare (ignore path clock))
      (let* ((registry (application-tool-registry application))
-            (context (mission-test--context application))
-            (other (agent-create :configuration (application-configuration application)
-                                 :conversation (application-conversation application)
-                                 :provider (make-instance 'model-provider) :tool-registry registry :worker nil)))
+            (context  (mission-test--context application))
+            (other    (agent-create :configuration (application-configuration application)
+                                    :conversation  (application-conversation application)
+                                    :provider (make-instance 'model-provider) :tool-registry registry :worker nil)))
        (mission-schedule-register-tools registry)
        (setf (slot-value context 'agent) other)
        (test-assert (not (tool-result-success-p
-                         (tool-registry-execute-call registry
-                                                     (agent-test-call :namespace "mission-schedule" :name "add"
-                                                                      :arguments "{\"id\":\"denied\",\"content\":\"work\",\"event\":\"ci\"}") context)))
+                          (tool-registry-execute-call registry
+                                                      (agent-test-call :namespace "mission-schedule" :name "add"
+                                                                       :arguments "{\"id\":\"denied\",\"content\":\"work\",\"event\":\"ci\"}") context)))
                     "a non-owning agent cannot schedule the primary mission")
        (setf (slot-value context 'agent) (application-agent application))
        (test-assert (tool-result-success-p
@@ -212,18 +212,18 @@
                (mission-schedule-service-create
                 application :path path :clock (lambda () 100)
                 :enqueue (lambda (owner command) (declare (ignore owner command)) t)
-                :run (lambda (owner content)
-                       (declare (ignore content))
-                       (setf rejected (handler-case
-                                          (progn (application-mission-schedule-resolve owner (getf wakeup :id)
-                                                                                       :token (getf wakeup :token) :action ':retry) nil)
-                                        (mission-error () t)))
-                       (setf recovery-rejected
-                             (handler-case
-                                 (progn (application-mission-schedules-recover owner) nil)
-                               (mission-error (condition)
-                                 (eq ':schedule-executing (mission-error-reason condition)))))
-                       (application-mission-schedule-add owner :id "followup" :content "Followup" :event "next")))))
+                :run     (lambda (owner content)
+                           (declare (ignore content))
+                           (setf rejected (handler-case
+                                              (progn (application-mission-schedule-resolve owner (getf wakeup :id)
+                                                                                           :token (getf wakeup :token) :action ':retry) nil)
+                                            (mission-error () t)))
+                           (setf recovery-rejected
+                                 (handler-case
+                                     (progn (application-mission-schedules-recover owner) nil)
+                                   (mission-error (condition)
+                                     (eq ':schedule-executing (mission-error-reason condition)))))
+                           (application-mission-schedule-add owner :id "followup" :content "Followup" :event "next")))))
          (setf (gethash application *mission-schedule-services*) replacement)
          (application-mission-schedule-add application :id "live" :content "Live work" :at 100)
          (setf wakeup (first (application-mission-schedules-wake application)))
@@ -235,20 +235,19 @@
          (test-assert (= 2 (length (getf (cl-jobpond:scheduler-snapshot (mission-schedule-scheduler replacement)) :schedules)))
                       "normal schedule changes remain usable during provider work"))))))
 
-
 (-> test-mission-schedule-hosted-admission () null)
 (defun test-mission-schedule-hosted-admission ()
   "Exercise the real daemon timer, input controller command and primary provider budget boundary."
   (with-test-configuration (configuration root)
     (let* ((application (mission-test--application configuration
                                                    :results (list (mission-test--result "Hosted wakeup observed."))))
-           (controller (application-input-controller-create application :load-pending-p nil
-                                                                         :pending-persistence-enabled-p t :start-reader-p nil))
-           (runtime (image-daemon:daemon-runtime-create
-                     :directory root :identifier (conversation-identifier (application-conversation application))
-                     :publish-p nil :request-function
-                     (lambda (host request &key socket stream)
-                       (declare (ignore host request socket stream)) (list :ok)))))
+           (controller  (application-input-controller-create application :load-pending-p nil
+                                                                          :pending-persistence-enabled-p t :start-reader-p nil))
+           (runtime     (image-daemon:daemon-runtime-create
+                         :directory root :identifier (conversation-identifier (application-conversation application))
+                         :publish-p nil :request-function
+                         (lambda (host request &key socket stream)
+                           (declare (ignore host request socket stream)) (list :ok)))))
       (unwind-protect
            (progn
              (application-mission-start application (mission-test--specification :turns 1))
@@ -282,7 +281,7 @@
                            "Perform the scheduled mission step.")
                           "the actual primary provider request contains the scheduled continuation")
              (test-assert (eq ':completed (getf (first (getf (cl-jobpond:scheduler-snapshot
-                                                             (mission-schedule-scheduler (application-mission-schedules application))) :wakeups)) :state))
+                                                              (mission-schedule-scheduler (application-mission-schedules application))) :wakeups)) :state))
                           "ordinary command completion settles the durable occurrence"))
         (image-daemon:daemon-runtime-stop runtime)
         (remhash application *mission-schedule-services*)

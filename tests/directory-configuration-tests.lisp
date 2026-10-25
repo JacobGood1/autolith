@@ -30,9 +30,9 @@
 (defun test-directory-configuration--server-form (name approval)
   "Return one independently printable native MCP server form."
   (test-mcp-configuration--server-form
-   :name name
+   :name      name
    :transport (list :type :stdio :command (copy-seq "/bin/true"))
-   :approval approval))
+   :approval  approval))
 
 (-> test-directory-configuration--registration (string) mcp-server-registration)
 (defun test-directory-configuration--registration (name)
@@ -51,12 +51,12 @@
 (defun test-directory-configuration ()
   "Test explicit trust, ancestor inheritance, precedence, and rollback."
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
-         (anchor (merge-pathnames "braiins/" root))
-         (project (merge-pathnames "pool-tools/project/" anchor))
-         (nested-anchor (merge-pathnames "pool-tools/" anchor))
-         (outside (merge-pathnames "outside/" root))
-         (registry-snapshot (mcp--registry-snapshot)))
+         (root               (test-configuration-root base-configuration))
+         (anchor             (merge-pathnames "braiins/" root))
+         (project            (merge-pathnames "pool-tools/project/" anchor))
+         (nested-anchor      (merge-pathnames "pool-tools/" anchor))
+         (outside            (merge-pathnames "outside/" root))
+         (registry-snapshot  (mcp--registry-snapshot)))
     (ensure-directories-exist project)
     (ensure-directories-exist outside)
     (unwind-protect

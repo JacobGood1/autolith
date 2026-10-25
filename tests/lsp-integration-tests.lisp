@@ -13,7 +13,7 @@
   "Build a client without starting a process."
   (let ((client (make-instance 'lsp-client
                                :configuration (lsp-client-tests--configuration)
-                               :root (uiop:ensure-directory-pathname root))))
+                               :root          (uiop:ensure-directory-pathname root))))
     (setf (lsp-client-capabilities client) (or capabilities (json-object))
           (lsp-client-transport client) transport)
     client))
@@ -44,14 +44,14 @@
                          (json-object (make-string 30000 :initial-element #\x) "large key")
                          nested))
       (dolist (limit '(64 8000 24000))
-        (let* ((text (lsp-tool--render value limit))
-               (result (tool-success text))
+        (let* ((text    (lsp-tool--render value limit))
+               (result  (tool-success text))
                (decoded (json-decode (tool-result-content result))))
           (test-assert (and (<= (length text) (min limit 8000))
                             (string= text (tool-result-content result))
                             (json-object-p decoded) (json-get decoded "truncated"))
                        "large LSP values retain valid JSON and explicit truncation after transport"))))
-    (let* ((value (json-object "server" "small" "result" (vector 1 "hello")))
+    (let* ((value   (json-object "server" "small" "result" (vector 1 "hello")))
            (decoded (json-decode (lsp-tool--render value))))
       (test-assert (and (equal "small" (json-get decoded "server"))
                         (equalp #(1 "hello") (json-get decoded "result"))
@@ -61,15 +61,15 @@
 (defun test-lsp-tool-position-and-query ()
   "Test one-based UTF-16 tool positions and read-only query dispatch."
   (with-test-configuration (configuration)
-    (let* ((path (lsp-client-tests--write configuration "a.txt" "a😀
+    (let* ((path      (lsp-client-tests--write configuration "a.txt" "a😀
 "))
-           (document (make-instance 'lsp-document :path path :text "a😀
+           (document  (make-instance 'lsp-document :path path :text "a😀
 "))
-           (client (lsp-client-tests--client (config :working-directory configuration)
-                                              :capabilities (json-object "hoverProvider" t)
-                                              :transport (list :live t)))
+           (client    (lsp-client-tests--client (config :working-directory configuration)
+                                                :capabilities (json-object "hoverProvider" t)
+                                                 :transport   (list :live t)))
            (arguments (json-object "operation" "hover" "line" 1 "character" 4))
-           (observed nil))
+           (observed  nil))
       (lsp-client-tests--assert (= 0 (json-get (lsp-tool--position document arguments) "line")))
       (lsp-client-tests--assert (= 3 (json-get (lsp-tool--position document arguments) "character")))
       (lsp-client-tests--with-replacements
@@ -112,7 +112,6 @@
           (tool-registry-close-runtime-state registry)))))
   nil)
 
-
 (-> test-lsp-session-context () null)
 (defun test-lsp-session-context ()
   "Contribute configured server names to provider request context."
@@ -122,8 +121,8 @@
       (labels ((contribution ()
                  (lsp-context-contribution
                   (make-instance 'request-context
-                                 :configuration configuration
-                                 :conversation conversation
+                                 :configuration   configuration
+                                 :conversation    conversation
                                  :tool-namespaces #()))))
         (test-assert (null (contribution))
                      "missing lsp.sexp contributes no session context")
@@ -157,34 +156,34 @@
 (defun lsp-client-tests--idle-transport ()
   "Build a real transport state that accepts writes but never receives a reply."
   (make-instance 'lsp-transport :process nil
-                 :input (flexi-streams:make-in-memory-input-stream #())
-                 :output (make-in-memory-output-stream)
-                 :error-output (flexi-streams:make-in-memory-input-stream #())
-                 :request-handler (lambda (&rest arguments) (declare (ignore arguments)))
-                 :notification-handler (lambda (&rest arguments) (declare (ignore arguments)))))
+                 :input                  (flexi-streams:make-in-memory-input-stream #())
+                 :output                 (make-in-memory-output-stream)
+                 :error-output           (flexi-streams:make-in-memory-input-stream #())
+                 :request-handler        (lambda (&rest arguments) (declare (ignore arguments)))
+                 :notification-handler   (lambda (&rest arguments) (declare (ignore arguments)))))
 
 (-> test-lsp-edit-diagnostics-deadline () null)
 (defun test-lsp-edit-diagnostics-deadline ()
   "Bound startup and pull waits after a real edit, sharing one deadline across servers."
   (dolist (stage '(:startup :pull :write))
     (with-test-configuration (base-configuration root)
-      (let* ((configuration (configuration-copy base-configuration :working-directory root))
-             (path (lsp-client-tests--write configuration "deadline.txt" "before"))
-             (registry (lsp-register-tools (make-default-tool-registry)))
-             (context (make-instance 'tool-context :configuration configuration :worker nil
-                                    :registry registry
-                                    :conversation (conversation-create configuration)))
-             (manager (lsp-tool-manager (tool-registry-find registry "lsp" "diagnostics")))
-             (servers (list (lsp-client-tests--configuration :name "first")
-                            (lsp-client-tests--configuration :name "second")))
-             (transport (lsp-client-tests--idle-transport))
-             (starts 0)
+      (let* ((configuration                          (configuration-copy base-configuration :working-directory root))
+             (path                                   (lsp-client-tests--write configuration "deadline.txt" "before"))
+             (registry                               (lsp-register-tools (make-default-tool-registry)))
+             (context                                (make-instance 'tool-context :configuration configuration :worker nil
+                                                                   :registry     registry
+                                                                   :conversation (conversation-create configuration)))
+             (manager                                (lsp-tool-manager (tool-registry-find registry "lsp" "diagnostics")))
+             (servers                                (list (lsp-client-tests--configuration :name "first")
+                                                           (lsp-client-tests--configuration :name "second")))
+             (transport                              (lsp-client-tests--idle-transport))
+             (starts                                 0)
              (*lsp-edit-diagnostics-timeout-seconds* 0.1))
         (setf (lsp-manager-loaded-p manager) t
               (lsp-manager-configurations manager) servers)
         (unless (eq stage ':startup)
           (let ((client (lsp-client-tests--client root :transport transport
-                                                :capabilities (json-object "diagnosticProvider" t))))
+                                                :capabilities     (json-object "diagnosticProvider" t))))
             (setf (gethash (list "first" (namestring (platform-truename *platform* root)))
                            (lsp-manager-clients manager)) client)))
         (unwind-protect
@@ -202,13 +201,13 @@
                                (sleep 10))))))
               (let* ((read-result (workspace-resource-tests--call registry context "resource" "read"
                                                                  "uri" "workspace:deadline.txt"))
-                     (revision (workspace-resource-tests--field (tool-result-content read-result) "Revision: "))
-                     (start (get-internal-real-time))
-                     (result (workspace-resource-tests--call
-                              registry context "resource" "edit"
-                              "uri" "workspace:deadline.txt" "base-revision" revision
-                              "operations" (vector (json-object "op" "replace-lines" "start-line" 1
-                                                                "end-line" 1 "content" "after")))))
+                     (revision    (workspace-resource-tests--field (tool-result-content read-result) "Revision: "))
+                     (start       (get-internal-real-time))
+                     (result      (workspace-resource-tests--call
+                                   registry context "resource" "edit"
+                                   "uri" "workspace:deadline.txt" "base-revision" revision
+                                   "operations" (vector (json-object "op" "replace-lines" "start-line" 1
+                                                                     "end-line" 1 "content" "after")))))
                 (test-assert (tool-result-success-p result) "diagnostic timeout does not undo a saved edit")
                 (test-assert (search "after" (uiop:read-file-string path)) "the edit is durable")
                 (test-assert (< (/ (- (get-internal-real-time) start)

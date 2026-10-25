@@ -25,7 +25,7 @@
   "Refresh models.dev into the real registry, picker, wire route and offline startup."
   (with-test-configuration (configuration)
     (let ((snapshot (provider--registry-snapshot))
-          (calls 0)
+          (calls    0)
           (original (provider-registration-find "openrouter")))
       (unwind-protect
            (let ((*model-catalog-fetch-function*
@@ -37,7 +37,7 @@
              (test-assert (null (provider-refresh-models configuration :provider-name "openrouter"))
                           "Public discovery succeeds without account credentials.")
              (test-assert (= calls 1) "One explicit refresh fetches the public catalog once.")
-             (let ((metadata (provider-model-for "openrouter/lab/new-agent"))
+             (let ((metadata     (provider-model-for "openrouter/lab/new-agent"))
                    (registration (provider-registration-find "openrouter")))
                (test-assert (and metadata (= (provider-model-context-window metadata) 123456)
                                  (equal (provider-model-reasoning-efforts metadata) '("low" "high")))
@@ -132,9 +132,9 @@
                                1050000)
                             "Public metadata is available when a configuration opts in.")
                (dolist (spec *codex-models*)
-                 (let* ((model (getf spec :name))
-                        (codex (configuration-copy configuration :model model
-                                                   :model-provider "chatgpt"))
+                 (let* ((model  (getf spec :name))
+                        (codex  (configuration-copy configuration :model model
+                                                    :model-provider      "chatgpt"))
                         (public (configuration-copy codex :prefer-codex-context-window-p nil)))
                    (test-assert (= (config :context-window codex) 272000)
                                 "Codex subscription windows take precedence by default.")
@@ -150,9 +150,9 @@
                (flet ((reload ()
                         (configuration-create
                          :config-root (config :config-root configuration)
-                         :data-root (config :data-root configuration)
-                         :cache-root (config :cache-root configuration)
-                         :state-root (config :state-root configuration)
+                         :data-root   (config :data-root configuration)
+                         :cache-root  (config :cache-root configuration)
+                         :state-root  (config :state-root configuration)
                          :model *default-model* :model-provider "chatgpt")))
                  (test-assert (not (config :prefer-codex-context-window-p (reload)))
                               "The public-window preference survives configuration reload.")
@@ -169,21 +169,21 @@
                (test-assert (null (provider-registration-for-model "api-only-model"))
                             "Public API membership cannot grant subscription model access.")
                (register-provider "test-api"
-                                  :models (list (list :name *default-model* :context-window 700000))
+                                  :models  (list (list :name *default-model* :context-window 700000))
                                   :factory (provider-registration-factory
                                             (provider-registration-find "chatgpt"))
-                                  :source ':runtime)
+                                  :source  ':runtime)
                (test-assert
                 (= (config :context-window
-                           (configuration-copy configuration :model-provider "test-api"
+                           (configuration-copy configuration :model-provider                "test-api"
                                                              :prefer-codex-context-window-p t))
                    700000)
                 "The same wire model on another provider uses that provider's metadata.")
                (register-provider "chatgpt"
-                                  :models (list (list :name *default-model* :context-window 333333))
+                                  :models  (list (list :name *default-model* :context-window 333333))
                                   :factory (provider-registration-factory
                                             (provider-registration-find "chatgpt"))
-                                  :source ':runtime)
+                                  :source  ':runtime)
                (test-assert
                 (= (config :context-window
                            (configuration-copy configuration :prefer-codex-context-window-p t))

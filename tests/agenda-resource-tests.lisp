@@ -18,11 +18,11 @@
 (-> agenda-resource-tests--field (string string) string)
 (defun agenda-resource-tests--field (content label)
   "Return the single-line value following LABEL in agenda resource CONTENT."
-  (let* ((start (search label content))
+  (let* ((start       (search label content))
          (value-start (and start (+ start (length label))))
-         (end (and value-start
-                   (or (position #\Newline content :start value-start)
-                       (length content)))))
+         (end         (and value-start
+                           (or (position #\Newline content :start value-start)
+                               (length content)))))
     (unless (and value-start end)
       (error "Missing agenda resource field ~S in ~S." label content))
     (subseq content value-start end)))
@@ -37,7 +37,7 @@
   "Return CONFIGURATION's sole current workspace agenda item."
   (with-recursive-lock-held (*agenda-lock*)
     (let* ((record (agenda-current configuration (agenda-load configuration)))
-           (items (and record (workspace-agenda-items record))))
+           (items  (and record (workspace-agenda-items record))))
       (unless (= (length items) 1)
         (error "Expected one current agenda item, got ~D." (length items)))
       (first items))))
@@ -48,13 +48,13 @@
 (-> test-agenda-resources () null)
 (defun test-agenda-resources ()
   "Test agenda:current revision gating, confinement, compatibility, and schemas."
-  (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
-         (first-workspace (merge-pathnames "agenda-first/" root))
-         (second-workspace (merge-pathnames "agenda-second/" root))
-         (configuration nil)
+  (let* ((base-configuration   (test-configuration))
+         (root                 (test-configuration-root base-configuration))
+         (first-workspace      (merge-pathnames "agenda-first/" root))
+         (second-workspace     (merge-pathnames "agenda-second/" root))
+         (configuration        nil)
          (second-configuration nil)
-         (registry (make-default-tool-registry)))
+         (registry             (make-default-tool-registry)))
     (ensure-directories-exist (merge-pathnames "marker" first-workspace))
     (ensure-directories-exist (merge-pathnames "marker" second-workspace))
     (setf configuration
@@ -71,25 +71,25 @@
                 (first-context
                   (make-instance 'tool-context
                                  :configuration configuration
-                                 :worker nil
-                                 :conversation first-conversation))
+                                 :worker        nil
+                                 :conversation  first-conversation))
                 (second-context
                   (make-instance 'tool-context
                                  :configuration configuration
-                                 :worker nil
-                                 :conversation second-conversation))
+                                 :worker        nil
+                                 :conversation  second-conversation))
                 (moved-context
                   (make-instance 'tool-context
                                  :configuration second-configuration
-                                 :worker nil
-                                 :conversation first-conversation))
+                                 :worker        nil
+                                 :conversation  first-conversation))
                 (child-context
                   (make-instance 'tool-context
                                  :configuration configuration
-                                 :worker nil
-                                 :conversation first-conversation
-                                 :agent (allocate-instance
-                                         (find-class 'task-child-agent)))))
+                                 :worker        nil
+                                 :conversation  first-conversation
+                                 :agent         (allocate-instance
+                                                 (find-class 'task-child-agent)))))
            (labels ((call (context namespace name &rest arguments)
                       "Execute one agenda resource fixture call."
                       (apply #'agenda-resource-tests--call
@@ -116,7 +116,7 @@
                        (tool-registry-resource-registry registry) "agenda")))
                (test-assert (typep resolver 'agenda-resolver)
                             "default tools register the agenda resource resolver"))
-             (let* ((empty-read (read-agenda first-context))
+             (let* ((empty-read     (read-agenda first-context))
                     (empty-revision (revision empty-read))
                     (empty-state
                       (resource-observation-state-find
@@ -153,7 +153,7 @@
                   (and (not (tool-result-success-p child-edit))
                        (eq ':access-denied (tool-result-error-code child-edit)))
                   "task child contexts cannot edit agenda resources"))
-               (let* ((file (merge-pathnames "child-safe.txt" first-workspace))
+               (let* ((file        (merge-pathnames "child-safe.txt" first-workspace))
                       (read-result nil)
                       (edit-result nil))
                  (workspace-resource-tests--write-text
@@ -190,11 +190,11 @@
                 "agenda resource reads reject workspace line windows")
                (let* ((memory
                         (memory-remember configuration
-                                         :title "Agenda resource attachment"
+                                         :title   "Agenda resource attachment"
                                          :content "Validate stable memory links."
-                                         :scope ':workspace
-                                         :tags '("agenda-resource")))
-                      (memory-id (memory-identifier memory))
+                                         :scope   ':workspace
+                                         :tags    '("agenda-resource")))
+                      (memory-id    (memory-identifier memory))
                       (add-result
                         (edit-agenda
                          first-context empty-revision
@@ -204,7 +204,7 @@
                           "status" "doing"
                           "memory-ids" (json-array memory-id))))
                       (add-revision (revision add-result))
-                      (item (agenda-resource-tests--current-item configuration)))
+                      (item         (agenda-resource-tests--current-item configuration)))
                  (test-assert (tool-result-success-p add-result)
                               "agenda-add applies against an observed empty revision")
                  (test-assert
@@ -246,7 +246,7 @@
                             "status" "blocked"
                             "memory-ids" (json-array))))
                         (update-revision (revision update-result))
-                        (updated (agenda-resource-tests--current-item configuration)))
+                        (updated         (agenda-resource-tests--current-item configuration)))
                    (test-assert (tool-result-success-p update-result)
                                 "agenda-update applies one validated field set")
                    (test-assert
@@ -305,77 +305,77 @@
                       (search "The workspace agenda is empty."
                               (tool-result-content remove-result))
                       "agenda-remove returns a fresh empty observation"))))
-                (let* ((empty-alias (revision (read-agenda first-context)))
-                       (temporary-item
-                         (with-recursive-lock-held (*agenda-lock*)
-                           (let ((state (agenda-load configuration)))
-                             (agenda-add
-                              :configuration configuration
-                              :state state
-                              :text "temporary ABA mutation"
-                              :status ':todo
-                              :memory-identifiers nil)))))
-                  (test-assert
-                   (not (tool-result-success-p
+               (let* ((empty-alias (revision (read-agenda first-context)))
+                      (temporary-item
+                        (with-recursive-lock-held (*agenda-lock*)
+                          (let ((state (agenda-load configuration)))
+                            (agenda-add
+                             :configuration      configuration
+                             :state              state
+                             :text               "temporary ABA mutation"
+                             :status             ':todo
+                             :memory-identifiers nil)))))
+                 (test-assert
+                  (not (tool-result-success-p
+                        (edit-agenda
+                         first-context empty-alias
+                         (agenda-resource-tests--operation
+                          "agenda-add" "text" "stale resource mutation"))))
+                  "an agenda alias is stale while the exact snapshot differs")
+                 (with-recursive-lock-held (*agenda-lock*)
+                   (agenda-remove configuration
+                                  (agenda-load configuration)
+                                  (agenda-item-identifier temporary-item)))
+                 (let ((returned-alias (revision (read-agenda first-context))))
+                   (test-assert
+                    (string= returned-alias empty-alias)
+                    "the exact returning agenda snapshot reuses its content alias"))
+                 (let ((aba-edit
                          (edit-agenda
                           first-context empty-alias
                           (agenda-resource-tests--operation
-                           "agenda-add" "text" "stale resource mutation"))))
-                   "an agenda alias is stale while the exact snapshot differs")
-                  (with-recursive-lock-held (*agenda-lock*)
-                    (agenda-remove configuration
-                                   (agenda-load configuration)
-                                   (agenda-item-identifier temporary-item)))
-                  (let ((returned-alias (revision (read-agenda first-context))))
-                    (test-assert
-                     (string= returned-alias empty-alias)
-                     "the exact returning agenda snapshot reuses its content alias"))
-                  (let ((aba-edit
-                          (edit-agenda
-                           first-context empty-alias
-                           (agenda-resource-tests--operation
-                            "agenda-add" "text" "content-addressed ABA"))))
-                    (test-assert
-                     (tool-result-success-p aba-edit)
-                     "an old alias is valid again when the exact agenda snapshot returns")
-                    (let ((aba-item
-                            (agenda-resource-tests--current-item configuration)))
-                      (test-assert
-                       (tool-result-success-p
-                        (edit-agenda
-                         first-context (revision aba-edit)
-                         (agenda-resource-tests--operation
-                          "agenda-remove" "id"
-                          (agenda-item-identifier aba-item))))
-                       "the ABA regression cleans up through its refreshed revision"))))
-             (let* ((resource-edit
-                      (tool-registry-find registry "resource" "edit"))
-                    (operation-schema
-                      (json-get
+                           "agenda-add" "text" "content-addressed ABA"))))
+                   (test-assert
+                    (tool-result-success-p aba-edit)
+                    "an old alias is valid again when the exact agenda snapshot returns")
+                   (let ((aba-item
+                           (agenda-resource-tests--current-item configuration)))
+                     (test-assert
+                      (tool-result-success-p
+                       (edit-agenda
+                        first-context (revision aba-edit)
+                        (agenda-resource-tests--operation
+                         "agenda-remove" "id"
+                         (agenda-item-identifier aba-item))))
+                      "the ABA regression cleans up through its refreshed revision"))))
+              (let* ((resource-edit
+                       (tool-registry-find registry "resource" "edit"))
+                     (operation-schema
                        (json-get
-                        (json-get (tool-parameters resource-edit) "properties")
-                        "operations")
-                       "items"))
-                    (variants (json-get operation-schema "oneOf"))
-                    (names
-                      (loop for variant across variants
-                            collect
-                            (aref
-                             (json-get
+                        (json-get
+                         (json-get (tool-parameters resource-edit) "properties")
+                         "operations")
+                        "items"))
+                     (variants (json-get operation-schema "oneOf"))
+                     (names
+                       (loop for variant across variants
+                             collect
+                             (aref
                               (json-get
-                               (json-get variant "properties") "op")
-                              "enum")
-                             0))))
-               (test-assert
-                (and (member "replace-lines" names :test #'string=)
-                     (member "agenda-add" names :test #'string=)
-                     (member "agenda-update" names :test #'string=)
-                     (member "agenda-remove" names :test #'string=))
-                "resource.edit schema retains workspace and agenda variants")
-               (test-assert
-                (every (lambda (variant)
-                         (json-false-p (gethash "additionalProperties" variant)))
-                       variants)
-                "every resource.edit operation variant remains closed"))))
-      (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
-  nil))
+                               (json-get
+                                (json-get variant "properties") "op")
+                               "enum")
+                              0))))
+                (test-assert
+                 (and (member "replace-lines" names :test #'string=)
+                      (member "agenda-add" names :test #'string=)
+                      (member "agenda-update" names :test #'string=)
+                      (member "agenda-remove" names :test #'string=))
+                 "resource.edit schema retains workspace and agenda variants")
+                (test-assert
+                 (every (lambda (variant)
+                          (json-false-p (gethash "additionalProperties" variant)))
+                        variants)
+                 "every resource.edit operation variant remains closed"))))
+          (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
+   nil))

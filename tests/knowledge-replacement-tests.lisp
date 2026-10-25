@@ -6,28 +6,28 @@
 (defun test-knowledge-replacement-renewal ()
   "Test identical expired observations renew durably without duplicating supports."
   (with-test-configuration (base root)
-    (let* ((configuration (configuration-copy base :working-directory root))
-           (now 100000)
+    (let* ((configuration     (configuration-copy base :working-directory root))
+           (now               100000)
            (*knowledge-clock* (lambda () now))
-           (proposition '("price.listed" "lamp" 40)))
+           (proposition       '("price.listed" "lamp" 40)))
       (knowledge-define-schema
        configuration
        (knowledge-make-schema :predicate "price.listed"
                               :arguments '((:name "item" :type :entity)
                                            (:name "price" :type :number))
-                              :key '("item")))
+                              :key       '("item")))
       (labels ((observe ()
                  (knowledge-replace-observation
                   configuration proposition
-                  (knowledge-observe :source '(:url :url "https://example.com/lamp")
-                                     :digest (memory-source-text-digest "Lamp: 40")
+                  (knowledge-observe :source  '(:url :url "https://example.com/lamp")
+                                     :digest  (memory-source-text-digest "Lamp: 40")
                                      :adapter "test/1")))
 
                (node (claim)
                  (knowledge-view-node (knowledge-view-current configuration) claim)))
-        (let* ((claim (observe))
-               (before (knowledge-base-read configuration))
-               (supports (copy-list (getf (knowledge-base-claim before claim) :supports)))
+        (let* ((claim       (observe))
+               (before      (knowledge-base-read configuration))
+               (supports    (copy-list (getf (knowledge-base-claim before claim) :supports)))
                (evidence-id (getf (knowledge-base-support before (first supports)) :evidence)))
           (incf now (1+ *knowledge-url-lifetime*))
           (test-assert (eq (knowledge-node-applicability (node claim)) ':expired)
@@ -53,7 +53,6 @@
           (test-assert (eq (knowledge-node-applicability (node claim)) ':expired)
                        "renewed evidence expires at its new deadline")))))
   nil)
-
 
 (-> test-knowledge-replacement-source-identity () null)
 (defun test-knowledge-replacement-source-identity ()
@@ -93,21 +92,21 @@
          (knowledge-make-schema :predicate "price.listed"
                                 :arguments '((:name "item" :type :entity)
                                              (:name "price" :type :number))
-                                :key '("item")))
+                                :key       '("item")))
         (labels ((observe (source value)
                    (knowledge-replace-observation
                     configuration (list "price.listed" "lamp" value)
-                    (knowledge-make-evidence :source source
+                    (knowledge-make-evidence :source      source
                                              :observed-at 100000
-                                             :digest (memory-source-text-digest
-                                                      (format nil "Lamp: ~D" value))
-                                             :adapter "test/1")))
+                                             :digest      (memory-source-text-digest
+                                                           (format nil "Lamp: ~D" value))
+                                             :adapter     "test/1")))
 
                  (support (claim)
                    (let ((base (knowledge-base-read configuration)))
                      (knowledge-base-support
                       base (first (getf (knowledge-base-claim base claim) :supports))))))
-          (let ((original (observe (first sources) 10))
+          (let ((original    (observe (first sources) 10))
                 (independent (observe (second sources) 20)))
             (test-assert (null (getf (support original) :retracted-at))
                          (format nil "a distinct ~S source does not supersede the original"

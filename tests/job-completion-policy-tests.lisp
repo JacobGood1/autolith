@@ -58,7 +58,7 @@
 (defun test-job-completion-policy-schema-invocation ()
   "Test that async tool schemas advertise the shared executable policy."
   (let* ((registry (task-augment-tool-registry (make-default-tool-registry)))
-         (count 0))
+         (count    0))
     (unwind-protect
          (progn
            (dolist (tool (tool-registry-tools registry))
@@ -67,7 +67,7 @@
                  (incf count)
                  (let ((schema (gethash "completion-policy" properties)))
                    (test-assert (json-object-p schema)
-                                 (format nil "~A exposes completion policy" (tool-canonical-name tool)))
+                                (format nil "~A exposes completion policy" (tool-canonical-name tool)))
                    (when schema
                      (loop for value across (json-get schema "enum")
                            do (test-assert
@@ -76,7 +76,7 @@
                                  (json-object "completion-policy" value)
                                  :tool-name (tool-canonical-name tool))
                                 '(:notify :continue))
-                              "advertised completion selections are executable")))))))
+                               "advertised completion selections are executable")))))))
            (test-assert (plusp count) "async schemas are exercised")
            (let* ((properties (json-get (task-run-parameters-schema) "properties"))
                   (item-properties
@@ -93,18 +93,18 @@
 (defun test-job-completion-policy-transport ()
   "Test detached and grace-expired policy transport through execution wrappers."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (registry (task-augment-tool-registry (make-default-tool-registry)))
+         (root          (test-configuration-root configuration))
+         (registry      (task-augment-tool-registry (make-default-tool-registry)))
          (orchestrator
            (task-run-tool-orchestrator (tool-registry-find registry "task" "run")))
-         (primary (task-tests--primary-agent configuration "policy-primary" registry))
+         (primary       (task-tests--primary-agent configuration "policy-primary" registry))
          (context
            (make-instance 'tool-context
                           :configuration configuration
-                          :conversation (agent-conversation primary)
-                          :registry registry
-                          :agent primary
-                          :worker nil
+                          :conversation  (agent-conversation primary)
+                          :registry      registry
+                          :agent         primary
+                          :worker        nil
                          :command-authorization-function
                           (lambda (command directory)
                             (declare (ignore command directory))
@@ -112,8 +112,8 @@
     (labels ((handoff-job (result)
                "Resolve the native handoff RESULT to its execution job."
                (let* ((record (getf (rest (tool-result-details result)) :job))
-                      (job (task-orchestrator-find-visible-job
-                            orchestrator (getf record :id) primary "job.get")))
+                      (job    (task-orchestrator-find-visible-job
+                               orchestrator (getf record :id) primary "job.get")))
                  (test-assert (session-job-detached-p job)
                               "handoff marks the job detached")
                  (test-assert
@@ -122,39 +122,39 @@
                   "native handoff exposes the job completion policy")
                  job))
 
-           (check-wrapper (function arguments &key expected)
-               "Check policy transport through FUNCTION without external dependencies."
-               (let* ((result
-                        (funcall function context arguments
-                                :tool-name "test.policy" :summary "Policy transport"
-                                 :operation-function (lambda () (tool-success "retained"))))
-                      (job (handoff-job result)))
-                 (test-assert (eq expected (session-job-completion-policy job))
-                              "execution wrappers retain the selected policy")
-                 (multiple-value-bind (snapshot terminal-p) (session-job-await job 5)
-                   (declare (ignore snapshot))
-                   (test-assert terminal-p "detached policy jobs finish normally"))
-                 (test-assert
-                  (string= "retained"
-                           (tool-result-content (tool-execution-job-result->tool-result job)))
-                  "both policies retain the original tool result"))))
+             (check-wrapper (function arguments &key expected)
+                 "Check policy transport through FUNCTION without external dependencies."
+                 (let* ((result
+                          (funcall function context arguments
+                                  :tool-name "test.policy" :summary "Policy transport"
+                                   :operation-function (lambda () (tool-success "retained"))))
+                        (job (handoff-job result)))
+                   (test-assert (eq expected (session-job-completion-policy job))
+                                "execution wrappers retain the selected policy")
+                   (multiple-value-bind (snapshot terminal-p) (session-job-await job 5)
+                     (declare (ignore snapshot))
+                     (test-assert terminal-p "detached policy jobs finish normally"))
+                   (test-assert
+                    (string= "retained"
+                             (tool-result-content (tool-execution-job-result->tool-result job)))
+                    "both policies retain the original tool result"))))
       (unwind-protect
            (progn
              (dolist (function '(lisp-tool-invoke-managed-execution rlm--tool-invoke))
-             (check-wrapper function (json-object "async" t) :expected ':continue)
-             (check-wrapper function
-                            (json-object "async" t "completion-policy" "notify")
-                            :expected ':notify)
-               (test-assert
-                (handler-case
-                    (progn
-                      (funcall function context
-                               (json-object "async" t "completion-policy" "invalid")
-                               :tool-name "test.policy" :summary "Invalid policy"
-                               :operation-function (lambda () (tool-success "unexpected")))
-                      nil)
-                  (tool-error () t))
-                "execution wrappers reject invalid policy before admission"))
+              (check-wrapper function (json-object "async" t) :expected ':continue)
+              (check-wrapper function
+                             (json-object "async" t "completion-policy" "notify")
+                             :expected ':notify)
+              (test-assert
+               (handler-case
+                   (progn
+                     (funcall function context
+                              (json-object "async" t "completion-policy" "invalid")
+                              :tool-name "test.policy" :summary "Invalid policy"
+                              :operation-function (lambda () (tool-success "unexpected")))
+                     nil)
+                 (tool-error () t))
+               "execution wrappers reject invalid policy before admission"))
              (let* ((shell-tool (tool-registry-find registry "shell" "run"))
                     (result
                       (tool-execute
@@ -163,7 +163,7 @@
                         "command" (test-fixture-shell-command
                                    *platform* "printf policy" "[Console]::Write('policy')")
                         "async" t "completion-policy" "notify")))
-                    (job (handoff-job result)))
+                    (job        (handoff-job result)))
                (test-assert (eq ':notify (session-job-completion-policy job))
                             "shell execution transports completion policy")
                (test-assert (search "use job.wait" (tool-result-content result))
@@ -191,12 +191,12 @@
                       (make-instance 'task-test-blocking-tool
                                      :namespace "test" :name "barrier"
                                      :description "Wait for test release."
-                                     :parameters (tool-object-schema (json-object) nil))))
+                                     :parameters  (tool-object-schema (json-object) nil))))
                (unwind-protect
                     (let* ((result
                              (tool-execution-invoke
                               orchestrator primary :tool-name "test.grace"
-                              :summary "Grace-expired policy"
+                              :summary                        "Grace-expired policy"
                               :operation-function
                               (lambda () (tool-execute barrier context (json-object)))))
                            (job (handoff-job result)))
@@ -210,5 +210,5 @@
         (ignore-errors (task-orchestrator-close orchestrator))
         (ignore-errors (tool-registry-close-runtime-state registry))
         (platform-delete-directory-tree *platform* root :validate t
-                                             :if-does-not-exist ':ignore))))
+                                             :if-does-not-exist   ':ignore))))
   nil)

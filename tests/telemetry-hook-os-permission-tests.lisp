@@ -8,25 +8,25 @@
    (lambda (configuration)
      (with-test-fixture (':permission-denials "telemetry OS permission refusals")
        (let* ((workspace (merge-pathnames "workspace/" (test-configuration-root configuration)))
-              (file (merge-pathnames "unreadable.txt" workspace))
+              (file      (merge-pathnames "unreadable.txt" workspace))
               (directory (merge-pathnames "unreadable/" workspace))
-              (nested (merge-pathnames "unreadable/child.txt" workspace))
+              (nested    (merge-pathnames "unreadable/child.txt" workspace))
               (read-only (merge-pathnames "read-only/" workspace))
-              (editable (merge-pathnames "file.txt" read-only))
-              (registry (make-default-tool-registry))
-              (context (make-instance 'tool-context :configuration configuration :registry registry
-                                      :conversation (conversation-create configuration) :worker nil)))
+              (editable  (merge-pathnames "file.txt" read-only))
+              (registry  (make-default-tool-registry))
+              (context   (make-instance 'tool-context :configuration configuration :registry registry
+                                        :conversation (conversation-create configuration) :worker nil)))
          (ensure-directories-exist directory)
          (ensure-directories-exist read-only)
          (setf (config :working-directory configuration) workspace)
          (workspace-resource-tests--write-text file "private content")
          (workspace-resource-tests--write-text nested "private nested content")
          (workspace-resource-tests--write-text editable "original")
-         (let* ((read-result (workspace-resource-tests--call
-                              registry context "resource" "read" "uri" "workspace:read-only/file.txt"))
-                (revision (workspace-resource-tests--field (tool-result-content read-result) "Revision: "))
-                (missing-result (workspace-resource-tests--call
-                                 registry context "resource" "read" "uri" "workspace:read-only/new/file.txt"))
+         (let* ((read-result      (workspace-resource-tests--call
+                                   registry context "resource" "read" "uri" "workspace:read-only/file.txt"))
+                (revision         (workspace-resource-tests--field (tool-result-content read-result) "Revision: "))
+                (missing-result   (workspace-resource-tests--call
+                                   registry context "resource" "read" "uri" "workspace:read-only/new/file.txt"))
                 (missing-revision (workspace-resource-tests--field (tool-result-content missing-result) "Revision: ")))
            (test-assert (tool-result-success-p read-result) "The edit target is readable before staging.")
            (test-assert (eq (tool-result-error-code missing-result) ':not-found) "The absent parent is observed before editing.")
@@ -41,7 +41,7 @@
                        (append
                         (loop for uri in '("workspace:unreadable.txt" "workspace:unreadable/" "workspace:unreadable/child.txt")
                               for index from 1
-                              collect (agent-test-call :call-id (format nil "os-~D" index)
+                              collect (agent-test-call :call-id   (format nil "os-~D" index)
                                                        :namespace "resource" :name "read"
                                                        :arguments (json-encode (json-object "uri" uri))))
                         (list (agent-test-call

@@ -10,19 +10,19 @@
   (find "resumed-conversation"
         (context-delivery-contributions
          (context-resolve-request configuration conversation #()))
-        :key #'context-contribution-identifier
+        :key  #'context-contribution-identifier
         :test #'string=))
 
 (-> test-resume-context () null)
 (defun test-resume-context ()
   "Test the one-turn notice that pre-restart background work is gone."
-  (let* ((configuration (test-configuration))
-         (conversation (conversation-create configuration
-                                            :identifier "resume-note"))
-         (*context-contributors* nil)
+  (let* ((configuration                    (test-configuration))
+         (conversation                     (conversation-create configuration
+                                                                :identifier "resume-note"))
+         (*context-contributors*           nil)
          (*context-next-request-delivered* (make-hash-table :test #'equal))
-         (*context-last-deliveries* (make-hash-table :test #'equal))
-         (*context-last-delivery-order* nil))
+         (*context-last-deliveries*        (make-hash-table :test #'equal))
+         (*context-last-delivery-order*    nil))
     (register-context-contributor "resumed-conversation"
                                   'resume-context
                                   :source ':built-in)
@@ -46,10 +46,10 @@
       (test-assert
        (null (resume-context
               (make-instance 'request-context
-                             :configuration configuration
-                             :conversation resumed
+                             :configuration   configuration
+                             :conversation    resumed
                              :tool-namespaces #()
-                             :compaction-p t)))
+                             :compaction-p    t)))
        "a compaction request never carries the notice")
       (conversation-append-user-message resumed "thanks")
       (test-assert

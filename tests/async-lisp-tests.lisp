@@ -20,7 +20,7 @@
            (task-augment-tool-registry (application-tool-registry application))
            (setf (application-agent application)
                  (make-instance 'agent
-                                :conversation (application-conversation application)
+                                :conversation  (application-conversation application)
                                 :configuration (application-configuration application)
                                 :tool-registry (application-tool-registry application)))
            (terminal-ui-start (application-ui application))
@@ -64,7 +64,7 @@
          (test-assert (eq (application-run-async-lisp-input application source)
                           ':continue)
                       "submission returns without taking terminal ownership")
-         (let* ((job (async-lisp-tests--last-job application))
+         (let* ((job    (async-lisp-tests--last-job application))
                 (record (async-lisp-tests--wait job)))
            (test-assert (and (eq (job-state job) state)
                              (search expected (getf record :content)
@@ -157,7 +157,7 @@
   (async-lisp-tests--call-with-application
    (lambda (application)
      (let ((controller (lisp-machine-tests--controller application))
-           (submitted nil))
+           (submitted  nil))
        (test-assert
         (application-input-controller--defer-lisp-submission-p controller "? (list 1")
         "an incomplete async form continues editing")
@@ -201,7 +201,7 @@
   (async-lisp-tests--call-with-application
    (lambda (application)
      (let ((execute (symbol-function 'tool-execute))
-           (native nil)
+           (native  nil)
            (content nil)
            (fixture nil))
        (test-call-with-function-replacements
@@ -223,20 +223,22 @@
                               "? (list (task.agents :limit 1))"
                               "? (copy-seq (task.agents :limit 1))"))
               (application-run-async-lisp-input application source)
-              (let* ((job (async-lisp-tests--last-job application))
+              (let* ((job    (async-lisp-tests--last-job application))
                      (record (async-lisp-tests--wait job))
-                     (text (getf record :content))
-                     (value (let ((*read-eval* nil))
-                              (read-from-string (subseq text (+ 2 (search "⇒ " text)))))))
+                     (text   (getf record :content))
+                     (value  (let ((*read-eval* nil))
+                               (read-from-string (subseq text (+ 2 (search "⇒ " text)))))))
                 (test-assert (eq ':completed (job-state job))
                              "Native formatting completes its asynchronous job.")
                 (test-assert (equal value
-                                    (cond ((search "(list " source) (list content))
-                                          ((search "copy-seq" source) content)
-                                          (t native)))
+                                    (cond ((search "(list " source)
+                                           (list content))
+                                          ((search "copy-seq" source)
+                                           content)
+                                          (t
+                                           native)))
                              "Async readback preserves every native field or the returned string contract.")))))))))
   nil)
-
 
 (-> test-application-async-lisp-styled-reports () null)
 (defun test-application-async-lisp-styled-reports ()
@@ -246,7 +248,7 @@
      (let ((execute (symbol-function 'tool-execute))
            (present (symbol-function 'application-async-lisp--present))
            (entries nil)
-           (report (format nil "first \"quoted\" line~%second line"))
+           (report  (format nil "first \"quoted\" line~%second line"))
            (plain-p nil))
        (test-call-with-function-replacements
         (list
@@ -263,11 +265,11 @@
           (dolist (plain '(nil t))
             (setf plain-p plain entries nil)
             (application-run-async-lisp-input application "? (task.agents :limit 1)")
-            (let* ((job (async-lisp-tests--last-job application))
+            (let* ((job    (async-lisp-tests--last-job application))
                    (record (async-lisp-tests--wait job))
-                   (entry (find-if (lambda (entry)
-                                     (search "⇒ " (terminal--spans-text entry)))
-                                   entries)))
+                   (entry  (find-if (lambda (entry)
+                                      (search "⇒ " (terminal--spans-text entry)))
+                                    entries)))
               (test-assert (eq ':completed (job-state job))
                            "Styled asynchronous results complete successfully.")
               (test-assert entry "The completion includes a returned-value entry.")

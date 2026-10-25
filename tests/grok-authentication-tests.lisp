@@ -12,10 +12,10 @@
   "Write a synthetic Grok Build credential document to PATHNAME."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :external-format ':utf-8)
+                          :external-format   ':utf-8)
     (write-string
      (json-encode
       (json-object
@@ -71,25 +71,25 @@
            (config :grok-bootstrap-auth-path configuration))
          (manager (grok-credential-manager-create configuration)))
     (test-write-grok-auth bootstrap-pathname
-                          :auth-mode "api_key"
-                          :user-id "user-a"
+                          :auth-mode    "api_key"
+                          :user-id      "user-a"
                           :access-token "bootstrap-a")
     (test-assert
      (null (credential-source-load
             (credential-manager-bootstrap-source manager)))
      "the Grok bootstrap rejects non-OIDC authentication modes")
     (test-write-grok-auth bootstrap-pathname
-                          :auth-mode "oidc"
-                          :user-id "user-a"
+                          :auth-mode    "oidc"
+                          :user-id      "user-a"
                           :access-token "bootstrap-a"
-                          :scope "xai::api_key")
+                          :scope        "xai::api_key")
     (test-assert
      (null (credential-source-load
             (credential-manager-bootstrap-source manager)))
      "the Grok bootstrap ignores entries outside the first-party scope")
     (test-write-grok-auth bootstrap-pathname
-                          :auth-mode "oidc"
-                          :user-id "user-a"
+                          :auth-mode    "oidc"
+                          :user-id      "user-a"
                           :access-token "bootstrap-a")
     (let ((imported (credential-manager-load manager)))
       (test-assert
@@ -127,15 +127,15 @@
 (-> grok-authentication-tests--test-refresh (configuration) null)
 (defun grok-authentication-tests--test-refresh (configuration)
   "Test Grok refresh response validation and account continuity."
-  (let* ((manager (grok-credential-manager-create configuration))
+  (let* ((manager        (grok-credential-manager-create configuration))
          (primary-source (credential-manager-primary-source manager))
          (renewable
            (make-instance 'oauth-credentials
-                          :access-token "old-access"
+                          :access-token  "old-access"
                           :refresh-token "old-refresh"
-                          :id-token nil
-                          :account-id "user-a"
-                          :expires-at nil
+                          :id-token      nil
+                          :account-id    "user-a"
+                          :expires-at    nil
                           :source-path
                           (credential-source-pathname primary-source))))
     (let ((valid
@@ -203,12 +203,12 @@
                      (error
                       (make-condition
                        'http-request-failed
-                       :body (json-encode
-                              (json-object "error" "invalid_grant"))
-                       :status 400
+                       :body    (json-encode
+                                 (json-object "error" "invalid_grant"))
+                       :status  400
                        :headers nil
-                       :uri nil
-                       :method ':post)))))
+                       :uri     nil
+                       :method  ':post)))))
                  (lambda ()
                    (credential-manager-refresh manager renewable)))
               (token-refresh-failed (failure)
@@ -231,7 +231,7 @@
    (null (jwt-subject "not-a-jwt"))
    "JWT subject extraction rejects malformed tokens")
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (progn
            (test-assert

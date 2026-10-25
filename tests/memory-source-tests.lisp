@@ -7,10 +7,10 @@
   "Replace PATHNAME with exact UTF-8 CONTENT and return PATHNAME."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :external-format ':utf-8)
+                          :external-format   ':utf-8)
     (write-string content stream))
   pathname)
 
@@ -33,27 +33,26 @@
     (memory-error ()
       t)))
 
-
 (-> test-memory-source-records () null)
 (defun test-memory-source-records ()
   "Test durable sources: observation, placement, replay, replacement, and validation."
   (with-test-configuration (base root)
     (multiple-value-bind (configuration workspace)
         (memory-source-tests--workspace base root)
-      (let* ((notes (memory-source-tests--write
-                     (merge-pathnames "docs/notes.txt" workspace)
-                     (format nil "Deploy with~%    make release-prod~%after tagging.")))
+      (let* ((notes    (memory-source-tests--write
+                        (merge-pathnames "docs/notes.txt" workspace)
+                        (format nil "Deploy with~%    make release-prod~%after tagging.")))
              (observed (memory-source-observe-file
                         notes
                         :quote "with make   release-prod"
-                        :time (get-universal-time)))
-             (sourced (memory-remember configuration
-                                       :title "Deploy command"
-                                       :content "Deploy with make release-prod."
-                                       :sources (list observed)))
-             (plain (memory-remember configuration
-                                     :title "Plain"
-                                     :content "No evidence attached.")))
+                        :time  (get-universal-time)))
+             (sourced  (memory-remember configuration
+                                        :title   "Deploy command"
+                                        :content "Deploy with make release-prod."
+                                        :sources (list observed)))
+             (plain    (memory-remember configuration
+                                        :title   "Plain"
+                                        :content "No evidence attached.")))
         (test-assert (equal (getf (rest observed) :path)
                             (uiop:native-namestring notes))
                      "an observed file source starts absolute")
@@ -74,38 +73,38 @@
                      "memories without evidence keep their earlier record form")
         (let ((kept (memory-remember configuration
                                      :identifier (memory-identifier sourced)
-                                     :title "Deploy command"
-                                     :content "Deploy with make release-prod after tagging.")))
+                                     :title      "Deploy command"
+                                     :content    "Deploy with make release-prod after tagging.")))
           (test-assert (equal (memory-sources kept) (memory-sources sourced))
                        "a replacement that omits sources keeps them"))
         (let ((global (memory-remember configuration
                                        :identifier (memory-identifier sourced)
-                                       :scope ':global
-                                       :title "Deploy command"
-                                       :content "Deploy with make release-prod.")))
+                                       :scope      ':global
+                                       :title      "Deploy command"
+                                       :content    "Deploy with make release-prod.")))
           (test-assert (let ((source (first (memory-sources global))))
                          (and (equal (getf (rest source) :path)
-                                      (uiop:native-namestring notes))
+                                     (uiop:native-namestring notes))
                               (null (getf (rest source) :relative))))
                        "moving a memory to global scope records its files absolutely"))
         (let ((dropped (memory-remember configuration
                                         :identifier (memory-identifier sourced)
-                                        :title "Deploy command"
-                                        :content "Deploy with make release-prod."
-                                        :sources nil)))
+                                        :title      "Deploy command"
+                                        :content    "Deploy with make release-prod."
+                                        :sources    nil)))
           (test-assert (null (memory-sources dropped))
                        "an explicit empty source list removes the sources"))
         (test-assert (memory-source-tests--error-p
                       (lambda ()
                         (memory-source-observe-file notes
                                                     :quote "make release-staging"
-                                                    :time (get-universal-time))))
+                                                    :time  (get-universal-time))))
                      "a quote absent from the file is rejected")
         (test-assert (memory-source-tests--error-p
                       (lambda ()
                         (memory-source-observe-file notes
                                                     :quote "make"
-                                                    :time (get-universal-time))))
+                                                    :time  (get-universal-time))))
                      "a quote too short to identify a passage is rejected")
         (test-assert (memory-source-tests--error-p
                       (lambda ()
@@ -116,11 +115,11 @@
         (dolist (case (list (list "a relative file source in a global memory"
                                   ':global
                                   (list (list :file :path "x.txt" :relative t
-                                              :digest (memory-source-text-digest "x")
+                                              :digest      (memory-source-text-digest "x")
                                               :observed-at 1)))
                             (list "an unknown source kind"
                                   ':workspace
-                                  (list (list :rumor :quote "somebody said so"
+                                  (list (list :rumor       :quote "somebody said so"
                                               :observed-at 1)))
                             (list "a user source without a quote"
                                   ':workspace
@@ -131,14 +130,14 @@
               (lambda ()
                 (memory--record->memory
                  #P"memories.sexp"
-                 (list :memory :version *memory-format-version*
+                 (list :memory    :version *memory-format-version*
                        :id "invalid" :created-at 1 :updated-at 1
-                       :scope scope
+                       :scope     scope
                        :workspace (and (eq scope ':workspace)
                                        (namestring workspace))
                        :title "Invalid" :content "Invalid sources."
                        :tags nil :source-conversation nil
-                       :sources sources))))
+                       :sources   sources))))
              (format nil "~A is rejected when the memory log is read" label)))))))
   nil)
 
@@ -149,37 +148,37 @@
     (multiple-value-bind (configuration workspace)
         (memory-source-tests--workspace base root)
       (declare (ignore workspace))
-      (let* ((other (memory-tests--configuration-in-workspace
-                     base (merge-pathnames "other/" root)))
-             (meeting (memory-remember configuration
-                                       :title "Meeting time"
-                                       :content "The review meets at 13:00."))
-             (travel (memory-remember configuration
-                                      :scope ':global
-                                      :title "Travel time"
-                                      :content "The office is 30 minutes away."))
+      (let* ((other     (memory-tests--configuration-in-workspace
+                         base (merge-pathnames "other/" root)))
+             (meeting   (memory-remember configuration
+                                         :title   "Meeting time"
+                                         :content "The review meets at 13:00."))
+             (travel    (memory-remember configuration
+                                         :scope   ':global
+                                         :title   "Travel time"
+                                         :content "The office is 30 minutes away."))
              (departure (memory-remember configuration
-                                         :title "Departure"
-                                         :content "Leave at 12:20."
+                                         :title    "Departure"
+                                         :content  "Leave at 12:20."
                                          :premises (list (memory-identifier meeting)
                                                          (memory-identifier travel))))
-             (foreign (memory-remember other
-                                       :title "Elsewhere"
-                                       :content "Another workspace fact.")))
+             (foreign   (memory-remember other
+                                         :title   "Elsewhere"
+                                         :content "Another workspace fact.")))
         (test-assert (equal (memory-premises departure)
-                            (list (list :id (memory-identifier meeting)
+                            (list (list :id     (memory-identifier meeting)
                                         :digest (memory-content-digest
                                                  "Meeting time"
                                                  "The review meets at 13:00."))
-                                  (list :id (memory-identifier travel)
+                                  (list :id     (memory-identifier travel)
                                         :digest (memory-content-digest
                                                  "Travel time"
                                                  "The office is 30 minutes away."))))
                      "premises record the exact text they were derived from")
         (memory-remember configuration
                          :identifier (memory-identifier meeting)
-                         :title "Meeting time"
-                         :content "The review meets at 14:00.")
+                         :title      "Meeting time"
+                         :content    "The review meets at 14:00.")
         (test-assert (equal (getf (first (memory-premises
                                           (memory-find configuration
                                                        (memory-identifier departure))))
@@ -189,18 +188,18 @@
                      "replacing a premise leaves the derived memory's record unchanged")
         (let ((restated (memory-remember configuration
                                          :identifier (memory-identifier departure)
-                                         :title "Departure"
-                                         :content "Leave at 13:20.")))
+                                         :title      "Departure"
+                                         :content    "Leave at 13:20.")))
           (test-assert (equal (getf (first (memory-premises restated)) :digest)
                               (memory-content-digest "Meeting time"
                                                      "The review meets at 13:00."))
                        "a replacement that omits premises keeps the recorded versions"))
         (let ((rebound (memory-remember configuration
                                         :identifier (memory-identifier departure)
-                                        :title "Departure"
-                                        :content "Leave at 13:20."
-                                        :premises (list (memory-identifier meeting)
-                                                        (memory-identifier travel)))))
+                                        :title      "Departure"
+                                        :content    "Leave at 13:20."
+                                        :premises   (list (memory-identifier meeting)
+                                                          (memory-identifier travel)))))
           (test-assert (equal (getf (first (memory-premises rebound)) :digest)
                               (memory-content-digest "Meeting time"
                                                      "The review meets at 14:00."))
@@ -216,20 +215,20 @@
                         (lambda ()
                           (memory-remember configuration
                                            :identifier (memory-identifier meeting)
-                                           :title "Meeting time"
-                                           :content "Circular."
-                                           :premises (list (memory-identifier meeting)))))
+                                           :title      "Meeting time"
+                                           :content    "Circular."
+                                           :premises   (list (memory-identifier meeting)))))
                   (list "a premise cycle"
                         (lambda ()
                           (memory-remember configuration
                                            :identifier (memory-identifier meeting)
-                                           :title "Meeting time"
-                                           :content "Circular."
-                                           :premises (list (memory-identifier departure)))))
+                                           :title      "Meeting time"
+                                           :content    "Circular."
+                                           :premises   (list (memory-identifier departure)))))
                   (list "a global memory relying on a workspace memory"
                         (lambda ()
                           (memory-remember configuration
-                                           :scope ':global
+                                           :scope    ':global
                                            :title "Global" :content "Too broad."
                                            :premises (list (memory-identifier meeting)))))
                   (list "a premise from another workspace"
@@ -258,13 +257,12 @@
 (defun memory-source-tests--cite (configuration pathname &key quote title)
   "Remember a memory titled TITLE that cites PATHNAME, optionally by QUOTE."
   (memory-remember configuration
-                   :title title
+                   :title   title
                    :content (format nil "~A is documented." title)
                    :sources (list (memory-source-observe-file
                                    pathname
                                    :quote quote
-                                   :time (get-universal-time)))))
-
+                                   :time  (get-universal-time)))))
 
 (-> test-memory-source-status () null)
 (defun test-memory-source-status ()
@@ -275,17 +273,17 @@
       (let* ((config-file (memory-source-tests--write
                            (merge-pathnames "config.toml" workspace)
                            (format nil "[server]~%port = 8080~%host = \"local\"~%")))
-             (readme (memory-source-tests--write
-                      (merge-pathnames "README" workspace)
-                      (format nil "The server listens on port 8080.~%")))
-             (quoted (memory-source-tests--cite configuration config-file
-                                                :title "Port" :quote "port = 8080"))
-             (whole (memory-source-tests--cite configuration config-file
-                                               :title "Whole file"))
+             (readme      (memory-source-tests--write
+                           (merge-pathnames "README" workspace)
+                           (format nil "The server listens on port 8080.~%")))
+             (quoted      (memory-source-tests--cite configuration config-file
+                                                     :title "Port" :quote "port = 8080"))
+             (whole       (memory-source-tests--cite configuration config-file
+                                                     :title "Whole file"))
              (alternatives
                (memory-remember
                 configuration
-                :title "Port with two sources"
+                :title   "Port with two sources"
                 :content "The port is 8080."
                 :sources (list (memory-source-observe-file
                                 config-file :quote "port = 8080" :time 1)
@@ -294,7 +292,7 @@
              (statement
                (memory-remember
                 configuration
-                :title "Preference"
+                :title   "Preference"
                 :content "Prefers tabs."
                 :sources (list (list :user :quote "I always want tabs, please"
                                      :conversation "c" :observed-at 1)
@@ -303,14 +301,14 @@
              (mixed
                (memory-remember
                 configuration
-                :title "Port the user confirmed"
+                :title   "Port the user confirmed"
                 :content "The port is 8080, as the user said."
                 :sources (list (memory-source-observe-file
                                 config-file :quote "port = 8080" :time 1)
                                (list :user :quote "the port is 8080"
                                      :conversation "c" :observed-at 1))))
-             (plain (memory-remember configuration
-                                     :title "Plain" :content "Nothing cited.")))
+             (plain       (memory-remember configuration
+                                           :title "Plain" :content "Nothing cited.")))
         (dolist (memory (list quoted whole alternatives statement mixed plain))
           (test-assert (eq (memory-source-tests--status configuration memory) ':current)
                        (format nil "~A starts current" (memory-title memory))))
@@ -324,9 +322,9 @@
                      "any edit makes a memory citing the whole file stale")
         (memory-remember configuration
                          :identifier (memory-identifier whole)
-                         :title "Whole file"
-                         :content "Whole file is documented."
-                         :tags '("config"))
+                         :title      "Whole file"
+                         :content    "Whole file is documented."
+                         :tags       '("config"))
         (test-assert (equal (multiple-value-list
                              (memory-source-tests--status configuration whole))
                             '(:stale (:file-changed)))
@@ -354,10 +352,10 @@
                             "config.toml changed; README is missing")
                      "the summary names each failed source by its workspace path")
         (with-open-file (stream config-file
-                                :direction ':output
-                                :if-exists ':supersede
+                                :direction    ':output
+                                :if-exists    ':supersede
                                 :element-type '(unsigned-byte 8))
-          (write-sequence (make-array 3 :element-type '(unsigned-byte 8)
+          (write-sequence (make-array 3 :element-type     '(unsigned-byte 8)
                                         :initial-contents '(#xff #xfe #x00))
                           stream))
         (test-assert (equal (multiple-value-list
@@ -381,20 +379,20 @@
   (with-test-configuration (base root)
     (multiple-value-bind (configuration workspace)
         (memory-source-tests--workspace base root)
-      (let* ((schedule (memory-source-tests--write
-                        (merge-pathnames "schedule.txt" workspace)
-                        (format nil "Review at 13:00 in room 4.~%")))
-             (meeting (memory-source-tests--cite configuration schedule
-                                                 :title "Meeting" :quote "Review at 13:00"))
-             (travel (memory-remember configuration
-                                      :title "Travel" :content "30 minutes to the office."))
+      (let* ((schedule  (memory-source-tests--write
+                         (merge-pathnames "schedule.txt" workspace)
+                         (format nil "Review at 13:00 in room 4.~%")))
+             (meeting   (memory-source-tests--cite configuration schedule
+                                                   :title "Meeting" :quote "Review at 13:00"))
+             (travel    (memory-remember configuration
+                                         :title "Travel" :content "30 minutes to the office."))
              (departure (memory-remember configuration
                                          :title "Departure" :content "Leave at 12:20."
                                          :premises (list (memory-identifier meeting)
                                                          (memory-identifier travel))))
-             (reminder (memory-remember configuration
-                                        :title "Reminder" :content "Set an alarm for 12:10."
-                                        :premises (list (memory-identifier departure)))))
+             (reminder  (memory-remember configuration
+                                         :title "Reminder" :content "Set an alarm for 12:10."
+                                         :premises (list (memory-identifier departure)))))
         (test-assert (eq (memory-source-tests--status configuration reminder) ':current)
                      "a chain of derived memories starts current")
         (memory-source-tests--write schedule (format nil "Review at 14:00 in room 4.~%"))
@@ -419,7 +417,7 @@
         (memory-remember configuration
                          :identifier (memory-identifier departure)
                          :title "Departure" :content "Leave at 12:20."
-                         :tags '("travel"))
+                         :tags       '("travel"))
         (test-assert (equal (multiple-value-list
                              (memory-source-tests--status configuration departure))
                             '(:stale (:premise-changed)))
@@ -427,8 +425,8 @@
         (memory-remember configuration
                          :identifier (memory-identifier departure)
                          :title "Departure" :content "Leave at 12:05."
-                         :premises (list (memory-identifier meeting)
-                                         (memory-identifier travel)))
+                         :premises   (list (memory-identifier meeting)
+                                           (memory-identifier travel)))
         (test-assert (eq (memory-source-tests--status configuration departure) ':current)
                      "rebinding the premises after recomputing makes it current")
         (memory-forget configuration (memory-identifier meeting))
@@ -448,21 +446,20 @@
     (values (option context-contribution) list))
 (defun memory-source-tests--recall (configuration conversation)
   "Resolve one request for CONVERSATION and return its memory advice and events."
-  (let* ((*context-contributors* nil)
-         (*context-resolver* (cl-llm-provider-api:make-context-resolver))
-         (*context-last-deliveries* (make-hash-table :test #'equal))
+  (let* ((*context-contributors*        nil)
+         (*context-resolver*            (cl-llm-provider-api:make-context-resolver))
+         (*context-last-deliveries*     (make-hash-table :test #'equal))
          (*context-last-delivery-order* nil)
-         (events nil))
+         (events                        nil))
     (register-context-contributor "related-memories" 'memory-related-context
                                   :source ':built-in)
     (let ((delivery (context-resolve-request configuration conversation #())))
       (context-delivery-notify delivery (lambda (event)
                                           (push event events)))
       (values (find "related-memories" (context-delivery-contributions delivery)
-                    :key #'context-contribution-identifier
+                    :key  #'context-contribution-identifier
                     :test #'string=)
               events))))
-
 
 (-> test-memory-recall-status () null)
 (defun test-memory-recall-status ()
@@ -471,11 +468,11 @@
     (multiple-value-bind (configuration workspace)
         (memory-source-tests--workspace base root)
       (let* ((conversation (conversation-create configuration))
-             (notes (memory-source-tests--write
-                     (merge-pathnames "NOTES.md" workspace)
-                     (format nil "Deploy with make release-prod after tagging.~%"))))
+             (notes        (memory-source-tests--write
+                            (merge-pathnames "NOTES.md" workspace)
+                            (format nil "Deploy with make release-prod after tagging.~%"))))
         (memory-remember configuration
-                         :title "Deploy approvals"
+                         :title   "Deploy approvals"
                          :content "Deploys need one approval.")
         (conversation-append-user-message conversation "how do I deploy?")
         (multiple-value-bind (plain events)
@@ -487,7 +484,7 @@
                             (zerop (memory-context-event-stale-count (first events))))
                        "memories without evidence are recalled exactly as before"))
         (memory-remember configuration
-                         :title "Deploy command"
+                         :title   "Deploy command"
                          :content "Deploy with make release-prod."
                          :sources (list (memory-source-observe-file
                                          notes :quote "make release-prod" :time 1)))
@@ -521,7 +518,6 @@
       entry
       (terminal--spans-text entry)))
 
-
 (-> test-memory-commands () null)
 (defun test-memory-commands ()
   "Test (memories), (memory), and (forget) as a person uses them."
@@ -529,37 +525,37 @@
     (multiple-value-bind (configuration workspace)
         (memory-source-tests--workspace base root)
       (let* ((conversation (conversation-create configuration))
-             (application (make-instance 'application
-                                         :configuration configuration
-                                         :conversation conversation)))
+             (application  (make-instance 'application
+                                          :configuration configuration
+                                          :conversation  conversation)))
         (test-assert (search "No memories are saved"
                              (memory-source-tests--text
                               (application-memories-entry application)))
                      "an empty listing says how memories come to exist")
-        (let* ((notes (memory-source-tests--write
-                       (merge-pathnames "NOTES.md" workspace)
-                       (format nil "Deploy with make release-prod after tagging.~%")))
+        (let* ((notes       (memory-source-tests--write
+                             (merge-pathnames "NOTES.md" workspace)
+                             (format nil "Deploy with make release-prod after tagging.~%")))
                (identifiers (list "abcd1111-0000-4000-8000-000000000000"
                                   "abcd2222-0000-4000-8000-000000000000"
                                   "ef003333-0000-4000-8000-000000000000"))
-               (deploy nil)
-               (style nil)
-               (release nil))
+               (deploy      nil)
+               (style       nil)
+               (release     nil))
           (test-call-with-function-replacements
            (list (list 'make-identifier (lambda () (pop identifiers))))
            (lambda ()
              (setf deploy (memory-remember
                            configuration
-                           :title "Deploy command"
+                           :title   "Deploy command"
                            :content "Deploy with make release-prod."
                            :sources (list (memory-source-observe-file
                                            notes :quote "make release-prod" :time 1)))
                    style (memory-remember configuration
-                                          :title "Indentation"
+                                          :title   "Indentation"
                                           :content "Use tabs.")
                    release (memory-remember configuration
-                                            :title "Release day"
-                                            :content "Tag, then make release-prod."
+                                            :title    "Release day"
+                                            :content  "Tag, then make release-prod."
                                             :premises (list (memory-identifier deploy))))))
           (memory-source-tests--write notes (format nil "Deploy with make ship.~%"))
           (let ((listing (memory-source-tests--text
@@ -627,30 +623,30 @@
   "Test that a workspace export carries the global memories its memories rely on."
   (with-test-configuration (base root)
     (with-test-configuration (target target-root)
-      (let* ((source (test-data-transfer--workspace
-                      base (merge-pathnames "project/" root)))
-             (notes (memory-source-tests--write
-                     (merge-pathnames "project/NOTES.md" root)
-                     (format nil "Deploy with make release-prod after tagging.~%")))
-             (policy (memory-remember source :scope ':global
-                                      :title "Release policy"
-                                      :content "Releases happen on Tuesdays."))
-             (calendar (memory-remember source :scope ':global
-                                        :title "Release calendar"
-                                        :content "Next release is on Tuesday."
-                                        :premises (list (memory-identifier policy))))
-             (plan (memory-remember source
-                                    :title "Release plan"
-                                    :content "Tag on Monday with make release-prod."
-                                    :sources (list (memory-source-observe-file
-                                                    notes :quote "make release-prod" :time 1))
-                                    :premises (list (memory-identifier calendar))))
-             (path (merge-pathnames "workspace.sexp" root))
+      (let* ((source      (test-data-transfer--workspace
+                           base (merge-pathnames "project/" root)))
+             (notes       (memory-source-tests--write
+                           (merge-pathnames "project/NOTES.md" root)
+                           (format nil "Deploy with make release-prod after tagging.~%")))
+             (policy      (memory-remember source :scope ':global
+                                           :title        "Release policy"
+                                           :content      "Releases happen on Tuesdays."))
+             (calendar    (memory-remember source :scope ':global
+                                           :title        "Release calendar"
+                                           :content      "Next release is on Tuesday."
+                                           :premises     (list (memory-identifier policy))))
+             (plan        (memory-remember source
+                                           :title    "Release plan"
+                                           :content  "Tag on Monday with make release-prod."
+                                           :sources  (list (memory-source-observe-file
+                                                            notes :quote "make release-prod" :time 1))
+                                           :premises (list (memory-identifier calendar))))
+             (path        (merge-pathnames "workspace.sexp" root))
              (destination (merge-pathnames "moved/" target-root)))
         (memory-remember source :scope ':global
                          :title "Unrelated" :content "Not a dependency.")
         (test-assert (= (getf (data-export path
-                                           :workspace (config :working-directory source)
+                                           :workspace     (config :working-directory source)
                                            :configuration source)
                               :memories)
                         3)

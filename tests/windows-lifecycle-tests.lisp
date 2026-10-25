@@ -33,16 +33,16 @@
     (with-test-configuration (configuration root)
       (declare (ignore configuration))
       (let* ((directory (merge-pathnames "Lukáš žluťoučký/" root))
-             (script (windows-tests--script
-                      (merge-pathnames "arguments.lisp" directory)
-                      '((require :asdf)
-                        (write (uiop:command-line-arguments))
-                        (terpri) (finish-output))))
+             (script    (windows-tests--script
+                         (merge-pathnames "arguments.lisp" directory)
+                         '((require :asdf)
+                           (write (uiop:command-line-arguments))
+                           (terpri) (finish-output))))
              (arguments (list "" "two words" "Lukáš-žluťoučký"
                               (format nil "tab~Cvalue" #\Tab)
                               "slash\\\"quote" "trailing space\\"))
-             (log (merge-pathnames "output.log" directory))
-             (process nil))
+             (log       (merge-pathnames "output.log" directory))
+             (process   nil))
         (unwind-protect
              (progn
                (with-open-file (output log :direction ':output :if-exists ':supersede)
@@ -69,8 +69,8 @@
   (with-platform-capability (':restartable-image-saver "native Windows tree ownership")
     (with-test-configuration (configuration root)
       (declare (ignore configuration))
-      (let* ((child (windows-tests--script (merge-pathnames "child.lisp" root)
-                                          '((sleep 60))))
+      (let* ((child    (windows-tests--script (merge-pathnames "child.lisp" root)
+                                             '((sleep 60))))
              (pid-file (merge-pathnames "child.pid" root))
              (script
                (windows-tests--script
@@ -80,17 +80,17 @@
                                   '("--noinform" "--script" ,(namestring child))
                                   :wait nil :input nil :output nil :error nil)))
                     (with-open-file (stream ,pid-file :direction :output
-                                                     :if-exists :supersede)
+                                                     :if-exists  :supersede)
                       (write (sb-ext:process-pid process) :stream stream))))))
-             (handoff (merge-pathnames "handoff.sexp" root))
-             (process nil))
+             (handoff  (merge-pathnames "handoff.sexp" root))
+             (process  nil))
         (unwind-protect
              (progn
                (setf process
                      (localgroup-handoff--launch-supervised
                       :arguments (windows-tests--command script)
                       :handoff-pathname handoff :directory root
-                      :output *standard-output*))
+                      :output    *standard-output*))
                (windows-tests--await (lambda () (probe-file pid-file)))
                (windows-tests--await
                 (lambda ()
@@ -115,11 +115,11 @@
   (with-platform-capability (':restartable-image-saver "native Windows startup gate")
     (with-test-configuration (configuration root)
       (declare (ignore configuration))
-      (let* ((marker (merge-pathnames "ran.sexp" root))
-             (script (windows-tests--script
-                      (merge-pathnames "marker.lisp" root)
-                      `((with-open-file (stream ,marker :direction :output)
-                          (write :ran :stream stream)))))
+      (let* ((marker         (merge-pathnames "ran.sexp" root))
+             (script         (windows-tests--script
+                              (merge-pathnames "marker.lisp" root)
+                              `((with-open-file (stream ,marker :direction :output)
+                                  (write :ran :stream stream)))))
              (process-handle nil))
         (test-call-with-function-replacements
          (list (list 'win32--assign-process-to-job-object
@@ -145,15 +145,15 @@
   (with-platform-capability (':restartable-image-saver "native Windows ownership release")
     (with-test-configuration (configuration root)
       (declare (ignore configuration))
-      (let* ((marker (merge-pathnames "completed.sexp" root))
-             (script (windows-tests--script
-                      (merge-pathnames "complete.lisp" root)
-                      `((sleep 1)
-                        (with-open-file (stream ,marker :direction :output)
-                          (write :completed :stream stream)))))
+      (let* ((marker  (merge-pathnames "completed.sexp" root))
+             (script  (windows-tests--script
+                       (merge-pathnames "complete.lisp" root)
+                       `((sleep 1)
+                         (with-open-file (stream ,marker :direction :output)
+                           (write :completed :stream stream)))))
              (process (platform-launch-detached-process
                        *platform* (windows-tests--command script) :directory root))
-             (pid (platform-process-object-pid *platform* process)))
+             (pid     (platform-process-object-pid *platform* process)))
         (unwind-protect
              (progn
                (platform-release-process *platform* process)
@@ -165,6 +165,7 @@
                 (lambda () (not (platform-process-alive-p *platform* pid)))))
           (when (platform-process-alive-p *platform* pid)
             (platform-terminate-process *platform* pid :force t)))))))
+
 (defun test-windows-restart-library ()
   "Save and boot the library's exact cyclic heap on native Windows.
 
@@ -174,8 +175,8 @@ this shared test worker."
   (with-platform-capability (':restartable-image-saver "native Windows exact heap save")
     (with-test-configuration (configuration root)
       (declare (ignore configuration))
-      (let* ((setup (merge-pathnames ".qlot/setup.lisp"
-                                     (asdf:system-source-directory ':autolith)))
+      (let* ((setup  (merge-pathnames ".qlot/setup.lisp"
+                                      (asdf:system-source-directory ':autolith)))
              (script (windows-tests--script
                       (merge-pathnames "library-tests.lisp" root)
                       `((require :asdf)
@@ -183,8 +184,8 @@ this shared test worker."
                         (asdf:test-system "sbcl-generations")))))
         (multiple-value-bind (output error-output code)
             (uiop:run-program (windows-tests--command script)
-                              :output ':string
-                              :error-output ':output
+                              :output              ':string
+                              :error-output        ':output
                               :ignore-error-status t)
           (declare (ignore error-output))
           (test-assert (zerop code)

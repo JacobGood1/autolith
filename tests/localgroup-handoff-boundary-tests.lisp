@@ -13,19 +13,19 @@
 (-> test-localgroup--handoff-cancellation () null)
 (defun test-localgroup--handoff-cancellation ()
   "Race a supervised replacement against handoff timeout and claim cancellation."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (application nil)
-         (session nil)
-         (pathname nil)
-         (process nil)
-         (startup-thread nil)
+  (let* ((configuration       (test-configuration))
+         (root                (test-configuration-root configuration))
+         (application         nil)
+         (session             nil)
+         (pathname            nil)
+         (process             nil)
+         (startup-thread      nil)
          (startup-cancelled-p nil)
-         (claimed-pathname nil)
-         (claim-thread nil)
-         (claim-lock (make-lock "Autolith claimed handoff race"))
-         (claim-entered-p nil)
-         (release-claim-p nil))
+         (claimed-pathname    nil)
+         (claim-thread        nil)
+         (claim-lock          (make-lock "Autolith claimed handoff race"))
+         (claim-entered-p     nil)
+         (release-claim-p     nil))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -40,12 +40,12 @@
            (let ((record (localgroup-handoff--read configuration pathname)))
              (setf process
                    (localgroup-handoff--launch-supervised
-                     :arguments (list (namestring sb-ext:*runtime-pathname*)
-                                      "--noinform" "--non-interactive"
-                                      "--eval" "(sleep 30)")
+                     :arguments       (list (namestring sb-ext:*runtime-pathname*)
+                                            "--noinform" "--non-interactive"
+                                            "--eval" "(sleep 30)")
                     :handoff-pathname pathname
-                    :directory (config :working-directory configuration)
-                    :output (make-broadcast-stream))
+                    :directory        (config :working-directory configuration)
+                    :output           (make-broadcast-stream))
                    startup-thread
                    (make-thread
                     (lambda ()
@@ -126,7 +126,7 @@
         (localgroup-stop application)
         (application-release-conversation-lease application))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -134,9 +134,9 @@
 (defun test-localgroup-fresh-startup-selection ()
   "Test that fresh handoff startup never reconnects a retained application."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (application nil)
-         (created-p nil)
+         (root          (test-configuration-root configuration))
+         (application   nil)
+         (created-p     nil)
          (reconnected-p nil))
     (unwind-protect
          (progn
@@ -165,10 +165,10 @@
                        application)))
               (lambda ()
                 (main--connect-application
-                 :configuration configuration
-                 :conversation-id nil
-                 :immutable-p nil
-                 :permission-mode ':ask
+                 :configuration        configuration
+                 :conversation-id      nil
+                 :immutable-p          nil
+                 :permission-mode      ':ask
                  :fresh-conversation-p t)))
              (test-assert
               (and created-p (not reconnected-p))
@@ -193,10 +193,10 @@
                        application)))
               (lambda ()
                 (main--connect-application
-                 :configuration configuration
-                 :conversation-id "0123456789ABCDEF"
-                 :immutable-p nil
-                 :permission-mode ':ask
+                 :configuration        configuration
+                 :conversation-id      "0123456789ABCDEF"
+                 :immutable-p          nil
+                 :permission-mode      ':ask
                  :fresh-conversation-p nil)))
              (test-assert
               (and reconnected-p (not created-p))
@@ -204,6 +204,6 @@
       (when application
         (application-release-conversation-lease application))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)

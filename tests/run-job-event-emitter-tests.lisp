@@ -30,7 +30,8 @@
        (loop until (run-job-event-test-stream-released-p stream)
              do (condition-wait (run-job-event-test-stream-condition stream)
                                 (run-job-event-test-stream-lock stream)))))
-    (:broken (error 'stream-error :stream stream))
+    (:broken
+     (error 'stream-error :stream stream))
     (:interrupted
      (write-string string (run-job-event-test-stream-output stream)
                    :start start :end (min (or end (length string)) (+ start 5)))
@@ -85,15 +86,15 @@
 (-> test-run-job-event-wire-roundtrip () null)
 (defun test-run-job-event-wire-roundtrip ()
   "Round-trip Unicode and Lisp string escaping through complete-form readers."
-  (let* ((path (format nil "Unicode-λ-日本語~%quote-\"-backslash-\\.sexp"))
-         (stream (make-string-output-stream))
+  (let* ((path    (format nil "Unicode-λ-日本語~%quote-\"-backslash-\\.sexp"))
+         (stream  (make-string-output-stream))
          (emitter (run-job-event-emitter-create "run-wire" stream)))
     (test-assert (run-job-event-emit emitter ':run-started (list :output path))
                  "Unicode output reference is accepted")
     (test-assert (run-job-event-emitter-finish
                   emitter (list :status ':succeeded :output path :published-p t))
                  "connected terminal output is delivered")
-    (let* ((text (get-output-stream-string stream))
+    (let* ((text    (get-output-stream-string stream))
            (records (run-job-event-tests--records text)))
       (test-assert (= (length records) 2) "strings containing newlines do not split wire forms")
       (test-assert (equal (getf (getf (rest (first records)) :data) :output) path)
@@ -142,12 +143,12 @@
 (-> test-run-job-event-owned-payload () null)
 (defun test-run-job-event-owned-payload ()
   "Enqueued data and queue limits belong to the emitter, not producer bindings."
-  (let* ((stream (make-instance 'run-job-event-test-stream :mode ':gated))
-         (emitter (let ((*run-job-event-queue-capacity* 2))
-                    (run-job-event-emitter-create "run-owned" stream)))
+  (let* ((stream     (make-instance 'run-job-event-test-stream :mode ':gated))
+         (emitter    (let ((*run-job-event-queue-capacity* 2))
+                       (run-job-event-emitter-create "run-owned" stream)))
          (identifier (copy-seq "job-owned"))
-         (uri (copy-seq "job:owned"))
-         (data (list :job-id identifier :resource-uris (list uri))))
+         (uri        (copy-seq "job:owned"))
+         (data       (list :job-id identifier :resource-uris (list uri))))
     (unwind-protect
          (progn
            (run-job-event-emit emitter ':run-started nil)
@@ -169,7 +170,7 @@
                         "mutating producer data cannot trap the delivery writer")
            (let* ((records (run-job-event-tests--records
                             (get-output-stream-string (run-job-event-test-stream-output stream))))
-                  (owned (getf (rest (second records)) :data)))
+                  (owned   (getf (rest (second records)) :data)))
              (test-assert (and (equal (getf owned :job-id) "job-owned")
                                (equal (getf owned :resource-uris) '("job:owned")))
                           "strings and nested lists are snapshotted before enqueueing")))
@@ -181,15 +182,15 @@
 (defun test-run-job-event-concurrent-writers ()
   "Concurrent producers cannot interleave complete forms or duplicate sequences."
   (let* ((*run-job-event-queue-capacity* 1024)
-         (stream (make-string-output-stream))
-         (emitter (run-job-event-emitter-create "run-concurrent" stream))
-         (threads (loop for producer below 4
-                        collect (let ((identifier (format nil "job-~D" producer)))
-                                  (make-thread
-                                   (lambda ()
-                                     (dotimes (count 40)
-                                       (run-job-event-emit emitter ':progress
-                                                           (list :job-id identifier :count count)))))))))
+         (stream                         (make-string-output-stream))
+         (emitter                        (run-job-event-emitter-create "run-concurrent" stream))
+         (threads                        (loop for producer below 4
+                                               collect (let ((identifier (format nil "job-~D" producer)))
+                                                         (make-thread
+                                                          (lambda ()
+                                                            (dotimes (count 40)
+                                                              (run-job-event-emit emitter ':progress
+                                                                                  (list :job-id identifier :count count)))))))))
     (mapc #'join-thread threads)
     (test-assert (run-job-event-emitter-finish emitter (run-job-event-tests--terminal))
                  "bounded concurrent burst completes")
@@ -208,8 +209,8 @@
 (defun test-run-job-event-progress-backpressure ()
   "Bound progress memory and report exact omissions after the consumer resumes."
   (let* ((*run-job-event-queue-capacity* 2)
-         (stream (make-instance 'run-job-event-test-stream :mode ':gated))
-         (emitter (run-job-event-emitter-create "run-omitted" stream)))
+         (stream                         (make-instance 'run-job-event-test-stream :mode ':gated))
+         (emitter                        (run-job-event-emitter-create "run-omitted" stream)))
     (unwind-protect
          (progn
            (run-job-event-emit emitter ':run-started nil)
@@ -226,7 +227,7 @@
            (let* ((records (run-job-event-tests--records
                             (get-output-stream-string (run-job-event-test-stream-output stream))))
                   (omitted (find :progress-omitted records
-                                 :key (lambda (record) (getf (rest record) :kind)))))
+                                 :key              (lambda (record) (getf (rest record) :kind)))))
              (test-assert (= (getf (getf (rest omitted) :data) :count) 18)
                           "omission summary accounts for every dropped progress event")
              (test-assert (eq (getf (rest (first (last records))) :kind) :run-finished)
@@ -240,8 +241,8 @@
   "Reserve final delivery during lifecycle bursts and evict progress first."
   (dolist (capacity '(2 64))
     (let* ((*run-job-event-queue-capacity* capacity)
-           (stream (make-instance 'run-job-event-test-stream :mode ':gated))
-           (emitter (run-job-event-emitter-create "run-critical" stream)))
+           (stream                         (make-instance 'run-job-event-test-stream :mode ':gated))
+           (emitter                        (run-job-event-emitter-create "run-critical" stream)))
       (unwind-protect
            (progn
              (run-job-event-emit emitter ':run-started nil)
@@ -278,8 +279,8 @@
 (defun test-run-job-event-slow-consumer ()
   "Bound shutdown without native interruption and retain at most one blocked writer."
   (let* ((*run-job-event-shutdown-seconds* 0.05)
-         (stream (make-instance 'run-job-event-test-stream :mode ':gated))
-         (emitter (run-job-event-emitter-create "run-slow" stream)))
+         (stream                           (make-instance 'run-job-event-test-stream :mode ':gated))
+         (emitter                          (run-job-event-emitter-create "run-slow" stream)))
     (unwind-protect
          (progn
            (run-job-event-emit emitter ':run-started nil)
@@ -307,7 +308,7 @@
 (defun test-run-job-event-output-failures ()
   "Isolate broken and partially interrupted output without changing run execution."
   (dolist (mode '(:broken :interrupted))
-    (let* ((stream (make-instance 'run-job-event-test-stream :mode mode))
+    (let* ((stream  (make-instance 'run-job-event-test-stream :mode mode))
            (emitter (run-job-event-emitter-create "run-failure" stream)))
       (run-job-event-emit emitter ':run-started nil)
       (test-assert (run-job-event-tests--wait (lambda () (run-job-event-emitter-done-p emitter)))
@@ -317,7 +318,7 @@
       (test-assert (member (if (eq mode :broken) :stream-failed :stream-interrupted)
                            (run-job-event-emitter-warnings emitter))
                    "output failure records only a fixed safe warning")))
-  (let* ((stream (make-string-output-stream))
+  (let* ((stream  (make-string-output-stream))
          (emitter (run-job-event-emitter-create "run-invalid" stream)))
     (test-assert (not (run-job-event-emit emitter ':tool-started '(:arguments "secret")))
                  "unrestricted tool arguments never reach the writer")
@@ -346,12 +347,12 @@
 (defun test-run-job-event-real-pipes ()
   "Exercise actual slow and broken POSIX stdin pipes with bounded cooperative shutdown."
   (with-test-fixture (':posix-shell "headless event delivery through real pipes")
-    (let* ((*run-job-event-queue-capacity* 1024)
+    (let* ((*run-job-event-queue-capacity*   1024)
            (*run-job-event-shutdown-seconds* 0.05)
-           (process (uiop:launch-program '("/bin/sh" "-c" "sleep 1; cat >/dev/null")
-                                         :input ':stream :output nil :error-output nil))
-           (stream (uiop:process-info-input process))
-           (emitter (run-job-event-emitter-create "run-real-slow" stream)))
+           (process                          (uiop:launch-program '("/bin/sh" "-c" "sleep 1; cat >/dev/null")
+                                                                  :input ':stream :output nil :error-output nil))
+           (stream                           (uiop:process-info-input process))
+           (emitter                          (run-job-event-emitter-create "run-real-slow" stream)))
       (unwind-protect
            (progn
              ;; More than a pipe's capacity, but each event is bounded independently.
@@ -368,7 +369,7 @@
         (run-job-event-tests--pipe-cleanup process stream emitter)))
     (let* ((process (uiop:launch-program '("/bin/sh" "-c" "exit 0")
                                          :input ':stream :output nil :error-output nil))
-           (stream (uiop:process-info-input process))
+           (stream  (uiop:process-info-input process))
            (emitter (run-job-event-emitter-create "run-real-broken" stream)))
       (unwind-protect
            (progn

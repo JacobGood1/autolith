@@ -11,8 +11,8 @@
 (-> shell-log-tests--capture (shell-log-artifact vector &optional keyword) t)
 (defun shell-log-tests--capture (artifact bytes &optional (stream ':output))
   "Write exact fixture octets and return closed generic capture evidence."
-  (let* ((path (merge-pathnames (if (eq stream ':output) "output.bin" "error.bin")
-                                (shell-log-capture-directory artifact)))
+  (let* ((path    (merge-pathnames (if (eq stream ':output) "output.bin" "error.bin")
+                                   (shell-log-capture-directory artifact)))
          (capture (make-instance 'cl-exec-sandbox:sandbox-capture :path path)))
     (with-open-file (output path :direction ':output :if-exists ':supersede
                                 :element-type '(unsigned-byte 8))
@@ -30,7 +30,7 @@
    artifact
    (make-instance 'cl-exec-sandbox:sandbox-result
                   :output-capture (shell-log-tests--capture artifact bytes)
-                  :error-capture (and error-bytes (shell-log-tests--capture artifact error-bytes ':error))
+                  :error-capture  (and error-bytes (shell-log-tests--capture artifact error-bytes ':error))
                   :exit-code 7 :timed-out-p nil :cancelled-p nil :status ':exited)))
 
 (-> shell-log-tests--resolve (shell-log-artifact tool-context &optional keyword) shell-log-resource)
@@ -45,7 +45,7 @@
   (resource-tool-read
    resource (make-instance 'resource-read-tool
                            :namespace "resource" :name "read" :description "Read shell capture."
-                           :parameters (tool-object-schema (json-object) '())
+                           :parameters        (tool-object-schema (json-object) '())
                            :resource-registry (make-resource-registry))
    context arguments))
 
@@ -53,14 +53,14 @@
 (defun shell-log-tests--public-inventory ()
   "Exercise bounded job metadata, public projection and missing-manifest recovery."
   (with-test-configuration (configuration)
-    (let* ((*shell-log-active* (make-hash-table :test #'equal))
+    (let* ((*shell-log-active*             (make-hash-table :test #'equal))
            (*shell-log-capture-byte-limit* 32)
-           (context (shell-log-tests--context configuration "shell-inventory"))
-           (orchestrator (task-orchestrator-create))
-           (job (task-tests--make-job orchestrator :identifier "inventory-job"
-                                      :root-identifier "shell-inventory"))
-           (latest nil)
-           (base-time (get-universal-time)))
+           (context                        (shell-log-tests--context configuration "shell-inventory"))
+           (orchestrator                   (task-orchestrator-create))
+           (job                            (task-tests--make-job orchestrator :identifier "inventory-job"
+                                                                 :root-identifier         "shell-inventory"))
+           (latest                         nil)
+           (base-time                      (get-universal-time)))
       (unwind-protect
            (progn
              (loop for index from 1 to 17
@@ -71,7 +71,7 @@
                             latest artifact)
                       (shell-log--write-manifest artifact))
              (let* ((metadata (shell-log-job-metadata configuration job))
-                    (logs (getf metadata :shell-logs)))
+                    (logs     (getf metadata :shell-logs)))
                (test-assert (and (= 16 (length logs)) (= 1 (getf metadata :shell-logs-omitted)))
                             "Job inspection exposes bounded newest logs and explicit omissions")
                (test-assert (equal (getf (first logs) :artifact-id)
@@ -88,8 +88,8 @@
                                (* 64 1024))
                             "Public shell metadata fits below the tool metadata bound"))
              (let* ((missing-job (task-tests--make-job orchestrator :identifier "missing-job"
-                                                       :root-identifier "shell-inventory"))
-                    (artifact (shell-log-allocate context :job missing-job)))
+                                                       :root-identifier         "shell-inventory"))
+                    (artifact    (shell-log-allocate context :job missing-job)))
                (shell-log-tests--finish artifact (utf8-string-to-octets "x"))
                (platform-delete-file *platform* (shell-log--manifest-path
                                                  (shell-log-capture-directory artifact)))
@@ -104,16 +104,16 @@
 (defun shell-log-tests--descendant-authority ()
   "Check current child ownership through the resolver, including sibling refusal."
   (with-test-configuration (configuration)
-    (let* ((*shell-log-active* (make-hash-table :test #'equal))
+    (let* ((*shell-log-active*             (make-hash-table :test #'equal))
            (*shell-log-capture-byte-limit* 32)
-           (context (shell-log-tests--context configuration "shell-descendants"))
-           (orchestrator (task-orchestrator-create))
-           (job (task-tests--make-job orchestrator :identifier "current-child"
-                                      :root-identifier "shell-descendants"))
-           (agent (task-tests--child-viewer configuration job))
-           (child-context (make-instance 'tool-context :configuration configuration :worker nil
-                                         :conversation (agent-conversation agent) :agent agent))
-           (artifact (shell-log-allocate context)))
+           (context                        (shell-log-tests--context configuration "shell-descendants"))
+           (orchestrator                   (task-orchestrator-create))
+           (job                            (task-tests--make-job orchestrator :identifier "current-child"
+                                                                 :root-identifier         "shell-descendants"))
+           (agent                          (task-tests--child-viewer configuration job))
+           (child-context                  (make-instance 'tool-context :configuration configuration :worker nil
+                                                          :conversation (agent-conversation agent) :agent agent))
+           (artifact                       (shell-log-allocate context)))
       (unwind-protect
            (progn
              (shell-log-tests--finish artifact (utf8-string-to-octets "owned descendant"))
@@ -139,13 +139,13 @@
 (defun shell-log-tests--delivery-and-accounting ()
   "Protect undelivered sync logs, verify ordinary receipts, and measure actual disk use."
   (with-test-configuration (configuration)
-    (let* ((*shell-log-active* (make-hash-table :test #'equal))
-           (*shell-log-capture-byte-limit* 32)
+    (let* ((*shell-log-active*               (make-hash-table :test #'equal))
+           (*shell-log-capture-byte-limit*   32)
            (*shell-log-retention-byte-limit* 96)
-           (context (shell-log-tests--context configuration "shell-sync-proof"))
-           (orchestrator (task-orchestrator-create))
-           (job (task-tests--make-job orchestrator :identifier "sync-proof-job"
-                                      :root-identifier "shell-sync-proof" :detached-p nil)))
+           (context                          (shell-log-tests--context configuration "shell-sync-proof"))
+           (orchestrator                     (task-orchestrator-create))
+           (job                              (task-tests--make-job orchestrator :identifier "sync-proof-job"
+                                                                   :root-identifier "shell-sync-proof" :detached-p nil)))
       (unwind-protect
            (progn
              (setf (slot-value job 'completion-owner-conversation) "shell-sync-proof"
@@ -157,45 +157,45 @@
                            configuration (shell-log-capture-directory artifact))
                           :accounted-bytes))
                "Closed captures account for retained bytes, not their launch reservation")
-               (test-assert (not (shell-log--prunable-p configuration
-                                                       (shell-log-capture-directory artifact) metadata))
-                            "Closing a synchronous job does not prove delivery")
+              (test-assert (not (shell-log--prunable-p configuration
+                                                      (shell-log-capture-directory artifact) metadata))
+                           "Closing a synchronous job does not prove delivery")
                ;; Simulate an oversized regular file independently of the executor.
-               (shell-log-tests--capture artifact
-                                         (make-array 100 :element-type '(unsigned-byte 8)
-                                                         :initial-element 120))
-               (let* ((measured (shell-log--read-manifest configuration
-                                                         (shell-log-capture-directory artifact)))
-                      (capture (first (getf measured :captures))))
-                 (test-assert (and (= 100 (getf measured :accounted-bytes))
-                                   (= 100 (getf capture :byte-count))
-                                   (getf capture :oversized-p) (not (getf capture :complete-p)))
-                              "Accounting includes actual oversized safe regular files")
-                 (test-assert (handler-case (progn (shell-log-allocate context) nil)
-                                (shell-log-error () t))
-                              "Actual stored bytes cannot evade aggregate reservation limits"))
-               (labels ((append-receipt (call-id)
-                          "Persist an ordinary owner result containing this execution identity."
-                          (conversation-append-record
-                           (tool-context-conversation context)
-                           (list :tool-result :call-id call-id :tool "shell.run"
-                                 :status ':ok :category ':success :output "finished"
-                                 :details (list :shell-logs (list metadata))))))
-                 (append-receipt "unrelated-shell-call")
-                 (test-assert (not (shell-log--sync-delivered-p configuration metadata))
-                              "A different provider call cannot acknowledge this execution")
-                 (append-receipt "expected-shell-call")
-                 (test-assert (shell-log--sync-delivered-p configuration metadata)
-                              "Exact-owner durable terminal tool metadata proves sync delivery")
-                 (setf (getf metadata :detached-p) t)
-                 (test-assert (not (shell-log--sync-delivered-p configuration metadata))
-                              "Detached jobs require a completion receipt, not an ordinary tool result")
-                 (setf (getf metadata :detached-p) nil))
-               (let ((replacement (shell-log-allocate context)))
-                 (test-assert (eq ':pruned (getf (shell-log--read-manifest
+              (shell-log-tests--capture artifact
+                                        (make-array 100 :element-type    '(unsigned-byte 8)
+                                                        :initial-element 120))
+              (let* ((measured (shell-log--read-manifest configuration
+                                                        (shell-log-capture-directory artifact)))
+                     (capture  (first (getf measured :captures))))
+                (test-assert (and (= 100 (getf measured :accounted-bytes))
+                                  (= 100 (getf capture :byte-count))
+                                  (getf capture :oversized-p) (not (getf capture :complete-p)))
+                             "Accounting includes actual oversized safe regular files")
+                (test-assert (handler-case (progn (shell-log-allocate context) nil)
+                               (shell-log-error () t))
+                             "Actual stored bytes cannot evade aggregate reservation limits"))
+              (labels ((append-receipt (call-id)
+                         "Persist an ordinary owner result containing this execution identity."
+                         (conversation-append-record
+                          (tool-context-conversation context)
+                          (list :tool-result :call-id call-id :tool "shell.run"
+                                :status ':ok :category ':success :output "finished"
+                                :details (list :shell-logs (list metadata))))))
+                (append-receipt "unrelated-shell-call")
+                (test-assert (not (shell-log--sync-delivered-p configuration metadata))
+                             "A different provider call cannot acknowledge this execution")
+                (append-receipt "expected-shell-call")
+                (test-assert (shell-log--sync-delivered-p configuration metadata)
+                             "Exact-owner durable terminal tool metadata proves sync delivery")
+                (setf (getf metadata :detached-p) t)
+                (test-assert (not (shell-log--sync-delivered-p configuration metadata))
+                             "Detached jobs require a completion receipt, not an ordinary tool result")
+                (setf (getf metadata :detached-p) nil))
+              (let ((replacement (shell-log-allocate context)))
+                (test-assert (eq ':pruned (getf (shell-log--read-manifest
                                                  configuration (shell-log-capture-directory artifact)) :state))
-                              "Delivered sync logs are eligible for safe quota pruning")
-                 (shell-log-release-artifact replacement))))
+                             "Delivered sync logs are eligible for safe quota pruning")
+                (shell-log-release-artifact replacement))))
         (task-orchestrator-close orchestrator))))
   nil)
 
@@ -203,35 +203,35 @@
 (defun test-shell-log-child-delivery ()
   "Prune child captures only after delivery in the child's private transcript."
   (with-test-configuration (configuration)
-    (let* ((*shell-log-active* (make-hash-table :test #'equal))
-           (*shell-log-capture-byte-limit* 32)
-           (*shell-log-retention-byte-limit* 32)
+    (let* ((*shell-log-active*                (make-hash-table :test #'equal))
+           (*shell-log-capture-byte-limit*    32)
+           (*shell-log-retention-byte-limit*  32)
            (*shell-log-retention-count-limit* 1)
-           (root "shell-child-delivery")
-           (orchestrator (task-orchestrator-create))
-           (child-job (task-tests--make-job orchestrator :identifier "child-owner"
-                                             :root-identifier root))
-           (owner (task-job-execution-identifier child-job))
-           (child (conversation-create configuration :identifier owner
-                                       :storage-root (task--artifact-root configuration child-job)))
-           (unrelated (conversation-create configuration :identifier owner))
-           (context (make-instance 'tool-context :configuration configuration
-                                                :conversation child :worker nil))
-           (job (task-tests--make-job orchestrator :identifier "child-command"
-                                       :root-identifier root :detached-p nil)))
+           (root                              "shell-child-delivery")
+           (orchestrator                      (task-orchestrator-create))
+           (child-job                         (task-tests--make-job orchestrator :identifier "child-owner"
+                                                                     :root-identifier        root))
+           (owner                             (task-job-execution-identifier child-job))
+           (child                             (conversation-create configuration :identifier owner
+                                                                   :storage-root             (task--artifact-root configuration child-job)))
+           (unrelated                         (conversation-create configuration :identifier owner))
+           (context                           (make-instance 'tool-context :configuration configuration
+                                                                          :conversation child :worker nil))
+           (job                               (task-tests--make-job orchestrator :identifier "child-command"
+                                                                     :root-identifier root :detached-p nil)))
       (unwind-protect
            (progn
              (conversation-append-user-message child "Run one command.")
              (setf (slot-value job 'completion-owner-conversation) owner
                    (slot-value job 'parent-call-id) "child-shell-call")
-             (let* ((artifact (shell-log-allocate context :job job))
-                    (metadata (shell-log-tests--finish artifact (utf8-string-to-octets "child-output")))
+             (let* ((artifact  (shell-log-allocate context :job job))
+                    (metadata  (shell-log-tests--finish artifact (utf8-string-to-octets "child-output")))
                     (directory (shell-log-capture-directory artifact))
-                    (capture (merge-pathnames "output.bin" directory))
-                    (receipt (list :tool-result :call-id "child-shell-call" :tool "shell.run"
-                                   :status ':ok :category ':success :output "finished"
-                                   :details (list :shell-logs
-                                                  (list (shell-log--public-metadata metadata))))))
+                    (capture   (merge-pathnames "output.bin" directory))
+                    (receipt   (list :tool-result :call-id "child-shell-call" :tool "shell.run"
+                                     :status ':ok :category ':success :output "finished"
+                                     :details (list :shell-logs
+                                                    (list (shell-log--public-metadata metadata))))))
                (conversation-append-record unrelated receipt)
                (let ((replacement (handler-case (shell-log-allocate context)
                                     (shell-log-error () nil))))
@@ -255,12 +255,12 @@
 (defun shell-log-tests--pre-executor-unwind ()
   "Release real pre-executor failures even when a synchronous job has no receipt."
   (with-test-configuration (configuration)
-    (let* ((*shell-log-active* (make-hash-table :test #'equal))
-           (*shell-log-capture-byte-limit* 32)
-           (*shell-log-retention-byte-limit* 32)
+    (let* ((*shell-log-active*                (make-hash-table :test #'equal))
+           (*shell-log-capture-byte-limit*    32)
+           (*shell-log-retention-byte-limit*  32)
            (*shell-log-retention-count-limit* 1)
-           (context (shell-log-tests--context configuration "shell-preflight"))
-           (orchestrator (task-orchestrator-create))
+           (context                           (shell-log-tests--context configuration "shell-preflight"))
+           (orchestrator                      (task-orchestrator-create))
            (*tool-execution-current-job*
              (task-tests--make-job orchestrator :identifier "preflight-job"
                                   :root-identifier "shell-preflight" :detached-p nil)))
@@ -290,18 +290,19 @@
         (task-orchestrator-close orchestrator))))
   nil)
 
+
 ;;;; -- Durable Storage and Inspection --
 
 (-> test-shell-log-private-allocation () null)
 (defun test-shell-log-private-allocation ()
   "Reserve before launch; generate distinct execution identities without a runtime."
   (with-test-configuration (configuration)
-    (let* ((*shell-log-active* (make-hash-table :test #'equal))
-           (*shell-log-capture-byte-limit* 32)
+    (let* ((*shell-log-active*               (make-hash-table :test #'equal))
+           (*shell-log-capture-byte-limit*   32)
            (*shell-log-retention-byte-limit* 96)
-           (context (shell-log-tests--context configuration "shell-owner"))
-           (first (shell-log-allocate context))
-           (second (shell-log-allocate context :merge-output-p nil)))
+           (context                          (shell-log-tests--context configuration "shell-owner"))
+           (first                            (shell-log-allocate context))
+           (second                           (shell-log-allocate context :merge-output-p nil)))
       (test-assert (probe-file (shell-log--manifest-path (shell-log-capture-directory first)))
                    "Ownership exists before any capture launch")
       (test-assert (not (equal (getf (shell-log-artifact-metadata first) :execution-id)
@@ -314,7 +315,7 @@
                    "Active captures cannot be pruned to evade aggregate reservation")
       (with-test-fixture (':file-modes "private shell artifact permissions")
         (test-assert (= 0 (logand #o077 (platform-file-permissions
-                                        *platform* (shell-log-capture-directory first))))
+                                         *platform* (shell-log-capture-directory first))))
                      "Private capture directories exclude group and other access"))))
   (shell-log-tests--public-inventory)
   (shell-log-tests--delivery-and-accounting)
@@ -325,18 +326,18 @@
 (defun test-shell-log-byte-windows-and-search ()
   "Read exact raw ranges and search bounded pages across gigantic unterminated lines."
   (with-test-configuration (configuration)
-    (let* ((*shell-log-active* (make-hash-table :test #'equal))
-           (*shell-log-capture-byte-limit* 256)
+    (let* ((*shell-log-active*              (make-hash-table :test #'equal))
+           (*shell-log-capture-byte-limit*  256)
            (*shell-log-resource-scan-bytes* 16)
-           (context (shell-log-tests--context configuration "shell-windows"))
-           (artifact (shell-log-allocate context))
-           (bytes (make-array 96 :element-type '(unsigned-byte 8) :initial-element 120)))
+           (context                         (shell-log-tests--context configuration "shell-windows"))
+           (artifact                        (shell-log-allocate context))
+           (bytes                           (make-array 96 :element-type '(unsigned-byte 8) :initial-element 120)))
       (replace bytes (utf8-string-to-octets "needle") :start1 14)
       (replace bytes (utf8-string-to-octets "needle") :start1 50)
       (setf (aref bytes 30) 255 (aref bytes 31) 195 (aref bytes 32) 169)
       (shell-log-tests--finish artifact bytes)
       (let* ((resource (shell-log-tests--resolve artifact context))
-             (path (merge-pathnames "output.bin" (shell-log-capture-directory artifact))))
+             (path     (merge-pathnames "output.bin" (shell-log-capture-directory artifact))))
         (multiple-value-bind (range size next)
             (shell-log-resource--read-bytes configuration path :offset 29 :count 4)
           (test-assert (equalp range (subseq bytes 29 33))
@@ -368,11 +369,11 @@
 (defun test-shell-log-resource-authority ()
   "Reject cross-session references, traversal and symbolic-link capture substitution."
   (with-test-configuration (configuration root)
-    (let* ((*shell-log-active* (make-hash-table :test #'equal))
+    (let* ((*shell-log-active*             (make-hash-table :test #'equal))
            (*shell-log-capture-byte-limit* 256)
-           (owner (shell-log-tests--context configuration "shell-authority"))
-           (foreign (shell-log-tests--context configuration "shell-foreign"))
-           (artifact (shell-log-allocate owner)))
+           (owner                          (shell-log-tests--context configuration "shell-authority"))
+           (foreign                        (shell-log-tests--context configuration "shell-foreign"))
+           (artifact                       (shell-log-allocate owner)))
       (shell-log-tests--finish artifact (utf8-string-to-octets "private diagnostics"))
       (test-assert
        (handler-case (progn (shell-log-tests--resolve artifact foreign) nil)
@@ -387,7 +388,7 @@
            (resource-access-denied () t))
          "URI identifiers cannot introduce traversal"))
       (with-test-fixture (':symbolic-links "shell capture substitution")
-        (let* ((path (merge-pathnames "output.bin" (shell-log-capture-directory artifact)))
+        (let* ((path   (merge-pathnames "output.bin" (shell-log-capture-directory artifact)))
                (secret (merge-pathnames "secret.bin" root)))
           (with-open-file (stream secret :direction ':output :if-exists ':supersede)
             (write-string "foreign" stream))
@@ -406,12 +407,12 @@
 (defun test-shell-log-reopen-and-pruning ()
   "Reopen closed streams without replay and preserve missing/pruned diagnostics."
   (with-test-configuration (configuration)
-    (let* ((*shell-log-active* (make-hash-table :test #'equal))
-           (*shell-log-capture-byte-limit* 32)
+    (let* ((*shell-log-active*               (make-hash-table :test #'equal))
+           (*shell-log-capture-byte-limit*   32)
            (*shell-log-retention-byte-limit* 64)
-           (context (shell-log-tests--context configuration "shell-restart"))
-           (artifact (shell-log-allocate context :merge-output-p nil))
-           (reference (shell-log-reference artifact)))
+           (context                          (shell-log-tests--context configuration "shell-restart"))
+           (artifact                         (shell-log-allocate context :merge-output-p nil))
+           (reference                        (shell-log-reference artifact)))
       (shell-log-tests--finish artifact (utf8-string-to-octets "stdout")
                               :error-bytes (utf8-string-to-octets "stderr failure"))
       (let ((*shell-log-active* (make-hash-table :test #'equal)))
@@ -421,7 +422,7 @@
                                       (shell-log-tests--read reopened context (json-object))))
            "Restart inspection recovers the separated error stream from its manifest")))
       (let* ((*shell-log-retention-byte-limit* 48)
-             (replacement (shell-log-allocate context)))
+             (replacement                      (shell-log-allocate context)))
         (test-assert (string= reference (shell-log-reference artifact)) "Pruning does not change stable references")
         (test-assert (eq ':pruned (getf (shell-log--read-manifest configuration
                                                                (shell-log-capture-directory artifact)) :state))
@@ -431,15 +432,15 @@
                      "Tombstones produce a diagnostic, not a failed session")
         (remhash (namestring (shell-log-capture-directory replacement)) *shell-log-active*)
         (test-assert (eq ':interrupted (getf (shell-log--read-manifest
-                                            configuration (shell-log-capture-directory replacement)) :state))
+                                              configuration (shell-log-capture-directory replacement)) :state))
                      "Abandoned prelaunch manifests never claim completion"))))
   (with-test-configuration (configuration)
-    (let* ((*shell-log-active* (make-hash-table :test #'equal))
-           (*shell-log-capture-byte-limit* 32)
-           (*shell-log-retention-byte-limit* 32)
+    (let* ((*shell-log-active*                (make-hash-table :test #'equal))
+           (*shell-log-capture-byte-limit*    32)
+           (*shell-log-retention-byte-limit*  32)
            (*shell-log-retention-count-limit* 1)
            (*shell-log-tombstone-count-limit* 1)
-           (context (shell-log-tests--context configuration "shell-tombstones")))
+           (context                           (shell-log-tests--context configuration "shell-tombstones")))
       (dotimes (index 3)
         (shell-log-tests--finish (shell-log-allocate context)
                                 (utf8-string-to-octets (princ-to-string index))))
@@ -453,12 +454,12 @@
 (defun test-shell-log-capture-failure-metadata ()
   "Persist actual retained/observed bytes and incomplete execution outcomes."
   (with-test-configuration (configuration)
-    (let* ((*shell-log-active* (make-hash-table :test #'equal))
+    (let* ((*shell-log-active*             (make-hash-table :test #'equal))
            (*shell-log-capture-byte-limit* 32)
-           (context (shell-log-tests--context configuration "shell-failures")))
+           (context                        (shell-log-tests--context configuration "shell-failures")))
       (dolist (status '(:timeout :cancelled :launch-failed :interrupted))
         (let* ((artifact (shell-log-allocate context))
-               (capture (shell-log-tests--capture artifact (utf8-string-to-octets "partial"))))
+               (capture  (shell-log-tests--capture artifact (utf8-string-to-octets "partial"))))
           (setf (cl-exec-sandbox:sandbox-capture-observed-byte-count capture) 100
                 (cl-exec-sandbox:sandbox-capture-complete-p capture) nil
                 (cl-exec-sandbox:sandbox-capture-truncated-p capture) t
@@ -468,7 +469,7 @@
                                                      :output-capture capture :exit-code nil
                                                      :status status :timed-out-p (eq status ':timeout)
                                                      :cancelled-p (eq status ':cancelled))))
-                 (record (first (getf metadata :captures))))
+                 (record   (first (getf metadata :captures))))
             (test-assert (and (eq status (getf metadata :status))
                              (= 7 (getf record :byte-count))
                              (= 100 (getf record :observed-byte-count))

@@ -30,7 +30,7 @@
            (eq (plan-step-status (second (workspace-plan-steps plan)))
                ':doing)
            "plan statuses normalize doing aliases")
-          (let ((loaded (plan-load configuration-a))
+          (let ((loaded   (plan-load configuration-a))
                 (rendered (plan-render plan)))
             (test-assert
              (and loaded
@@ -87,8 +87,8 @@
                (context
                  (make-instance 'tool-context
                                 :configuration configuration-a
-                                :worker nil
-                                :conversation conversation))
+                                :worker        nil
+                                :conversation  conversation))
                (result
                  (tool-registry-execute-call
                   registry

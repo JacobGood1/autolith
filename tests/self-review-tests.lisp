@@ -9,21 +9,21 @@
     (configuration conversation &key compaction-p)
   "Return one request snapshot for the review gate tests."
   (make-instance 'request-context
-                 :configuration configuration
-                 :conversation conversation
+                 :configuration   configuration
+                 :conversation    conversation
                  :tool-namespaces #()
-                 :compaction-p compaction-p))
+                 :compaction-p    compaction-p))
 
 (-> test-self-review-reminder () null)
 (defun test-self-review-reminder ()
   "Test the turn and working-time gates of the periodic review reminder."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (*self-review-receipts* (make-hash-table :test #'equal))
-         (*context-contributors* nil)
+  (let* ((configuration                    (test-configuration))
+         (root                             (test-configuration-root configuration))
+         (*self-review-receipts*           (make-hash-table :test #'equal))
+         (*context-contributors*           nil)
          (*context-next-request-delivered* (make-hash-table :test #'equal))
-         (*context-last-deliveries* (make-hash-table :test #'equal))
-         (*context-last-delivery-order* nil))
+         (*context-last-deliveries*        (make-hash-table :test #'equal))
+         (*context-last-delivery-order*    nil))
     (unwind-protect
          (let ((conversation (conversation-create configuration
                                                   :identifier "review")))
@@ -90,10 +90,10 @@
               "the disabled reminder stays silent"))
            (let ((immutable
                    (configuration-create
-                    :source-root (config :source-root configuration)
+                    :source-root       (config :source-root configuration)
                     :working-directory (config :working-directory
                                         configuration)
-                    :immutable-p t)))
+                    :immutable-p       t)))
              (test-assert
               (null (self-review-context
                      (self-review-tests--request immutable conversation)))
@@ -107,7 +107,7 @@
                (null
                 (find "self-improvement-review"
                       (context-delivery-contributions delivery)
-                      :key #'context-contribution-identifier
+                      :key  #'context-contribution-identifier
                       :test #'string=)))
               "a triggered reminder reaches the request context")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))

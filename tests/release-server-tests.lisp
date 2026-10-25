@@ -7,10 +7,10 @@
   "Write test CONTENT to PATHNAME and return PATHNAME."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :external-format ':utf-8)
+                          :external-format   ':utf-8)
     (write-string content stream))
   pathname)
 
@@ -21,10 +21,10 @@
     (ignore-errors
       (uiop:run-program
        (list "chmod" "-R" "u+w" (namestring root))
-       :output nil
+       :output       nil
        :error-output nil)))
   (platform-delete-directory-tree *platform* root
-                                  :validate t
+                                  :validate          t
                                   :if-does-not-exist ':ignore)
   nil)
 
@@ -34,9 +34,9 @@
 (defun release-server-tests--write-artifact (directory tag platform content)
   "Write TAG's PLATFORM archive and GNU checksum below DIRECTORY."
   (let* ((archive-name (release-server--archive-name tag platform))
-         (archive (merge-pathnames archive-name directory))
-         (checksum (merge-pathnames (format nil "~A.sha256" archive-name)
-                                    directory)))
+         (archive      (merge-pathnames archive-name directory))
+         (checksum     (merge-pathnames (format nil "~A.sha256" archive-name)
+                                        directory)))
     (release-server-tests--write-file archive content)
     (release-archive--checksum-file archive checksum)
     (values archive checksum)))
@@ -59,7 +59,7 @@
                   "GIT_CONFIG_PARAMETERS="
                   "git" "-C" (namestring directory))
             arguments)
-    :output ':string
+    :output       ':string
     :error-output ':output)))
 
 (-> release-server-tests--git-deployment
@@ -68,7 +68,7 @@
 (defun release-server-tests--git-deployment
     (root version &key annotated-p (updater-p t))
   "Create one exact semantic Git deployment fixture below ROOT."
-  (let* ((tag (format nil "v~A" version))
+  (let* ((tag        (format nil "v~A" version))
          (deployment (merge-pathnames (format nil "~A/" tag) root)))
     (ensure-directories-exist (merge-pathnames ".keep" deployment))
     (release-server-tests--write-file
@@ -131,7 +131,7 @@
         (if (rest entry)
             (platform-setenv (first entry) (rest entry))
             (platform-unsetenv (first entry))))
-        (release-server-tests--delete-tree root)))
+      (release-server-tests--delete-tree root)))
   nil)
 
 (-> release-server-tests--test-service-runtime-isolation () null)
@@ -143,8 +143,8 @@
          (configuration
            (release-updater-configuration-create
             :service-account "autolith-release"
-            :service-home home))
-         (captured-command nil)
+            :service-home    home))
+         (captured-command   nil)
          (captured-directory nil)
          (*release-updater-host-command-function*
            (lambda (command &key directory input output error-output)
@@ -184,12 +184,12 @@
   "Exercise portable archive verification and malformed checksum refusal."
   (with-test-configuration (configuration)
     (let* ((directory (test-configuration-root configuration))
-           (tag "v0.32.2"))
+           (tag       "v0.32.2"))
       (multiple-value-bind (archive checksum)
           (release-server-tests--write-artifact directory tag "x86_64-linux" "archive")
-        (let* ((name (file-namestring archive))
+        (let* ((name   (file-namestring archive))
                (digest (release-archive--sha256-digest archive))
-               (valid (format nil "~A  ~A~%" digest name)))
+               (valid  (format nil "~A  ~A~%" digest name)))
           (dolist (entry
                     (list (list valid t)
                           (list (format nil "~A *~A~%" (string-upcase digest) name) t)
@@ -221,10 +221,10 @@
   "Read ASDF versions without changing the host registry."
   (with-test-configuration (configuration root)
     (declare (ignore configuration))
-    (let* ((checkout (merge-pathnames "checkout/" root))
-           (definition (merge-pathnames "autolith.asd" checkout))
+    (let* ((checkout     (merge-pathnames "checkout/" root))
+           (definition   (merge-pathnames "autolith.asd" checkout))
            (version-file (merge-pathnames "VERSION" checkout))
-           (system (asdf:find-system :autolith))
+           (system       (asdf:find-system :autolith))
            (host-version (asdf:component-version system)))
       (release-server-tests--write-file
        definition "(asdf:defsystem #:autolith :version \"0.11.2\")")
@@ -270,18 +270,18 @@
                "release tags reject extra components")
   (test-assert (release-tag< "v0.9.12" "v0.10.1")
                "release tags compare numeric components")
-    (let ((root
-            (uiop:ensure-directory-pathname
-             (merge-pathnames
-              (format nil "autolith-release-readonly-cleanup-~A/"
-                      (make-identifier))
-              (uiop:temporary-directory)))))
-      (ensure-directories-exist root)
-      (release-server-tests--write-file (merge-pathnames "file" root) "x")
-      (uiop:run-program (list "chmod" "-R" "a-w" (namestring root)))
-      (release-server-tests--delete-tree root)
-      (test-assert (not (uiop:directory-exists-p root))
-                   "read-only published fixtures can be deleted after making them writable"))
+  (let ((root
+          (uiop:ensure-directory-pathname
+           (merge-pathnames
+            (format nil "autolith-release-readonly-cleanup-~A/"
+                    (make-identifier))
+            (uiop:temporary-directory)))))
+    (ensure-directories-exist root)
+    (release-server-tests--write-file (merge-pathnames "file" root) "x")
+    (uiop:run-program (list "chmod" "-R" "a-w" (namestring root)))
+    (release-server-tests--delete-tree root)
+    (test-assert (not (uiop:directory-exists-p root))
+                 "read-only published fixtures can be deleted after making them writable"))
   (release-server-tests--test-git-configuration-isolation)
   (let* ((root
            (uiop:ensure-directory-pathname
@@ -298,8 +298,8 @@
            (release-server-configuration-create
             :source-root source-root
             :public-root public-root
-            :address "127.0.0.1"
-            :port 18098)))
+            :address     "127.0.0.1"
+            :port        18098)))
     (unwind-protect
          (progn
            (release-server-tests--write-file
@@ -341,9 +341,9 @@
                     (release-server-configuration-create
                      :source-root source-root
                      :public-root public-root
-                     :address "127.0.0.1"
-                     :port 18098
-                     :source-tag "v0.16.1"
+                     :address     "127.0.0.1"
+                     :port        18098
+                     :source-tag  "v0.16.1"
                      :source-commit
                      "0123456789abcdef0123456789abcdef01234567"))
                   (matching
@@ -370,7 +370,7 @@
                             :test #'string=)
                      '("Location" . "/releases/v0.10.1"))
               "the latest redirect names the newest complete release"))
-           (let* ((tag "v0.10.1")
+           (let* ((tag     "v0.10.1")
                   (archive (release-server--archive-name tag))
                   (response
                     (release-server-route
@@ -393,46 +393,46 @@
               (string= (release-server-response-content-type response)
                        "text/plain; charset=utf-8")
               "checksum responses use the plain-text media type"))
-            (let* ((tag "v0.10.1")
-                   (directory
-                     (release-server--release-directory configuration tag)))
-              (dolist (platform '("aarch64-linux"
-                                  "x86_64-linux-musl"
-                                  "aarch64-linux-musl"
-                                  "x86_64-darwin"
-                                  "arm64-darwin"))
-                (let ((archive (release-server--archive-name tag platform)))
-                  (release-server-tests--write-file
-                   (merge-pathnames archive directory)
-                   (format nil "~A-archive" platform))
-                  (release-server-tests--write-file
-                   (merge-pathnames (format nil "~A.sha256" archive) directory)
-                   (format nil "~A-checksum" platform))
-                  (dolist (name (list archive (format nil "~A.sha256" archive)))
-                    (let ((response
-                            (release-server-route
-                             configuration "GET"
-                             (format nil "/releases/~A/~A" tag name))))
-                      (test-assert
-                       (= (release-server-response-status response) 200)
-                       (format nil "published ~A artifacts are served" platform))))))
-              (test-assert
-               (= (release-server-response-status
-                   (release-server-route
-                    configuration "GET"
-                    (format nil "/releases/~A/~A"
-                            tag
-                            (release-server--archive-name tag "x86_64-freebsd"))))
-                  404)
-               "missing platform archives stay unpublished")
-              (test-assert
-               (= (release-server-response-status
-                   (release-server-route
-                    configuration "GET"
-                    (format nil "/releases/~A/autolith-~A-sparc-sunos.tar.gz"
-                            tag tag)))
-                  404)
-               "unknown platform archives are rejected"))
+           (let* ((tag "v0.10.1")
+                  (directory
+                    (release-server--release-directory configuration tag)))
+             (dolist (platform '("aarch64-linux"
+                                 "x86_64-linux-musl"
+                                 "aarch64-linux-musl"
+                                 "x86_64-darwin"
+                                 "arm64-darwin"))
+               (let ((archive (release-server--archive-name tag platform)))
+                 (release-server-tests--write-file
+                  (merge-pathnames archive directory)
+                  (format nil "~A-archive" platform))
+                 (release-server-tests--write-file
+                  (merge-pathnames (format nil "~A.sha256" archive) directory)
+                  (format nil "~A-checksum" platform))
+                 (dolist (name (list archive (format nil "~A.sha256" archive)))
+                   (let ((response
+                           (release-server-route
+                            configuration "GET"
+                            (format nil "/releases/~A/~A" tag name))))
+                     (test-assert
+                      (= (release-server-response-status response) 200)
+                      (format nil "published ~A artifacts are served" platform))))))
+             (test-assert
+              (= (release-server-response-status
+                  (release-server-route
+                   configuration "GET"
+                   (format nil "/releases/~A/~A"
+                           tag
+                           (release-server--archive-name tag "x86_64-freebsd"))))
+                 404)
+              "missing platform archives stay unpublished")
+             (test-assert
+              (= (release-server-response-status
+                  (release-server-route
+                   configuration "GET"
+                   (format nil "/releases/~A/autolith-~A-sparc-sunos.tar.gz"
+                           tag tag)))
+                 404)
+              "unknown platform archives are rejected"))
            (test-assert
             (= (release-server-response-status
                 (release-server-route
@@ -494,8 +494,8 @@
                 (list "diff" "-r"
                       (namestring (merge-pathnames ".git/" source-a))
                       (namestring (merge-pathnames ".git/" source-b)))
-                :output ':string
-                :error-output ':string
+                :output              ':string
+                :error-output        ':string
                 :ignore-error-status t)
              (test-assert
               (eql status 0)
@@ -513,9 +513,9 @@
              (format nil "autolith-release-archive-tests-~A/" (make-identifier))
              (uiop:temporary-directory))))
          (dependency-root (merge-pathnames "dependencies/" root))
-         (target-root (merge-pathnames "target/" root))
-         (valid-link (merge-pathnames "valid" dependency-root))
-         (broken-link (merge-pathnames "broken" dependency-root)))
+         (target-root     (merge-pathnames "target/" root))
+         (valid-link      (merge-pathnames "valid" dependency-root))
+         (broken-link     (merge-pathnames "broken" dependency-root)))
     (unwind-protect
          (progn
            (release-server-tests--write-file
@@ -533,19 +533,19 @@
             (not (probe-file broken-link))
             "release archives remove broken dependency links"))
         (release-server-tests--delete-tree root)))
-  (let* ((commit-a "0123456789abcdef0123456789abcdef01234567")
-           (commit-b "89abcdef0123456789abcdef0123456789abcdef")
-           (tag-object "fedcba9876543210fedcba9876543210fedcba98")
-           (peeled "abcdef0123456789abcdef0123456789abcdef01")
-           (parsed
-             (release-builder--parse-remote-tags
-              (format nil "~A~Crefs/tags/v0.11.2~%~A~Crefs/tags/v0.10.9~%"
-                      commit-a #\Tab commit-b #\Tab)))
-           (annotated
-             (release-builder--parse-remote-tags
-              (format nil
-                      "~A~Crefs/tags/v0.12.0~%~A~Crefs/tags/v0.12.0^{}~%"
-                      tag-object #\Tab peeled #\Tab))))
+  (let* ((commit-a   "0123456789abcdef0123456789abcdef01234567")
+         (commit-b   "89abcdef0123456789abcdef0123456789abcdef")
+         (tag-object "fedcba9876543210fedcba9876543210fedcba98")
+         (peeled     "abcdef0123456789abcdef0123456789abcdef01")
+         (parsed
+           (release-builder--parse-remote-tags
+            (format nil "~A~Crefs/tags/v0.11.2~%~A~Crefs/tags/v0.10.9~%"
+                    commit-a #\Tab commit-b #\Tab)))
+         (annotated
+           (release-builder--parse-remote-tags
+            (format nil
+                    "~A~Crefs/tags/v0.12.0~%~A~Crefs/tags/v0.12.0^{}~%"
+                    tag-object #\Tab peeled #\Tab))))
       (test-assert
        (equal (mapcar #'release-source-tag-name parsed)
               '("v0.10.9" "v0.11.2"))
@@ -564,19 +564,19 @@
              (uiop:temporary-directory))))
          (source-root (merge-pathnames "source/" root))
          (public-root (merge-pathnames "public/" root))
-         (state-root (merge-pathnames "state/" root))
+         (state-root  (merge-pathnames "state/" root))
          (builder
            (release-builder-configuration-create
-            :source-root source-root
-            :state-root state-root
-            :public-root public-root
-            :repository "https://example.invalid/autolith.git"
-            :poll-seconds 30
+            :source-root       source-root
+            :state-root        state-root
+            :public-root       public-root
+            :repository        "https://example.invalid/autolith.git"
+            :poll-seconds      30
             :container-command "container-test"))
-         (commit "0123456789abcdef0123456789abcdef01234567")
-         (tags (list (release-server-tests--source-tag "v0.11.0" commit)
-                     (release-server-tests--source-tag "v0.11.1" commit)
-                     (release-server-tests--source-tag "v0.12.0" commit))))
+         (commit      "0123456789abcdef0123456789abcdef01234567")
+         (tags        (list (release-server-tests--source-tag "v0.11.0" commit)
+                            (release-server-tests--source-tag "v0.11.1" commit)
+                            (release-server-tests--source-tag "v0.12.0" commit))))
     (unwind-protect
          (progn
            (test-assert
@@ -588,7 +588,7 @@
                     (release-server-configuration-create
                      :source-root source-root
                      :public-root public-root))
-                  (tag "v0.11.0")
+                  (tag     "v0.11.0")
                   (directory
                     (release-server--release-directory server tag))
                   (archive (release-server--archive-name tag)))
@@ -610,167 +610,167 @@
             (string= (release-builder--source-version source-root) "0.11.2")
             "builder source validation reads the declared ASDF version"))
         (release-server-tests--delete-tree root)))
-    (test-assert
-     (search "lambda-symbolics/autolith" *release-builder-default-repository*)
-     "the builder default repository is the live GitHub origin")
-    (dolist (case '(("https://github.com/lambda-symbolics/autolith.git"
-                     "lambda-symbolics" "autolith")
-                    ("https://github.com/lambda-symbolics/autolith/"
-                     "lambda-symbolics" "autolith")
-                    ("git@github.com:lambda-symbolics/autolith.git"
-                     "lambda-symbolics" "autolith")
-                    ("ssh://git@github.com/lambda-symbolics/autolith.git"
-                     "lambda-symbolics" "autolith")))
-      (destructuring-bind (url owner repo) case
-        (multiple-value-bind (parsed-owner parsed-repo)
-            (release-builder--github-repository url)
-          (test-assert (and (string= parsed-owner owner)
-                            (string= parsed-repo repo))
-                       (format nil "~A parses as ~A/~A" url owner repo)))))
-    (test-assert
-     (handler-case
+  (test-assert
+   (search "lambda-symbolics/autolith" *release-builder-default-repository*)
+   "the builder default repository is the live GitHub origin")
+  (dolist (case '(("https://github.com/lambda-symbolics/autolith.git"
+                   "lambda-symbolics" "autolith")
+                  ("https://github.com/lambda-symbolics/autolith/"
+                   "lambda-symbolics" "autolith")
+                  ("git@github.com:lambda-symbolics/autolith.git"
+                   "lambda-symbolics" "autolith")
+                  ("ssh://git@github.com/lambda-symbolics/autolith.git"
+                   "lambda-symbolics" "autolith")))
+    (destructuring-bind (url owner repo) case
+      (multiple-value-bind (parsed-owner parsed-repo)
+          (release-builder--github-repository url)
+        (test-assert (and (string= parsed-owner owner)
+                          (string= parsed-repo repo))
+                     (format nil "~A parses as ~A/~A" url owner repo)))))
+  (test-assert
+   (handler-case
+       (progn
+         (release-builder--github-repository
+          "https://example.invalid/autolith.git")
+         nil)
+     (release-builder-error (condition)
+       (and (eq (release-builder-error-stage condition) ':tag-discovery)
+            (search "not a GitHub URL"
+                    (release-builder-error-cause condition)))))
+   "the builder rejects non-GitHub repository URLs")
+  (let* ((root
+           (uiop:ensure-directory-pathname
+            (merge-pathnames
+             (format nil "autolith-release-mirror-tests-~A/" (make-identifier))
+             (uiop:temporary-directory))))
+         (source-root (merge-pathnames "source/" root))
+         (public-root (merge-pathnames "public/" root))
+         (state-root  (merge-pathnames "state/" root))
+         (staging     (merge-pathnames "staging/" root))
+         (builder
+           (release-builder-configuration-create
+            :source-root  source-root
+            :state-root   state-root
+            :public-root  public-root
+            :repository   "https://github.com/lambda-symbolics/autolith.git"
+            :poll-seconds 30))
+         (tag         "v0.32.2")
+         (source-tag
+           (release-server-tests--source-tag
+            tag "0123456789abcdef0123456789abcdef01234567")))
+    (unwind-protect
          (progn
-           (release-builder--github-repository
-            "https://example.invalid/autolith.git")
-           nil)
-       (release-builder-error (condition)
-         (and (eq (release-builder-error-stage condition) ':tag-discovery)
-              (search "not a GitHub URL"
-                      (release-builder-error-cause condition)))))
-     "the builder rejects non-GitHub repository URLs")
-    (let* ((root
-             (uiop:ensure-directory-pathname
-              (merge-pathnames
-               (format nil "autolith-release-mirror-tests-~A/" (make-identifier))
-               (uiop:temporary-directory))))
-           (source-root (merge-pathnames "source/" root))
-           (public-root (merge-pathnames "public/" root))
-           (state-root (merge-pathnames "state/" root))
-           (staging (merge-pathnames "staging/" root))
-           (builder
-             (release-builder-configuration-create
-              :source-root source-root
-              :state-root state-root
-              :public-root public-root
-              :repository "https://github.com/lambda-symbolics/autolith.git"
-              :poll-seconds 30))
-           (tag "v0.32.2")
-           (source-tag
-             (release-server-tests--source-tag
-              tag "0123456789abcdef0123456789abcdef01234567")))
-      (unwind-protect
-           (progn
-             (uiop:ensure-all-directories-exist
-              (list source-root public-root state-root staging))
-             (release-server-tests--write-artifact
-              staging tag "x86_64-linux" "linux-archive")
-             (let ((published (release-builder-publish builder staging tag)))
-               (test-assert
-                (and (uiop:file-exists-p
-                      (merge-pathnames
-                       (release-server--archive-name tag "x86_64-linux")
-                       published))
-                     (not (uiop:file-exists-p
-                           (merge-pathnames
-                            (release-server--archive-name tag "arm64-darwin")
-                            published))))
-                "first publication requires the Linux archive and can omit later platforms"))
-             (release-server-tests--write-artifact
-              staging tag "arm64-darwin" "darwin-archive")
-             (let ((published (release-builder-publish builder staging tag)))
-               (test-assert
-                (and (uiop:file-exists-p
-                      (merge-pathnames
-                       (release-server--archive-name tag "x86_64-linux")
-                       published))
-                     (uiop:file-exists-p
-                      (merge-pathnames
-                       (release-server--archive-name tag "arm64-darwin")
-                       published))
-                     (string=
-                      (uiop:read-file-string
-                       (merge-pathnames
-                        (release-server--archive-name tag "x86_64-linux")
-                        published))
-                      "linux-archive"))
-                "later polls add new platform files without changing published ones"))
-             (let ((linux
+           (uiop:ensure-all-directories-exist
+            (list source-root public-root state-root staging))
+           (release-server-tests--write-artifact
+            staging tag "x86_64-linux" "linux-archive")
+           (let ((published (release-builder-publish builder staging tag)))
+             (test-assert
+              (and (uiop:file-exists-p
+                    (merge-pathnames
+                     (release-server--archive-name tag "x86_64-linux")
+                     published))
+                   (not (uiop:file-exists-p
+                         (merge-pathnames
+                          (release-server--archive-name tag "arm64-darwin")
+                          published))))
+              "first publication requires the Linux archive and can omit later platforms"))
+           (release-server-tests--write-artifact
+            staging tag "arm64-darwin" "darwin-archive")
+           (let ((published (release-builder-publish builder staging tag)))
+             (test-assert
+              (and (uiop:file-exists-p
+                    (merge-pathnames
+                     (release-server--archive-name tag "x86_64-linux")
+                     published))
+                   (uiop:file-exists-p
+                    (merge-pathnames
+                     (release-server--archive-name tag "arm64-darwin")
+                     published))
+                   (string=
+                    (uiop:read-file-string
                      (merge-pathnames
                       (release-server--archive-name tag "x86_64-linux")
-                      staging)))
-               (release-server-tests--write-file linux "changed-linux")
-               (release-archive--checksum-file
-                linux
-                (merge-pathnames
-                 (format nil "~A.sha256"
-                         (release-server--archive-name tag "x86_64-linux"))
-                 staging))
+                      published))
+                    "linux-archive"))
+              "later polls add new platform files without changing published ones"))
+           (let ((linux
+                   (merge-pathnames
+                    (release-server--archive-name tag "x86_64-linux")
+                    staging)))
+             (release-server-tests--write-file linux "changed-linux")
+             (release-archive--checksum-file
+              linux
+              (merge-pathnames
+               (format nil "~A.sha256"
+                       (release-server--archive-name tag "x86_64-linux"))
+               staging))
+             (test-assert
+              (handler-case
+                  (progn
+                    (release-builder-publish builder staging tag)
+                    nil)
+                (release-builder-error (condition)
+                  (and (eq (release-builder-error-stage condition)
+                           ':publication)
+                       (search "already exists with different contents"
+                               (release-builder-error-cause condition)))))
+              "published archives stay immutable when GitHub contents differ"))
+           (let* ((fetch-tag "v0.33.0")
+                  (fetch-source
+                    (release-server-tests--source-tag
+                     fetch-tag
+                     "abcdef0123456789abcdef0123456789abcdef01"))
+                  (fetched   nil)
+                  (*release-builder-command-function*
+                    (lambda (command &rest arguments)
+                      (declare (ignore arguments))
+                      (let* ((url (first (last command)))
+                             (output
+                               (nth (1+ (position "--output" command
+                                                   :test #'string=))
+                                    command))
+                             (platform
+                               (find-if
+                                (lambda (candidate)
+                                  (search
+                                   (release-server--archive-name
+                                    fetch-tag candidate)
+                                   url))
+                                *release-server-platform-ids*)))
+                        (push url fetched)
+                        (unless platform
+                          (error "missing"))
+                        (release-server-tests--write-artifact
+                         (uiop:pathname-directory-pathname output)
+                         fetch-tag platform
+                         (format nil "fetched-~A" platform))))))
+             (let ((directory
+                     (release-builder--fetch-github-assets builder fetch-source)))
                (test-assert
-                (handler-case
-                    (progn
-                      (release-builder-publish builder staging tag)
-                      nil)
-                  (release-builder-error (condition)
-                    (and (eq (release-builder-error-stage condition)
-                             ':publication)
-                         (search "already exists with different contents"
-                                 (release-builder-error-cause condition)))))
-                "published archives stay immutable when GitHub contents differ"))
-              (let* ((fetch-tag "v0.33.0")
-                     (fetch-source
-                       (release-server-tests--source-tag
-                        fetch-tag
-                        "abcdef0123456789abcdef0123456789abcdef01"))
-                     (fetched nil)
-                     (*release-builder-command-function*
-                       (lambda (command &rest arguments)
-                         (declare (ignore arguments))
-                         (let* ((url (first (last command)))
-                                (output
-                                  (nth (1+ (position "--output" command
-                                                      :test #'string=))
-                                       command))
-                                (platform
-                                  (find-if
-                                   (lambda (candidate)
-                                     (search
-                                      (release-server--archive-name
-                                       fetch-tag candidate)
-                                      url))
-                                   *release-server-platform-ids*)))
-                           (push url fetched)
-                           (unless platform
-                             (error "missing"))
-                           (release-server-tests--write-artifact
-                            (uiop:pathname-directory-pathname output)
-                            fetch-tag platform
-                            (format nil "fetched-~A" platform))))))
-                (let ((directory
-                        (release-builder--fetch-github-assets builder fetch-source)))
-                  (test-assert
-                   (and
-                    (every
-                     (lambda (platform)
-                       (uiop:file-exists-p
-                        (merge-pathnames
-                         (release-server--archive-name fetch-tag platform)
-                         directory)))
-                     *release-server-platform-ids*)
-                    (find-if (lambda (url)
-                               (search "lambda-symbolics/autolith" url))
-                             fetched))
-                   "the builder fetches every recognized GitHub platform asset")))
-              (let* ((waiting-tag
-                       (release-server-tests--source-tag
-                        "v0.32.3" "89abcdef0123456789abcdef0123456789abcdef"))
-                     (*release-builder-command-function*
-                       (lambda (command &rest arguments)
-                         (declare (ignore command arguments))
-                         (error "missing"))))
-                (test-assert
-                 (null (release-builder-build builder waiting-tag))
-                 "the builder waits when GitHub has not published the Linux archive")))
-          (release-server-tests--delete-tree root)))
+                (and
+                 (every
+                  (lambda (platform)
+                    (uiop:file-exists-p
+                     (merge-pathnames
+                      (release-server--archive-name fetch-tag platform)
+                      directory)))
+                  *release-server-platform-ids*)
+                 (find-if (lambda (url)
+                            (search "lambda-symbolics/autolith" url))
+                          fetched))
+                "the builder fetches every recognized GitHub platform asset")))
+           (let* ((waiting-tag
+                    (release-server-tests--source-tag
+                     "v0.32.3" "89abcdef0123456789abcdef0123456789abcdef"))
+                  (*release-builder-command-function*
+                    (lambda (command &rest arguments)
+                      (declare (ignore command arguments))
+                      (error "missing"))))
+             (test-assert
+              (null (release-builder-build builder waiting-tag))
+              "the builder waits when GitHub has not published the Linux archive")))
+        (release-server-tests--delete-tree root)))
   (let* ((root
            (uiop:ensure-directory-pathname
             (merge-pathnames
@@ -778,22 +778,22 @@
                      (make-identifier))
              (uiop:temporary-directory))))
          (source-root (merge-pathnames "source/" root))
-         (state-root (merge-pathnames "state/" root))
+         (state-root  (merge-pathnames "state/" root))
          (public-root (merge-pathnames "public/" root))
-         (checkout (merge-pathnames "checkout/" root))
+         (checkout    (merge-pathnames "checkout/" root))
          (configuration
            (release-builder-configuration-create
-            :source-root source-root
-            :state-root state-root
-            :public-root public-root
-            :repository "https://example.invalid/autolith.git"
-            :poll-seconds 30
-            :container-command "container-test"
+            :source-root               source-root
+            :state-root                state-root
+            :public-root               public-root
+            :repository                "https://example.invalid/autolith.git"
+            :poll-seconds              30
+            :container-command         "container-test"
             :container-timeout-seconds 17))
          (source-tag
            (release-server-tests--source-tag
             "v0.23.3" "0123456789abcdef0123456789abcdef01234567"))
-         (commands nil))
+         (commands    nil))
     (unwind-protect
          (progn
            (uiop:ensure-all-directories-exist
@@ -817,7 +817,7 @@
                                 "v0.23.3"))))
               "a failed bounded container build becomes a structured failure"))
            (let* ((ordered (reverse commands))
-                  (build (first ordered))
+                  (build   (first ordered))
                   (cleanup (find "rm" ordered :test #'string= :key #'second)))
              (test-assert
               (and (equal (subseq build 0 4)
@@ -834,13 +834,13 @@
                      (make-identifier))
              (uiop:temporary-directory))))
          (deployments-root (merge-pathnames "deployments/" root))
-         (state-root (merge-pathnames "updater-state/" root))
-         (host-lock-root (merge-pathnames "builder-state/" root))
-         (selection-path (merge-pathnames "current" root))
-         (old-path nil)
-         (old-tag nil)
-         (next-path nil)
-         (next-tag nil))
+         (state-root       (merge-pathnames "updater-state/" root))
+         (host-lock-root   (merge-pathnames "builder-state/" root))
+         (selection-path   (merge-pathnames "current" root))
+         (old-path         nil)
+         (old-tag          nil)
+         (next-path        nil)
+         (next-tag         nil))
     (unwind-protect
          (progn
            (multiple-value-setq (old-path old-tag)
@@ -873,18 +873,18 @@
               "safe Git identity captures a root-owned lightweight deployment"))
            (let ((configuration
                    (release-updater-configuration-create
-                    :selection-path selection-path
-                    :deployments-root deployments-root
-                    :state-root state-root
-                    :host-lock-root host-lock-root
-                    :repository "https://example.invalid/autolith.git"
-                    :poll-seconds 1
+                    :selection-path             selection-path
+                    :deployments-root           deployments-root
+                    :state-root                 state-root
+                    :host-lock-root             host-lock-root
+                    :repository                 "https://example.invalid/autolith.git"
+                    :poll-seconds               1
                     :activation-timeout-seconds 1
-                    :server-service (merge-pathnames "server-service/" root)
-                    :builder-service (merge-pathnames "builder-service/" root)
-                    :health-url "http://127.0.0.1:18098/health"
-                    :service-account "nobody"
-                    :service-home (merge-pathnames "service-home/" root)))
+                    :server-service             (merge-pathnames "server-service/" root)
+                    :builder-service            (merge-pathnames "builder-service/" root)
+                    :health-url                 "http://127.0.0.1:18098/health"
+                    :service-account            "nobody"
+                    :service-home               (merge-pathnames "service-home/" root)))
                  (restart-count 0))
              (let* ((commands nil)
                     (*release-updater-service-command-function*
@@ -942,7 +942,7 @@
                  (release-server-tests--git-deployment
                   deployments-root "0.16.2")
                (let ((activation-count 0)
-                     (failed-p nil))
+                     (failed-p         nil))
                  (handler-case
                      (release-updater-promote
                       configuration failed-path failed-tag
@@ -1018,23 +1018,23 @@
              (format nil "autolith-release-final-path-tests-~A/"
                      (make-identifier))
              (uiop:temporary-directory))))
-         (remote-root (merge-pathnames "remote/" root))
+         (remote-root      (merge-pathnames "remote/" root))
          (deployments-root (merge-pathnames "deployments/" root))
          (configuration
            (release-updater-configuration-create
-            :selection-path (merge-pathnames "current" root)
-            :deployments-root deployments-root
-            :state-root (merge-pathnames "updater-state/" root)
-            :host-lock-root (merge-pathnames "builder-state/" root)
+            :selection-path             (merge-pathnames "current" root)
+            :deployments-root           deployments-root
+            :state-root                 (merge-pathnames "updater-state/" root)
+            :host-lock-root             (merge-pathnames "builder-state/" root)
             :repository
             (namestring (merge-pathnames "v0.18.0/" remote-root))
-            :poll-seconds 1
+            :poll-seconds               1
             :activation-timeout-seconds 1
-            :server-service (merge-pathnames "server-service/" root)
-            :builder-service (merge-pathnames "builder-service/" root)
-            :health-url "http://127.0.0.1:18098/health"
-            :service-account "nobody"
-            :service-home (merge-pathnames "service-home/" root))))
+            :server-service             (merge-pathnames "server-service/" root)
+            :builder-service            (merge-pathnames "builder-service/" root)
+            :health-url                 "http://127.0.0.1:18098/health"
+            :service-account            "nobody"
+            :service-home               (merge-pathnames "service-home/" root))))
     (unwind-protect
          (multiple-value-bind (remote-path source-tag)
              (release-server-tests--git-deployment remote-root "0.18.0")
@@ -1127,5 +1127,5 @@
                (test-assert
                 (not (uiop:directory-exists-p failed-path))
                 "a failed updater-owned final candidate is removed for retry")))
-        (release-server-tests--delete-tree root)))
-  nil))
+          (release-server-tests--delete-tree root)))
+   nil))

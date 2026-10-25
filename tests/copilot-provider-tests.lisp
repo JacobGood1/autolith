@@ -8,8 +8,10 @@
   (uiop:find-symbol*
    "REQUEST"
    (ecase dexador:*dexador-backend*
-     (:usocket '#:dexador.backend.usocket)
-     (:winhttp '#:dexador.backend.winhttp))))
+     (:usocket
+      '#:dexador.backend.usocket)
+     (:winhttp
+      '#:dexador.backend.winhttp))))
 
 (-> copilot-test--credentials (configuration &key (:expired-p boolean)) oauth-credentials)
 (defun copilot-test--credentials (configuration &key expired-p)
@@ -20,8 +22,8 @@
      (make-instance 'oauth-credentials
                     :access-token "tid=test;proxy-ep=proxy.individual.githubcopilot.com;"
                     :refresh-token "github-secret" :account-id "github.com:42"
-                    :expires-at (+ (get-universal-time) (if expired-p -10 3600))
-                    :source-path (credential-source-pathname (credential-manager-primary-source manager))))))
+                    :expires-at   (+ (get-universal-time) (if expired-p -10 3600))
+                    :source-path  (credential-source-pathname (credential-manager-primary-source manager))))))
 
 (-> copilot-test--authentication () null)
 (defun copilot-test--authentication ()
@@ -29,7 +31,7 @@
   (with-test-environment (("AUTOLITH_COPILOT_DOMAIN" nil))
     (with-test-configuration (configuration)
       (let* ((manager (copilot-credential-manager-create configuration))
-             (client (copilot-device-authentication-client-create))
+             (client  (copilot-device-authentication-client-create))
              (polls 0) (now 0) (exchanges 0))
         (setf (slot-value client 'cl-rfc8628::clock-function) (lambda () now)
               (slot-value client 'cl-rfc8628::sleep-function) (lambda (seconds) (incf now seconds)))
@@ -43,9 +45,12 @@
                    (if (search "/device/code" url)
                        "{\"device_code\":\"device-secret\",\"user_code\":\"ABCD-1234\",\"verification_uri\":\"https://github.com/login/device\",\"interval\":1,\"expires_in\":60}"
                        (case (incf polls)
-                         (1 "{\"error\":\"authorization_pending\"}")
-                         (2 "{\"error\":\"slow_down\"}")
-                         (t "{\"access_token\":\"github-secret\"}")))
+                         (1
+                          "{\"error\":\"authorization_pending\"}")
+                         (2
+                          "{\"error\":\"slow_down\"}")
+                         (t
+                          "{\"access_token\":\"github-secret\"}")))
                    200 nil)))
           (list 'dexador:get
                 (lambda (url &rest arguments)
@@ -82,7 +87,7 @@
   "Reject hostile proxy hosts and malformed or rejected token responses without leaking secrets."
   (with-test-environment (("AUTOLITH_COPILOT_DOMAIN" nil))
     (with-test-configuration (configuration)
-      (let* ((manager (copilot-credential-manager-create configuration))
+      (let* ((manager     (copilot-credential-manager-create configuration))
              (credentials (copilot-test--credentials configuration)))
         (dolist (token '("proxy-ep=proxy.evil.example;" "proxy-ep=proxy.individual.githubcopilot.com/evil;"
                          "proxy-ep=proxy.individual.githubcopilot.com@evil.example;"))
@@ -109,7 +114,7 @@
         (with-test-environment (("AUTOLITH_COPILOT_DOMAIN" "company.ghe.com"))
           (test-assert
            (handler-case (progn (credential-manager-validate-credentials
-                                (copilot-credential-manager-create configuration) credentials) nil)
+                                 (copilot-credential-manager-create configuration) credentials) nil)
              (authentication-error () t)) "an issuer switch cannot reuse another host's GitHub token")))))
   nil)
 
@@ -131,12 +136,13 @@
                                         (json-object "stop_reason" "end_turn")
                                         "usage" (json-object "output_tokens" 1))
                            (json-object "type" "message_stop")))))
-     (t (concatenate 'string
-                     (test-sse-event-string
-                      (json-object "id" "copilot-chat" "choices"
-                                   (json-array (json-object "index" 0 "delta" (json-object "content" "ok")
-                                                            "finish_reason" "stop"))))
-                     (format nil "data: [DONE]~%~%"))))))
+     (t
+      (concatenate 'string
+                   (test-sse-event-string
+                    (json-object "id" "copilot-chat" "choices"
+                                 (json-array (json-object "index" 0 "delta" (json-object "content" "ok")
+                                                          "finish_reason" "stop"))))
+                   (format nil "data: [DONE]~%~%"))))))
 
 (-> copilot-test--discovery-and-transport () null)
 (defun copilot-test--discovery-and-transport ()
@@ -172,10 +178,10 @@
                   (dolist (spec '(("chat-test" copilot-chat-provider "/chat/completions")
                                   ("claude-test" copilot-messages-provider "/v1/messages")
                                   ("gpt-test" copilot-responses-provider "/responses")))
-                    (let* ((selected (configuration-copy configuration :model (concatenate 'string "copilot/" (first spec)) :reasoning-effort "none"))
-                           (provider (provider-create selected))
+                    (let* ((selected     (configuration-copy configuration :model (concatenate 'string "copilot/" (first spec)) :reasoning-effort "none"))
+                           (provider     (provider-create selected))
                            (conversation (conversation-create selected))
-                           (credentials (credential-manager-load (provider-credential-manager provider))))
+                           (credentials  (credential-manager-load (provider-credential-manager provider))))
                       (test-assert (typep provider (second spec)) "discovered endpoints select the wire class")
                       (conversation-append-user-message conversation "hello")
                       (multiple-value-bind (request delivery)
@@ -224,13 +230,13 @@
                                           (null (assoc "x-api-key" headers :test #'string-equal)))
                                      "all protocols use Copilot bearer auth and identify user initiation"))
                       (let ((result (provider-stream-turn provider conversation :tool-namespaces #()
-                                                          :event-callback (lambda (event) (declare (ignore event))))))
+                                                          :event-callback                        (lambda (event) (declare (ignore event))))))
                         (test-assert (typep result 'provider-result)
                                      "each Copilot wire stream runs through the shared SSE parser"))
                       (conversation-append-provider-item conversation (json-object "type" "function_call" "call_id" "call-1" "name" "shell.run" "arguments" "{}"))
                       (test-assert (equal (rest (assoc "X-Initiator" (copilot--request-headers credentials conversation (json-object)) :test #'string-equal)) "agent")
                                    "tool follow-ups are correctly marked agent-initiated")
-                      (let* ((other (configuration-copy selected :model "copilot/gpt-test"))
+                      (let* ((other    (configuration-copy selected :model "copilot/gpt-test"))
                              (switched (provider-with-configuration provider other)))
                         (test-assert (and (typep switched 'copilot-responses-provider)
                                           (eq (provider-credential-manager provider) (provider-credential-manager switched)))
@@ -244,18 +250,18 @@
   (with-test-environment (("AUTOLITH_COPILOT_DOMAIN" nil))
     (with-test-configuration (configuration)
       (let* ((credentials (copilot-test--credentials configuration))
-             (posts 0)
-             (state "unconfigured")
-             (picker t))
+             (posts       0)
+             (state       "unconfigured")
+             (picker      t))
         (test-call-with-function-replacements
          (list
           (list 'dexador:get
                 (lambda (&rest ignored)
                   (declare (ignore ignored))
                   (values (json-encode (json-object "data" (json-array
-                                    (json-object "id" "claude-test"
-                                                 "model_picker_enabled" (if picker t (json-false))
-                                                 "policy" (json-object "state" state))))) 200 nil)))
+                                                            (json-object "id" "claude-test"
+                                                                         "model_picker_enabled" (if picker t (json-false))
+                                                                         "policy" (json-object "state" state))))) 200 nil)))
           (list (copilot-test--http-backend-request)
                 (lambda (url &rest arguments)
                   (test-assert (and (search "/models/claude-test/policy" url)
@@ -284,15 +290,15 @@
            (setf (slot-value credentials 'cl-rfc8628::access-token)
                  "tid=test;proxy-ep=proxy.business.githubcopilot.com;")
            (credential-source-save (credential-manager-primary-source (copilot-credential-manager-create configuration)) credentials)
-            (test-assert (equal (mapcar (lambda (model) (getf model :name))
-                                       (copilot--fetch-models configuration))
-                                '("copilot/auto"))
-                         "Business discovery also respects manual picker restrictions")
-            (setf picker t state "disabled")
-            (test-assert (equal (mapcar (lambda (model) (getf model :name))
-                                       (copilot--fetch-models configuration :enable-p t))
-                                '("copilot/auto"))
-                         "disabled manual policies are not enabled automatically")
+           (test-assert (equal (mapcar (lambda (model) (getf model :name))
+                                      (copilot--fetch-models configuration))
+                               '("copilot/auto"))
+                        "Business discovery also respects manual picker restrictions")
+           (setf picker t state "disabled")
+           (test-assert (equal (mapcar (lambda (model) (getf model :name))
+                                      (copilot--fetch-models configuration :enable-p t))
+                               '("copilot/auto"))
+                        "disabled manual policies are not enabled automatically")
            (test-assert (= posts 1) "only the unconfigured model is enabled"))))))
   nil)
 
@@ -301,12 +307,12 @@
   "Login through startup and the application, then send a prompt without ChatGPT credentials."
   (with-test-environment (("AUTOLITH_COPILOT_DOMAIN" nil) ("AUTOLITH_MODEL" nil))
     (with-test-configuration (configuration)
-      (let ((snapshot (provider--registry-snapshot))
-            (output (make-string-output-stream))
-            (models-p t)
-            (deny-p nil)
+      (let ((snapshot    (provider--registry-snapshot))
+            (output      (make-string-output-stream))
+            (models-p    t)
+            (deny-p      nil)
             (discoveries 0)
-            (streams 0))
+            (streams     0))
         (unwind-protect
              (test-call-with-function-replacements
               (list
@@ -320,12 +326,12 @@
                      (lambda (url &rest arguments)
                        (declare (ignore arguments))
                       (incf discoveries)
-                       (test-assert (search "githubcopilot.com/models" url)
-                                    "login discovers the Copilot account catalog")
-                       (values (if models-p
-                                   "{\"data\":[{\"id\":\"chat-test\",\"model_picker_enabled\":true},{\"id\":\"other-test\",\"model_picker_enabled\":true}]}"
-                                   "{\"data\":[]}")
-                               200 nil)))
+                      (test-assert (search "githubcopilot.com/models" url)
+                                   "login discovers the Copilot account catalog")
+                      (values (if models-p
+                                  "{\"data\":[{\"id\":\"chat-test\",\"model_picker_enabled\":true},{\"id\":\"other-test\",\"model_picker_enabled\":true}]}"
+                                  "{\"data\":[]}")
+                              200 nil)))
                (list (copilot-test--http-backend-request)
                      (lambda (url &rest arguments)
                        (declare (ignore arguments))
@@ -361,21 +367,21 @@
                        (application
                          (make-instance 'application
                                         :configuration configuration :conversation conversation
-                                        :provider (provider-create configuration)
+                                        :provider      (provider-create configuration)
                                         :tool-registry (make-instance 'tool-registry)
-                                        :worker ':test-worker
-                                        :ui (terminal-ui-create
-                                             :terminal (make-instance 'stream-terminal
-                                                                      :input-stream (make-string-input-stream "")
-                                                                      :output-stream output :input-file-descriptor -1
-                                                                      :columns 80)))))
+                                        :worker        ':test-worker
+                                        :ui            (terminal-ui-create
+                                                        :terminal (make-instance 'stream-terminal
+                                                                                 :input-stream (make-string-input-stream "")
+                                                                                 :output-stream output :input-file-descriptor -1
+                                                                                 :columns      80)))))
                   (application-authenticate application "copilot")
                   (test-assert (and (typep (application-provider application) 'copilot-auto-provider)
                                     (eq (agent-provider (application-agent application)) (application-provider application))
                                     (equal (conversation-model conversation) "copilot/auto"))
                                "in-session login replaces the live provider, agent, and conversation selection")
                   (test-assert (equal (provider-result-assistant-text
-                                      (agent-run-user-turn (application-agent application) "hello" :tools-p nil)) "ok")
+                                       (agent-run-user-turn (application-agent application) "hello" :tools-p nil)) "ok")
                                "a prompt after login succeeds without any ChatGPT credentials")
                   (test-assert (= streams 1) "the prompt makes exactly one Copilot request")
                   (setf (config :model configuration) *default-model*
@@ -421,7 +427,7 @@
   "Reject missing, malformed, stale, and unknown routes at account construction."
   (with-test-environment (("AUTOLITH_COPILOT_DOMAIN" nil))
     (with-test-configuration (configuration)
-      (setf configuration (configuration-copy configuration :model "copilot/chat-test"
+      (setf configuration (configuration-copy configuration :model                   "copilot/chat-test"
                                                               :provider-validation-p nil))
       (let ((path (copilot--catalog-path configuration)))
         (dolist (cache '(missing
@@ -445,13 +451,13 @@
   "Repair a selected model's route with and without registered model metadata."
   (with-test-environment (("AUTOLITH_COPILOT_DOMAIN" nil) ("AUTOLITH_MODEL" nil))
     (with-test-configuration (configuration)
-      (setf configuration (configuration-copy configuration :model "copilot/chat-test"
+      (setf configuration (configuration-copy configuration :model                   "copilot/chat-test"
                                                               :provider-validation-p nil))
-      (let ((snapshot (provider--registry-snapshot))
-            (path (copilot--catalog-path configuration))
-            (logins 0)
+      (let ((snapshot    (provider--registry-snapshot))
+            (path        (copilot--catalog-path configuration))
+            (logins      0)
             (discoveries 0)
-            (output (make-string-output-stream)))
+            (output      (make-string-output-stream)))
         (unwind-protect
              (progn
                (test-assert (null (provider-registration-models
@@ -494,18 +500,18 @@
   "Route hidden Student models, retain affinity, renew credentials, and redact session tokens."
   (with-test-environment (("AUTOLITH_COPILOT_DOMAIN" nil))
     (with-test-configuration (configuration)
-      (let* ((snapshot (provider--registry-snapshot))
-             (configuration (configuration-copy configuration :model "copilot/auto"
+      (let* ((snapshot      (provider--registry-snapshot))
+             (configuration (configuration-copy configuration :model                 "copilot/auto"
                                                               :provider-validation-p nil))
-             (catalog "{\"data\":[{\"id\":\"chat-test\",\"model_picker_enabled\":false,\"supported_endpoints\":[\"/chat/completions\"]},{\"id\":\"claude-test\",\"model_picker_enabled\":false,\"supported_endpoints\":[\"/v1/messages\"]},{\"id\":\"gpt-test\",\"model_picker_enabled\":false,\"supported_endpoints\":[\"/responses\"]}]}")
-             (selected "chat-test")
-             (available-p nil)
-             (deny-p nil)
-             (sessions 0)
-             (streams 0)
-             (renewals 0)
+             (catalog       "{\"data\":[{\"id\":\"chat-test\",\"model_picker_enabled\":false,\"supported_endpoints\":[\"/chat/completions\"]},{\"id\":\"claude-test\",\"model_picker_enabled\":false,\"supported_endpoints\":[\"/v1/messages\"]},{\"id\":\"gpt-test\",\"model_picker_enabled\":false,\"supported_endpoints\":[\"/responses\"]}]}")
+             (selected      "chat-test")
+             (available-p   nil)
+             (deny-p        nil)
+             (sessions      0)
+             (streams       0)
+             (renewals      0)
              (session-token nil)
-             (stream-hosts nil))
+             (stream-hosts  nil))
         (unwind-protect
              (progn
                (copilot-test--credentials configuration)
@@ -570,7 +576,7 @@
                                              (provider-registration-models (provider-registration-find "copilot")))
                                       '("copilot/auto"))
                                "hidden named models are not offered as manual selections")
-                  (let* ((provider (provider-create configuration))
+                  (let* ((provider     (provider-create configuration))
                          (conversation (conversation-create configuration)))
                     (conversation-append-user-message conversation "hello")
                     (dolist (spec '(("chat-test" "/chat/completions")
@@ -579,7 +585,7 @@
                       (setf selected (first spec))
                       (let ((result (provider-stream-turn
                                      provider conversation :tool-namespaces #()
-                                     :event-callback (lambda (event) (declare (ignore event))))))
+                                     :event-callback                        (lambda (event) (declare (ignore event))))))
                         (test-assert (typep result 'provider-result) "Auto uses the selected stream decoder")
                         (test-assert (uiop:string-suffix-p (first stream-hosts) (second spec))
                                      "the selected model determines the wire endpoint")
@@ -587,13 +593,13 @@
                                      "Auto session tokens are redacted from detached results")))
                     (setf available-p t)
                     (provider-stream-turn provider conversation :tool-namespaces #()
-                                          :event-callback (lambda (event) (declare (ignore event))))
+                                          :event-callback                        (lambda (event) (declare (ignore event))))
                     (test-assert (equal (copilot-auto-provider-preferred-model provider) "gpt-test")
                                  "available-model responses retain the previous entitled selection")
                     (test-assert (= sessions 4) "each attempt acquires a fresh request-scoped token")
                     (setf deny-p t)
                     (provider-stream-turn provider conversation :tool-namespaces #()
-                                          :event-callback (lambda (event) (declare (ignore event))))
+                                          :event-callback                        (lambda (event) (declare (ignore event))))
                     (test-assert (and (= renewals 1) (= sessions 6) (= streams 6)
                                       (search "api.business.githubcopilot.com" (first stream-hosts)))
                                  "bounded credential recovery resolves Auto again at the renewed host")
@@ -607,7 +613,7 @@
                      (handler-case
                          (progn (provider-stream-turn
                                  provider conversation :tool-namespaces #()
-                                 :event-callback (lambda (event) (declare (ignore event)))) nil)
+                                 :event-callback                        (lambda (event) (declare (ignore event)))) nil)
                        (configuration-error (condition)
                          (not (test-object-contains-string-p condition "auto-secret-"))))
                      "unknown Auto routes fail safely after a catalog refresh")
@@ -620,14 +626,14 @@
   "Reject secret-bearing failures and restrict session headers to their owning adapter."
   (with-test-environment (("AUTOLITH_COPILOT_DOMAIN" nil))
     (with-test-configuration (configuration)
-      (let* ((configuration (configuration-copy configuration :model "copilot/chat-test"
-                                                              :provider-validation-p nil))
-             (credentials (copilot-test--credentials configuration))
-             (manager (copilot-credential-manager-create configuration))
-             (owner (copilot-provider--make configuration manager "session" :protocol ':chat-completions))
-             (peer (copilot-provider--make configuration manager "session" :protocol ':chat-completions))
-             (auto (copilot-provider--make configuration manager "session" :protocol ':auto))
-             (conversation (conversation-create configuration))
+      (let* ((configuration  (configuration-copy configuration :model                 "copilot/chat-test"
+                                                               :provider-validation-p nil))
+             (credentials    (copilot-test--credentials configuration))
+             (manager        (copilot-credential-manager-create configuration))
+             (owner          (copilot-provider--make configuration manager "session" :protocol ':chat-completions))
+             (peer           (copilot-provider--make configuration manager "session" :protocol ':chat-completions))
+             (auto           (copilot-provider--make configuration manager "session" :protocol ':auto))
+             (conversation   (conversation-create configuration))
              (expect-token-p nil))
         (conversation-append-user-message conversation "hello")
         (test-call-with-function-replacements
@@ -667,15 +673,15 @@
   "Expose resolved Auto routes without secrets or changes to retry condition identity."
   (with-test-environment (("AUTOLITH_COPILOT_DOMAIN" nil))
     (with-test-configuration (configuration)
-      (let* ((configuration (configuration-copy configuration :model "copilot/auto"
+      (let* ((configuration (configuration-copy configuration :model                "copilot/auto"
                                                              :provider-validation-p nil))
-             (credentials (copilot-test--credentials configuration))
-             (manager (copilot-credential-manager-create configuration))
-             (auto (copilot-provider--make configuration manager "session" :protocol ':auto))
-             (conversation (conversation-create configuration)))
+             (credentials   (copilot-test--credentials configuration))
+             (manager       (copilot-credential-manager-create configuration))
+             (auto          (copilot-provider--make configuration manager "session" :protocol ':auto))
+             (conversation  (conversation-create configuration)))
         (conversation-append-user-message conversation "hello")
         (snapshot-write (copilot--catalog-path configuration)
-                        (list :domain "github.com"
+                        (list :domain   "github.com"
                               :document "{\"data\":[{\"id\":\"concrete\",\"model_picker_enabled\":false,\"supported_endpoints\":[\"/responses\"]}]}")
                         :mode #o600)
         (test-call-with-function-replacements
@@ -690,7 +696,7 @@
                         auto credentials
                         (lambda (adapter secrets)
                           (declare (ignore adapter secrets))
-                          (error 'provider-error :message "Unsupported session-secret"
+                          (error 'provider-error :message  "Unsupported session-secret"
                                                  :status 400 :code "model_not_supported"
                                                  :request-id "request-42" :response-id "response-42"
                                                  :response "session-secret"))

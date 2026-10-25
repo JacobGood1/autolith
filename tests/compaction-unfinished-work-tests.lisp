@@ -4,14 +4,14 @@
 
 (defclass compaction-tests-provider (native-scripted-provider)
   ((arrival
-    :initarg :arrival
-    :initform nil
-    :reader compaction-tests-provider-arrival
+    :initarg       :arrival
+    :initform      nil
+    :reader        compaction-tests-provider-arrival
     :documentation "Optional callback appending authoritative work during a request.")
    (stage
-    :initarg :stage
-    :initform ':summary
-    :reader compaction-tests-provider-stage
+    :initarg       :stage
+    :initform      ':summary
+    :reader        compaction-tests-provider-stage
     :documentation "The request boundary at which ARRIVAL runs."))
   (:documentation "Scripted native or portable compaction with deterministic concurrent arrivals."))
 
@@ -44,13 +44,13 @@
    'compaction-tests-provider :stage stage :arrival arrival
    :native-items (list (when native-p
                         (json-object "type" "compaction" "encrypted_content" "private-checkpoint")))
-   :results (list (agent-test-result
-                   "unfinished-summary"
-                   (list (json-object "type" "message" "role" "assistant"
-                                      "content" (json-array
-                                                 (json-object "type" "output_text"
-                                                              "text" "Portable unfinished-work handoff."))))
-                   :turn-completion ':end))))
+   :results      (list (agent-test-result
+                        "unfinished-summary"
+                        (list (json-object "type" "message" "role" "assistant"
+                                           "content" (json-array
+                                                      (json-object "type" "output_text"
+                                                                   "text" "Portable unfinished-work handoff."))))
+                        :turn-completion ':end))))
 
 (-> compaction-tests--call (string) json-object)
 (defun compaction-tests--call (identifier)
@@ -87,9 +87,9 @@
       (let ((conversation (conversation-create configuration)))
         (conversation-append-user-message conversation "captured question")
         (conversation-append-provider-item conversation (compaction-tests--call "late-call"))
-        (let* ((capture (conversation-compaction-capture conversation))
-               (cutoff (conversation-compaction-cutoff-sequence capture))
-               (view (conversation-compaction-view capture))
+        (let* ((capture  (conversation-compaction-capture conversation))
+               (cutoff   (conversation-compaction-cutoff-sequence capture))
+               (view     (conversation-compaction-view capture))
                (snapshot (mapcar #'json-encode (conversation-input-items view))))
           (conversation-append-tool-result conversation "late-call" :tool-name "test.effect"
                                            :output "actual late result" :success-p t)
@@ -132,7 +132,7 @@
   "Retain a truthful durable repair when late actual output arrives, without repeating the side effect."
   (with-test-configuration (configuration root)
     (declare (ignore root))
-    (let* ((conversation (conversation-create configuration))
+    (let* ((conversation             (conversation-create configuration))
            (*task-test-effect-count* 0))
       (conversation-append-user-message conversation "uncertain work")
       (conversation-append-provider-item conversation (compaction-tests--call "uncertain-call"))
@@ -162,15 +162,15 @@
     (with-test-configuration (configuration root)
       (declare (ignore root))
       (let* ((conversation (conversation-create configuration))
-             (provider (compaction-tests--provider
-                        :native-p (first case) :stage (second case)
-                        :arrival (lambda ()
-                                   (conversation-append-tool-result
-                                    conversation "during-request" :tool-name "test.effect"
-                                    :output "result during provider request" :success-p t)
-                                   (conversation-append-user-message conversation "steering during provider request"))))
-             (agent (agent-create :configuration configuration :conversation conversation
-                                  :provider provider :tool-registry (agent-test-registry) :worker nil)))
+             (provider     (compaction-tests--provider
+                            :native-p (first case) :stage (second case)
+                            :arrival (lambda ()
+                                       (conversation-append-tool-result
+                                        conversation "during-request" :tool-name "test.effect"
+                                        :output "result during provider request" :success-p t)
+                                       (conversation-append-user-message conversation "steering during provider request"))))
+             (agent        (agent-create :configuration configuration :conversation conversation
+                                         :provider provider :tool-registry (agent-test-registry) :worker nil)))
         (conversation-append-user-message conversation "before provider request")
         (conversation-append-provider-item conversation (compaction-tests--call "during-request"))
         (let ((cutoff (1- (conversation-next-sequence conversation))))
@@ -178,12 +178,12 @@
           (test-assert (= cutoff (getf (rest (compaction-tests--checkpoint conversation)) :cutoff-seq))
                        "agent captures its cutoff before issuing either compaction request"))
         (test-assert (not (compaction-tests--contains-p
-                          (first (native-scripted-provider-native-input-snapshots provider))
-                          "steering during provider request"))
+                           (first (native-scripted-provider-native-input-snapshots provider))
+                           "steering during provider request"))
                      "native input remains the pre-request snapshot")
         (test-assert (not (compaction-tests--contains-p
-                          (first (scripted-provider-input-snapshots provider))
-                          "steering during provider request"))
+                           (first (scripted-provider-input-snapshots provider))
+                           "steering during provider request"))
                      "summary input remains tied to the original cutoff")
         (dolist (projection (list conversation (conversation-load (conversation-pathname conversation))))
           (test-assert (compaction-tests--contains-p (conversation-input-items projection)
@@ -201,14 +201,14 @@
   (with-test-configuration (configuration root)
     (declare (ignore root))
     (let* ((conversation (conversation-create configuration))
-           (provider (make-instance 'scripted-provider
-                                    :results (list (make-condition 'simple-error
-                                                                   :format-control "compaction failure"))))
-           (agent (agent-create :configuration configuration :conversation conversation
-                                :provider provider :tool-registry (agent-test-registry) :worker nil)))
+           (provider     (make-instance 'scripted-provider
+                                        :results (list (make-condition 'simple-error
+                                                                       :format-control "compaction failure"))))
+           (agent        (agent-create :configuration configuration :conversation conversation
+                                       :provider provider :tool-registry (agent-test-registry) :worker nil)))
       (conversation-append-user-message conversation "failure must retain this work")
       (conversation-append-provider-item conversation (compaction-tests--call "failure-call"))
-      (let ((items (copy-list (conversation-input-items conversation)))
+      (let ((items    (copy-list (conversation-input-items conversation)))
             (sequence (conversation-next-sequence conversation)))
         (test-assert (handler-case
                          (progn (agent-compact-conversation agent (make-instance 'agent-observer)) nil)
@@ -235,32 +235,31 @@
                      "restart retains the original durable history"))))
   nil)
 
-
 (-> test-agent-compaction-live-child-shell () null)
 (defun test-agent-compaction-live-child-shell ()
   "Retain real running child and async shell identities, then deliver each outcome once after restart."
   (dolist (native-p '(nil t))
     (job-completion-tests--fixture
      (lambda (parent runtime configuration)
-       (let* ((registry (agent-tool-registry parent))
-              (conversation (agent-conversation parent))
-              (directory (config :working-directory configuration))
-              (release (merge-pathnames "compaction-release" directory))
-              (effects (merge-pathnames "compaction-effects" directory))
-              (barrier (make-instance 'task-test-blocking-tool
-                                      :namespace "test" :name "block"
-                                      :description "Wait until compaction has published."
-                                      :parameters (tool-object-schema (json-object) nil)))
+       (let* ((registry       (agent-tool-registry parent))
+              (conversation   (agent-conversation parent))
+              (directory      (config :working-directory configuration))
+              (release        (merge-pathnames "compaction-release" directory))
+              (effects        (merge-pathnames "compaction-effects" directory))
+              (barrier        (make-instance 'task-test-blocking-tool
+                                             :namespace "test" :name "block"
+                                             :description "Wait until compaction has published."
+                                             :parameters  (tool-object-schema (json-object) nil)))
               (child-provider (make-instance 'task-test-provider :mode ':blocking-tool))
-              (context (make-instance 'tool-context
-                                      :configuration configuration :conversation conversation
-                                      :registry registry :agent parent :worker nil
-                                      :command-authorization-function
-                                      (lambda (command directory)
-                                        (declare (ignore command directory))
-                                        ':full-access)))
-              (child nil)
-              (shell nil))
+              (context        (make-instance 'tool-context
+                                             :configuration configuration :conversation conversation
+                                             :registry registry :agent parent :worker nil
+                                             :command-authorization-function
+                                             (lambda (command directory)
+                                               (declare (ignore command directory))
+                                               ':full-access)))
+              (child          nil)
+              (shell          nil))
          (tool-registry-register registry barrier)
          (setf (agent-provider parent) child-provider)
          (unwind-protect
@@ -293,7 +292,7 @@
                              "both real jobs remain outstanding before compaction")
                 (task-completion-watch child parent)
                 (task-completion-watch shell parent)
-                (let* ((identifiers (mapcar #'session-job-execution-identifier (list child shell)))
+                (let* ((identifiers    (mapcar #'session-job-execution-identifier (list child shell)))
                        (child-requests (task-test-provider-request-count child-provider)))
                   (setf (agent-provider parent) (compaction-tests--provider :native-p native-p))
                   (agent-compact-conversation parent (make-instance 'agent-observer))
@@ -344,7 +343,6 @@
              (session-job-await job 10)))))))
   nil)
 
-
 (-> test-compaction-unfinished-corrupt-replay () null)
 (defun test-compaction-unfinished-corrupt-replay ()
   "Reject corrupted cutoff, carry-forward metadata and duplicate correlations at durable replay."
@@ -355,11 +353,11 @@
         (conversation-append-user-message conversation "checkpoint corruption fixture")
         (conversation-append-provider-item conversation (compaction-tests--call "corruption-call"))
         (conversation-append-summary conversation "Unknown result retained.")
-        (let* ((pathname (conversation-log-pathname conversation))
-               (records (copy-tree (conversation--read-records pathname)))
+        (let* ((pathname   (conversation-log-pathname conversation))
+               (records    (copy-tree (conversation--read-records pathname)))
                (checkpoint (find :summary records :key #'first))
                (properties (rest checkpoint))
-               (rows (getf properties :carry-forward)))
+               (rows       (getf properties :carry-forward)))
           (ecase corruption
             (:cutoff
              (setf (getf properties :cutoff-seq) (1+ (getf properties :through-seq))))
@@ -388,7 +386,6 @@
            (format nil "durable replay rejects ~A corruption" corruption))))))
   nil)
 
-
 (-> test-agent-compaction-completed-during-request () null)
 (defun test-agent-compaction-completed-during-request ()
   "Refresh terminal shell state and artifacts at checkpoint publication, then deliver once after restart."
@@ -396,27 +393,27 @@
     (job-completion-tests--fixture
      (lambda (parent runtime configuration)
        (let* ((conversation (agent-conversation parent))
-              (registry (agent-tool-registry parent))
-              (release (merge-pathnames "during-request-release" (config :working-directory configuration)))
-              (context (make-instance 'tool-context
-                                      :configuration configuration :conversation conversation
-                                      :registry registry :agent parent :worker nil
-                                      :command-authorization-function
-                                      (lambda (command directory)
-                                        (declare (ignore command directory))
-                                        ':full-access)))
-              (result (tool-execute
-                       (tool-registry-find registry "shell" "run") context
-                       (json-object
-                        "command"
-                        (test-fixture-shell-command
-                         *platform*
-                         "while [ ! -f during-request-release ]; do sleep 0.02; done; printf completed-during-request"
-                         "while (!(Test-Path during-request-release)) { Start-Sleep -Milliseconds 20 }; [Console]::Write('completed-during-request')")
-                        "async" t "completion-policy" "continue")))
-              (record (getf (rest (tool-result-details result)) :job))
-              (job (task-orchestrator-find-visible-job runtime (getf record :id) parent "job.get"))
-              (identifier (session-job-execution-identifier job)))
+              (registry     (agent-tool-registry parent))
+              (release      (merge-pathnames "during-request-release" (config :working-directory configuration)))
+              (context      (make-instance 'tool-context
+                                           :configuration configuration :conversation conversation
+                                           :registry registry :agent parent :worker nil
+                                           :command-authorization-function
+                                           (lambda (command directory)
+                                             (declare (ignore command directory))
+                                             ':full-access)))
+              (result       (tool-execute
+                             (tool-registry-find registry "shell" "run") context
+                             (json-object
+                              "command"
+                              (test-fixture-shell-command
+                               *platform*
+                               "while [ ! -f during-request-release ]; do sleep 0.02; done; printf completed-during-request"
+                               "while (!(Test-Path during-request-release)) { Start-Sleep -Milliseconds 20 }; [Console]::Write('completed-during-request')")
+                              "async" t "completion-policy" "continue")))
+              (record       (getf (rest (tool-result-details result)) :job))
+              (job          (task-orchestrator-find-visible-job runtime (getf record :id) parent "job.get"))
+              (identifier   (session-job-execution-identifier job)))
          (unwind-protect
               (progn
                 (task-completion-watch job parent)
@@ -434,8 +431,8 @@
                                    (task-completion-service-subscription (task-completion--service parent))))))
                 (agent-compact-conversation parent (make-instance 'agent-observer))
                 (let* ((work (getf (rest (compaction-tests--checkpoint conversation)) :unfinished-work))
-                       (row (find identifier (getf work :jobs)
-                                  :key (lambda (entry) (getf entry :execution-id)) :test #'equal)))
+                       (row  (find identifier (getf work :jobs)
+                                   :key (lambda (entry) (getf entry :execution-id)) :test #'equal)))
                   (test-assert (eq ':completed (getf row :status)) "checkpoint refreshes state completed during a provider request")
                   (test-assert (eq ':undelivered (getf row :delivery)) "compaction does not acknowledge terminal outcomes")
                   (test-assert (and (getf row :artifact-path) (probe-file (getf row :artifact-path)))
@@ -469,11 +466,11 @@
   (with-test-configuration (configuration root)
     (declare (ignore root))
     (let* ((conversation (conversation-create configuration))
-           (agent (agent-create :configuration configuration :conversation conversation
-                                :provider (compaction-tests--provider)
-                                :tool-registry (agent-test-registry) :worker nil))
-           (events nil)
-           (snapshot (symbol-function 'task-unfinished-work-snapshot)))
+           (agent        (agent-create :configuration configuration :conversation conversation
+                                       :provider (compaction-tests--provider)
+                                       :tool-registry (agent-test-registry) :worker nil))
+           (events       nil)
+           (snapshot     (symbol-function 'task-unfinished-work-snapshot)))
       (conversation-append-user-message conversation "before compaction")
       (test-call-with-function-replacements
        (list (list 'task-unfinished-work-snapshot

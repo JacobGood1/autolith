@@ -14,7 +14,7 @@
   "Record the artifact visible when a complete terminal event is written."
   (let* ((record (run-job-event-read-string (subseq text start end)))
          (fields (rest record))
-         (data (getf fields :data)))
+         (data   (getf fields :data)))
     (when (member (getf fields :kind) '(:job-finished :run-finished))
       (push (list (getf data :status)
                   (getf data :published-p)
@@ -27,7 +27,7 @@
 (defun run-job-streaming-tests--input (path)
   "Write a valid request containing synthetic private caller data."
   (let ((form (run-job-tests--request-form :prompt "PRIVATE-TEST-PROMPT"
-                                          :input '(:value "PRIVATE-TEST-INPUT"))))
+                                          :input   '(:value "PRIVATE-TEST-INPUT"))))
     (setf (getf (rest form) :id) "PRIVATE-TEST-CALLER-ID")
     (task-tests--write-text path (run-job--write-data-sexp form :pretty-p t))))
 
@@ -46,10 +46,10 @@
                       (:timed-out :timeout 1) (:cancelled :cancelled 1)
                       (:invalid-output :invalid-output 1)))
         (destructuring-bind (expected category exit-code) case
-          (let* ((output (merge-pathnames (format nil "~(~A~).sexp" expected) root))
-                 (stream (make-instance 'run-job-streaming-publication-stream :path output))
-                 (diagnostics (make-string-output-stream))
-                 (*error-output* diagnostics)
+          (let* ((output           (merge-pathnames (format nil "~(~A~).sexp" expected) root))
+                 (stream           (make-instance 'run-job-streaming-publication-stream :path output))
+                 (diagnostics      (make-string-output-stream))
+                 (*error-output*   diagnostics)
                  (*standard-input* (make-string-input-stream "interactive input"))
                  (status
                    (run-job-run
@@ -78,9 +78,9 @@
                               "test-trace" '(:input-tokens 2 :output-tokens 3 :provider-requests 1)
                               category "PRIVATE-TEST-FAILURE")))))
             (test-assert (= status exit-code) "streaming preserves the outcome's exit status")
-            (let* ((text (get-output-stream-string (run-job-event-test-stream-output stream)))
-                   (records (run-job-event-tests--records text))
-                   (terminal (getf (rest (first (last records))) :data))
+            (let* ((text          (get-output-stream-string (run-job-event-test-stream-output stream)))
+                   (records       (run-job-event-tests--records text))
+                   (terminal      (getf (rest (first (last records))) :data))
                    (actual-status (if (eq expected ':invalid-output) ':failed expected)))
               (test-assert (and (eq (first (run-job-streaming-tests--kinds records)) ':run-started)
                                 (eq (first (last (run-job-streaming-tests--kinds records))) ':run-finished)
@@ -121,24 +121,24 @@
 (defun test-run-job-streaming-input-and-publication-failures ()
   "Report invalid input and failed publication without announcing success."
   (with-test-configuration (configuration root)
-    (let* ((input (merge-pathnames "invalid.sexp" root))
-           (output (merge-pathnames "invalid-result.sexp" root))
-           (stream (make-string-output-stream))
+    (let* ((input      (merge-pathnames "invalid.sexp" root))
+           (output     (merge-pathnames "invalid-result.sexp" root))
+           (stream     (make-string-output-stream))
            (executed-p nil))
       (task-tests--write-text input "#.(error \"PRIVATE-TEST-READER\")")
       (test-assert
        (= 64 (run-job-run input output ':auto :configuration configuration
                           :events ':sexp :event-output stream
-                          :executor (lambda (&rest arguments)
-                                      (declare (ignore arguments)) (setf executed-p t))))
+                          :executor                          (lambda (&rest arguments)
+                                                               (declare (ignore arguments)) (setf executed-p t))))
        "invalid input retains its data-error exit code")
-      (let* ((records (run-job-event-tests--records (get-output-stream-string stream)))
+      (let* ((records  (run-job-event-tests--records (get-output-stream-string stream)))
              (terminal (getf (rest (first (last records))) :data)))
         (test-assert (and (not executed-p) (eq (getf terminal :status) ':failed)
                           (eq (getf terminal :category) ':invalid-input)
                           (getf terminal :published-p))
                      "invalid input publishes a failure before the final event")))
-    (let* ((input (merge-pathnames "valid.sexp" root))
+    (let* ((input  (merge-pathnames "valid.sexp" root))
            (output (merge-pathnames "output-directory/" root))
            (stream (make-string-output-stream)))
       (run-job-streaming-tests--input input)
@@ -147,11 +147,11 @@
        (not (zerop (run-job-run
                     input output ':auto :configuration configuration
                     :events ':sexp :event-output stream
-                    :executor (lambda (&rest arguments)
-                                (declare (ignore arguments))
-                                (values ':succeeded '(:object ("answer" "yes")) nil nil nil nil)))))
+                    :executor                          (lambda (&rest arguments)
+                                                         (declare (ignore arguments))
+                                                         (values ':succeeded '(:object ("answer" "yes")) nil nil nil nil)))))
        "result publication failure exits nonzero")
-      (let* ((records (run-job-event-tests--records (get-output-stream-string stream)))
+      (let* ((records  (run-job-event-tests--records (get-output-stream-string stream)))
              (terminal (getf (rest (first (last records))) :data)))
         (test-assert (and (eq (getf terminal :status) ':failed)
                           (not (getf terminal :published-p))
@@ -163,21 +163,21 @@
 (defun test-run-job-streaming-broken-consumer ()
   "Continue result execution when event output fails."
   (with-test-configuration (configuration root)
-    (let ((input (merge-pathnames "job.sexp" root))
-          (output (merge-pathnames "result.sexp" root))
-          (stream (make-instance 'run-job-event-test-stream :mode ':broken))
-          (executed-p nil)
+    (let ((input          (merge-pathnames "job.sexp" root))
+          (output         (merge-pathnames "result.sexp" root))
+          (stream         (make-instance 'run-job-event-test-stream :mode ':broken))
+          (executed-p     nil)
           (*error-output* (make-string-output-stream)))
       (run-job-streaming-tests--input input)
       (test-assert
        (zerop (run-job-run
                input output ':sandboxed :configuration configuration
                :events ':sexp :event-output stream
-               :executor (lambda (active-configuration request permissions)
-                           (declare (ignore active-configuration request))
-                           (assert (eq permissions ':sandboxed))
-                           (setf executed-p t)
-                           (values ':succeeded '(:object ("answer" "yes")) nil nil nil nil))))
+               :executor                               (lambda (active-configuration request permissions)
+                                                         (declare (ignore active-configuration request))
+                                                         (assert (eq permissions ':sandboxed))
+                                                         (setf executed-p t)
+                                                         (values ':succeeded '(:object ("answer" "yes")) nil nil nil nil))))
        "broken streaming does not fail a successful job")
       (test-assert (and executed-p
                         (eq (getf (rest (run-job-read-file output)) :status) ':succeeded))
@@ -189,37 +189,37 @@
   "Project runtime callbacks only for the admitted root and durable owned descendants."
   (with-test-configuration (configuration directory)
     (declare (ignore directory))
-    (let* ((registry (make-instance 'tool-registry))
-           (parent (task-tests--primary-agent configuration "streaming-scope" registry))
+    (let* ((registry     (make-instance 'tool-registry))
+           (parent       (task-tests--primary-agent configuration "streaming-scope" registry))
            (orchestrator (task-orchestrator-create))
-           (definition (task-agent-definition-create
-                        :name "streaming-role" :description "Observer fixture."
-                        :instructions "Return a result." :source ':test))
-           (stream (make-string-output-stream))
-           (emitter (run-job-event-emitter-create "run-scoped" stream))
-           (listener (run-job-event-observer-create
-                      orchestrator emitter :configuration configuration :registry registry
-                      :root-conversation "streaming-scope" :root-name "PRIVATE-ROOT-ALIAS")))
+           (definition   (task-agent-definition-create
+                          :name "streaming-role" :description "Observer fixture."
+                          :instructions "Return a result." :source ':test))
+           (stream       (make-string-output-stream))
+           (emitter      (run-job-event-emitter-create "run-scoped" stream))
+           (listener     (run-job-event-observer-create
+                          orchestrator emitter :configuration configuration :registry registry
+                          :root-conversation "streaming-scope" :root-name "PRIVATE-ROOT-ALIAS")))
       (tool-registry-register
        registry (make-instance 'task-test-effect-tool :namespace "test" :name "effect"
                                :description "Record a test effect."
-                               :parameters (tool-object-schema (json-object) nil)))
+                               :parameters  (tool-object-schema (json-object) nil)))
       (task-orchestrator-add-listener orchestrator listener)
       (unwind-protect
-           (let* ((root (task-tests--register-job orchestrator parent definition
-                                                :name "PRIVATE-ROOT-ALIAS"))
-                  (child (task-tests--register-job
-                          orchestrator parent definition :name "PRIVATE-CHILD-ALIAS"
-                          :owner-identifiers (list (job-identifier root))))
-                  (grandchild (task-tests--register-job
-                               orchestrator parent definition :name "PRIVATE-GRANDCHILD-ALIAS"
-                               :owner-identifiers (list (job-identifier root) (job-identifier child))))
-                  (foreign (task-tests--register-job orchestrator parent definition
-                                                   :name "PRIVATE-FOREIGN-ROOT"))
+           (let* ((root          (task-tests--register-job orchestrator parent definition
+                                                         :name "PRIVATE-ROOT-ALIAS"))
+                  (child         (task-tests--register-job
+                                  orchestrator parent definition :name "PRIVATE-CHILD-ALIAS"
+                                  :owner-identifiers                   (list (job-identifier root))))
+                  (grandchild    (task-tests--register-job
+                                  orchestrator parent definition :name "PRIVATE-GRANDCHILD-ALIAS"
+                                  :owner-identifiers                   (list (job-identifier root) (job-identifier child))))
+                  (foreign       (task-tests--register-job orchestrator parent definition
+                                                         :name "PRIVATE-FOREIGN-ROOT"))
                   (other-session (task-tests--register-job
                                   orchestrator parent definition :name "PRIVATE-OTHER-SESSION"
-                                  :owner-identifiers (list (job-identifier root))
-                                  :root-conversation-identifier "other-conversation")))
+                                  :owner-identifiers                   (list (job-identifier root))
+                                  :root-conversation-identifier        "other-conversation")))
              (run-job-event-emit emitter ':run-started nil)
              ;; The transition is not observable until continuity is durable.
              (task-orchestrator-emit orchestrator ':task-subagent-lifecycle
@@ -247,16 +247,16 @@
               root ':completed (task-tests--terminal-result root :output "PRIVATE-ROOT-RESULT"))
              (test-assert (run-job-event-emitter-finish emitter (run-job-event-tests--terminal))
                           "connected owned observation completes")
-             (let* ((text (get-output-stream-string stream))
-                    (records (run-job-event-tests--records text))
-                    (starts (remove-if-not
-                             (lambda (record) (eq (getf (rest record) :kind) ':job-started)) records))
+             (let* ((text     (get-output-stream-string stream))
+                    (records  (run-job-event-tests--records text))
+                    (starts   (remove-if-not
+                               (lambda (record) (eq (getf (rest record) :kind) ':job-started)) records))
                     (finishes (remove-if-not
                                (lambda (record) (eq (getf (rest record) :kind) ':job-finished)) records))
-                    (tools (remove-if-not
-                            (lambda (record) (member (getf (rest record) :kind)
-                                                     '(:tool-started :tool-finished))) records))
-                    (usage (find ':usage records :key (lambda (record) (getf (rest record) :kind)))))
+                    (tools    (remove-if-not
+                               (lambda (record) (member (getf (rest record) :kind)
+                                                        '(:tool-started :tool-finished))) records))
+                    (usage    (find ':usage records :key (lambda (record) (getf (rest record) :kind)))))
                (test-assert (= (length starts) 3)
                             "one durable start per owned job excludes premature and foreign transitions")
                (test-assert
@@ -298,8 +298,8 @@
   (with-test-fixture (':posix-shell "the run-job launcher stream")
     (with-test-configuration (configuration root)
       (declare (ignore configuration))
-      (let* ((launcher (merge-pathnames "bin/autolith" (asdf:system-source-directory :autolith)))
-             (input (merge-pathnames "unsafe.sexp" root))
+      (let* ((launcher    (merge-pathnames "bin/autolith" (asdf:system-source-directory :autolith)))
+             (input       (merge-pathnames "unsafe.sexp" root))
              (environment (append
                            (list "env"
                                  (format nil "XDG_CONFIG_HOME=~A" (merge-pathnames "config/" root))
@@ -327,7 +327,7 @@
                  (test-assert (eq (getf (rest (run-job-read-file output)) :status) ':failed)
                               "invalid input publishes the authoritative failure artifact")
                  (if mode
-                     (let* ((records (run-job-event-tests--records stdout))
+                     (let* ((records  (run-job-event-tests--records stdout))
                             (terminal (getf (rest (first (last records))) :data)))
                        (test-assert (and (equal (run-job-streaming-tests--kinds records)
                                                 '(:run-started :run-finished))
@@ -342,8 +342,8 @@
 (defun test-run-job-streaming-cli-blocked-exit ()
   "A one-shot CLI must exit with its result status even while native stdout is blocked."
   (with-test-configuration (configuration root)
-    (let* ((input (merge-pathnames "job.sexp" root))
-           (output (merge-pathnames "result.sexp" root))
+    (let* ((input      (merge-pathnames "job.sexp" root))
+           (output     (merge-pathnames "result.sexp" root))
            (error-path (merge-pathnames "child-stderr.log" root))
            (code
              `(let ((*standard-output* (sb-ext:symbol-global-value '*standard-output*)))
@@ -359,7 +359,7 @@
                 (main (list "run-job" "--input" ,(namestring input)
                             "--output" ,(namestring output) "--events" "sexp"))
                 (uiop:quit 0)))
-           (process nil))
+           (process    nil))
       (run-job-streaming-tests--input input)
       (unwind-protect
            (progn

@@ -11,13 +11,13 @@
 (defun test-onboarding-source-rendering ()
   "Decode semantic markup, links and literal runtime values without losing newlines."
   (let* ((variables (make-hash-table :test #'eq))
-         (value "/path/*literal*=@@/猫/")
-         (source (onboarding-source-test--lesson
-                  (format nil "Plain *strong* =code=~%~%@@brand:brand~%line@@ @@dim:dim@@ @@lisp-prompt:*@@ @@success:green~%block@@~%[[https://example.org][@@brand:site@@]]~%@@code:{{{:config-root}}}@@"))))
+         (value     "/path/*literal*=@@/猫/")
+         (source    (onboarding-source-test--lesson
+                     (format nil "Plain *strong* =code=~%~%@@brand:brand~%line@@ @@dim:dim@@ @@lisp-prompt:*@@ @@success:green~%block@@~%[[https://example.org][@@brand:site@@]]~%@@code:{{{:config-root}}}@@"))))
     (setf (gethash ':config-root variables) value)
-    (let* ((page (first (onboarding-source-pages source variables)))
-           (body (getf page :body))
-           (spans (remove-if #'termdown:widget-p body))
+    (let* ((page   (first (onboarding-source-pages source variables)))
+           (body   (getf page :body))
+           (spans  (remove-if #'termdown:widget-p body))
            (widget (find-if #'termdown:widget-p body)))
       (test-assert (equal (list (getf page :id) (getf page :version) (getf page :exercise))
                           '("fixture" 2 :help))
@@ -37,7 +37,7 @@
                    "links retain semantic styling and executable URL actions")))
   (let* ((source (onboarding-source-test--lesson
                   "Use x=1 and y=2; *Read [[https://example.org][docs]]* and =x=1=."))
-         (body (getf (first (onboarding-source-pages source (make-hash-table :test #'eq))) :body))
+         (body   (getf (first (onboarding-source-pages source (make-hash-table :test #'eq))) :body))
          (widget (find-if #'termdown:widget-p body)))
     (test-assert (search "Use x=1 and y=2; " (terminal--spans-text body))
                  "literal equals signs inside words are ordinary prose")
@@ -75,7 +75,7 @@
   (with-test-configuration (configuration root)
     (declare (ignore root))
     (let* ((pages (onboarding-pages configuration))
-           (ids (mapcar (lambda (page) (getf page :id)) pages)))
+           (ids   (mapcar (lambda (page) (getf page :id)) pages)))
       (test-assert pages "the shipped source contains lessons")
       (test-assert (= (length ids) (length (remove-duplicates ids :test #'string=)))
                    "lesson identities are unique for persisted completion state")
@@ -83,11 +83,11 @@
                    "every shipped lesson satisfies the presentation contract")
       (terminal-ui-onboarding--validate-pages pages)
       (let* ((settings (find "settings" pages :test #'string= :key (lambda (page) (getf page :id))))
-             (text (terminal--spans-text (getf settings :body))))
+             (text     (terminal--spans-text (getf settings :body))))
         (test-assert (and (search (namestring (config :config-root configuration)) text)
                           (search (namestring (config :state-root configuration)) text))
                      "actual configured roots are visible in the settings lesson"))
-      (let* ((mcp (find "mcp" pages :test #'string= :key (lambda (page) (getf page :id))))
+      (let* ((mcp  (find "mcp" pages :test #'string= :key (lambda (page) (getf page :id))))
              (text (terminal--spans-text (getf mcp :body))))
         (test-assert (search (namestring (config :config-root configuration)) text)
                      "the MCP lesson identifies the actual configuration root"))
@@ -102,7 +102,7 @@
 (-> test-onboarding-source-text () null)
 (defun test-onboarding-source-text ()
   "Expand named UI text only on demand, reading edits on the next invocation."
-  (let ((source (format nil "#+begin_comment~%#+name: fixture~%#+begin_onboarding_text~%{{{:current}}}/{{{:count}}}~%{{{:action}}}~%#+end_onboarding_text~%#+end_comment~%"))
+  (let ((source    (format nil "#+begin_comment~%#+name: fixture~%#+begin_onboarding_text~%{{{:current}}}/{{{:count}}}~%{{{:action}}}~%#+end_onboarding_text~%#+end_comment~%"))
         (variables (make-hash-table :test #'eq)))
     (setf (gethash ':current variables) 2
           (gethash ':count variables) 19
@@ -119,10 +119,10 @@
        (test-assert (handler-case (progn (onboarding-source-text "missing") nil)
                       (onboarding-source-error () t))
                     "missing named sections signal a source error"))))
-  (let* ((source (format nil "#+name: fixture~%#+begin_onboarding_text~%{{{:action}}}~%#+end_onboarding_text~%"))
-         (original source)
+  (let* ((source    (format nil "#+name: fixture~%#+begin_onboarding_text~%{{{:action}}}~%#+end_onboarding_text~%"))
+         (original  source)
          (variables (make-hash-table :test #'eq))
-         (reads 0))
+         (reads     0))
     (setf (gethash ':action variables) "Practice")
     (test-call-with-function-replacements
      (list (list 'uiop:read-file-string

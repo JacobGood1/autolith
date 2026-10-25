@@ -8,7 +8,7 @@
   (:documentation "Read real Responses SSE through the native telemetry boundary."))
 
 (defmethod provider-stream-turn ((provider telemetry-test-stream-provider) conversation
-                                &key tool-namespaces event-callback goal-context compaction-p)
+                                 &key tool-namespaces event-callback goal-context compaction-p)
   (declare (ignore conversation tool-namespaces goal-context compaction-p))
   (with-input-from-string (stream (telemetry-test-stream-data provider))
     (provider-consume-stream provider stream nil event-callback)))
@@ -33,7 +33,7 @@
   (:documentation "Consume Chat Completions usage with the pinned provider parser."))
 
 (defmethod provider-stream-turn ((provider telemetry-test-terminal-stream) conversation
-                                &key tool-namespaces event-callback goal-context compaction-p)
+                                 &key tool-namespaces event-callback goal-context compaction-p)
   (declare (ignore conversation tool-namespaces goal-context compaction-p))
   (with-input-from-string (stream (telemetry-test-terminal-data provider))
     (provider-consume-stream provider stream nil event-callback)))
@@ -43,21 +43,21 @@
   (test-telemetry--call
    (lambda (configuration)
      (dolist (case '((telemetry-test-anthropic-stream "model_context_window_exceeded"
-                     "{\"type\":\"message_start\",\"message\":{\"id\":\"fixture\",\"role\":\"assistant\",\"content\":[],\"usage\":{\"input_tokens\":1,\"output_tokens\":0,\"cache_creation_input_tokens\":37}}}"
-                     "{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"model_context_window_exceeded\"},\"usage\":{\"output_tokens\":0}}"
-                     "{\"type\":\"message_stop\"}")
-                    (telemetry-test-gemini-stream "MODEL_CONTEXT_WINDOW_EXCEEDED"
-                     "{\"candidates\":[{\"finishReason\":\"MODEL_CONTEXT_WINDOW_EXCEEDED\"}]}")))
+                      "{\"type\":\"message_start\",\"message\":{\"id\":\"fixture\",\"role\":\"assistant\",\"content\":[],\"usage\":{\"input_tokens\":1,\"output_tokens\":0,\"cache_creation_input_tokens\":37}}}"
+                      "{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"model_context_window_exceeded\"},\"usage\":{\"output_tokens\":0}}"
+                      "{\"type\":\"message_stop\"}")
+                     (telemetry-test-gemini-stream "MODEL_CONTEXT_WINDOW_EXCEEDED"
+                      "{\"candidates\":[{\"finishReason\":\"MODEL_CONTEXT_WINDOW_EXCEEDED\"}]}")))
        (let* ((provider (make-instance (first case) :configuration configuration
-                                      :data (format nil "~{data: ~A~%~%~}" (rest (rest case)))))
-              (caught nil)
-              (bodies (test-telemetry-hooks--capture
-                       configuration
-                       (lambda ()
-                         (handler-case
-                             (provider-stream-turn provider nil :event-callback #'identity)
-                           (cl-llm-provider-api:provider-error (condition) (setf caught condition))))))
-              (model (first (test-telemetry-hooks--kind (first bodies) "model"))))
+                                      :data                        (format nil "~{data: ~A~%~%~}" (rest (rest case)))))
+              (caught   nil)
+              (bodies   (test-telemetry-hooks--capture
+                         configuration
+                         (lambda ()
+                           (handler-case
+                               (provider-stream-turn provider nil :event-callback #'identity)
+                             (cl-llm-provider-api:provider-error (condition) (setf caught condition))))))
+              (model    (first (test-telemetry-hooks--kind (first bodies) "model"))))
          (test-assert caught "The provider's terminal failure still reaches its caller.")
          (test-assert (equal (test-telemetry--attribute model "autolith.model.outcome") "error")
                       "A context-window terminal event exports a failed attempt.")
@@ -88,7 +88,7 @@
            '(("private-response-model" . "model-b")))
      (let ((provider (make-instance 'telemetry-test-stream-provider
                                     :configuration configuration
-                                    :data (format nil "data: {\"type\":\"response.completed\",~%data: \"response\":{\"id\":\"private-response-id\",\"model\":\"private-response-model\",\"usage\":{\"input_tokens\":100,\"input_tokens_details\":{\"cached_tokens\":20,\"cache_write_tokens\":30}}}}~%~%"))))
+                                    :data          (format nil "data: {\"type\":\"response.completed\",~%data: \"response\":{\"id\":\"private-response-id\",\"model\":\"private-response-model\",\"usage\":{\"input_tokens\":100,\"input_tokens_details\":{\"cached_tokens\":20,\"cache_write_tokens\":30}}}}~%~%"))))
        (let* ((bodies (test-telemetry-hooks--capture
                        configuration
                        (lambda ()
@@ -99,9 +99,9 @@
                          (setf (telemetry-test-stream-data provider)
                                (format nil "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"third\",\"usage\":{}}}~%~%"))
                          (provider-stream-turn provider nil :event-callback #'identity))))
-              (first (first (test-telemetry-hooks--kind (first bodies) "model")))
+              (first  (first (test-telemetry-hooks--kind (first bodies) "model")))
               (second (first (test-telemetry-hooks--kind (second bodies) "model")))
-              (third (first (test-telemetry-hooks--kind (third bodies) "model"))))
+              (third  (first (test-telemetry-hooks--kind (third bodies) "model"))))
          (test-telemetry-hooks--assert-attributes
           first
           '((aliased-model "gen_ai.response.model" "model-b"
@@ -136,7 +136,7 @@
      (let ((fixtures nil))
        (dolist (protocol '(telemetry-test-stream-provider telemetry-test-chat-stream telemetry-test-anthropic-stream))
          (dolist (writes '(30 0 nil))
-           (let* ((usage (json-object "input_tokens" 100 "output_tokens" 2))
+           (let* ((usage    (json-object "input_tokens" 100 "output_tokens" 2))
                   (events
                     (case protocol
                       (telemetry-test-stream-provider
@@ -166,13 +166,13 @@
                                           "usage" (json-object "output_tokens" 2))
                              (json-object "type" "message_stop")))))
                   (provider (make-instance protocol :configuration configuration
-                                           :data (concatenate 'string
-                                                              (format nil "~{data: ~A~%~%~}" (mapcar #'json-encode events))
-                                                              (if (eq protocol 'telemetry-test-chat-stream)
-                                                                  (format nil "data: [DONE]~%~%") ""))))
-                  (body (first (test-telemetry-hooks--capture
-                                configuration (lambda () (provider-stream-turn provider nil :event-callback #'identity)))))
-                  (span (first (test-telemetry-hooks--kind body "model"))))
+                                           :data                   (concatenate 'string
+                                                                                (format nil "~{data: ~A~%~%~}" (mapcar #'json-encode events))
+                                                                                (if (eq protocol 'telemetry-test-chat-stream)
+                                                                                    (format nil "data: [DONE]~%~%") ""))))
+                  (body     (first (test-telemetry-hooks--capture
+                                    configuration (lambda () (provider-stream-turn provider nil :event-callback #'identity)))))
+                  (span     (first (test-telemetry-hooks--kind body "model"))))
              (test-assert (equal (test-telemetry--attribute span "autolith.usage.cache_write_tokens")
                                  (when writes (write-to-string writes)))
                           "Wire counters survive parsing; absent counters stay absent.")
@@ -185,7 +185,7 @@
   (test-telemetry--call
    (lambda (configuration)
      (let ((snapshot (provider--registry-snapshot))
-           (model "gpt-e2e-unlisted-9"))
+           (model    "gpt-e2e-unlisted-9"))
        (unwind-protect
             (progn
               (test-assert (configuration--model-problem model configuration)
@@ -195,14 +195,14 @@
                :endpoint "http://127.0.0.1:1/v1/chat/completions")
               (setf (config :model configuration) model)
               (let* ((provider (provider-create configuration))
-                     (caught nil)
-                     (body (first (test-telemetry-hooks--capture
-                                   configuration
-                                   (lambda ()
-                                     (handler-case
-                                         (provider-stream-turn provider (conversation-create configuration)
-                                                               :tool-namespaces #() :event-callback #'identity)
-                                       (authentication-error () (setf caught t))))))))
+                     (caught   nil)
+                     (body     (first (test-telemetry-hooks--capture
+                                       configuration
+                                       (lambda ()
+                                         (handler-case
+                                             (provider-stream-turn provider (conversation-create configuration)
+                                                                   :tool-namespaces #() :event-callback #'identity)
+                                           (authentication-error () (setf caught t))))))))
                 (test-assert caught "The real custom provider fails without credentials before network I/O.")
                 (dolist (kind '("run" "model"))
                   (let ((span (first (test-telemetry-hooks--kind body kind))))
@@ -221,9 +221,9 @@
   (test-telemetry--call
    (lambda (configuration)
      (setf (config :model configuration) "gpt-6.1-sol")
-     (let* ((provider (provider-create configuration))
+     (let* ((provider     (provider-create configuration))
             (conversation (conversation-create configuration))
-            (usage nil))
+            (usage        nil))
        (credential-source-save
         (credential-manager-primary-source (provider-credential-manager provider))
         (provider-tests--credentials configuration))
@@ -254,13 +254,13 @@
               (when writes
                 (setf (gethash "prompt_tokens_details" usage)
                       (json-object "cache_write_tokens" writes)))
-              (let* ((body (first (test-telemetry-hooks--capture
-                                  configuration
-                                  (lambda ()
-                                    (provider-stream-turn provider conversation
-                                                          :tool-namespaces #() :event-callback #'identity)))))
+              (let* ((body   (first (test-telemetry-hooks--capture
+                                     configuration
+                                     (lambda ()
+                                       (provider-stream-turn provider conversation
+                                                             :tool-namespaces #() :event-callback #'identity)))))
                      (models (test-telemetry-hooks--kind body "model"))
-                     (model (first models)))
+                     (model  (first models)))
                 (test-assert (= (length models) 1)
                              (format nil "~A: Each real Responses request exports one model row." case-name))
                 (test-assert (equal (test-telemetry--attribute model "gen_ai.provider.name") "openai")
@@ -277,21 +277,21 @@
   (test-telemetry--call
    (lambda (configuration)
      (let* ((conversation (conversation-create configuration))
-            (provider (make-instance 'native-scripted-provider
-                                     :configuration configuration
-                                     :native-items (list (json-object "type" "compaction"
-                                                                     "encrypted_content" "fixture"))
-                                     :results (list (agent-test-result
-                                                     "summary" (list (agent-test-message "Portable summary."))))))
-            (agent (agent-create :configuration configuration :conversation conversation
-                                 :provider provider :tool-registry (agent-test-registry) :worker nil)))
+            (provider     (make-instance 'native-scripted-provider
+                                         :configuration configuration
+                                         :native-items  (list (json-object "type" "compaction"
+                                                                          "encrypted_content" "fixture"))
+                                         :results       (list (agent-test-result
+                                                               "summary" (list (agent-test-message "Portable summary."))))))
+            (agent        (agent-create :configuration configuration :conversation conversation
+                                        :provider provider :tool-registry (agent-test-registry) :worker nil)))
        (conversation-append-user-message conversation "Fixture summary context")
        (let* ((bodies (test-telemetry-hooks--capture
-                      configuration
-                      (lambda ()
-                        (telemetry-call-with-run
-                         configuration
-                         (lambda () (agent-compact-conversation agent (make-instance 'agent-observer)))))))
+                       configuration
+                       (lambda ()
+                         (telemetry-call-with-run
+                          configuration
+                          (lambda () (agent-compact-conversation agent (make-instance 'agent-observer)))))))
               (models (test-telemetry-hooks--kind (first bodies) "model")))
          (test-assert (= (length models) 2) "Native checkpoint and summary each export an attempt.")
          (dolist (model models)
@@ -304,14 +304,14 @@
   "Distinguish real permission, inference, title, and ordinary provider requests."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((provider (make-instance
-                      'rlm-inference-test-provider
-                      :results (mapcar (lambda (text) (rlm-inference-test-result "role" text 10))
-                                       '("{\"decision\":\"full\",\"reason\":\"fixture\"}"
-                                         "inference answer" "Generated title" "agent answer"))))
+     (let* ((provider     (make-instance
+                           'rlm-inference-test-provider
+                           :results (mapcar (lambda (text) (rlm-inference-test-result "role" text 10))
+                                            '("{\"decision\":\"full\",\"reason\":\"fixture\"}"
+                                              "inference answer" "Generated title" "agent answer"))))
             (conversation (conversation-create configuration))
-            (application (make-instance 'application :configuration configuration
-                                         :conversation conversation :provider provider))
+            (application  (make-instance 'application :configuration configuration
+                                          :conversation conversation :provider provider))
             (bodies
               (test-telemetry-hooks--capture
                configuration

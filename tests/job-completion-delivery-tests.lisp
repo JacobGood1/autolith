@@ -9,10 +9,10 @@
     (setf configuration (configuration-copy configuration :working-directory root))
     (let* ((registry (task-augment-tool-registry
                       (make-default-tool-registry :configuration configuration)))
-           (parent (agent-create :configuration configuration
-                                 :provider (make-instance 'task-test-provider :mode ':concurrent)
-                                 :tool-registry registry :worker nil))
-           (runtime (task-completion--runtime parent)))
+           (parent   (agent-create :configuration configuration
+                                   :provider      (make-instance 'task-test-provider :mode ':concurrent)
+                                   :tool-registry registry :worker nil))
+           (runtime  (task-completion--runtime parent)))
       (conversation-append-user-message (agent-conversation parent) "Start asynchronous work.")
       (unwind-protect (funcall function parent runtime configuration)
         (task-orchestrator-close runtime))))
@@ -38,23 +38,23 @@
   "Reconstruct the owning conversation with a fresh job runtime."
   (agent-create
    :configuration configuration
-   :conversation (conversation-load (conversation-pathname (agent-conversation parent)))
-   :provider (make-instance 'task-test-provider :mode ':concurrent)
+   :conversation  (conversation-load (conversation-pathname (agent-conversation parent)))
+   :provider      (make-instance 'task-test-provider :mode ':concurrent)
    :tool-registry (task-augment-tool-registry
                    (make-default-tool-registry :configuration configuration))
-   :worker nil))
+   :worker        nil))
 
 (-> test-job-completion-durable-delivery () null)
 (defun test-job-completion-durable-delivery ()
   "Persist outcomes before delivery and retain exactly-once receipts through compaction."
   (job-completion-tests--fixture
    (lambda (parent runtime configuration)
-     (let* ((job (job-completion-tests--start
-                  parent runtime
-                  :operation (lambda ()
-                               (tool-success (make-string 1200 :initial-element #\x)))))
+     (let* ((job        (job-completion-tests--start
+                         parent runtime
+                         :operation (lambda ()
+                                      (tool-success (make-string 1200 :initial-element #\x)))))
             (identifier (session-job-execution-identifier job))
-            (fresh (job-completion-tests--fresh-agent parent configuration)))
+            (fresh      (job-completion-tests--fresh-agent parent configuration)))
        (unwind-protect
             (progn
               (task-completion-restore fresh)
@@ -65,13 +65,13 @@
               (test-assert (task-completion--delivered-p (agent-conversation fresh) identifier)
                            "delivery stores a stable execution receipt")
               (let* ((conversation (agent-conversation fresh))
-                     (record (first (conversation-records-newest conversation 1)))
-                     (properties (rest record))
-                     (compact (application-tests--ui-application :columns 100))
-                     (expanded (application-tests--ui-application
-                                :columns 100 :compact-view-p nil))
-                     (entry (conversation-record-entry compact record))
-                     (text (test-terminal-row-text entry)))
+                     (record       (first (conversation-records-newest conversation 1)))
+                     (properties   (rest record))
+                     (compact      (application-tests--ui-application :columns 100))
+                     (expanded     (application-tests--ui-application
+                                    :columns 100 :compact-view-p nil))
+                     (entry        (conversation-record-entry compact record))
+                     (text         (test-terminal-row-text entry)))
                 (test-assert
                  (and (getf properties :automatic-p)
                       (equal identifier
@@ -125,10 +125,10 @@
   (dolist (append-first-p '(nil t))
     (job-completion-tests--fixture
      (lambda (parent runtime configuration)
-       (let* ((job (job-completion-tests--start parent runtime))
+       (let* ((job          (job-completion-tests--start parent runtime))
               (subscription (task-completion-service-subscription (task-completion--service parent)))
-              (message (first (cl-jobpond:completion-subscription-collect subscription :limit 1)))
-              (identifier (session-job-execution-identifier job)))
+              (message      (first (cl-jobpond:completion-subscription-collect subscription :limit 1)))
+              (identifier   (session-job-execution-identifier job)))
          (when append-first-p
            (conversation-append-user-message
             (agent-conversation parent) "Completed before the crash."
@@ -153,18 +153,18 @@
   "Report failure, cancellation and interrupted execution truthfully without retrying work."
   (job-completion-tests--fixture
    (lambda (parent runtime configuration)
-     (let* ((failed (job-completion-tests--start
-                     parent runtime :operation (lambda () (tool-failure "expected failure"))))
-            (cancelled (job-completion-tests--start
-                        parent runtime
-                        :operation (lambda ()
-                                     (error 'job-aborted :identifier "fixture"
-                                            :reason ':cancelled :message "expected cancellation"))))
-            (owner (conversation-identifier (agent-conversation parent)))
+     (let* ((failed     (job-completion-tests--start
+                         parent runtime :operation (lambda () (tool-failure "expected failure"))))
+            (cancelled  (job-completion-tests--start
+                         parent runtime
+                         :operation (lambda ()
+                                      (error 'job-aborted :identifier "fixture"
+                                             :reason ':cancelled :message "expected cancellation"))))
+            (owner      (conversation-identifier (agent-conversation parent)))
             (identifier (make-identifier))
-            (directory (merge-pathnames
-                        (format nil "~A/" identifier)
-                        (task--artifact-group-root configuration owner))))
+            (directory  (merge-pathnames
+                         (format nil "~A/" identifier)
+                         (task--artifact-group-root configuration owner))))
        (declare (ignore failed cancelled))
        (ensure-directories-exist (merge-pathnames "continuity.sexp" directory))
        (task-continuity--write
@@ -194,9 +194,9 @@
   (job-completion-tests--fixture
    (lambda (parent runtime configuration)
      (declare (ignore configuration))
-     (let ((lock (make-lock "Completion wakeup test"))
+     (let ((lock      (make-lock "Completion wakeup test"))
            (condition (make-condition-variable))
-           (woken-p nil))
+           (woken-p   nil))
        (task-completion-connect
         parent (lambda ()
                  (with-lock-held (lock)
@@ -205,16 +205,16 @@
        (let ((job (task-orchestrator-start-execution-job
                    runtime parent :tool-name "completion.fixture" :summary "event wakeup"
                    :operation-function (lambda () (tool-success "event delivered"))
-                   :detached-p t)))
+                   :detached-p         t)))
          (task-completion-watch job parent)
-          (let ((deadline (+ (get-internal-real-time)
-                             (* 5 internal-time-units-per-second))))
-            (with-lock-held (lock)
-              (loop until woken-p
-                    for remaining = (- deadline (get-internal-real-time))
-                    while (plusp remaining)
-                    do (condition-wait condition lock
-                                       :timeout (/ remaining internal-time-units-per-second)))))
+         (let ((deadline (+ (get-internal-real-time)
+                            (* 5 internal-time-units-per-second))))
+           (with-lock-held (lock)
+             (loop until woken-p
+                   for remaining = (- deadline (get-internal-real-time))
+                   while (plusp remaining)
+                   do (condition-wait condition lock
+                                      :timeout (/ remaining internal-time-units-per-second)))))
          (test-assert woken-p "completion publication signals a waiting controller")
          (test-assert (= 1 (length (task-completion-pending parent)))
                       "wakeup follows durable pending event publication")
@@ -222,11 +222,10 @@
          (task-completion-disconnect parent)))))
   nil)
 
-
 (-> test-job-completion-history-rollover () null)
 (defun test-job-completion-history-rollover ()
   "Deliver more than the mailbox history bound while preserving durable deduplication."
-  (let ((*task-completion-capacity* 2)
+  (let ((*task-completion-capacity*      2)
         (*task-completion-history-limit* 4))
     (job-completion-tests--fixture
      (lambda (parent runtime configuration)
@@ -256,7 +255,7 @@
 (-> test-job-completion-capacity-recovery () null)
 (defun test-job-completion-capacity-recovery ()
   "Drain an overflowing durable backlog in bounded batches without repeating effects."
-  (let ((*task-completion-capacity* 2)
+  (let ((*task-completion-capacity*      2)
         (*task-completion-history-limit* 4))
     (job-completion-tests--fixture
      (lambda (parent runtime configuration)
@@ -266,7 +265,7 @@
            (let ((job (task-orchestrator-start-execution-job
                        runtime parent :tool-name "completion.fixture" :summary "overflow"
                        :operation-function (lambda () (incf executions) (tool-success "done"))
-                       :detached-p t)))
+                       :detached-p         t)))
              (task-completion-watch job parent)
              (session-job-await job 5)))
          (let ((fresh (job-completion-tests--fresh-agent parent configuration)))
@@ -289,14 +288,14 @@
    (lambda (parent runtime configuration)
      (let* ((definition (make-instance 'task-agent-definition :name "fixture" :description "fixture"
                                                             :instructions "fixture" :source ':test))
-            (owner-job (task-tests--make-job runtime :identifier "owner" :parent-agent parent
-                                            :definition definition :item (list :task "fixture")))
-            (child (make-instance 'task-child-agent
-                                 :configuration configuration :conversation (conversation-create configuration)
-                                 :provider (agent-provider parent) :tool-registry (agent-tool-registry parent)
-                                 :worker nil :definition definition :identity nil :depth 1
-                                 :completion (make-instance 'task-completion) :orchestrator runtime :job owner-job))
-            (job (job-completion-tests--start child runtime)))
+            (owner-job  (task-tests--make-job runtime :identifier "owner" :parent-agent parent
+                                             :definition definition :item (list :task "fixture")))
+            (child      (make-instance 'task-child-agent
+                                      :configuration configuration :conversation (conversation-create configuration)
+                                      :provider (agent-provider parent) :tool-registry (agent-tool-registry parent)
+                                      :worker nil :definition definition :identity nil :depth 1
+                                      :completion (make-instance 'task-completion) :orchestrator runtime :job owner-job))
+            (job        (job-completion-tests--start child runtime)))
        (task-completion-restore parent)
        (test-assert (null (task-completion-pending parent))
                     "a grandchild outcome never enters the primary conversation implicitly")

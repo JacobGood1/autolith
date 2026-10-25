@@ -12,10 +12,10 @@
   "Write CONTENT to PATHNAME for one native search fixture."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :external-format ':utf-8)
+                          :external-format   ':utf-8)
     (write-string content stream))
   nil)
 
@@ -73,7 +73,7 @@
    "several directories and file paths become one alternative glob")
   (let* ((default-configuration
            (configuration-create
-            :source-root (asdf:system-source-directory :autolith)
+            :source-root       (asdf:system-source-directory :autolith)
             :working-directory (asdf:system-source-directory :autolith)))
          (configured-library (uiop:getenv "AUTOLITH_FFF_LIBRARY"))
          (library
@@ -83,14 +83,14 @@
                                         (fff-library-file-name))
                                 (config :data-root
                                  default-configuration))))
-         (previous-library (uiop:getenv "AUTOLITH_FFF_LIBRARY"))
-         (workspace-root (uiop:ensure-directory-pathname
-                          (merge-pathnames
-                           (format nil "autolith-search-tests-~A/"
-                                   (make-identifier))
-                           (uiop:temporary-directory))))
-         (configuration nil)
-         (registry nil))
+         (previous-library   (uiop:getenv "AUTOLITH_FFF_LIBRARY"))
+         (workspace-root     (uiop:ensure-directory-pathname
+                              (merge-pathnames
+                               (format nil "autolith-search-tests-~A/"
+                                       (make-identifier))
+                               (uiop:temporary-directory))))
+         (configuration      nil)
+         (registry           nil))
     (unwind-protect
          (progn
            (test-assert (probe-file library)
@@ -122,11 +122,11 @@
                    (context
                      (make-instance 'tool-context
                                     :configuration configuration
-                                    :worker nil
-                                    :conversation conversation
-                                    :registry registry))
+                                    :worker        nil
+                                    :conversation  conversation
+                                    :registry      registry))
                    (files-tool (tool-registry-find registry "search" "files"))
-                   (glob-tool (tool-registry-find registry "search" "glob"))
+                   (glob-tool  (tool-registry-find registry "search" "glob"))
                    (content-tool
                      (tool-registry-find registry "search" "content"))
                    (multi-tool
@@ -137,11 +137,11 @@
                (eq (search-tool-engine files-tool)
                    (search-tool-engine content-tool))
                "one registry shares one isolated index across search operations")
-              (let* ((schema (tool-parameters content-tool))
-                     (properties (json-get schema "properties"))
+              (let* ((schema          (tool-parameters content-tool))
+                     (properties      (json-get schema "properties"))
                      (patterns-schema (json-get properties "patterns"))
-                     (item-schema (json-get patterns-schema "items"))
-                     (one-of (json-get schema "oneOf")))
+                     (item-schema     (json-get patterns-schema "items"))
+                     (one-of          (json-get schema "oneOf")))
                 (test-assert
                  (and (vectorp one-of)
                       (= (length one-of) 2)
@@ -228,10 +228,10 @@
                                                     "search" "content"
                                                     "query" "AUTOLITH_FFF_PRIMARY"
                                                     "constraints" "src/model-selection.lisp"))
-                      (missing (search-tests--call registry context
-                                                   "search" "content"
-                                                   "query" "AUTOLITH_FFF_PRIMARY"
-                                                   "constraints" "src/absent.lisp")))
+                      (missing  (search-tests--call registry context
+                                                    "search" "content"
+                                                    "query" "AUTOLITH_FFF_PRIMARY"
+                                                    "constraints" "src/absent.lisp")))
                   (test-assert (and (tool-result-success-p existing)
                                     (search "src/model-selection.lisp"
                                             (tool-result-content existing)))
@@ -250,10 +250,10 @@
                                 (list "query" "AUTOLITH_FFF_"
                                       "src/ docs/ !docs/" t nil)))
                   (destructuring-bind (selector value constraints source-p documentation-p) case
-                    (let* ((result (search-tests--call registry context
-                                                       "search" "content"
-                                                       selector value
-                                                       "constraints" constraints))
+                    (let* ((result  (search-tests--call registry context
+                                                        "search" "content"
+                                                        selector value
+                                                        "constraints" constraints))
                            (content (tool-result-content result)))
                       (test-assert
                        (and (tool-result-success-p result)
@@ -293,9 +293,9 @@
                      (and (not (tool-result-success-p result))
                           (search expected (tool-result-content result)))
                      (format nil "search.content rejects ~A" label)))))
-              (let* ((worker (search-tool-engine files-tool))
+              (let* ((worker         (search-tool-engine files-tool))
                     (watched-process (worker-process worker))
-                    (watched-pid (uiop:process-info-pid watched-process)))
+                    (watched-pid     (uiop:process-info-pid watched-process)))
                (sleep 0.25)
                (search-tests--write-file
                 (merge-pathnames "src/model-selection.lisp" workspace-root)
@@ -314,9 +314,9 @@
                        (= watched-pid
                           (uiop:process-info-pid (worker-process worker))))
                   "a watched file update keeps the same native helper alive")))
-             (let* ((worker (search-tool-engine files-tool))
+             (let* ((worker         (search-tool-engine files-tool))
                     (failed-process (worker-process worker))
-                    (failed-pid (uiop:process-info-pid failed-process))
+                    (failed-pid     (uiop:process-info-pid failed-process))
                     (frecency-marker
                       (merge-pathnames "fff/frecency/test-marker"
                                        (config :cache-root configuration)))
@@ -359,13 +359,13 @@
           (platform-setenv "AUTOLITH_FFF_LIBRARY" previous-library)
           (platform-unsetenv "AUTOLITH_FFF_LIBRARY"))
       (platform-delete-directory-tree *platform* workspace-root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)
       (when configuration
         (platform-delete-directory-tree
          *platform*
          (test-configuration-root configuration)
-         :validate t
+         :validate          t
          :if-does-not-exist ':ignore))))
   nil)
 
@@ -374,7 +374,7 @@
   "Locate the helper script through the configured source root, not the build tree."
   (with-test-configuration (configuration root)
     (let ((source-root (asdf:system-source-directory :autolith))
-          (setting (configuration-setting configuration :source-root)))
+          (setting     (configuration-setting configuration :source-root)))
       (configuration-set configuration setting source-root :source ':override)
       (test-assert (typep (search-worker-create :configuration configuration) 'worker)
                    "the helper script resolves below the configured source root")

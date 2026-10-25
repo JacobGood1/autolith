@@ -10,19 +10,19 @@
   "Return a leased application and terminal relay owned by MAIN-THREAD."
   (let* ((direct
            (stream-terminal-create
-            :input-stream (make-string-input-stream "")
-            :output-stream (make-broadcast-stream)
+            :input-stream          (make-string-input-stream "")
+            :output-stream         (make-broadcast-stream)
             :input-file-descriptor 0
-            :rows 24
-            :columns 80))
-         (relay (localgroup-terminal-create direct))
+            :rows                  24
+            :columns               80))
+         (relay        (localgroup-terminal-create direct))
          (conversation (conversation-create configuration))
-         (ui (terminal-ui-create :terminal relay))
+         (ui           (terminal-ui-create :terminal relay))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui ui))
+                          :conversation  conversation
+                          :ui            ui))
          (controller
            (make-instance 'application-input-controller
                           :application application
@@ -43,9 +43,9 @@
             (merge-pathnames
              (format nil "autolith-handoff-site-tests-~A/" (make-identifier))
              (uiop:temporary-directory))))
-         (site-root (merge-pathnames "site/" site-container))
+         (site-root     (merge-pathnames "site/" site-container))
          (configuration nil)
-         (root nil))
+         (root          nil))
     (unwind-protect
          (progn
            (ensure-directories-exist site-root)
@@ -54,50 +54,49 @@
                   :site-config-root
                   (uiop:ensure-directory-pathname
                     (platform-truename *platform* site-root)))
-                  root (test-configuration-root configuration))
-            (let ((handoff-pathname (merge-pathnames "handoff.sexp" root)))
-              (dolist (enabled-p '(nil t))
-                (configuration-set configuration (configuration-setting configuration :fullscreen-p)
-                                   enabled-p :source ':override)
-                (let ((arguments
-                        (localgroup-handoff--arguments
-                         configuration handoff-pathname
-                         :permission-argument "auto"
-                         :immutable-p enabled-p)))
-                  (test-assert
-                   (equal arguments
-                          (append
-                           (platform-session-launch-command
-                              *platform* (config :source-root configuration))
-                           (list "--permissions" "auto")
-                           (when enabled-p
-                             (list "--immutable" "--fullscreen"))
-                           (list "--site-config-root"
-                                 (namestring
-                                    (config :site-config-root configuration))
-                                 "--localgroup-handoff"
-                                 (namestring handoff-pathname))))
-                   "detached launch arguments preserve the site root and launch modes")))))
+                 root (test-configuration-root configuration))
+           (let ((handoff-pathname (merge-pathnames "handoff.sexp" root)))
+             (dolist (enabled-p '(nil t))
+               (configuration-set configuration (configuration-setting configuration :fullscreen-p)
+                                  enabled-p :source ':override)
+               (let ((arguments
+                       (localgroup-handoff--arguments
+                        configuration handoff-pathname
+                        :permission-argument "auto"
+                        :immutable-p         enabled-p)))
+                 (test-assert
+                  (equal arguments
+                         (append
+                          (platform-session-launch-command
+                             *platform* (config :source-root configuration))
+                          (list "--permissions" "auto")
+                          (when enabled-p
+                            (list "--immutable" "--fullscreen"))
+                          (list "--site-config-root"
+                                (namestring
+                                   (config :site-config-root configuration))
+                                "--localgroup-handoff"
+                                (namestring handoff-pathname))))
+                  "detached launch arguments preserve the site root and launch modes")))))
       (when root
         (platform-delete-directory-tree *platform* root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))
       (platform-delete-directory-tree *platform* site-container
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
 (-> test-localgroup-handoff-records () null)
-
 (defun test-localgroup-handoff-records ()
   "Test private handoff records, startup identity, drafts, and registry ownership."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (first-application nil)
+  (let* ((configuration      (test-configuration))
+         (root               (test-configuration-root configuration))
+         (first-application  nil)
          (second-application nil)
-         (first-session nil)
-         (second-session nil)
-         (handoff-pathname nil))
+         (first-session      nil)
+         (second-session     nil)
+         (handoff-pathname   nil))
     (unwind-protect
         (progn
          (configuration-ensure-directories configuration)
@@ -109,7 +108,7 @@
            (terminal-ui-set-input (application-ui application) "draft survives")
            (setf handoff-pathname
                    (localgroup-handoff--write application first-session ':detach))
-           (let* ((record (localgroup-handoff--read configuration handoff-pathname))
+           (let* ((record   (localgroup-handoff--read configuration handoff-pathname))
                   (restored (localgroup-handoff-initial-input record)))
              (test-assert
               (and
@@ -126,7 +125,7 @@
                (test-assert
                 (handler-case
                     (progn (localgroup-handoff--read configuration handoff-pathname) nil)
-                (localgroup-error () t))
+                 (localgroup-error () t))
                 "malformed persisted handoff fields fail at the localgroup boundary"))
              (setf (getf (rest record) :session-id) "abcdef012345")
              (localgroup-handoff--write-record handoff-pathname record)
@@ -145,11 +144,11 @@
                (application-release-conversation-lease application)
                (let ((identifier (getf (rest record) :conversation-id)))
                  (setf (application-conversation-lease application)
-                         (conversation-lease-acquire configuration identifier)
+                       (conversation-lease-acquire configuration identifier)
                        (application-conversation application)
-                         (conversation-load
-                          (conversation-pathname
-                           (application-conversation first-application)))))
+                       (conversation-load
+                        (conversation-pathname
+                         (application-conversation first-application)))))
                (setf second-application application)
                (let ((*localgroup-startup-record* record))
                  (setf second-session (localgroup-start application))
@@ -183,17 +182,16 @@
   nil)
 
 (-> test-localgroup-handoff-scheduling () null)
-
 (defun test-localgroup-handoff-scheduling ()
   "Test foreground handoff admission after queued work and live child jobs."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (application nil)
-         (controller nil)
-         (relay nil)
-         (session nil)
-         (socket nil)
-         (stream nil))
+         (root          (test-configuration-root configuration))
+         (application   nil)
+         (controller    nil)
+         (relay         nil)
+         (session       nil)
+         (socket        nil)
+         (stream        nil))
     (unwind-protect
         (progn
          (configuration-ensure-directories configuration)
@@ -235,15 +233,15 @@
                                               'task-job :maximum-concurrency 1
                                               :maximum-batch-size 1 :maximum-live-jobs 1
                                               :maximum-runtime-milliseconds 0
-                                              :start-threads-p nil)
+                                              :start-threads-p              nil)
                                :maximum-depth 1)))
            (setf (application-task-presentation-orchestrator application) orchestrator
                  (cl-jobpond::job-pool--live-count (task-orchestrator-pool orchestrator))
-                   1)
+                 1)
            (test-assert (null (application-localgroup-take-ready-handoff application))
             "live child work prevents handoff admission")
            (setf (cl-jobpond::job-pool--live-count (task-orchestrator-pool orchestrator))
-                   0)
+                 0)
            (test-assert
             (equal (application-input-controller--next-work controller)
                    (list ':localgroup-handoff ':take-over))
@@ -263,10 +261,10 @@
 (defun test-localgroup-detach-preempts-active-work ()
   "Test detach leaving the running agent alone and never waiting on queues."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (application nil)
-         (controller nil)
-         (session nil))
+         (root          (test-configuration-root configuration))
+         (application   nil)
+         (controller    nil)
+         (session       nil))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -315,7 +313,7 @@
       (when controller
         (application-input-controller-stop controller))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -323,7 +321,6 @@
     (configuration &key (:persisted-p boolean))
     (values application application-input-controller localgroup-terminal
             localgroup-session))
-
 (defun test-localgroup--abandonment-fixture (configuration &key persisted-p)
   "Return a started relay APPLICATION whose foreground terminal was released."
   (configuration-ensure-directories configuration)
@@ -347,13 +344,12 @@
   nil)
 
 (-> test-localgroup-abandoned-session-exit () null)
-
 (defun test-localgroup-abandoned-session-exit ()
   "Test sessions exiting when their client vanishes without an explicit detach."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (application nil)
-         (controller nil))
+         (root          (test-configuration-root configuration))
+         (application   nil)
+         (controller    nil))
     (unwind-protect
         (multiple-value-bind (fixture-application fixture-controller relay session)
             (test-localgroup--abandonment-fixture configuration :persisted-p t)
@@ -361,7 +357,7 @@
           (setf application fixture-application
                 controller fixture-controller)
           (setf (application-goal application)
-                  (list :objective "keep working" :status ':active :continuations 0))
+                (list :objective "keep working" :status ':active :continuations 0))
           (application-input-controller--enqueue controller ':message "queued input")
           (test-assert
            (and (localgroup--controller-lost session)
@@ -370,11 +366,11 @@
            "losing the client without a detach exits a persisted busy session"))
       (test-localgroup--abandonment-cleanup application controller root)))
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (application nil)
-         (controller nil)
-         (socket nil)
-         (attachment nil))
+         (root          (test-configuration-root configuration))
+         (application   nil)
+         (controller    nil)
+         (socket        nil)
+         (attachment    nil))
     (unwind-protect
         (multiple-value-bind (fixture-application fixture-controller relay session)
             (test-localgroup--abandonment-fixture configuration)
@@ -426,9 +422,9 @@
         (not (localgroup--attach-expected-p '(:mode :detach))))
    "only a detach handoff starts deliberately detached")
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (application nil)
-         (controller nil))
+         (root          (test-configuration-root configuration))
+         (application   nil)
+         (controller    nil))
     (unwind-protect
         (multiple-value-bind (fixture-application fixture-controller relay session)
             (test-localgroup--abandonment-fixture configuration)
@@ -443,9 +439,9 @@
            "a launch nobody attaches to exits after the first-attach timeout"))
       (test-localgroup--abandonment-cleanup application controller root)))
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (application nil)
-         (controller nil))
+         (root          (test-configuration-root configuration))
+         (application   nil)
+         (controller    nil))
     (unwind-protect
         (multiple-value-bind (fixture-application fixture-controller relay session)
             (test-localgroup--abandonment-fixture configuration)
@@ -465,12 +461,12 @@
   "Test every resume keeping the client path whose detach is instant."
   (flet ((client-p (&rest arguments)
            (apply #'main--client-session-p
-                  :handoff-record nil
-                  :authenticate-p nil
+                  :handoff-record           nil
+                  :authenticate-p           nil
                   :recovery-conversation-id nil
-                  :recovery-diagnosis nil
-                  :image-values nil
-                  :simulate-crash-p nil
+                  :recovery-diagnosis       nil
+                  :image-values             nil
+                  :simulate-crash-p         nil
                   arguments)))
     (let ((ordinary (client-p :resume-requested-p nil :resume-id nil)))
       (test-assert
@@ -481,34 +477,34 @@
        "resuming through the picker is not a special case either")))
   (test-assert
    (eq (main--client-session-p
-        :handoff-record nil
-        :authenticate-p nil
-        :resume-requested-p nil
-        :resume-id nil
+        :handoff-record           nil
+        :authenticate-p           nil
+        :resume-requested-p       nil
+        :resume-id                nil
         :recovery-conversation-id "K-8vQ2mp"
-        :recovery-diagnosis "diagnose the crash"
-        :image-values nil
-        :simulate-crash-p nil)
+        :recovery-diagnosis       "diagnose the crash"
+        :image-values             nil
+        :simulate-crash-p         nil)
        (main--client-session-p
-        :handoff-record nil
-        :authenticate-p nil
-        :resume-requested-p nil
-        :resume-id nil
+        :handoff-record           nil
+        :authenticate-p           nil
+        :resume-requested-p       nil
+        :resume-id                nil
         :recovery-conversation-id nil
-        :recovery-diagnosis nil
-        :image-values nil
-        :simulate-crash-p nil))
+        :recovery-diagnosis       nil
+        :image-values             nil
+        :simulate-crash-p         nil))
    "crash recovery keeps the same client-first path as an ordinary start")
   (test-assert
    (not (main--client-session-p
-         :handoff-record (list :localgroup-handoff :version 1)
-         :authenticate-p nil
-         :resume-requested-p nil
-         :resume-id nil
+         :handoff-record           (list :localgroup-handoff :version 1)
+         :authenticate-p           nil
+         :resume-requested-p       nil
+         :resume-id                nil
          :recovery-conversation-id nil
-         :recovery-diagnosis nil
-         :image-values nil
-         :simulate-crash-p nil))
+         :recovery-diagnosis       nil
+         :image-values             nil
+         :simulate-crash-p         nil))
    "the spawned session itself runs direct")
   nil)
 
@@ -516,8 +512,8 @@
 (defun test-localgroup-fresh-session-spawn ()
   "Test client-first spawn records, launch options, and start-failure cleanup."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (launches nil))
+         (root          (test-configuration-root configuration))
+         (launches      nil))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -535,8 +531,8 @@
                   (session-id
                     (localgroup-handoff-spawn-fresh
                      configuration
-                     :permission-mode ':sandboxed
-                     :immutable-p t
+                     :permission-mode    ':sandboxed
+                     :immutable-p        t
                      :recovery-diagnosis "diagnose the crash")))
              (destructuring-bind (launched-id pathname permission immutable-p)
                  (first launches)
@@ -551,23 +547,23 @@
                   (and (eq (getf (rest record) :state) ':pending)
                        (getf (rest record) :fresh-conversation-p)
                        (null (getf (rest record) :conversation-id))
-                        (string= (getf (rest record) :recovery-diagnosis)
-                                 "diagnose the crash")
+                       (string= (getf (rest record) :recovery-diagnosis)
+                                "diagnose the crash")
                        (typep (getf (rest record) :rows) '(integer 1))
                        (typep (getf (rest record) :columns) '(integer 1))
                        (typep (getf (rest record) :styled-p) 'boolean)
                        (null (getf (rest record) :session-id))
                        (string= (getf (rest record) :launch-id) launched-id))
                   "a fresh spawn records terminal presentation and session state"))))
-             (let* ((*localgroup-startup-record*
-                      '(:localgroup-handoff
-                        :rows 41 :columns 93 :styled-p t))
-                    (terminal (localgroup-terminal-create)))
-               (test-assert
-                (and (= (terminal-rows terminal) 41)
-                     (= (terminal-columns terminal) 93)
-                     (terminal-styled-p terminal))
-                "a detached startup inherits dimensions and styling before attachment"))
+           (let* ((*localgroup-startup-record*
+                    '(:localgroup-handoff
+                      :rows 41 :columns 93 :styled-p t))
+                  (terminal (localgroup-terminal-create)))
+             (test-assert
+              (and (= (terminal-rows terminal) 41)
+                   (= (terminal-columns terminal) 93)
+                   (terminal-styled-p terminal))
+              "a detached startup inherits dimensions and styling before attachment"))
            (let ((*localgroup-fresh-launch-function*
                    (lambda (&rest arguments)
                      (declare (ignore arguments))))
@@ -593,17 +589,16 @@
   nil)
 
 (-> test-localgroup-process-handoff () null)
-
 (defun test-localgroup-process-handoff ()
   "Test successful and failed process handoff lease and snapshot behavior."
   (labels ((run-success (persisted-p)
              "Run one successful fake replacement for PERSISTED-P."
-             (let* ((configuration (test-configuration))
-                    (root (test-configuration-root configuration))
-                    (main-thread (test-localgroup--make-main-thread))
-                    (application nil)
-                    (controller nil)
-                    (session nil)
+             (let* ((configuration   (test-configuration))
+                    (root            (test-configuration-root configuration))
+                    (main-thread     (test-localgroup--make-main-thread))
+                    (application     nil)
+                    (controller      nil)
+                    (session         nil)
                     (captured-record nil))
                (unwind-protect
                    (progn
@@ -659,17 +654,17 @@
                    (application-release-conversation-lease application))
                  (when controller (application-input-controller-stop controller))
                  (image-daemon:daemon-stop-thread main-thread)
-                 (uiop/filesystem:delete-directory-tree root :validate t
+                 (uiop/filesystem:delete-directory-tree root :validate     t
                                                         :if-does-not-exist ':ignore)))))
     (run-success nil)
     (run-success t))
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (main-thread (test-localgroup--make-main-thread))
-         (application nil)
-         (controller nil)
-         (session nil)
-         (stopped-p nil))
+         (root          (test-configuration-root configuration))
+         (main-thread   (test-localgroup--make-main-thread))
+         (application   nil)
+         (controller    nil)
+         (session       nil)
+         (stopped-p     nil))
     (unwind-protect
         (progn
          (configuration-ensure-directories configuration)
@@ -732,23 +727,23 @@
          (progn
           (multiple-value-setq (application controller relay)
             (test-localgroup--relay-application configuration))
-          (let* ((first (application-conversation application))
+          (let* ((first    (application-conversation application))
                  (provider (provider-create configuration))
                  (registry (make-instance 'tool-registry))
-                 (saved (conversation-create configuration :identifier "abcdef012345")))
+                 (saved    (conversation-create configuration :identifier "abcdef012345")))
             (setf (application-provider application) provider
                   (application-tool-registry application) registry
                   (application-worker application) nil
                   (application-agent application)
-                    (agent-create :configuration configuration :provider provider
-                                  :conversation first :tool-registry registry :worker
-                                  nil))
+                  (agent-create :configuration configuration :provider provider
+                                :conversation first :tool-registry registry :worker
+                                nil))
             (terminal-start relay)
             (setf session (localgroup-start application))
             (labels ((assert-identity (conversation)
                        (let* ((identifier (conversation-identifier conversation))
-                              (status (localgroup-status-snapshot session))
-                              (entry (localgroup--find-record configuration identifier)))
+                              (status     (localgroup-status-snapshot session))
+                              (entry      (localgroup--find-record configuration identifier)))
                          (test-assert
                           (and
                            (string= (image-daemon:daemon-runtime-identifier session)
@@ -788,8 +783,8 @@
                  "the initial picker conversation accepts a relay attachment"))
               (conversation-append-user-message first "source")
               (conversation-append-user-message saved "saved")
-              (let ((port (image-daemon:daemon-runtime-port session))
-                    (token (image-daemon:daemon-runtime-token session))
+              (let ((port       (image-daemon:daemon-runtime-port session))
+                    (token      (image-daemon:daemon-runtime-token session))
                     (first-path (image-daemon:daemon-runtime-registry-pathname session)))
                 (application-resume-conversation application
                                                  (conversation-identifier saved))
@@ -815,10 +810,10 @@
                        thereis (and (eq (first packet) ':output)
                                     (search "conversation switched" (second packet))))
                  "an attached terminal receives output after conversation changes"))
-              (let* ((before (application-conversation application))
-                     (blocked (conversation-create configuration))
+              (let* ((before     (application-conversation application))
+                     (blocked    (conversation-create configuration))
                      (identifier (conversation-identifier blocked))
-                     (pathname (localgroup-registry-pathname configuration identifier))
+                     (pathname   (localgroup-registry-pathname configuration identifier))
                      (record
                       (image-daemon:daemon-registry-record :identifier identifier :pid
                        (sb-posix:getpid) :port 12345 :token
@@ -859,7 +854,7 @@
               (close stream)
               (setf stream nil)
               (let ((old-record (localgroup--registry-record session))
-                    (pathname (image-daemon:daemon-runtime-registry-pathname session)))
+                    (pathname   (image-daemon:daemon-runtime-registry-pathname session)))
                 (localgroup-stop application)
                 (setf session (localgroup-start application))
                 (localgroup--remove-stale-record pathname old-record)

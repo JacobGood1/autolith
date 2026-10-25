@@ -21,14 +21,14 @@
 (defun lsp-semantic-tests--context (configuration registry identifier &key authorization)
   "Create an isolated conversation context for semantic fixtures."
   (make-instance 'tool-context :configuration configuration :registry registry :worker nil
-                 :conversation (conversation-create configuration :identifier identifier)
+                 :conversation                   (conversation-create configuration :identifier identifier)
                  :command-authorization-function authorization))
 
 (-> lsp-semantic-tests--proposal (tool-context lsp-client json-object) lsp-semantic-entry)
 (defun lsp-semantic-tests--proposal (context client edit)
   "Normalize a raw server edit against authorized exact fixture snapshots."
   (let* ((snapshots (make-hash-table :test #'equal))
-         (snapshot (lsp-semantic--snapshot-function context client snapshots)))
+         (snapshot  (lsp-semantic--snapshot-function context client snapshots)))
     (lsp-semantic--capture-plan
      context client :snapshots snapshots :plan (cl-lsp:lsp-normalize-workspace-edit edit :snapshot snapshot))))
 
@@ -52,33 +52,33 @@
   "Apply ordered Unicode edits, creates, moves, deletions and repeated text operations."
   (with-test-configuration (configuration)
     (setf configuration (lsp-semantic-tests--workspace configuration))
-    (let* ((registry (make-default-tool-registry :configuration configuration))
-           (context (lsp-semantic-tests--context configuration registry "semantic-ordered"))
-           (root (config :working-directory configuration))
-           (client (lsp-client-tests--client root))
-           (source (lsp-semantic-tests--write configuration "source.txt" "a😀z"))
-           (removed (lsp-semantic-tests--write configuration "removed.txt" "remove"))
-           (target (merge-pathnames "moved.txt" root))
-           (intermediate (merge-pathnames "intermediate.txt" root))
-           (created (merge-pathnames "created.txt" root))
-           (source-uri (cl-lsp:lsp-path-uri source))
-           (target-uri (cl-lsp:lsp-path-uri target))
-           (created-uri (cl-lsp:lsp-path-uri created))
+    (let* ((registry         (make-default-tool-registry :configuration configuration))
+           (context          (lsp-semantic-tests--context configuration registry "semantic-ordered"))
+           (root             (config :working-directory configuration))
+           (client           (lsp-client-tests--client root))
+           (source           (lsp-semantic-tests--write configuration "source.txt" "a😀z"))
+           (removed          (lsp-semantic-tests--write configuration "removed.txt" "remove"))
+           (target           (merge-pathnames "moved.txt" root))
+           (intermediate     (merge-pathnames "intermediate.txt" root))
+           (created          (merge-pathnames "created.txt" root))
+           (source-uri       (cl-lsp:lsp-path-uri source))
+           (target-uri       (cl-lsp:lsp-path-uri target))
+           (created-uri      (cl-lsp:lsp-path-uri created))
            (intermediate-uri (cl-lsp:lsp-path-uri intermediate))
-           (edit (json-object
-                  "documentChanges"
-                  (vector
-                   (json-object "textDocument" (json-object "uri" source-uri "version" nil)
-                                "edits" (vector (lsp-semantic-tests--text-edit 1 3 "X")))
-                   (json-object "kind" "rename" "oldUri" source-uri "newUri" intermediate-uri)
-                   (json-object "kind" "rename" "oldUri" intermediate-uri "newUri" target-uri)
-                   (json-object "textDocument" (json-object "uri" target-uri "version" nil)
-                                "edits" (vector (lsp-semantic-tests--text-edit 1 2 "Y")))
-                   (json-object "kind" "create" "uri" created-uri)
-                   (json-object "textDocument" (json-object "uri" created-uri "version" nil)
-                                "edits" (vector (lsp-semantic-tests--text-edit 0 0 "first")
-                                                (lsp-semantic-tests--text-edit 0 0 "second")))
-                   (json-object "kind" "delete" "uri" (cl-lsp:lsp-path-uri removed))))))
+           (edit             (json-object
+                              "documentChanges"
+                              (vector
+                               (json-object "textDocument" (json-object "uri" source-uri "version" nil)
+                                            "edits" (vector (lsp-semantic-tests--text-edit 1 3 "X")))
+                               (json-object "kind" "rename" "oldUri" source-uri "newUri" intermediate-uri)
+                               (json-object "kind" "rename" "oldUri" intermediate-uri "newUri" target-uri)
+                               (json-object "textDocument" (json-object "uri" target-uri "version" nil)
+                                            "edits" (vector (lsp-semantic-tests--text-edit 1 2 "Y")))
+                               (json-object "kind" "create" "uri" created-uri)
+                               (json-object "textDocument" (json-object "uri" created-uri "version" nil)
+                                            "edits" (vector (lsp-semantic-tests--text-edit 0 0 "first")
+                                                            (lsp-semantic-tests--text-edit 0 0 "second")))
+                               (json-object "kind" "delete" "uri" (cl-lsp:lsp-path-uri removed))))))
       (with-test-fixture (':file-modes "semantic move preserving source permissions")
         (test-fixture-set-file-mode *platform* source #o750))
       (unwind-protect
@@ -100,13 +100,13 @@
   "Reject collisions and unsupported resource kinds, preserve conditional operation semantics."
   (with-test-configuration (configuration)
     (setf configuration (lsp-semantic-tests--workspace configuration))
-    (let* ((registry (make-default-tool-registry :configuration configuration))
-           (context (lsp-semantic-tests--context configuration registry "semantic-preconditions"))
-           (root (config :working-directory configuration))
-           (client (lsp-client-tests--client root))
-           (source (lsp-semantic-tests--write configuration "source.txt" "source"))
-           (target (lsp-semantic-tests--write configuration "target.txt" "target"))
-           (missing (cl-lsp:lsp-path-uri (merge-pathnames "missing.txt" root)))
+    (let* ((registry   (make-default-tool-registry :configuration configuration))
+           (context    (lsp-semantic-tests--context configuration registry "semantic-preconditions"))
+           (root       (config :working-directory configuration))
+           (client     (lsp-client-tests--client root))
+           (source     (lsp-semantic-tests--write configuration "source.txt" "source"))
+           (target     (lsp-semantic-tests--write configuration "target.txt" "target"))
+           (missing    (cl-lsp:lsp-path-uri (merge-pathnames "missing.txt" root)))
            (source-uri (cl-lsp:lsp-path-uri source))
            (target-uri (cl-lsp:lsp-path-uri target)))
       (unwind-protect
@@ -150,21 +150,21 @@
   "Require approval and reject stale disk snapshots, exact document versions and restarted clients."
   (with-test-configuration (configuration)
     (setf configuration (lsp-semantic-tests--workspace configuration))
-    (let* ((registry (make-default-tool-registry :configuration configuration))
+    (let* ((registry             (make-default-tool-registry :configuration configuration))
            (confirmation-allowed nil)
-           (confirmations nil)
-           (context (lsp-semantic-tests--context
-                     configuration registry "semantic-stale"
-                     :authorization (lambda (command directory)
-                                      (declare (ignore directory))
-                                      (push command confirmations)
-                                      (if confirmation-allowed ':full-access ':deny))))
-           (root (config :working-directory configuration))
-           (path (lsp-semantic-tests--write configuration "a.txt" "before"))
-           (uri (cl-lsp:lsp-path-uri path))
-           (document (make-instance 'lsp-document :path path :text "before"))
-           (client (lsp-client-tests--client root))
-           (change (lsp-semantic-tests--text-edit 0 6 "after")))
+           (confirmations        nil)
+           (context              (lsp-semantic-tests--context
+                                  configuration registry "semantic-stale"
+                                  :authorization (lambda (command directory)
+                                                   (declare (ignore directory))
+                                                   (push command confirmations)
+                                                   (if confirmation-allowed ':full-access ':deny))))
+           (root                 (config :working-directory configuration))
+           (path                 (lsp-semantic-tests--write configuration "a.txt" "before"))
+           (uri                  (cl-lsp:lsp-path-uri path))
+           (document             (make-instance 'lsp-document :path path :text "before"))
+           (client               (lsp-client-tests--client root))
+           (change               (lsp-semantic-tests--text-edit 0 6 "after")))
       (setf (gethash uri (cl-lsp:lsp-client-documents client)) document
             (gethash "annotationId" change) "confirm")
       (labels ((proposal ()
@@ -209,15 +209,15 @@
   "Keep choices bounded and inaccessible across conversations."
   (with-test-configuration (configuration)
     (setf configuration (lsp-semantic-tests--workspace configuration))
-    (let* ((registry (make-default-tool-registry :configuration configuration))
-           (first (lsp-semantic-tests--context configuration registry "semantic-first"))
-           (second (lsp-semantic-tests--context configuration registry "semantic-second"))
-           (client (lsp-client-tests--client (config :working-directory configuration)))
-           (state (make-instance 'lsp-semantic-state))
+    (let* ((registry                       (make-default-tool-registry :configuration configuration))
+           (first                          (lsp-semantic-tests--context configuration registry "semantic-first"))
+           (second                         (lsp-semantic-tests--context configuration registry "semantic-second"))
+           (client                         (lsp-client-tests--client (config :working-directory configuration)))
+           (state                          (make-instance 'lsp-semantic-state))
            (*lsp-semantic-maximum-entries* 1)
-           (one (lsp-semantic-tests--proposal first client (json-object)))
-           (two (lsp-semantic-tests--proposal first client (json-object)))
-           (id (lsp-semantic--store state first one)))
+           (one                            (lsp-semantic-tests--proposal first client (json-object)))
+           (two                            (lsp-semantic-tests--proposal first client (json-object)))
+           (id                             (lsp-semantic--store state first one)))
       (unwind-protect
            (progn
              (test-assert (lsp-semantic-tests--rejected
@@ -232,33 +232,32 @@
         (tool-registry-close-runtime-state registry))))
   nil)
 
-
 (-> test-lsp-semantic-owned-snapshots () null)
 (defun test-lsp-semantic-owned-snapshots ()
   "Apply a large proposal after cache pressure and reject subsequent conflicting edits."
   (with-test-configuration (configuration)
     (setf configuration (lsp-semantic-tests--workspace configuration))
     (let* ((registry (make-default-tool-registry :configuration configuration))
-           (context (lsp-semantic-tests--context configuration registry "semantic-snapshots"))
-           (client (lsp-client-tests--client (config :working-directory configuration)))
-           (state (make-instance 'lsp-semantic-state))
-           (changes (json-object))
-           (paths (loop for index below 17
-                        collect (lsp-semantic-tests--write configuration (format nil "file-~D.txt" index) "old"))))
+           (context  (lsp-semantic-tests--context configuration registry "semantic-snapshots"))
+           (client   (lsp-client-tests--client (config :working-directory configuration)))
+           (state    (make-instance 'lsp-semantic-state))
+           (changes  (json-object))
+           (paths    (loop for index below 17
+                           collect (lsp-semantic-tests--write configuration (format nil "file-~D.txt" index) "old"))))
       (unwind-protect
            (progn
              (dolist (path paths)
                (setf (gethash (cl-lsp:lsp-path-uri path) changes)
                      (vector (lsp-semantic-tests--text-edit 0 3 "new"))))
-             (let* ((entry (lsp-semantic-tests--proposal context client (json-object "changes" changes)))
+             (let* ((entry      (lsp-semantic-tests--proposal context client (json-object "changes" changes)))
                     (identifier (lsp-semantic--store state context entry)))
                (dotimes (index 24)
-                 (let* ((path (lsp-semantic-tests--write configuration (format nil "read-~D.txt" index) "read"))
+                 (let* ((path     (lsp-semantic-tests--write configuration (format nil "read-~D.txt" index) "read"))
                         (resource (lsp-semantic--resource context (cl-lsp:lsp-path-uri path))))
                    (resource-observation-state-ensure
                     (tool-context-conversation context) (resource-observe resource context) :visible-ranges nil)))
                (test-assert (= 17 (length (lsp-semantic--apply
-                                          context (lsp-semantic--find state context :identifier identifier :kind ':proposal) #())))
+                                           context (lsp-semantic--find state context :identifier identifier :kind ':proposal) #())))
                             "a seventeen-file proposal applies after unrelated observations evict the ordinary cache")
                (test-assert (every (lambda (path) (equal "new" (uiop:read-file-string path))) paths)
                             "every proposed file receives its intended content"))
@@ -281,14 +280,14 @@
   (with-test-configuration (configuration)
     (setf configuration (lsp-semantic-tests--workspace configuration))
     (let* ((registry (make-default-tool-registry :configuration configuration))
-           (context (lsp-semantic-tests--context configuration registry "semantic-budget"))
-           (client (lsp-client-tests--client (config :working-directory configuration)))
-           (paths (loop for index below 3
-                        collect (lsp-semantic-tests--write configuration (format nil "unicode-~D.txt" index) "😀")))
-           (edits (loop for path in paths
-                        collect (json-object "changes"
-                                             (json-object (cl-lsp:lsp-path-uri path)
-                                                          (vector (lsp-semantic-tests--text-edit 0 2 "x"))))))
+           (context  (lsp-semantic-tests--context configuration registry "semantic-budget"))
+           (client   (lsp-client-tests--client (config :working-directory configuration)))
+           (paths    (loop for index below 3
+                           collect (lsp-semantic-tests--write configuration (format nil "unicode-~D.txt" index) "😀")))
+           (edits    (loop for path in paths
+                           collect (json-object "changes"
+                                                (json-object (cl-lsp:lsp-path-uri path)
+                                                             (vector (lsp-semantic-tests--text-edit 0 2 "x"))))))
            (combined (json-object "changes" (json-object))))
       (unwind-protect
            (progn
@@ -297,20 +296,20 @@
                             (vector (lsp-semantic-tests--text-edit 0 2 "x"))))
              (dolist (limits '((1 128) (128 4)))
                (let ((*lsp-semantic-maximum-snapshots-per-entry* (first limits))
-                     (*lsp-semantic-maximum-snapshot-bytes* (second limits)))
+                     (*lsp-semantic-maximum-snapshot-bytes*      (second limits)))
                  (test-assert (lsp-semantic-tests--rejected
                                (lambda () (lsp-semantic-tests--proposal context client combined)))
                               "proposal capture rejects a resource-count or UTF-8 byte overflow")))
              (dolist (limits '((2 128) (128 8)))
-               (let* ((*lsp-semantic-maximum-snapshots* (first limits))
+               (let* ((*lsp-semantic-maximum-snapshots*      (first limits))
                       (*lsp-semantic-maximum-snapshot-bytes* (second limits))
-                      (state (make-instance 'lsp-semantic-state))
-                      (entries (mapcar (lambda (edit) (lsp-semantic-tests--proposal context client edit)) edits)))
+                      (state                                 (make-instance 'lsp-semantic-state))
+                      (entries                               (mapcar (lambda (edit) (lsp-semantic-tests--proposal context client edit)) edits)))
                  (dolist (entry entries) (lsp-semantic--store state context entry))
                  (test-assert (lsp-semantic-tests--rejected
                                (lambda () (lsp-semantic--find state context
                                                              :identifier (lsp-semantic-entry-identifier (first entries))
-                                                             :kind ':proposal)))
+                                                             :kind       ':proposal)))
                               "snapshot count and byte budgets evict the oldest retained choice")
                  (test-assert (= 2 (length (gethash (tool-context-conversation context)
                                                    (lsp-semantic-state-entries state))))
@@ -318,13 +317,12 @@
                  (test-assert (eq (third entries)
                                   (lsp-semantic--find state context
                                                       :identifier (lsp-semantic-entry-identifier (third entries))
-                                                      :kind ':proposal))
+                                                      :kind       ':proposal))
                               "the newest bounded choice is available for application")))
              (test-assert (every (lambda (path) (equal "😀" (uiop:read-file-string path))) paths)
                           "snapshot capture and eviction do not modify workspace files"))
         (tool-registry-close-runtime-state registry))))
   nil)
-
 
 (-> test-lsp-semantic-tool-workflow () null)
 (defun test-lsp-semantic-tool-workflow ()
@@ -332,20 +330,20 @@
   (with-test-configuration (configuration)
     (setf configuration (lsp-semantic-tests--workspace configuration))
     (let* ((registry (make-default-tool-registry :configuration configuration))
-           (context (lsp-semantic-tests--context configuration registry "semantic-tools"))
-           (root (config :working-directory configuration))
-           (path (lsp-semantic-tests--write configuration "a.txt" "old"))
-           (uri (cl-lsp:lsp-path-uri path))
+           (context  (lsp-semantic-tests--context configuration registry "semantic-tools"))
+           (root     (config :working-directory configuration))
+           (path     (lsp-semantic-tests--write configuration "a.txt" "old"))
+           (uri      (cl-lsp:lsp-path-uri path))
            (document (make-instance 'lsp-document :path path :text "old"))
-           (client (lsp-client-tests--client
-                    root :capabilities
-                    (json-object "renameProvider" (json-object "prepareProvider" t)
-                                 "codeActionProvider" (json-object "resolveProvider" t)
-                                 "workspace" (json-object "fileOperations"
-                                                          (json-object "willRename"
-                                                                       (json-object "filters"
-                                                                                    (vector (json-object "scheme" "file"
-                                                                                                         "pattern" (json-object "glob" "**/*.txt")))))))))
+           (client   (lsp-client-tests--client
+                      root :capabilities
+                      (json-object "renameProvider" (json-object "prepareProvider" t)
+                                   "codeActionProvider" (json-object "resolveProvider" t)
+                                   "workspace" (json-object "fileOperations"
+                                                            (json-object "willRename"
+                                                                         (json-object "filters"
+                                                                                      (vector (json-object "scheme" "file"
+                                                                                                           "pattern" (json-object "glob" "**/*.txt")))))))))
            (raw-edit (json-object "changes" (json-object uri (vector (lsp-semantic-tests--text-edit 0 3 "new")))))
            (observed nil))
       (setf (gethash uri (cl-lsp:lsp-client-documents client)) document)
@@ -395,14 +393,14 @@
                 (let ((prepared (json-get (aref (value "operation" "prepare-rename" "path" (namestring path) "line" 1 "character" 1) 0) "result")))
                   (test-assert (= 3 (json-get prepared "endOffset")) "symbol preparation offsets exposed"))
                 (let* ((rename (json-get (aref (value "operation" "rename" "path" (namestring path) "line" 1 "character" 1 "new-name" "new") 0) "result"))
-                       (id (json-get rename "proposal")))
+                       (id     (json-get rename "proposal")))
                   (test-assert (equal "old" (uiop:read-file-string path)) "rename is only a proposal")
                   (test-assert (= 1 (length (json-get (value "operation" "inspect" "proposal" id) "operations"))) "proposal inspect returns operations"))
-                (let* ((choices (json-get (aref (value "operation" "code-actions" "path" (namestring path)
-                                                       "line" 1 "character" 1 "end-line" 1 "end-character" 4) 0) "result"))
+                (let* ((choices  (json-get (aref (value "operation" "code-actions" "path" (namestring path)
+                                                        "line" 1 "character" 1 "end-line" 1 "end-character" 4) 0) "result"))
                        (resolved (value "operation" "resolve" "choice" (json-get (aref choices 0) "choice")))
                        (proposal (value "operation" "propose" "choice" (json-get resolved "choice")))
-                       (id (json-get proposal "proposal")))
+                       (id       (json-get proposal "proposal")))
                   (test-assert (json-get (json-get (aref choices 0) "action") "isPreferred") "preferred action metadata presented")
                   (test-assert (not (tool-result-success-p (call "operation" "propose" "choice" (json-get (aref choices 1) "choice")))) "command-only action cannot become an edit")
                   (test-assert (not (tool-result-success-p (call "operation" "propose" "choice" (json-get (aref choices 2) "choice")))) "disabled action rejected")
@@ -412,7 +410,7 @@
                 (setf (lsp-document-text document) "new")
                 (incf (cl-lsp:lsp-document-version document))
                 (let* ((destination (merge-pathnames "moved.txt" root))
-                       (move (json-get (aref (value "operation" "move" "path" (namestring path) "new-path" (namestring destination)) 0) "result")))
+                       (move        (json-get (aref (value "operation" "move" "path" (namestring path) "new-path" (namestring destination)) 0) "result")))
                   (test-assert (probe-file path) "move preparation writes nothing")
                   (value "operation" "apply" "proposal" (json-get move "proposal"))
                   (test-assert (not (probe-file path)) "move source deleted via adapter")
@@ -426,15 +424,15 @@
   "Authorize outside paths before observation and again at apply; reject encoding/version/range drift."
   (with-test-configuration (configuration)
     (setf configuration (lsp-semantic-tests--workspace configuration))
-    (let* ((registry (make-default-tool-registry :configuration configuration))
-           (context (lsp-semantic-tests--context configuration registry "semantic-authority"))
-           (root (config :working-directory configuration))
-           (client (lsp-client-tests--client root))
-           (outside (merge-pathnames "outside.txt" (test-configuration-root configuration)))
-           (uri (cl-lsp:lsp-path-uri outside))
-           (edit (json-object "changes" (json-object uri (vector (lsp-semantic-tests--text-edit 0 3 "new")))))
+    (let* ((registry       (make-default-tool-registry :configuration configuration))
+           (context        (lsp-semantic-tests--context configuration registry "semantic-authority"))
+           (root           (config :working-directory configuration))
+           (client         (lsp-client-tests--client root))
+           (outside        (merge-pathnames "outside.txt" (test-configuration-root configuration)))
+           (uri            (cl-lsp:lsp-path-uri outside))
+           (edit           (json-object "changes" (json-object uri (vector (lsp-semantic-tests--text-edit 0 3 "new")))))
            (authorizations 0)
-           (allowed nil))
+           (allowed        nil))
       (workspace-resource-tests--write-text outside "old")
       (unwind-protect
            (test-call-with-function-replacements
@@ -456,13 +454,13 @@
                 (setf allowed t)
                 (lsp-semantic--apply context entry #())
                 (test-assert (equal "new" (uiop:read-file-string outside)) "explicit outside authorization permits revisioned write"))
-              (let* ((second (lsp-semantic-tests--write configuration "second.txt" "old"))
+              (let* ((second     (lsp-semantic-tests--write configuration "second.txt" "old"))
                      (second-uri (cl-lsp:lsp-path-uri second))
-                     (entry (lsp-semantic-tests--proposal
-                             context client
-                             (json-object "changes"
-                                          (json-object uri (vector (lsp-semantic-tests--text-edit 0 3 "bad"))
-                                                       second-uri (vector (lsp-semantic-tests--text-edit 0 3 "bad")))))))
+                     (entry      (lsp-semantic-tests--proposal
+                                  context client
+                                  (json-object "changes"
+                                               (json-object uri (vector (lsp-semantic-tests--text-edit 0 3 "bad"))
+                                                            second-uri (vector (lsp-semantic-tests--text-edit 0 3 "bad")))))))
                 (lsp-semantic-tests--write configuration "second.txt" "external")
                 (test-assert (lsp-semantic-tests--rejected
                               (lambda () (lsp-semantic--apply context entry #()))) "one stale member rejects the complete proposal")

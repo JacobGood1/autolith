@@ -44,7 +44,7 @@
         (conversation-append-tool-result
          conversation "call-1"
          :tool-name "shell.run"
-         :output "src/grammar.lisp:12: needle-term found"
+         :output    "src/grammar.lisp:12: needle-term found"
          :success-p t)))
      :summary
      (append-record
@@ -67,18 +67,18 @@
   "Return a primary tool context for CONVERSATION."
   (make-instance 'tool-context
                  :configuration configuration
-                 :worker nil
-                 :conversation conversation
-                 :registry (make-instance 'tool-registry)))
+                 :worker        nil
+                 :conversation  conversation
+                 :registry      (make-instance 'tool-registry)))
 
 (-> conversation-resource-tests--read-tool () resource-read-tool)
 (defun conversation-resource-tests--read-tool ()
   "Return a resource read tool for direct conversation resource reads."
   (make-instance 'resource-read-tool
-                 :namespace "resource"
-                 :name "read"
-                 :description "Test resource read."
-                 :parameters (tool-object-schema (json-object) '())
+                 :namespace         "resource"
+                 :name              "read"
+                 :description       "Test resource read."
+                 :parameters        (tool-object-schema (json-object) '())
                  :resource-registry (make-resource-registry)))
 
 (-> conversation-resource-tests--read (tool-context string &rest t) string)
@@ -254,9 +254,9 @@
   "Test the segment prefilter finds folded fragments across buffer blocks."
   (with-test-configuration (configuration root)
     (declare (ignore configuration))
-    (let ((pathname (merge-pathnames "segment.sexp" root))
+    (let ((pathname                            (merge-pathnames "segment.sexp" root))
           (*conversation-search-buffer-octets* 16))
-      (with-open-file (stream pathname :direction ':output
+      (with-open-file (stream pathname :direction       ':output
                                        :external-format ':utf-8)
         (write-string "0123456789abcDEFghijkl Žluťoučký" stream))
       (flet ((contains-p (term)

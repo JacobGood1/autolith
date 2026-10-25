@@ -32,12 +32,12 @@
 (defun test-papercut-assessment-state ()
   "Test append-only papercut assessment replay, validation, and closure policy."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((report
                   (papercut-report
                    configuration
-                   :title "Assessment target"
+                   :title   "Assessment target"
                    :content "Measure whether the intervention helped."))
                 (identifier (papercut-identifier report)))
            (test-assert
@@ -46,11 +46,11 @@
                  (null (papercut-assessed-at report)))
             "new and legacy papercuts begin unassessed")
            (dolist (verdict '(:worse :unchanged :too-early))
-             (let* ((note (format nil "Latest outcome is ~A." verdict))
+             (let* ((note     (format nil "Latest outcome is ~A." verdict))
                     (assessed
                       (papercut-assess configuration identifier
                                        :verdict verdict
-                                       :note note))
+                                       :note    note))
                     (replayed (papercut-find configuration identifier)))
                (test-assert
                 (and (eq (papercut-assessment-verdict assessed) verdict)
@@ -71,7 +71,7 @@
              (lambda ()
                (papercut-assess configuration identifier
                                 :verdict ':unknown
-                                :note "Invalid verdict.")))
+                                :note    "Invalid verdict.")))
             "papercut assessments reject unknown verdicts")
            (test-assert
             (papercut-tests--error-p
@@ -79,12 +79,12 @@
                (papercut-assess
                 configuration identifier
                 :verdict ':improved
-                :note (make-string (1+ *papercut-assessment-note-limit*)
-                                   :initial-element #\x))))
+                :note    (make-string (1+ *papercut-assessment-note-limit*)
+                                      :initial-element #\x))))
             "papercut assessment notes have a hard size bound")
            (papercut-assess configuration identifier
                             :verdict ':improved
-                            :note "The intervention now works reliably.")
+                            :note    "The intervention now works reliably.")
            (test-assert
             (eq (papercut-assessment-verdict
                  (papercut-find configuration identifier))
@@ -100,12 +100,12 @@
              (lambda ()
                (papercut-assess configuration identifier
                                 :verdict ':improved
-                                :note "Closed reports cannot be reassessed.")))
+                                :note    "Closed reports cannot be reassessed.")))
             "closed papercuts cannot be assessed")
            (let ((legacy
                    (papercut-report
                     configuration
-                    :title "Legacy closure"
+                    :title   "Legacy closure"
                     :content "No assessment was recorded.")))
              (papercut-mark-closed
               configuration
@@ -116,12 +116,12 @@
               "unassessed legacy papercuts may be closed")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let ((report
                  (papercut-report
                   configuration
-                  :title "Invalid persisted closure"
+                  :title   "Invalid persisted closure"
                   :content "Replay must enforce assessment closure policy.")))
            (with-lock-held (*papercut-lock*)
              (sexp-store:log-append
@@ -146,43 +146,43 @@
   "Test papercut persistence, model reporting, presentation, and commands."
   (test-papercut-assessment-state)
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (registry (make-default-tool-registry))
-         (conversation (conversation-create configuration
-                                            :identifier "papercut-tool"))
-         (context (make-instance 'tool-context
-                                 :configuration configuration
-                                 :worker nil
-                                 :conversation conversation
-                                 :registry registry))
-         (terminal (make-instance 'recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
-         (application (make-instance 'application
-                                     :configuration configuration
-                                     :conversation conversation
-                                     :tool-registry registry
-                                     :ui ui)))
+         (root          (test-configuration-root configuration))
+         (registry      (make-default-tool-registry))
+         (conversation  (conversation-create configuration
+                                             :identifier "papercut-tool"))
+         (context       (make-instance 'tool-context
+                                       :configuration configuration
+                                       :worker        nil
+                                       :conversation  conversation
+                                       :registry      registry))
+         (terminal      (make-instance 'recording-terminal :columns 80))
+         (ui            (terminal-ui-create :terminal terminal))
+         (application   (make-instance 'application
+                                       :configuration configuration
+                                       :conversation  conversation
+                                       :tool-registry registry
+                                       :ui            ui)))
     (unwind-protect
          (progn
            (let* ((first
                     (papercut-report
                      configuration
-                     :title "Provider retry is opaque"
-                     :content "The provider failed twice without a useful diagnostic."
+                     :title               "Provider retry is opaque"
+                     :content             "The provider failed twice without a useful diagnostic."
                      :source-conversation "first"))
                   (second
                     (papercut-report
                      configuration
-                     :title "Recovery image cannot start"
-                     :content "The recovery image exits before it can accept a request."
+                     :title               "Recovery image cannot start"
+                     :content             "The recovery image exits before it can accept a request."
                      :source-conversation "second")))
              (test-assert (= (length (papercut-list configuration)) 2)
                           "papercut reports persist in the current workspace")
              (multiple-value-bind (repeat duplicate-p)
                  (papercut-report
                   configuration
-                  :title "Provider retry remains opaque"
-                  :content "The provider failed twice again without any useful diagnostic."
+                  :title               "Provider retry remains opaque"
+                  :content             "The provider failed twice again without any useful diagnostic."
                   :source-conversation "third")
                (test-assert (and duplicate-p
                                  (string= (papercut-identifier repeat)
@@ -192,14 +192,14 @@
              (multiple-value-bind (repeat duplicate-p)
                  (papercut-report
                   configuration
-                  :title "Recovery image cannot start!"
-                  :content "Completely different words describe the same old title here."
+                  :title               "Recovery image cannot start!"
+                  :content             "Completely different words describe the same old title here."
                   :source-conversation "third")
                (test-assert (and duplicate-p
                                  (string= (papercut-identifier repeat)
                                           (papercut-identifier second)))
                             "a title matching an active report word for word returns it"))
-             (let ((title "Opaque provider retries")
+             (let ((title   "Opaque provider retries")
                    (content "Two failed provider attempts twice gave no useful diagnostic in the transcript."))
                (multiple-value-bind (repeat duplicate-p)
                    (papercut-report configuration :title title :content content
@@ -223,8 +223,8 @@
                (multiple-value-bind (aged duplicate-p)
                    (papercut-report
                     configuration
-                    :title "Provider retry is opaque"
-                    :content "The provider failed twice without a useful diagnostic."
+                    :title               "Provider retry is opaque"
+                    :content             "The provider failed twice without a useful diagnostic."
                     :source-conversation "later")
                  (test-assert (and (not duplicate-p)
                                    (not (string= (papercut-identifier aged)
@@ -250,7 +250,7 @@
                   (progn
                     (papercut-report
                      configuration
-                     :title ""
+                     :title   ""
                      :content "This report must be rejected.")
                     nil)
                 (papercut-error ()
@@ -261,7 +261,7 @@
                   (progn
                     (papercut-report
                      configuration
-                     :title "Oversized"
+                     :title   "Oversized"
                      :content (make-string (1+ *papercut-content-limit*)
                                            :initial-element #\x))
                     nil)
@@ -273,7 +273,7 @@
              (let ((closed
                      (papercut-report
                       configuration
-                      :title "Obsolete report"
+                      :title   "Obsolete report"
                       :content "This report is ready to close.")))
                (papercut-mark-closed
                 configuration
@@ -306,7 +306,7 @@
                     (find "Provider limit"
                           (papercut-list configuration)
                           :test #'string=
-                          :key #'papercut-title))
+                          :key  #'papercut-title))
                   (tool (tool-registry-find registry "papercut" "report")))
              (test-assert (tool-result-success-p result)
                           "papercut.report returns a successful tool result")
@@ -335,7 +335,7 @@
                                  (= 1 (count "Provider limit"
                                              (papercut-list configuration)
                                              :test #'string=
-                                             :key #'papercut-title)))
+                                             :key  #'papercut-title)))
                             "papercut.report answers a repeat with the existing report and records nothing")
                (let* ((record
                         (list :tool-result
@@ -353,7 +353,7 @@
                             :status ':ok
                             :output (tool-result-content result)))
                     (entry (application-tool-result-entry tool application record))
-                    (text (terminal--spans-text entry)))
+                    (text  (terminal--spans-text entry)))
                (test-assert
                 (and (search "! PAPERCUT RECORDED" text)
                      (search "Provider limit" text)
@@ -370,7 +370,7 @@
                     (find "Provider limit"
                           (papercut-list configuration)
                           :test #'string=
-                          :key #'papercut-title))
+                          :key  #'papercut-title))
                   (output
                     (format nil
                             "papercut-id: ~A~%title: ~A"
@@ -395,10 +395,10 @@
              (funcall
               send-status
               ':tool-call-completed
-              (list :tool "papercut.report"
+              (list :tool      "papercut.report"
                     :success-p t
-                    :output output))
-             (let* ((presented (recording-terminal-output terminal))
+                    :output    output))
+             (let* ((presented  (recording-terminal-output terminal))
                     (first-card (search "! PAPERCUT RECORDED" presented)))
                (test-assert
                 (and first-card

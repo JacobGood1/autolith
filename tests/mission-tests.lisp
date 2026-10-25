@@ -14,11 +14,11 @@
 (defun mission-test--application (configuration &key results worker)
   "Create a recorded application with an explicitly scripted provider."
   (let* ((conversation (conversation-create configuration))
-         (provider (make-instance 'scripted-provider :results results))
-         (registry (make-default-tool-registry :configuration configuration))
-         (agent (make-instance 'agent :configuration configuration :conversation conversation
-                              :provider provider :tool-registry registry :worker worker))
-         (ui (terminal-ui-create :terminal (make-instance 'recording-terminal :columns 80))))
+         (provider     (make-instance 'scripted-provider :results results))
+         (registry     (make-default-tool-registry :configuration configuration))
+         (agent        (make-instance 'agent :configuration configuration :conversation conversation
+                                     :provider provider :tool-registry registry :worker worker))
+         (ui           (terminal-ui-create :terminal (make-instance 'recording-terminal :columns 80))))
     (terminal-ui-start ui)
     (make-instance 'application :configuration configuration :conversation conversation
                    :provider provider :tool-registry registry :worker worker :agent agent :ui ui)))
@@ -35,8 +35,8 @@
 (defun mission-test--context (application &key (authorization ':full-access))
   "Create the ordinary gate tool boundary with a deterministic authorization decision."
   (make-instance 'tool-context :configuration (application-configuration application)
-                 :conversation (application-conversation application)
-                 :registry (application-tool-registry application)
+                 :conversation                (application-conversation application)
+                 :registry                    (application-tool-registry application)
                  :worker (application-worker application) :agent (application-agent application)
                  :command-authorization-function
                  (lambda (command directory) (declare (ignore command directory)) authorization)))
@@ -50,16 +50,16 @@
 (defun test-mission-tool-result-presentation ()
   "Retain mission gate and outcome details across the tool and durable UI boundary."
   (with-test-configuration (configuration)
-    (let* ((application (mission-test--application configuration))
+    (let* ((application  (mission-test--application configuration))
            (conversation (application-conversation application))
-           (context (mission-test--context application))
-           (registry (application-tool-registry application)))
+           (context      (mission-test--context application))
+           (registry     (application-tool-registry application)))
       (setf (application-compact-view-p application) nil)
       (application-mission-start
        application (mission-test--specification
                     :gates '((:id "build" :kind :command :command "exit 0"))))
-      (let* ((result (tool-execute (tool-registry-find registry "mission" "stop")
-                                   context (json-object "status" "failed" "evidence" "compiler rejected")))
+      (let* ((result  (tool-execute (tool-registry-find registry "mission" "stop")
+                                    context (json-object "status" "failed" "evidence" "compiler rejected")))
              (details (tool-result-details result)))
         (test-assert (and (tool-result-success-p result)
                           (eq (first details) ':mission)
@@ -69,8 +69,8 @@
                                          :success-p t :output (tool-result-content result) :details details)
         (let* ((loaded (conversation-load (conversation-pathname conversation)))
                (record (first (conversation-records-newest loaded 1)))
-               (entry (conversation-record-entry application record))
-               (text (test-terminal-row-text entry)))
+               (entry  (conversation-record-entry application record))
+               (text   (test-terminal-row-text entry)))
           (test-assert (and (search "build" text) (search "failed" text)
                             (find ':failure (rest entry) :key #'terminal-span-style)
                             (search "compiler rejected" text))
@@ -80,10 +80,10 @@
 (defun test-mission-accounting ()
   "Exercise exact shared accounting across primary, inherited and nested inference."
   (with-test-configuration (configuration)
-    (let* ((application (mission-test--application
-                         configuration :results (loop repeat 4 collect (mission-test--result "done"))))
+    (let* ((application  (mission-test--application
+                          configuration :results (loop repeat 4 collect (mission-test--result "done"))))
            (conversation (application-conversation application))
-           (provider (application-provider application)))
+           (provider     (application-provider application)))
       (application-mission-start application (mission-test--specification :turns 4))
       (provider-stream-turn provider conversation :tool-namespaces #() :event-callback #'identity)
       (let ((child (conversation-create configuration)))
@@ -134,12 +134,12 @@
   "Exercise gate order, deterministic failure reuse, invalidation and separate attempts."
   (with-test-configuration (configuration root)
     (setf configuration (configuration-copy configuration :working-directory root))
-    (let* ((input (merge-pathnames "gate-input" root))
+    (let* ((input       (merge-pathnames "gate-input" root))
            (application (mission-test--application configuration))
-           (calls nil)
-           (gates '((:id "first" :kind :artifact :path "first" :inputs ("gate-input") :deterministic-p t)
-                    (:id "second" :kind :artifact :path "second" :inputs ("gate-input")
-                     :deterministic-p t :attempt-limit 2))))
+           (calls       nil)
+           (gates       '((:id "first" :kind :artifact :path "first" :inputs ("gate-input") :deterministic-p t)
+                          (:id "second" :kind :artifact :path "second" :inputs ("gate-input")
+                           :deterministic-p t :attempt-limit 2))))
       (mission-test--write-file input "first state")
       (application-mission-start application (mission-test--specification :gates gates))
       (test-call-with-function-replacements
@@ -197,9 +197,9 @@
   "Run command, artifact and Lisp gates through existing sandbox and worker boundaries."
   (with-test-configuration (configuration root)
     (setf configuration (configuration-copy configuration :working-directory root))
-    (let* ((worker (lisp-worker-pool-create configuration))
+    (let* ((worker      (lisp-worker-pool-create configuration))
            (application (mission-test--application configuration :worker worker))
-           (context (mission-test--context application)))
+           (context     (mission-test--context application)))
       (unwind-protect
            (progn
              (mission-test--write-file (merge-pathnames "accepted" root) "accepted artifact")
@@ -235,18 +235,17 @@
       (application--load-goal application)
       (test-assert (eq ':exhausted (getf (application-goal application) :status)) "exhaustion survives restoration"))))
 
-
 (-> test-mission-gate-freshness-after-mutation () null)
 (defun test-mission-gate-freshness-after-mutation ()
   "Reject ordered gates whose earlier passing evidence is stale after a later gate mutates its input."
   (with-test-configuration (configuration root)
     (setf configuration (configuration-copy configuration :working-directory root))
-    (let* ((input (merge-pathnames "gate-input" root))
+    (let* ((input       (merge-pathnames "gate-input" root))
            (application (mission-test--application configuration))
-           (gates '((:id "first" :kind :artifact :path "first" :inputs ("gate-input")
-                     :deterministic-p t)
-                    (:id "second" :kind :artifact :path "second" :inputs ("gate-input")
-                     :deterministic-p t))))
+           (gates       '((:id "first" :kind :artifact :path "first" :inputs ("gate-input")
+                           :deterministic-p t)
+                          (:id "second" :kind :artifact :path "second" :inputs ("gate-input")
+                           :deterministic-p t))))
       (mission-test--write-file input "before")
       (application-mission-start application (mission-test--specification :gates gates))
       (test-call-with-function-replacements
@@ -259,8 +258,8 @@
                      (values t "gate passed"))))
        (lambda ()
          (application-mission-verify application)
-         (let* ((goal (application-goal application))
-                (first-gate (first (getf goal :gates)))
+         (let* ((goal        (application-goal application))
+                (first-gate  (first (getf goal :gates)))
                 (second-gate (second (getf goal :gates))))
            (test-assert (eq ':active (getf goal :status))
                         "a later gate mutation prevents terminal verification")
@@ -283,7 +282,7 @@
       (with-test-configuration (configuration root)
         (setf configuration (configuration-copy configuration :working-directory root))
         (let* ((application (mission-test--application configuration))
-               (artifact (list :id "artifact" :kind ':artifact :path "result.txt")))
+               (artifact    (list :id "artifact" :kind ':artifact :path "result.txt")))
           (when (second case)
             (setf (getf artifact :inputs) (second case)))
           (mission-test--write-file (merge-pathnames "result.txt" root) "before")
@@ -297,7 +296,7 @@
            (list (list 'application-tool-context (lambda (app) (mission-test--context app))))
            (lambda ()
              (application-mission-verify application)
-             (let* ((goal (application-goal application))
+             (let* ((goal  (application-goal application))
                     (gates (getf goal :gates)))
                (test-assert (eq ':passed (getf (second gates) :status))
                             "the later command completes successfully")
@@ -313,13 +312,13 @@
 (defun test-mission-invalidation-verification-race ()
   "Serialize gate invalidation against the final verified transition."
   (with-test-configuration (configuration)
-    (let* ((application (mission-test--application configuration))
-           (gate '(:id "gate" :kind :artifact :path "missing" :inputs nil))
-           (entered (bordeaux-threads:make-semaphore))
-           (release (bordeaux-threads:make-semaphore))
-           (invalidating (bordeaux-threads:make-semaphore))
-           (invalidation-error nil)
-           (verification-error nil)
+    (let* ((application         (mission-test--application configuration))
+           (gate                '(:id "gate" :kind :artifact :path "missing" :inputs nil))
+           (entered             (bordeaux-threads:make-semaphore))
+           (release             (bordeaux-threads:make-semaphore))
+           (invalidating        (bordeaux-threads:make-semaphore))
+           (invalidation-error  nil)
+           (verification-error  nil)
            (verification-thread nil)
            (invalidation-thread nil))
       (application-mission-start application (mission-test--specification :gates (list gate)))
@@ -373,11 +372,11 @@
   "Withhold acceptance when tool work begins during gate execution."
   (with-test-configuration (configuration)
     (let* ((application (mission-test--application configuration))
-           (gate '(:id "gate" :kind :artifact :path "missing" :inputs ("absent") :deterministic-p t))
-           (entered (bordeaux-threads:make-semaphore))
-           (release (bordeaux-threads:make-semaphore))
-           (thread nil)
-           (failure nil))
+           (gate        '(:id "gate" :kind :artifact :path "missing" :inputs ("absent") :deterministic-p t))
+           (entered     (bordeaux-threads:make-semaphore))
+           (release     (bordeaux-threads:make-semaphore))
+           (thread      nil)
+           (failure     nil))
       (application-mission-start application (mission-test--specification :gates (list gate)))
       (test-call-with-function-replacements
        (list (list 'application-tool-context (lambda (app) (mission-test--context app)))
@@ -418,7 +417,7 @@
   "Invoke user/model operations and restore terminal proof after durable compaction."
   (with-test-configuration (configuration)
     (let* ((application (mission-test--application configuration))
-           (registry (application-tool-registry application)))
+           (registry    (application-tool-registry application)))
       (test-assert (application-command-find "/mission") "mission command participates in operation lookup")
       (let ((specification (mission-test--specification)))
         (setf (getf specification :objective) "Keep Case, quotes \" and  spaces")
@@ -443,7 +442,7 @@
         (test-assert (equal before (application-goal application))
                      "rejected native mission calls do not change durable goal state"))
       (test-assert (eq ':ok (application-lisp-evaluation-status
-                            (application-lisp-evaluate "(mission :status)" :application application)))
+                             (application-lisp-evaluate "(mission :status)" :application application)))
                    "mission keyword control is callable from the Lisp prompt")
       (dolist (text '("/mission start #.(error \"reader evaluated\")"
                        "/mission start (:objective \"first\") (:objective \"extra\")"
@@ -464,13 +463,13 @@
                       "the model cannot prove a human acceptance criterion")
          (test-assert (null (tool-registry-find registry "mission" "accept"))
                       "user acceptance is not model authority")
-          (application-operation-call application "mission" ':accept "delivery"
-                                      "Inspected by the operator: quote \"  Keep Case")
-          (application-operation-call application "mission" ':resume)
+         (application-operation-call application "mission" ':accept "delivery"
+                                     "Inspected by the operator: quote \"  Keep Case")
+         (application-operation-call application "mission" ':resume)
          (application-command application "/mission verify")))
       (test-assert (eq ':verified (getf (application-goal application) :status)) "user commands complete verification")
       (let* ((conversation (application-conversation application))
-             (identifier (conversation-identifier conversation)))
+             (identifier   (conversation-identifier conversation)))
         (conversation-append-summary conversation "Unrelated compacted transcript")
         (setf (application-conversation application) (conversation-load-by-id configuration identifier))
         (application--load-goal application)
@@ -482,14 +481,14 @@
 (defun test-mission-queued-child-authority ()
   "Capture child authority at admission and cancel queued work without moving budgets."
   (with-test-configuration (configuration)
-    (let* ((application (mission-test--application configuration))
+    (let* ((application  (mission-test--application configuration))
            (orchestrator (task-orchestrator-create))
-           (definition (task-agent-definition-create
-                        :name "mission-child" :description "Check immutable mission admission"
-                        :instructions "Work under the admitted mission" :source ':test))
-           (entry (list :definition definition :detached t
-                        :item (list :name "child" :agent "mission-child" :task "Check admission")))
-           (submit (symbol-function 'job-pool-submit-batch)))
+           (definition   (task-agent-definition-create
+                          :name "mission-child" :description "Check immutable mission admission"
+                          :instructions "Work under the admitted mission" :source ':test))
+           (entry        (list :definition definition :detached t
+                               :item (list :name "child" :agent "mission-child" :task "Check admission")))
+           (submit       (symbol-function 'job-pool-submit-batch)))
       (unwind-protect
            (test-call-with-function-replacements
             (list (list 'job-pool-submit-batch
@@ -499,7 +498,7 @@
             (lambda ()
               (application-mission-start application (mission-test--specification))
               (let* ((context (mission-context-find (application-conversation application)))
-                     (job (first (task-orchestrator-start-jobs orchestrator (application-agent application) (list entry)))))
+                     (job     (first (task-orchestrator-start-jobs orchestrator (application-agent application) (list entry)))))
                 (test-assert (eq context (task-job-mission-context job)) "queued children retain admitted mission identity")
                 (mission-context-bind context (application-agent application))
                 (application-mission-start application (mission-test--specification))

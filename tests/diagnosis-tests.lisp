@@ -16,16 +16,16 @@
 
 (defclass diagnosis-tests--world ()
   ((fault
-    :initarg :fault
-    :accessor diagnosis-tests--world-fault
+    :initarg       :fault
+    :accessor      diagnosis-tests--world-fault
     :documentation "What is wrong: unavailable, stale-endpoint, credentials, or NIL.")
    (registry
-    :initarg :registry
-    :reader diagnosis-tests--world-registry
+    :initarg       :registry
+    :reader        diagnosis-tests--world-registry
     :documentation "The registry holding the service tools.")
    (repairs
-    :initform nil
-    :accessor diagnosis-tests--world-repairs
+    :initform      nil
+    :accessor      diagnosis-tests--world-repairs
     :documentation "The repairs tried, newest first."))
   (:documentation "A remote service with one fault and the tools that probe and repair it."))
 
@@ -34,7 +34,7 @@
 (defun diagnosis-tests--world-create (configuration fault &key (config-p t))
   "Return a world under CONFIGURATION whose service has FAULT; without CONFIG-P its endpoint cannot be read."
   (let* ((registry (make-default-tool-registry :configuration configuration))
-         (world (make-instance 'diagnosis-tests--world :fault fault :registry registry)))
+         (world    (make-instance 'diagnosis-tests--world :fault fault :registry registry)))
     (flet ((fault-p (name)
              (equal (diagnosis-tests--world-fault world) name)))
       (learning-tests--tool registry "service.ping"
@@ -58,7 +58,7 @@
                                                          t))))
       (loop for (cause . tool) in *diagnosis-tests-repairs*
             do (let ((cause cause)
-                     (tool tool))
+                     (tool  tool))
                  (learning-tests--tool registry tool
                                        (lambda (arguments)
                                          (declare (ignore arguments))
@@ -79,14 +79,14 @@
             (knowledge-make-schema :predicate predicate
                                    :arguments `((:name "service" :type :entity)
                                                 (:name ,value :type :boolean))
-                                   :key '("service"))))
+                                   :key       '("service"))))
   (loop for (tool predicate field) in '(("service.ping" "service.reachable" "reachable")
                                         ("service.config" "endpoint.current" "current")
                                         ("service.auth" "auth.accepted" "accepted"))
         do (knowledge-define-contract
             configuration
             :id (substitute #\- #\. tool) :tool tool
-            :when (json-object "service" "?service")
+            :when     (json-object "service" "?service")
             :observes (vector (json-object "predicate" predicate
                                            "arguments" (vector "$arg.service"
                                                                (format nil "$result.~A" field))))))
@@ -117,8 +117,8 @@
   "Return a tool context running WORLD's tools under CONFIGURATION with approval."
   (make-instance 'tool-context
                  :configuration configuration :worker nil
-                 :registry (diagnosis-tests--world-registry world)
-                 :conversation (conversation-create configuration)
+                 :registry                       (diagnosis-tests--world-registry world)
+                 :conversation                   (conversation-create configuration)
                  :command-authorization-function (lambda (command directory)
                                                    (declare (ignore command directory))
                                                    ':full-access)))
@@ -152,7 +152,7 @@
   "Call FUNCTION with a configuration that runs diagnoses, asserting no provider request."
   (with-test-configuration (base root)
     (let ((configuration (configuration-copy base :working-directory root :diagnosis-p t))
-          (requests 0))
+          (requests      0))
       (diagnosis-tests--define-vocabulary configuration)
       (test-call-with-function-replacements
        (list (list 'provider-stream-turn
@@ -164,7 +164,6 @@
          (funcall function configuration)))
       (test-assert (zerop requests) (format nil "~A makes no provider request" label))))
   nil)
-
 
 (-> test-diagnosis-predictions () null)
 (defun test-diagnosis-predictions ()
@@ -214,7 +213,7 @@
 (defun test-diagnosis-remote-service ()
   "Test that discriminating probes find each remote-service fault, replacing speculative repairs."
   (let ((speculative 0)
-        (diagnosed 0))
+        (diagnosed   0))
     (loop for (fault expected-probes) in '(("unavailable" ("service.ping"))
                                            ("stale-endpoint" ("service.ping" "service.config"))
                                            ("credentials" ("service.ping" "service.config")))
@@ -235,12 +234,12 @@
           do (diagnosis-tests--call-with
               fault
               (lambda (configuration)
-                (let* ((world (diagnosis-tests--world-create configuration fault))
+                (let* ((world  (diagnosis-tests--world-create configuration fault))
                        (report (diagnosis-tests--diagnose configuration world
                                                           (diagnosis-tests--definition)))
-                       (case (first (knowledge-base-diagnosis-cases
-                                     (knowledge-base-read configuration)
-                                     (knowledge--workspace configuration)))))
+                       (case   (first (knowledge-base-diagnosis-cases
+                                       (knowledge-base-read configuration)
+                                       (knowledge--workspace configuration)))))
                   (test-assert (and (equal (getf case :remaining) (list fault))
                                     (equal (mapcar (lambda (probe) (getf probe :tool))
                                                    (getf case :probes))
@@ -264,7 +263,7 @@
   (diagnosis-tests--call-with
    "ambiguous"
    (lambda (configuration)
-     (let* ((world (diagnosis-tests--world-create configuration "stale-endpoint" :config-p nil))
+     (let* ((world  (diagnosis-tests--world-create configuration "stale-endpoint" :config-p nil))
             (report (diagnosis-tests--diagnose configuration world (diagnosis-tests--definition))))
        (test-assert (and (search "Diagnosis remote-service is still open: stale-endpoint, credentials remain"
                                  report)
@@ -283,9 +282,9 @@
        (setf (diagnosis-tests--world-fault world) "credentials")
        (let* ((arguments (json-object "diagnosis" "remote-service"
                                       "bindings" (json-object "service" "billing")))
-              (report (diagnosis-tests--diagnose configuration world arguments))
-              (case (first (knowledge-base-diagnosis-cases (knowledge-base-read configuration)
-                                                           (knowledge--workspace configuration)))))
+              (report    (diagnosis-tests--diagnose configuration world arguments))
+              (case      (first (knowledge-base-diagnosis-cases (knowledge-base-read configuration)
+                                                                (knowledge--workspace configuration)))))
          (test-assert (and (equal (mapcar (lambda (probe) (getf probe :tool)) (getf case :probes))
                                   nil)
                            (equal (getf case :remaining) '("stale-endpoint")))
@@ -301,7 +300,7 @@
                                  :predicate "service.measurement"
                                  :arguments '((:name "service" :type :entity)
                                               (:name "value" :type :number))
-                                 :key '("service")))
+                                 :key       '("service")))
        (knowledge-define-contract
         configuration :id "measure-service" :tool "service.measure"
         :observes (vector (json-object "predicate" "service.measurement"
@@ -316,12 +315,12 @@
                         "save_as" "measurement"
                         "hypotheses" (vector (json-object "id" "measured"
                                                           "predicts" #(#("service.measurement" "billing" 42)))
-                                              (json-object "id" "other"
-                                                          "predicts" #(#("service.measurement" "billing" 43))))
+                                             (json-object "id" "other"
+                                                         "predicts" #(#("service.measurement" "billing" 43))))
                         "probes" (vector (json-object "tool" "service.measure"
                                                        "arguments" (json-object))))))
-              (case (first (knowledge-base-diagnosis-cases (knowledge-base-read configuration)
-                                                           (knowledge--workspace configuration)))))
+              (case   (first (knowledge-base-diagnosis-cases (knowledge-base-read configuration)
+                                                             (knowledge--workspace configuration)))))
          (test-assert (and (equal (getf case :remaining) '("measured"))
                            (eq (getf (first (getf case :probes)) :status) ':ok)
                            (search "service.measurement(billing, 42)" report))
@@ -329,14 +328,14 @@
   (diagnosis-tests--call-with
    "blocked-probe"
    (lambda (configuration)
-     (let* ((world (diagnosis-tests--world-create configuration "unavailable"))
+     (let* ((world     (diagnosis-tests--world-create configuration "unavailable"))
             (arguments (diagnosis-tests--definition)))
        (knowledge-define-schema
-        configuration (knowledge-make-schema :predicate "probe.allowed"
+        configuration (knowledge-make-schema :predicate  "probe.allowed"
                                               :arguments '((:name "service" :type :entity))))
        (knowledge-define-contract
         configuration :id "service-ping" :tool "service.ping"
-        :when (json-object "service" "?service")
+        :when     (json-object "service" "?service")
         :requires #(#("probe.allowed" "?service"))
         :observes (vector (json-object "predicate" "service.reachable"
                                        "arguments" #("$arg.service" "$result.reachable"))))
@@ -368,8 +367,8 @@
     (loop for (mode diagnosis-p expected) in '(("active" t t) ("active" nil nil) ("passive" t nil))
           do (let ((registry (make-default-tool-registry
                               :configuration (configuration-copy base :working-directory root
-                                                                      :knowledge-mode mode
-                                                                      :diagnosis-p diagnosis-p))))
+                                                                      :knowledge-mode    mode
+                                                                      :diagnosis-p       diagnosis-p))))
                (test-assert (eq expected
                                 (and (find "diagnosis.run" (tool-registry-tools registry)
                                            :key #'tool-canonical-name :test #'string=)
@@ -385,8 +384,8 @@
    "commands"
    (lambda (configuration)
      (let ((application (make-instance 'application :configuration configuration
-                                                    :conversation (conversation-create configuration)))
-           (world (diagnosis-tests--world-create configuration "stale-endpoint")))
+                                                    :conversation  (conversation-create configuration)))
+           (world       (diagnosis-tests--world-create configuration "stale-endpoint")))
        (flet ((text (entry)
                 (memory-source-tests--text entry)))
          (test-assert (search "No diagnoses yet." (text (application-diagnoses-entry application)))

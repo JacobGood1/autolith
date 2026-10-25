@@ -15,16 +15,16 @@
     (acp-session-test--call-with-client
      configuration
      (lambda (service client)
-       (let* ((identifier (agentcomms:client-new-session client (namestring root)))
-              (session (acp-service--session service identifier))
+       (let* ((identifier  (agentcomms:client-new-session client (namestring root)))
+              (session     (acp-service--session service identifier))
               (application (acp-session-application session)))
          (labels ((request (method &rest fields)
                     "Send one exact-session extension request."
                     (agentcomms:client-agent-request
                      client method (apply #'agentcomms:json-object "sessionId" identifier fields))))
            (let* ((response (request "_autolith/settings"))
-                  (rows (gethash "items" (gethash "value" response)))
-                  (boolean (acp-settings-test--row rows "hurry-up-p")))
+                  (rows     (gethash "items" (gethash "value" response)))
+                  (boolean  (acp-settings-test--row rows "hurry-up-p")))
              (test-assert (equal "ok" (gethash "outcome" response)) "settings list succeeds")
              (test-assert (vectorp rows) "settings are a JSON array")
              (test-assert (equal "choice" (gethash "type" (acp-settings-test--row rows "model")))
@@ -37,7 +37,7 @@
              (test-assert (find (argo:json-false) (gethash "options" boolean)) "boolean options include false"))
            (dolist (enabled (list t (argo:json-false)))
              (let* ((response (request "_autolith/set-setting" "name" "hurry-up-p" "value" enabled))
-                    (row (gethash "value" response)))
+                    (row      (gethash "value" response)))
                (test-assert (equal "ok" (gethash "outcome" response)) "boolean setting mutation succeeds")
                (test-assert (equal "hurry-up-p" (gethash "name" row)) "the setter returns its complete row")
                (test-assert (equal "session" (gethash "scope" row)) "the updated row retains its scope")
@@ -61,8 +61,8 @@
      configuration
      (lambda (service client)
        (let* ((identifier (agentcomms:client-new-session client (namestring root)))
-              (session (acp-service--session service identifier))
-              (model (config :model (application-configuration (acp-session-application session)))))
+              (session    (acp-service--session service identifier))
+              (model      (config :model (application-configuration (acp-session-application session)))))
          (test-call-with-function-replacements
           (list (list 'acp-extension--credential-stored-p
                       (lambda (configuration registration)
@@ -73,7 +73,7 @@
                        (let* ((response (agentcomms:client-agent-request
                                          client "_autolith/models"
                                          (agentcomms:json-object "sessionId" identifier)))
-                              (items (gethash "items" (gethash "value" response))))
+                              (items    (gethash "items" (gethash "value" response))))
                          (find model items :test #'equal :key (lambda (item) (gethash "id" item))))))
               (let ((before (row)))
                 (test-assert (eq t (gethash "credentialStored" before)) "stored presence is independent")

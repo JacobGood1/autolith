@@ -6,8 +6,8 @@
 (defun test-active-image-build-record ()
   "Test that the active image covers every compiled input of this source tree."
   (let* ((source-root (asdf:system-source-directory :autolith))
-         (record (active-image-build-record-create source-root))
-         (inputs (mapcar #'first (getf (rest record) :source-files))))
+         (record      (active-image-build-record-create source-root))
+         (inputs      (mapcar #'first (getf (rest record) :source-files))))
     (test-assert (active-image-build-record-compatible-p record source-root)
                  "the active-image record matches its exact source and runtime")
     (test-assert (and (equal inputs (active-image-source-paths source-root))
@@ -56,26 +56,26 @@
 (defun test-active-image-process-command ()
   "Test fresh Autolith processes boot a matching active core and fall back to source."
   (with-test-configuration (configuration root)
-    (let* ((core (merge-pathnames "active/autolith-active.core" root))
+    (let* ((core          (merge-pathnames "active/autolith-active.core" root))
            (configuration (configuration-copy configuration :active-image-core core))
-           (source-root (config :source-root configuration))
-           (record (active-image-build-record-create source-root)))
+           (source-root   (config :source-root configuration))
+           (record        (active-image-build-record-create source-root)))
       (flet ((command ()
                "Return the fresh-process argv for one worker argument."
                (active-image-process-command configuration '("--worker")))
              (install (record)
                "Install an empty core whose manifest names RECORD."
                (ensure-directories-exist core)
-               (with-open-file (stream core :direction ':output
-                                            :if-exists ':supersede
+               (with-open-file (stream core :direction         ':output
+                                            :if-exists         ':supersede
                                             :if-does-not-exist ':create)
                  (write-string "core" stream))
                (snapshot-write (merge-pathnames "manifest.sexp" core)
                                (list :sbcl-generations-image-manifest
                                      :version 1
-                                     :core (namestring core)
+                                     :core     (namestring core)
                                      :built-at (get-universal-time)
-                                     :record record))))
+                                     :record   record))))
         (test-assert (and (member "--script" (command) :test #'string=)
                           (string= "--worker" (car (last (command)))))
                      "without an installed core the process loads from source")
@@ -147,9 +147,9 @@
 (defun test-image-commit-replay-probe ()
   "Test clean-process loading and rejection of private replay scripts."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (identifier (make-identifier))
-         (script (merge-pathnames "probe/reconstruct.lisp" root)))
+         (root          (test-configuration-root configuration))
+         (identifier    (make-identifier))
+         (script        (merge-pathnames "probe/reconstruct.lisp" root)))
     (unwind-protect
          (progn
            (test-image-commit--write-probe-commit
@@ -158,8 +158,8 @@
              (list :kind ':definition :id "generic"
                    :target "(defgeneric image-commit-test-operation)"
                    :source "(defgeneric image-commit-test-operation (value))")
-             (list :kind ':definition
-                   :id (format nil "method~%(error \"Executed identifier.\")")
+             (list :kind   ':definition
+                   :id     (format nil "method~%(error \"Executed identifier.\")")
                    :target (format nil "(defmethod image-commit-test-operation nil~%  (integer))")
                    :source "(defmethod image-commit-test-operation ((value integer)) (+ value 7))")
              (list :kind ':legacy :id "assertion" :target "result"
@@ -180,10 +180,10 @@
             "the probe skips a stale definition that startup would skip")
            (delete-file script)
            (with-open-file (stream script
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create
-                                   :external-format ':utf-8)
+                                   :external-format   ':utf-8)
              (format stream "(in-package #:autolith)~%(error \"Broken replay.\")~%"))
            (test-assert
             (handler-case

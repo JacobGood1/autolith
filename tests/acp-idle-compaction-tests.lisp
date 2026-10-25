@@ -23,7 +23,7 @@
   "Publish one idle checkpoint under ACP ownership without adding a user prompt."
   (acp-idle-compaction-tests--fixture
    (lambda (session application)
-     (let* ((provider (application-provider application))
+     (let* ((provider                         (application-provider application))
             (*idle-compaction-clock-function* (lambda () 1000)))
        (push (mission-test--result "Ordinary answer."
                                    :usage (json-object "input_tokens" 40000 "output_tokens" 10))
@@ -36,7 +36,7 @@
        (test-assert (= 2 (length (scripted-provider-input-snapshots (application-provider application))))
                     "one ordinary answer and one summary request run")
        (test-assert (find :summary (conversation-records-newest (application-conversation application) 20)
-                          :key #'first)
+                          :key     #'first)
                     "ACP durably publishes the handoff")
        (test-assert (equal history (conversation-input-history (application-conversation application)))
                     "compaction adds no user prompt")
@@ -57,8 +57,10 @@
          (unwind-protect
               (progn
                 (ecase case
-                  (:queued (acp-input-test--submit session "_autolith/queue" "queued user work"))
-                  (:closing (setf (acp-session-closing-p session) t))
+                  (:queued
+                   (acp-input-test--submit session "_autolith/queue" "queued user work"))
+                  (:closing
+                   (setf (acp-session-closing-p session) t))
                   (:active
                    (setf (acp-session-prompt-thread session) (current-thread)
                          (application-input-controller-active-p controller) t)))
@@ -122,12 +124,12 @@
   (with-test-configuration (configuration root)
     (let ((provider (make-instance 'acp-session-test-gated-provider
                                    :configuration configuration
-                                   :results (list (acp-session-test-text-result "resumed")))))
+                                   :results       (list (acp-session-test-text-result "resumed")))))
       (acp-session-test--call-with-client
        configuration
        (lambda (service client)
-         (let* ((identifier (agentcomms:client-new-session client (namestring root)))
-                (session (acp-service--session service identifier))
+         (let* ((identifier  (agentcomms:client-new-session client (namestring root)))
+                (session     (acp-service--session service identifier))
                 (application (acp-session-application session)))
           (setf (config :prompt-cache-retention-seconds (application-configuration application)) 300
                 (config :idle-compaction-p (application-configuration application)) nil)
@@ -138,20 +140,20 @@
            application :started-at (- (funcall *idle-compaction-clock-function*) 181))
           (acp-extension-set-setting
            session (json-object "name" "idle-compaction-p" "value" t))
-           (acp-completion-test--wait (lambda () (acp-session-test-gated-entered-p provider)))
-           (agentcomms:client-cancel client identifier)
-           (acp-completion-test--wait
-            (lambda () (and (acp-session-cancelled-p session)
-                            (null (acp-session-prompt-thread session)))))
-           (test-assert (null (application-idle-compaction-episode application))
-                        "cancellation cannot rearm the idle checkpoint")
-           (test-assert (not (application-input-controller-active-p (acp-input-controller session)))
-                        "cancelled compaction releases the native controller")
-           (test-assert (null (scripted-provider-input-snapshots provider))
-                        "cancellation interrupts the blocked checkpoint request")
-           (agentcomms:client-prompt client identifier (list (agentcomms:acp-text-content "Continue")))
-           (test-assert (= 1 (length (scripted-provider-input-snapshots provider)))
-                        "a later explicit prompt can use the session")
-           (agentcomms:client-close-session client identifier)))
+          (acp-completion-test--wait (lambda () (acp-session-test-gated-entered-p provider)))
+          (agentcomms:client-cancel client identifier)
+          (acp-completion-test--wait
+           (lambda () (and (acp-session-cancelled-p session)
+                           (null (acp-session-prompt-thread session)))))
+          (test-assert (null (application-idle-compaction-episode application))
+                       "cancellation cannot rearm the idle checkpoint")
+          (test-assert (not (application-input-controller-active-p (acp-input-controller session)))
+                       "cancelled compaction releases the native controller")
+          (test-assert (null (scripted-provider-input-snapshots provider))
+                       "cancellation interrupts the blocked checkpoint request")
+          (agentcomms:client-prompt client identifier (list (agentcomms:acp-text-content "Continue")))
+          (test-assert (= 1 (length (scripted-provider-input-snapshots provider)))
+                       "a later explicit prompt can use the session")
+          (agentcomms:client-close-session client identifier)))
        :provider provider)))
   nil)

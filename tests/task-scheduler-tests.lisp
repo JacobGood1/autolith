@@ -16,28 +16,28 @@
   "Test default detachment, explicit blocking, and forced blocking roles."
   (labels ((run-case (label arguments expected-detached-p &key blocking-role-p)
              (let* ((base-configuration (test-configuration))
-                    (root (test-configuration-root base-configuration))
+                    (root               (test-configuration-root base-configuration))
                     (configuration
                       (configuration-copy
                        base-configuration :working-directory root))
-                    (registry (make-default-tool-registry))
+                    (registry           (make-default-tool-registry))
                     (blocking-tool
                       (make-instance
                        'task-test-blocking-tool
-                       :namespace "test"
-                       :name "block"
+                       :namespace   "test"
+                       :name        "block"
                        :description "Wait until the detachment test releases this call."
-                       :parameters (tool-object-schema (json-object) nil)))
+                       :parameters  (tool-object-schema (json-object) nil)))
                     (provider
                       (make-instance 'task-test-provider :mode ':blocking-tool))
-                    (conversation nil)
-                    (primary nil)
-                    (run-tool nil)
-                    (orchestrator nil)
-                    (context nil)
-                    (runner nil)
-                    (run-result nil)
-                    (run-condition nil))
+                    (conversation       nil)
+                    (primary            nil)
+                    (run-tool           nil)
+                    (orchestrator       nil)
+                    (context            nil)
+                    (runner             nil)
+                    (run-result         nil)
+                    (run-condition      nil))
                (when blocking-role-p
                  (task-tests--write-native-form
                   (merge-pathnames
@@ -46,27 +46,27 @@
                    "forced-blocking"
                    "Always wait for this child."
                    "Enter the blocking test tool, then yield."
-                   :tools ':all
+                   :tools      ':all
                    :blocking-p t)))
                (tool-registry-register registry blocking-tool)
                (task-augment-tool-registry registry)
                (setf conversation (conversation-create configuration)
                      primary
                      (agent-create :configuration configuration
-                                   :provider provider
-                                   :conversation conversation
+                                   :provider      provider
+                                   :conversation  conversation
                                    :tool-registry registry
-                                   :worker nil)
+                                   :worker        nil)
                      run-tool (tool-registry-find registry "task" "run")
                      orchestrator (task-run-tool-orchestrator run-tool)
                      context
                      (make-instance 'tool-context
                                     :configuration configuration
-                                    :worker nil
-                                    :conversation conversation
-                                    :registry registry
-                                    :agent primary
-                                    :call-id label))
+                                    :worker        nil
+                                    :conversation  conversation
+                                    :registry      registry
+                                    :agent         primary
+                                    :call-id       label))
                (unwind-protect
                     (progn
                       (if expected-detached-p
@@ -92,7 +92,7 @@
                         2)
                        (format nil "~A reaches the blocking child tool" label))
                       (let* ((jobs (task-orchestrator-list-jobs orchestrator))
-                             (job (and (= (length jobs) 1) (first jobs))))
+                             (job  (and (= (length jobs) 1) (first jobs))))
                         (test-assert
                          (and job
                               (eq (and (task-job-detached-p job) t)
@@ -130,7 +130,7 @@
                      (task-job-await job 2)))
                  (ignore-errors (tool-registry-close-runtime-state registry))
                  (platform-delete-directory-tree *platform* root :validate t
-                                                      :if-does-not-exist ':ignore)))))
+                                                      :if-does-not-exist   ':ignore)))))
     (run-case
      "default-detached"
      (json-object "name" "default-detached"
@@ -151,26 +151,26 @@
                   "task" "Enter the blocking ordinary tool.")
      nil
      :blocking-role-p t))
-    (let* ((orchestrator (task-tests--orchestrator))
-           (synchronous
-             (task-tests--make-job
-              orchestrator :identifier "cleanup-synchronous" :detached-p nil))
-           (detached
-             (task-tests--make-job
-              orchestrator :identifier "cleanup-detached" :detached-p t))
-           (cancelled nil))
-      (test-call-with-function-replacements
-       (list
-        (list 'task-job-cancel
-              (lambda (job reason)
-                (declare (ignore reason))
-                (push job cancelled))))
-       (lambda ()
-         (task-run--cancel-synchronous-jobs
-          (list synchronous detached))))
-      (test-assert
-       (equal cancelled (list synchronous))
-       "task.run failure cleanup preserves deliberately detached jobs"))
+  (let* ((orchestrator (task-tests--orchestrator))
+         (synchronous
+           (task-tests--make-job
+            orchestrator :identifier "cleanup-synchronous" :detached-p nil))
+         (detached
+           (task-tests--make-job
+            orchestrator :identifier "cleanup-detached" :detached-p t))
+         (cancelled    nil))
+    (test-call-with-function-replacements
+     (list
+      (list 'task-job-cancel
+            (lambda (job reason)
+              (declare (ignore reason))
+              (push job cancelled))))
+     (lambda ()
+       (task-run--cancel-synchronous-jobs
+        (list synchronous detached))))
+    (test-assert
+     (equal cancelled (list synchronous))
+     "task.run failure cleanup preserves deliberately detached jobs"))
   nil)
 
 (-> test-task-running-cancellation () null)
@@ -182,10 +182,10 @@
          (blocking-tool
            (make-instance
             'task-test-blocking-tool
-            :namespace "test"
-            :name "block"
+            :namespace   "test"
+            :name        "block"
             :description "Wait until the cancellation test releases this call."
-            :parameters (tool-object-schema (json-object) nil))))
+            :parameters  (tool-object-schema (json-object) nil))))
     (tool-registry-register registry blocking-tool)
     (task-augment-tool-registry registry)
     (let* ((provider
@@ -193,20 +193,20 @@
            (conversation (conversation-create configuration))
            (primary
              (agent-create :configuration configuration
-                           :provider provider
-                           :conversation conversation
+                           :provider      provider
+                           :conversation  conversation
                            :tool-registry registry
-                           :worker nil))
-           (run-tool (tool-registry-find registry "task" "run"))
+                           :worker        nil))
+           (run-tool     (tool-registry-find registry "task" "run"))
            (orchestrator (task-run-tool-orchestrator run-tool))
            (context
              (make-instance 'tool-context
                             :configuration configuration
-                            :worker nil
-                            :conversation conversation
-                            :registry registry
-                            :agent primary
-                            :call-id "running-cancellation")))
+                            :worker        nil
+                            :conversation  conversation
+                            :registry      registry
+                            :agent         primary
+                            :call-id       "running-cancellation")))
       (unwind-protect
            (progn
              (tool-execute
@@ -245,14 +245,14 @@
                  (lambda ()
                    (and (zerop
                            (task-orchestrator-active-count orchestrator))
-                          (zerop
-                           (task-orchestrator-live-count orchestrator))))
+                        (zerop
+                         (task-orchestrator-live-count orchestrator))))
                  2)
                 "cancelled ordinary tool execution releases scheduler accounting")))
         (task-tests--release-blocking-tool blocking-tool)
         (ignore-errors (tool-registry-close-runtime-state registry))
         (platform-delete-directory-tree *platform* root :validate t
-                                             :if-does-not-exist ':ignore))))
+                                             :if-does-not-exist   ':ignore))))
   nil)
 
 (-> test-task-runtime-deadline () null)
@@ -277,13 +277,13 @@
                   (blocking-tool
                     (make-instance
                      'task-test-blocking-tool
-                     :namespace "test"
-                     :name "block"
+                     :namespace  "test"
+                     :name       "block"
                      :description
                      "Wait until the deadline test releases this call."
                      :parameters (tool-object-schema (json-object) nil)))
-                  (runner nil)
-                  (run-result nil)
+                  (runner        nil)
+                  (run-result    nil)
                   (run-condition nil))
              (tool-registry-register registry blocking-tool)
              (task-augment-tool-registry registry)
@@ -293,21 +293,21 @@
                     (conversation (conversation-create configuration))
                     (primary
                       (agent-create :configuration configuration
-                                    :provider provider
-                                    :conversation conversation
+                                    :provider      provider
+                                    :conversation  conversation
                                     :tool-registry registry
-                                    :worker nil))
-                    (run-tool (tool-registry-find registry "task" "run"))
+                                    :worker        nil))
+                    (run-tool     (tool-registry-find registry "task" "run"))
                     (orchestrator (task-run-tool-orchestrator run-tool))
                     (context
                       (make-instance
                        'tool-context
                        :configuration configuration
-                       :worker nil
-                       :conversation conversation
-                       :registry registry
-                       :agent primary
-                       :call-id "runtime-deadline")))
+                       :worker        nil
+                       :conversation  conversation
+                       :registry      registry
+                       :agent         primary
+                       :call-id       "runtime-deadline")))
                (unwind-protect
                     (progn
                       (setf runner
@@ -386,15 +386,15 @@
 (defun test-task-artifact-retention ()
   "Test bounded completed artifacts without deleting live child directories."
   (let* ((*task-artifact-retention-limit* 2)
-         (configuration (test-configuration))
-         (root          (test-configuration-root configuration))
+         (configuration                   (test-configuration))
+         (root                            (test-configuration-root configuration))
          (group-root
            (merge-pathnames "tasks/retention-test/"
                             (config :data-root configuration)))
-         (oldest       (merge-pathnames "artifact-1/" group-root))
-         (middle       (merge-pathnames "artifact-2/" group-root))
-         (newest       (merge-pathnames "artifact-3/" group-root))
-         (incomplete   (merge-pathnames "artifact-live/" group-root)))
+         (oldest                          (merge-pathnames "artifact-1/" group-root))
+         (middle                          (merge-pathnames "artifact-2/" group-root))
+         (newest                          (merge-pathnames "artifact-3/" group-root))
+         (incomplete                      (merge-pathnames "artifact-live/" group-root)))
     (unwind-protect
          (progn
            (dolist (directory (list oldest middle newest))
@@ -413,9 +413,8 @@
                  (= (length (task--completed-artifact-records group-root)) 2))
             "artifact retention removes only the oldest completed child tree"))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
-
 
 (-> test-task-nested-parent-cancellation () null)
 (defun test-task-nested-parent-cancellation ()
@@ -426,10 +425,10 @@
          (blocking-tool
            (make-instance
             'task-test-blocking-tool
-            :namespace "test"
-            :name "block"
+            :namespace   "test"
+            :name        "block"
             :description "Wait inside a nested synchronous child."
-            :parameters (tool-object-schema (json-object) nil))))
+            :parameters  (tool-object-schema (json-object) nil))))
     (tool-registry-register registry blocking-tool)
     (task-augment-tool-registry registry)
     (let* ((provider
@@ -437,20 +436,20 @@
            (conversation (conversation-create configuration))
            (primary
              (agent-create :configuration configuration
-                           :provider provider
-                           :conversation conversation
+                           :provider      provider
+                           :conversation  conversation
                            :tool-registry registry
-                           :worker nil))
-           (run-tool (tool-registry-find registry "task" "run"))
+                           :worker        nil))
+           (run-tool     (tool-registry-find registry "task" "run"))
            (orchestrator (task-run-tool-orchestrator run-tool))
            (context
              (make-instance 'tool-context
                             :configuration configuration
-                            :worker nil
-                            :conversation conversation
-                            :registry registry
-                            :agent primary
-                            :call-id "nested-parent-cancellation")))
+                            :worker        nil
+                            :conversation  conversation
+                            :registry      registry
+                            :agent         primary
+                            :call-id       "nested-parent-cancellation")))
       (unwind-protect
            (progn
              (tool-execute
@@ -467,8 +466,8 @@
                    (task-test-blocking-tool-started-p blocking-tool)))
                2)
               "the synchronous descendant reaches its blocking tool")
-             (let* ((jobs (task-orchestrator-list-jobs orchestrator))
-                    (parent (first jobs))
+             (let* ((jobs       (task-orchestrator-list-jobs orchestrator))
+                    (parent     (first jobs))
                     (descendant (second jobs))
                     (descendant-id
                       (job-identifier descendant)))
@@ -494,15 +493,15 @@
                  (lambda ()
                    (and (zerop
                            (task-orchestrator-active-count orchestrator))
-                          (zerop
-                           (task-orchestrator-live-count orchestrator))
-                          (null (task-tests--queued-jobs orchestrator))))
+                        (zerop
+                         (task-orchestrator-live-count orchestrator))
+                        (null (task-tests--queued-jobs orchestrator))))
                  2)
                 "nested parent cancellation leaves no orphan or live-count leak")))
         (task-tests--release-blocking-tool blocking-tool)
         (ignore-errors (tool-registry-close-runtime-state registry))
         (platform-delete-directory-tree *platform* root :validate t
-                                             :if-does-not-exist ':ignore))))
+                                             :if-does-not-exist   ':ignore))))
   nil)
 
 (-> test-task-admission-cancellation-barrier () null)
@@ -517,40 +516,40 @@ exactly that race."
          (root          (test-configuration-root configuration))
          (definition
            (task-agent-definition-create
-            :name "admission-race"
-            :description "Exercise admission and cancellation ordering."
+            :name         "admission-race"
+            :description  "Exercise admission and cancellation ordering."
             :instructions "Remain queued for the scheduler race."
-            :spawns ':all
-            :source ':test))
+            :spawns       ':all
+            :source       ':test))
          (primary
            (task-tests--primary-agent configuration "admission-primary")))
     (unwind-protect
          (progn
-           (let* ((orchestrator (task-tests--orchestrator))
+           (let* ((orchestrator          (task-tests--orchestrator))
                   (parent
                     (task-tests--register-job
                      orchestrator primary definition :name "race-parent"))
-                  (viewer (task-tests--child-viewer configuration parent))
+                  (viewer                (task-tests--child-viewer configuration parent))
                   (entries
                     (list
                      (list
                       :definition definition
                       :item
-                      (list :name "racing-descendant"
-                            :agent "admission-race"
-                            :task "Be admitted before cancellation scans."
+                      (list :name    "racing-descendant"
+                            :agent   "admission-race"
+                            :task    "Be admitted before cancellation scans."
                             :context nil
-                            :async t)
-                      :detached t)))
-                  (pause-lock (make-lock "Autolith admission race pause"))
-                  (pause-condition (make-condition-variable))
-                  (admission-paused-p nil)
-                  (release-admission-p nil)
-                  (admitted nil)
-                  (admission-failure nil)
-                  (cancel-accepted-p nil)
+                            :async   t)
+                      :detached   t)))
+                  (pause-lock            (make-lock "Autolith admission race pause"))
+                  (pause-condition       (make-condition-variable))
+                  (admission-paused-p    nil)
+                  (release-admission-p   nil)
+                  (admitted              nil)
+                  (admission-failure     nil)
+                  (cancel-accepted-p     nil)
                   (cancelled-descendants nil)
-                  (admission-thread nil)
+                  (admission-thread      nil)
                   (original-owner-identifiers
                     (symbol-function 'task-parent-owner-identifiers)))
              (unwind-protect
@@ -587,8 +586,8 @@ exactly that race."
                              unless
                              (condition-wait
                               pause-condition pause-lock :timeout 2)
-                               do (error
-                                   "Timed out waiting for admission pause.")))
+                             do (error
+                                 "Timed out waiting for admission pause.")))
                      (test-assert
                       (null admitted)
                       "nested admission pauses after its parent check")
@@ -640,17 +639,17 @@ exactly that race."
                     (task-tests--register-job
                      orchestrator primary definition
                      :name "cancel-first-parent"))
-                  (viewer (task-tests--child-viewer configuration parent))
+                  (viewer       (task-tests--child-viewer configuration parent))
                   (entry
                     (list
                      :definition definition
                      :item
-                     (list :name "too-late"
-                           :agent "admission-race"
-                           :task "This child must not be admitted."
+                     (list :name    "too-late"
+                           :agent   "admission-race"
+                           :task    "This child must not be admitted."
                            :context nil
-                           :async t)
-                     :detached t)))
+                           :async   t)
+                     :detached   t)))
              (task-job-cancel parent :user)
              (test-assert
               (handler-case
@@ -669,7 +668,7 @@ exactly that race."
                    (= (cl-jobpond::job-pool--next-index (task-orchestrator-pool orchestrator)) 1))
               "cancel-first admission consumes no identity or live capacity")))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
 
 (-> test-task-hurry-up-admission-races () null)
@@ -679,11 +678,11 @@ exactly that race."
          (root          (test-configuration-root configuration))
          (definition
            (task-agent-definition-create
-            :name "hurry-race"
-            :description "Exercise hurry-up admission serialization."
+            :name         "hurry-race"
+            :description  "Exercise hurry-up admission serialization."
             :instructions "Remain inline for the admission test."
-            :spawns ':all
-            :source ':test))
+            :spawns       ':all
+            :source       ':test))
          (primary
            (task-tests--primary-agent configuration "hurry-race-primary")))
     (labels ((make-viewer (orchestrator identifier)
@@ -691,15 +690,15 @@ exactly that race."
                 configuration
                 (task-tests--make-job
                  orchestrator
-                 :definition definition
+                 :definition   definition
                  :item
-                 (list :name identifier
-                       :agent "hurry-race"
-                       :task "Own inline admission test children."
+                 (list :name    identifier
+                       :agent   "hurry-race"
+                       :task    "Own inline admission test children."
                        :context nil
-                       :async nil)
+                       :async   nil)
                  :parent-agent primary
-                 :identifier identifier)))
+                 :identifier   identifier)))
 
              (make-entries (count prefix)
                (loop for index from 1 to count
@@ -707,25 +706,25 @@ exactly that race."
                      (list
                       :definition definition
                       :item
-                      (list :name (format nil "~A-~D" prefix index)
-                            :agent "hurry-race"
-                            :task "Remain inline for admission accounting."
+                      (list :name    (format nil "~A-~D" prefix index)
+                            :agent   "hurry-race"
+                            :task    "Remain inline for admission accounting."
                             :context nil
-                            :async nil)
-                      :detached nil))))
+                            :async   nil)
+                      :detached   nil))))
       (unwind-protect
            (progn
              (let* ((orchestrator (task-tests--orchestrator))
-                    (pool (task-orchestrator-pool orchestrator)))
+                    (pool         (task-orchestrator-pool orchestrator)))
                (task-orchestrator-set-hurry-up orchestrator nil)
                (test-assert
                 (and (null (cl-jobpond::job-pool--worker-threads pool))
                      (null (cl-jobpond::job-pool--monitor-thread pool)))
                 "reapplying inactive hurry-up keeps an unused task pool lazy"))
              (let* ((orchestrator (task-tests--orchestrator))
-                    (viewer (make-viewer orchestrator "rollback-parent"))
-                    (pool (task-orchestrator-pool orchestrator))
-                    (refused-p nil))
+                    (viewer       (make-viewer orchestrator "rollback-parent"))
+                    (pool         (task-orchestrator-pool orchestrator))
+                    (refused-p    nil))
                (task-orchestrator-set-hurry-up orchestrator t)
                (with-lock-held ((task-orchestrator-lock orchestrator))
                  (setf (job-pool-maximum-live-jobs pool) 1))
@@ -755,17 +754,17 @@ exactly that race."
                           2)
                        (= (task-orchestrator-live-count orchestrator) 2))
                   "a rolled-back reservation leaves the full allowance usable")))
-             (let* ((orchestrator (task-tests--orchestrator))
-                    (viewer (make-viewer orchestrator "concurrent-parent"))
-                    (pool (task-orchestrator-pool orchestrator))
-                    (gate-lock (make-lock "Autolith hurry race gate"))
+             (let* ((orchestrator   (task-tests--orchestrator))
+                    (viewer         (make-viewer orchestrator "concurrent-parent"))
+                    (pool           (task-orchestrator-pool orchestrator))
+                    (gate-lock      (make-lock "Autolith hurry race gate"))
                     (gate-condition (make-condition-variable))
-                    (gate-count 0)
+                    (gate-count     0)
                     (release-gate-p nil)
-                    (result-lock (make-lock "Autolith hurry race results"))
-                    (success-count 0)
-                    (conditions nil)
-                    (threads nil)
+                    (result-lock    (make-lock "Autolith hurry race results"))
+                    (success-count  0)
+                    (conditions     nil)
+                    (threads        nil)
                     (original-configuration
                       (symbol-function 'task-configuration-for-definition)))
                (task-orchestrator-set-hurry-up orchestrator t)
@@ -787,8 +786,8 @@ exactly that race."
                       (loop until release-gate-p
                             unless
                             (condition-wait gate-condition gate-lock :timeout 2)
-                              do (error
-                                  "Timed out synchronizing hurry-up admissions.")))
+                            do (error
+                                "Timed out synchronizing hurry-up admissions.")))
                     (funcall original-configuration
                              parent-configuration child-definition))))
                 (lambda ()
@@ -820,20 +819,20 @@ exactly that race."
                         2)
                      (= (task-orchestrator-live-count orchestrator) 2))
                 "concurrent task.run calls atomically share the two-child allowance"))
-             (let* ((orchestrator (task-tests--orchestrator))
-                    (viewer (make-viewer orchestrator "limit-parent"))
-                    (submit-lock (make-lock "Autolith limit race submit"))
-                    (submit-condition (make-condition-variable))
-                    (submission-entered-p nil)
-                    (release-submission-p nil)
-                    (state-lock (make-lock "Autolith limit race state"))
-                    (reconfiguration-started-p nil)
+             (let* ((orchestrator               (task-tests--orchestrator))
+                    (viewer                     (make-viewer orchestrator "limit-parent"))
+                    (submit-lock                (make-lock "Autolith limit race submit"))
+                    (submit-condition           (make-condition-variable))
+                    (submission-entered-p       nil)
+                    (release-submission-p       nil)
+                    (state-lock                 (make-lock "Autolith limit race state"))
+                    (reconfiguration-started-p  nil)
                     (reconfiguration-finished-p nil)
-                    (jobs nil)
-                    (submission-condition nil)
-                    (submission-thread nil)
-                    (reconfiguration-thread nil)
-                    (original-submit (symbol-function 'job-pool-submit-batch)))
+                    (jobs                       nil)
+                    (submission-condition       nil)
+                    (submission-thread          nil)
+                    (reconfiguration-thread     nil)
+                    (original-submit            (symbol-function 'job-pool-submit-batch)))
                (unwind-protect
                     (test-call-with-function-replacements
                      (list
@@ -866,8 +865,8 @@ exactly that race."
                                unless
                                (condition-wait
                                 submit-condition submit-lock :timeout 2)
-                                 do (error
-                                     "Timed out waiting for pool submission.")))
+                               do (error
+                                   "Timed out waiting for pool submission.")))
                        (setf reconfiguration-thread
                              (make-thread
                               (lambda ()
@@ -911,7 +910,7 @@ exactly that race."
                         3))
                 "a limit change takes effect after the atomic submission boundary")))
         (platform-delete-directory-tree *platform* root :validate t
-                                             :if-does-not-exist ':ignore))))
+                                             :if-does-not-exist   ':ignore))))
   nil)
 
 (-> task-tests--release-publication-barrier
@@ -935,14 +934,14 @@ exactly that race."
            "AUTOLITH-TERMINAL-ROLE-INSTRUCTION-SENTINEL-71D21A")
          (definition
            (task-agent-definition-create
-            :name "publication"
-            :description "Exercise terminal publication."
-            :instructions secret
-            :tools ':all
-            :spawns ':all
-            :models '("@task")
+            :name             "publication"
+            :description      "Exercise terminal publication."
+            :instructions     secret
+            :tools            ':all
+            :spawns           ':all
+            :models           '("@task")
             :reasoning-effort ':high
-            :source ':test))
+            :source           ':test))
          (primary
            (task-tests--primary-agent configuration "publication-primary")))
     (unwind-protect
@@ -951,20 +950,20 @@ exactly that race."
                     (task-tests--register-job
                      orchestrator primary definition
                      :name "coherent-publication"))
-                  (barrier (make-instance 'task-test-publication-barrier))
+                  (barrier               (make-instance 'task-test-publication-barrier))
                   (result
                     (task-tests--terminal-result
                      job :status ':success :output "published"))
-                  (publication-result nil)
+                  (publication-result    nil)
                   (publication-condition nil))
              (setf (getf result :publication-barrier) barrier
                    (getf result :portable-integer) 42)
              (let ((thread
                      (make-thread
                       (lambda ()
-                        (let ((*print-base* 2)
+                        (let ((*print-base*  2)
                               (*print-radix* nil)
-                              (*print-case* :downcase))
+                              (*print-case*  :downcase))
                           (handler-case
                               (setf publication-result
                                     (task-tests--publish-terminal
@@ -997,7 +996,7 @@ exactly that race."
                  (task-tests--release-publication-barrier barrier))
                (join-thread thread))
              (let* ((snapshot (task-job-snapshot job))
-                    (summary (task-job-definition-summary job))
+                    (summary  (task-job-definition-summary job))
                     (result-summary
                       (getf (getf snapshot :result) :agent-definition))
                     (artifact
@@ -1040,7 +1039,7 @@ exactly that race."
                        job
                        :status ':success
                        :output (make-string 3000 :initial-element #\O)))
-                    (publication-result nil)
+                    (publication-result    nil)
                     (publication-condition nil))
                (setf (getf result :publication-barrier) barrier
                      (getf result :structured-output-present-p) t
@@ -1069,9 +1068,9 @@ exactly that race."
                        "failing publication reaches the post-claim barrier")
                    (task-tests--release-publication-barrier barrier))
                  (join-thread thread))
-               (let* ((snapshot (task-job-snapshot job))
+               (let* ((snapshot        (task-job-snapshot job))
                       (terminal-result (getf snapshot :result))
-                      (output-path (getf terminal-result :output-path)))
+                      (output-path     (getf terminal-result :output-path)))
                  (test-assert
                   (and publication-result
                        (null publication-condition)
@@ -1097,21 +1096,21 @@ exactly that race."
                           "post-claim ~A forces one coherent terminal failure"
                           failure))))))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
 
 (-> test-task-terminal-wakeup-ordering () null)
 (defun test-task-terminal-wakeup-ordering ()
   "Test that terminal waiters wake before arbitrary lifecycle listeners run."
-  (let* ((configuration (test-configuration))
-         (root          (test-configuration-root configuration))
-         (orchestrator  (task-tests--orchestrator))
+  (let* ((configuration       (test-configuration))
+         (root                (test-configuration-root configuration))
+         (orchestrator        (task-tests--orchestrator))
          (definition
            (task-agent-definition-create
-            :name "wakeup-order"
-            :description "Exercise terminal wakeup ordering."
+            :name         "wakeup-order"
+            :description  "Exercise terminal wakeup ordering."
             :instructions "Publish one result."
-            :source ':test))
+            :source       ':test))
          (primary
            (task-tests--primary-agent configuration "wakeup-primary"))
          (job
@@ -1120,16 +1119,16 @@ exactly that race."
          (result
            (task-tests--terminal-result
             job :status ':success :output "wake the waiter"))
-         (ready-lock (make-lock "Autolith waiter readiness"))
-         (ready-condition (make-condition-variable))
-         (waiter-ready-p nil)
-         (waiter-returned-p nil)
-         (listener-lock (make-lock "Autolith blocking lifecycle listener"))
-         (listener-condition (make-condition-variable))
-         (listener-reached-p nil)
+         (ready-lock          (make-lock "Autolith waiter readiness"))
+         (ready-condition     (make-condition-variable))
+         (waiter-ready-p      nil)
+         (waiter-returned-p   nil)
+         (listener-lock       (make-lock "Autolith blocking lifecycle listener"))
+         (listener-condition  (make-condition-variable))
+         (listener-reached-p  nil)
          (listener-released-p nil)
-         (waiter nil)
-         (publisher nil))
+         (waiter              nil)
+         (publisher           nil))
     (task-orchestrator-add-listener
      orchestrator
      (lambda (channel payload)
@@ -1192,22 +1191,22 @@ exactly that race."
           (task--condition-broadcast (cl-jobpond::job--condition-variable job)))
         (join-thread waiter))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
 
 (-> test-task-job-visibility () null)
 (defun test-task-job-visibility ()
   "Test conversation ownership, child ancestry, and opaque job lookup errors."
-  (let* ((configuration (test-configuration))
-         (root          (test-configuration-root configuration))
-         (orchestrator  (task-tests--orchestrator))
+  (let* ((configuration        (test-configuration))
+         (root                 (test-configuration-root configuration))
+         (orchestrator         (task-tests--orchestrator))
          (missing-orchestrator (task-tests--orchestrator))
          (definition
            (task-agent-definition-create
-            :name "visibility"
-            :description "Exercise task-tree visibility."
+            :name         "visibility"
+            :description  "Exercise task-tree visibility."
             :instructions "Inspect only descendant task jobs."
-            :source ':test))
+            :source       ':test))
          (primary-a
            (task-tests--primary-agent configuration "visibility-primary-a"))
          (primary-b
@@ -1233,13 +1232,13 @@ exactly that race."
                 (foreign
                   (task-tests--register-job
                    orchestrator primary-b definition :name "foreign"))
-                (root-a-id (job-identifier root-a))
+                (root-a-id    (job-identifier root-a))
                 (descendant-a-id
                   (job-identifier descendant-a))
                 (sibling-a-id (job-identifier sibling-a))
                 (sibling-descendant-id
                   (job-identifier sibling-descendant))
-                (foreign-id (job-identifier foreign)))
+                (foreign-id   (job-identifier foreign)))
            (test-assert
             (equal
              (mapcar
@@ -1266,12 +1265,12 @@ exactly that race."
              (let ((invisible-report
                      (task-tests--job-tool-error-report
                       orchestrator primary-a
-                      :operation operation
+                      :operation  operation
                       :identifier foreign-id))
                    (missing-report
                      (task-tests--job-tool-error-report
                       missing-orchestrator primary-a
-                      :operation operation
+                      :operation  operation
                       :identifier foreign-id)))
                (test-assert
                 (and (string= invisible-report missing-report)
@@ -1284,26 +1283,25 @@ exactly that race."
                  (null (job-cancellation-reason foreign)))
             "invisible wait and cancel attempts cannot mutate the job"))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
-
 
 (-> test-task-durable-job-lookup () null)
 (defun test-task-durable-job-lookup ()
   "Test live inspection and conversation-scoped durable result lookup."
-  (let* ((configuration (test-configuration))
-         (root          (test-configuration-root configuration))
-         (registry      (task-augment-tool-registry
-                         (make-default-tool-registry)))
-         (run-tool      (tool-registry-find registry "task" "run"))
-         (get-tool      (tool-registry-find registry "job" "get"))
-         (orchestrator  (task-run-tool-orchestrator run-tool))
+  (let* ((configuration        (test-configuration))
+         (root                 (test-configuration-root configuration))
+         (registry             (task-augment-tool-registry
+                                (make-default-tool-registry)))
+         (run-tool             (tool-registry-find registry "task" "run"))
+         (get-tool             (tool-registry-find registry "job" "get"))
+         (orchestrator         (task-run-tool-orchestrator run-tool))
          (definition
            (task-agent-definition-create
-            :name "durable-lookup"
-            :description "Exercise durable result lookup."
+            :name         "durable-lookup"
+            :description  "Exercise durable result lookup."
             :instructions "Remain queued for live inspection."
-            :source ':test))
+            :source       ':test))
          (primary-a
            (task-tests--primary-agent
             configuration "durable-lookup-primary-a" registry))
@@ -1324,28 +1322,28 @@ exactly that race."
              configuration
              (conversation-identifier (agent-conversation primary-a)))))
          (durable-result
-           (list :id "resumed-child-1"
-                 :name "resumed-child"
-                 :agent "task"
-                 :status ':success
-                 :output "Recovered durable child output."
-                 :error nil
-                 :yielded-p t
+           (list :id                          "resumed-child-1"
+                 :name                        "resumed-child"
+                 :agent                       "task"
+                 :status                      ':success
+                 :output                      "Recovered durable child output."
+                 :error                       nil
+                 :yielded-p                   t
                  :structured-output-present-p nil
-                 :duration-ms 17
-                 :model "test-model"
-                 :detached t)))
+                 :duration-ms                 17
+                 :model                       "test-model"
+                 :detached                    t)))
     (labels ((execute-get (viewer identifier)
                (tool-execute
                 get-tool
                 (make-instance
                  'tool-context
                  :configuration configuration
-                 :worker nil
-                 :conversation (agent-conversation viewer)
-                 :registry registry
-                 :agent viewer
-                 :call-id "durable-job-lookup")
+                 :worker        nil
+                 :conversation  (agent-conversation viewer)
+                 :registry      registry
+                 :agent         viewer
+                 :call-id       "durable-job-lookup")
                 (json-object "id" identifier))))
       (unwind-protect
            (progn
@@ -1353,7 +1351,7 @@ exactly that race."
              (let* ((result
                       (execute-get primary-a (session-job-identifier live-job)))
                     (details (rest (tool-result-details result)))
-                    (record (getf details :job)))
+                    (record  (getf details :job)))
                (test-assert
                 (and (tool-result-success-p result)
                      (null (getf details :durable-p))
@@ -1361,11 +1359,11 @@ exactly that race."
                               (session-job-identifier live-job))
                      (eq (getf record :state) :queued))
                 "job.get inspects a retained live session job"))
-             (let* ((result (execute-get primary-a execution-identifier))
-                    (details (rest (tool-result-details result)))
-                    (record (getf details :job))
+             (let* ((result        (execute-get primary-a execution-identifier))
+                    (details       (rest (tool-result-details result)))
+                    (record        (getf details :job))
                     (result-record (getf record :result))
-                    (artifact (getf result-record :artifact)))
+                    (artifact      (getf result-record :artifact)))
                (test-assert
                 (and (tool-result-success-p result)
                      (getf details :durable-p)
@@ -1398,32 +1396,31 @@ exactly that race."
                (let ((report
                        (task-tests--job-tool-error-report
                         orchestrator viewer
-                        :operation "get"
+                        :operation  "get"
                         :identifier execution-identifier)))
                  (test-assert
                   (search "No visible job" report)
                   "durable lookup does not expose another conversation or task branch"))))
         (ignore-errors (tool-registry-close-runtime-state registry))
         (platform-delete-directory-tree *platform* root :validate t
-                                             :if-does-not-exist ':ignore))))
+                                             :if-does-not-exist   ':ignore))))
   nil)
-
 
 (-> test-session-tool-execution-jobs () null)
 (defun test-session-tool-execution-jobs ()
   "Test shared ordering, visibility, inspection, waiting, and cancellation."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration   (test-configuration))
+         (root            (test-configuration-root configuration))
          (registry
            (task-augment-tool-registry (make-default-tool-registry)))
-         (run-tool (tool-registry-find registry "task" "run"))
-         (orchestrator (task-run-tool-orchestrator run-tool))
+         (run-tool        (tool-registry-find registry "task" "run"))
+         (orchestrator    (task-run-tool-orchestrator run-tool))
          (definition
            (task-agent-definition-create
-            :name "execution-owner"
-            :description "Own one asynchronous tool execution."
+            :name         "execution-owner"
+            :description  "Own one asynchronous tool execution."
             :instructions "Remain available while the tool is inspected."
-            :source ':test))
+            :source       ':test))
          (primary-a
            (task-tests--primary-agent
             configuration "execution-primary-a" registry))
@@ -1433,20 +1430,20 @@ exactly that race."
          (context
            (make-instance 'tool-context
                           :configuration configuration
-                          :worker nil
-                          :conversation (agent-conversation primary-a)
-                          :registry registry
-                          :agent primary-a
-                          :call-id "execution-job-test"))
+                          :worker        nil
+                          :conversation  (agent-conversation primary-a)
+                          :registry      registry
+                          :agent         primary-a
+                          :call-id       "execution-job-test"))
          (barrier
            (make-instance
             'task-test-blocking-tool
-            :namespace "test"
-            :name "execution-block"
+            :namespace   "test"
+            :name        "execution-block"
             :description "Hold one execution job for inspection."
-            :parameters (tool-object-schema (json-object) nil)))
-         (root-job nil)
-         (execution-job nil)
+            :parameters  (tool-object-schema (json-object) nil)))
+         (root-job        nil)
+         (execution-job   nil)
          (operation-count 0))
     (labels ((execute-job-tool (name arguments)
                (tool-execute
@@ -1464,13 +1461,13 @@ exactly that race."
                (setf execution-job
                      (task-orchestrator-start-execution-job
                       orchestrator child
-                      :tool-name "lisp.eval"
-                      :summary "Wait inside one inspectable execution job."
+                      :tool-name      "lisp.eval"
+                      :summary        "Wait inside one inspectable execution job."
                       :operation-function
                       (lambda ()
                         (incf operation-count)
                         (tool-execute barrier context (json-object)))
-                      :detached-p t
+                      :detached-p     t
                       :parent-call-id "execution-job-test"))
                (test-assert
                 (task-tests--wait-until
@@ -1479,7 +1476,7 @@ exactly that race."
                      (task-test-blocking-tool-started-p barrier)))
                  2)
                 "the asynchronous operation starts on the execution pool")
-               (let ((root-id (session-job-identifier root-job))
+               (let ((root-id      (session-job-identifier root-job))
                      (execution-id (session-job-identifier execution-job)))
                  (test-assert
                   (and (string= execution-id
@@ -1525,19 +1522,19 @@ exactly that race."
                                 '(:task :tool))
                          (string= (getf (second records) :tool) "lisp.eval"))
                     "job.list presents child and tool execution jobs"))
-                  (let* ((inspect-result
-                           (execute-job-tool
-                            "wait"
-                            (json-object "id" execution-id
-                                         "timeout-seconds" 0)))
-                         (record (getf (rest (tool-result-details inspect-result))
-                                       :job)))
-                    (test-assert
-                     (and (tool-result-success-p inspect-result)
-                          (eq (getf record :type) :tool)
-                          (eq (getf record :state) :running)
-                          (string= (getf record :tool) "lisp.eval"))
-                     "job.wait with zero timeout renders a live execution job"))
+                 (let* ((inspect-result
+                          (execute-job-tool
+                           "wait"
+                           (json-object "id" execution-id
+                                        "timeout-seconds" 0)))
+                        (record (getf (rest (tool-result-details inspect-result))
+                                      :job)))
+                   (test-assert
+                    (and (tool-result-success-p inspect-result)
+                         (eq (getf record :type) :tool)
+                         (eq (getf record :state) :running)
+                         (string= (getf record :tool) "lisp.eval"))
+                    "job.wait with zero timeout renders a live execution job"))
                  (let* ((wait-result
                           (execute-job-tool
                            "wait"
@@ -1579,20 +1576,19 @@ exactly that race."
           (task-job-await root-job 2))
         (ignore-errors (tool-registry-close-runtime-state registry))
         (platform-delete-directory-tree *platform* root :validate t
-                                             :if-does-not-exist ':ignore))))
+                                             :if-does-not-exist   ':ignore))))
   nil)
-
 
 (-> test-shell-execution-jobs () null)
 (defun test-shell-execution-jobs ()
   "Test authorized shell jobs, automatic handoff, inspection, and cancellation."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration       (test-configuration))
+         (root                (test-configuration-root configuration))
          (registry
            (task-augment-tool-registry (make-default-tool-registry)))
-         (shell-tool (tool-registry-find registry "shell" "run"))
-         (run-tool (tool-registry-find registry "task" "run"))
-         (orchestrator (task-run-tool-orchestrator run-tool))
+         (shell-tool          (tool-registry-find registry "shell" "run"))
+         (run-tool            (tool-registry-find registry "task" "run"))
+         (orchestrator        (task-run-tool-orchestrator run-tool))
          (primary
            (task-tests--primary-agent
             configuration "shell-execution-primary" registry))
@@ -1601,11 +1597,11 @@ exactly that race."
            (make-instance
             'tool-context
             :configuration configuration
-            :worker nil
-            :conversation (agent-conversation primary)
-            :registry registry
-            :agent primary
-            :call-id "shell-execution-test"
+            :worker        nil
+            :conversation  (agent-conversation primary)
+            :registry      registry
+            :agent         primary
+            :call-id       "shell-execution-test"
             :command-authorization-function
             (lambda (command directory)
               (declare (ignore command directory))
@@ -1615,46 +1611,46 @@ exactly that race."
            (make-instance
             'tool-context
             :configuration configuration
-            :worker nil
-            :conversation (agent-conversation primary)
-            :registry registry
-            :agent primary
-            :call-id "shell-execution-denied-test"
+            :worker        nil
+            :conversation  (agent-conversation primary)
+            :registry      registry
+            :agent         primary
+            :call-id       "shell-execution-denied-test"
             :command-authorization-function
             (lambda (command directory)
               (declare (ignore command directory))
               ':deny)))
-           (sandboxed-context
-             (make-instance
-              'tool-context
-              :configuration configuration
-              :worker nil
-              :conversation (agent-conversation primary)
-              :registry registry
-              :agent primary
-              :call-id "shell-execution-sandboxed-test"
-              :command-authorization-function
-              (lambda (command directory)
-                (declare (ignore command directory))
-                ':sandboxed)))
-          (unavailable-context
-            (make-instance
-             'tool-context
-             :configuration configuration
-             :worker nil
-             :conversation (agent-conversation primary)
-             :registry registry
-             :agent primary
-             :call-id "shell-execution-unavailable-test"
-             :command-authorization-function
-             (lambda (command directory)
-               (error 'command-authorization-unavailable
-                      :message "Command approval requires an interactive terminal."
-                      :command command
-                      :directory directory))))
-         (slow-path (merge-pathnames "shell-execution-once.txt" root))
-         (started-path (merge-pathnames "shell-execution-started.txt" root))
-         (finished-path (merge-pathnames "shell-execution-finished.txt" root)))
+         (sandboxed-context
+           (make-instance
+            'tool-context
+            :configuration configuration
+            :worker        nil
+            :conversation  (agent-conversation primary)
+            :registry      registry
+            :agent         primary
+            :call-id       "shell-execution-sandboxed-test"
+            :command-authorization-function
+            (lambda (command directory)
+              (declare (ignore command directory))
+              ':sandboxed)))
+         (unavailable-context
+           (make-instance
+            'tool-context
+            :configuration configuration
+            :worker        nil
+            :conversation  (agent-conversation primary)
+            :registry      registry
+            :agent         primary
+            :call-id       "shell-execution-unavailable-test"
+            :command-authorization-function
+            (lambda (command directory)
+              (error 'command-authorization-unavailable
+                     :message   "Command approval requires an interactive terminal."
+                     :command   command
+                     :directory directory))))
+         (slow-path           (merge-pathnames "shell-execution-once.txt" root))
+         (started-path        (merge-pathnames "shell-execution-started.txt" root))
+         (finished-path       (merge-pathnames "shell-execution-finished.txt" root)))
     (labels ((run-shell (execution-context &rest arguments)
                "Execute shell.run with decoded test ARGUMENTS."
                (tool-execute
@@ -1669,18 +1665,18 @@ exactly that race."
 
              (handoff-job (result)
                "Return RESULT's visible handed-off execution job."
-               (let* ((details (tool-result-details result))
-                      (record (and (listp details)
-                                   (getf (rest details) :job)))
+               (let* ((details    (tool-result-details result))
+                      (record     (and (listp details)
+                                       (getf (rest details) :job)))
                       (identifier (and record (getf record :id))))
                  (and identifier
                       (task-orchestrator-find-visible-job
                        orchestrator identifier primary "shell.run")))))
       (unwind-protect
            (progn
-             (let* ((parameters (tool-parameters shell-tool))
-                    (properties (json-get parameters "properties"))
-                    (required (json-get parameters "required"))
+             (let* ((parameters   (tool-parameters shell-tool))
+                    (properties   (json-get parameters "properties"))
+                    (required     (json-get parameters "required"))
                     (async-schema (and properties
                                        (gethash "async" properties)))
                     (description-schema
@@ -1706,44 +1702,44 @@ exactly that race."
                      (= (execution-count) before)
                      (not (probe-file slow-path)))
                 "shell authorization denial occurs before execution-job admission"))
-              (let ((before (execution-count))
-                    (result
-                      (run-shell unavailable-context
-                                 "command"
-                                 (format nil "printf unavailable > ~A"
-                                         (uiop:escape-shell-token
-                                          (namestring slow-path))))))
-                (test-assert
-                 (and (not (tool-result-success-p result))
-                      (search "interactive terminal"
-                              (tool-result-content result))
-                      (= (execution-count) before)
-                      (not (probe-file slow-path)))
-                 "unavailable interactive authorization becomes a failed tool result before subprocess admission"))
-              (with-test-fixture (':posix-shell "shell execution below the POSIX root")
-                (let ((result
-                        (run-shell context
-                                   "command" "pwd -P"
-                                   "directory" "/")))
-                  (test-assert
-                   (and (tool-result-success-p result)
-                        (search (format nil "~%/~%")
-                                (tool-result-content result)))
-                   "full-access shell execution accepts a directory outside workspace roots")))
-              (test-assert
-               (handler-case
-                   (progn
-                     (run-shell sandboxed-context
-                                "command" "pwd -P"
-                                "directory" "/")
-                     nil)
-                 (tool-error (condition)
-                   (search "outside the allowed workspace roots"
-                           (princ-to-string condition))))
-               "sandboxed shell execution still rejects a directory outside workspace roots")
+             (let ((before (execution-count))
+                   (result
+                     (run-shell unavailable-context
+                                "command"
+                                (format nil "printf unavailable > ~A"
+                                        (uiop:escape-shell-token
+                                         (namestring slow-path))))))
+               (test-assert
+                (and (not (tool-result-success-p result))
+                     (search "interactive terminal"
+                             (tool-result-content result))
+                     (= (execution-count) before)
+                     (not (probe-file slow-path)))
+                "unavailable interactive authorization becomes a failed tool result before subprocess admission"))
+             (with-test-fixture (':posix-shell "shell execution below the POSIX root")
+               (let ((result
+                       (run-shell context
+                                  "command" "pwd -P"
+                                  "directory" "/")))
+                 (test-assert
+                  (and (tool-result-success-p result)
+                       (search (format nil "~%/~%")
+                               (tool-result-content result)))
+                  "full-access shell execution accepts a directory outside workspace roots")))
+             (test-assert
+              (handler-case
+                  (progn
+                    (run-shell sandboxed-context
+                               "command" "pwd -P"
+                               "directory" "/")
+                    nil)
+                (tool-error (condition)
+                  (search "outside the allowed workspace roots"
+                          (princ-to-string condition))))
+              "sandboxed shell execution still rejects a directory outside workspace roots")
              (let* ((*tool-execution-blocking-grace-seconds* 2)
-                    (before (execution-count))
-                    (authorizations-before authorization-count)
+                    (before                                  (execution-count))
+                    (authorizations-before                   authorization-count)
                     (result
                       (run-shell context
                                  "command" (test-fixture-shell-command
@@ -1759,7 +1755,7 @@ exactly that race."
                      (= authorization-count (1+ authorizations-before)))
                 "a fast default shell job returns its ordinary result"))
              (let* ((*tool-execution-blocking-grace-seconds* 0.01)
-                    (before (execution-count))
+                    (before                                  (execution-count))
                     (result
                       (run-shell
                        context
@@ -1769,9 +1765,9 @@ exactly that race."
                                 *platform* "sleep 1; printf once >> ~A"
                                 "Start-Sleep 1; [IO.File]::AppendAllText(~A,'once')")
                                (test-fixture-shell-quote *platform* (namestring slow-path)))))
-                    (details (tool-result-details result))
-                    (job (handoff-job result))
-                    (identifier (and job (session-job-identifier job))))
+                    (details                                 (tool-result-details result))
+                    (job                                     (handoff-job result))
+                    (identifier                              (and job (session-job-identifier job))))
                (test-assert
                 (and (typep result 'task-tool-result)
                      (tool-result-success-p result)
@@ -1782,7 +1778,7 @@ exactly that race."
                      (= (execution-count) (1+ before)))
                 "a slow default shell call hands off its existing execution job")
                (let* ((activity (session-job-live-activity job))
-                      (summary (tool-execution-job-summary job)))
+                      (summary  (tool-execution-job-summary job)))
                  (test-assert
                   (and (null (tool-execution-job-description job))
                        (string= (getf activity :description) summary)
@@ -1796,7 +1792,7 @@ exactly that race."
                          (json-object "id" identifier
                                       "timeout-seconds" 2)))
                       (wait-details (rest (tool-result-details wait-result)))
-                      (record (getf wait-details :job)))
+                      (record       (getf wait-details :job)))
                  (test-assert
                   (and (tool-result-success-p wait-result)
                        (getf wait-details :terminal-p)
@@ -1817,8 +1813,8 @@ exactly that race."
                                (test-fixture-shell-quote *platform* (namestring started-path))
                                (test-fixture-shell-quote *platform* (namestring finished-path)))
                        "async" t))
-                    (details (tool-result-details result))
-                    (job (handoff-job result))
+                    (details    (tool-result-details result))
+                    (job        (handoff-job result))
                     (identifier (and job (session-job-identifier job))))
                (test-assert
                 (and (typep result 'task-tool-result)
@@ -1827,19 +1823,19 @@ exactly that race."
                      (task-tests--wait-until
                       (lambda () (probe-file started-path)) 2))
                 "explicit async returns an inspectable shell job while it runs")
-                (let* ((wait-result
-                         (tool-execute
-                          (tool-registry-find registry "job" "wait")
-                          context
-                          (json-object "id" identifier
-                                       "timeout-seconds" 0)))
-                       (record (getf (rest (tool-result-details wait-result))
-                                     :job)))
-                  (test-assert
-                   (and (tool-result-success-p wait-result)
-                        (string= (getf record :id) identifier)
-                        (eq (getf record :state) :running))
-                   "job.wait with zero timeout inspects the running shell execution"))
+               (let* ((wait-result
+                        (tool-execute
+                         (tool-registry-find registry "job" "wait")
+                         context
+                         (json-object "id" identifier
+                                      "timeout-seconds" 0)))
+                      (record (getf (rest (tool-result-details wait-result))
+                                    :job)))
+                 (test-assert
+                  (and (tool-result-success-p wait-result)
+                       (string= (getf record :id) identifier)
+                       (eq (getf record :state) :running))
+                  "job.wait with zero timeout inspects the running shell execution"))
                (let* ((cancel-result
                         (tool-execute
                          (tool-registry-find registry "job" "cancel")
@@ -1872,7 +1868,7 @@ exactly that race."
                     (job (handoff-job result)))
                (multiple-value-bind (snapshot terminal-p)
                    (session-job-await job 2)
-                 (let* ((record (getf snapshot :result))
+                 (let* ((record  (getf snapshot :result))
                         (content (getf record :content))
                         (capture (first (getf (first (getf record :shell-logs)) :captures))))
                    (test-assert
@@ -1884,9 +1880,8 @@ exactly that race."
                     "An asynchronous shell job bounds its preview and retains complete raw output")))))
         (ignore-errors (tool-registry-close-runtime-state registry))
         (platform-delete-directory-tree *platform* root :validate t
-                                             :if-does-not-exist ':ignore))))
+                                             :if-does-not-exist   ':ignore))))
   nil)
-
 
 (-> test-tool-execution-overflow-binding () null)
 (defun test-tool-execution-overflow-binding ()
@@ -1895,8 +1890,8 @@ exactly that race."
          (root          (test-configuration-root configuration))
          (registry
            (task-augment-tool-registry (make-default-tool-registry)))
-         (run-tool     (tool-registry-find registry "task" "run"))
-         (orchestrator (task-run-tool-orchestrator run-tool))
+         (run-tool      (tool-registry-find registry "task" "run"))
+         (orchestrator  (task-run-tool-orchestrator run-tool))
          (primary
            (task-tests--primary-agent
             configuration "execution-overflow-primary" registry)))
@@ -1909,11 +1904,11 @@ exactly that race."
                   (tool-execution-invoke
                    orchestrator primary
                    :tool-name "test.overflow"
-                   :summary "Return one oversized worker result."
+                   :summary   "Return one oversized worker result."
                    :operation-function
                    (lambda ()
                      (tool-success (make-string 9000 :initial-element #\x)))
-                   :async-p nil)))
+                   :async-p   nil)))
            (test-assert
             (and (tool-result-success-p result)
                  (search "context:worker-overflow"
@@ -1922,32 +1917,32 @@ exactly that race."
       (ignore-errors (task-orchestrator-close orchestrator))
       (ignore-errors (tool-registry-close-runtime-state registry))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
 
 (-> test-tool-execution-retention () null)
 (defun test-tool-execution-retention ()
   "Test bounded execution retention and complete two-pool detachment."
   (let* ((*tool-execution-terminal-retention-limit* 2)
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (configuration                             (test-configuration))
+         (root                                      (test-configuration-root configuration))
          (registry
            (task-augment-tool-registry (make-default-tool-registry)))
-         (run-tool (tool-registry-find registry "task" "run"))
-         (orchestrator (task-run-tool-orchestrator run-tool))
+         (run-tool                                  (tool-registry-find registry "task" "run"))
+         (orchestrator                              (task-run-tool-orchestrator run-tool))
          (primary
            (task-tests--primary-agent
             configuration "execution-retention-primary" registry))
-         (identifiers nil)
-         (closed-p nil))
+         (identifiers                               nil)
+         (closed-p                                  nil))
     (unwind-protect
          (progn
            (dotimes (index 3)
              (let ((job
                      (task-orchestrator-start-execution-job
                       orchestrator primary
-                      :tool-name "lisp.eval"
-                      :summary (format nil "retained execution ~D" index)
+                      :tool-name  "lisp.eval"
+                      :summary    (format nil "retained execution ~D" index)
                       :operation-function
                       (lambda ()
                         (tool-success (format nil "result ~D" index)))
@@ -1988,41 +1983,41 @@ exactly that race."
         (ignore-errors (task-orchestrator-close orchestrator)))
       (ignore-errors (tool-registry-close-runtime-state registry))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
 
 (-> test-task-job-list-pagination () null)
 (defun test-task-job-list-pagination ()
   "Test content-aware native pagination at the maximum job.list page size."
-  (let* ((configuration (test-configuration))
-         (root          (test-configuration-root configuration))
-         (orchestrator  (task-tests--orchestrator))
+  (let* ((configuration  (test-configuration))
+         (root           (test-configuration-root configuration))
+         (orchestrator   (task-tests--orchestrator))
          (agent-name
            (concatenate 'string "a" (make-string 63 :initial-element #\z)))
          (requested-name (make-string 64 :initial-element #\n))
          (definition
            (task-agent-definition-create
-            :name agent-name
-            :description "Exercise the largest job listing page."
+            :name         agent-name
+            :description  "Exercise the largest job listing page."
             :instructions "Remain queued for pagination."
-            :source ':test))
+            :source       ':test))
          (primary
            (task-tests--primary-agent configuration "job-list-primary"))
          (tool
            (make-instance
             'task-job-tool
             :orchestrator orchestrator
-            :namespace "job"
-            :name "list"
-            :description "List test jobs."
-            :parameters (tool-object-schema (json-object) nil)))
+            :namespace    "job"
+            :name         "list"
+            :description  "List test jobs."
+            :parameters   (tool-object-schema (json-object) nil)))
          (context
            (make-instance 'tool-context
                           :configuration configuration
-                          :worker nil
-                          :conversation (agent-conversation primary)
-                          :registry (agent-tool-registry primary)
-                          :agent primary)))
+                          :worker        nil
+                          :conversation  (agent-conversation primary)
+                          :registry      (agent-tool-registry primary)
+                          :agent         primary)))
     (unwind-protect
          (progn
            (dotimes (index *task-job-page-maximum*)
@@ -2035,8 +2030,8 @@ exactly that race."
                      (json-object
                       "offset" 0
                       "limit" *task-job-page-maximum*)))
-                  (content (tool-result-content result))
-                  (form (task-tests--read-exact-native-value content))
+                  (content    (tool-result-content result))
+                  (form       (task-tests--read-exact-native-value content))
                   (properties (rest form)))
              (test-assert
               (and (eq (first form) :job-list)
@@ -2047,9 +2042,9 @@ exactly that race."
                    (null (getf properties :next-offset))
                    (<= (length content) *task-tool-content-limit*))
               "a maximum-size job.list request returns a bounded native page"))
-           (let ((offset 0)
+           (let ((offset      0)
                  (identifiers nil)
-                 (page-count 0))
+                 (page-count  0))
              (loop
                (let* ((result
                         (tool-execute
@@ -2057,11 +2052,11 @@ exactly that race."
                          (json-object
                           "offset" offset
                           "limit" 17)))
-                      (content (tool-result-content result))
+                      (content     (tool-result-content result))
                       (form
                         (task-tests--read-exact-native-value content))
-                      (properties (rest form))
-                      (jobs (getf properties :jobs))
+                      (properties  (rest form))
+                      (jobs        (getf properties :jobs))
                       (next-offset (getf properties :next-offset)))
                  (incf page-count)
                  (test-assert
@@ -2087,7 +2082,7 @@ exactly that race."
                       *task-job-page-maximum*))
               "job.list pagination returns every oversized summary exactly once")))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
 
 (-> test-task-refresh-after-delayed-close () null)
@@ -2095,9 +2090,9 @@ exactly that race."
   "Test reopening after a timed-out close's final worker exits later."
   (let* ((orchestrator (task-tests--orchestrator))
          (barrier-lock (make-lock "Autolith delayed close test"))
-         (barrier (make-condition-variable))
-         (started-p nil)
-         (released-p nil)
+         (barrier      (make-condition-variable))
+         (started-p    nil)
+         (released-p   nil)
          (thread
            (make-thread
             (lambda ()
@@ -2140,16 +2135,16 @@ exactly that race."
            (task-orchestrator-refresh orchestrator :reopen-p t)
            (test-assert
             (and (eq (job-pool-lifecycle-state (task-orchestrator-pool orchestrator))
-                       :open)
-                   (null (cl-jobpond::job-pool--close-owner (task-orchestrator-pool orchestrator)))
-                   (not (cl-jobpond::job-pool--shutdown-p (task-orchestrator-pool orchestrator)))
-                   (zerop (task-orchestrator-active-count orchestrator))
-                   (plusp
-                    (length
-                     (cl-jobpond::job-pool--worker-threads (task-orchestrator-pool orchestrator))))
-                   (every
-                    #'thread-alive-p
-                    (cl-jobpond::job-pool--worker-threads (task-orchestrator-pool orchestrator))))
+                     :open)
+                 (null (cl-jobpond::job-pool--close-owner (task-orchestrator-pool orchestrator)))
+                 (not (cl-jobpond::job-pool--shutdown-p (task-orchestrator-pool orchestrator)))
+                 (zerop (task-orchestrator-active-count orchestrator))
+                 (plusp
+                  (length
+                   (cl-jobpond::job-pool--worker-threads (task-orchestrator-pool orchestrator))))
+                 (every
+                  #'thread-alive-p
+                  (cl-jobpond::job-pool--worker-threads (task-orchestrator-pool orchestrator))))
             "refresh reaps the delayed death and reopens a fresh worker pool"))
       (with-lock-held (barrier-lock)
         (setf released-p t)
@@ -2167,14 +2162,14 @@ exactly that race."
          (orchestrator  (task-tests--orchestrator))
          (definition
            (task-agent-definition-create
-            :name "lifecycle"
-            :description "Exercise terminal lifecycle invariants."
+            :name         "lifecycle"
+            :description  "Exercise terminal lifecycle invariants."
             :instructions "Publish one terminal result."
-            :source ':test))
+            :source       ':test))
          (primary
            (task-tests--primary-agent configuration "lifecycle-primary"))
-         (events nil)
-         (event-lock (make-lock "Autolith task lifecycle event test")))
+         (events        nil)
+         (event-lock    (make-lock "Autolith task lifecycle event test")))
     (task-orchestrator-add-listener
      orchestrator
      (lambda (channel payload)
@@ -2229,7 +2224,7 @@ exactly that race."
                         terminal-count))
                 "duplicate cancellation publishes no second result or event")))
            (dolist (job (list parent descendant))
-             (let* ((result (job-result job))
+             (let* ((result   (job-result job))
                     (pathname (getf result :output-path))
                     (artifact
                       (and pathname
@@ -2250,10 +2245,10 @@ exactly that race."
                      race-job :status ':success :output "race winner"))
                   (barrier-lock
                     (make-lock "Autolith terminal publication barrier"))
-                  (barrier (make-condition-variable))
-                  (ready 0)
+                  (barrier    (make-condition-variable))
+                  (ready      0)
                   (released-p nil)
-                  (claims nil)
+                  (claims     nil)
                   (claim-lock
                     (make-lock "Autolith terminal publication claims")))
              (labels ((publish ()
@@ -2289,7 +2284,7 @@ exactly that race."
                     (event-occurrences
                       (count race-id events
                              :test #'string=
-                             :key (lambda (event) (getf event :id)))))
+                             :key  (lambda (event) (getf event :id)))))
                (test-assert
                 (and (= (count t claims) 1)
                      (= (count nil claims) 1)
@@ -2299,7 +2294,7 @@ exactly that race."
                       (getf (job-result race-job) :output-path)))
                 "concurrent duplicate publication claims one artifact and event"))))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
 
 (-> test-task-retention-and-admission () null)
@@ -2309,10 +2304,10 @@ exactly that race."
          (root          (test-configuration-root configuration))
          (definition
            (task-agent-definition-create
-            :name "capacity"
-            :description "Exercise scheduler capacity."
+            :name         "capacity"
+            :description  "Exercise scheduler capacity."
             :instructions "Remain inert until the test changes state."
-            :source ':test))
+            :source       ':test))
          (primary
            (task-tests--primary-agent configuration "capacity-primary")))
     (unwind-protect
@@ -2321,7 +2316,7 @@ exactly that race."
                   (live
                     (task-tests--register-job
                      orchestrator primary definition :name "live-sentinel"))
-                  (identifiers nil))
+                  (identifiers  nil))
              (dotimes (index (1+ *task-terminal-retention-limit*))
                (let* ((job
                         (task-tests--register-job
@@ -2339,8 +2334,8 @@ exactly that race."
                   "each retained job publishes exactly once")))
              (setf identifiers (nreverse identifiers))
              (let ((first-id (first identifiers))
-                   (last-id (car (last identifiers)))
-                   (live-id (job-identifier live)))
+                   (last-id  (car (last identifiers)))
+                   (live-id  (job-identifier live)))
                (test-assert
                 (and (= (length
                          (cl-jobpond::job-pool--terminal-identifiers (task-orchestrator-pool orchestrator)))
@@ -2383,24 +2378,24 @@ exactly that race."
                             (list
                              :definition definition
                              :item
-                             (list :name (format nil "live-~2,'0D" index)
-                                   :agent "capacity"
-                                   :task "Remain queued."
+                             (list :name    (format nil "live-~2,'0D" index)
+                                   :agent   "capacity"
+                                   :task    "Remain queued."
                                    :context nil
-                                   :async t)
-                             :detached t)))))
+                                   :async   t)
+                             :detached   t)))))
              ;; Capacity is filled with children no worker will ever pick up, so
              ;; the bound is measured rather than raced against jobs finishing.
              (dotimes (index *task-maximum-live-jobs*)
                (task-tests--register-job
                 orchestrator primary definition
                 :name (format nil "live-~2,'0D" index)))
-             (let ((next-index (cl-jobpond::job-pool--next-index (task-orchestrator-pool orchestrator)))
+             (let ((next-index  (cl-jobpond::job-pool--next-index (task-orchestrator-pool orchestrator)))
                    (job-count
                      (hash-table-count
                       (cl-jobpond::job-pool--jobs (task-orchestrator-pool orchestrator))))
                    (queue-count (length (cl-jobpond::job-pool--queue (task-orchestrator-pool orchestrator))))
-                   (live-count (task-orchestrator-live-count orchestrator)))
+                   (live-count  (task-orchestrator-live-count orchestrator)))
                (test-assert
                 (= live-count *task-maximum-live-jobs*)
                 "the scheduler admits exactly 64 simultaneous live jobs")
@@ -2426,7 +2421,7 @@ exactly that race."
                         live-count))
                 "failed live admission consumes no identity or scheduler state"))))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
 
 (-> test-task-evicted-identity-retention () null)
@@ -2437,10 +2432,10 @@ exactly that race."
          (orchestrator  (task-tests--orchestrator))
          (definition
            (task-agent-definition-create
-            :name "identity-retention"
-            :description "Exercise retained task ancestry."
+            :name         "identity-retention"
+            :description  "Exercise retained task ancestry."
             :instructions "Keep descendant ownership unambiguous."
-            :source ':test))
+            :source       ':test))
          (primary
            (task-tests--primary-agent configuration "identity-primary")))
     (unwind-protect
@@ -2448,7 +2443,7 @@ exactly that race."
                   (task-tests--register-job
                    orchestrator primary definition :name nil))
                 (parent-id (job-identifier parent))
-                (viewer (task-tests--child-viewer configuration parent))
+                (viewer    (task-tests--child-viewer configuration parent))
                 (descendant
                   (task-tests--register-job
                    orchestrator viewer definition :name "live-descendant"))
@@ -2483,25 +2478,25 @@ exactly that race."
                    (= (task-orchestrator-live-count orchestrator) 2))
               "eviction never permits a generated ancestor identity to be reused")))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
 
 (-> test-task-live-activity-snapshots () null)
 (defun test-task-live-activity-snapshots ()
   "Test stable, bounded progress projection for queued and running tasks."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (orchestrator (task-tests--orchestrator))
+         (root          (test-configuration-root configuration))
+         (orchestrator  (task-tests--orchestrator))
          (definition
            (task-agent-definition-create
-            :name "activity"
-            :description "Exercise live task presentation."
+            :name         "activity"
+            :description  "Exercise live task presentation."
             :instructions "Remain observable while the test inspects you."
-            :source ':test))
+            :source       ':test))
          (primary
            (task-tests--primary-agent configuration "activity-primary"))
-         (queued nil)
-         (running nil))
+         (queued        nil)
+         (running       nil))
     (unwind-protect
          (progn
            (setf queued
@@ -2529,7 +2524,7 @@ exactly that race."
             (list :tool "lisp.eval"))
            (let* ((activities
                     (task-orchestrator-live-activities orchestrator))
-                  (running-activity (second activities))
+                  (running-activity  (second activities))
                   (progress-snapshot (task-progress-snapshot running)))
              (test-assert
               (and (= (length activities) 2)
@@ -2567,7 +2562,7 @@ exactly that race."
             (list :tool "lisp.eval"))
            (let* ((activities
                     (task-orchestrator-live-activities orchestrator))
-                  (running-activity (second activities))
+                  (running-activity  (second activities))
                   (progress-snapshot (task-progress-snapshot running)))
              (test-assert
               (and (null (getf running-activity :current-tool))
@@ -2579,22 +2574,22 @@ exactly that race."
                                  collect (format nil "tool.~D" index))
                            (list "lisp.eval"))))
               "tool completion clears timing and preserves the newest eight tools"))
-             (let ((definition-summary
-                     (task-job-definition-summary running)))
+           (let ((definition-summary
+                   (task-job-definition-summary running)))
+             (with-lock-held ((cl-jobpond::job--lock running))
+               (setf (task-job-definition-summary running)
+                     '(:name "activity" :source :test)
+                     (task-job-definition running) nil))
+             (unwind-protect
+                  (let ((snapshot (task-progress-snapshot running)))
+                    (test-assert
+                     (and (string= (getf snapshot :agent) "activity")
+                          (null (getf snapshot :model)))
+                     "progress snapshots tolerate terminal field compaction"))
                (with-lock-held ((cl-jobpond::job--lock running))
-                 (setf (task-job-definition-summary running)
-                       '(:name "activity" :source :test)
-                       (task-job-definition running) nil))
-               (unwind-protect
-                    (let ((snapshot (task-progress-snapshot running)))
-                      (test-assert
-                       (and (string= (getf snapshot :agent) "activity")
-                            (null (getf snapshot :model)))
-                       "progress snapshots tolerate terminal field compaction"))
-                 (with-lock-held ((cl-jobpond::job--lock running))
-                   (setf (task-job-definition running) definition
-                         (task-job-definition-summary running)
-                         definition-summary))))
+                 (setf (task-job-definition running) definition
+                       (task-job-definition-summary running)
+                       definition-summary))))
            (task-tests--publish-terminal
             queued
             ':completed
@@ -2622,7 +2617,7 @@ exactly that race."
            (task-tests--terminal-result
             job :status ':aborted :output "test cleanup"))))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
 
 (-> test-task-cumulative-child-usage () null)
@@ -2633,13 +2628,13 @@ exactly that race."
          (orchestrator  (task-tests--orchestrator))
          (definition
            (task-agent-definition-create
-            :name "usage-child"
-            :description "Exercise child usage accounting."
+            :name         "usage-child"
+            :description  "Exercise child usage accounting."
             :instructions "Report usage independently."
-            :source ':test))
-         (primary (task-tests--primary-agent configuration "usage-primary"))
-         (direct nil)
-         (nested nil))
+            :source       ':test))
+         (primary       (task-tests--primary-agent configuration "usage-primary"))
+         (direct        nil)
+         (nested        nil))
     (labels ((usage (&key input output cached created)
                (list (list "input_tokens" input)
                      (list "output_tokens" output)
@@ -2682,7 +2677,7 @@ exactly that race."
                          (agent-conversation primary))
                         91))
                 "direct child usage accumulates without changing parent usage")
-               (let* ((viewer (task-tests--child-viewer configuration direct))
+               (let* ((viewer              (task-tests--child-viewer configuration direct))
                       (viewer-conversation (agent-conversation viewer)))
                  (setf (conversation-last-total-tokens viewer-conversation) 37
                        nested
@@ -2704,7 +2699,7 @@ exactly that race."
                           (native
                             (session-job-native-record
                              nested snapshot primary
-                             :preview-limit *task-result-preview-limit*
+                             :preview-limit      *task-result-preview-limit*
                              :include-progress-p t)))
                      (test-assert
                       (and (getf native :detached)
@@ -2715,29 +2710,28 @@ exactly that race."
                            (= (conversation-last-total-tokens viewer-conversation)
                               37))
                       "nested detached results expose cumulative usage beside their parent")))
-               (task-tests--publish-terminal direct ':failed failed)
-               (let* ((snapshot (task-job-snapshot direct))
-                      (native
-                        (session-job-native-record
-                         direct snapshot primary
-                         :preview-limit *task-result-preview-limit*
-                         :include-progress-p t)))
-                 (test-assert
-                  (and (equal (getf (getf native :result) :usage) expected)
-                       (equal (run-job--usage (getf snapshot :result))
-                              '(:input-tokens 10 :output-tokens 6
-                                :provider-requests 2)))
-                  "failed child and durable job projections retain cumulative usage"))))
-        (dolist (job (remove nil (list nested direct)))
-          (unless (job-terminal-p job)
-            (task-tests--publish-terminal
-             job ':aborted
-             (task-tests--terminal-result
-              job :status ':aborted :output "test cleanup"))))
-        (platform-delete-directory-tree *platform* root :validate t
-                                             :if-does-not-exist ':ignore))))
-  nil))
-
+                (task-tests--publish-terminal direct ':failed failed)
+                (let* ((snapshot (task-job-snapshot direct))
+                       (native
+                         (session-job-native-record
+                          direct snapshot primary
+                          :preview-limit      *task-result-preview-limit*
+                          :include-progress-p t)))
+                  (test-assert
+                   (and (equal (getf (getf native :result) :usage) expected)
+                        (equal (run-job--usage (getf snapshot :result))
+                               '(:input-tokens 10 :output-tokens 6
+                                 :provider-requests 2)))
+                   "failed child and durable job projections retain cumulative usage"))))
+            (dolist (job (remove nil (list nested direct)))
+              (unless (job-terminal-p job)
+                (task-tests--publish-terminal
+                 job ':aborted
+                 (task-tests--terminal-result
+                  job :status ':aborted :output "test cleanup"))))
+            (platform-delete-directory-tree *platform* root :validate t
+                                                 :if-does-not-exist   ':ignore))))
+   nil))
 
 (-> task-tests--run-scheduler-case
     (task-test-provider json-object
@@ -2748,27 +2742,27 @@ exactly that race."
     (provider arguments &key parent-reference-p oversized-parent-reference-p)
   "Execute one real task tool case and return observations after clean shutdown."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (registry (task-augment-tool-registry
-                    (make-default-tool-registry)))
-         (conversation (conversation-create configuration))
+         (root          (test-configuration-root configuration))
+         (registry      (task-augment-tool-registry
+                         (make-default-tool-registry)))
+         (conversation  (conversation-create configuration))
          (parent
           (agent-create :configuration configuration
-                        :provider provider
-                        :conversation conversation
+                        :provider      provider
+                        :conversation  conversation
                         :tool-registry registry
-                        :worker nil))
-         (tool (tool-registry-find registry "task" "run"))
-         (orchestrator (task-run-tool-orchestrator tool))
+                        :worker        nil))
+         (tool          (tool-registry-find registry "task" "run"))
+         (orchestrator  (task-run-tool-orchestrator tool))
          (context
           (make-instance 'tool-context
                          :configuration configuration
-                         :worker nil
-                         :conversation conversation
-                         :registry registry
-                         :agent parent
-                         :call-id "task-scheduler-test"))
-         (started-at (get-internal-real-time)))
+                         :worker        nil
+                         :conversation  conversation
+                         :registry      registry
+                         :agent         parent
+                         :call-id       "task-scheduler-test"))
+         (started-at    (get-internal-real-time)))
     (unwind-protect
          (progn
            (when parent-reference-p
@@ -2785,7 +2779,7 @@ exactly that race."
                "content" (json-array
                           (json-object "type" "output_text"
                                        "text" "Parent design is ready.")))))
-           (let* ((result (tool-execute tool context arguments))
+           (let* ((result  (tool-execute tool context arguments))
                   (idle-p
                     (task-tests--wait-until
                      (lambda ()
@@ -2796,7 +2790,7 @@ exactly that race."
                                 (cl-jobpond::job-pool--jobs (task-orchestrator-pool orchestrator))
                                 always (job-terminal-p job))))
                      1))
-                  (jobs (task-orchestrator-list-jobs orchestrator))
+                  (jobs    (task-orchestrator-list-jobs orchestrator))
                   (details (tool-result-details result))
                   (content (tool-result-content result))
                   (native-content
@@ -2811,13 +2805,13 @@ exactly that race."
                   (workers
                     (copy-list
                        (cl-jobpond::job-pool--worker-threads (task-orchestrator-pool orchestrator)))))
-             (list :success-p (tool-result-success-p result)
-                 :content content
-                 :native-content native-content
-                 :details details
-                 :artifact-forms artifact-forms
-                 :job-count (length jobs)
-                 :all-terminal-p (every #'job-terminal-p jobs)
+             (list :success-p      (tool-result-success-p result)
+                 :content          content
+                 :native-content   native-content
+                 :details          details
+                 :artifact-forms   artifact-forms
+                 :job-count        (length jobs)
+                 :all-terminal-p   (every #'job-terminal-p jobs)
                  :heavy-references-cleared-p
                  (every (lambda (job)
                           (and (null (task-job-parent-agent job))
@@ -2829,8 +2823,8 @@ exactly that race."
                                 (task-job-tool-authorization-function job))
                                (null (cl-jobpond::job--thread job))))
                         jobs)
-                 :worker-count (length workers)
-                 :workers-alive-p (every #'thread-alive-p workers)
+                 :worker-count     (length workers)
+                 :workers-alive-p  (every #'thread-alive-p workers)
                  :provider-worker-count
                  (length (task-test-provider-threads provider))
                  :provider-maximum-active
@@ -2871,7 +2865,7 @@ exactly that race."
                                              (get-internal-real-time)))))
       (ignore-errors (tool-registry-close-runtime-state registry))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore))))
+                                           :if-does-not-exist   ':ignore))))
 
 (-> test-task-run-native-manifest () null)
 (defun test-task-run-native-manifest ()
@@ -2904,12 +2898,12 @@ exactly that race."
                       "context" "Exercise fair native aggregation."
                       "blocking" t
                       "tasks" tasks)))
-                  (content (getf observation :content))
-                  (form (getf observation :native-content))
-                  (results (getf (rest form) :results))
-                  (artifacts (getf observation :artifact-forms))
-                  (first-result (first results))
-                  (last-result (car (last results)))
+                  (content           (getf observation :content))
+                  (form              (getf observation :native-content))
+                  (results           (getf (rest form) :results))
+                  (artifacts         (getf observation :artifact-forms))
+                  (first-result      (first results))
+                  (last-result       (car (last results)))
                   (last-result-value (getf last-result :result)))
              (test-assert
               (and (not (getf observation :success-p))
@@ -2996,12 +2990,11 @@ exactly that race."
       (task-orchestrator-close orchestrator)))
   nil)
 
-
 (-> test-task-scheduler () null)
 (defun test-task-scheduler ()
   "Test bounded reusable workers, private artifacts, and nested help-join."
   (let ((previous-concurrency (uiop:getenv "AUTOLITH_TASK_MAX_CONCURRENCY"))
-        (previous-runtime (uiop:getenv "AUTOLITH_TASK_MAX_RUNTIME_MS")))
+        (previous-runtime     (uiop:getenv "AUTOLITH_TASK_MAX_RUNTIME_MS")))
     (unwind-protect
          (progn
            (platform-setenv "AUTOLITH_TASK_MAX_CONCURRENCY" "2")
@@ -3064,7 +3057,7 @@ exactly that race."
                                   "task" "Use the inherited design context."
                                   "blocking" t)
                      :parent-reference-p t))
-                  (inputs (first (getf observation :provider-request-inputs))))
+                  (inputs   (first (getf observation :provider-request-inputs))))
              (test-assert (getf observation :success-p)
                           "a child with inherited reference context succeeds")
              (test-assert
@@ -3086,7 +3079,7 @@ exactly that race."
                      (json-object "agent" "task"
                                   "task" "Use bounded inherited context."
                                   "async" t)
-                     :parent-reference-p t
+                     :parent-reference-p           t
                      :oversized-parent-reference-p t))
                   (inputs (first (getf observation :provider-request-inputs))))
              (test-assert (getf observation :success-p)
@@ -3107,8 +3100,8 @@ exactly that race."
                (let* ((provider
                         (make-instance
                          'task-test-provider
-                         :mode ':concurrent
-                         :reference-history-p parent-reference-p
+                         :mode                      ':concurrent
+                         :reference-history-p       parent-reference-p
                          :child-reference-history-p child-reference-p))
                       (observation
                         (task-tests--run-scheduler-case
@@ -3137,7 +3130,7 @@ exactly that race."
                                   "task" "Use a tiny child context budget."
                                   "blocking" t)
                      :parent-reference-p t))
-                  (inputs (first (getf observation :provider-request-inputs))))
+                  (inputs                                     (first (getf observation :provider-request-inputs))))
              (test-assert (getf observation :success-p)
                           "a child with a tiny reference budget succeeds")
              (test-assert

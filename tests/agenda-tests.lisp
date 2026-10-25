@@ -12,15 +12,15 @@
       (let ((state (agenda-load configuration)))
         (dotimes (index 40)
           (agenda-add :configuration configuration
-                      :state state
-                      :text (format nil "agenda item ~D" index)))
-        (let* ((loaded (agenda-load configuration))
+                      :state         state
+                      :text          (format nil "agenda item ~D" index)))
+        (let* ((loaded  (agenda-load configuration))
                (current (agenda-current configuration loaded)))
           (test-assert (= (length (workspace-agenda-items current)) 40)
                        "agenda reload retains more than 32 items")
           (agenda-transport
-           :configuration configuration
-           :state loaded
+           :configuration    configuration
+           :state            loaded
            :source-directory (workspace-agenda-directory current)
            :target-directory target)
           (test-assert
@@ -38,23 +38,23 @@
 (defun test-agenda-command ()
   "Test /agenda presents current entries, statuses, identifiers, and links."
   (with-test-configuration (configuration)
-    (let* ((state (agenda-load configuration))
+    (let* ((state       (agenda-load configuration))
            (memory
              (memory-remember configuration
-                              :title "Command-linked memory"
+                              :title   "Command-linked memory"
                               :content "Visible through its stable identifier."
-                              :tags '("agenda")))
+                              :tags    '("agenda")))
            (item
-             (agenda-add :configuration configuration
-                         :state state
-                         :text "inspect the current agenda"
-                         :status ':doing
+             (agenda-add :configuration      configuration
+                         :state              state
+                         :text               "inspect the current agenda"
+                         :status             ':doing
                          :memory-identifiers (list (memory-identifier memory))))
-           (terminal (make-instance 'recording-terminal :columns 80))
-           (ui (terminal-ui-create :terminal terminal))
+           (terminal    (make-instance 'recording-terminal :columns 80))
+           (ui          (terminal-ui-create :terminal terminal))
            (application (make-instance 'application
                                        :configuration configuration
-                                       :ui ui)))
+                                       :ui            ui)))
       (unwind-protect
            (progn
              (terminal-ui-start ui)
@@ -78,7 +78,7 @@
 (defun test-agenda-persistence-and-transport ()
   "Test agenda mutation, reload, copy, and moved-repository rekeying."
   (with-test-configuration (configuration root)
-    (let* ((source (merge-pathnames "source/" root))
+    (let* ((source      (merge-pathnames "source/" root))
            (copy-target (merge-pathnames "copy-target/" root))
            (move-target (merge-pathnames "move-target/" root)))
       (ensure-directories-exist (merge-pathnames "marker" source))
@@ -90,28 +90,28 @@
              (memory
                (memory-remember
                 source-configuration
-                :title "Release procedure"
+                :title   "Release procedure"
                 :content "Publish the verified release artifacts."
-                :tags '("release")))
+                :tags    '("release")))
              (item
                (agenda-add :configuration source-configuration
-                           :state state
-                           :text "ship the release"
-                           :status ':todo
+                           :state         state
+                           :text          "ship the release"
+                           :status        ':todo
                            :memory-identifiers
                            (list (memory-identifier memory))
-                           :now 10))
+                           :now           10))
              (note
                (agenda-add :configuration source-configuration
-                           :state state
-                           :text "keep compatibility"
-                           :status ':note
-                           :now 20)))
+                           :state         state
+                           :text          "keep compatibility"
+                           :status        ':note
+                           :now           20)))
         (agenda-update source-configuration
                        state
                        (agenda-item-identifier item)
                        :status ':doing
-                       :now 30)
+                       :now    30)
         (let* ((loaded (agenda-load source-configuration))
                (source-name
                  (workspace-agenda-directory
@@ -133,9 +133,9 @@
             (memory-remember
              source-configuration
              :identifier (memory-identifier memory)
-             :title "Release procedure"
-             :content "Publish only signed verified release artifacts."
-             :tags '("release"))
+             :title      "Release procedure"
+             :content    "Publish only signed verified release artifacts."
+             :tags       '("release"))
             (test-assert
              (string= (memory-content
                        (memory-find
@@ -144,8 +144,8 @@
                          (agenda-item-memory-identifiers loaded-item))))
                       "Publish only signed verified release artifacts.")
              "replacing a memory preserves agenda links through its stable id"))
-          (agenda-transport :configuration source-configuration
-                            :state loaded
+          (agenda-transport :configuration    source-configuration
+                            :state            loaded
                             :source-directory source-name
                             :target-directory copy-target)
           (let ((copied
@@ -162,13 +162,13 @@
                          (list (memory-identifier memory))))
              "copying an agenda preserves its source, items, and memory links"))
           (platform-delete-directory-tree *platform* source
-                                          :validate t
+                                          :validate          t
                                           :if-does-not-exist ':ignore)
-          (agenda-transport :configuration source-configuration
-                            :state loaded
+          (agenda-transport :configuration    source-configuration
+                            :state            loaded
                             :source-directory source-name
                             :target-directory move-target
-                            :move-p t)
+                            :move-p           t)
           (test-assert
            (and (null (agenda-find loaded source-name))
                 (= (length (agenda-state-records loaded)) 2))
@@ -194,7 +194,7 @@
   (with-test-configuration (configuration)
     (let* ((directory
              (namestring (config :working-directory configuration)))
-           (pathname (configuration-agenda-path configuration))
+           (pathname   (configuration-agenda-path configuration))
            (identifier "legacy-agenda-item"))
       (snapshot-write
        pathname
@@ -208,8 +208,8 @@
                     (list
                      (list :item
                            :id identifier
-                           :text "migrate this agenda"
-                           :status ':todo
+                           :text       "migrate this agenda"
+                           :status     ':todo
                            :created-at 10
                            :updated-at 10))))))
       (let* ((state (agenda-load configuration))
@@ -221,7 +221,7 @@
                      "version-one items load with no memory links")
         (agenda-update configuration state identifier
                        :status ':doing
-                       :now 20))
+                       :now    20))
       (multiple-value-bind (form sole-form-p)
           (snapshot-read pathname)
         (test-assert
@@ -237,13 +237,13 @@
 (defun test-agenda-malformed-state ()
   "Test malformed agenda state cannot evaluate reader forms."
   (with-test-configuration (configuration)
-    (let* ((pathname (configuration-agenda-path configuration))
+    (let* ((pathname                    (configuration-agenda-path configuration))
            (*agenda-reader-evaluated-p* nil))
       (declare (special *agenda-reader-evaluated-p*))
       (ensure-directories-exist pathname)
       (with-open-file (stream pathname
-                              :direction ':output
-                              :if-exists ':supersede
+                              :direction         ':output
+                              :if-exists         ':supersede
                               :if-does-not-exist ':create)
         (write-string
          "#.(setf autolith::*agenda-reader-evaluated-p* t)"
@@ -260,13 +260,13 @@
 (defun test-agenda-tools ()
   "Test agenda transport dispatch and inspection."
   (with-test-configuration (configuration root)
-    (let* ((target (merge-pathnames "transport-target/" root))
+    (let* ((target   (merge-pathnames "transport-target/" root))
            (registry (make-default-tool-registry))
            (memory
              (memory-remember configuration
-                              :title "Agenda integration"
+                              :title   "Agenda integration"
                               :content "Keep the agenda integration durable."
-                              :tags '("agenda"))))
+                              :tags    '("agenda"))))
       (ensure-directories-exist (merge-pathnames "marker" target))
       (test-assert
        (and (null (tool-registry-find registry "agenda" "list"))
@@ -279,10 +279,10 @@
       (with-recursive-lock-held (*agenda-lock*)
         (let ((state (agenda-load configuration)))
           (agenda-add
-           :configuration configuration
-           :state state
-           :text "finish agenda integration"
-           :status ':doing
+           :configuration      configuration
+           :state              state
+           :text               "finish agenda integration"
+           :status             ':doing
            :memory-identifiers (list (memory-identifier memory)))))
       (let ((conversation
               (conversation-create configuration :identifier "agenda-tools")))
@@ -297,8 +297,8 @@
                                   (apply #'json-object arguments)))
                     (make-instance 'tool-context
                                    :configuration configuration
-                                   :worker nil
-                                   :conversation conversation))))
+                                   :worker        nil
+                                   :conversation  conversation))))
           (test-assert
            (tool-result-success-p
             (run "operation" "copy"

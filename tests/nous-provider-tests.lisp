@@ -16,11 +16,11 @@
 (defun nous-provider-test--save-credentials (configuration)
   "Save one valid scoped Nous credential record for CONFIGURATION."
   (let* ((manager (nous-credential-manager-create configuration))
-         (source (credential-manager-primary-source manager))
+         (source  (credential-manager-primary-source manager))
          (credentials
            (nous-authentication-test--credentials
             (credential-source-pathname source)
-            :access-token (nous-test--jwt)
+            :access-token  (nous-test--jwt)
             :refresh-token "nous-provider-refresh")))
     (credential-source-save source credentials)))
 
@@ -36,13 +36,13 @@
 (defun nous-provider-test--registration-and-discovery ()
   "Test built-in registration, auth bootstrap, endpoint overrides, and discovery."
   (let* ((registry-snapshot (provider--registry-snapshot))
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (registration (provider-registration-find "nous"))
-         (original-get (symbol-function 'dexador:get))
-         (saved-portal (uiop:getenv "AUTOLITH_NOUS_PORTAL_URL"))
-         (saved-base (uiop:getenv "AUTOLITH_NOUS_INFERENCE_BASE_URL"))
-         (saved-provider (uiop:getenv "AUTOLITH_NOUS_PROVIDER_ENDPOINT"))
+         (configuration     (test-configuration))
+         (root              (test-configuration-root configuration))
+         (registration      (provider-registration-find "nous"))
+         (original-get      (symbol-function 'dexador:get))
+         (saved-portal      (uiop:getenv "AUTOLITH_NOUS_PORTAL_URL"))
+         (saved-base        (uiop:getenv "AUTOLITH_NOUS_INFERENCE_BASE_URL"))
+         (saved-provider    (uiop:getenv "AUTOLITH_NOUS_PROVIDER_ENDPOINT"))
          (captured-requests nil))
     (unwind-protect
          (progn
@@ -84,7 +84,7 @@
            (nous-provider-test--save-credentials configuration)
            (setf (symbol-function 'dexador:get)
                  (lambda (url &rest arguments)
-                   (push (list :url url
+                   (push (list :url     url
                                :headers (getf arguments :headers))
                          captured-requests)
                    (values
@@ -98,13 +98,13 @@
                          (json-object "id" "open-model"
                                       "max_model_len" 8192)
                          (json-object "id" "open-model"))))
-                      200
-                      nil)))
-             (let ((models (nous--fetch-models configuration)))
-               (test-assert
-                (equal models
-                       '((:name "anthropic/claude-test" :context-window 200000)
-                         (:name "open-model" :context-window 8192)))
+                    200
+                    nil)))
+           (let ((models (nous--fetch-models configuration)))
+             (test-assert
+              (equal models
+                     '((:name "anthropic/claude-test" :context-window 200000)
+                       (:name "open-model" :context-window 8192)))
               "Nous discovery filters Hermes identifiers and removes duplicates"))
            (let* ((request (first captured-requests))
                   (authorization
@@ -143,7 +143,7 @@
               (string= (config :provider-endpoint chat-configuration)
                        "https://override.nous.test/chat")
               "AUTOLITH_NOUS_PROVIDER_ENDPOINT overrides the Chat Completions route")
-             (let ((chat (provider-create chat-configuration))
+             (let ((chat     (provider-create chat-configuration))
                    (messages (provider-create messages-configuration)))
                (test-assert
                 (and (typep chat 'nous-chat-completions-provider)
@@ -174,7 +174,7 @@
        "AUTOLITH_NOUS_PROVIDER_ENDPOINT"
        saved-provider)
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -185,14 +185,14 @@
 (defun nous-provider-test--transport ()
   "Test Chat Completions and Messages endpoints and Bearer headers."
   (let* ((registry-snapshot (provider--registry-snapshot))
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (registration (provider-registration-find "nous"))
-         (original-get (symbol-function 'dexador:get))
-         (original-post (symbol-function 'dexador:post))
-         (saved-base (uiop:getenv "AUTOLITH_NOUS_INFERENCE_BASE_URL"))
-         (saved-provider (uiop:getenv "AUTOLITH_NOUS_PROVIDER_ENDPOINT"))
-         (posts nil))
+         (configuration     (test-configuration))
+         (root              (test-configuration-root configuration))
+         (registration      (provider-registration-find "nous"))
+         (original-get      (symbol-function 'dexador:get))
+         (original-post     (symbol-function 'dexador:post))
+         (saved-base        (uiop:getenv "AUTOLITH_NOUS_INFERENCE_BASE_URL"))
+         (saved-provider    (uiop:getenv "AUTOLITH_NOUS_PROVIDER_ENDPOINT"))
+         (posts             nil))
     (unwind-protect
          (progn
            (platform-setenv "AUTOLITH_NOUS_INFERENCE_BASE_URL"
@@ -221,12 +221,12 @@
                     (configuration-copy
                      configuration :model
                      "anthropic/claude-test"))
-                  (chat (provider-create chat-configuration))
+                  (chat     (provider-create chat-configuration))
                   (messages (provider-create messages-configuration))
                   (credentials
                     (nous-authentication-test--credentials
                      (configuration-nous-auth-path configuration)
-                     :access-token "transport-access-secret"
+                     :access-token  "transport-access-secret"
                      :refresh-token "transport-refresh-secret"))
                   (chat-conversation
                     (conversation-create
@@ -238,7 +238,7 @@
                      :identifier "nous-messages-transport")))
              (setf (symbol-function 'dexador:post)
                    (lambda (url &rest arguments)
-                     (push (list :url url
+                     (push (list :url     url
                                  :headers (getf arguments :headers)
                                  :content (getf arguments :content))
                            posts)
@@ -246,17 +246,17 @@
              (provider-open-response-stream
               chat
               (json-object "model" "open-model")
-              :credentials credentials
+              :credentials  credentials
               :conversation chat-conversation)
              (provider-open-response-stream
               messages
               (json-object "model" "anthropic/claude-test")
-              :credentials credentials
+              :credentials  credentials
               :conversation messages-conversation)
-             (let* ((ordered (reverse posts))
-                    (chat-request (first ordered))
+             (let* ((ordered          (reverse posts))
+                    (chat-request     (first ordered))
                     (messages-request (second ordered))
-                    (chat-headers (getf chat-request :headers))
+                    (chat-headers     (getf chat-request :headers))
                     (messages-headers (getf messages-request :headers)))
                (test-assert
                 (and (string= (getf chat-request :url)
@@ -295,6 +295,6 @@
        "AUTOLITH_NOUS_PROVIDER_ENDPOINT"
        saved-provider)
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)

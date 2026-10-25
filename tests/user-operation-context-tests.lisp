@@ -28,7 +28,7 @@
 (defun test-user-operation-persistence-and-context ()
   "Test bounded durable user-operation replay and request-local projection."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration
                                 :identifier "user-operation-context")))
@@ -36,20 +36,20 @@
          (progn
            (conversation-append-user-operation
             conversation
-            :kind ':lisp
+            :kind   ':lisp
             :source "(setf *example* 1)"
             :status ':ok
             :result "⇒ 1")
            (conversation-append-user-operation
             conversation
-            :kind ':command
+            :kind   ':command
             :source "/help"
             :status ':ok
             :result "loop action: continue")
-           (let* ((records (conversation-user-operation-snapshot conversation))
+           (let* ((records                       (conversation-user-operation-snapshot conversation))
                   (provider-items-before
                     (copy-tree (conversation-input-items conversation)))
-                  (*context-contributors* nil)
+                  (*context-contributors*        nil)
                   (*context-resolver*
                     (cl-llm-provider-api:make-context-resolver))
                   (*context-last-deliveries*
@@ -81,7 +81,7 @@
                       (find "recent-user-operations"
                             (context-delivery-contributions delivery)
                             :test #'string=
-                            :key #'context-contribution-identifier))
+                            :key  #'context-contribution-identifier))
                     (evidence
                       (and contribution
                            (context-contribution-evidence contribution))))
@@ -100,8 +100,8 @@
                        (user-operation-context
                         (make-instance
                          'request-context
-                         :configuration configuration
-                         :conversation conversation
+                         :configuration   configuration
+                         :conversation    conversation
                          :tool-namespaces #()))))
                  (test-assert
                   (= (length (context-contribution-evidence contribution)) 80)
@@ -110,8 +110,8 @@
                      (list
                       (list :user-operation
                             :seq 1
-                            :time (get-universal-time)
-                            :kind ':lisp
+                            :time   (get-universal-time)
+                            :kind   ':lisp
                             :source (make-string 4000 :initial-element #\s)
                             :status ':ok
                             :result (make-string 4000 :initial-element #\r)))))
@@ -129,10 +129,10 @@
                (user-operation-context
                 (make-instance
                  'request-context
-                 :configuration configuration
-                 :conversation conversation
+                 :configuration   configuration
+                 :conversation    conversation
                  :tool-namespaces #()
-                 :compaction-p t)))
+                 :compaction-p    t)))
               "side-channel compaction omits recent user-operation context"))
            (test-assert
             (and (not (conversation-persisted-p conversation))
@@ -162,12 +162,12 @@
                (user-operation-context
                 (make-instance
                  'request-context
-                 :configuration configuration
-                 :conversation empty
+                 :configuration   configuration
+                 :conversation    empty
                  :tool-namespaces #())))
               "an empty conversation contributes no user-operation context")))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -175,7 +175,7 @@
 (defun test-user-operation-bounds-and-validation ()
   "Test exact text bounds, recent-window eviction, and strict durable replay."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (progn
            (let* ((conversation
@@ -186,11 +186,11 @@
                   (record
                     (conversation-append-user-operation
                      conversation
-                     :kind ':lisp
+                     :kind   ':lisp
                      :source (make-string 100 :initial-element #\s)
                      :status ':ok
                      :result (make-string 100 :initial-element #\r)))
-                  (properties (rest record)))
+                  (properties                                 (rest record)))
              (test-assert
               (and (= (length (getf properties :source)) 40)
                    (= (length (getf properties :result)) 30)
@@ -209,7 +209,7 @@
                      (progn
                        (conversation-append-user-operation
                         conversation
-                        :kind ':lisp
+                        :kind   ':lisp
                         :source "(values)"
                         :status ':ok
                         :result "")
@@ -226,7 +226,7 @@
              (let ((*conversation-user-operation-count-limit* 0))
                (conversation-append-user-operation
                 conversation
-                :kind ':command
+                :kind   ':command
                 :source "/help"
                 :status ':ok
                 :result "loop action: continue")
@@ -246,7 +246,7 @@
              (let ((*conversation-user-operation-character-limit* 0))
                (conversation-append-user-operation
                 conversation
-                :kind ':command
+                :kind   ':command
                 :source "/help"
                 :status ':ok
                 :result "loop action: continue")
@@ -262,12 +262,12 @@
            (let ((conversation
                    (conversation-create configuration
                                         :identifier "user-operation-retention")))
-             (let ((*conversation-user-operation-count-limit* 2)
+             (let ((*conversation-user-operation-count-limit*     2)
                    (*conversation-user-operation-character-limit* 1000))
                (dolist (source '("one" "two" "three"))
                  (conversation-append-user-operation
                   conversation
-                  :kind ':command
+                  :kind   ':command
                   :source source
                   :status ':ok
                   :result "x"))
@@ -276,28 +276,28 @@
                                (conversation-user-operation-snapshot conversation))
                        '("two" "three"))
                 "the recent operation projection evicts oldest records by count"))
-              (let ((*conversation-user-operation-count-limit* 16)
-                    (*conversation-user-operation-character-limit* 8))
-                (conversation-append-user-operation
-                 conversation
-                 :kind ':command
-                 :source "four"
-                 :status ':ok
-                 :result "1234")
-                (let ((at-limit
-                        (conversation-user-operation-snapshot conversation)))
-                  (conversation-append-user-operation
-                   conversation
-                   :kind ':command
-                   :source "five"
-                   :status ':ok
-                   :result "12345")
-                  (test-assert
-                   (and
-                    (equal (mapcar #'user-operation-context-tests--source at-limit)
-                           '("four"))
-                    (null (conversation-user-operation-snapshot conversation)))
-                   "the character budget retains exact fits and evicts overweight records"))))
+             (let ((*conversation-user-operation-count-limit*     16)
+                   (*conversation-user-operation-character-limit* 8))
+               (conversation-append-user-operation
+                conversation
+                :kind   ':command
+                :source "four"
+                :status ':ok
+                :result "1234")
+               (let ((at-limit
+                       (conversation-user-operation-snapshot conversation)))
+                 (conversation-append-user-operation
+                  conversation
+                  :kind   ':command
+                  :source "five"
+                  :status ':ok
+                  :result "12345")
+                 (test-assert
+                  (and
+                   (equal (mapcar #'user-operation-context-tests--source at-limit)
+                          '("four"))
+                   (null (conversation-user-operation-snapshot conversation)))
+                  "the character budget retains exact fits and evicts overweight records"))))
            (let ((conversation
                    (conversation-create configuration
                                         :identifier "user-operation-future-field")))
@@ -305,10 +305,10 @@
               conversation
               (list :user-operation
                     :kind ':lisp
-                    :source "(values :future)"
-                    :status ':ok
-                    :result "⇒ :FUTURE"
-                    :version "incidental"
+                    :source       "(values :future)"
+                    :status       ':ok
+                    :result       "⇒ :FUTURE"
+                    :version      "incidental"
                     :future-field "ignored"))
              (let ((loaded
                      (conversation-load
@@ -337,7 +337,7 @@
             (user-operation-context-tests--invalid-replay-p
              configuration
              "user-operation-invalid-kind"
-             (list :kind ':tool
+             (list :kind   ':tool
                    :source "invalid"
                    :status ':ok
                    :result ""))
@@ -346,7 +346,7 @@
             (user-operation-context-tests--invalid-replay-p
              configuration
              "user-operation-oversized"
-             (list :kind ':lisp
+             (list :kind   ':lisp
                    :source
                    (make-string (1+ (* 64 1024))
                                 :initial-element #\x)
@@ -359,17 +359,17 @@
                   (record
                     (list :user-operation
                           :seq 2
-                          :time (get-universal-time)
-                          :kind ':lisp
+                          :time   (get-universal-time)
+                          :kind   ':lisp
                           :source "(values)"
                           :status ':ok
                           :result ""))
                   (properties (rest record))
-                  (tail (last properties)))
+                  (tail       (last properties)))
              (conversation-append-user-message conversation "start")
              (conversation-append-user-operation
               conversation
-              :kind ':lisp
+              :kind   ':lisp
               :source "(values :valid)"
               :status ':ok
               :result "⇒ :VALID")
@@ -378,8 +378,8 @@
                   (progn
                     (with-open-file
                         (stream (conversation-log-pathname conversation)
-                                :direction ':output
-                                :if-exists ':append
+                                :direction       ':output
+                                :if-exists       ':append
                                 :external-format ':utf-8)
                       (terpri stream)
                       (write record :stream stream :readably t :circle t)
@@ -400,24 +400,24 @@
              (conversation-append-user-message conversation "start")
              (conversation-append-user-operation
               conversation
-              :kind ':lisp
+              :kind   ':lisp
               :source "(values :valid)"
               :status ':ok
               :result "⇒ :VALID")
              (let* ((records
                       (conversation--read-records
                        (conversation-pathname conversation)))
-                    (header (copy-list (first records)))
+                    (header         (copy-list (first records)))
                     (durable-record (second records))
-                    (properties (rest header))
-                    (tail (last properties)))
+                    (properties     (rest header))
+                    (tail           (last properties)))
                (setf (rest tail) properties)
                (unwind-protect
                     (progn
                       (with-open-file
                           (stream (conversation-log-pathname conversation)
-                                  :direction ':output
-                                  :if-exists ':supersede
+                                  :direction       ':output
+                                  :if-exists       ':supersede
                                   :external-format ':utf-8)
                         (write header :stream stream :readably t :circle t)
                         (terpri stream)
@@ -441,12 +441,12 @@
             (user-operation-context-tests--invalid-replay-p
              configuration
              "user-operation-missing-status"
-             (list :kind ':lisp
+             (list :kind   ':lisp
                    :source "(values)"
                    :result ""))
             "replay rejects an incomplete durable user-operation property list"))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -458,7 +458,7 @@
   "Test local Lisp and interactive commands enter one bounded operation stream."
   (multiple-value-bind (application root)
       (lisp-machine-tests--application)
-    (let* ((ui (application-ui application))
+    (let* ((ui           (application-ui application))
            (conversation (application-conversation application))
            (provider-items-before
              (copy-tree (conversation-input-items conversation))))
@@ -482,10 +482,10 @@
                      (lambda (source &key restart-selector application)
                        (declare (ignore source restart-selector application))
                        (application-lisp-evaluation-create
-                        :status ':error
-                        :output ""
-                        :values nil
-                        :condition "synthetic failure"
+                        :status        ':error
+                        :output        ""
+                        :values        nil
+                        :condition     "synthetic failure"
                         :restart-names nil))))
               (lambda ()
                 (test-assert
@@ -534,9 +534,9 @@
              (let* ((records
                       (conversation-user-operation-snapshot conversation))
                     (properties (mapcar #'rest records))
-                    (success (first properties))
-                    (aborted (second properties))
-                    (failed (third properties)))
+                    (success    (first properties))
+                    (aborted    (second properties))
+                    (failed     (third properties)))
                (test-assert
                 (and (= (length records) 6)
                      (equal (mapcar (lambda (record)
@@ -581,7 +581,7 @@
           (tool-registry-close-runtime-state
            (application-tool-registry application)))
         (platform-delete-directory-tree *platform* root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   nil)
 
@@ -594,15 +594,15 @@
                  (application-command-create
                   :definition-name
                   'user-operation-context-tests--aborting-command
-                  :name "/operation-abort"
-                  :aliases nil
-                  :argument "VALUE"
-                  :description "abort for user-operation capture tests"
-                  :tip "tests aborted command capture."
-                  :busy-behavior ':execute
+                  :name              "/operation-abort"
+                  :aliases           nil
+                  :argument          "VALUE"
+                  :description       "abort for user-operation capture tests"
+                  :tip               "tests aborted command capture."
+                  :busy-behavior     ':execute
                   :terminal-behavior ':shared
-                   :lambda-list '(value)
-                   :callable-p t
+                   :lambda-list      '(value)
+                   :callable-p       t
                   :handler
                   (lambda (application value)
                     (declare (ignore application value))
@@ -611,15 +611,15 @@
                  (application-command-create
                   :definition-name
                   'user-operation-context-tests--failing-command
-                  :name "/operation-failure"
-                  :aliases nil
-                  :argument nil
-                  :description "fail for user-operation capture tests"
-                  :tip "tests failed command capture."
-                  :busy-behavior ':execute
+                  :name              "/operation-failure"
+                  :aliases           nil
+                  :argument          nil
+                  :description       "fail for user-operation capture tests"
+                  :tip               "tests failed command capture."
+                  :busy-behavior     ':execute
                   :terminal-behavior ':shared
-                   :lambda-list '()
-                   :callable-p t
+                   :lambda-list      '()
+                   :callable-p       t
                   :handler
                   (lambda (application)
                     (declare (ignore application))
@@ -629,7 +629,7 @@
            (register-application-command failure-command)
            (multiple-value-bind (application root)
                (lisp-machine-tests--application)
-             (let* ((ui (application-ui application))
+             (let* ((ui         (application-ui application))
                     (controller (lisp-machine-tests--controller application)))
                (unwind-protect
                     (progn
@@ -725,12 +725,12 @@
   "Test a successful conversation command records into its resulting target."
   (multiple-value-bind (application root)
       (lisp-machine-tests--application)
-    (let ((ui (application-ui application))
+    (let ((ui                    (application-ui application))
           (original-conversation (application-conversation application)))
       (unwind-protect
            (progn
              (terminal-ui-start ui)
-             (let ((result nil)
+             (let ((result                   nil)
                    (replacement-conversation nil))
                (test-call-with-function-replacements
                 (list
@@ -766,7 +766,7 @@
           (tool-registry-close-runtime-state
            (application-tool-registry application)))
         (platform-delete-directory-tree *platform* root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   nil)
 
@@ -775,8 +775,8 @@
   "Test completed Lisp remains visible when durable operation retention fails."
   (multiple-value-bind (application root)
       (lisp-machine-tests--application)
-    (let* ((ui (application-ui application))
-           (terminal (terminal-ui-terminal ui))
+    (let* ((ui           (application-ui application))
+           (terminal     (terminal-ui-terminal ui))
            (conversation (application-conversation application))
            (propagated-p nil))
       (unwind-protect
@@ -791,7 +791,7 @@
                 (lambda (observed-conversation &rest arguments)
                   (declare (ignore arguments))
                   (error 'conversation-invariant-error
-                         :message "synthetic user-operation retention failure"
+                         :message  "synthetic user-operation retention failure"
                          :pathname
                          (conversation-pathname observed-conversation)
                          :sequence nil))))
@@ -816,6 +816,6 @@
           (tool-registry-close-runtime-state
            (application-tool-registry application)))
         (platform-delete-directory-tree *platform* root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   nil)

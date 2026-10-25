@@ -20,19 +20,19 @@
   (find "interpreter-discipline"
         (context-delivery-contributions
          (context-resolve-request configuration conversation #()))
-        :key #'context-contribution-identifier
+        :key  #'context-contribution-identifier
         :test #'string=))
 
 (-> test-interpreter-discipline () null)
 (defun test-interpreter-discipline ()
   "Test the corrective advice following a shell interpreter one-liner."
-  (let* ((configuration (test-configuration))
-         (conversation (conversation-create configuration
-                                            :identifier "discipline-test"))
-         (*context-contributors* nil)
+  (let* ((configuration                    (test-configuration))
+         (conversation                     (conversation-create configuration
+                                                                :identifier "discipline-test"))
+         (*context-contributors*           nil)
          (*context-next-request-delivered* (make-hash-table :test #'equal))
-         (*context-last-deliveries* (make-hash-table :test #'equal))
-         (*context-last-delivery-order* nil))
+         (*context-last-deliveries*        (make-hash-table :test #'equal))
+         (*context-last-delivery-order*    nil))
     (register-context-contributor "interpreter-discipline"
                                   'interpreter-discipline-context
                                   :source ':built-in)

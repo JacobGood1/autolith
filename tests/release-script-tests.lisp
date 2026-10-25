@@ -14,19 +14,19 @@
   "Write CONTENT to PATHNAME and return PATHNAME."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :external-format ':utf-8)
+                          :external-format   ':utf-8)
     (write-string content stream))
   pathname)
 
 (-> test-build-sandbox-packaged-helpers () null)
 (defun test-build-sandbox-packaged-helpers ()
   "Build required helpers and export the selected Windows bundle to workers."
-  (let* ((script (asdf:system-relative-pathname :autolith "script/build-sandbox.lisp"))
+  (let* ((script   (asdf:system-relative-pathname :autolith "script/build-sandbox.lisp"))
          (existing (namestring script))
-         (missing (namestring (merge-pathnames "missing-sandbox-helper" script))))
+         (missing  (namestring (merge-pathnames "missing-sandbox-helper" script))))
     (dolist (platform '(:linux :darwin :freebsd :netbsd :openbsd))
       (dolist (case '((:existing :existing nil)
                       (:existing nil t)
@@ -46,7 +46,7 @@
                                    (set-difference *features*
                                                    '(:linux :darwin :freebsd
                                                      :netbsd :openbsd :win32))))
-                  (built-p nil))
+                  (built-p    nil))
               (with-test-environment
                   (("CL_EXEC_SANDBOX_PROCESS_GROUP_HELPER" (path process-group))
                    ("CL_EXEC_SANDBOX_HELPER" (path helper)))
@@ -66,8 +66,8 @@
                              (set-difference *features*
                                              '(:linux :darwin :freebsd
                                                :netbsd :openbsd :win32))))
-            (selected (namestring (merge-pathnames "selected-helper.exe" script)))
-            (actions nil))
+            (selected   (namestring (merge-pathnames "selected-helper.exe" script)))
+            (actions    nil))
         (with-test-environment (("CL_EXEC_SANDBOX_WINDOWS_HELPER" explicit))
           (test-call-with-function-replacements
            (list (list 'uiop:run-program
@@ -93,20 +93,20 @@
 (defun test-release-runtime-openbsd-linker ()
   "Evaluate the runtime linker flags at the OpenBSD release build boundary."
   (with-test-configuration (configuration)
-    (let* ((root (test-configuration-root configuration))
-           (source (merge-pathnames "source/" root))
-           (temporary (merge-pathnames "temporary/" root))
-           (installation (merge-pathnames "installation/" root))
-           (bootstrap (merge-pathnames "bootstrap/" root))
+    (let* ((root           (test-configuration-root configuration))
+           (source         (merge-pathnames "source/" root))
+           (temporary      (merge-pathnames "temporary/" root))
+           (installation   (merge-pathnames "installation/" root))
+           (bootstrap      (merge-pathnames "bootstrap/" root))
            (runtime-source (merge-pathnames "sbcl-2.6.6/" temporary))
            (runtime-config
              (merge-pathnames "src/runtime/Config.generic-openbsd" runtime-source))
-           (script (asdf:system-relative-pathname
-                    :autolith "script/build-release-runtime.lisp"))
-           (digest (make-string 64 :initial-element #\0))
-           (run-program (symbol-function 'uiop:run-program))
-           (make (or (release-archive--command-pathname "gmake")
-                     (release-archive--command-pathname "make"))))
+           (script         (asdf:system-relative-pathname
+                            :autolith "script/build-release-runtime.lisp"))
+           (digest         (make-string 64 :initial-element #\0))
+           (run-program    (symbol-function 'uiop:run-program))
+           (make           (or (release-archive--command-pathname "gmake")
+                               (release-archive--command-pathname "make"))))
       (release-script-tests--write-file
        (merge-pathnames "sbcl.version" source) "2.6.6")
       (release-script-tests--write-file
@@ -139,9 +139,9 @@
                                 (funcall run-program
                                          (list (namestring make) "-s"
                                                "-f" (namestring runtime-config) "-f" "-")
-                                         :input (make-string-input-stream
-                                                 (format nil "flags:~%~C@printf '%s\\n' '$(LINKFLAGS)'~%"
-                                                         #\Tab))
+                                         :input  (make-string-input-stream
+                                                  (format nil "flags:~%~C@printf '%s\\n' '$(LINKFLAGS)'~%"
+                                                          #\Tab))
                                          :output ':string)
                                 :separator '(#\Space #\Newline))))
                         ((member "install.sh" command :test #'string=)
@@ -184,10 +184,10 @@ can assert on the exact failure message through the second return value."
    (if environment
        (append (list "env") environment command)
        command)
-   :directory directory
+   :directory           directory
    :ignore-error-status ignore-error-status
-   :output output
-   :error-output (if ignore-error-status ':string ':output)))
+   :output              output
+   :error-output        (if ignore-error-status ':string ':output)))
 
 (-> release-script-tests--pty-command (string string) list)
 (defun release-script-tests--pty-command (command answer)
@@ -235,11 +235,11 @@ can assert on the exact failure message through the second return value."
     (directory &key (architecture "x86_64") (libc "glibc"))
   "Install fixture commands reporting and satisfying one Linux release target."
   (let* ((directory (uiop:ensure-directory-pathname directory))
-         (uname (merge-pathnames "uname" directory))
-         (ldd (merge-pathnames "ldd" directory))
-         (bwrap (merge-pathnames "bwrap" directory))
-         (chmod (merge-pathnames "chmod" directory))
-         (move (merge-pathnames "mv" directory)))
+         (uname     (merge-pathnames "uname" directory))
+         (ldd       (merge-pathnames "ldd" directory))
+         (bwrap     (merge-pathnames "bwrap" directory))
+         (chmod     (merge-pathnames "chmod" directory))
+         (move      (merge-pathnames "mv" directory)))
     (release-script-tests--write-file
      uname
      (format nil "#!/bin/sh
@@ -256,9 +256,12 @@ esac
 printf '~A\\n'
 "
              (ecase (intern (string-upcase libc) '#:keyword)
-               (:glibc "libc.so.6 => /lib/libc.so.6 /lib64/ld-linux-x86-64.so.2")
-               (:musl "musl libc")
-               (:unknown "unrecognized libc"))))
+               (:glibc
+                "libc.so.6 => /lib/libc.so.6 /lib64/ld-linux-x86-64.so.2")
+               (:musl
+                "musl libc")
+               (:unknown
+                "unrecognized libc"))))
     (release-script-tests--write-file bwrap "#!/bin/sh
 exit 0
 ")
@@ -318,9 +321,9 @@ fi
     (release-script-tests--run
      (list "chmod" "-R" "u+w" (namestring root))
      :ignore-error-status t
-     :output nil)
+     :output              nil)
     (platform-delete-directory-tree *platform* root
-                                    :validate t
+                                    :validate          t
                                     :if-does-not-exist ':ignore))
   nil)
 
@@ -401,7 +404,7 @@ fi
                       "script/validate-static-release.lisp"
                       "server/build-in-container.lisp"))
     (with-open-file (stream (merge-pathnames relative source-root)
-                            :direction ':input
+                            :direction       ':input
                             :external-format ':utf-8)
       (let ((*read-eval* nil))
         (loop while (read stream nil nil))))
@@ -439,24 +442,24 @@ fi
 (-> release-script-tests--darwin-fff-library-path (pathname pathname) null)
 (defun release-script-tests--darwin-fff-library-path (source-root root)
   "Exercise Darwin SDK library discovery before the fff Cargo build."
-  (let* ((fixture (merge-pathnames "darwin-fff-library-path/" root))
+  (let* ((fixture          (merge-pathnames "darwin-fff-library-path/" root))
          (script-directory (merge-pathnames "script/" fixture))
-         (script (merge-pathnames "build-fff.lisp" script-directory))
+         (script           (merge-pathnames "build-fff.lisp" script-directory))
          (native-directory (merge-pathnames "native/fff/" fixture))
-         (commit "0123456789abcdef0123456789abcdef01234567")
-         (home (merge-pathnames "home/" fixture))
-         (cache-home (merge-pathnames "cache/" fixture))
-         (data-home (merge-pathnames "data/" fixture))
+         (commit           "0123456789abcdef0123456789abcdef01234567")
+         (home             (merge-pathnames "home/" fixture))
+         (cache-home       (merge-pathnames "cache/" fixture))
+         (data-home        (merge-pathnames "data/" fixture))
          (checkout
            (merge-pathnames (format nil "autolith/build/fff/~A/" commit)
                             cache-home))
-         (fixture-bin (merge-pathnames "bin/" fixture))
-         (xcrun (merge-pathnames "xcrun" fixture-bin))
-         (git (merge-pathnames "git" fixture-bin))
-         (cargo (merge-pathnames "cargo" fixture-bin))
-         (sdk (merge-pathnames "MacOSX.sdk/" fixture))
-         (sdk-library (merge-pathnames "usr/lib/" sdk))
-         (event-log (merge-pathnames "library-path.log" fixture)))
+         (fixture-bin      (merge-pathnames "bin/" fixture))
+         (xcrun            (merge-pathnames "xcrun" fixture-bin))
+         (git              (merge-pathnames "git" fixture-bin))
+         (cargo            (merge-pathnames "cargo" fixture-bin))
+         (sdk              (merge-pathnames "MacOSX.sdk/" fixture))
+         (sdk-library      (merge-pathnames "usr/lib/" sdk))
+         (event-log        (merge-pathnames "library-path.log" fixture)))
     (ensure-directories-exist (merge-pathnames "placeholder" sdk-library))
     (ensure-directories-exist (merge-pathnames ".git/placeholder" checkout))
     (ensure-directories-exist script)
@@ -535,17 +538,17 @@ printf '%s\\n' \"${LIBRARY_PATH:-}\" > \"${AUTOLITH_TEST_EVENT_LOG:?}\"
 (-> release-script-tests--bootstrap-dependency-order (pathname pathname) null)
 (defun release-script-tests--bootstrap-dependency-order (source-root root)
   "Exercise project dependency setup before bootstrap CFFI loading."
-  (let* ((fixture (merge-pathnames "bootstrap-dependency-order/" root))
-         (script-directory (merge-pathnames "script/" fixture))
-         (home (merge-pathnames "home/" fixture))
+  (let* ((fixture             (merge-pathnames "bootstrap-dependency-order/" root))
+         (script-directory    (merge-pathnames "script/" fixture))
+         (home                (merge-pathnames "home/" fixture))
          (quicklisp-directory (merge-pathnames "quicklisp/" home))
-         (qlot-directory (merge-pathnames ".qlot/" fixture))
-         (cache-home (merge-pathnames "cache/" fixture))
-         (data-home (merge-pathnames "data/" fixture))
-         (state-home (merge-pathnames "state/" fixture))
-         (event-log (merge-pathnames "events.log" fixture))
-         (bootstrap (merge-pathnames "bootstrap.lisp" script-directory))
-         (fake-sbcl (merge-pathnames "fake-sbcl" fixture)))
+         (qlot-directory      (merge-pathnames ".qlot/" fixture))
+         (cache-home          (merge-pathnames "cache/" fixture))
+         (data-home           (merge-pathnames "data/" fixture))
+         (state-home          (merge-pathnames "state/" fixture))
+         (event-log           (merge-pathnames "events.log" fixture))
+         (bootstrap           (merge-pathnames "bootstrap.lisp" script-directory))
+         (fake-sbcl           (merge-pathnames "fake-sbcl" fixture)))
     (ensure-directories-exist (merge-pathnames "placeholder" quicklisp-directory))
     (ensure-directories-exist (merge-pathnames "placeholder" qlot-directory))
     (ensure-directories-exist bootstrap)
@@ -667,10 +670,10 @@ printf 'subprocess %s\\n' \"$*\" >> \"${AUTOLITH_TEST_EVENT_LOG:?}\"
        (zerop status)
        (format nil "the bootstrap dependency-order fixture succeeds:~%~A~%~A"
                output error-output)))
-    (let* ((events (uiop:read-file-string event-log))
+    (let* ((events       (uiop:read-file-string event-log))
            (qlot-install (search "script/qlot-install.lisp" events))
            (locked-setup (search "locked-setup" events))
-           (locked-cffi (search "locked-cffi" events)))
+           (locked-cffi  (search "locked-cffi" events)))
       (test-assert
        (and qlot-install
             locked-setup
@@ -685,22 +688,22 @@ printf 'subprocess %s\\n' \"$*\" >> \"${AUTOLITH_TEST_EVENT_LOG:?}\"
 (-> release-script-tests--source-launcher (pathname pathname) null)
 (defun release-script-tests--source-launcher (source-root root)
   "Exercise source-image selection, bootstrap prompting, and forced source use."
-  (let* ((fixture-root (merge-pathnames "source-launcher/" root))
-         (bin-directory (merge-pathnames "bin/" fixture-root))
-         (script-directory (merge-pathnames "script/" fixture-root))
+  (let* ((fixture-root       (merge-pathnames "source-launcher/" root))
+         (bin-directory      (merge-pathnames "bin/" fixture-root))
+         (script-directory   (merge-pathnames "script/" fixture-root))
          (recovery-directory (merge-pathnames "recovery/" fixture-root))
-         (data-home (merge-pathnames "data/" fixture-root))
-         (state-home (merge-pathnames "state/" fixture-root))
-         (home (merge-pathnames "home/" fixture-root))
-         (active-directory (merge-pathnames "autolith/active/" data-home))
-         (active-core (merge-pathnames "autolith-active.core" active-directory))
-         (active-manifest (merge-pathnames "manifest.sexp" active-directory))
-         (launcher (merge-pathnames "autolith" bin-directory))
-         (active-source (merge-pathnames "autolith-active" bin-directory))
-         (bootstrap (merge-pathnames "bootstrap" script-directory))
-         (recovery-source (merge-pathnames "launcher.lisp" recovery-directory))
-         (fake-sbcl (merge-pathnames "fake-sbcl" fixture-root))
-         (log (merge-pathnames "launcher.log" fixture-root)))
+         (data-home          (merge-pathnames "data/" fixture-root))
+         (state-home         (merge-pathnames "state/" fixture-root))
+         (home               (merge-pathnames "home/" fixture-root))
+         (active-directory   (merge-pathnames "autolith/active/" data-home))
+         (active-core        (merge-pathnames "autolith-active.core" active-directory))
+         (active-manifest    (merge-pathnames "manifest.sexp" active-directory))
+         (launcher           (merge-pathnames "autolith" bin-directory))
+         (active-source      (merge-pathnames "autolith-active" bin-directory))
+         (bootstrap          (merge-pathnames "bootstrap" script-directory))
+         (recovery-source    (merge-pathnames "launcher.lisp" recovery-directory))
+         (fake-sbcl          (merge-pathnames "fake-sbcl" fixture-root))
+         (log                (merge-pathnames "launcher.log" fixture-root)))
     (uiop:ensure-all-directories-exist
      (list bin-directory script-directory recovery-directory
            data-home state-home home))
@@ -776,9 +779,9 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
        "--from-source quietly bypasses images and is not forwarded")
       (let* ((recorded-command
                (merge-pathnames "autolith/runtimes/command" data-home))
-             (missing-runtime (merge-pathnames "missing-sbcl" fixture-root))
+             (missing-runtime       (merge-pathnames "missing-sbcl" fixture-root))
              (nonexecutable-runtime (merge-pathnames "nonexecutable-sbcl" fixture-root))
-             (disappearing-runtime (merge-pathnames "disappearing-sbcl" fixture-root)))
+             (disappearing-runtime  (merge-pathnames "disappearing-sbcl" fixture-root)))
         (release-script-tests--write-file
          recorded-command (format nil "~A~%" (namestring fake-sbcl)))
         (release-script-tests--write-file nonexecutable-runtime "")
@@ -826,9 +829,9 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
       (multiple-value-bind (output error-output status)
           (release-script-tests--run
            (list (namestring launcher) "--from-source" "fixture-update")
-           :environment environment
+           :environment         environment
            :ignore-error-status t
-           :output nil)
+           :output              nil)
         (declare (ignore output error-output))
         (test-assert (= status 76)
                      "update handoff bypasses crash recovery unchanged"))
@@ -839,7 +842,7 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
         (declare (ignore error-output))
         (test-assert (and (= status 1) (not (search "/recovery/launcher.lisp" output)))
                      "a noninteractive data failure returns without starting recovery"))
-      (let* ((cache-home (merge-pathnames "cache/" fixture-root))
+      (let* ((cache-home  (merge-pathnames "cache/" fixture-root))
              (config-home (merge-pathnames "config/" fixture-root))
              (artifacts
                (list (merge-pathnames "autolith/generations/g1/autolith.core" data-home)
@@ -913,9 +916,9 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
                    (with-input-from-string (input (format nil "n~%"))
                      (uiop:run-program
                       (release-script-tests--pty-command command "n")
-                      :input input
-                      :output ':string
-                      :error-output ':output
+                      :input               input
+                      :output              ':string
+                      :error-output        ':output
                       :ignore-error-status t))))
             (test-assert
              (and (search "Continue?" output)
@@ -930,8 +933,8 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
         (multiple-value-bind (output error-output status)
             (release-script-tests--run
              (cons (namestring launcher) arguments)
-             :environment (append environment
-                                  '("AUTOLITH_INSTALLATION_KIND=release"))
+             :environment         (append environment
+                                          '("AUTOLITH_INSTALLATION_KIND=release"))
              :ignore-error-status t)
           (declare (ignore output))
           (test-assert
@@ -958,9 +961,9 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
                (with-input-from-string (input (format nil "y~%"))
                  (uiop:run-program
                   (release-script-tests--pty-command command "y")
-                  :input input
-                  :output ':string
-                  :error-output ':output
+                  :input               input
+                  :output              ':string
+                  :error-output        ':output
                   :ignore-error-status t)))
              (events (uiop:read-file-string log)))
         (test-assert
@@ -1003,9 +1006,9 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
                (with-input-from-string (input (format nil "n~%"))
                  (uiop:run-program
                   (release-script-tests--pty-command command "n")
-                  :input input
-                  :output ':string
-                  :error-output ':output
+                  :input               input
+                  :output              ':string
+                  :error-output        ':output
                   :ignore-error-status t)))
              (events (uiop:read-file-string log)))
         (test-assert
@@ -1015,7 +1018,7 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
          (format nil
                  "declining the interactive prompt loads source without bootstrapping: ~A"
                  output))))
-  nil))
+   nil))
 
 (-> release-script-tests--launcher (pathname pathname) null)
 (defun release-script-tests--launcher (source-root root)
@@ -1027,9 +1030,9 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
          (launcher
            (merge-pathnames "bin/autolith" release-root))
          (host-bin (merge-pathnames "linux-host-bin/" root))
-         (path (format nil "~A:~A"
-                       (string-right-trim "/" (namestring host-bin))
-                       (or (uiop:getenv "PATH") "")))
+         (path     (format nil "~A:~A"
+                           (string-right-trim "/" (namestring host-bin))
+                           (or (uiop:getenv "PATH") "")))
          (environment
            (list "AUTOLITH_NO_UPDATE_CHECK=1"
                  (format nil "PATH=~A" path))))
@@ -1045,7 +1048,7 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
                 (format nil "version=~A" *release-script-tests-version*)
                 (format nil "tag=v~A" *release-script-tests-version*)
                 (format nil "commit=~A" *release-script-tests-commit*)
-                 "platform=x86_64-linux"
+                "platform=x86_64-linux"
                 (format nil "source=~A"
                         (string-right-trim
                          "/"
@@ -1068,7 +1071,7 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
     (multiple-value-bind (output error-output status)
         (release-script-tests--run
          (list (namestring launcher) "--autolith-release-probe")
-         :environment environment
+         :environment         environment
          :ignore-error-status t)
       (declare (ignore output))
       (test-assert
@@ -1083,7 +1086,7 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
     (multiple-value-bind (output error-output status)
         (release-script-tests--run
          (list (namestring launcher) "--autolith-release-probe")
-         :environment environment
+         :environment         environment
          :ignore-error-status t)
       (declare (ignore output))
       (test-assert
@@ -1102,9 +1105,9 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
       (multiple-value-bind (output error-output status)
           (release-script-tests--run
            (list (namestring launcher) "--autolith-release-probe")
-           :environment environment
+           :environment         environment
            :ignore-error-status t
-           :output nil)
+           :output              nil)
         (declare (ignore output error-output))
         (test-assert (not (eql status 0))
                      "the release launcher requires its private syntax library"))
@@ -1115,7 +1118,7 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
     (multiple-value-bind (output error-output status)
         (release-script-tests--run
          (list (namestring launcher) "--autolith-release-probe")
-         :environment environment
+         :environment         environment
          :ignore-error-status t)
       (declare (ignore output))
       (test-assert
@@ -1136,16 +1139,16 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
          (launcher
            (merge-pathnames "bin/autolith" release-root))
          (host-bin (merge-pathnames "darwin-host-bin/" root))
-         (path (format nil "~A:~A"
-                       (string-right-trim "/" (namestring host-bin))
-                       (or (uiop:getenv "PATH") "")))
+         (path     (format nil "~A:~A"
+                           (string-right-trim "/" (namestring host-bin))
+                           (or (uiop:getenv "PATH") "")))
          (environment
            (list "AUTOLITH_NO_UPDATE_CHECK=1"
                  (format nil "PATH=~A" path))))
     (release-script-tests--install-darwin-host-tools host-bin)
     (release-script-tests--make-release source-root release-root
                                         :library-extension "dylib"
-                                        :platform "arm64-darwin")
+                                        :platform          "arm64-darwin")
     (let ((output
             (release-script-tests--run
              (list (namestring launcher) "--autolith-release-probe")
@@ -1155,7 +1158,7 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
                 (format nil "version=~A" *release-script-tests-version*)
                 (format nil "tag=v~A" *release-script-tests-version*)
                 (format nil "commit=~A" *release-script-tests-commit*)
-                 "platform=arm64-darwin"
+                "platform=arm64-darwin"
                 (format nil "source=~A"
                         (string-right-trim
                          "/"
@@ -1178,9 +1181,9 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
       (multiple-value-bind (output error-output status)
           (release-script-tests--run
            (list (namestring launcher) "--autolith-release-probe")
-           :environment environment
+           :environment         environment
            :ignore-error-status t
-           :output nil)
+           :output              nil)
         (declare (ignore output error-output))
         (test-assert (not (eql status 0))
                      "the Darwin release launcher requires its private syntax library"))
@@ -1205,7 +1208,7 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
     (multiple-value-bind (output error-output status)
         (release-script-tests--run
          (list (namestring launcher) "--autolith-release-probe")
-         :environment environment
+         :environment         environment
          :ignore-error-status t)
       (declare (ignore output))
       (test-assert
@@ -1219,7 +1222,7 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
     (multiple-value-bind (output error-output status)
         (release-script-tests--run
          (list (namestring launcher) "--autolith-release-probe")
-         :environment environment
+         :environment         environment
          :ignore-error-status t)
       (declare (ignore output))
       (test-assert
@@ -1232,17 +1235,17 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
 (-> release-script-tests--installer (pathname pathname) null)
 (defun release-script-tests--installer (source-root root)
   "Exercise binary installer download, verification, link updates, and unsupported platform rejection."
-  (let* ((tag (format nil "v~A" *release-script-tests-version*))
-         (next-tag "v0.12.0")
+  (let* ((tag            (format nil "v~A" *release-script-tests-version*))
+         (next-tag       "v0.12.0")
          (release-name
            (format nil "autolith-~A-x86_64-linux" tag))
          (release-root
            (merge-pathnames
             (format nil "autolith-v~A/" *release-script-tests-version*)
             root))
-         (fixture-root (merge-pathnames "fixture/" root))
+         (fixture-root   (merge-pathnames "fixture/" root))
          (fixture-source (merge-pathnames "fixture-source/" root))
-         (fixture-bin (merge-pathnames "fixture-bin/" root))
+         (fixture-bin    (merge-pathnames "fixture-bin/" root))
          (fixture-release
            (merge-pathnames (format nil "~A/" release-name) fixture-source))
          (archive
@@ -1250,10 +1253,10 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
          (checksum
            (merge-pathnames (format nil "~A.tar.gz.sha256" release-name)
                             fixture-root))
-         (install-root (merge-pathnames "installation/" root))
-         (bin-directory (merge-pathnames "bin/" root))
-         (curl (merge-pathnames "curl" fixture-bin))
-         (installer (merge-pathnames "script/install" source-root)))
+         (install-root   (merge-pathnames "installation/" root))
+         (bin-directory  (merge-pathnames "bin/" root))
+         (curl           (merge-pathnames "curl" fixture-bin))
+         (installer      (merge-pathnames "script/install" source-root)))
     (release-script-tests--make-release source-root release-root)
     (uiop:ensure-all-directories-exist
      (list fixture-root fixture-source fixture-bin fixture-release))
@@ -1303,12 +1306,12 @@ esac
         (release-script-tests--run
          (list "sha256sum" (file-namestring archive))
          :directory fixture-root
-         :output checksum)
+         :output    checksum)
         (let ((output
                 (release-script-tests--run
                  (list "shasum" "-a" "256" (file-namestring archive))
                  :directory fixture-root
-                 :output ':string)))
+                 :output    ':string)))
           (release-script-tests--write-file checksum output)))
     (release-script-tests--write-file
      curl (release-script-tests--fixture-curl))
@@ -1329,7 +1332,7 @@ esac
       (release-script-tests--run
        (list (namestring installer) "--version" tag)
        :environment base-environment
-       :output nil)
+       :output      nil)
       (test-assert
        (probe-file
          (merge-pathnames
@@ -1366,7 +1369,7 @@ esac
         (release-script-tests--run
          (list (namestring installer) "--version" tag)
          :environment fallback-environment
-         :output nil)
+         :output      nil)
         (test-assert
          (probe-file
           (merge-pathnames
@@ -1376,9 +1379,9 @@ esac
       (release-script-tests--run
        (list (namestring installer) "--version" tag)
        :environment base-environment
-       :output nil)
+       :output      nil)
       (let ((next-target (merge-pathnames (format nil "releases/~A/" next-tag)
-                                           install-root)))
+                                          install-root)))
         (release-script-tests--run
          (list "cp" "-a"
                 (namestring
@@ -1400,7 +1403,7 @@ esac
          (list (namestring installer)
                "--without-command-link" "--version" next-tag)
          :environment base-environment
-         :output nil))
+         :output      nil))
       (test-assert
        (string= (release-script-tests--readlink
                  (merge-pathnames "current" install-root))
@@ -1430,9 +1433,9 @@ esac
     (directory &optional (architecture "arm64"))
   "Install fixture commands reporting and satisfying a Darwin release target."
   (let* ((directory (uiop:ensure-directory-pathname directory))
-         (uname (merge-pathnames "uname" directory))
-         (chmod (merge-pathnames "chmod" directory))
-         (move (merge-pathnames "mv" directory)))
+         (uname     (merge-pathnames "uname" directory))
+         (chmod     (merge-pathnames "chmod" directory))
+         (move      (merge-pathnames "mv" directory)))
     (release-script-tests--write-file
      uname
      (format nil "#!/bin/sh~%case ${1:-} in~%  -s) printf 'Darwin\\n' ;;~%  -m) printf '~A\\n' ;;~%  *) exit 64 ;;~%esac~%"
@@ -1476,7 +1479,7 @@ fi
 (-> release-script-tests--installer-darwin (pathname pathname) null)
 (defun release-script-tests--installer-darwin (source-root root)
   "Exercise Darwin binary installer download, verification, and link updates."
-  (let* ((tag (format nil "v~A" *release-script-tests-version*))
+  (let* ((tag            (format nil "v~A" *release-script-tests-version*))
          (release-name
            (format nil "autolith-~A-arm64-darwin" tag))
          (x86-release-name
@@ -1485,9 +1488,9 @@ fi
            (merge-pathnames
             (format nil "autolith-darwin-v~A/" *release-script-tests-version*)
             root))
-         (fixture-root (merge-pathnames "fixture-darwin/" root))
+         (fixture-root   (merge-pathnames "fixture-darwin/" root))
          (fixture-source (merge-pathnames "fixture-darwin-source/" root))
-         (fixture-bin (merge-pathnames "fixture-darwin-bin/" root))
+         (fixture-bin    (merge-pathnames "fixture-darwin-bin/" root))
          (fixture-release
            (merge-pathnames (format nil "~A/" release-name) fixture-source))
          (x86-fixture-release
@@ -1504,13 +1507,13 @@ fi
          (x86-checksum
            (merge-pathnames (format nil "~A.tar.gz.sha256" x86-release-name)
                             fixture-root))
-         (install-root (merge-pathnames "darwin-installation/" root))
-         (bin-directory (merge-pathnames "darwin-bin/" root))
-         (curl (merge-pathnames "curl" fixture-bin))
-         (installer (merge-pathnames "script/install" source-root)))
+         (install-root   (merge-pathnames "darwin-installation/" root))
+         (bin-directory  (merge-pathnames "darwin-bin/" root))
+         (curl           (merge-pathnames "curl" fixture-bin))
+         (installer      (merge-pathnames "script/install" source-root)))
     (release-script-tests--make-release source-root release-root
                                         :library-extension "dylib"
-                                        :platform "arm64-darwin")
+                                        :platform          "arm64-darwin")
     (uiop:ensure-all-directories-exist
      (list fixture-root fixture-source fixture-bin fixture-release
            x86-fixture-release))
@@ -1541,23 +1544,23 @@ fi
         (release-script-tests--run
          (list "sha256sum" (file-namestring archive))
          :directory fixture-root
-         :output checksum)
+         :output    checksum)
         (let ((output
                 (release-script-tests--run
                  (list "shasum" "-a" "256" (file-namestring archive))
                  :directory fixture-root
-                 :output ':string)))
+                 :output    ':string)))
           (release-script-tests--write-file checksum output)))
     (if (release-archive--command-pathname "sha256sum")
         (release-script-tests--run
          (list "sha256sum" (file-namestring x86-archive))
          :directory fixture-root
-         :output x86-checksum)
+         :output    x86-checksum)
         (let ((output
                 (release-script-tests--run
                  (list "shasum" "-a" "256" (file-namestring x86-archive))
                  :directory fixture-root
-                 :output ':string)))
+                 :output    ':string)))
           (release-script-tests--write-file x86-checksum output)))
     (release-script-tests--write-file
      curl (release-script-tests--fixture-curl))
@@ -1578,9 +1581,9 @@ fi
       (multiple-value-bind (output error-output status)
           (release-script-tests--run
            (list (namestring installer) "--musl" "--version" tag)
-           :environment base-environment
+           :environment         base-environment
            :ignore-error-status t
-           :output nil)
+           :output              nil)
         (declare (ignore output))
         (test-assert
          (and (not (eql status 0))
@@ -1590,7 +1593,7 @@ fi
       (release-script-tests--run
        (list (namestring installer) "--version" tag)
        :environment base-environment
-       :output nil)
+       :output      nil)
       (test-assert
        (probe-file
          (merge-pathnames
@@ -1611,12 +1614,12 @@ fi
       (release-script-tests--run
        (list (namestring installer) "--version" tag)
        :environment base-environment
-       :output nil)
+       :output      nil)
       (release-script-tests--install-darwin-host-tools fixture-bin "x86_64")
       (release-script-tests--run
        (list (namestring installer) "--version" tag)
        :environment base-environment
-       :output nil)
+       :output      nil)
       (test-assert
        (probe-file
         (merge-pathnames
@@ -1631,30 +1634,30 @@ fi
       (release-script-tests--run
        (list (namestring installer) "--version" tag)
        :environment base-environment
-       :output nil)))
+       :output      nil)))
   nil)
 
 (-> release-script-tests--update-handoff (pathname pathname) null)
 (defun release-script-tests--update-handoff (source-root root)
   "Exercise clean update handoff and preservation of a custom installation prefix."
-  (let* ((tag (format nil "v~A" *release-script-tests-version*))
-         (next-tag "v0.12.0")
-         (fixture-root (merge-pathnames "update-handoff/" root))
-         (install-root (merge-pathnames "custom-installation/" fixture-root))
-         (release-root (merge-pathnames (format nil "releases/~A/" tag)
-                                        install-root))
-         (packaged-source (merge-pathnames "libexec/autolith/" release-root))
-         (inner-launcher (merge-pathnames "bin/autolith" packaged-source))
+  (let* ((tag               (format nil "v~A" *release-script-tests-version*))
+         (next-tag          "v0.12.0")
+         (fixture-root      (merge-pathnames "update-handoff/" root))
+         (install-root      (merge-pathnames "custom-installation/" fixture-root))
+         (release-root      (merge-pathnames (format nil "releases/~A/" tag)
+                                             install-root))
+         (packaged-source   (merge-pathnames "libexec/autolith/" release-root))
+         (inner-launcher    (merge-pathnames "bin/autolith" packaged-source))
          (bundled-installer (merge-pathnames "script/install" packaged-source))
-         (launcher (merge-pathnames "bin/autolith" release-root))
-         (bin-directory (merge-pathnames "custom-bin/" fixture-root))
-         (command-link (merge-pathnames "autolith" bin-directory))
-         (data-home (merge-pathnames "data/" fixture-root))
-         (state-home (merge-pathnames "state/" fixture-root))
-         (fixture-bin (merge-pathnames "fixture-bin/" fixture-root))
-         (curl (merge-pathnames "curl" fixture-bin))
-         (updated-launcher (merge-pathnames "updated-autolith" fixture-root))
-         (log (merge-pathnames "handoff.log" fixture-root)))
+         (launcher          (merge-pathnames "bin/autolith" release-root))
+         (bin-directory     (merge-pathnames "custom-bin/" fixture-root))
+         (command-link      (merge-pathnames "autolith" bin-directory))
+         (data-home         (merge-pathnames "data/" fixture-root))
+         (state-home        (merge-pathnames "state/" fixture-root))
+         (fixture-bin       (merge-pathnames "fixture-bin/" fixture-root))
+         (curl              (merge-pathnames "curl" fixture-bin))
+         (updated-launcher  (merge-pathnames "updated-autolith" fixture-root))
+         (log               (merge-pathnames "handoff.log" fixture-root)))
     (release-script-tests--make-release source-root release-root)
     (uiop:ensure-all-directories-exist
      (list bin-directory data-home state-home fixture-bin))
@@ -1728,7 +1731,7 @@ printf 'RUNTIME=%s\\n' \"$*\" >> \"$AUTOLITH_TEST_LOG\"
     (dolist (pathname (list inner-launcher bundled-installer updated-launcher
                             curl))
       (release-script-tests--chmod "755" pathname))
-    (let* ((active-root (merge-pathnames "autolith/active/" data-home))
+    (let* ((active-root   (merge-pathnames "autolith/active/" data-home))
            (recovery-root (merge-pathnames "autolith/recovery/" data-home)))
       (dolist (pathname (list (merge-pathnames "autolith-active.core" active-root)
                               (merge-pathnames "autolith-recovery.core"
@@ -1754,7 +1757,7 @@ printf 'RUNTIME=%s\\n' \"$*\" >> \"$AUTOLITH_TEST_LOG\"
                            (namestring updated-launcher))
                    "AUTOLITH_SUPPRESS_UPDATE_OFFER="
                    "AUTOLITH_RELEASE_LATEST_URL=https://example.invalid/releases/latest"))
-           (current (merge-pathnames "current" install-root))
+           (current      (merge-pathnames "current" install-root))
            (image-marker (merge-pathnames "autolith/release-images" data-home)))
       (labels ((select-original ()
                  (sb-posix:unlink (namestring current))
@@ -1762,43 +1765,43 @@ printf 'RUNTIME=%s\\n' \"$*\" >> \"$AUTOLITH_TEST_LOG\"
                                    (namestring current))
                  (release-script-tests--write-file log ""))
 
-                (run-command (arguments &key (latest-tag next-tag)
-                                          (discovery-status 0) (install-status 0)
-                                          (expected-status 0) installed-p
-                                          (discovered-p t) restart-p)
-                 (select-original)
-                 (multiple-value-bind (output error-output status)
-                     (release-script-tests--run
-                      (cons (namestring command-link) arguments)
-                      :environment
-                      (append environment
-                              (list (format nil "AUTOLITH_TEST_LATEST_TAG=~A"
-                                            latest-tag)
-                                    (format nil "AUTOLITH_TEST_DISCOVERY_STATUS=~D"
-                                            discovery-status)
-                                    (format nil "AUTOLITH_TEST_INSTALL_STATUS=~D"
-                                            install-status)))
-                      :ignore-error-status t)
-                   (test-assert
-                     (= expected-status status)
-                    (format nil "~S exits as expected: ~A ~A"
-                            arguments output error-output)))
-                 (let ((events (uiop:read-file-string log)))
-                   (test-assert
-                    (eq discovered-p (not (null (search "DISCOVERY" events))))
-                    "update validates arguments before release discovery")
-                   (test-assert
-                    (eq restart-p
-                        (not (null (or (search "INNER_ARGS=" events)
-                                       (search "UPDATED_ARGS=" events)))))
-                    "only interactive updates start a session")
-                   (unless restart-p
-                     (test-assert (not (search "RUNTIME=" events))
-                                  "update-only never probes or rebuilds images")))
-                 (test-assert
-                  (string= (release-script-tests--readlink current)
-                           (format nil "releases/~A" (if installed-p next-tag tag)))
-                  "successful installation selects the update; other outcomes preserve selection")))
+               (run-command (arguments &key (latest-tag next-tag)
+                                         (discovery-status 0) (install-status 0)
+                                         (expected-status 0) installed-p
+                                         (discovered-p t) restart-p)
+                (select-original)
+                (multiple-value-bind (output error-output status)
+                    (release-script-tests--run
+                     (cons (namestring command-link) arguments)
+                     :environment
+                     (append environment
+                             (list (format nil "AUTOLITH_TEST_LATEST_TAG=~A"
+                                           latest-tag)
+                                   (format nil "AUTOLITH_TEST_DISCOVERY_STATUS=~D"
+                                           discovery-status)
+                                   (format nil "AUTOLITH_TEST_INSTALL_STATUS=~D"
+                                           install-status)))
+                     :ignore-error-status t)
+                  (test-assert
+                    (= expected-status status)
+                   (format nil "~S exits as expected: ~A ~A"
+                           arguments output error-output)))
+                (let ((events (uiop:read-file-string log)))
+                  (test-assert
+                   (eq discovered-p (not (null (search "DISCOVERY" events))))
+                   "update validates arguments before release discovery")
+                  (test-assert
+                   (eq restart-p
+                       (not (null (or (search "INNER_ARGS=" events)
+                                      (search "UPDATED_ARGS=" events)))))
+                   "only interactive updates start a session")
+                  (unless restart-p
+                    (test-assert (not (search "RUNTIME=" events))
+                                 "update-only never probes or rebuilds images")))
+                (test-assert
+                 (string= (release-script-tests--readlink current)
+                          (format nil "releases/~A" (if installed-p next-tag tag)))
+                 "successful installation selects the update; other outcomes preserve selection")))
         (delete-file image-marker)
         (dolist (alias '("update" "--update"))
           (run-command (list alias) :installed-p t)
@@ -1840,7 +1843,7 @@ printf 'RUNTIME=%s\\n' \"$*\" >> \"$AUTOLITH_TEST_LOG\"
          :environment (append environment
                               (list (format nil "AUTOLITH_TEST_LATEST_TAG=~A"
                                             next-tag)))
-         :output nil)))
+         :output      nil)))
     (let ((events (uiop:read-file-string log)))
       (test-assert
        (and (search "INNER_KIND=release" events)
@@ -1877,18 +1880,18 @@ printf 'RUNTIME=%s\\n' \"$*\" >> \"$AUTOLITH_TEST_LOG\"
 (-> release-script-tests--uninstall (pathname pathname) null)
 (defun release-script-tests--uninstall (source-root root)
   "Exercise packaged-release removal through the command link with user data kept."
-  (let* ((tag (format nil "v~A" *release-script-tests-version*))
-         (fixture-root (merge-pathnames "uninstall/" root))
-         (install-root (merge-pathnames "installation/" fixture-root))
-         (release-root (merge-pathnames (format nil "releases/~A/" tag) install-root))
+  (let* ((tag           (format nil "v~A" *release-script-tests-version*))
+         (fixture-root  (merge-pathnames "uninstall/" root))
+         (install-root  (merge-pathnames "installation/" fixture-root))
+         (release-root  (merge-pathnames (format nil "releases/~A/" tag) install-root))
          (bin-directory (merge-pathnames "bin/" fixture-root))
-         (command-link (merge-pathnames "autolith" bin-directory))
-         (data-home (merge-pathnames "data/" fixture-root))
-         (state-home (merge-pathnames "state/" fixture-root))
-         (cache-home (merge-pathnames "cache/" fixture-root))
-         (config-home (merge-pathnames "config/" fixture-root))
-         (fixture-bin (merge-pathnames "fixture-bin/" fixture-root))
-         (log (merge-pathnames "uninstall.log" fixture-root))
+         (command-link  (merge-pathnames "autolith" bin-directory))
+         (data-home     (merge-pathnames "data/" fixture-root))
+         (state-home    (merge-pathnames "state/" fixture-root))
+         (cache-home    (merge-pathnames "cache/" fixture-root))
+         (config-home   (merge-pathnames "config/" fixture-root))
+         (fixture-bin   (merge-pathnames "fixture-bin/" fixture-root))
+         (log           (merge-pathnames "uninstall.log" fixture-root))
          (artifacts
            (list (merge-pathnames "autolith/active/autolith-active.core" data-home)
                  (merge-pathnames "autolith/recovery/autolith-recovery.core" data-home)
@@ -1965,23 +1968,23 @@ printf 'INNER\\n' >> \"$AUTOLITH_TEST_LOG\"
 (-> release-script-tests--musl-update-handoff (pathname pathname) null)
 (defun release-script-tests--musl-update-handoff (source-root root)
   "Exercise musl-preserving update from a platform-qualified installation."
-  (let* ((tag (format nil "v~A" *release-script-tests-version*))
-         (next-tag "v0.12.0")
-         (platform "x86_64-linux-musl")
-         (fixture-root (merge-pathnames "musl-update-handoff/" root))
-         (install-root (merge-pathnames "installation/" fixture-root))
+  (let* ((tag               (format nil "v~A" *release-script-tests-version*))
+         (next-tag          "v0.12.0")
+         (platform          "x86_64-linux-musl")
+         (fixture-root      (merge-pathnames "musl-update-handoff/" root))
+         (install-root      (merge-pathnames "installation/" fixture-root))
          (release-root
            (merge-pathnames (format nil "releases/~A-~A/" tag platform)
                             install-root))
-         (packaged-source (merge-pathnames "libexec/autolith/" release-root))
-         (inner-launcher (merge-pathnames "bin/autolith" packaged-source))
+         (packaged-source   (merge-pathnames "libexec/autolith/" release-root))
+         (inner-launcher    (merge-pathnames "bin/autolith" packaged-source))
          (bundled-installer (merge-pathnames "script/install" packaged-source))
-         (launcher (merge-pathnames "bin/autolith" release-root))
-         (data-home (merge-pathnames "data/" fixture-root))
-         (fixture-bin (merge-pathnames "fixture-bin/" fixture-root))
-         (curl (merge-pathnames "curl" fixture-bin))
-         (updated-launcher (merge-pathnames "updated-autolith" fixture-root))
-         (log (merge-pathnames "handoff.log" fixture-root)))
+         (launcher          (merge-pathnames "bin/autolith" release-root))
+         (data-home         (merge-pathnames "data/" fixture-root))
+         (fixture-bin       (merge-pathnames "fixture-bin/" fixture-root))
+         (curl              (merge-pathnames "curl" fixture-bin))
+         (updated-launcher  (merge-pathnames "updated-autolith" fixture-root))
+         (log               (merge-pathnames "handoff.log" fixture-root)))
     (release-script-tests--make-release
      source-root release-root :platform platform)
     (uiop:ensure-all-directories-exist (list data-home fixture-bin))
@@ -2022,7 +2025,7 @@ mv -Tf \"$temporary\" \"$AUTOLITH_INSTALL_ROOT/current\"
 ")
     (dolist (pathname (list inner-launcher bundled-installer updated-launcher))
       (release-script-tests--chmod "755" pathname))
-    (let* ((active-root (merge-pathnames "autolith/active/" data-home))
+    (let* ((active-root   (merge-pathnames "autolith/active/" data-home))
            (recovery-root (merge-pathnames "autolith/recovery/" data-home)))
       (dolist (pathname (list (merge-pathnames "autolith-active.core" active-root)
                               (merge-pathnames "autolith-recovery.core"
@@ -2072,17 +2075,17 @@ mv -Tf \"$temporary\" \"$AUTOLITH_INSTALL_ROOT/current\"
 (-> release-script-tests--image-marker-platform (pathname pathname) null)
 (defun release-script-tests--image-marker-platform (source-root root)
   "Exercise saved-image rebuilds when one tag switches Linux libc variants."
-  (let* ((tag (format nil "v~A" *release-script-tests-version*))
+  (let* ((tag          (format nil "v~A" *release-script-tests-version*))
          (fixture-root (merge-pathnames "image-marker-platform/" root))
          (release-root (merge-pathnames "release/" fixture-root))
-         (launcher (merge-pathnames "bin/autolith" release-root))
+         (launcher     (merge-pathnames "bin/autolith" release-root))
          (inner-launcher
            (merge-pathnames "libexec/autolith/bin/autolith" release-root))
-         (runtime (merge-pathnames "runtime/bin/sbcl" release-root))
-         (fixture-bin (merge-pathnames "fixture-bin/" fixture-root))
-         (data-home (merge-pathnames "data/" fixture-root))
-         (log (merge-pathnames "sbcl.log" fixture-root))
-         (marker (merge-pathnames "autolith/release-images" data-home)))
+         (runtime      (merge-pathnames "runtime/bin/sbcl" release-root))
+         (fixture-bin  (merge-pathnames "fixture-bin/" fixture-root))
+         (data-home    (merge-pathnames "data/" fixture-root))
+         (log          (merge-pathnames "sbcl.log" fixture-root))
+         (marker       (merge-pathnames "autolith/release-images" data-home)))
     (release-script-tests--make-release
      source-root release-root :platform "x86_64-linux")
     (uiop:ensure-all-directories-exist (list fixture-bin data-home))
@@ -2133,7 +2136,7 @@ esac
       (release-script-tests--run
        (list (namestring launcher))
        :environment (environment)
-       :output nil)
+       :output      nil)
       (test-assert
        (and (string= (string-trim '(#\Newline #\Return)
                                   (uiop:read-file-string marker))
@@ -2148,7 +2151,7 @@ esac
       (release-script-tests--run
        (list (namestring launcher))
        :environment (environment)
-       :output nil)
+       :output      nil)
       (test-assert
        (and (string= (string-trim '(#\Newline #\Return)
                                   (uiop:read-file-string marker))
@@ -2160,18 +2163,18 @@ esac
 (-> release-script-tests--runtime-adapter (pathname pathname) null)
 (defun release-script-tests--runtime-adapter (source-root root)
   "Exercise minimum-version runtime selection in the pinned-runtime adapter."
-  (let* ((fixture-root (merge-pathnames "runtime-adapter/" root))
-         (bin-directory (merge-pathnames "bin/" fixture-root))
+  (let* ((fixture-root    (merge-pathnames "runtime-adapter/" root))
+         (bin-directory   (merge-pathnames "bin/" fixture-root))
          (tools-directory (merge-pathnames "tools/" fixture-root))
-         (data-home (merge-pathnames "data/" fixture-root))
+         (data-home       (merge-pathnames "data/" fixture-root))
          (adapter-target
            (merge-pathnames "autolith-runtime-target" bin-directory))
-         (adapter (merge-pathnames "autolith-runtime" bin-directory))
-         (fake-curl (merge-pathnames "curl" tools-directory))
-         (fake-readlink (merge-pathnames "readlink" tools-directory))
-         (fake-sha256sum (merge-pathnames "sha256sum" tools-directory))
-         (fake-tar (merge-pathnames "tar" tools-directory))
-         (script (merge-pathnames "script.lisp" fixture-root)))
+         (adapter         (merge-pathnames "autolith-runtime" bin-directory))
+         (fake-curl       (merge-pathnames "curl" tools-directory))
+         (fake-readlink   (merge-pathnames "readlink" tools-directory))
+         (fake-sha256sum  (merge-pathnames "sha256sum" tools-directory))
+         (fake-tar        (merge-pathnames "tar" tools-directory))
+         (script          (merge-pathnames "script.lisp" fixture-root)))
     (uiop:ensure-all-directories-exist
      (list bin-directory tools-directory data-home))
     (uiop:copy-file (merge-pathnames "bin/autolith-runtime" source-root)
@@ -2279,7 +2282,7 @@ esac
                                 (namestring adapter)
                                 install-p
                                 (namestring script)))
-                  :directory fixture-root
+                  :directory           fixture-root
                   :environment
                   (list (format nil "PATH=~A:~A"
                                 (namestring tools-directory)
@@ -2328,9 +2331,9 @@ esac
           (run-adapter (fake-runtime "2.10.0") :install-p t)
         (test-assert (and (zerop status) (search "ADAPTER-SCRIPT" output))
                      "an untracked newer runtime can bootstrap without managed source"))
-      (let* ((version "2.10.0-local")
-             (runtime (fake-runtime version))
-             (matching (merge-pathnames "inherited-source/" fixture-root))
+      (let* ((version    "2.10.0-local")
+             (runtime    (fake-runtime version))
+             (matching   (merge-pathnames "inherited-source/" fixture-root))
              (mismatched (merge-pathnames "mismatched-source/" fixture-root)))
         (release-script-tests--write-file
          (merge-pathnames "version.lisp-expr" matching)
@@ -2365,7 +2368,7 @@ esac
         (multiple-value-bind (output status)
             (run-adapter (fake-runtime "2.6.7")
                          :install-p t
-                         :sha256 (make-string 64 :initial-element #\0))
+                         :sha256    (make-string 64 :initial-element #\0))
           (declare (ignore output))
           (test-assert (not (zerop status))
                        "source installation rejects a mismatched archive digest")))
@@ -2449,12 +2452,12 @@ esac
       (release-script-tests--run
        (list "sha256sum" (file-namestring archive))
        :directory (uiop:pathname-directory-pathname archive)
-       :output checksum)
+       :output    checksum)
       (let ((output
               (release-script-tests--run
                (list "shasum" "-a" "256" (file-namestring archive))
                :directory (uiop:pathname-directory-pathname archive)
-               :output ':string)))
+               :output    ':string)))
         (release-script-tests--write-file checksum output)))
   checksum)
 
@@ -2465,7 +2468,7 @@ esac
 (defun release-script-tests--write-release-archive
     (release-root fixture-root &key tag platform record-platform)
   "Package RELEASE-ROOT as TAG's PLATFORM archive below FIXTURE-ROOT."
-  (let* ((release-name (format nil "autolith-~A-~A" tag platform))
+  (let* ((release-name   (format nil "autolith-~A-~A" tag platform))
          (fixture-source (merge-pathnames "source/" fixture-root))
          (fixture-release
            (merge-pathnames (format nil "~A/" release-name) fixture-source))
@@ -2501,14 +2504,14 @@ esac
 (-> release-script-tests--installer-platform-identity (pathname pathname) null)
 (defun release-script-tests--installer-platform-identity (source-root root)
   "Exercise installer platform validation and same-tag Linux variant isolation."
-  (let* ((tag (format nil "v~A" *release-script-tests-version*))
-         (release-root (merge-pathnames "identity-release/" root))
-         (fixture-root (merge-pathnames "identity-fixture/" root))
-         (fixture-bin (merge-pathnames "identity-bin/" root))
-         (install-root (merge-pathnames "identity-installation/" root))
+  (let* ((tag           (format nil "v~A" *release-script-tests-version*))
+         (release-root  (merge-pathnames "identity-release/" root))
+         (fixture-root  (merge-pathnames "identity-fixture/" root))
+         (fixture-bin   (merge-pathnames "identity-bin/" root))
+         (install-root  (merge-pathnames "identity-installation/" root))
          (bin-directory (merge-pathnames "identity-command-bin/" root))
-         (curl (merge-pathnames "curl" fixture-bin))
-         (installer (merge-pathnames "script/install" source-root)))
+         (curl          (merge-pathnames "curl" fixture-bin))
+         (installer     (merge-pathnames "script/install" source-root)))
     (release-script-tests--make-release source-root release-root)
     (uiop:ensure-all-directories-exist
      (list fixture-root fixture-bin install-root bin-directory))
@@ -2532,9 +2535,9 @@ esac
                (multiple-value-bind (output error-output status)
                    (release-script-tests--run
                     (append (list (namestring installer)) arguments)
-                    :environment (environment)
+                    :environment         (environment)
                     :ignore-error-status t
-                    :output nil)
+                    :output              nil)
                  (declare (ignore output))
                  (test-assert
                   (and (not (eql status 0))
@@ -2542,7 +2545,7 @@ esac
                   description))))
       (release-script-tests--write-release-archive
        release-root fixture-root
-       :tag tag
+       :tag      tag
        :platform "aarch64-linux")
       (release-script-tests--install-linux-host-tools
        fixture-bin :architecture "aarch64")
@@ -2552,8 +2555,8 @@ esac
        "Linux aarch64 rejects a legacy archive without platform identity")
       (release-script-tests--write-release-archive
        release-root fixture-root
-       :tag tag
-       :platform "x86_64-linux"
+       :tag             tag
+       :platform        "x86_64-linux"
        :record-platform "aarch64-linux")
       (release-script-tests--install-linux-host-tools fixture-bin)
       (install-fails
@@ -2562,16 +2565,16 @@ esac
        "the installer rejects extracted platform metadata that mismatches the archive")
       (release-script-tests--write-release-archive
        release-root fixture-root
-       :tag tag
-       :platform "x86_64-linux"
+       :tag             tag
+       :platform        "x86_64-linux"
        :record-platform "x86_64-linux")
       (release-script-tests--run
        (list (namestring installer) "--version" tag)
        :environment (environment)
-       :output nil)
+       :output      nil)
       (release-script-tests--write-release-archive
        release-root fixture-root
-       :tag tag
+       :tag      tag
        :platform "x86_64-linux-musl")
       (release-script-tests--install-linux-host-tools fixture-bin :libc "musl")
       (install-fails
@@ -2580,8 +2583,8 @@ esac
        "musl rejects a legacy archive without platform identity")
       (release-script-tests--write-release-archive
        release-root fixture-root
-       :tag tag
-       :platform "x86_64-linux-musl"
+       :tag             tag
+       :platform        "x86_64-linux-musl"
        :record-platform "x86_64-linux-musl")
       (release-script-tests--install-linux-host-tools fixture-bin)
       (install-fails
@@ -2597,7 +2600,7 @@ esac
       (release-script-tests--run
        (list (namestring installer) "--musl" "--version" tag)
        :environment (environment)
-       :output nil)
+       :output      nil)
       (test-assert
        (and
         (probe-file
@@ -2617,7 +2620,7 @@ esac
       (release-script-tests--run
        (list (namestring installer) "--version" tag)
        :environment (environment)
-       :output nil)
+       :output      nil)
       (test-assert
        (string=
         (release-script-tests--readlink
@@ -2728,9 +2731,9 @@ esac
                (merge-pathnames (format nil "bsd-launcher-~A/" os) root))
              (launcher (merge-pathnames "bin/autolith" release-root))
              (host-bin (merge-pathnames (format nil "bsd-host-~A/" os) root))
-             (path (format nil "~A:~A"
-                           (string-right-trim "/" (namestring host-bin))
-                           (or (uiop:getenv "PATH") "")))
+             (path     (format nil "~A:~A"
+                               (string-right-trim "/" (namestring host-bin))
+                               (or (uiop:getenv "PATH") "")))
              (environment
                (list "AUTOLITH_NO_UPDATE_CHECK=1"
                      (format nil "PATH=~A" path))))
@@ -2752,9 +2755,9 @@ esac
           (multiple-value-bind (output error-output status)
               (release-script-tests--run
                (list (namestring launcher) "--autolith-release-probe")
-               :environment environment
+               :environment         environment
                :ignore-error-status t
-               :output nil)
+               :output              nil)
             (declare (ignore output error-output))
             (test-assert (not (eql status 0))
                          (format nil
@@ -2768,7 +2771,7 @@ esac
           (multiple-value-bind (output error-output status)
               (release-script-tests--run
                (list (namestring launcher) "--autolith-release-probe")
-               :environment environment
+               :environment         environment
                :ignore-error-status t)
             (declare (ignore output))
             (test-assert
@@ -2785,9 +2788,9 @@ esac
 (-> release-script-tests--installer-bsd (pathname pathname) null)
 (defun release-script-tests--installer-bsd (source-root root)
   "Exercise FreeBSD, NetBSD, and OpenBSD amd64 installer publication."
-  (let* ((tag (format nil "v~A" *release-script-tests-version*))
+  (let* ((tag          (format nil "v~A" *release-script-tests-version*))
          (release-root (merge-pathnames "bsd-release/" root))
-         (installer (merge-pathnames "script/install" source-root)))
+         (installer    (merge-pathnames "script/install" source-root)))
     (release-script-tests--make-release source-root release-root)
     (dolist (spec '(("FreeBSD" "amd64" "x86_64-freebsd")
                     ("NetBSD" "amd64" "x86_64-netbsd")
@@ -2815,7 +2818,7 @@ esac
                                   root))
                (bin-directory
                  (merge-pathnames (format nil "~A-bin/" platform) root))
-               (curl (merge-pathnames "curl" fixture-bin)))
+               (curl         (merge-pathnames "curl" fixture-bin)))
           (uiop:ensure-all-directories-exist
            (list fixture-root fixture-source fixture-bin fixture-release))
           (release-script-tests--write-uname fixture-bin os architecture)
@@ -2863,12 +2866,12 @@ esac
 (-> release-script-tests--portable-copy (pathname) null)
 (defun release-script-tests--portable-copy (root)
   "Exercise recursive copy that preserves symbolic links."
-  (let* ((source (merge-pathnames "copy-source" root))
-         (target (merge-pathnames "copy-target" root))
+  (let* ((source           (merge-pathnames "copy-source" root))
+         (target           (merge-pathnames "copy-target" root))
          (source-directory (uiop:ensure-directory-pathname source))
          (target-directory (uiop:ensure-directory-pathname target))
-         (file (merge-pathnames "file.txt" source-directory))
-         (link (merge-pathnames "link.txt" source-directory)))
+         (file             (merge-pathnames "file.txt" source-directory))
+         (link             (merge-pathnames "link.txt" source-directory)))
     (release-script-tests--write-file file "payload")
     (sb-posix:symlink "file.txt" (namestring link))
     (release-archive--copy source target)
@@ -2885,14 +2888,14 @@ esac
 (-> release-script-tests--checksum-format (pathname) null)
 (defun release-script-tests--checksum-format (root)
   "Exercise GNU-format SHA-256 checksum publication."
-  (let* ((file (merge-pathnames "payload.bin" root))
+  (let* ((file     (merge-pathnames "payload.bin" root))
          (checksum (merge-pathnames "payload.bin.sha256" root)))
     (release-script-tests--write-file file "autolith")
     (release-archive--checksum-file file checksum)
-    (let* ((line (string-trim '(#\Newline #\Return)
-                              (uiop:read-file-string checksum)))
+    (let* ((line   (string-trim '(#\Newline #\Return)
+                                (uiop:read-file-string checksum)))
            (digest (first (uiop:split-string line :separator '(#\Space))))
-           (name (first (last (uiop:split-string line :separator '(#\Space))))))
+           (name   (first (last (uiop:split-string line :separator '(#\Space))))))
       (test-assert (= (length digest) 64)
                    "checksum digest is SHA-256")
       (test-assert (string= name "payload.bin")
@@ -2906,18 +2909,18 @@ esac
 (-> release-script-tests--runtime-bootstrap (pathname pathname) null)
 (defun release-script-tests--runtime-bootstrap (source-root root)
   "Exercise pinned and host runtime bootstrap selection and validation."
-  (let* ((fixture (merge-pathnames "runtime-bootstrap/" root))
-         (bin (merge-pathnames "bin/" fixture))
+  (let* ((fixture      (merge-pathnames "runtime-bootstrap/" root))
+         (bin          (merge-pathnames "bin/" fixture))
          (installation (merge-pathnames "installation/" fixture))
-         (log (merge-pathnames "bootstrap.log" fixture))
-         (curl-log (merge-pathnames "curl.log" fixture))
-         (sbcl (merge-pathnames "sbcl" bin))
-         (curl (merge-pathnames "curl" bin))
-         (ldd (merge-pathnames "ldd" bin))
-         (bash (release-archive--command-pathname "bash"))
-         (script (merge-pathnames "script/build-release-runtime" source-root))
-         (path (format nil "~A:/bin:/usr/bin"
-                       (string-right-trim "/" (namestring bin)))))
+         (log          (merge-pathnames "bootstrap.log" fixture))
+         (curl-log     (merge-pathnames "curl.log" fixture))
+         (sbcl         (merge-pathnames "sbcl" bin))
+         (curl         (merge-pathnames "curl" bin))
+         (ldd          (merge-pathnames "ldd" bin))
+         (bash         (release-archive--command-pathname "bash"))
+         (script       (merge-pathnames "script/build-release-runtime" source-root))
+         (path         (format nil "~A:/bin:/usr/bin"
+                               (string-right-trim "/" (namestring bin)))))
     (uiop:ensure-all-directories-exist (list bin installation))
     (release-script-tests--write-uname bin "FreeBSD" "amd64")
     (release-script-tests--write-file
@@ -2951,7 +2954,7 @@ esac
                (release-script-tests--run
                 (list (namestring bash) (namestring script)
                       (namestring installation))
-                :environment (apply #'environment extra)
+                :environment         (apply #'environment extra)
                 :ignore-error-status t)))
       (multiple-value-bind (output error-output status)
           (run-bootstrap)
@@ -3078,55 +3081,55 @@ esac
   (let ((record (merge-pathnames "release-record" root)))
     (release-archive--write-record
      record
-     :version "0.11.0"
-     :tag "v0.11.0"
-     :commit *release-script-tests-commit*
+     :version  "0.11.0"
+     :tag      "v0.11.0"
+     :commit   *release-script-tests-commit*
      :platform "aarch64-linux-musl")
     (test-assert
      (search "platform=aarch64-linux-musl"
              (uiop:read-file-string record))
      "release records preserve the exact archive platform"))
-    (let ((missing (merge-pathnames "no-sandbox/" root)))
-      (test-assert (null (release-archive--sandbox-helper missing))
-                   "sandbox helper lookup is silent for an unrelated source root")
-      (let* ((source-directory (symbol-function 'asdf:system-source-directory))
-             (source-root (asdf:system-source-directory :autolith))
-             (library-root (merge-pathnames "sandbox-library/" root))
-             (helper (merge-pathnames "build/cl-exec-sandbox-helper" library-root))
-             (process-group (merge-pathnames "build/cl-exec-sandbox-process-group" library-root)))
-        (release-script-tests--write-file helper "fixture helper")
-        (release-script-tests--write-file process-group "fixture process-group helper")
-        (test-call-with-function-replacements
-         (list
-          (list 'asdf:system-source-directory
-                (lambda (system)
-                  (if (eq system ':cl-exec-sandbox)
-                      library-root
-                      (funcall source-directory system)))))
-         (lambda ()
-           (test-assert
-            (equal
-             (platform-truename *platform* (release-archive--sandbox-helper source-root))
-             (platform-truename *platform* helper))
-            "sandbox helper lookup uses the locked ASDF dependency")
-           (test-assert
-            (equal
-             (platform-truename *platform* (release-archive--process-group-helper source-root))
-             (platform-truename *platform* process-group))
-            "process-group helper lookup uses the locked ASDF dependency"))))
-      (test-assert (null (release-archive--process-group-helper missing))
-                   "process-group helper lookup is silent for an unrelated source root")
-      (with-test-environment
-          (("AUTOLITH_RELEASE_PROCESS_GROUP_HELPER"
-            (namestring (merge-pathnames "release-record" root))))
-        (test-assert
-         (equal (platform-truename *platform* (release-archive--process-group-helper missing))
-                (platform-truename *platform* (merge-pathnames "release-record" root)))
-         "process-group helper lookup honours its environment override")))
-  (let* ((bin (merge-pathnames "sha256-only/" root))
-         (empty (merge-pathnames "no-digest/" root))
+  (let ((missing (merge-pathnames "no-sandbox/" root)))
+    (test-assert (null (release-archive--sandbox-helper missing))
+                 "sandbox helper lookup is silent for an unrelated source root")
+    (let* ((source-directory (symbol-function 'asdf:system-source-directory))
+           (source-root      (asdf:system-source-directory :autolith))
+           (library-root     (merge-pathnames "sandbox-library/" root))
+           (helper           (merge-pathnames "build/cl-exec-sandbox-helper" library-root))
+           (process-group    (merge-pathnames "build/cl-exec-sandbox-process-group" library-root)))
+      (release-script-tests--write-file helper "fixture helper")
+      (release-script-tests--write-file process-group "fixture process-group helper")
+      (test-call-with-function-replacements
+       (list
+        (list 'asdf:system-source-directory
+              (lambda (system)
+                (if (eq system ':cl-exec-sandbox)
+                    library-root
+                    (funcall source-directory system)))))
+       (lambda ()
+         (test-assert
+          (equal
+           (platform-truename *platform* (release-archive--sandbox-helper source-root))
+           (platform-truename *platform* helper))
+          "sandbox helper lookup uses the locked ASDF dependency")
+         (test-assert
+          (equal
+           (platform-truename *platform* (release-archive--process-group-helper source-root))
+           (platform-truename *platform* process-group))
+          "process-group helper lookup uses the locked ASDF dependency"))))
+    (test-assert (null (release-archive--process-group-helper missing))
+                 "process-group helper lookup is silent for an unrelated source root")
+    (with-test-environment
+        (("AUTOLITH_RELEASE_PROCESS_GROUP_HELPER"
+          (namestring (merge-pathnames "release-record" root))))
+      (test-assert
+       (equal (platform-truename *platform* (release-archive--process-group-helper missing))
+              (platform-truename *platform* (merge-pathnames "release-record" root)))
+       "process-group helper lookup honours its environment override")))
+  (let* ((bin    (merge-pathnames "sha256-only/" root))
+         (empty  (merge-pathnames "no-digest/" root))
          (sha256 (merge-pathnames "sha256" bin))
-         (saved (or (uiop:getenv "PATH") "")))
+         (saved  (or (uiop:getenv "PATH") "")))
     (uiop:ensure-all-directories-exist (list bin empty))
     (release-script-tests--write-file sha256 "#!/bin/sh\nexit 0\n")
     (release-script-tests--chmod "755" sha256)
@@ -3147,57 +3150,57 @@ esac
                              (release-archive-error-cause condition)))))
             "sha256 helper names every accepted digest command"))
         (platform-setenv "PATH" saved)))
-    (test-assert
-     (equal *release-archive-extra-command-directories*
-            '("/usr/local/bin" "/usr/pkg/bin" "/opt/local/bin" "/bin" "/usr/bin"))
-     "gnu tar extra directories include BSD prefixes")
-    (let* ((bin (merge-pathnames "gnu-tar/" root))
-           (extra (merge-pathnames "gnu-tar-extra/" root))
-           (empty (merge-pathnames "gnu-tar-empty/" root))
-           (gtar (merge-pathnames "gtar" bin))
-           (gnutar (merge-pathnames "gnutar" extra))
-           (saved (or (uiop:getenv "PATH") "")))
-      (uiop:ensure-all-directories-exist (list bin extra empty))
-      (release-script-tests--write-file gtar "#!/bin/sh\nexit 0\n")
-      (release-script-tests--write-file gnutar "#!/bin/sh\nexit 0\n")
-      (release-script-tests--chmod "755" gtar)
-      (release-script-tests--chmod "755" gnutar)
-      (unwind-protect
-           (progn
-             (platform-setenv "PATH" (string-right-trim "/" (namestring bin)))
+  (test-assert
+   (equal *release-archive-extra-command-directories*
+          '("/usr/local/bin" "/usr/pkg/bin" "/opt/local/bin" "/bin" "/usr/bin"))
+   "gnu tar extra directories include BSD prefixes")
+  (let* ((bin    (merge-pathnames "gnu-tar/" root))
+         (extra  (merge-pathnames "gnu-tar-extra/" root))
+         (empty  (merge-pathnames "gnu-tar-empty/" root))
+         (gtar   (merge-pathnames "gtar" bin))
+         (gnutar (merge-pathnames "gnutar" extra))
+         (saved  (or (uiop:getenv "PATH") "")))
+    (uiop:ensure-all-directories-exist (list bin extra empty))
+    (release-script-tests--write-file gtar "#!/bin/sh\nexit 0\n")
+    (release-script-tests--write-file gnutar "#!/bin/sh\nexit 0\n")
+    (release-script-tests--chmod "755" gtar)
+    (release-script-tests--chmod "755" gnutar)
+    (unwind-protect
+         (progn
+           (platform-setenv "PATH" (string-right-trim "/" (namestring bin)))
+           (test-assert
+            (equal (namestring (truename (release-archive--gnu-tar-command)))
+                   (namestring (truename gtar)))
+            "gnu tar lookup finds gtar on PATH")
+           (platform-setenv "PATH" (string-right-trim "/" (namestring empty)))
+           (let ((*release-archive-extra-command-directories*
+                   (list (string-right-trim "/" (namestring extra)))))
              (test-assert
               (equal (namestring (truename (release-archive--gnu-tar-command)))
-                     (namestring (truename gtar)))
-              "gnu tar lookup finds gtar on PATH")
-             (platform-setenv "PATH" (string-right-trim "/" (namestring empty)))
-             (let ((*release-archive-extra-command-directories*
-                     (list (string-right-trim "/" (namestring extra)))))
+                     (namestring (truename gnutar)))
+              "gnu tar lookup finds gnutar outside PATH"))
+           (let ((*release-archive-extra-command-directories* '()))
+             (test-assert (null (release-archive--gnu-tar-command))
+                          "gnu tar lookup is silent when gtar is absent"))
+           (platform-setenv "PATH" (string-right-trim "/" (namestring bin)))
+           (let ((command
+                   (release-archive--tar-command
+                    (merge-pathnames "release.tar" root)
+                    root
+                    "autolith-v0.0.0-x86_64-openbsd"
+                    "0")))
+             (test-assert (and (stringp (first command))
+                               (plusp (length (first command))))
+                          "tar command starts with a command pathname")
+             (when (release-archive--gnu-tar-required-p (software-type))
                (test-assert
-                (equal (namestring (truename (release-archive--gnu-tar-command)))
-                       (namestring (truename gnutar)))
-                "gnu tar lookup finds gnutar outside PATH"))
-             (let ((*release-archive-extra-command-directories* '()))
-               (test-assert (null (release-archive--gnu-tar-command))
-                            "gnu tar lookup is silent when gtar is absent"))
-             (platform-setenv "PATH" (string-right-trim "/" (namestring bin)))
-             (let ((command
-                     (release-archive--tar-command
-                      (merge-pathnames "release.tar" root)
-                      root
-                      "autolith-v0.0.0-x86_64-openbsd"
-                      "0")))
-               (test-assert (and (stringp (first command))
-                                 (plusp (length (first command))))
-                            "tar command starts with a command pathname")
-               (when (release-archive--gnu-tar-required-p (software-type))
-                 (test-assert
-                  (string= (namestring (platform-truename
-                                        *platform*
-                                        (platform-pathname (first command))))
-                           (namestring (platform-truename *platform* gtar)))
-                  "tar command uses the discovered GNU tar pathname"))))
-          (platform-setenv "PATH" saved)))
-    nil)
+                (string= (namestring (platform-truename
+                                      *platform*
+                                      (platform-pathname (first command))))
+                         (namestring (platform-truename *platform* gtar)))
+                "tar command uses the discovered GNU tar pathname"))))
+        (platform-setenv "PATH" saved)))
+  nil)
 
 (-> release-script-tests--linux-release-validator (pathname pathname) null)
 (defun release-script-tests--linux-release-validator (source-root root)
@@ -3207,13 +3210,13 @@ esac
          (fixture-root
            (uiop:ensure-directory-pathname
             (merge-pathnames "linux-release-validator/" root)))
-         (release-name "autolith-v0.11.0-x86_64-linux")
+         (release-name    "autolith-v0.11.0-x86_64-linux")
          (release-root
            (merge-pathnames (format nil "~A/" release-name) fixture-root))
-         (release-record (merge-pathnames "RELEASE" release-root))
-         (runtime (merge-pathnames "runtime/bin/sbcl" release-root))
-         (fixture-bin (merge-pathnames "fixture-bin/" fixture-root))
-         (file-command (merge-pathnames "file" fixture-bin))
+         (release-record  (merge-pathnames "RELEASE" release-root))
+         (runtime         (merge-pathnames "runtime/bin/sbcl" release-root))
+         (fixture-bin     (merge-pathnames "fixture-bin/" fixture-root))
+         (file-command    (merge-pathnames "file" fixture-bin))
          (readelf-command (merge-pathnames "readelf" fixture-bin))
          (environment
            (list
@@ -3274,16 +3277,16 @@ esac
                 (list (namestring validator) (namestring archive)
                       "x86_64-linux" "x86_64"
                       "/lib64/ld-linux-x86-64.so.2")
-                :environment (append extra-environment environment)
+                :environment         (append extra-environment environment)
                 :ignore-error-status t))
 
-              (validate-static (archive &key extra-environment
-                                             (platform "x86_64-linux"))
-                (release-script-tests--run
-                 (list (namestring validator) (namestring archive)
-                       platform "x86_64" "static")
-                 :environment (append extra-environment environment)
-                 :ignore-error-status t))
+             (validate-static (archive &key extra-environment
+                                            (platform "x86_64-linux"))
+               (release-script-tests--run
+                (list (namestring validator) (namestring archive)
+                      platform "x86_64" "static")
+                :environment         (append extra-environment environment)
+                :ignore-error-status t))
 
              (assert-failure (archive description &key extra-environment)
                (multiple-value-bind (output error-output status)
@@ -3354,7 +3357,7 @@ esac
                      "static validation rejects a mismatched archive root"))
       (release-script-tests--record
        release-record "v0.11.0" :platform "x86_64-linux")
-      (let* ((musl-name "autolith-v0.11.0-x86_64-linux-musl")
+      (let* ((musl-name   "autolith-v0.11.0-x86_64-linux-musl")
              (musl-root
                (merge-pathnames (format nil "~A/" musl-name) fixture-root))
              (musl-record (merge-pathnames "RELEASE" musl-root)))
@@ -3401,8 +3404,7 @@ esac
           (declare (ignore output error-output))
           (test-assert (not (zerop status))
                        "static validation rejects escaping symbolic links")))
-    nil)))
-
+     nil)))
 
 (-> release-script-tests--launcher-preflight (pathname) null)
 (defun release-script-tests--launcher-preflight (source-root)
@@ -3461,14 +3463,14 @@ esac
                         :from-source-p t :forwarded '("--immutable" "resume" "saved"))
       (check-forwarding '("--pristine" "resume" "saved")
                         :from-source-p t
-                        :forwarded '("--pristine" "resume" "saved"))
+                        :forwarded     '("--pristine" "resume" "saved"))
       (check-forwarding '("resume" "saved" "--from-source")
                         :from-source-p t :forwarded '("resume" "saved"))
       (check-forwarding '("--recovery" "--original-argument" "--from-source"
                           "--" "--recovery")
                         :recovery-p t
-                        :forwarded '("--original-argument" "--from-source"
-                                     "--" "--recovery"))
+                        :forwarded  '("--original-argument" "--from-source"
+                                      "--" "--recovery"))
       (dolist (kind '("source" "nix"))
         (dolist (alias '("update" "--update"))
           (dolist (tail '(nil ("--") ("extra") ("--help" "extra")
@@ -3538,14 +3540,14 @@ esac
                          ("--help" "extra") ("--" "--help")
                          ("resume" "saved") ("--recovery") ("--worker")))
            (let ((*standard-output* (make-string-output-stream))
-                 (*error-output* (make-string-output-stream)))
+                 (*error-output*    (make-string-output-stream)))
              (test-assert
               (= 64 (catch 'update-dispatch-exit
                       (main (cons alias tail))))
               "bypassing a launcher cannot update or start a session")))
          (dolist (tail '(("--help") ("-h") ("--help" "--")))
            (let ((*standard-output* (make-string-output-stream))
-                 (*error-output* (make-string-output-stream)))
+                 (*error-output*    (make-string-output-stream)))
              (test-assert
               (zerop (catch 'update-dispatch-exit
                        (main-dispatch (cons alias tail))))
@@ -3566,13 +3568,13 @@ esac
      (lambda ()
        (dolist (tail '(nil ("--yes") ("extra") ("--unknown")))
          (let ((*standard-output* (make-string-output-stream))
-               (*error-output* (make-string-output-stream)))
+               (*error-output*    (make-string-output-stream)))
            (test-assert
             (= 64 (catch 'update-dispatch-exit
                     (main (cons "uninstall" tail))))
             "bypassing a launcher cannot uninstall or start a session")))
        (let ((*standard-output* (make-string-output-stream))
-             (*error-output* (make-string-output-stream)))
+             (*error-output*    (make-string-output-stream)))
          (test-assert
           (zerop (catch 'update-dispatch-exit
                    (main-dispatch '("uninstall" "--help"))))
@@ -3587,7 +3589,7 @@ esac
                     (main-dispatch '("models"))))
          (models (remove-if (lambda (line)
                               (zerop (length line)))
-                              (uiop:split-string output :separator #(#\Newline))))
+                            (uiop:split-string output :separator #(#\Newline))))
          (sorted (sort (copy-list models) #'string<)))
     (test-assert
      (equal models sorted)
@@ -3611,18 +3613,18 @@ esac
 (defun test-image-manifest-relocation ()
   "Verify published core paths, preserved metadata, and prepublication validation."
   (with-test-configuration (configuration)
-    (let* ((root (test-configuration-root configuration))
-           (stage (merge-pathnames "stage/" root))
+    (let* ((root        (test-configuration-root configuration))
+           (stage       (merge-pathnames "stage/" root))
            (destination (merge-pathnames "published/" root))
-           (active (merge-pathnames "active/manifest.sexp" stage))
-           (recovery (merge-pathnames "recovery/manifest.sexp" stage))
+           (active      (merge-pathnames "active/manifest.sexp" stage))
+           (recovery    (merge-pathnames "recovery/manifest.sexp" stage))
            (active-record
              (list ':sbcl-generations-image-manifest :version 1
-                   :core (namestring (merge-pathnames "active/autolith-active.core" stage))
-                   :source '(:commit "fixture" :files ("a.lisp" "b.lisp"))))
+                   :core                                      (namestring (merge-pathnames "active/autolith-active.core" stage))
+                   :source                                    '(:commit "fixture" :files ("a.lisp" "b.lisp"))))
            (recovery-record
              (list ':recovery-image :version 2
-                   :core (namestring (merge-pathnames "recovery/autolith-recovery.core" stage))
+                   :core                     (namestring (merge-pathnames "recovery/autolith-recovery.core" stage))
                    :implementation "SBCL" :source '(:commit "fixture")))
            (command
              (list (lisp-worker-sbcl-command) "--noinform" "--no-sysinit" "--no-userinit"
@@ -3639,8 +3641,8 @@ esac
 
                (run ()
                  "Run the publication script and return its status."
-                 (nth-value 2 (uiop:run-program command :output ':string
-                                                       :error-output ':string
+                 (nth-value 2 (uiop:run-program command :output             ':string
+                                                       :error-output        ':string
                                                        :ignore-error-status t))))
         (dolist (invalid (list (cons ':wrong-tag (rest recovery-record))
                               (list ':recovery-image :version 99 :core "wrong.core")

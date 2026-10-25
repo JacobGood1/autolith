@@ -4,68 +4,68 @@
 
 (defclass scripted-provider (model-provider)
   ((configuration
-    :initarg :configuration
-    :initform nil
-    :reader scripted-provider-configuration
-    :type (option configuration)
+    :initarg       :configuration
+    :initform      nil
+    :reader        scripted-provider-configuration
+    :type          (option configuration)
     :documentation "Optional configuration used to inspect request-local Skills.")
    (results
-    :initarg :results
-    :accessor scripted-provider-results
-    :type list
+    :initarg       :results
+    :accessor      scripted-provider-results
+    :type          list
     :documentation "The provider results returned in request order.")
    (input-counts
-    :initform nil
-    :accessor scripted-provider-input-counts
-    :type list
+    :initform      nil
+    :accessor      scripted-provider-input-counts
+    :type          list
     :documentation "Conversation input lengths observed before each request.")
    (input-snapshots
-    :initform nil
-    :accessor scripted-provider-input-snapshots
-    :type list
+    :initform      nil
+    :accessor      scripted-provider-input-snapshots
+    :type          list
     :documentation "Request projections observed before each provider request.")
    (skill-selection-snapshots
-    :initform nil
-    :accessor scripted-provider-skill-selection-snapshots
-    :type list
+    :initform      nil
+    :accessor      scripted-provider-skill-selection-snapshots
+    :type          list
     :documentation "Logical-turn Skill names observed before each request.")
    (skill-contribution-snapshots
-    :initform nil
-    :accessor scripted-provider-skill-contribution-snapshots
-    :type list
+    :initform      nil
+    :accessor      scripted-provider-skill-contribution-snapshots
+    :type          list
     :documentation "Skill contribution identifiers observed before each request.")
    (turn-states
-    :initform nil
-    :accessor scripted-provider-turn-states
-    :type list
+    :initform      nil
+    :accessor      scripted-provider-turn-states
+    :type          list
     :documentation "Request-local turn states observed before each request.")
    (tool-schema-counts
-    :initform nil
-    :accessor scripted-provider-tool-schema-counts
-    :type list
+    :initform      nil
+    :accessor      scripted-provider-tool-schema-counts
+    :type          list
     :documentation "The number of tool namespaces advertised on each request.")
    (goal-contexts
-    :initform nil
-    :accessor scripted-provider-goal-contexts
-    :type list
+    :initform      nil
+    :accessor      scripted-provider-goal-contexts
+    :type          list
     :documentation "The goal context supplied on each request.")
    (compaction-flags
-    :initform nil
-    :accessor scripted-provider-compaction-flags
-    :type list
+    :initform      nil
+    :accessor      scripted-provider-compaction-flags
+    :type          list
     :documentation "The compaction flag supplied on each request."))
   (:documentation "A deterministic provider for exercising repeated agent rounds."))
 
 (defclass native-scripted-provider (scripted-provider)
   ((native-items
-    :initarg :native-items
-    :accessor native-scripted-provider-native-items
-    :type list
+    :initarg       :native-items
+    :accessor      native-scripted-provider-native-items
+    :type          list
     :documentation "Opaque native checkpoints returned in request order.")
    (native-input-snapshots
-    :initform nil
-    :accessor native-scripted-provider-native-input-snapshots
-    :type list
+    :initform      nil
+    :accessor      native-scripted-provider-native-input-snapshots
+    :type          list
     :documentation "Durable projections observed by native compaction requests."))
   (:documentation "A scripted provider that supports Codex-style native compaction."))
 
@@ -89,10 +89,10 @@
     ((provider scripted-provider)
      (conversation conversation)
      &key
-       tool-namespaces
-       event-callback
-       goal-context
-       compaction-p)
+     tool-namespaces
+     event-callback
+     goal-context
+     compaction-p)
   "Return PROVIDER's next scripted result after recording request state."
   (declare (type vector tool-namespaces)
            (type function event-callback))
@@ -145,7 +145,6 @@
    (format nil "echo: ~A"
            (tool-argument arguments "value" :required t))))
 
-
 (defclass agent-test-read-only-echo-tool (agent-test-echo-tool)
   ()
   (:documentation "A deterministic echo tool exempt from mutating-call storm guards."))
@@ -154,12 +153,11 @@
   "Exempt the deterministic read-only echo tool from storm detection."
   t)
 
-
 (defclass agent-test-changing-failure-tool (tool)
   ((attempt-count
-    :initform 0
-    :accessor agent-test-changing-failure-tool-attempt-count
-    :type (integer 0)
+    :initform      0
+    :accessor      agent-test-changing-failure-tool-attempt-count
+    :type          (integer 0)
     :documentation "The number of deterministic failures returned so far."))
   (:documentation "Return a different failed result on each execution."))
 
@@ -174,57 +172,57 @@
 
 (defclass agent-test-concurrency-state ()
   ((lock
-    :initform (make-lock "Autolith agent test tool state")
-    :reader agent-test-concurrency-state-lock
+    :initform      (make-lock "Autolith agent test tool state")
+    :reader        agent-test-concurrency-state-lock
     :documentation "The lock protecting mutable execution state.")
    (condition-variable
-    :initform (make-condition-variable)
-    :reader agent-test-concurrency-state-condition-variable
+    :initform      (make-condition-variable)
+    :reader        agent-test-concurrency-state-condition-variable
     :documentation "The condition used to align concurrent tool starts.")
    (active-count
-    :initform 0
-    :accessor agent-test-concurrency-state-active-count
-    :type (integer 0)
+    :initform      0
+    :accessor      agent-test-concurrency-state-active-count
+    :type          (integer 0)
     :documentation "The number of currently executing test tools.")
    (maximum-active-count
-    :initform 0
-    :accessor agent-test-concurrency-state-maximum-active-count
-    :type (integer 0)
+    :initform      0
+    :accessor      agent-test-concurrency-state-maximum-active-count
+    :type          (integer 0)
     :documentation "The largest observed concurrent execution count.")
    (overlap-observed-p
-    :initform nil
-    :accessor agent-test-concurrency-state-overlap-observed-p
-    :type boolean
+    :initform      nil
+    :accessor      agent-test-concurrency-state-overlap-observed-p
+    :type          boolean
     :documentation "Whether two tool bodies executed at the same time.")
    (logical-turn-states
-    :initform nil
-    :accessor agent-test-concurrency-state-logical-turn-states
-    :type list
+    :initform      nil
+    :accessor      agent-test-concurrency-state-logical-turn-states
+    :type          list
     :documentation "The turn-scoped Skill state observed by each tool worker.")
    (events
-    :initform nil
-    :accessor agent-test-concurrency-state-events
-    :type list
+    :initform      nil
+    :accessor      agent-test-concurrency-state-events
+    :type          list
     :documentation "Execution start and finish events in reverse time order."))
   (:documentation "Shared state for deterministic concurrent tool tests."))
 
 (defclass agent-test-concurrent-tool (tool)
   ((state
-    :initarg :state
-    :reader agent-test-concurrent-tool-state
-    :type agent-test-concurrency-state
+    :initarg       :state
+    :reader        agent-test-concurrent-tool-state
+    :type          agent-test-concurrency-state
     :documentation "The shared execution state recorded by this tool.")
    (execution-policy
-    :initarg :execution-policy
-    :initform ':parallel
-    :reader agent-test-concurrent-tool-execution-policy
-    :type (member :parallel :exclusive)
+    :initarg       :execution-policy
+    :initform      ':parallel
+    :reader        agent-test-concurrent-tool-execution-policy
+    :type          (member :parallel :exclusive)
     :documentation "Whether this test tool requires exclusive execution.")
    (concurrency-key
-    :initarg :concurrency-key
-    :initform nil
-    :reader agent-test-concurrent-tool-concurrency-key
-    :type t
+    :initarg       :concurrency-key
+    :initform      nil
+    :reader        agent-test-concurrent-tool-concurrency-key
+    :type          t
     :documentation "The optional runtime key shared with conflicting tools."))
   (:documentation "A deterministic tool that records and aligns execution."))
 
@@ -283,7 +281,7 @@
            (cond
              ((equal fatal "rollback")
               (error 'rollback-requested
-                     :message "requested rollback test"
+                     :message       "requested rollback test"
                      :generation-id "test-generation"))
              ((equal fatal "corruption")
               (error
@@ -297,9 +295,9 @@
                                :format-control "restoration failure")))
              ((equal fatal "job-aborted")
               (error 'job-aborted
-                     :message "requested job abort test"
+                     :message    "requested job abort test"
                      :identifier "test-job"
-                     :reason ':test)))
+                     :reason     ':test)))
            (tool-success (format nil "completed: ~A" label)))
       (with-lock-held ((agent-test-concurrency-state-lock state))
         (push (list ':finish label)
@@ -314,8 +312,8 @@
      registry
      (make-instance
       'agent-test-echo-tool
-      :namespace "test"
-      :name "echo"
+      :namespace   "test"
+      :name        "echo"
       :description "Echo a test string."
       :parameters
       (tool-object-schema
@@ -323,7 +321,6 @@
         "value" (tool-string-property "The value to echo."))
        '("value"))))
     registry))
-
 
 (-> agent-test-read-only-registry () tool-registry)
 (defun agent-test-read-only-registry ()
@@ -333,8 +330,8 @@
      registry
      (make-instance
       'agent-test-read-only-echo-tool
-      :namespace "test"
-      :name "inspect"
+      :namespace   "test"
+      :name        "inspect"
       :description "Echo a read-only test string."
       :parameters
       (tool-object-schema
@@ -342,7 +339,6 @@
         "value" (tool-string-property "The value to echo."))
        '("value"))))
     registry))
-
 
 (-> agent-test-changing-failure-registry () tool-registry)
 (defun agent-test-changing-failure-registry ()
@@ -352,8 +348,8 @@
      registry
      (make-instance
       'agent-test-changing-failure-tool
-      :namespace "test"
-      :name "changing-failure"
+      :namespace   "test"
+      :name        "changing-failure"
       :description "Return a changing deterministic failure."
       :parameters
       (tool-object-schema
@@ -370,8 +366,8 @@
      registry
      (make-instance
       'agent-test-echo-tool
-      :namespace "mutation"
-      :name "write"
+      :namespace   "mutation"
+      :name        "write"
       :description "Represent a forbidden mutation tool."
       :parameters
       (tool-object-schema
@@ -421,11 +417,11 @@
        (usage (json-object "input_tokens" 1 "output_tokens" 1)))
   "Return a scripted provider result containing OUTPUT-ITEMS."
   (make-instance 'provider-result
-                 :response-id response-id
-                 :output-items output-items
-                 :tool-calls (remove-if-not #'function-call-item-p output-items)
-                 :usage usage
-                 :turn-state turn-state
+                 :response-id     response-id
+                 :output-items    output-items
+                 :tool-calls      (remove-if-not #'function-call-item-p output-items)
+                 :usage           usage
+                 :turn-state      turn-state
                  :turn-completion turn-completion))
 
 (-> agent-test-concurrency-tool
@@ -438,9 +434,9 @@
   "Create one concurrency test tool named NAME sharing STATE."
   (make-instance
    'agent-test-concurrent-tool
-   :namespace "concurrency"
-   :name name
-   :description "Record deterministic concurrent execution."
+   :namespace        "concurrency"
+   :name             name
+   :description      "Record deterministic concurrent execution."
    :parameters
    (tool-object-schema
     (json-object
@@ -451,9 +447,9 @@
      "fatal" (tool-string-property
               "The optional fatal condition kind to signal."))
     '("label"))
-   :state state
+   :state            state
    :execution-policy execution-policy
-   :concurrency-key concurrency-key))
+   :concurrency-key  concurrency-key))
 
 (-> agent-test-concurrency-registry (list) tool-registry)
 (defun agent-test-concurrency-registry (tools)
@@ -474,9 +470,9 @@
 (-> test-agent-tool-loop () null)
 (defun test-agent-tool-loop ()
   "Test authoritative replay, correlated tool output, callbacks, and turn-state scope."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (conversation (conversation-create configuration :identifier "agent-loop"))
+  (let* ((configuration       (test-configuration))
+         (root                (test-configuration-root configuration))
+         (conversation        (conversation-create configuration :identifier "agent-loop"))
          (call
            (json-object
             "type" "function_call"
@@ -484,7 +480,7 @@
             "namespace" "test"
             "name" "echo"
             "arguments" "{\"value\":\"hello\"}"))
-         (blank-message (agent-test-message "   "))
+         (blank-message       (agent-test-message "   "))
          (message
            (json-object
             "type" "message"
@@ -511,20 +507,20 @@
                       "input_tokens_details"
                       (json-object "cached_tokens" 8
                                    "cache_write_tokens" 1))))))
-         (registry (agent-test-registry))
-         (deltas nil)
-         (statuses nil)
-         (completed-usages nil)
+         (registry            (agent-test-registry))
+         (deltas              nil)
+         (statuses            nil)
+         (completed-usages    nil)
          (persisted-responses nil))
     (unwind-protect
          (progn
            (let* ((agent
                     (agent-create
                      :configuration configuration
-                     :provider provider
-                     :conversation conversation
+                     :provider      provider
+                     :conversation  conversation
                      :tool-registry registry
-                     :worker ':unused))
+                     :worker        ':unused))
                   (observer
                     (callback-agent-observer-create
                      :text-callback
@@ -589,9 +585,9 @@
                                        :test #'string=))
                         1))
                 "provider completion status carries normalized cache usage"))
-             (let* ((responses (nreverse persisted-responses))
-                    (response (first responses))
-                    (details (getf response :details))
+             (let* ((responses        (nreverse persisted-responses))
+                    (response         (first responses))
+                    (details          (getf response :details))
                     (ordered-statuses (reverse statuses))
                     (response-position
                       (position ':assistant-response-persisted ordered-statuses))
@@ -650,7 +646,7 @@
 (defun test-agent-tool-free-turn ()
   "Test diagnosis-style turns advertise and execute no tools."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "agent-tool-free"))
          (provider
@@ -663,10 +659,10 @@
               (list (agent-test-message "diagnosis only"))))))
          (agent
            (agent-create :configuration configuration
-                         :provider provider
-                         :conversation conversation
+                         :provider      provider
+                         :conversation  conversation
                          :tool-registry (agent-test-registry)
-                         :worker ':unused)))
+                         :worker        ':unused)))
     (unwind-protect
          (progn
            (agent-run-user-turn agent "diagnose the crash" :tools-p nil)
@@ -685,15 +681,15 @@
                        "forbidden-call"
                        (list
                         (agent-test-call
-                         :call-id "forbidden-call"
+                         :call-id   "forbidden-call"
                          :arguments "{\"value\":\"no\"}"))))))
                   (call-agent
                     (agent-create
                      :configuration configuration
-                     :provider call-provider
-                     :conversation call-conversation
+                     :provider      call-provider
+                     :conversation  call-conversation
                      :tool-registry (agent-test-registry)
-                     :worker ':unused)))
+                     :worker        ':unused)))
              (test-assert
               (handler-case
                   (progn
@@ -715,7 +711,7 @@
 (defun test-agent-read-only-tool-allowlist ()
   "Test restricted turns advertise and execute only explicitly allowed tools."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "agent-read-only"))
          (provider
@@ -727,7 +723,7 @@
               "read-only-call"
               (list
                (agent-test-call
-                :call-id "read-only-call"
+                :call-id   "read-only-call"
                 :arguments "{\"value\":\"inspect\"}")))
              (agent-test-result
               "read-only-answer"
@@ -735,17 +731,17 @@
               :turn-completion ':end))))
          (agent
            (agent-create :configuration configuration
-                         :provider provider
-                         :conversation conversation
+                         :provider      provider
+                         :conversation  conversation
                          :tool-registry (agent-test-restricted-registry)
-                         :worker ':unused)))
+                         :worker        ':unused)))
     (unwind-protect
          (progn
            (let ((*agent-restricted-maximum-tool-rounds* 1))
              (agent-run-user-turn
               agent
               "diagnose safely"
-              :tool-allowlist '("test.echo")
+              :tool-allowlist     '("test.echo")
               :tool-restriction-p t))
            (test-assert
             (equal (scripted-provider-tool-schema-counts provider) '(0 1))
@@ -765,24 +761,24 @@
                        "forbidden-mutation"
                        (list
                         (agent-test-call
-                         :call-id "forbidden-mutation"
+                         :call-id   "forbidden-mutation"
                          :namespace "mutation"
-                         :name "write"
+                         :name      "write"
                          :arguments "{\"value\":\"change\"}"))))))
                   (forbidden-agent
                     (agent-create
                      :configuration configuration
-                     :provider forbidden-provider
-                     :conversation forbidden-conversation
+                     :provider      forbidden-provider
+                     :conversation  forbidden-conversation
                      :tool-registry (agent-test-restricted-registry)
-                     :worker ':unused)))
+                     :worker        ':unused)))
              (test-assert
               (handler-case
                   (progn
                     (agent-run-user-turn
                      forbidden-agent
                      "do not mutate"
-                     :tool-allowlist '("test.echo")
+                     :tool-allowlist     '("test.echo")
                      :tool-restriction-p t)
                     nil)
                 (agent-loop-error ()
@@ -793,7 +789,6 @@
               "a forbidden mutation call is neither persisted nor executed")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
-
 
 (-> test-agent-restricted-resource-schemes () null)
 (defun test-agent-restricted-resource-schemes ()
@@ -816,50 +811,50 @@
               "restricted-workspace-read"
               (list
                (agent-test-call
-                :call-id "restricted-workspace-read"
+                :call-id   "restricted-workspace-read"
                 :namespace "resource"
-                :name "read"
+                :name      "read"
                 :arguments
                 (json-encode (json-object "uri" "workspace:allowed.txt")))))
              (agent-test-result
               "restricted-agenda-read"
               (list
                (agent-test-call
-                :call-id "restricted-agenda-read"
+                :call-id   "restricted-agenda-read"
                 :namespace "resource"
-                :name "read"
+                :name      "read"
                 :arguments
                 (json-encode (json-object "uri" "agenda:current")))))
              (agent-test-result
               "restricted-memory-read"
               (list
                (agent-test-call
-                :call-id "restricted-memory-read"
+                :call-id   "restricted-memory-read"
                 :namespace "resource"
-                :name "read"
+                :name      "read"
                 :arguments
                 (json-encode (json-object "uri" "memory:relevant")))))
              (agent-test-result
               "restricted-resource-answer"
               (list (agent-test-message "diagnosed"))
               :turn-completion ':end))))
-         (registry (make-default-tool-registry))
+         (registry           (make-default-tool-registry))
          (agent
            (agent-create :configuration configuration
-                         :provider provider
-                         :conversation conversation
+                         :provider      provider
+                         :conversation  conversation
                          :tool-registry registry
-                         :worker ':unused)))
+                         :worker        ':unused)))
     (unwind-protect
          (progn
            (ensure-directories-exist workspace)
            (with-open-file (stream (merge-pathnames "allowed.txt" workspace)
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create
-                                   :external-format ':utf-8)
+                                   :external-format   ':utf-8)
              (write-string "restricted workspace content" stream))
-           (let ((codes (make-hash-table :test #'equal))
+           (let ((codes   (make-hash-table :test #'equal))
                  (execute (symbol-function 'tool-registry-execute-call)))
              (test-call-with-function-replacements
               (list
@@ -874,7 +869,7 @@
                   (agent-run-user-turn
                    agent
                    "diagnose within the workspace"
-                   :tool-allowlist '("resource.read")
+                   :tool-allowlist     '("resource.read")
                    :tool-restriction-p t))))
              (let ((outputs
                      (loop for item in (conversation-input-items conversation)
@@ -901,7 +896,7 @@
 (defun test-agent-restricted-tool-round-limit ()
   "Test restricted turns reject calls returned after their bounded tool rounds."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "agent-tool-limit"))
          (provider
@@ -913,20 +908,20 @@
               "tool-limit-first"
               (list
                (agent-test-call
-                :call-id "tool-limit-first"
+                :call-id   "tool-limit-first"
                 :arguments "{\"value\":\"first\"}")))
              (agent-test-result
               "tool-limit-second"
               (list
                (agent-test-call
-                :call-id "tool-limit-second"
+                :call-id   "tool-limit-second"
                 :arguments "{\"value\":\"second\"}"))))))
          (agent
            (agent-create :configuration configuration
-                         :provider provider
-                         :conversation conversation
+                         :provider      provider
+                         :conversation  conversation
                          :tool-registry (agent-test-restricted-registry)
-                         :worker ':unused)))
+                         :worker        ':unused)))
     (unwind-protect
          (let ((*agent-restricted-maximum-tool-rounds* 1))
            (test-assert
@@ -935,7 +930,7 @@
                   (agent-run-user-turn
                    agent
                    "inspect once"
-                   :tool-allowlist '("test.echo")
+                   :tool-allowlist     '("test.echo")
                    :tool-restriction-p t)
                   nil)
               (agent-loop-error (condition)
@@ -954,7 +949,7 @@
 (defun test-agent-empty-tool-allowlist ()
   "Test an explicit empty restriction advertises and executes no tools."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "agent-empty-tools"))
          (provider
@@ -966,14 +961,14 @@
               "empty-allowlist-call"
               (list
                (agent-test-call
-                :call-id "empty-allowlist-call"
+                :call-id   "empty-allowlist-call"
                 :arguments "{\"value\":\"blocked\"}"))))))
          (agent
            (agent-create :configuration configuration
-                         :provider provider
-                         :conversation conversation
+                         :provider      provider
+                         :conversation  conversation
                          :tool-registry (agent-test-restricted-registry)
-                         :worker ':unused)))
+                         :worker        ':unused)))
     (unwind-protect
          (progn
            (test-assert
@@ -982,7 +977,7 @@
                   (agent-run-user-turn
                    agent
                    "inspect nothing"
-                   :tool-allowlist nil
+                   :tool-allowlist     nil
                    :tool-restriction-p t)
                   nil)
               (agent-loop-error ()
@@ -1000,8 +995,8 @@
 (-> test-agent-steering () null)
 (defun test-agent-steering ()
   "Test pending user input is persisted after a tool round and before its follow-up."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration         (test-configuration))
+         (root                  (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "agent-steering"))
          (provider
@@ -1012,27 +1007,27 @@
              (agent-test-result
               "steering-1"
               (list (agent-test-call
-                     :call-id "steering-call"
+                     :call-id   "steering-call"
                      :arguments "{\"value\":\"before\"}"))
               :turn-state "transient-turn-state")
              (agent-test-result
               "steering-2"
               (list (agent-test-message "changed course"))
               :turn-completion ':end))))
-          (pending-input
-            (list
-             (agent-steering-input-create
-              :identifier "steering-persisted"
-              :content "change direction")))
-          (persisted-identifiers nil)
-          (statuses nil))
+         (pending-input
+           (list
+            (agent-steering-input-create
+             :identifier "steering-persisted"
+             :content    "change direction")))
+         (persisted-identifiers nil)
+         (statuses              nil))
     (unwind-protect
          (let* ((agent
                   (agent-create :configuration configuration
-                                :provider provider
-                                :conversation conversation
+                                :provider      provider
+                                :conversation  conversation
                                 :tool-registry (agent-test-registry)
-                                :worker nil))
+                                :worker        nil))
                 (observer
                   (callback-agent-observer-create
                    :steering-callback
@@ -1085,26 +1080,26 @@
 (defun test-agent-explicit-continuation ()
   "Test a tool-free explicit continuation receives another bounded request."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (conversation (conversation-create configuration :identifier "agent-continue"))
+         (root          (test-configuration-root configuration))
+         (conversation  (conversation-create configuration :identifier "agent-continue"))
          (provider
            (make-instance
             'scripted-provider
             :results
             (list (agent-test-result "response-1"
                                      (list (agent-test-message "working"))
-                                     :turn-state "continuation-state"
+                                     :turn-state      "continuation-state"
                                      :turn-completion ':continue)
                   (agent-test-result "response-2"
                                      (list (agent-test-message "done"))
                                      :turn-completion ':end)))))
     (unwind-protect
-         (let* ((agent (agent-create
-                        :configuration configuration
-                        :provider provider
-                        :conversation conversation
-                        :tool-registry (agent-test-registry)
-                        :worker ':unused))
+         (let* ((agent  (agent-create
+                         :configuration configuration
+                         :provider      provider
+                         :conversation  conversation
+                         :tool-registry (agent-test-registry)
+                         :worker        ':unused))
                 (result (agent-run-user-turn agent "continue explicitly")))
            (test-assert (string= (provider-result-response-id result) "response-2")
                         "the agent follows an explicit provider continuation")
@@ -1124,7 +1119,7 @@
 (defun test-agent-provider-request-limit ()
   "Test an ordinary turn stops before an unbounded provider continuation loop."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "agent-request-limit"))
          (provider
@@ -1141,11 +1136,11 @@
          (let* ((agent
                   (agent-create
                    :configuration configuration
-                   :provider provider
-                   :conversation conversation
+                   :provider      provider
+                   :conversation  conversation
                    :tool-registry (agent-test-registry)
-                   :worker ':unused))
-                (condition nil)
+                   :worker        ':unused))
+                (condition                                  nil)
                 (*agent-maximum-provider-requests-per-turn* 2))
            (handler-case
                (agent-run-user-turn agent "keep continuing")
@@ -1165,7 +1160,7 @@
 (defun test-agent-invalid-call-history ()
   "Test uncorrelatable and duplicate calls cannot poison durable history."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (progn
            (let* ((conversation
@@ -1180,10 +1175,10 @@
                        (list (agent-test-call :arguments "{\"value\":\"x\"}"))))))
                   (agent
                     (agent-create :configuration configuration
-                                  :provider provider
-                                  :conversation conversation
+                                  :provider      provider
+                                  :conversation  conversation
                                   :tool-registry (agent-test-registry)
-                                  :worker ':unused)))
+                                  :worker        ':unused)))
              (test-assert
               (handler-case
                   (progn
@@ -1197,10 +1192,10 @@
            (let* ((conversation
                     (conversation-create configuration :identifier "duplicate-call-id"))
                   (first-call
-                    (agent-test-call :call-id "duplicate"
+                    (agent-test-call :call-id   "duplicate"
                                      :arguments "{\"value\":\"first\"}"))
                   (duplicate-call
-                    (agent-test-call :call-id "duplicate"
+                    (agent-test-call :call-id   "duplicate"
                                      :arguments "{\"value\":\"second\"}"))
                   (provider
                     (make-instance
@@ -1211,10 +1206,10 @@
                            (agent-test-result "duplicate" (list duplicate-call)))))
                   (agent
                     (agent-create :configuration configuration
-                                  :provider provider
-                                  :conversation conversation
+                                  :provider      provider
+                                  :conversation  conversation
                                   :tool-registry (agent-test-registry)
-                                  :worker ':unused)))
+                                  :worker        ':unused)))
              (test-assert
               (handler-case
                   (progn
@@ -1255,11 +1250,11 @@
                        (list (agent-test-message "malformed call handled"))))))
                   (agent
                     (agent-create :configuration configuration
-                                  :provider provider
-                                  :conversation conversation
+                                  :provider      provider
+                                  :conversation  conversation
                                   :tool-registry (agent-test-registry)
-                                  :worker ':unused))
-                  (result (agent-run-user-turn agent "handle malformed arguments"))
+                                  :worker        ':unused))
+                  (result  (agent-run-user-turn agent "handle malformed arguments"))
                   (snapshots
                     (nreverse (scripted-provider-input-snapshots provider)))
                   (replayed-call
@@ -1299,7 +1294,7 @@
               conversation
               "legacy-malformed-call"
               :tool-name "test.echo"
-              :output "The legacy call was rejected."
+              :output    "The legacy call was rejected."
               :success-p nil)
              (test-assert
               (handler-case
@@ -1326,10 +1321,10 @@
                          (list (agent-test-message "legacy history recovered"))))))
                     (agent
                       (agent-create :configuration configuration
-                                    :provider provider
-                                    :conversation reloaded
+                                    :provider      provider
+                                    :conversation  reloaded
                                     :tool-registry (agent-test-registry)
-                                    :worker ':unused)))
+                                    :worker        ':unused)))
                (test-assert
                 (string= (json-get replayed-call "arguments") "{}")
                 "loading legacy history repairs malformed call arguments in memory")
@@ -1351,13 +1346,12 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-agent-tool-storm-guard () null)
 (defun test-agent-tool-storm-guard ()
   "Test canonical repetition and oscillation guards while read-only calls remain exempt."
   (let* ((*agent-tool-storm-identical-call-limit* 3)
-         (configuration (test-configuration))
-         (root          (test-configuration-root configuration)))
+         (configuration                           (test-configuration))
+         (root                                    (test-configuration-root configuration)))
     (unwind-protect
          (progn
            (let ((left
@@ -1390,33 +1384,33 @@
                         (agent-test-result
                          "repeat-1"
                          (list (agent-test-call
-                                :call-id "repeat-1"
+                                :call-id   "repeat-1"
                                 :arguments "{\"value\":\"same\"}")))
                         (agent-test-result
                          "repeat-2"
                          (list (agent-test-call
-                                :call-id "repeat-2"
+                                :call-id   "repeat-2"
                                 :arguments "{\"value\":\"same\"}")))
                         (agent-test-result
                          "repeat-3"
                          (list (agent-test-call
-                                :call-id "repeat-3"
+                                :call-id   "repeat-3"
                                 :arguments "{\"value\":\"same\"}")))
-                         (agent-test-result
-                          "repeat-4"
-                          (list (agent-test-call
-                                 :call-id "repeat-4"
-                                 :arguments "{\"value\":\"same\"}")))
+                        (agent-test-result
+                         "repeat-4"
+                         (list (agent-test-call
+                                :call-id   "repeat-4"
+                                :arguments "{\"value\":\"same\"}")))
                         (agent-test-result
                          "repeat-done"
                          (list (agent-test-message "repetition handled"))))))
                     (agent
                       (agent-create
                        :configuration configuration
-                       :provider provider
-                       :conversation conversation
+                       :provider      provider
+                       :conversation  conversation
                        :tool-registry (agent-test-registry)
-                       :worker ':unused)))
+                       :worker        ':unused)))
                (agent-run-user-turn agent "repeat a mutating call")
                (let ((outputs (agent-test-tool-outputs conversation))
                      (records (tool-result-records conversation)))
@@ -1424,19 +1418,19 @@
                   (equal (subseq outputs 0 2)
                          '("echo: same" "echo: same"))
                   "the first two identical mutating calls execute")
-                  (test-assert
-                   (and (= (length outputs) 4)
-                        (search "withheld repeated call" (third outputs)))
-                   "the third identical mutating call is withheld")
-                  (test-assert
-                   (search "second consecutive withheld call" (fourth outputs))
-                   "consecutive withholds escalate their model-visible diagnosis")
-                  (test-assert
-                   (equal (mapcar (lambda (record)
-                                    (getf (rest record) :category))
-                                  records)
-                          '(:success :success :mechanics :mechanics))
-                   "withheld calls persist as mechanics rather than failures")))
+                 (test-assert
+                  (and (= (length outputs) 4)
+                       (search "withheld repeated call" (third outputs)))
+                  "the third identical mutating call is withheld")
+                 (test-assert
+                  (search "second consecutive withheld call" (fourth outputs))
+                  "consecutive withholds escalate their model-visible diagnosis")
+                 (test-assert
+                  (equal (mapcar (lambda (record)
+                                   (getf (rest record) :category))
+                                 records)
+                         '(:success :success :mechanics :mechanics))
+                  "withheld calls persist as mechanics rather than failures")))
              (let* ((conversation
                       (conversation-create
                        configuration :identifier "tool-storm-oscillation"))
@@ -1456,7 +1450,7 @@
                               (agent-test-result
                                (format nil "oscillate-~D" index)
                                (list (agent-test-call
-                                      :call-id (format nil "oscillate-~D" index)
+                                      :call-id   (format nil "oscillate-~D" index)
                                       :arguments source))))
                         (list
                          (agent-test-result
@@ -1465,10 +1459,10 @@
                     (agent
                       (agent-create
                        :configuration configuration
-                       :provider provider
-                       :conversation conversation
+                       :provider      provider
+                       :conversation  conversation
                        :tool-registry (agent-test-registry)
-                       :worker ':unused)))
+                       :worker        ':unused)))
                (agent-run-user-turn agent "oscillate between mutating calls")
                (let ((outputs (agent-test-tool-outputs conversation)))
                  (test-assert
@@ -1488,8 +1482,8 @@
                               (agent-test-result
                                (format nil "read-only-~D" index)
                                (list (agent-test-call
-                                      :call-id (format nil "read-only-~D" index)
-                                      :name "inspect"
+                                      :call-id   (format nil "read-only-~D" index)
+                                      :name      "inspect"
                                       :arguments "{\"value\":\"same\"}"))))
                         (list
                          (agent-test-result
@@ -1498,10 +1492,10 @@
                     (agent
                       (agent-create
                        :configuration configuration
-                       :provider provider
-                       :conversation conversation
+                       :provider      provider
+                       :conversation  conversation
                        :tool-registry (agent-test-read-only-registry)
-                       :worker ':unused)))
+                       :worker        ':unused)))
                (agent-run-user-turn agent "repeat a read-only call")
                (test-assert
                 (equal (agent-test-tool-outputs conversation)
@@ -1509,7 +1503,6 @@
                 "repeated read-only calls remain executable"))))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
-
 
 (-> test-agent-tool-storm-guard-defaults () null)
 (defun test-agent-tool-storm-guard-defaults ()
@@ -1531,7 +1524,7 @@
                           (agent-test-result
                            (format nil "default-repeat-~D" index)
                            (list (agent-test-call
-                                  :call-id (format nil "default-repeat-~D" index)
+                                  :call-id   (format nil "default-repeat-~D" index)
                                   :arguments "{\"value\":\"same\"}"))))
                     (list
                      (agent-test-result
@@ -1540,10 +1533,10 @@
                 (agent
                   (agent-create
                    :configuration configuration
-                   :provider provider
-                   :conversation conversation
+                   :provider      provider
+                   :conversation  conversation
                    :tool-registry (agent-test-registry)
-                   :worker ':unused)))
+                   :worker        ':unused)))
            (test-assert
             (> limit *agent-tool-storm-signature-window-size*)
             "the production repetition limit exceeds the oscillation window")
@@ -1559,7 +1552,6 @@
               "the call reaching the production limit is withheld")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
-
 
 (-> test-agent-tool-retry-guidance () null)
 (defun test-agent-tool-retry-guidance ()
@@ -1579,12 +1571,12 @@
                       (agent-test-result
                        "missing-argument"
                        (list (agent-test-call
-                              :call-id "missing-argument"
+                              :call-id   "missing-argument"
                               :arguments "{}")))
                       (agent-test-result
                        "complete-argument"
                        (list (agent-test-call
-                              :call-id "complete-argument"
+                              :call-id   "complete-argument"
                               :arguments "{\"value\":\"fixed\"}")))
                       (agent-test-result
                        "argument-done"
@@ -1592,10 +1584,10 @@
                   (agent
                     (agent-create
                      :configuration configuration
-                     :provider provider
-                     :conversation conversation
+                     :provider      provider
+                     :conversation  conversation
                      :tool-registry (agent-test-registry)
-                     :worker ':unused)))
+                     :worker        ':unused)))
              (agent-run-user-turn agent "repair missing arguments")
              (let* ((outputs (agent-test-tool-outputs conversation))
                     (records
@@ -1629,14 +1621,14 @@
                       (agent-test-result
                        "failure-1"
                        (list (agent-test-call
-                              :call-id "failure-1"
-                              :name "changing-failure"
+                              :call-id   "failure-1"
+                              :name      "changing-failure"
                               :arguments "{\"value\":\"same\"}")))
                       (agent-test-result
                        "failure-2"
                        (list (agent-test-call
-                              :call-id "failure-2"
-                              :name "changing-failure"
+                              :call-id   "failure-2"
+                              :name      "changing-failure"
                               :arguments "{\"value\":\"same\"}")))
                       (agent-test-result
                        "failure-done"
@@ -1644,10 +1636,10 @@
                   (agent
                     (agent-create
                      :configuration configuration
-                     :provider provider
-                     :conversation conversation
+                     :provider      provider
+                     :conversation  conversation
                      :tool-registry (agent-test-changing-failure-registry)
-                     :worker ':unused)))
+                     :worker        ':unused)))
              (agent-run-user-turn agent "retry the same failed call")
              (let ((outputs (agent-test-tool-outputs conversation)))
                (test-assert
@@ -1665,7 +1657,7 @@
 (defun test-agent-tool-failures ()
   "Test successful and failed calls retain independent correlation."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (progn
            (let* ((conversation
@@ -1678,19 +1670,19 @@
                       (agent-test-result
                        "tool-batch"
                        (list
-                        (agent-test-call :call-id "good"
+                        (agent-test-call :call-id   "good"
                                          :arguments "{\"value\":\"ok\"}")
-                        (agent-test-call :call-id "bad"
+                        (agent-test-call :call-id   "bad"
                                          :namespace "missing"
-                                         :name "tool")))
+                                         :name      "tool")))
                       (agent-test-result "tool-final"
                                          (list (agent-test-message "finished"))))))
                   (agent
                     (agent-create :configuration configuration
-                                  :provider provider
-                                  :conversation conversation
+                                  :provider      provider
+                                  :conversation  conversation
                                   :tool-registry (agent-test-registry)
-                                  :worker ':unused)))
+                                  :worker        ':unused)))
              (agent-run-user-turn agent "run mixed tools")
              (test-assert (= (length (conversation-input-items conversation)) 6)
                           "multiple calls each receive one correlated output")
@@ -1714,7 +1706,7 @@
 (defun test-agent-provider-failure-persistence ()
   "Test a terminal provider failure is durable but absent from model replay."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "provider-failure"))
          (provider
@@ -1724,18 +1716,18 @@
             (list
              (make-condition
               'provider-error
-              :message "The provider rejected the prompt."
-              :status 400
-              :code "invalid_prompt"
-              :request-id "request-invalid"
+              :message     "The provider rejected the prompt."
+              :status      400
+              :code        "invalid_prompt"
+              :request-id  "request-invalid"
               :response-id "response-invalid"
-              :response nil))))
+              :response    nil))))
          (agent
            (agent-create :configuration configuration
-                         :provider provider
-                         :conversation conversation
+                         :provider      provider
+                         :conversation  conversation
                          :tool-registry (agent-test-registry)
-                         :worker ':unused)))
+                         :worker        ':unused)))
     (unwind-protect
          (progn
            (test-assert
@@ -1754,7 +1746,7 @@
                                (eq (first record) ':provider))
                              records))
                   (metadata (getf (rest provider-record) :metadata))
-                  (failure (getf metadata :failure)))
+                  (failure  (getf metadata :failure)))
              (test-assert (= (getf metadata :request-number) 1)
                           "provider failure metadata retains its request number")
              (test-assert (string= (getf failure :code) "invalid_prompt")
@@ -1785,7 +1777,7 @@
 (defun test-agent-incomplete-provider-failure-persistence ()
   "Test incomplete provider reasons survive durable failure recording."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create
             configuration
@@ -1799,18 +1791,18 @@
               'provider-incomplete-response
               :message
               "The provider returned an incomplete response (max_output_tokens)."
-              :reason "max_output_tokens"
-              :status nil
-              :code "response_incomplete"
-              :request-id "request-incomplete"
+              :reason      "max_output_tokens"
+              :status      nil
+              :code        "response_incomplete"
+              :request-id  "request-incomplete"
               :response-id "response-incomplete"
-              :response nil))))
+              :response    nil))))
          (agent
            (agent-create :configuration configuration
-                         :provider provider
-                         :conversation conversation
+                         :provider      provider
+                         :conversation  conversation
                          :tool-registry (agent-test-registry)
-                         :worker ':unused)))
+                         :worker        ':unused)))
     (unwind-protect
          (progn
            (test-assert
@@ -1829,15 +1821,15 @@
                                (eq (first record) ':provider))
                              records))
                   (metadata (getf (rest provider-record) :metadata))
-                  (failure (getf metadata :failure)))
+                  (failure  (getf metadata :failure)))
              (test-assert
               (string= (getf failure :code) "response_incomplete")
               "incomplete failure metadata retains its stable error code")
              (test-assert
               (string= (getf failure :incomplete-reason) "max_output_tokens")
               "incomplete failure metadata retains its structured reason")
-              (test-assert (null (getf failure :retryable-p))
-                           "incomplete failure metadata is terminal")
+             (test-assert (null (getf failure :retryable-p))
+                          "incomplete failure metadata is terminal")
              (test-assert
               (string= (getf failure :request-id) "request-incomplete")
               "incomplete failure metadata retains its request identifier")
@@ -1851,14 +1843,14 @@
 (defun test-agent-provider-credential-failure-containment ()
   "Test provider credential echoes cannot reach durable failure metadata."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create
             configuration
             :identifier "provider-secret-failure"))
-         (provider (provider-create configuration))
-         (credentials (provider-tests--credentials configuration))
-         (secrets (oauth-credentials-secret-values credentials))
+         (provider      (provider-create configuration))
+         (credentials   (provider-tests--credentials configuration))
+         (secrets       (oauth-credentials-secret-values credentials))
          (source
            (test-sse-event-string
             (json-object
@@ -1880,10 +1872,10 @@
          (agent
            (agent-create
             :configuration configuration
-            :provider provider
-            :conversation conversation
+            :provider      provider
+            :conversation  conversation
             :tool-registry (agent-test-registry)
-            :worker ':unused)))
+            :worker        ':unused)))
     (unwind-protect
          (progn
            (credential-source-save
@@ -1912,39 +1904,39 @@
               (provider-error ()
                 t))
             "a credential-echoing provider failure reaches the caller")
-            (let ((records nil))
-              (conversation-map-records
-               conversation
-               (lambda (record)
-                 (push record records)))
-              (setf records (nreverse records))
-              (let* ((text
-                       (with-output-to-string (stream)
-                         (dolist (segment
-                                  (conversation-storage-pathnames
-                                   (conversation-pathname conversation)))
-                           (write-string (uiop:read-file-string segment) stream))))
-                     (provider-record
-                       (find-if
-                        (lambda (record)
-                          (eq (first record) ':provider))
-                        records))
-                     (failure
-                       (getf
-                        (getf (rest provider-record) :metadata)
-                        :failure)))
-                (provider-tests--assert-credential-free
-                 (list records text)
-                 secrets
-                 "durable provider failure state contains no credential")
-                (test-assert
-                 (and
-                  (string= (getf failure :code) "invalid_prompt")
-                  (test-object-contains-string-p
-                   failure
-                   *provider-credential-redaction-marker*)
-                  (search *provider-credential-redaction-marker* text))
-                 "durable provider failure metadata retains sanitized diagnostics"))))
+           (let ((records nil))
+             (conversation-map-records
+              conversation
+              (lambda (record)
+                (push record records)))
+             (setf records (nreverse records))
+             (let* ((text
+                      (with-output-to-string (stream)
+                        (dolist (segment
+                                 (conversation-storage-pathnames
+                                  (conversation-pathname conversation)))
+                          (write-string (uiop:read-file-string segment) stream))))
+                    (provider-record
+                      (find-if
+                       (lambda (record)
+                         (eq (first record) ':provider))
+                       records))
+                    (failure
+                      (getf
+                       (getf (rest provider-record) :metadata)
+                       :failure)))
+               (provider-tests--assert-credential-free
+                (list records text)
+                secrets
+                "durable provider failure state contains no credential")
+               (test-assert
+                (and
+                 (string= (getf failure :code) "invalid_prompt")
+                 (test-object-contains-string-p
+                  failure
+                  *provider-credential-redaction-marker*)
+                 (search *provider-credential-redaction-marker* text))
+                "durable provider failure metadata retains sanitized diagnostics"))))
       (platform-delete-directory-tree
        *platform*
        root :validate t :if-does-not-exist ':ignore)))
@@ -1954,14 +1946,14 @@
 (defun test-agent-long-tool-turn ()
   "Test a useful turn may execute more than eight tool batches before completion."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (conversation (conversation-create configuration :identifier "long-turn"))
+         (root          (test-configuration-root configuration))
+         (conversation  (conversation-create configuration :identifier "long-turn"))
          (tool-results
            (loop for index from 1 to 12
                  collect (agent-test-result
                           (format nil "tool-~D" index)
                           (list (agent-test-call
-                                 :call-id (format nil "call-~D" index)
+                                 :call-id   (format nil "call-~D" index)
                                  :arguments (format nil "{\"value\":\"~D\"}" index))))))
          (provider
            (make-instance
@@ -1972,10 +1964,10 @@
                                     (list (agent-test-message "done")))))))
          (agent
            (agent-create :configuration configuration
-                         :provider provider
-                         :conversation conversation
+                         :provider      provider
+                         :conversation  conversation
                          :tool-registry (agent-test-registry)
-                         :worker ':unused)))
+                         :worker        ':unused)))
     (unwind-protect
          (progn
            (test-assert
@@ -1997,7 +1989,7 @@
 (defun test-agent-unbounded-tool-calls ()
   "Test one turn may exceed the former cumulative tool-call ceiling."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "unbounded-tools"))
          (tool-results
@@ -2007,7 +1999,7 @@
                   (format nil "tool-~D" index)
                   (list
                    (agent-test-call
-                    :call-id (format nil "call-~D" index)
+                    :call-id   (format nil "call-~D" index)
                     :arguments (format nil "{\"value\":\"~D\"}" index))))))
          (provider
            (make-instance
@@ -2020,15 +2012,15 @@
                       (list (agent-test-message "done")))))))
          (agent
            (agent-create :configuration configuration
-                         :provider provider
-                         :conversation conversation
+                         :provider      provider
+                         :conversation  conversation
                          :tool-registry (agent-test-registry)
-                         :worker ':unused)))
+                         :worker        ':unused)))
     (unwind-protect
          (progn
            (test-assert
             (string= (provider-result-response-id
-                     (agent-run-user-turn agent "run every requested tool"))
+                      (agent-run-user-turn agent "run every requested tool"))
                      "large-tool-final")
             "a turn exceeding 256 calls reaches its normal completion")
            (test-assert
@@ -2045,7 +2037,7 @@
 (defun test-agent-default-turn-has-no-step-guillotine ()
   "Test the default turn may keep working beyond the former provider-step limit."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "unbounded-turn"))
          (continuations
@@ -2063,7 +2055,7 @@
                     (list
                      (agent-test-result
                       "step-64-tool"
-                      (list (agent-test-call :call-id "late-tool"
+                      (list (agent-test-call :call-id   "late-tool"
                                              :arguments "{\"value\":\"late\"}")))
                      (agent-test-result
                       "step-65-final"
@@ -2071,10 +2063,10 @@
                       :turn-completion ':end)))))
          (agent
            (agent-create :configuration configuration
-                         :provider provider
-                         :conversation conversation
+                         :provider      provider
+                         :conversation  conversation
                          :tool-registry (agent-test-registry)
-                         :worker ':unused)))
+                         :worker        ':unused)))
     (unwind-protect
          (progn
            (test-assert
@@ -2090,10 +2082,10 @@
             (find "late-tool"
                   (conversation--read-records
                    (conversation-pathname conversation))
-                  :key (lambda (record)
-                         (and (listp record)
-                              (eq (first record) :tool-result)
-                              (getf (rest record) :call-id)))
+                  :key  (lambda (record)
+                          (and (listp record)
+                               (eq (first record) :tool-result)
+                               (getf (rest record) :call-id)))
                   :test #'string=)
             "the tool requested on provider step 64 executes normally"))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
@@ -2103,9 +2095,9 @@
 (defun test-agent-skill-provider-barrier ()
   "Test skill.load correlation, persistence, and same-result action blocking."
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
-         (project (merge-pathnames "project/" root))
-         (skill-root (merge-pathnames ".autolith/skills/" project))
+         (root               (test-configuration-root base-configuration))
+         (project            (merge-pathnames "project/" root))
+         (skill-root         (merge-pathnames ".autolith/skills/" project))
          (configuration
            (progn
              (ensure-directories-exist
@@ -2118,17 +2110,17 @@
                                 :identifier "agent-skill-barrier"))
          (before-call
            (agent-test-call
-            :call-id "before-call"
+            :call-id   "before-call"
             :arguments "{\"value\":\"before\"}"))
          (skill-call
            (agent-test-call
-            :call-id "skill-call"
+            :call-id   "skill-call"
             :namespace "skill"
-            :name "load"
+            :name      "load"
             :arguments "{\"name\":\"alpha\"}"))
          (after-call
            (agent-test-call
-            :call-id "after-call"
+            :call-id   "after-call"
             :arguments "{\"value\":\"after\"}"))
          (provider
            (make-instance
@@ -2145,14 +2137,14 @@
               :turn-completion ':end))))
          (registry
            (skill-augment-tool-registry (agent-test-registry)))
-         (terminal (make-instance 'recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
+         (terminal           (make-instance 'recording-terminal :columns 80))
+         (ui                 (terminal-ui-create :terminal terminal))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
+                          :conversation  conversation
                           :tool-registry registry
-                          :ui ui))
+                          :ui            ui))
          (observer
            (application-agent-observer
             application
@@ -2172,10 +2164,10 @@
              "BARRIER-SKILL-INSTRUCTIONS"))
            (agent-run-user-turn
             (agent-create :configuration configuration
-                          :provider provider
-                          :conversation conversation
+                          :provider      provider
+                          :conversation  conversation
                           :tool-registry registry
-                          :worker nil)
+                          :worker        nil)
             "Select the relevant Skill, then continue."
             :observer observer)
            (let ((terminal-output (recording-terminal-output terminal)))
@@ -2257,9 +2249,9 @@
                     (replay-application
                       (make-instance 'application
                                      :configuration configuration
-                                     :conversation reloaded
+                                     :conversation  reloaded
                                      :tool-registry registry
-                                     :ui replay-ui)))
+                                     :ui            replay-ui)))
                (test-assert
                 (and (= (length (conversation-input-items reloaded)) 6)
                      (equal
@@ -2286,7 +2278,7 @@
                  (ignore-errors (terminal-ui-stop replay-ui))))))
       (ignore-errors (terminal-ui-stop ui))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -2309,7 +2301,7 @@
 (defun test-agent-compaction-missing-summary ()
   "Test empty compaction output is a recoverable provider protocol failure."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration
@@ -2321,10 +2313,10 @@
                    (list (agent-test-result "compact-empty" nil
                                             :turn-completion ':end))))
                 (agent (agent-create :configuration configuration
-                                     :provider provider
-                                     :conversation conversation
+                                     :provider      provider
+                                     :conversation  conversation
                                      :tool-registry (agent-test-registry)
-                                     :worker nil))
+                                     :worker        nil))
                 (records-before
                   (conversation--read-records
                    (conversation-pathname conversation)))
@@ -2359,7 +2351,7 @@
 (defun test-agent-compaction-tool-call-follow-up ()
   "Test a stray compaction tool call is rejected in transient request state."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation
                   (conversation-create
@@ -2382,10 +2374,10 @@
                 (agent
                   (agent-create
                    :configuration configuration
-                   :provider provider
-                   :conversation conversation
+                   :provider      provider
+                   :conversation  conversation
                    :tool-registry (agent-test-registry)
-                   :worker nil)))
+                   :worker        nil)))
            (conversation-append-user-message conversation "earlier context")
            (test-assert
             (= (agent-compact-conversation
@@ -2394,7 +2386,7 @@
             "a rejected compaction tool call consumes one bounded follow-up")
            (let* ((snapshots
                     (nreverse (scripted-provider-input-snapshots provider)))
-                  (follow-up (second snapshots))
+                  (follow-up   (second snapshots))
                   (tool-output (third follow-up)))
              (test-assert
               (and (= (length snapshots) 2)
@@ -2428,7 +2420,7 @@
 (defun test-agent-compaction ()
   "Test threshold-triggered compaction through the scripted provider."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation (conversation-create configuration
                                                    :identifier
@@ -2457,17 +2449,17 @@
                                   (agent-test-result "turn-1"
                                                      (list answer-item)
                                                      :turn-completion ':end))))
-                (agent (agent-create :configuration configuration
-                                     :provider provider
-                                     :conversation conversation
-                                     :tool-registry (agent-test-registry)
-                                     :worker nil)))
+                (agent        (agent-create :configuration configuration
+                                            :provider      provider
+                                            :conversation  conversation
+                                            :tool-registry (agent-test-registry)
+                                            :worker        nil)))
            (conversation-append-user-message conversation "earlier context")
            (conversation-append-provider-metadata
             conversation
             (list :request-number 1
-                  :response-id "seed"
-                  :usage '(("total_tokens" 999999))))
+                  :response-id    "seed"
+                  :usage          '(("total_tokens" 999999))))
            (agent-run-user-turn agent "hello")
            (test-assert (equal (reverse
                                 (scripted-provider-compaction-flags provider))
@@ -2502,7 +2494,7 @@
 (defun test-agent-native-compaction ()
   "Test that an opaque native checkpoint supplements the durable handoff."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration :identifier "agent-native-compact"))
@@ -2514,13 +2506,13 @@
                               (json-object
                                "type" "output_text"
                                "text" "Portable compaction handoff."))))
-                 (earlier-item
-                   (json-object
-                    "type" "message"
-                    "role" "assistant"
-                    "content" (json-array
-                               (json-object "type" "output_text"
-                                            "text" "Earlier response."))))
+                (earlier-item
+                  (json-object
+                   "type" "message"
+                   "role" "assistant"
+                   "content" (json-array
+                              (json-object "type" "output_text"
+                                           "text" "Earlier response."))))
                 (answer-item
                   (json-object
                    "type" "message"
@@ -2541,17 +2533,17 @@
                                                      (list answer-item)
                                                      :turn-completion ':end))))
                 (agent (agent-create :configuration configuration
-                                     :provider provider
-                                     :conversation conversation
+                                     :provider      provider
+                                     :conversation  conversation
                                      :tool-registry (agent-test-registry)
-                                     :worker nil)))
+                                     :worker        nil)))
             (conversation-append-user-message conversation "earlier context")
             (conversation-append-provider-item conversation earlier-item)
             (conversation-append-provider-metadata
              conversation
              (list :request-number 1
-                   :response-id "seed-native"
-                   :usage '(("total_tokens" 999999))))
+                   :response-id    "seed-native"
+                   :usage          '(("total_tokens" 999999))))
             (agent-run-user-turn agent "hello")
             (test-assert
              (= (length
@@ -2572,9 +2564,9 @@
             (native-compaction-item-p
              (first (conversation-input-items conversation)))
             "the active provider reuses the opaque checkpoint")
-            (test-assert
-             (= (length (conversation-input-items-for-family conversation ':codex)) 3)
-             "the active provider omits the redundant portable handoff")
+           (test-assert
+            (= (length (conversation-input-items-for-family conversation ':codex)) 3)
+            "the active provider omits the redundant portable handoff")
            (test-assert
             (= (length (conversation-input-items-for-family conversation ':grok)) 3)
             "another provider receives the portable handoff and new messages")
@@ -2588,13 +2580,13 @@
 (-> test-agent-parallel-tool-wave () null)
 (defun test-agent-parallel-tool-wave ()
   "Test independent calls overlap while callbacks and persistence stay ordered."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration                 (test-configuration))
+         (root                          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "agent-parallel-wave"))
-         (state (make-instance 'agent-test-concurrency-state))
-         (tool (agent-test-concurrency-tool state "run"))
-         (registry (agent-test-concurrency-registry (list tool)))
+         (state                         (make-instance 'agent-test-concurrency-state))
+         (tool                          (agent-test-concurrency-tool state "run"))
+         (registry                      (agent-test-concurrency-registry (list tool)))
          (provider
            (make-instance
             'scripted-provider
@@ -2604,22 +2596,22 @@
               "parallel-calls"
               (list
                (agent-test-call
-                :call-id "parallel-a"
+                :call-id   "parallel-a"
                 :namespace "concurrency"
-                :name "run"
+                :name      "run"
                 :arguments
                 "{\"label\":\"a\",\"delay\":0.05,\"await_peer\":true}")
                (agent-test-call
-                :call-id "parallel-b"
+                :call-id   "parallel-b"
                 :namespace "concurrency"
-                :name "run"
+                :name      "run"
                 :arguments
                 "{\"label\":\"b\",\"await_peer\":true}")))
              (agent-test-result
               "parallel-done"
               (list (agent-test-message "done"))))))
-         (callback-lock (make-lock "Autolith observer callback test"))
-         (callback-active-count 0)
+         (callback-lock                 (make-lock "Autolith observer callback test"))
+         (callback-active-count         0)
          (callback-maximum-active-count 0)
          (observer
            (callback-agent-observer-create
@@ -2639,10 +2631,10 @@
          (let ((agent
                  (agent-create
                   :configuration configuration
-                  :provider provider
-                  :conversation conversation
+                  :provider      provider
+                  :conversation  conversation
                   :tool-registry registry
-                  :worker ':unused)))
+                  :worker        ':unused)))
            (agent-run-user-turn agent "run both" :observer observer)
            (test-assert
             (agent-test-concurrency-state-overlap-observed-p state)
@@ -2650,15 +2642,15 @@
            (test-assert
             (= (agent-test-concurrency-state-maximum-active-count state) 2)
             "one provider batch uses two concurrent tool workers")
-            (let ((logical-turn-states
-                    (agent-test-concurrency-state-logical-turn-states state)))
-              (test-assert
-               (and (= (length logical-turn-states) 2)
-                    (first logical-turn-states)
-                    (every (lambda (turn-state)
-                             (eq turn-state (first logical-turn-states)))
-                           (rest logical-turn-states)))
-               "parallel tool workers share the active logical-turn state"))
+           (let ((logical-turn-states
+                   (agent-test-concurrency-state-logical-turn-states state)))
+             (test-assert
+              (and (= (length logical-turn-states) 2)
+                   (first logical-turn-states)
+                   (every (lambda (turn-state)
+                            (eq turn-state (first logical-turn-states)))
+                          (rest logical-turn-states)))
+              "parallel tool workers share the active logical-turn state"))
            (test-assert
             (= callback-maximum-active-count 1)
             "observer callbacks remain serialized across tool workers")
@@ -2682,13 +2674,13 @@
 (defun test-agent-tool-concurrency-key ()
   "Test calls sharing one runtime identity execute in separate waves."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "agent-runtime-key"))
-         (state (make-instance 'agent-test-concurrency-state))
-         (runtime (list ':shared-runtime))
-         (tool (agent-test-concurrency-tool
-                state "keyed" :concurrency-key runtime))
+         (state         (make-instance 'agent-test-concurrency-state))
+         (runtime       (list ':shared-runtime))
+         (tool          (agent-test-concurrency-tool
+                         state "keyed" :concurrency-key runtime))
          (provider
            (make-instance
             'scripted-provider
@@ -2698,14 +2690,14 @@
               "keyed-calls"
               (list
                (agent-test-call
-                :call-id "keyed-a"
+                :call-id   "keyed-a"
                 :namespace "concurrency"
-                :name "keyed"
+                :name      "keyed"
                 :arguments "{\"label\":\"a\",\"delay\":0.03}")
                (agent-test-call
-                :call-id "keyed-b"
+                :call-id   "keyed-b"
                 :namespace "concurrency"
-                :name "keyed"
+                :name      "keyed"
                 :arguments "{\"label\":\"b\",\"delay\":0.03}")))
              (agent-test-result
               "keyed-done"
@@ -2714,11 +2706,11 @@
          (let ((agent
                  (agent-create
                   :configuration configuration
-                  :provider provider
-                  :conversation conversation
+                  :provider      provider
+                  :conversation  conversation
                   :tool-registry
                   (agent-test-concurrency-registry (list tool))
-                  :worker ':unused)))
+                  :worker        ':unused)))
            (agent-run-user-turn agent "run keyed calls")
            (test-assert
             (= (agent-test-concurrency-state-maximum-active-count state) 1)
@@ -2737,22 +2729,22 @@
   (test-assert
    (eq (tool-execution-policy
         (make-instance 'shell-run-tool
-                       :namespace "shell"
-                       :name "run"
+                       :namespace   "shell"
+                       :name        "run"
                        :description "Run one command."
-                       :parameters (json-object)))
+                       :parameters  (json-object)))
        ':exclusive)
    "shell commands opt into exclusive ordered waves")
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "agent-exclusive-wave"))
-         (state (make-instance 'agent-test-concurrency-state))
-         (before (agent-test-concurrency-tool state "before"))
+         (state         (make-instance 'agent-test-concurrency-state))
+         (before        (agent-test-concurrency-tool state "before"))
          (exclusive
            (agent-test-concurrency-tool
             state "exclusive" :execution-policy ':exclusive))
-         (after (agent-test-concurrency-tool state "after"))
+         (after         (agent-test-concurrency-tool state "after"))
          (provider
            (make-instance
             'scripted-provider
@@ -2762,19 +2754,19 @@
               "exclusive-calls"
               (list
                (agent-test-call
-                :call-id "before"
+                :call-id   "before"
                 :namespace "concurrency"
-                :name "before"
+                :name      "before"
                 :arguments "{\"label\":\"before\",\"delay\":0.02}")
                (agent-test-call
-                :call-id "exclusive"
+                :call-id   "exclusive"
                 :namespace "concurrency"
-                :name "exclusive"
+                :name      "exclusive"
                 :arguments "{\"label\":\"exclusive\",\"delay\":0.02}")
                (agent-test-call
-                :call-id "after"
+                :call-id   "after"
                 :namespace "concurrency"
-                :name "after"
+                :name      "after"
                 :arguments "{\"label\":\"after\",\"delay\":0.02}")))
              (agent-test-result
               "exclusive-done"
@@ -2783,12 +2775,12 @@
          (let ((agent
                  (agent-create
                   :configuration configuration
-                  :provider provider
-                  :conversation conversation
+                  :provider      provider
+                  :conversation  conversation
                   :tool-registry
                   (agent-test-concurrency-registry
                    (list before exclusive after))
-                  :worker ':unused)))
+                  :worker        ':unused)))
            (agent-run-user-turn agent "run exclusive call")
            (test-assert
             (= (agent-test-concurrency-state-maximum-active-count state) 1)
@@ -2806,11 +2798,11 @@
 (defun test-agent-parallel-tool-failure ()
   "Test one failed parallel call does not discard its sibling result."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "agent-parallel-failure"))
-         (state (make-instance 'agent-test-concurrency-state))
-         (tool (agent-test-concurrency-tool state "fail"))
+         (state         (make-instance 'agent-test-concurrency-state))
+         (tool          (agent-test-concurrency-tool state "fail"))
          (provider
            (make-instance
             'scripted-provider
@@ -2820,15 +2812,15 @@
               "failure-calls"
               (list
                (agent-test-call
-                :call-id "failed"
+                :call-id   "failed"
                 :namespace "concurrency"
-                :name "fail"
+                :name      "fail"
                 :arguments
                 "{\"label\":\"failed\",\"await_peer\":true,\"fail\":true}")
                (agent-test-call
-                :call-id "sibling"
+                :call-id   "sibling"
                 :namespace "concurrency"
-                :name "fail"
+                :name      "fail"
                 :arguments
                 "{\"label\":\"sibling\",\"await_peer\":true}")))
              (agent-test-result
@@ -2838,11 +2830,11 @@
          (let ((agent
                  (agent-create
                   :configuration configuration
-                  :provider provider
-                  :conversation conversation
+                  :provider      provider
+                  :conversation  conversation
                   :tool-registry
                   (agent-test-concurrency-registry (list tool))
-                  :worker ':unused)))
+                  :worker        ':unused)))
            (agent-run-user-turn agent "run failing calls")
            (let ((outputs (agent-test-tool-outputs conversation)))
              (test-assert
@@ -2865,13 +2857,13 @@
                   ("job-aborted" job-aborted)))
     (destructuring-bind (fatal expected-type) case
       (let* ((configuration (test-configuration))
-             (root (test-configuration-root configuration))
+             (root          (test-configuration-root configuration))
              (conversation
                (conversation-create
                 configuration
                 :identifier (format nil "agent-fatal-~A" fatal)))
-             (state (make-instance 'agent-test-concurrency-state))
-             (tool (agent-test-concurrency-tool state "fatal"))
+             (state         (make-instance 'agent-test-concurrency-state))
+             (tool          (agent-test-concurrency-tool state "fatal"))
              (provider
                (make-instance
                 'scripted-provider
@@ -2881,28 +2873,28 @@
                   "fatal-calls"
                   (list
                    (agent-test-call
-                    :call-id "fatal"
+                    :call-id   "fatal"
                     :namespace "concurrency"
-                    :name "fatal"
+                    :name      "fatal"
                     :arguments
                     (format nil
                             "{\"label\":\"fatal\",\"await_peer\":true,\"fatal\":\"~A\"}"
                             fatal))
                    (agent-test-call
-                    :call-id "sibling"
+                    :call-id   "sibling"
                     :namespace "concurrency"
-                    :name "fatal"
+                    :name      "fatal"
                     :arguments
                     "{\"label\":\"sibling\",\"await_peer\":true}")))))))
         (unwind-protect
              (let* ((agent
                       (agent-create
                        :configuration configuration
-                       :provider provider
-                       :conversation conversation
+                       :provider      provider
+                       :conversation  conversation
                        :tool-registry
                        (agent-test-concurrency-registry (list tool))
-                       :worker ':unused))
+                       :worker        ':unused))
                     (condition
                       (handler-case
                           (progn
@@ -2920,11 +2912,11 @@
                (test-assert
                 (agent-test-concurrency-state-overlap-observed-p state)
                 "the fatal call executes concurrently with its sibling")
-                (test-assert
-                 (equal (agent-test-tool-outputs conversation)
-                        (list *conversation-interrupted-tool-output*
-                              "completed: sibling"))
-                 "unknown and sibling results persist before fatal propagation"))
+               (test-assert
+                (equal (agent-test-tool-outputs conversation)
+                       (list *conversation-interrupted-tool-output*
+                             "completed: sibling"))
+                "unknown and sibling results persist before fatal propagation"))
           (platform-delete-directory-tree
            *platform*
            root :validate t :if-does-not-exist ':ignore)))))
@@ -2934,10 +2926,10 @@
 (defun test-agent-shell-authorization-unavailable ()
   "Test unavailable shell approval returns a failed tool result and continues the turn."
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
+         (root               (test-configuration-root base-configuration))
          (configuration
            (configuration-copy base-configuration :working-directory root))
-         (marker (merge-pathnames "unavailable-shell-ran" root))
+         (marker             (merge-pathnames "unavailable-shell-ran" root))
          (conversation
            (conversation-create configuration :identifier "shell-authorization"))
          (call
@@ -2962,17 +2954,17 @@
              (agent-test-result
               "shell-authorization-2"
               (list (agent-test-message "approval failure handled"))))))
-         (agent nil))
+         (agent              nil))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
            (setf agent
                  (agent-create
                   :configuration configuration
-                  :provider provider
-                  :conversation conversation
+                  :provider      provider
+                  :conversation  conversation
                   :tool-registry (make-default-tool-registry)
-                  :worker ':unused))
+                  :worker        ':unused))
            (let* ((observer
                     (callback-agent-observer-create
                      :command-authorization-callback
@@ -2980,7 +2972,7 @@
                        (error 'command-authorization-unavailable
                               :message
                               "Command approval requires an interactive terminal."
-                              :command command
+                              :command   command
                               :directory directory))))
                   (result
                     (agent-run-user-turn
@@ -2997,8 +2989,7 @@
              (test-assert (not (probe-file marker))
                           "unavailable approval never starts the subprocess")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore))
-  nil))
-
+   nil))
 
 (-> test-agent-portable-value () null)
 (defun test-agent-portable-value ()
@@ -3013,7 +3004,7 @@
 (defun test-agent-turn-state-pinned ()
   "Test a turn replays its first routing token even when later responses vary."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "agent-turn-state"))
          (provider
@@ -3023,16 +3014,16 @@
             (list
              (agent-test-result
               "response-1"
-              (list (agent-test-call :call-id "pinned-1"
+              (list (agent-test-call :call-id   "pinned-1"
                                      :arguments "{\"value\":\"one\"}"))
               :turn-state "turn-state-1")
              (agent-test-result
               "response-2"
-              (list (agent-test-call :call-id "pinned-2"
+              (list (agent-test-call :call-id   "pinned-2"
                                      :arguments "{\"value\":\"two\"}")))
              (agent-test-result
               "response-3"
-              (list (agent-test-call :call-id "pinned-3"
+              (list (agent-test-call :call-id   "pinned-3"
                                      :arguments "{\"value\":\"three\"}"))
               :turn-state "turn-state-3")
              (agent-test-result
@@ -3042,10 +3033,10 @@
          (let* ((agent
                   (agent-create
                    :configuration configuration
-                   :provider provider
-                   :conversation conversation
+                   :provider      provider
+                   :conversation  conversation
                    :tool-registry (agent-test-registry)
-                   :worker ':unused))
+                   :worker        ':unused))
                 (result (agent-run-user-turn agent "pin the turn")))
            (test-assert (string= (provider-result-response-id result) "response-4")
                         "the agent completes the scripted tool rounds")
@@ -3058,12 +3049,11 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-agent-tool-search-round () null)
 (defun test-agent-tool-search-round ()
   "Test that a client tool search is answered locally and replayed on the follow-up."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "agent-tool-search"))
          (search
@@ -3080,15 +3070,15 @@
             (list
              (agent-test-result "response-1" (list search))
              (agent-test-result "response-2" (list (agent-test-message "done"))))))
-         (statuses nil))
+         (statuses      nil))
     (unwind-protect
          (let* ((agent
                   (agent-create
                    :configuration configuration
-                   :provider provider
-                   :conversation conversation
+                   :provider      provider
+                   :conversation  conversation
                    :tool-registry (agent-test-registry)
-                   :worker ':unused))
+                   :worker        ':unused))
                 (result
                   (agent-run-user-turn
                    agent "find the echo tool"
@@ -3099,15 +3089,15 @@
                                 (push status statuses)))))
                 (snapshots (reverse (scripted-provider-input-snapshots provider)))
                 (follow-up (second snapshots))
-                (output (find-if (lambda (item)
-                                   (and (json-object-p item)
-                                        (json-string= (json-get item "type")
-                                                      "tool_search_output")))
-                                 follow-up))
+                (output    (find-if (lambda (item)
+                                      (and (json-object-p item)
+                                           (json-string= (json-get item "type")
+                                                         "tool_search_output")))
+                                    follow-up))
                 (namespace (and output
                                 (plusp (length (json-get output "tools")))
                                 (aref (json-get output "tools") 0)))
-                (child (and namespace (aref (json-get namespace "tools") 0))))
+                (child     (and namespace (aref (json-get namespace "tools") 0))))
            (test-assert
             (string= (provider-result-response-id result) "response-2")
             "the search round is followed by one more provider request")

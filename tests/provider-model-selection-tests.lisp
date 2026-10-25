@@ -19,13 +19,13 @@
              (destructuring-bind (name window &rest efforts) spec
                (register-provider
                 name :family ':codex
-                :endpoint (format nil "https://~A.invalid/completions" name)
-                :models (loop for model in '("shared" "hf:zai-org/GLM-5.3-Flash"
-                                              "deepseek/deepseek-v4.1-flash-1017"
-                                              "deepseek/v4")
-                              collect (list :name model :context-window window
-                                            :reasoning-efforts efforts))
-                :factory #'provider-selection-tests--factory)))
+                :endpoint    (format nil "https://~A.invalid/completions" name)
+                :models      (loop for model in '("shared" "hf:zai-org/GLM-5.3-Flash"
+                                                   "deepseek/deepseek-v4.1-flash-1017"
+                                                   "deepseek/v4")
+                                   collect (list :name model :context-window window
+                                                 :reasoning-efforts efforts))
+                :factory     #'provider-selection-tests--factory)))
            (register-provider "deepseek" :family ':codex :models '("v4")
                               :factory #'provider-selection-tests--factory)
            (funcall function))
@@ -53,8 +53,8 @@
                         "model resolution retains the exact ID and requested provider"))))
      (dolist (case '(("shared" "absent" :unknown-provider)
                      ("selection-a/shared" "selection-b" :provider-mismatch)
-                      ("missing" "selection-a" :unsupported-model)
-                      ("selection-a/missing" nil :unsupported-model)
+                     ("missing" "selection-a" :unsupported-model)
+                     ("selection-a/missing" nil :unsupported-model)
                      ("deepseek/v4" nil :ambiguous-model)))
        (destructuring-bind (selection provider reason) case
          (test-assert
@@ -69,10 +69,10 @@
              (progn
                (dolist (name '("selection-a" "selection-b"))
                  (let* ((configuration (configuration-copy base :model "shared" :model-provider name))
-                        (provider (provider-create configuration))
-                        (login (provider-authentication-provider configuration name)))
+                        (provider      (provider-create configuration))
+                        (login         (provider-authentication-provider configuration name)))
                    (test-assert (equal (provider-registration-name
-                                       (model-provider-registration provider)) name)
+                                        (model-provider-registration provider)) name)
                                 "factory selection uses the explicit registration")
                    (test-assert (equal (config :model (provider-configuration provider)) "shared")
                                 "factories receive the exact wire/catalog ID")
@@ -84,9 +84,9 @@
                    (test-assert (equal (config :provider-endpoint configuration)
                                       (format nil "https://~A.invalid/completions" name))
                                 "endpoint metadata comes from the selected provider")
-                   (let ((same (configuration-copy configuration :model "shared"))
+                   (let ((same  (configuration-copy configuration :model "shared"))
                          (other (configuration-copy configuration :model *default-model*))
-                         (full (configuration-copy configuration :model "selection-b/shared")))
+                         (full  (configuration-copy configuration :model "selection-b/shared")))
                      (test-assert (equal (config :model-provider same) name)
                                   "copying the same bare model retains its provider")
                      (test-assert (equal (config :model-provider other) "chatgpt")
@@ -124,15 +124,15 @@
   (provider-selection-tests--with-providers
    (lambda ()
      (let* ((configuration (test-configuration))
-            (root (test-configuration-root configuration))
-            (conversation (conversation-create configuration :identifier "qualified-model"))
-            (registry (make-default-tool-registry))
-            (worker (lisp-worker-create configuration))
-            (terminal (make-instance 'scripted-terminal :columns 80))
-            (ui (terminal-ui-create :terminal terminal))
-            (application (make-instance 'application :configuration configuration
-                                        :conversation conversation :provider (provider-create configuration)
-                                        :tool-registry registry :worker worker :ui ui)))
+            (root          (test-configuration-root configuration))
+            (conversation  (conversation-create configuration :identifier "qualified-model"))
+            (registry      (make-default-tool-registry))
+            (worker        (lisp-worker-create configuration))
+            (terminal      (make-instance 'scripted-terminal :columns 80))
+            (ui            (terminal-ui-create :terminal terminal))
+            (application   (make-instance 'application :configuration configuration
+                                          :conversation conversation :provider (provider-create configuration)
+                                          :tool-registry registry :worker worker :ui ui)))
        (unwind-protect
             (progn
               (application-operation-call application "model" "shared" :provider "selection-a")
@@ -169,8 +169,8 @@
                   (test-assert (and (equal model "shared") (equal provider "selection-a"))
                                "the filtered picker returns an exact model/provider pair")))
               (application-set-model application "hf:zai-org/GLM-5.3-Flash" :provider "selection-a")
-              (let* ((saved (preferences-load-values configuration))
-                     (loaded (apply #'make-configuration saved))
+              (let* ((saved    (preferences-load-values configuration))
+                     (loaded   (apply #'make-configuration saved))
                      (restored (application--configuration-for-conversation configuration conversation)))
                 (test-assert (and (equal (config :model loaded) "hf:zai-org/GLM-5.3-Flash")
                                   (equal (config :model-provider loaded) "selection-a"))
@@ -178,21 +178,21 @@
                 (test-assert (equal (config :model-provider restored) "selection-a")
                              "conversation selection restores its provider"))
               (conversation-append-user-message conversation "hello")
-              (let* ((loaded (conversation-load (conversation-pathname conversation)))
+              (let* ((loaded   (conversation-load (conversation-pathname conversation)))
                      (restored (application--configuration-for-conversation configuration loaded)))
                 (test-assert (and (equal (conversation-model loaded) "hf:zai-org/GLM-5.3-Flash")
                                   (equal (conversation-model-provider loaded) "selection-a")
                                   (equal (config :model-provider restored) "selection-a"))
                              "the conversation header reloads the selected provider"))
               (application-set-model application "deepseek/v4" :provider "selection-b")
-              (let* ((loaded (conversation-load (conversation-pathname conversation)))
+              (let* ((loaded   (conversation-load (conversation-pathname conversation)))
                      (restored (application--configuration-for-conversation configuration loaded)))
                 (test-assert (and (equal (config :model restored) "deepseek/v4")
                                   (equal (config :model-provider restored) "selection-b"))
                              "configuration records retain explicit slash-ID collisions"))
               (application--install-configuration
                application (configuration-copy (application-configuration application)
-                                                :model "shared" :model-provider "selection-a"))
+                                               :model "shared" :model-provider "selection-a"))
               (application-set-reasoning-effort application "low")
               (let ((saved (preferences-load-values configuration)))
                 (test-assert (and (equal (getf saved :model) "shared")

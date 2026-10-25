@@ -19,10 +19,10 @@
 (defun test-model-catalog--http-fixture (mode body function &key (port 0) on-request)
   "Call FUNCTION with a local HTTP source and port, then join its server.
 Call ON-REQUEST, when supplied, after reading the request headers."
-  (let* ((listener (usocket:socket-listen "127.0.0.1" port :reuse-address t
+  (let* ((listener (usocket:socket-listen "127.0.0.1" port :reuse-address     t
                                                                 :element-type '(unsigned-byte 8)))
-         (port (usocket:get-local-port listener))
-         (server nil))
+         (port     (usocket:get-local-port listener))
+         (server   nil))
     (unwind-protect
          (progn
            (if (eq mode ':unreachable)
@@ -32,9 +32,9 @@ Call ON-REQUEST, when supplied, after reading the request headers."
                       (lambda ()
                         (when (usocket:wait-for-input listener :timeout 2 :ready-only t)
                           (let* ((connection (usocket:socket-accept listener))
-                                 (stream (usocket:socket-stream connection))
-                                 (text (flexi-streams:make-flexi-stream stream :external-format ':utf-8))
-                                 (crlf (format nil "~C~C" #\Return #\Newline)))
+                                 (stream     (usocket:socket-stream connection))
+                                 (text       (flexi-streams:make-flexi-stream stream :external-format ':utf-8))
+                                 (crlf       (format nil "~C~C" #\Return #\Newline)))
                             (unwind-protect
                                  (progn
                                    (loop for line = (read-line text nil nil)
@@ -70,11 +70,11 @@ Call ON-REQUEST, when supplied, after reading the request headers."
   (dolist (warm-p '(nil t))
     (dolist (mode '(:unreachable :stalled))
       (with-test-configuration (configuration)
-        (let* ((root (config :cache-root configuration))
-               (catalog (model-catalog-create :cache-root root))
-               (context (make-instance 'model-catalog-test-context :configuration configuration))
-               (port 0)
-               (saved nil)
+        (let* ((root       (config :cache-root configuration))
+               (catalog    (model-catalog-create :cache-root root))
+               (context    (make-instance 'model-catalog-test-context :configuration configuration))
+               (port       0)
+               (saved      nil)
                (fetched-at nil))
           (when warm-p
             (test-model-catalog--http-fixture
@@ -95,9 +95,9 @@ Call ON-REQUEST, when supplied, after reading the request headers."
            mode nil
            (lambda (source source-port)
              (declare (ignore source-port))
-             (let ((*model-catalog-source* source)
+             (let ((*model-catalog-source*          source)
                    (*model-catalog-request-seconds* 0.15)
-                   (start (get-internal-real-time)))
+                   (start                           (get-internal-real-time)))
                (model-catalog--refresh catalog context nil)
                (test-assert (< (/ (- (get-internal-real-time) start) internal-time-units-per-second) 2)
                             "Unreachable and stalled APIs finish within a whole-request bound.")
@@ -114,10 +114,10 @@ Call ON-REQUEST, when supplied, after reading the request headers."
            :port port)))))
   ;; Exercise the native transport's process boundary on every host as well.
   (with-test-configuration (configuration)
-    (let ((body (concatenate 'string (test-model-catalog--fixture '("child-model"))
-                             (make-string 10000 :initial-element #\Space)))
+    (let ((body     (concatenate 'string (test-model-catalog--fixture '("child-model"))
+                                 (make-string 10000 :initial-element #\Space)))
           (children nil)
-          (launch (symbol-function 'uiop:launch-program)))
+          (launch   (symbol-function 'uiop:launch-program)))
       (test-call-with-function-replacements
        (list (list 'platform-http-supervision-required-p
                    (lambda (platform) (declare (ignore platform)) t))
@@ -133,11 +133,11 @@ Call ON-REQUEST, when supplied, after reading the request headers."
             mode body
             (lambda (source port)
               (declare (ignore port))
-              (let* ((*model-catalog-source* source)
-                     (*model-catalog-maximum-bytes* (if (eq mode ':oversized) 32 (* 16 1024 1024)))
+              (let* ((*model-catalog-source*          source)
+                     (*model-catalog-maximum-bytes*   (if (eq mode ':oversized) 32 (* 16 1024 1024)))
                      (*model-catalog-request-seconds* (if (eq mode ':stalled) 0.15 10))
-                     (start (get-internal-real-time))
-                     (result (model-catalog--worker-fetch configuration)))
+                     (start                           (get-internal-real-time))
+                     (result                          (model-catalog--worker-fetch configuration)))
                 (test-assert (if (eq mode ':ready) (equal result body) (null result))
                              "The private worker returns a complete bounded body or no result.")
                 (when (eq mode ':stalled)
@@ -172,7 +172,7 @@ Call ON-REQUEST, when supplied, after reading the request headers."
 
 (defun test-model-catalog-parser ()
   "Accept exact native and canonical IDs; reject malformed or changed schemas."
-  (let* ((text "{\"p\":{\"models\":{\"native/v1\":{\"id\":\"native/v1\",\"canonical_model_id\":\"lab/base\",\"extra\":[]}}},\"q\":{\"models\":{\"native/v1\":{\"id\":\"native/v1\"},\"UPPER\":{\"id\":\"UPPER\"}}}}")
+  (let* ((text    "{\"p\":{\"models\":{\"native/v1\":{\"id\":\"native/v1\",\"canonical_model_id\":\"lab/base\",\"extra\":[]}}},\"q\":{\"models\":{\"native/v1\":{\"id\":\"native/v1\"},\"UPPER\":{\"id\":\"UPPER\"}}}}")
          (catalog (model-catalog-parse text)))
     (test-assert (= (hash-table-count catalog) 3) "Union deduplicates native and canonical IDs.")
     (dolist (identifier '("native/v1" "lab/base" "UPPER"))
@@ -204,10 +204,10 @@ Call ON-REQUEST, when supplied, after reading the request headers."
   "Read an actual application/json HTTP response as bounded UTF-8 bytes."
   (with-test-configuration (configuration)
     (dolist (oversized '(nil t))
-      (let* ((body "{\"p\":{\"models\":{\"public-model\":{\"id\":\"public-model\"}},\"metadata\":\"é\"}}")
-             (bytes (babel:string-to-octets body :encoding :utf-8))
+      (let* ((body     "{\"p\":{\"models\":{\"public-model\":{\"id\":\"public-model\"}},\"metadata\":\"é\"}}")
+             (bytes    (babel:string-to-octets body :encoding :utf-8))
              (listener (usocket:socket-listen "127.0.0.1" 0 :reuse-address t
-                                             :element-type '(unsigned-byte 8)))
+                                             :element-type                 '(unsigned-byte 8)))
              (server nil) (server-error nil))
         (unwind-protect
              (progn
@@ -217,9 +217,9 @@ Call ON-REQUEST, when supplied, after reading the request headers."
                         (handler-case
                             (when (usocket:wait-for-input listener :timeout 5 :ready-only t)
                               (let* ((connection (usocket:socket-accept listener))
-                                     (stream (usocket:socket-stream connection))
-                                     (text (flexi-streams:make-flexi-stream stream :external-format :utf-8))
-                                     (crlf (format nil "~C~C" #\Return #\Newline)))
+                                     (stream     (usocket:socket-stream connection))
+                                     (text       (flexi-streams:make-flexi-stream stream :external-format :utf-8))
+                                     (crlf       (format nil "~C~C" #\Return #\Newline)))
                                 (unwind-protect
                                      (progn
                                        (loop for line = (read-line text nil nil)

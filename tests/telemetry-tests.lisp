@@ -7,7 +7,7 @@
 BACKGROUND-UPLOADS-P selects the real scheduler for upload lifecycle tests."
   (let ((*model-catalog-fetch-function* (lambda (run) (declare (ignore run)) nil)))
     (let* ((configuration (test-configuration :telemetry-defaults-p telemetry-defaults-p))
-           (root (test-configuration-root configuration)))
+           (root          (test-configuration-root configuration)))
       (telemetry-shutdown)
       (unwind-protect
            (if background-uploads-p
@@ -27,14 +27,14 @@ BACKGROUND-UPLOADS-P selects the real scheduler for upload lifecycle tests."
   "Decode the projected spans of a captured mock upload."
   (let* ((envelope (json-decode body))
          (resource (aref (json-get envelope "resourceSpans") 0))
-         (scope (aref (json-get resource "scopeSpans") 0)))
+         (scope    (aref (json-get resource "scopeSpans") 0)))
     (json-get scope "spans")))
 
 (defun test-telemetry--attribute (span name)
   "Return a captured OTLP scalar attribute."
   (let* ((attribute (find name (json-get span "attributes")
                           :key (lambda (entry) (json-get entry "key")) :test #'string=))
-         (value (and attribute (json-get attribute "value"))))
+         (value     (and attribute (json-get attribute "value"))))
     (when value
       (or (json-get value "stringValue") (json-get value "intValue")
           (json-get value "boolValue")))))
@@ -59,7 +59,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
   (ensure-directories-exist ready-path)
   (setf (getf options :error-output) (make-pathname :type "stderr" :defaults ready-path)
         (getf options :if-error-output-exists) ':supersede)
-  (let* ((core (merge-pathnames "sbcl.core" (uiop:lisp-implementation-directory)))
+  (let* ((core     (merge-pathnames "sbcl.core" (uiop:lisp-implementation-directory)))
          (process
            (apply launch
                   (list (namestring sb-ext:*runtime-pathname*) "--noinform"
@@ -84,14 +84,14 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
 (-> test-telemetry--stalled-child-diagnostic (t pathname) string)
 (defun test-telemetry--stalled-child-diagnostic (process ready-path)
   "Describe a stall fixture without waiting for a live child or reading unbounded stderr."
-  (let ((alive-p (and process (uiop:process-alive-p process)))
+  (let ((alive-p     (and process (uiop:process-alive-p process)))
         (stderr-path (make-pathname :type "stderr" :defaults ready-path)))
     (format nil "Stalled child: ready ~S, alive ~S, exit ~S, stock core ~S, stderr ~S"
             (not (null (probe-file ready-path))) alive-p
             (when (and process (not alive-p)) (uiop:wait-process process))
             (merge-pathnames "sbcl.core" (uiop:lisp-implementation-directory))
             (unless alive-p
-              (with-open-file (stream stderr-path :external-format ':utf-8
+              (with-open-file (stream stderr-path :external-format   ':utf-8
                                                   :if-does-not-exist nil)
                 (when stream
                   (let ((buffer (make-string 4096)))
@@ -101,7 +101,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
   "Keep non-applicable model, tool, role and error metadata absent on the wire."
   (test-telemetry--call
    (lambda (configuration)
-     (let ((bodies nil)
+     (let ((bodies                       nil)
            (*telemetry-process-function* nil))
        (setf (config :telemetry-enabled-p configuration) t)
        (telemetry-attach configuration)
@@ -137,8 +137,8 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                                 "Model spans omit the non-applicable tool attribute.")
                    (test-assert (equal (test-telemetry--attribute span "autolith.request.role") "agent")
                                 "Model requests keep their applicable role.")
-                    (test-assert (equal (test-telemetry--attribute span "gen_ai.request.model") "custom")
-                                 "Model requests keep their projected model category.")
+                   (test-assert (equal (test-telemetry--attribute span "gen_ai.request.model") "custom")
+                                "Model requests keep their projected model category.")
                    (test-assert (equal (test-telemetry--attribute span "error.type") "authentication")
                                 "Failed model requests keep their applicable error type.")))))))
   nil)
@@ -149,7 +149,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
    (lambda (configuration)
      (setf (config :telemetry-enabled-p configuration) t)
      (telemetry-attach configuration)
-     (let ((bodies nil)
+     (let ((bodies      nil)
            (reentered-p nil))
        (let ((*telemetry-process-function*
                (lambda (run request)
@@ -173,11 +173,11 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
   "Omit unavailable categories and normalize observed reasons at the wire boundary."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((cases '((nil nil) ("unknown" nil) ("private reason" nil)
-                     ("STOP" "stop") ("MAX_TOKENS" "max_tokens")
-                     ("MODEL_CONTEXT_WINDOW_EXCEEDED" "model_context_window_exceeded")
-                     ("safety" "SAFETY") ("recitation" "RECITATION")
-                     ("other" "OTHER") ("malformed_function_call" "MALFORMED_FUNCTION_CALL")))
+     (let* ((cases  '((nil nil) ("unknown" nil) ("private reason" nil)
+                      ("STOP" "stop") ("MAX_TOKENS" "max_tokens")
+                      ("MODEL_CONTEXT_WINDOW_EXCEEDED" "model_context_window_exceeded")
+                      ("safety" "SAFETY") ("recitation" "RECITATION")
+                      ("other" "OTHER") ("malformed_function_call" "MALFORMED_FUNCTION_CALL")))
             (bodies (test-telemetry-hooks--capture
                      configuration
                      (lambda ()
@@ -197,7 +197,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                                                  :attempt-id "22222222222222222222222222222222"
                                                  :issue-kind ':other :repair-kind ':other
                                                  :outcome ':verified :verified t))))))
-            (body (first bodies))
+            (body   (first bodies))
             (models (test-telemetry-hooks--kind body "model"))
             (checks (test-telemetry-hooks--kind body "check")))
        (loop for span in models for case in cases
@@ -218,9 +218,9 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                                    :key (lambda (attribute) (json-get attribute "key")) :test #'equal))
                         "Unavailable attributes are absent, including their OTLP keys.")))
        (loop for (key expected) in '(("autolith.verification.scope" "none")
-                                    ("autolith.issue.kind" "other")
-                                    ("autolith.repair.kind" "other")
-                                    ("autolith.repair.outcome" "verified"))
+                                     ("autolith.issue.kind" "other")
+                                     ("autolith.repair.kind" "other")
+                                     ("autolith.repair.outcome" "verified"))
              do (test-assert (equal (test-telemetry--attribute (second checks) key) expected)
                              "Explicit protocol categories retain their meaning.")))))
   nil)
@@ -230,30 +230,30 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
   (test-telemetry--call
    (lambda (configuration)
      (let* ((attempt-id "0123456789abcdef0123456789abcdef")
-            (cases '((:check nil :verified t nil)
-                     (:check :none :verified t nil)
-                     (:check :focused :verified t t)
-                     (:check :full :verified t t)
-                     (:check :invalid :verified t nil)
-                     (:check :focused :failed t nil)
-                     (:check :full :verified nil nil)
-                     (:repair :full :verified t nil)))
-            (body (first
-                   (test-telemetry-hooks--capture
-                    configuration
-                    (lambda ()
-                      (telemetry-call-with-run
-                       configuration
-                       (lambda ()
-                         (loop for (kind scope outcome verified) in cases
-                               do (telemetry-note-repair :event-kind kind :attempt-id attempt-id
-                                                         :verification-scope scope :outcome outcome
-                                                         :verified verified))))))))
-            (spans (remove-if-not
-                    (lambda (span)
-                      (member (test-telemetry--attribute span "autolith.event.kind")
-                              '("check" "repair") :test #'equal))
-                    (coerce (test-telemetry--spans body) 'list))))
+            (cases      '((:check nil :verified t nil)
+                          (:check :none :verified t nil)
+                          (:check :focused :verified t t)
+                          (:check :full :verified t t)
+                          (:check :invalid :verified t nil)
+                          (:check :focused :failed t nil)
+                          (:check :full :verified nil nil)
+                          (:repair :full :verified t nil)))
+            (body       (first
+                         (test-telemetry-hooks--capture
+                          configuration
+                          (lambda ()
+                            (telemetry-call-with-run
+                             configuration
+                             (lambda ()
+                               (loop for (kind scope outcome verified) in cases
+                                     do (telemetry-note-repair :event-kind kind :attempt-id attempt-id
+                                                               :verification-scope scope :outcome outcome
+                                                               :verified verified))))))))
+            (spans      (remove-if-not
+                         (lambda (span)
+                           (member (test-telemetry--attribute span "autolith.event.kind")
+                                   '("check" "repair") :test #'equal))
+                         (coerce (test-telemetry--spans body) 'list))))
        (test-assert (= (length spans) (length cases)) "Every verification case exports a span.")
        (loop for span in spans
              for (kind scope outcome verified expected) in cases
@@ -262,7 +262,10 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                              "Verification requires a passing check, an explicit verdict and real scope.")
                 (test-assert (equal (test-telemetry--attribute span "autolith.verification.scope")
                                     (and (eq kind ':check)
-                                         (case scope (:none "none") (:focused "focused") (:full "full"))))
+                                         (case scope (:none
+                                                      "none") (:focused
+                                                               "focused") (:full
+                                                                           "full"))))
                              "Missing and invalid scopes are omitted; explicit scopes survive.")
                 (test-assert (equal (test-telemetry--attribute span "autolith.repair.attempt.id") attempt-id)
                              "Check spans carry the valid attempt linkage required by the collector."))
@@ -275,15 +278,15 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
    (lambda (configuration)
      (let* ((*telemetry-finish-reasons*
               '((:stop "stop" "STOP") (:catalog-reload "catalog-reload" "RELOADED")))
-            (body (first
-                   (test-telemetry-hooks--capture
-                    configuration
-                    (lambda ()
-                      (telemetry-call-with-run
-                       configuration
-                       (lambda ()
-                         (dolist (reason '("stop" "catalog-reload" "completed"))
-                           (telemetry-note-model :finish-reason reason))))))))
+            (body  (first
+                    (test-telemetry-hooks--capture
+                     configuration
+                     (lambda ()
+                       (telemetry-call-with-run
+                        configuration
+                        (lambda ()
+                          (dolist (reason '("stop" "catalog-reload" "completed"))
+                            (telemetry-note-model :finish-reason reason))))))))
             (spans (test-telemetry-hooks--kind body "model")))
        (test-assert (= (length spans) 3) "All model requests reach the exporter.")
        (loop for span in spans
@@ -304,20 +307,20 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
        (telemetry-attach configuration)
        (test-model-catalog--await *telemetry-controller*))
      (let ((fixtures nil)
-           (names '("jane-doe-private-client" "client_acme/internal"
-                    "john@example.com/model" "/Users/fixture/model"
-                    "token=fixture-secret" "127.0.0.1:8000/model"
-                    "private.internal:8443/model" "John Smith model"
-                    "gpt?4.1" "GPT-4.1")))
+           (names    '("jane-doe-private-client" "client_acme/internal"
+                       "john@example.com/model" "/Users/fixture/model"
+                       "token=fixture-secret" "127.0.0.1:8000/model"
+                       "private.internal:8443/model" "John Smith model"
+                       "gpt?4.1" "GPT-4.1")))
        (dolist (name names)
          (dolist (request-p '(nil t))
-           (let* ((bodies nil)
+           (let* ((bodies   nil)
                   (*telemetry-process-function*
                     (lambda (run request)
                       (declare (ignore run))
                       (push (third request) bodies)
                       t))
-                  (request (if request-p name "gpt-4.1"))
+                  (request  (if request-p name "gpt-4.1"))
                   (response (if request-p "gpt-4.1" name)))
              (telemetry-call-with-run
               configuration
@@ -362,21 +365,21 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
        (telemetry-attach configuration)
        (test-model-catalog--await *telemetry-controller*))
      (let ((bodies nil)
-           (cases '(("gpt-6.1-sol" "owner-public-alias" t)
-                    ("gpt-5.4" "gpt-5.4" t)
-                    ("claude-opus-5" "claude-opus-5" t)
-                    ("gemini-3.5-flash" "gemini-3.5-flash" t)
-                    ("grok-4.7" "grok-4.7" t)
-                    ("accounts/fireworks/models/kimi-k3" "accounts/fireworks/models/kimi-k3" t)
-                    ("private-local-model" "local-public-alias" t)
-                    (nil nil nil)
-                    ("" nil nil)
-                    (42 nil nil)
-                    ("private-response-model" "custom" nil)
-                    ("gpt-6.1-sol-private" "custom" nil)
-                    ("GPT-5.4" "custom" nil)
-                    ("tenant/gemini-3.5-flash" "custom" nil)
-                    ("claude-opus-5 " "custom" nil))))
+           (cases  '(("gpt-6.1-sol" "owner-public-alias" t)
+                     ("gpt-5.4" "gpt-5.4" t)
+                     ("claude-opus-5" "claude-opus-5" t)
+                     ("gemini-3.5-flash" "gemini-3.5-flash" t)
+                     ("grok-4.7" "grok-4.7" t)
+                     ("accounts/fireworks/models/kimi-k3" "accounts/fireworks/models/kimi-k3" t)
+                     ("private-local-model" "local-public-alias" t)
+                     (nil nil nil)
+                     ("" nil nil)
+                     (42 nil nil)
+                     ("private-response-model" "custom" nil)
+                     ("gpt-6.1-sol-private" "custom" nil)
+                     ("GPT-5.4" "custom" nil)
+                     ("tenant/gemini-3.5-flash" "custom" nil)
+                     ("claude-opus-5 " "custom" nil))))
        (let ((*telemetry-process-function*
                (lambda (run request)
                  (declare (ignore run))
@@ -386,8 +389,8 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
           configuration
           (lambda ()
             (dolist (case cases)
-              (telemetry-note-model :provider "openai"
-                                    :request-model (first case)
+              (telemetry-note-model :provider       "openai"
+                                    :request-model  (first case)
                                     :response-model (first case))))))
        (let ((models (remove-if-not
                       (lambda (span)
@@ -434,7 +437,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
          (loop for key in '("gen_ai.provider.name" "gen_ai.request.model" "gen_ai.response.model")
                for expected in (rest case)
                do (test-assert (equal (test-telemetry--attribute root key) expected)
-                                "Root metadata describes primary attempts, including mixed identities."))))))
+                               "Root metadata describes primary attempts, including mixed identities."))))))
   nil)
 
 (defun test-telemetry-model-attributes-golden ()
@@ -442,26 +445,26 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
   (test-telemetry--call
    (lambda (configuration)
      (setf (config :telemetry-model-aliases configuration) '(("main" . "model-a")))
-     (let* ((body (first
-                   (test-telemetry-hooks--capture
-                    configuration
-                    (lambda ()
-                      (telemetry-call-with-run
-                       configuration
-                       (lambda ()
-                         (telemetry-note-model
-                          :provider "openai" :request-model "main"
-                          :response-model "private-response" :role "agent"
-                          :outcome "success" :finish-reason "STOP"
-                          :usage '(:input-tokens 10 :output-tokens 3
-                                   :cached-input-tokens 0 :cache-creation-input-tokens 2))
-                         (telemetry-note-model
-                          :provider "openai" :request-model "main"
-                          :response-model "private-response" :role "agent"
-                          :outcome "error" :error-type "provider")))))))
-            (spans (test-telemetry--spans body))
-            (root-id (json-get (aref spans 2) "spanId"))
-            (common (list (list "autolith.run.span_id" "stringValue" root-id)))
+     (let* ((body     (first
+                       (test-telemetry-hooks--capture
+                        configuration
+                        (lambda ()
+                          (telemetry-call-with-run
+                           configuration
+                           (lambda ()
+                             (telemetry-note-model
+                              :provider "openai" :request-model "main"
+                              :response-model "private-response" :role "agent"
+                              :outcome "success" :finish-reason "STOP"
+                              :usage '(:input-tokens 10 :output-tokens 3
+                                       :cached-input-tokens 0 :cache-creation-input-tokens 2))
+                             (telemetry-note-model
+                              :provider "openai" :request-model "main"
+                              :response-model "private-response" :role "agent"
+                              :outcome "error" :error-type "provider")))))))
+            (spans    (test-telemetry--spans body))
+            (root-id  (json-get (aref spans 2) "spanId"))
+            (common   (list (list "autolith.run.span_id" "stringValue" root-id)))
             (identity '(("gen_ai.provider.name" "stringValue" "openai")
                         ("gen_ai.request.model" "stringValue" "model-a")
                         ("gen_ai.response.model" "stringValue" "custom")
@@ -541,7 +544,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
   "An opt-out does not allocate IDs, inspect text, invoke native work or upload."
   (test-telemetry--call
    (lambda (configuration)
-     (let ((calls 0)
+     (let ((calls                        0)
            (*telemetry-process-function* (lambda (&rest arguments)
                                           (declare (ignore arguments))
                                           (error "Unexpected telemetry process."))))
@@ -612,9 +615,9 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                                   (lambda () (telemetry-note-repair :target "self.set" :outcome "proposed"))))
        (test-assert (zerop reads) "Metadata-only consent never reads a summary.")
        (test-assert (= (length bodies) 2) "Exactly one bounded snapshot per root.")
-       (let* ((spans (test-telemetry--spans (second bodies)))
+       (let* ((spans              (test-telemetry--spans (second bodies)))
               (independent-repair (aref (test-telemetry--spans (first bodies)) 0))
-              (second-root (aref (test-telemetry--spans (first bodies)) 1))
+              (second-root        (aref (test-telemetry--spans (first bodies)) 1))
               (model (aref spans 0)) (tool (aref spans 3)) (root (aref spans 6)))
          (loop for span across spans
                when (equal (test-telemetry--attribute span "autolith.event.kind") "tool")
@@ -668,8 +671,10 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                (lambda (run request)
                  (declare (ignore run))
                  (case (first request)
-                   (:redact (setf (config :telemetry-enabled-p configuration) nil) "redacted fixture")
-                   (:upload (incf uploads) t)))))
+                   (:redact
+                    (setf (config :telemetry-enabled-p configuration) nil) "redacted fixture")
+                   (:upload
+                    (incf uploads) t)))))
          (telemetry-call-with-run
           copy (lambda ()
                  (setf old-run *telemetry-run*)
@@ -729,8 +734,10 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                (lambda (run request)
                  (declare (ignore run))
                  (case (first request)
-                   (:redact (incf redactions) nil)
-                   (:upload (setf body (third request)) nil)))))
+                   (:redact
+                    (incf redactions) nil)
+                   (:upload
+                    (setf body (third request)) nil)))))
          (telemetry-call-with-run
           configuration
           (lambda ()
@@ -751,10 +758,12 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                (lambda (run request)
                  (declare (ignore run))
                  (case (first request)
-                   (:redact (test-assert (not (search "fixture@example.org" (second request)))
-                                          "Deterministic credential defense precedes native inference.")
-                            "[PERSON] at fixture@example.org token=fixture-token /private/home/file")
-                   (:upload (setf body (third request)) t)))))
+                   (:redact
+                    (test-assert (not (search "fixture@example.org" (second request)))
+                                 "Deterministic credential defense precedes native inference.")
+                    "[PERSON] at fixture@example.org token=fixture-token /private/home/file")
+                   (:upload
+                    (setf body (third request)) t)))))
          (telemetry-call-with-run configuration
                                   (lambda () (telemetry-note-report
                                               :summary-function (lambda () "Person fixture@example.org token=fixture-token")))))
@@ -767,13 +776,13 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
   "Exercise the native binding boundary, status filtering and context cleanup."
   (with-test-configuration (configuration root)
     (declare (ignore configuration))
-    (let ((library (merge-pathnames "redactor-library" root))
-          (context (list ':fixture))
-          (safe nil)
-          (status ':ok)
+    (let ((library  (merge-pathnames "redactor-library" root))
+          (context  (list ':fixture))
+          (safe     nil)
+          (status   ':ok)
           (signal-p nil)
-          (loads 0)
-          (closes 0))
+          (loads    0)
+          (closes   0))
       (with-open-file (stream library :direction ':output :if-exists ':supersede)
         (write-string "fixture" stream))
       (test-call-with-function-replacements
@@ -801,7 +810,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                 (incf closes))))
        (lambda ()
          (test-assert (null (telemetry--worker-redact
-                            '(:redact "fixture" "nl" nil nil "relative-library")))
+                             '(:redact "fixture" "nl" nil nil "relative-library")))
                       "Reject relative libraries before native setup.")
          (test-assert (zerop loads) "Invalid paths never load native code.")
          (let ((request (list ':redact "fixture" "nl" nil nil (namestring library))))
@@ -822,13 +831,14 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                         "Native conditions unwind through context cleanup.")
            (test-assert (= loads closes 7) "Every created context closes on success or failure.")))))))
 
+
 ;;;; -- Supervision and Authentication --
 
 (defun test-telemetry-subprocess-deadlines ()
   "Deadline and revocation terminate an actual isolated child, without HTTP or native FFI."
   (with-test-environment (("AUTOLITH_TEST_SUPERVISED_SECRET" "fixture-secret"))
     (let ((environment (supervised-process-environment))
-          (path (uiop:getenv "PATH")))
+          (path        (uiop:getenv "PATH")))
       (when path
         (test-assert (member (concatenate 'string "PATH=" path) environment :test #'equal)
                      "Saved-core children inherit the native library search path."))
@@ -840,9 +850,9 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
      (setf (config :telemetry-enabled-p configuration) t
            (config :telemetry-timeout-ms configuration) 100)
      (telemetry-attach configuration)
-     (let ((original (symbol-function 'uiop:launch-program))
-           (ready-path (merge-pathnames "telemetry-stall.ready" (config :cache-root configuration)))
-           (process nil)
+     (let ((original                     (symbol-function 'uiop:launch-program))
+           (ready-path                   (merge-pathnames "telemetry-stall.ready" (config :cache-root configuration)))
+           (process                      nil)
            (*telemetry-process-function* nil))
        (test-call-with-function-replacements
         (list (list 'uiop:launch-program
@@ -861,7 +871,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                          (test-telemetry--stalled-child-diagnostic process ready-path))
             (test-assert (not (uiop:process-alive-p process)) "Timeout kills and reaps the child."))
           (setf (config :telemetry-timeout-ms configuration) 5000)
-          (let* ((run (telemetry--begin-run configuration))
+          (let* ((run    (telemetry--begin-run configuration))
                  (thread (bt:make-thread (lambda () (telemetry--process run '(:redact "fixture" "en" nil nil)))
                                          :name "test inflight telemetry")))
             (unwind-protect
@@ -882,10 +892,10 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
        ;; Keep the real saved-core argv and retain controlled startup failures.
        (setf (config :telemetry-enabled-p configuration) t
              (config :telemetry-timeout-ms configuration) 10000)
-       (let ((run (telemetry--begin-run configuration))
+       (let ((run                          (telemetry--begin-run configuration))
              (*telemetry-process-function* nil)
-             (stderr-path (merge-pathnames "worker-ping.stderr" (config :cache-root configuration)))
-             (result nil))
+             (stderr-path                  (merge-pathnames "worker-ping.stderr" (config :cache-root configuration)))
+             (result                       nil))
          (ensure-directories-exist stderr-path)
          (setf process nil)
          (unwind-protect
@@ -909,7 +919,7 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
                          result (config :active-image-core configuration)
                          (not (null (probe-file (config :active-image-core configuration))))
                          (when process (uiop:wait-process process))
-                         (with-open-file (stream stderr-path :external-format ':utf-8
+                         (with-open-file (stream stderr-path :external-format   ':utf-8
                                                              :if-does-not-exist nil)
                            (when stream
                              (let ((buffer (make-string 4096)))
@@ -978,6 +988,6 @@ The caller owns termination. Keep startup stderr beside READY-PATH for failures.
          (test-assert (not (search "Alice Smith" body)) "Actual model removes the person's name.")
          (test-assert (search "remains incomplete" body) "Actual native redaction retains the end of a long explanation.")
          (let ((report (find "report" (test-telemetry--spans body) :test #'equal
-                             :key (lambda (span) (test-telemetry--attribute span "autolith.event.kind")))))
+                             :key                                        (lambda (span) (test-telemetry--attribute span "autolith.event.kind")))))
            (test-assert (> (length (test-telemetry--attribute report "autolith.diagnostic.summary")) 1024)
                         "The actual native pipeline exports a complete long explanation.")))))))

@@ -35,12 +35,12 @@
     (test-assert
      (null *secret-use-quiescence-owner*)
      "checkpoint quiescence releases its owner after success"))
-  (let* ((lock (make-lock "Autolith existing secret-use test"))
+  (let* ((lock                  (make-lock "Autolith existing secret-use test"))
          (condition
            (make-condition-variable
             :name "Autolith existing secret-use test"))
-         (ready-p nil)
-         (continue-p nil)
+         (ready-p               nil)
+         (continue-p            nil)
          (nested-use-observed-p nil)
          (thread
            (make-thread
@@ -82,12 +82,12 @@
    (string=
     (redact-exact-string-values
      "unchanged"
-    (list "" nil)
-    "[REDACTED]")
-   "unchanged")
+     (list "" nil)
+     "[REDACTED]")
+    "unchanged")
    "exact redaction ignores empty and absent secret values")
   (let* ((secrets '("]x" "Z"))
-         (marker (safe-redaction-marker "[REDACTED]" secrets))
+         (marker  (safe-redaction-marker "[REDACTED]" secrets))
          (redacted
            (redact-exact-string-values "Zx" secrets marker)))
     (test-assert
@@ -126,7 +126,7 @@
 (defun authentication-tests--test-api-key-prompt ()
   "Test API-key entry gives explicit hidden-input instructions without echoing."
   (let* ((escape (code-char 27))
-         (key "secret-test-key")
+         (key    "secret-test-key")
          (input
            (make-string-input-stream
             (format nil "~C[200~~~A~C[201~~~%" escape key escape)))
@@ -134,11 +134,11 @@
          (value
             (api-key-read-hidden
              "Example"
-             :input input
+             :input                 input
              :input-file-descriptor -1
-             :stream output
-             :note "EXAMPLE_API_KEY overrides the stored key when set."))
-         (text (get-output-stream-string output)))
+             :stream                output
+             :note                  "EXAMPLE_API_KEY overrides the stored key when set."))
+         (text   (get-output-stream-string output)))
     (test-assert
      (string= value key)
      "API-key entry removes bracketed-paste markers")
@@ -150,10 +150,10 @@
           (search "API key" text)
           (not (search key text)))
      "API-key entry clearly labels the hidden field without echoing its value"))
-  (let ((input (make-string-input-stream (format nil "styled-key~%")))
-        (output (make-string-output-stream))
+  (let ((input                     (make-string-input-stream (format nil "styled-key~%")))
+        (output                    (make-string-output-stream))
         (*api-key-output-styled-p* t)
-        (*terminal-style-reset* "<reset>"))
+        (*terminal-style-reset*    "<reset>"))
     (test-call-with-function-replacements
      (list
       (list 'terminal-style-sequence
@@ -163,10 +163,10 @@
      (lambda ()
        (api-key-read-hidden
         "Styled"
-        :input input
+        :input                 input
         :input-file-descriptor -1
-        :stream output
-        :note "Credential note.")))
+        :stream                output
+        :note                  "Credential note.")))
     (let ((text (get-output-stream-string output)))
       (test-assert
        (and (search "<BRAND>" text)
@@ -208,16 +208,16 @@
         (string=
          (api-key-read-hidden
           "Example"
-          :input (make-string-input-stream (format nil "restored-key~%"))
+          :input                 (make-string-input-stream (format nil "restored-key~%"))
           :input-file-descriptor 7
-          :stream (make-string-output-stream))
+          :stream                (make-string-output-stream))
          "restored-key")
         "API-key entry returns the entered key when concealment succeeds")))
     (test-assert
      (equal restored (cons 7 ':saved-mode))
      "API-key entry restores the saved terminal mode after reading"))
   (let ((restore-count 0)
-        (restored nil))
+        (restored      nil))
     (test-call-with-function-replacements
      (list
       (list 'clinedi:terminal-disable-input-echo
@@ -236,9 +236,9 @@
             (progn
               (api-key-read-hidden
                "Example"
-               :input (make-instance 'authentication-test-error-input-stream)
+               :input                 (make-instance 'authentication-test-error-input-stream)
                :input-file-descriptor 8
-               :stream (make-string-output-stream))
+               :stream                (make-string-output-stream))
               nil)
           (simple-error ()
             t))
@@ -254,7 +254,7 @@
             (lambda (terminal)
               (declare (ignore terminal))
               (error 'clinedi:terminal-error
-                     :message "synthetic concealment failure"
+                     :message   "synthetic concealment failure"
                      :operation ':conceal))))
      (lambda ()
        (test-assert
@@ -262,9 +262,9 @@
             (progn
               (api-key-read-hidden
                "Example"
-               :input input
+               :input                 input
                :input-file-descriptor 9
-               :stream (make-string-output-stream))
+               :stream                (make-string-output-stream))
               nil)
           (authentication-error ()
             t))
@@ -278,7 +278,7 @@
          (progn
            (api-key-read-hidden
             "Example"
-            :input input
+            :input  input
             :stream (make-string-output-stream))
            nil)
        (authentication-error ()
@@ -294,7 +294,7 @@
            (progn
              (api-key-read-hidden
               "Example"
-              :input input
+              :input  input
               :stream (make-string-output-stream))
              nil)
          (authentication-error ()
@@ -303,13 +303,13 @@
     (test-assert
      (string= (read-line input) "bound-wrapper-key")
      "a descriptorless standard-input wrapper remains unread"))
-  (let* ((input (make-string-input-stream (format nil "known-wrapper-key~%")))
-         (*standard-input* input)
+  (let* ((input                           (make-string-input-stream (format nil "known-wrapper-key~%")))
+         (*standard-input*                input)
          (*api-key-input-file-descriptor* -1))
     (test-assert
      (string= (api-key-read-hidden
                "Example"
-               :input input
+               :input  input
                :stream (make-string-output-stream))
               "known-wrapper-key")
      "a transport-provided descriptor permits hidden input through a wrapper"))
@@ -322,11 +322,11 @@
          (test-assert
           (not (interactive-stream-p input))
           "the descriptor test uses a noninteractive input wrapper")
-         (let* ((terminal (stream-terminal-create :input-stream input
-                                                  :input-file-descriptor descriptor))
-                (before (test-fixture-terminal-input-mode *platform* descriptor))
+         (let* ((terminal      (stream-terminal-create :input-stream          input
+                                                       :input-file-descriptor descriptor))
+                (before        (test-fixture-terminal-input-mode *platform* descriptor))
                 (before-echo-p (test-fixture-terminal-echo-p *platform* descriptor))
-                (saved-mode (clinedi:terminal-disable-input-echo terminal))
+                (saved-mode    (clinedi:terminal-disable-input-echo terminal))
                 (during-echo-p (test-fixture-terminal-echo-p *platform* descriptor)))
            (unwind-protect
                 (test-assert
@@ -340,9 +340,9 @@
           (string=
            (api-key-read-hidden
             "Example"
-            :input input
+            :input                 input
             :input-file-descriptor descriptor
-            :stream (make-string-output-stream))
+            :stream                (make-string-output-stream))
            "wrapped-key")
           "API-key entry conceals a TTY reached through a noninteractive wrapper")))))
   nil)
@@ -350,11 +350,11 @@
 (-> authentication-tests--test-provider-api-key-prompts () null)
 (defun authentication-tests--test-provider-api-key-prompts ()
   "Test built-in API-key providers use the shared hidden prompt and secret scope."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (calls nil)
+  (let* ((configuration                 (test-configuration))
+         (root                          (test-configuration-root configuration))
+         (calls                         nil)
          (fireworks-secret-use-active-p nil)
-         (fireworks-input-descriptor nil))
+         (fireworks-input-descriptor    nil))
     (unwind-protect
          (test-call-with-function-replacements
           (list
@@ -382,8 +382,8 @@
              :stream (make-string-output-stream))
             (fireworks-api-key-login
              (fireworks-credential-manager-create configuration)
-             :stream (make-string-output-stream)
-             :input (make-string-input-stream "")
+             :stream                (make-string-output-stream)
+             :input                 (make-string-input-stream "")
              :input-file-descriptor 17)))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore))
     (test-assert
@@ -399,8 +399,8 @@
           (= fireworks-input-descriptor 17)
           (not (secret-use-active-p)))
      "Fireworks forwards its descriptor, validates in secret scope, and releases it"))
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration                 (test-configuration))
+         (root                          (test-configuration-root configuration))
          (fireworks-secret-use-active-p nil))
     (unwind-protect
          (test-call-with-function-replacements
@@ -425,7 +425,7 @@
                    (fireworks-api-key-login
                     (fireworks-credential-manager-create configuration)
                     :stream (make-string-output-stream)
-                    :input (make-string-input-stream ""))
+                    :input  (make-string-input-stream ""))
                    nil)
                (authentication-error ()
                  t))
@@ -475,12 +475,12 @@
 (-> authentication-tests--test-main-input-descriptor () null)
 (defun authentication-tests--test-main-input-descriptor ()
   "Test command-line authentication supplies terminal input and styling state."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration       (test-configuration))
+         (root                (test-configuration-root configuration))
          (observed-descriptor nil)
-         (observed-styled-p ':unset)
-          (observed-method nil)
-         (test-provider (make-instance 'codex-subscription-provider))
+         (observed-styled-p   ':unset)
+         (observed-method     nil)
+         (test-provider       (make-instance 'codex-subscription-provider))
          (provider-function
            (lambda (candidate selection)
              (declare (ignore candidate selection))
@@ -507,8 +507,8 @@
             (and (= observed-descriptor (terminal-standard-input-file-descriptor))
                  (null observed-styled-p))
             "noninteractive command-line auth supplies stdin without terminal styling")
-            (test-assert (null observed-method)
-                         "command-line auth defaults its method selection")
+           (test-assert (null observed-method)
+                        "command-line auth defaults its method selection")
            (setf observed-styled-p ':unset)
            (test-call-with-function-replacements
             (list (list 'main--authentication-provider provider-function)
@@ -520,9 +520,9 @@
             (lambda ()
               (let ((*standard-output* (make-string-output-stream)))
                 (main-authenticate configuration "example" ':device-code))))
-            (test-assert (and (eq observed-styled-p t)
-                              (eq observed-method ':device-code))
-                         "command-line auth passes styling and method selection"))
+           (test-assert (and (eq observed-styled-p t)
+                             (eq observed-method ':device-code))
+                        "command-line auth passes styling and method selection"))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
@@ -537,16 +537,16 @@
   (authentication-tests--test-main-input-descriptor)
   (authentication-tests--test-native-methods)
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (source (make-instance 'autolith-credential-source
-                                :pathname (configuration-auth-path configuration)))
-         (credentials (make-instance 'oauth-credentials
-                                     :access-token "test-access-token"
-                                     :refresh-token "test-refresh-token"
-                                     :id-token nil
-                                     :account-id "test-account"
-                                     :expires-at nil
-                                     :source-path (configuration-auth-path configuration))))
+         (root          (test-configuration-root configuration))
+         (source        (make-instance 'autolith-credential-source
+                                       :pathname (configuration-auth-path configuration)))
+         (credentials   (make-instance 'oauth-credentials
+                                       :access-token  "test-access-token"
+                                       :refresh-token "test-refresh-token"
+                                       :id-token      nil
+                                       :account-id    "test-account"
+                                       :expires-at    nil
+                                       :source-path   (configuration-auth-path configuration))))
     (unwind-protect
          (progn
            (test-assert
@@ -574,10 +574,10 @@
   "Write a synthetic Codex credential document to PATHNAME."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :external-format ':utf-8)
+                          :external-format   ':utf-8)
     (write-string
      (json-encode
       (json-object
@@ -601,23 +601,23 @@
 (-> test-authentication-bootstrap-and-refresh () null)
 (defun test-authentication-bootstrap-and-refresh ()
   "Test one-way Codex bootstrap import, account continuity, and refresh parsing."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration      (test-configuration))
+         (root               (test-configuration-root configuration))
          (bootstrap-pathname (config :codex-auth-path configuration))
-         (manager (credential-manager-create configuration)))
+         (manager            (credential-manager-create configuration)))
     (unwind-protect
          (progn
            (test-write-codex-auth bootstrap-pathname
-                                  :auth-mode "apikey"
-                                  :account-id "account-a"
+                                  :auth-mode    "apikey"
+                                  :account-id   "account-a"
                                   :access-token "bootstrap-a")
            (test-assert
             (null (credential-source-load
                    (credential-manager-bootstrap-source manager)))
             "Codex bootstrap rejects non-ChatGPT authentication modes")
            (test-write-codex-auth bootstrap-pathname
-                                  :auth-mode "chatgpt"
-                                  :account-id "account-a"
+                                  :auth-mode    "chatgpt"
+                                  :account-id   "account-a"
                                   :access-token "bootstrap-a")
            (let ((imported (credential-manager-load manager)))
              (test-assert
@@ -630,8 +630,8 @@
                      (configuration-auth-path configuration))
               "bootstrap access is copied into Autolith's private store"))
            (test-write-codex-auth bootstrap-pathname
-                                  :auth-mode "chatgpt"
-                                  :account-id "account-b"
+                                  :auth-mode    "chatgpt"
+                                  :account-id   "account-b"
                                   :access-token "bootstrap-b")
            (let ((loaded (credential-manager-load manager)))
              (test-assert
@@ -648,15 +648,15 @@
                   nil)
               (token-refresh-failed ()
                 t))
-             "non-renewable bootstrap credentials require Autolith's browser login")
+            "non-renewable bootstrap credentials require Autolith's browser login")
            (let* ((primary-source (credential-manager-primary-source manager))
                   (renewable
                     (make-instance 'oauth-credentials
-                                   :access-token "old-access"
+                                   :access-token  "old-access"
                                    :refresh-token "old-refresh"
-                                   :id-token (test-account-jwt "account-a")
-                                   :account-id "account-a"
-                                   :expires-at nil
+                                   :id-token      (test-account-jwt "account-a")
+                                   :account-id    "account-a"
+                                   :expires-at    nil
                                    :source-path
                                    (credential-source-pathname primary-source)))
                   (valid
@@ -714,10 +714,10 @@
                                 :body
                                 (json-encode
                                  (json-object "error" "old-refresh"))
-                                :status 400
+                                :status  400
                                 :headers nil
-                                :uri nil
-                                :method ':post)))))
+                                :uri     nil
+                                :method  ':post)))))
                           (lambda ()
                             (credential-manager-refresh manager renewable)))
                        (token-refresh-failed (failure)

@@ -6,7 +6,7 @@
 (defun recovery-input-vault-tests--octets (pathname)
   "Return the exact octets stored at PATHNAME."
   (with-open-file (stream pathname
-                          :direction ':input
+                          :direction    ':input
                           :element-type '(unsigned-byte 8))
     (let ((octets (make-array (file-length stream)
                               :element-type '(unsigned-byte 8))))
@@ -23,7 +23,7 @@
     (conversation-append-user-message conversation "seed")
     (make-instance 'application
                    :configuration configuration
-                   :conversation conversation)))
+                   :conversation  conversation)))
 
 
 ;;;; -- Recovery Import --
@@ -32,11 +32,11 @@
 (defun test-recovery-input-vault-import ()
   "Test recovery import filters provenance and remains idempotent."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (application
            (recovery-input-vault-tests--application
             configuration "recovery-vault-import"))
-         (conversation (application-conversation application))
+         (conversation  (application-conversation application))
          (pending-pathname
            (configuration-pending-inputs-path
             configuration (conversation-pathname conversation)))
@@ -46,16 +46,16 @@
          (pending-form
            (list :pending-inputs
                  :version 2
-                 :snapshot-identifier "snapshot-import"
-                 :conversation-id (conversation-identifier conversation)
+                 :snapshot-identifier       "snapshot-import"
+                 :conversation-id           (conversation-identifier conversation)
                  :active-work
                  '(:identifier "active-input"
                    :work (:message "active work"))
                  :steering-in-flight
                  '((:identifier "already-durable" :input "persisted steering")
                    (:identifier "in-flight" :input "in-flight steering"))
-                 :steering '("queued steering")
-                 :work '((:message "queued follow-up"))
+                 :steering                  '("queued steering")
+                 :work                      '((:message "queued follow-up"))
                  :vault-capture-identifiers nil)))
     (unwind-protect
          (progn
@@ -106,7 +106,7 @@
                    (= (getf (first captures) :captured-at) 123))
               "repeated import keeps the original capture rather than duplicating it"))
            (let ((conflicting-form (copy-tree pending-form))
-                 (vault-octets (recovery-input-vault-tests--octets vault-pathname)))
+                 (vault-octets     (recovery-input-vault-tests--octets vault-pathname)))
              (setf (getf (getf (rest conflicting-form) :active-work) :work)
                    '(:message "different active work"))
              (snapshot-write pending-pathname conflicting-form :mode #o600)
@@ -127,7 +127,7 @@
 (defun test-recovery-input-vault-legacy-isolation ()
   "Test legacy migration cleanup never consumes another conversation's input."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (first-application
            (recovery-input-vault-tests--application
             configuration "recovery-vault-first"))
@@ -144,7 +144,7 @@
                  :conversation-id
                  (conversation-identifier second-conversation)
                  :steering '("legacy steering")
-                 :work '((:message "legacy work")))))
+                 :work     '((:message "legacy work")))))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -187,17 +187,17 @@
                           :conversation-id
                           (conversation-identifier third-conversation)
                           :steering '("migration steering")
-                          :work '((:message "migration work"))))
+                          :work     '((:message "migration work"))))
                   (canonical-form
                     (list :pending-inputs
                           :version 2
-                          :snapshot-identifier "migration-snapshot"
+                          :snapshot-identifier       "migration-snapshot"
                           :conversation-id
                           (conversation-identifier third-conversation)
-                          :active-work nil
-                          :steering-in-flight nil
-                          :steering '("migration steering")
-                          :work '((:message "migration work"))
+                          :active-work               nil
+                          :steering-in-flight        nil
+                          :steering                  '("migration steering")
+                          :work                      '((:message "migration work"))
                           :vault-capture-identifiers nil)))
              (snapshot-write legacy-pathname third-legacy-form :mode #o600)
              (ensure-directories-exist canonical-pathname)
@@ -223,11 +223,11 @@
 (defun test-recovery-input-vault-corruption ()
   "Test malformed vault state blocks import without modifying either file."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (application
            (recovery-input-vault-tests--application
             configuration "recovery-vault-corrupt"))
-         (conversation (application-conversation application))
+         (conversation  (application-conversation application))
          (pending-pathname
            (configuration-pending-inputs-path
             configuration (conversation-pathname conversation)))
@@ -237,12 +237,12 @@
          (pending-form
            (list :pending-inputs
                  :version 2
-                 :snapshot-identifier "corrupt-vault-pending"
-                 :conversation-id (conversation-identifier conversation)
-                 :active-work nil
-                 :steering-in-flight nil
-                 :steering nil
-                 :work '((:message "preserve me"))
+                 :snapshot-identifier       "corrupt-vault-pending"
+                 :conversation-id           (conversation-identifier conversation)
+                 :active-work               nil
+                 :steering-in-flight        nil
+                 :steering                  nil
+                 :work                      '((:message "preserve me"))
                  :vault-capture-identifiers nil)))
     (unwind-protect
          (progn
@@ -251,10 +251,10 @@
            (snapshot-write pending-pathname pending-form :mode #o600)
            (ensure-directories-exist vault-pathname)
            (with-open-file (stream vault-pathname
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create
-                                   :external-format ':utf-8)
+                                   :external-format   ':utf-8)
              (write-string "(:recovery-input-vault :version 1" stream))
            (let ((pending-octets
                    (recovery-input-vault-tests--octets pending-pathname))
@@ -278,11 +278,11 @@
                 "corrupt vault failure leaves pending and vault bytes unchanged"))
              (let ((vault-form
                      (list :recovery-input-vault :version 1
-                           :conversation-id (conversation-identifier conversation)
-                           :captures (list (list :id "schema-capture" :captured-at 0
-                                                 :active-work nil :steering-in-flight nil
-                                                 :steering nil
-                                                 :work '((:message "vault payload")))))))
+                           :conversation-id      (conversation-identifier conversation)
+                           :captures             (list (list :id "schema-capture" :captured-at 0
+                                                             :active-work nil :steering-in-flight nil
+                                                             :steering nil
+                                                             :work     '((:message "vault payload")))))))
                (dolist (mutate
                          (list (lambda (form) (setf (first form) ':foreign-vault))
                                (lambda (form) (setf (getf (rest form) :version) 2))
@@ -326,11 +326,11 @@
 (defun test-recovery-input-vault-unattributed-legacy ()
   "Test corrupt process-global legacy input remains preserved and unattributed."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (application
            (recovery-input-vault-tests--application
             configuration "recovery-vault-unattributed-legacy"))
-         (conversation (application-conversation application))
+         (conversation  (application-conversation application))
          (legacy-pathname
            (configuration-legacy-pending-inputs-path configuration))
          (vault-pathname
@@ -341,10 +341,10 @@
            (configuration-ensure-directories configuration)
            (ensure-directories-exist legacy-pathname)
            (with-open-file (stream legacy-pathname
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create
-                                   :external-format ':utf-8)
+                                   :external-format   ':utf-8)
              (write-string "(:pending-inputs :version" stream))
            (let ((legacy-octets
                    (recovery-input-vault-tests--octets legacy-pathname)))
@@ -361,6 +361,7 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
+
 ;;;; -- Vault Controls --
 
 (-> recovery-input-vault-tests--vault-form
@@ -371,26 +372,26 @@
   (list :recovery-input-vault
         :version 1
         :conversation-id (conversation-identifier conversation)
-        :captures captures))
+        :captures        captures))
 
 (-> test-recovery-input-vault-restore () null)
 (defun test-recovery-input-vault-restore ()
   "Test restore order, image preservation, recalled FIFO, and steering barriers."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (make-instance 'waiting-recording-terminal :columns 100))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((configuration  (test-configuration))
+         (root           (test-configuration-root configuration))
+         (terminal       (make-instance 'waiting-recording-terminal :columns 100))
+         (ui             (terminal-ui-create :terminal terminal))
          (conversation
            (conversation-create configuration :identifier "recovery-vault-restore"))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui ui))
+                          :conversation  conversation
+                          :ui            ui))
          (image-pathname (merge-pathnames "queued-image.png" root))
          (image-input
            (user-message-input-create
-            :text ""
+            :text            ""
             :image-pathnames (list image-pathname)))
          (vault-pathname
            (configuration-recovery-input-vault-path
@@ -398,7 +399,7 @@
          (pending-pathname
            (configuration-pending-inputs-path
             configuration (conversation-pathname conversation)))
-         (controller nil))
+         (controller     nil))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -413,7 +414,7 @@
             (recovery-input-vault-tests--vault-form
              conversation
              (list
-              (list :id "older-capture"
+              (list :id          "older-capture"
                     :captured-at 10
                     :active-work
                     (list :identifier "active-image"
@@ -422,14 +423,14 @@
                                 (application-input--pending-form image-input)))
                     :steering-in-flight
                     '((:identifier "flight" :input "in-flight steering"))
-                    :steering '("queued steering")
-                    :work '((:message "old follow-up")))
-              (list :id "newer-capture"
-                    :captured-at 20
-                    :active-work nil
+                    :steering    '("queued steering")
+                    :work        '((:message "old follow-up")))
+              (list :id                 "newer-capture"
+                    :captured-at        20
+                    :active-work        nil
                     :steering-in-flight nil
-                    :steering nil
-                    :work '((:command "/status")))))
+                    :steering           nil
+                    :work               '((:command "/status")))))
             :mode #o600)
            (recording-terminal-reset terminal)
            (application-command application "/vault")
@@ -457,8 +458,8 @@
                  (= (application-input-controller-follow-up-edit-index controller)
                     5))
             "restore publishes five older items and retains recalled FIFO position")
-            (application-input-controller-submit-primary-prompt
-             controller "typed during restore")
+           (application-input-controller-submit-primary-prompt
+            controller "typed during restore")
            (multiple-value-bind (pending-form complete-p)
                (snapshot-read pending-pathname)
              (let* ((state
@@ -510,21 +511,21 @@
 (defun test-recovery-input-vault-active-restore-crash ()
   "Test a crash during restored active work preserves its steering barrier."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (make-instance 'waiting-recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
+         (root          (test-configuration-root configuration))
+         (terminal      (make-instance 'waiting-recording-terminal :columns 80))
+         (ui            (terminal-ui-create :terminal terminal))
          (conversation
            (conversation-create
             configuration :identifier "recovery-vault-active-restore-crash"))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui ui))
+                          :conversation  conversation
+                          :ui            ui))
          (vault-pathname
            (configuration-recovery-input-vault-path
             configuration (conversation-pathname conversation)))
-         (controller nil))
+         (controller    nil))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -539,13 +540,13 @@
             (recovery-input-vault-tests--vault-form
              conversation
              (list
-              (list :id "active-restore-capture"
-                    :captured-at 10
-                    :active-work nil
+              (list :id                 "active-restore-capture"
+                    :captured-at        10
+                    :active-work        nil
                     :steering-in-flight nil
-                    :steering nil
-                    :work '((:message "restored active")
-                            (:message "restored queued")))))
+                    :steering           nil
+                    :work               '((:message "restored active")
+                                          (:message "restored queued")))))
             :mode #o600)
            (test-assert
             (= (application-input-controller-vault-restore controller) 2)
@@ -554,8 +555,8 @@
             (equal (application-input-controller--next-work controller)
                    '(:message "restored active"))
             "the first restored message becomes active")
-            (application-input-controller-submit-primary-prompt
-             controller "late steering")
+           (application-input-controller-submit-primary-prompt
+            controller "late steering")
            (application-input-controller--enqueue
             controller ':message "newer follow-up")
            (test-assert
@@ -600,24 +601,24 @@
 (-> test-recovery-input-vault-restore-rollback () null)
 (defun test-recovery-input-vault-restore-rollback ()
   "Test failed vault deletion exposes provenance and restores prior controller state."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (make-instance 'waiting-recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((configuration         (test-configuration))
+         (root                  (test-configuration-root configuration))
+         (terminal              (make-instance 'waiting-recording-terminal :columns 80))
+         (ui                    (terminal-ui-create :terminal terminal))
          (conversation
            (conversation-create configuration :identifier "recovery-vault-rollback"))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui ui))
+                          :conversation  conversation
+                          :ui            ui))
          (vault-pathname
            (configuration-recovery-input-vault-path
             configuration (conversation-pathname conversation)))
          (pending-pathname
            (configuration-pending-inputs-path
             configuration (conversation-pathname conversation)))
-         (controller nil)
+         (controller            nil)
          (original-writer
            (symbol-function 'application-recovery-input-vault--write-captures))
          (provenance-observed-p nil))
@@ -637,12 +638,12 @@
             (recovery-input-vault-tests--vault-form
              conversation
              (list
-              (list :id "rollback-capture"
-                    :captured-at 10
-                    :active-work nil
+              (list :id                 "rollback-capture"
+                    :captured-at        10
+                    :active-work        nil
                     :steering-in-flight nil
-                    :steering nil
-                    :work '((:message "restored work")))))
+                    :steering           nil
+                    :work               '((:message "restored work")))))
             :mode #o600)
            (setf
             (symbol-function 'application-recovery-input-vault--write-captures)
@@ -667,22 +668,22 @@
             "restore reports a typed failure when vault deletion fails")
            (test-assert provenance-observed-p
                         "restore publishes capture provenance before deleting the vault")
-            (test-assert
-             (and (probe-file vault-pathname)
-                  (equal (application-input-controller--state controller :work-items)
-                         '((:message "restored work")
-                           (:message "existing work"))))
-             "failed vault deletion keeps committed restored and concurrent queue state")
-            (multiple-value-bind (form complete-p)
-                (snapshot-read pending-pathname)
-              (test-assert
-               (and complete-p
-                    (equal (getf (rest form) :vault-capture-identifiers)
-                           '("rollback-capture"))
-                    (equal (getf (rest form) :work)
-                           '((:message "restored work")
-                             (:message "existing work"))))
-               "failed deletion preserves one provenance-bearing pending snapshot")))
+           (test-assert
+            (and (probe-file vault-pathname)
+                 (equal (application-input-controller--state controller :work-items)
+                        '((:message "restored work")
+                          (:message "existing work"))))
+            "failed vault deletion keeps committed restored and concurrent queue state")
+           (multiple-value-bind (form complete-p)
+               (snapshot-read pending-pathname)
+             (test-assert
+              (and complete-p
+                   (equal (getf (rest form) :vault-capture-identifiers)
+                          '("rollback-capture"))
+                   (equal (getf (rest form) :work)
+                          '((:message "restored work")
+                            (:message "existing work"))))
+              "failed deletion preserves one provenance-bearing pending snapshot")))
       (setf (symbol-function 'application-recovery-input-vault--write-captures)
             original-writer)
       (when controller
@@ -694,25 +695,25 @@
 (-> test-recovery-input-vault-post-delete-rollback () null)
 (defun test-recovery-input-vault-post-delete-rollback ()
   "Test a failed final publication preserves the provenance snapshot."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (make-instance 'waiting-recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((configuration     (test-configuration))
+         (root              (test-configuration-root configuration))
+         (terminal          (make-instance 'waiting-recording-terminal :columns 80))
+         (ui                (terminal-ui-create :terminal terminal))
          (conversation
            (conversation-create
             configuration :identifier "recovery-vault-post-delete-rollback"))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui ui))
+                          :conversation  conversation
+                          :ui            ui))
          (vault-pathname
            (configuration-recovery-input-vault-path
             configuration (conversation-pathname conversation)))
          (pending-pathname
            (configuration-pending-inputs-path
             configuration (conversation-pathname conversation)))
-         (controller nil)
+         (controller        nil)
          (publication-count 0)
          (original-publisher
            (symbol-function
@@ -733,12 +734,12 @@
             (recovery-input-vault-tests--vault-form
              conversation
              (list
-              (list :id "post-delete-capture"
-                    :captured-at 10
-                    :active-work nil
+              (list :id                 "post-delete-capture"
+                    :captured-at        10
+                    :active-work        nil
                     :steering-in-flight nil
-                    :steering nil
-                    :work '((:message "restored work")))))
+                    :steering           nil
+                    :work               '((:message "restored work")))))
             :mode #o600)
            (setf
             (symbol-function
@@ -803,9 +804,9 @@
 (defun test-recovery-input-vault-discard ()
   "Test discard removes only exact blocked state and re-enables persistence."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (make-instance 'waiting-recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
+         (root          (test-configuration-root configuration))
+         (terminal      (make-instance 'waiting-recording-terminal :columns 80))
+         (ui            (terminal-ui-create :terminal terminal))
          (conversation
            (conversation-create configuration :identifier "recovery-vault-discard"))
          (other-conversation
@@ -813,8 +814,8 @@
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui ui))
+                          :conversation  conversation
+                          :ui            ui))
          (current-vault
            (configuration-recovery-input-vault-path
             configuration (conversation-pathname conversation)))
@@ -827,7 +828,7 @@
          (legacy-pathname
            (configuration-legacy-pending-inputs-path configuration))
          (legacy-octets nil)
-         (controller nil))
+         (controller    nil))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -835,10 +836,10 @@
            (conversation-append-user-message other-conversation "seed")
            (ensure-directories-exist current-vault)
            (with-open-file (stream current-vault
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create
-                                   :external-format ':utf-8)
+                                   :external-format   ':utf-8)
              (write-string "(:corrupt" stream))
            (ensure-directories-exist other-vault)
            (snapshot-write
@@ -846,33 +847,33 @@
             (recovery-input-vault-tests--vault-form
              other-conversation
              (list
-              (list :id "other-capture"
-                    :captured-at 10
-                    :active-work nil
+              (list :id                 "other-capture"
+                    :captured-at        10
+                    :active-work        nil
                     :steering-in-flight nil
-                    :steering nil
-                    :work '((:message "other work")))))
+                    :steering           nil
+                    :work               '((:message "other work")))))
             :mode #o600)
            (ensure-directories-exist pending-pathname)
            (snapshot-write
             pending-pathname
             (list :pending-inputs
                   :version 2
-                  :snapshot-identifier "discard-pending"
-                  :conversation-id (conversation-identifier conversation)
-                  :active-work nil
-                  :steering-in-flight nil
-                  :steering nil
-                  :work '((:message "discard me"))
-                  :vault-capture-identifiers nil
+                  :snapshot-identifier             "discard-pending"
+                  :conversation-id                 (conversation-identifier conversation)
+                  :active-work                     nil
+                  :steering-in-flight              nil
+                  :steering                        nil
+                  :work                            '((:message "discard me"))
+                  :vault-capture-identifiers       nil
                   :steering-promotion-prefix-count 0)
             :mode #o600)
            (ensure-directories-exist legacy-pathname)
            (with-open-file (stream legacy-pathname
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create
-                                   :external-format ':utf-8)
+                                   :external-format   ':utf-8)
              (write-string "(:pending-inputs :version" stream))
            (setf legacy-octets
                  (recovery-input-vault-tests--octets legacy-pathname))
@@ -880,13 +881,13 @@
            (setf controller
                  (application-input-controller-create
                   application
-                  :load-pending-p nil
+                  :load-pending-p                nil
                   :pending-persistence-enabled-p nil)
                  (application-recovery-input-vault-failure application)
                  (make-condition
                   'recovery-input-vault-error
-                  :message "corrupt recovery state"
-                  :pathname current-vault
+                  :message   "corrupt recovery state"
+                  :pathname  current-vault
                   :operation ':read-vault))
            (recording-terminal-reset terminal)
            (application-command application "/vault-discard")
@@ -912,17 +913,17 @@
 (defun test-recovery-input-vault-disabled-ingress ()
   "Test blocked recovery storage admits only the exact vault controls."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (make-instance 'waiting-recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
+         (root          (test-configuration-root configuration))
+         (terminal      (make-instance 'waiting-recording-terminal :columns 80))
+         (ui            (terminal-ui-create :terminal terminal))
          (conversation
            (conversation-create configuration :identifier "recovery-vault-ingress"))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui ui))
-         (controller nil))
+                          :conversation  conversation
+                          :ui            ui))
+         (controller    nil))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -931,7 +932,7 @@
            (setf controller
                  (application-input-controller-create
                   application
-                  :load-pending-p nil
+                  :load-pending-p                nil
                   :pending-persistence-enabled-p nil))
            (recording-terminal-reset terminal)
            (application-input-controller--handle-submission
@@ -966,21 +967,21 @@
 (defun test-recovery-input-vault-disabled-recalled-ingress ()
   "Test recalled Enter input cannot bypass blocked recovery storage."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (make-instance 'waiting-recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
+         (root          (test-configuration-root configuration))
+         (terminal      (make-instance 'waiting-recording-terminal :columns 80))
+         (ui            (terminal-ui-create :terminal terminal))
          (conversation
            (conversation-create
             configuration :identifier "recovery-vault-recalled-ingress"))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui ui))
+                          :conversation  conversation
+                          :ui            ui))
          (pending-pathname
            (configuration-pending-inputs-path
             configuration (conversation-pathname conversation)))
-         (controller nil))
+         (controller    nil))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -1039,13 +1040,13 @@
           (conversation-create configuration :identifier identifier)))
     (conversation-append-user-message conversation "seed")
     (make-instance 'application
-                   :configuration configuration
-                   :conversation conversation
-                   :provider nil
-                   :tool-registry (make-instance 'tool-registry)
-                   :worker nil
-                   :agent nil
-                   :ui (terminal-ui-create :terminal terminal)
+                   :configuration      configuration
+                   :conversation       conversation
+                   :provider           nil
+                   :tool-registry      (make-instance 'tool-registry)
+                   :worker             nil
+                   :agent              nil
+                   :ui                 (terminal-ui-create :terminal terminal)
                    :recovery-startup-p recovery-startup-p)))
 
 (-> test-recovery-input-vault-startup-notice () null)
@@ -1056,7 +1057,7 @@
             (recovery-input-vault-tests--application
              configuration "recovery-vault-startup-notice"))
           (captures nil)
-          (entries nil))
+          (entries  nil))
       (test-call-with-function-replacements
        (list
         (list 'application-recovery-input-vault-captures
@@ -1076,15 +1077,15 @@
           "an empty vault produces no startup notice")
          (dolist (case '((1 ((:work-items ((:message "one")))))
                          (2 ((:work-items ((:message "one") (:message "two")))))
-                         (5 ((:active-work (:message "active")
+                         (5 ((:active-work    (:message "active")
                               :steering-items ("steer")
-                              :work-items ((:message "follow-up")))
+                              :work-items     ((:message "follow-up")))
                              (:work-items ((:message "four") (:message "five")))))))
            (setf captures (second case))
            (test-assert
             (application-recovery-input-vault-present-startup-warning application)
             "saved input produces a startup notice")
-           (let* ((entry (first entries))
+           (let* ((entry   (first entries))
                   (summary (first entry))
                   (controls
                     (remove-if-not
@@ -1107,8 +1108,8 @@
               "vault controls use code-styled Lisp calls")))
          (setf (application-recovery-input-vault-failure application)
                (make-condition 'recovery-input-vault-error
-                               :message "unreadable vault fixture"
-                               :pathname (test-configuration-root configuration)
+                               :message   "unreadable vault fixture"
+                               :pathname  (test-configuration-root configuration)
                                :operation ':read-vault))
          (test-assert
           (application-recovery-input-vault-present-startup-warning application)
@@ -1121,16 +1122,16 @@
 (-> test-recovery-input-vault-recovery-startup () null)
 (defun test-recovery-input-vault-recovery-startup ()
   "Test recovery startup vaults pending input before controller creation."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (make-instance 'waiting-recording-terminal :columns 90))
+  (let* ((configuration           (test-configuration))
+         (root                    (test-configuration-root configuration))
+         (terminal                (make-instance 'waiting-recording-terminal :columns 90))
          (application
            (recovery-input-vault-tests--startup-application
             configuration
             "recovery-vault-startup"
             terminal
             :recovery-startup-p t))
-         (conversation (application-conversation application))
+         (conversation            (application-conversation application))
          (pending-pathname
            (configuration-pending-inputs-path
             configuration (conversation-pathname conversation)))
@@ -1140,13 +1141,13 @@
          (original-create
            (symbol-function 'application-input-controller-create))
          (observed-load-pending-p :unset)
-         (observed-persistence-p :unset)
+         (observed-persistence-p  :unset)
          (observed-start-reader-p :unset)
-         (pending-at-create-p :unset)
-         (vault-at-create-p :unset)
-         (observed-first-work :unset)
-         (observed-work :unset)
-         (observed-steering :unset))
+         (pending-at-create-p     :unset)
+         (vault-at-create-p       :unset)
+         (observed-first-work     :unset)
+         (observed-work           :unset)
+         (observed-steering       :unset))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -1155,13 +1156,13 @@
             pending-pathname
             (list :pending-inputs
                   :version 2
-                  :snapshot-identifier "startup-pending"
-                  :conversation-id (conversation-identifier conversation)
-                  :active-work nil
-                  :steering-in-flight nil
-                  :steering '("recovered steering")
-                  :work '((:message "recovered follow-up"))
-                  :vault-capture-identifiers nil
+                  :snapshot-identifier             "startup-pending"
+                  :conversation-id                 (conversation-identifier conversation)
+                  :active-work                     nil
+                  :steering-in-flight              nil
+                  :steering                        '("recovered steering")
+                  :work                            '((:message "recovered follow-up"))
+                  :vault-capture-identifiers       nil
                   :steering-promotion-prefix-count 0)
             :mode #o600)
            (test-call-with-function-replacements
@@ -1180,10 +1181,10 @@
                 (funcall original-create
                          run-application
                          :initial-work-items initial-work-items
-                         :load-pending-p load-pending-p
+                         :load-pending-p     load-pending-p
                          :pending-persistence-enabled-p
                          pending-persistence-enabled-p
-                         :start-reader-p start-reader-p)))
+                         :start-reader-p     start-reader-p)))
              (list
               'application-input-controller--run-work
               (lambda (controller work)
@@ -1219,9 +1220,9 @@
                    (not (probe-file pending-pathname))
                    (probe-file vault-pathname))
               "recovery vaulting precedes nonloading controller creation without a reader")
-              (test-assert
-               (not (application-recovery-startup-p application))
-               "recovery startup consumes its one-shot transcript replay state")
+             (test-assert
+              (not (application-recovery-startup-p application))
+              "recovery startup consumes its one-shot transcript replay state")
              (test-assert
               (and (equal observed-first-work
                           '(:recovery-diagnosis "diagnose recovered crash"))
@@ -1241,16 +1242,16 @@
 (-> test-recovery-input-vault-corrupt-startup () null)
 (defun test-recovery-input-vault-corrupt-startup ()
   "Test corrupt recovery storage blocks ingress without loading pending input."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (make-instance 'waiting-recording-terminal :columns 90))
+  (let* ((configuration             (test-configuration))
+         (root                      (test-configuration-root configuration))
+         (terminal                  (make-instance 'waiting-recording-terminal :columns 90))
          (application
            (recovery-input-vault-tests--startup-application
             configuration
             "recovery-vault-corrupt-startup"
             terminal
             :recovery-startup-p t))
-         (conversation (application-conversation application))
+         (conversation              (application-conversation application))
          (pending-pathname
            (configuration-pending-inputs-path
             configuration (conversation-pathname conversation)))
@@ -1261,18 +1262,18 @@
            (symbol-function 'application-input-controller-create))
          (original-present
            (symbol-function 'application-recovery-input-vault-present))
-         (pending-octets nil)
-         (vault-octets nil)
-         (observed-load-pending-p :unset)
-         (observed-persistence-p :unset)
-         (observed-start-reader-p :unset)
-         (observed-first-work :unset)
-         (observed-work :unset)
-         (observed-steering :unset)
-         (ingress-blocked-p nil)
-         (vault-inspect-executed-p nil)
-         (observed-failure nil)
-         (bytes-preserved-p nil)
+         (pending-octets            nil)
+         (vault-octets              nil)
+         (observed-load-pending-p   :unset)
+         (observed-persistence-p    :unset)
+         (observed-start-reader-p   :unset)
+         (observed-first-work       :unset)
+         (observed-work             :unset)
+         (observed-steering         :unset)
+         (ingress-blocked-p         nil)
+         (vault-inspect-executed-p  nil)
+         (observed-failure          nil)
+         (bytes-preserved-p         nil)
          (vault-controls-admitted-p nil))
     (unwind-protect
          (progn
@@ -1282,21 +1283,21 @@
             pending-pathname
             (list :pending-inputs
                   :version 2
-                  :snapshot-identifier "corrupt-startup-pending"
-                  :conversation-id (conversation-identifier conversation)
-                  :active-work nil
-                  :steering-in-flight nil
-                  :steering nil
-                  :work '((:message "preserve pending bytes"))
-                  :vault-capture-identifiers nil
+                  :snapshot-identifier             "corrupt-startup-pending"
+                  :conversation-id                 (conversation-identifier conversation)
+                  :active-work                     nil
+                  :steering-in-flight              nil
+                  :steering                        nil
+                  :work                            '((:message "preserve pending bytes"))
+                  :vault-capture-identifiers       nil
                   :steering-promotion-prefix-count 0)
             :mode #o600)
            (ensure-directories-exist vault-pathname)
            (with-open-file (stream vault-pathname
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create
-                                   :external-format ':utf-8)
+                                   :external-format   ':utf-8)
              (write-string "(:recovery-input-vault :version 1" stream))
            (setf pending-octets
                  (recovery-input-vault-tests--octets pending-pathname)
@@ -1320,10 +1321,10 @@
                 (funcall original-create
                          run-application
                          :initial-work-items initial-work-items
-                         :load-pending-p load-pending-p
+                         :load-pending-p     load-pending-p
                          :pending-persistence-enabled-p
                          pending-persistence-enabled-p
-                         :start-reader-p start-reader-p)))
+                         :start-reader-p     start-reader-p)))
              (list
               'application-input-controller--run-work
               (lambda (controller work)
@@ -1417,13 +1418,13 @@
 (-> test-recovery-input-vault-ordinary-startup () null)
 (defun test-recovery-input-vault-ordinary-startup ()
   "Test ordinary startup retains normal pending-input loading."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (make-instance 'waiting-recording-terminal :columns 90))
+  (let* ((configuration           (test-configuration))
+         (root                    (test-configuration-root configuration))
+         (terminal                (make-instance 'waiting-recording-terminal :columns 90))
          (application
            (recovery-input-vault-tests--startup-application
             configuration "recovery-vault-ordinary-startup" terminal))
-         (conversation (application-conversation application))
+         (conversation            (application-conversation application))
          (pending-pathname
            (configuration-pending-inputs-path
             configuration (conversation-pathname conversation)))
@@ -1433,11 +1434,11 @@
          (original-create
            (symbol-function 'application-input-controller-create))
          (observed-load-pending-p :unset)
-         (observed-persistence-p :unset)
+         (observed-persistence-p  :unset)
          (observed-start-reader-p :unset)
-         (observed-first-work :unset)
-         (observed-work :unset)
-         (observed-steering :unset))
+         (observed-first-work     :unset)
+         (observed-work           :unset)
+         (observed-steering       :unset))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -1446,13 +1447,13 @@
             pending-pathname
             (list :pending-inputs
                   :version 2
-                  :snapshot-identifier "ordinary-startup-pending"
-                  :conversation-id (conversation-identifier conversation)
-                  :active-work nil
-                  :steering-in-flight nil
-                  :steering '("ordinary steering")
-                  :work '((:message "ordinary follow-up"))
-                  :vault-capture-identifiers nil
+                  :snapshot-identifier             "ordinary-startup-pending"
+                  :conversation-id                 (conversation-identifier conversation)
+                  :active-work                     nil
+                  :steering-in-flight              nil
+                  :steering                        '("ordinary steering")
+                  :work                            '((:message "ordinary follow-up"))
+                  :vault-capture-identifiers       nil
                   :steering-promotion-prefix-count 0)
             :mode #o600)
            (test-call-with-function-replacements
@@ -1469,10 +1470,10 @@
                 (funcall original-create
                          run-application
                          :initial-work-items initial-work-items
-                         :load-pending-p load-pending-p
+                         :load-pending-p     load-pending-p
                          :pending-persistence-enabled-p
                          pending-persistence-enabled-p
-                         :start-reader-p start-reader-p)))
+                         :start-reader-p     start-reader-p)))
              (list
               'application-input-controller--run-work
               (lambda (controller work)
@@ -1519,20 +1520,20 @@
 (defun test-recovery-input-vault-live-primary-submit ()
   "Test accepted primary follow-ups are vaulted immediately and removed when consumed."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (make-instance 'waiting-recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
+         (root          (test-configuration-root configuration))
+         (terminal      (make-instance 'waiting-recording-terminal :columns 80))
+         (ui            (terminal-ui-create :terminal terminal))
          (conversation
            (conversation-create configuration :identifier "recovery-vault-live-submit"))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui ui))
+                          :conversation  conversation
+                          :ui            ui))
          (pending-pathname
            (configuration-pending-inputs-path
             configuration (conversation-pathname conversation)))
-         (controller nil))
+         (controller    nil))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -1557,9 +1558,9 @@
                    (equal (application-recovery-input-vault--capture-work capture)
                           '((:message "live follow-up"))))
               "accepted primary follow-up is persisted and vaulted immediately"))
-            (with-lock-held ((application-input-controller-lock controller))
-              (deque-clear (application-input-controller-work-items controller)))
-            (application-input-controller--persist-pending controller)
+           (with-lock-held ((application-input-controller-lock controller))
+             (deque-clear (application-input-controller-work-items controller)))
+           (application-input-controller--persist-pending controller)
            (test-assert
             (and (not (probe-file pending-pathname))
                  (null (application-recovery-input-vault-captures application)))
@@ -1574,12 +1575,12 @@
 (defun test-recovery-input-vault-capture-message ()
   "Test child-steer captures persist and survive reload."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (application
            (recovery-input-vault-tests--application
             configuration "recovery-vault-capture-message"))
-         (conversation (application-conversation application))
-         (identifier nil))
+         (conversation  (application-conversation application))
+         (identifier    nil))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -1599,7 +1600,7 @@
            (let* ((reloaded
                     (make-instance 'application
                                    :configuration configuration
-                                   :conversation conversation))
+                                   :conversation  conversation))
                   (captures
                     (application-recovery-input-vault-captures reloaded))
                   (capture (first captures)))
@@ -1615,37 +1616,37 @@
 (-> test-recovery-input-vault-capture-during-restore () null)
 (defun test-recovery-input-vault-capture-during-restore ()
   "Test a child capture cannot be deleted by a concurrent vault restore."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (make-instance 'waiting-recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((configuration                      (test-configuration))
+         (root                               (test-configuration-root configuration))
+         (terminal                           (make-instance 'waiting-recording-terminal :columns 80))
+         (ui                                 (terminal-ui-create :terminal terminal))
          (conversation
            (conversation-create
             configuration :identifier "recovery-vault-capture-during-restore"))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui ui))
+                          :conversation  conversation
+                          :ui            ui))
          (vault-pathname
            (configuration-recovery-input-vault-path
             configuration (conversation-pathname conversation)))
-         (gate (make-lock "Autolith vault restore capture test"))
+         (gate                               (make-lock "Autolith vault restore capture test"))
          (condition
            (make-condition-variable :name "Autolith vault restore capture test"))
          (capture-gate-condition
            (make-condition-variable :name "Autolith vault capture completion test"))
-         (restore-read-p nil)
-         (release-restore-p nil)
-         (capture-started-p nil)
-         (capture-completed-p nil)
+         (restore-read-p                     nil)
+         (release-restore-p                  nil)
+         (capture-started-p                  nil)
+         (capture-completed-p                nil)
          (capture-completed-before-release-p nil)
-         (restore-count nil)
-         (restore-condition nil)
-         (capture-condition nil)
-         (controller nil)
-         (restore-thread nil)
-         (capture-thread nil)
+         (restore-count                      nil)
+         (restore-condition                  nil)
+         (capture-condition                  nil)
+         (controller                         nil)
+         (restore-thread                     nil)
+         (capture-thread                     nil)
          (original-captures
            (symbol-function 'application-recovery-input-vault-captures)))
     (unwind-protect
@@ -1662,12 +1663,12 @@
             (recovery-input-vault-tests--vault-form
              conversation
              (list
-              (list :id "restore-capture"
-                    :captured-at 10
-                    :active-work nil
+              (list :id                 "restore-capture"
+                    :captured-at        10
+                    :active-work        nil
                     :steering-in-flight nil
-                    :steering nil
-                    :work '((:message "restore me")))))
+                    :steering           nil
+                    :work               '((:message "restore me")))))
             :mode #o600)
            (setf (symbol-function 'application-recovery-input-vault-captures)
                  (lambda (target-application)
@@ -1733,7 +1734,7 @@
            (when capture-condition
              (error capture-condition))
            (let* ((captures (funcall original-captures application))
-                  (capture (first captures)))
+                  (capture  (first captures)))
              (test-assert
               (and (= restore-count 1)
                    (= (length captures) 1)
@@ -1756,20 +1757,19 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-recovery-input-vault-presentation () null)
 (defun test-recovery-input-vault-presentation ()
   "Exercise inspection, storage/read failure, and restore/discard receipt roles."
   (with-test-configuration (configuration)
-    (let* ((application (recovery-input-vault-tests--application configuration "vault-view"))
-           (controller (make-instance 'application-input-controller :application application))
-           (captures (list (list :captured-at (get-universal-time)
-                                 :work-items '((:message "queued 猫")))))
-           (failure (make-condition 'recovery-input-vault-error :message "unreadable fixture"
-                                    :pathname (test-configuration-root configuration)
-                                    :operation ':read-vault))
+    (let* ((application    (recovery-input-vault-tests--application configuration "vault-view"))
+           (controller     (make-instance 'application-input-controller :application application))
+           (captures       (list (list :captured-at (get-universal-time)
+                                       :work-items  '((:message "queued 猫")))))
+           (failure        (make-condition 'recovery-input-vault-error :message "unreadable fixture"
+                                           :pathname                            (test-configuration-root configuration)
+                                           :operation                           ':read-vault))
            (read-failure-p nil)
-           (entries nil))
+           (entries        nil))
       (setf (application-input-controller application) controller)
       (test-call-with-function-replacements
        (list (list 'application-recovery-input-vault-captures

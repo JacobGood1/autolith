@@ -7,7 +7,6 @@
   "Return an isolated configuration selecting the Grok model."
   (configuration-copy (test-configuration) :model "grok-4.7"))
 
-
 (-> grok-provider-test--item-normalization () null)
 (defun grok-provider-test--item-normalization ()
   "Test representative Grok output items retain their replay semantics."
@@ -52,7 +51,7 @@
 (defun grok-provider-test--request-shape ()
   "Test Grok-specific Responses request controls."
   (let* ((base-configuration (grok-provider-test--configuration))
-         (root (test-configuration-root base-configuration))
+         (root               (test-configuration-root base-configuration))
          (configuration
            (configuration-copy base-configuration :working-directory root)))
     (unwind-protect
@@ -66,26 +65,26 @@
             (test-assert
              (string= (json-get request "model") "grok-4.7")
              "Grok requests select the configured model")
-             (dolist (effort '("low" "medium" "high" "xhigh"))
-               (let* ((selected (configuration-copy configuration
-                                                    :reasoning-effort effort))
-                      (request
-                        (provider-request-object
-                         (grok-provider-create selected) conversation (json-array))))
-                 (test-assert
-                  (string= (json-get (json-get request "reasoning") "effort") effort)
-                  "Grok 4.7 requests preserve each supported reasoning effort")))
+            (dolist (effort '("low" "medium" "high" "xhigh"))
+              (let* ((selected (configuration-copy configuration
+                                                   :reasoning-effort effort))
+                     (request
+                       (provider-request-object
+                        (grok-provider-create selected) conversation (json-array))))
+                (test-assert
+                 (string= (json-get (json-get request "reasoning") "effort") effort)
+                 "Grok 4.7 requests preserve each supported reasoning effort")))
             (test-assert
              (json-false-p (gethash "parallel_tool_calls" request))
              "Grok requests disable parallel tool calls")
             (test-assert
              (find "web_search" tools
-                   :key (lambda (tool) (json-get tool "type"))
+                   :key  (lambda (tool) (json-get tool "type"))
                    :test #'string=)
              "enabled Grok search includes backend web search")
             (test-assert
              (find "x_search" tools
-                   :key (lambda (tool) (json-get tool "type"))
+                   :key  (lambda (tool) (json-get tool "type"))
                    :test #'string=)
              "enabled Grok search includes backend X search")
             (test-assert
@@ -105,7 +104,7 @@
               (test-assert
                (equalp (json-get request "include")
                        (json-array "reasoning.encrypted_content"))
-              "disabled Grok search omits citation metadata"))))
+               "disabled Grok search omits citation metadata"))))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
@@ -113,21 +112,21 @@
 (defun grok-provider-test--transport-headers ()
   "Test the authenticated Grok transport headers without network access."
   (let* ((configuration (grok-provider-test--configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
-         (let* ((conversation (conversation-create configuration
-                                                   :identifier "grok-wire"))
-                (provider (grok-provider-create configuration))
+         (let* ((conversation     (conversation-create configuration
+                                                       :identifier "grok-wire"))
+                (provider         (grok-provider-create configuration))
                 (credentials
                   (make-instance 'oauth-credentials
-                                 :access-token "grok-access-token"
+                                 :access-token  "grok-access-token"
                                  :refresh-token nil
-                                 :id-token nil
-                                 :account-id "grok-user-1"
-                                 :expires-at nil
+                                 :id-token      nil
+                                 :account-id    "grok-user-1"
+                                 :expires-at    nil
                                  :source-path
                                  (configuration-grok-auth-path configuration)))
-                (captured-url nil)
+                (captured-url     nil)
                 (captured-headers nil))
            (test-call-with-function-replacements
             (list
@@ -142,7 +141,7 @@
               (provider-open-response-stream
                provider
                (json-object "model" "grok-4.7")
-               :credentials credentials
+               :credentials  credentials
                :conversation conversation)))
            (flet ((header (name)
                     (rest (assoc name captured-headers :test #'string-equal))))
@@ -182,8 +181,8 @@
 (defun grok-provider-test--selection ()
   "Test Grok provider, endpoint, and context selection."
   (let* ((configuration (grok-provider-test--configuration))
-         (root (test-configuration-root configuration))
-         (provider (provider-create configuration)))
+         (root          (test-configuration-root configuration))
+         (provider      (provider-create configuration)))
     (unwind-protect
          (progn
            (test-assert (typep provider 'grok-subscription-provider)
@@ -267,16 +266,16 @@
           'provider-result)
    "loop reports outside an armed turn are ignored")
   (let* ((configuration (grok-provider-test--configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "grok-doom-retry"))
          (result
            (make-instance 'provider-result
-                          :response-id "grok-doom-recovered"
+                          :response-id  "grok-doom-recovered"
                           :output-items nil
-                          :tool-calls nil
-                          :usage nil
-                          :turn-state nil)))
+                          :tool-calls   nil
+                          :usage        nil
+                          :turn-state   nil)))
     (unwind-protect
          (let ((events nil)
                (delays nil)
@@ -292,7 +291,7 @@
                    provider
                    conversation
                    :tool-namespaces #()
-                   :event-callback (lambda (event) (push event events)))
+                   :event-callback  (lambda (event) (push event events)))
                   result)
               "resample requests retry the turn until a clean response"))
            (test-assert (null delays)
@@ -311,19 +310,19 @@
   (test-assert
    (grok--empty-response-p
     (make-instance 'provider-result
-                   :response-id "empty"
+                   :response-id  "empty"
                    :output-items (list (json-object "type" "reasoning"))
-                   :tool-calls nil
-                   :usage nil
-                   :turn-state nil))
+                   :tool-calls   nil
+                   :usage        nil
+                   :turn-state   nil))
    "a reasoning-only completion counts as an empty response")
   (test-assert
    (not (grok--empty-response-p
          (make-instance 'provider-result
-                        :response-id "visible"
+                        :response-id  "visible"
                         :output-items (list (json-object "type" "message"))
-                        :tool-calls nil
-                        :usage nil
-                        :turn-state nil)))
+                        :tool-calls   nil
+                        :usage        nil
+                        :turn-state   nil)))
    "an assistant message keeps a response from counting as empty")
   nil)

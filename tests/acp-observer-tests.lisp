@@ -11,7 +11,7 @@
     :documentation "Updates handled before the latest permission request.")
    (permission-choice
     :initarg :permission-choice :initform "once"
-    :accessor acp-observer-test-client-permission-choice
+    :accessor      acp-observer-test-client-permission-choice
     :documentation "The permission option selected by the client."))
   (:documentation "A minimal ACP client used by observer protocol tests."))
 
@@ -43,13 +43,13 @@
 (defun test-acp-observer-streams-one-response ()
   "Exercise test-acp-observer-streams-one-response."
   (with-test-configuration (configuration root)
-    (let* ((service (acp-observer-test-service configuration))
+    (let* ((service  (acp-observer-test-service configuration))
            (session
             (make-instance 'acp-session :service service :identifier "observer" :application
                            (make-instance 'application :configuration configuration)))
            (observer (make-instance 'acp-observer :session session :turn-sequence 7))
-           (client (make-instance 'acp-observer-test-client))
-           (updates nil))
+           (client   (make-instance 'acp-observer-test-client))
+           (updates  nil))
       (declare (ignore root))
       (multiple-value-bind (server client-channel)
           (agentcomms:make-acp-channel-pair)
@@ -88,13 +88,13 @@
   "Exercise test-acp-observer-permission-validates-offered-choice."
   (with-test-configuration (configuration root)
     (declare (ignore root))
-    (let* ((service (acp-observer-test-service configuration))
+    (let* ((service        (acp-observer-test-service configuration))
            (session
             (make-instance 'acp-session :service service :identifier "permissions" :application
                            (make-instance 'application :configuration configuration)))
-           (observer (make-instance 'acp-observer :session session :turn-sequence 1))
-           (client (make-instance 'acp-observer-test-client :permission-choice "bogus"))
-           (server nil)
+           (observer       (make-instance 'acp-observer :session session :turn-sequence 1))
+           (client         (make-instance 'acp-observer-test-client :permission-choice "bogus"))
+           (server         nil)
            (client-channel nil))
       (multiple-value-setq (server client-channel) (agentcomms:make-acp-channel-pair))
       (unwind-protect
@@ -117,14 +117,14 @@
 (defun test-acp-observer-forwards-serialized-tool-execution ()
   "Exercise test-acp-observer-forwards-serialized-tool-execution."
   (with-test-configuration (configuration)
-    (let* ((service (acp-observer-test-service configuration))
+    (let* ((service     (acp-observer-test-service configuration))
            (application (make-instance 'application :configuration configuration))
            (session
             (make-instance 'acp-session :service service :identifier "forward" :application
                            application))
-           (observer (make-instance 'acp-observer :session session :turn-sequence 1))
-           (serialized (make-instance 'serialized-agent-observer :delegate observer))
-           (seen nil))
+           (observer    (make-instance 'acp-observer :session session :turn-sequence 1))
+           (serialized  (make-instance 'serialized-agent-observer :delegate observer))
+           (seen        nil))
       (agent-observer-call-with-tool-execution serialized "call-1"
                                                (lambda ()
                                                  (setf seen
@@ -133,7 +133,6 @@
                                                                      "call-1")))))
       (test-assert seen "serialized observer forwards ACP tool ownership and bindings")))
   nil)
-
 
 (-> test-acp-observer-tool-title-previews () null)
 (defun test-acp-observer-tool-title-previews ()
@@ -174,16 +173,15 @@
      (acp-tool-title "lisp.eval" (json-object "forms" (make-array 4 :initial-element (make-string 1000000 :initial-element #\x))))))
   nil)
 
-
 (-> test-acp-observer-batches-thoughts-before-permission () null)
 (defun test-acp-observer-batches-thoughts-before-permission ()
   "Coalesce fragments across response boundaries while preserving approval ordering."
   (with-test-configuration (configuration)
-    (let* ((service (acp-observer-test-service configuration))
-           (session (make-instance 'acp-session :service service :identifier "thoughts"
-                                   :application (make-instance 'application :configuration configuration)))
+    (let* ((service  (acp-observer-test-service configuration))
+           (session  (make-instance 'acp-session :service service :identifier "thoughts"
+                                    :application (make-instance 'application :configuration configuration)))
            (observer (make-instance 'acp-observer :session session :turn-sequence 1))
-           (client (make-instance 'acp-observer-test-client)))
+           (client   (make-instance 'acp-observer-test-client)))
       (multiple-value-bind (server client-channel) (agentcomms:make-acp-channel-pair)
         (unwind-protect
              (progn
@@ -225,11 +223,11 @@
 (defun test-acp-observer-skips-empty-message-text ()
   "Skip empty deltas while preserving thought batching and nonstreamed final text."
   (with-test-configuration (configuration)
-    (let* ((service (acp-observer-test-service configuration))
-           (session (make-instance 'acp-session :service service :identifier "empty-text"
-                                   :application (make-instance 'application :configuration configuration)))
+    (let* ((service  (acp-observer-test-service configuration))
+           (session  (make-instance 'acp-session :service service :identifier "empty-text"
+                                    :application (make-instance 'application :configuration configuration)))
            (observer (make-instance 'acp-observer :session session :turn-sequence 1))
-           (client (make-instance 'acp-observer-test-client)))
+           (client   (make-instance 'acp-observer-test-client)))
       (multiple-value-bind (server client-channel) (agentcomms:make-acp-channel-pair)
         (unwind-protect
              (progn
@@ -269,22 +267,22 @@
   (with-test-configuration (configuration root)
     (let* ((application
              (make-instance 'application :configuration configuration
-                            :permission-mode ':full-access
-                            :provider (make-instance 'rlm-inference-test-provider :results nil)))
-           (session (make-instance 'acp-session
-                                   :service (acp-observer-test-service configuration)
-                                   :identifier "external-permissions"
-                                   :application application))
-           (observer (make-instance 'acp-observer :session session :turn-sequence 1))
-           (tool (make-instance 'tool :namespace "service" :name "lookup"
-                                :description "Read one record."))
-           (arguments (json-object "record" "one"))
-           (approved-p nil)
+                            :permission-mode            ':full-access
+                            :provider                   (make-instance 'rlm-inference-test-provider :results nil)))
+           (session        (make-instance 'acp-session
+                                          :service     (acp-observer-test-service configuration)
+                                          :identifier  "external-permissions"
+                                          :application application))
+           (observer       (make-instance 'acp-observer :session session :turn-sequence 1))
+           (tool           (make-instance 'tool :namespace "service" :name "lookup"
+                                          :description "Read one record."))
+           (arguments      (json-object "record" "one"))
+           (approved-p     nil)
            (approval-count 0)
-           (decision ':full-access))
+           (decision       ':full-access))
       (permissions-allow :configuration configuration
-                         :state (application-permission-state application)
-                         :command (application--tool-permission-key tool arguments)
+                         :state         (application-permission-state application)
+                         :command       (application--tool-permission-key tool arguments)
                          :directory root :kind ':external-tool)
       (test-call-with-function-replacements
        (list

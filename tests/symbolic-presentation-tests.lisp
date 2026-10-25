@@ -6,12 +6,12 @@
 (defun test-symbolic-session-notices ()
   "Exercise notice severity and untrusted names through the application observer."
   (with-test-configuration (configuration)
-    (let* ((terminal (make-instance 'recording-terminal :columns 80 :styled-p t))
+    (let* ((terminal    (make-instance 'recording-terminal :columns 80 :styled-p t))
            (application (make-instance 'application
                                        :configuration configuration
-                                       :ui (terminal-ui-create :terminal terminal)
-                                       :conversation (conversation-create configuration
-                                                                          :identifier (make-identifier))))
+                                       :ui            (terminal-ui-create :terminal terminal)
+                                       :conversation  (conversation-create configuration
+                                                                           :identifier (make-identifier))))
            (unsafe-name (format nil "report~C[2J~%injected" #\Escape)))
       (dolist (case (list (list ':related-memories '(:count 2 :facts 3) ':dim)
                          (list ':related-memories '(:count 2 :stale 1) ':notice)
@@ -39,7 +39,7 @@
                                 (not (find #\Newline text)))
                            "A request-local notice is one safe logical line."))
             (dolist (width '(40 80))
-              (let* ((ui (terminal-ui-create :terminal terminal :fullscreen-p t))
+              (let* ((ui       (terminal-ui-create :terminal terminal :fullscreen-p t))
                      (viewport (fullscreen-terminal-ui-viewport ui)))
                 (terminal-ui-fullscreen--ensure-width ui width)
                 (multiple-value-bind (text display regions) (terminal-ui--finalized-content ui presented)
@@ -76,10 +76,10 @@
       (dolist (case (list (list nil ':failure) (list (list unsafe "down") ':notice)
                          (list (list unsafe) ':success)))
         (destructuring-bind (remaining style) case
-          (let* ((spans (application-diagnoses--case-lines
-                         (list :diagnosis unsafe :remaining remaining :repair unsafe
-                               :bindings (list (list unsafe unsafe))
-                               :eliminated (list (list :hypothesis unsafe :text unsafe)))))
+          (let* ((spans   (application-diagnoses--case-lines
+                           (list :diagnosis unsafe :remaining remaining :repair unsafe
+                                 :bindings   (list (list unsafe unsafe))
+                                 :eliminated (list (list :hypothesis unsafe :text unsafe)))))
                  (colored (remove-if-not (lambda (span) (eq (terminal-span-style span) style)) spans)))
             (test-assert (and (> (length colored) 1)
                               (some (lambda (span) (> (length (terminal-span-text span)) 4)) colored)

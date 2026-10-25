@@ -18,7 +18,7 @@
                       pathname
                       (task-tests--role-form
                        "native" "Native role" "Use native Lisp data."
-                       :tools '("resource.read")
+                       :tools      '("resource.read")
                        :blocking-p t))
                      :project)))
              (test-assert
@@ -37,10 +37,10 @@
                      (merge-pathnames "deterministic.sexp" directory)
                      "(:name \"deterministic\" :description \"Deterministic reader\" :instructions \"Ignore ambient reader state.\" :output (:type :number :enum (10 1.5)))"))
                   (definition
-                    (let ((*read-base* 16)
-                          (*read-suppress* t)
+                    (let ((*read-base*                 16)
+                          (*read-suppress*             t)
                           (*read-default-float-format* 'single-float)
-                          (*package* (find-package '#:common-lisp-user)))
+                          (*package*                   (find-package '#:common-lisp-user)))
                       (task-parse-agent-file pathname :project)))
                   (enum
                     (getf (task-agent-definition-output definition) :enum)))
@@ -116,7 +116,7 @@
               (let ((cause (task-agent-definition-error-cause condition)))
                 (and (typep cause 'sexp-config-error)
                      (eq (sexp-config-error-kind cause) ':invalid-value)))
-               "the native role reader starts from a fresh standard readtable"))
+              "the native role reader starts from a fresh standard readtable"))
            (let ((bare-name "AUTOLITH-TASK-READER-BARE-LEAK-71D21A")
                  (qualified-name
                    "AUTOLITH-TASK-READER-QUALIFIED-LEAK-71D21A")
@@ -212,13 +212,12 @@
                            (typep (task-agent-definition-error-line condition)
                                   '(integer 1))
                            t))
-                   (format nil
-                           "~A native role input returns complete typed diagnostic metadata"
-                           name))))))
+                  (format nil
+                          "~A native role input returns complete typed diagnostic metadata"
+                          name))))))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
-
 
 (-> test-task-agent-discovery-precedence () null)
 (defun test-task-agent-discovery-precedence ()
@@ -235,14 +234,14 @@
                    (uiop:ensure-directory-pathname
                      (platform-truename *platform* site-root)))
              (test-configuration :site-config-root site-root)))
-         (root          (test-configuration-root base-configuration))
+         (root              (test-configuration-root base-configuration))
          (configuration
             (configuration-copy base-configuration :working-directory root))
-          (project-directory (merge-pathnames ".autolith/agents/" root))
-          (user-directory
-            (merge-pathnames "agents/"
-                             (config :config-root configuration)))
-          (site-directory (merge-pathnames "agents/" site-root)))
+         (project-directory (merge-pathnames ".autolith/agents/" root))
+         (user-directory
+           (merge-pathnames "agents/"
+                            (config :config-root configuration)))
+         (site-directory    (merge-pathnames "agents/" site-root)))
     (unwind-protect
          (progn
            (task-tests--write-native-form
@@ -365,7 +364,7 @@
          (root               (test-configuration-root base-configuration))
          (configuration
            (configuration-copy base-configuration :working-directory root))
-         (project-directory (merge-pathnames ".autolith/agents/" root))
+         (project-directory  (merge-pathnames ".autolith/agents/" root))
          (hidden-broken-path
            (merge-pathnames "hidden-broken.sexp" project-directory))
          (secret
@@ -403,10 +402,10 @@
                                (make-instance
                                 'tool-context
                                 :configuration (agent-configuration viewer)
-                                :worker nil
-                                :conversation (agent-conversation viewer)
-                                :registry (agent-tool-registry viewer)
-                                :agent viewer))
+                                :worker        nil
+                                :conversation  (agent-conversation viewer)
+                                :registry      (agent-tool-registry viewer)
+                                :agent         viewer))
                              (result
                                (tool-execute
                                 selected-tool context
@@ -435,10 +434,10 @@
                                (make-instance
                                 'tool-context
                                 :configuration (agent-configuration viewer)
-                                :worker nil
-                                :conversation (agent-conversation viewer)
-                                :registry selected-registry
-                                :agent viewer))
+                                :worker        nil
+                                :conversation  (agent-conversation viewer)
+                                :registry      selected-registry
+                                :agent         viewer))
                              (result
                                (tool-registry-execute-call
                                 selected-registry
@@ -458,7 +457,7 @@
                  (multiple-value-bind (result form)
                      (invoke tool primary 0 *task-agent-page-maximum*)
                    (let ((allowed (entry form "allowed" :agent))
-                         (denied (entry form "denied" :agent))
+                         (denied  (entry form "denied" :agent))
                          (blocked (entry form "blocked" :diagnostic)))
                      (test-assert
                       (and (equal form (tool-result-details result))
@@ -491,12 +490,12 @@
                     "task.agents paginates native discovery without clipping forms"))
                  (let* ((definition
                           (task-agent-definition-create
-                           :name "spawn-parent"
-                           :description "Permit two role names."
+                           :name         "spawn-parent"
+                           :description  "Permit two role names."
                            :instructions "Exercise child discovery policy."
-                           :tools ':all
-                           :spawns '("allowed" "blocked")
-                           :source ':test))
+                           :tools        ':all
+                           :spawns       '("allowed" "blocked")
+                           :source       ':test))
                         (job
                           (task-tests--register-job
                            orchestrator primary definition
@@ -559,20 +558,20 @@
                        (list
                         "no-spawn"
                         (task-agent-definition-create
-                         :name "no-spawn"
-                         :description "Permit no descendants."
+                         :name         "no-spawn"
+                         :description  "Permit no descendants."
                          :instructions "Do not delegate."
-                         :spawns nil
-                         :source ':test)
+                         :spawns       nil
+                         :source       ':test)
                         1)
                        (list
                         "max-depth"
                         (task-agent-definition-create
-                         :name "max-depth"
-                         :description "Reach the configured depth."
+                         :name         "max-depth"
+                         :description  "Reach the configured depth."
                          :instructions "Do not exceed the depth limit."
-                         :spawns ':all
-                         :source ':test)
+                         :spawns       ':all
+                         :source       ':test)
                         (task-orchestrator-maximum-depth orchestrator))))
                    (destructuring-bind (name definition depth) case
                      (let* ((job
@@ -584,7 +583,7 @@
                             (child
                               (task-tests--child-viewer
                                configuration job
-                               :depth depth
+                               :depth    depth
                                :registry child-registry)))
                        (test-assert
                         (null
@@ -604,7 +603,7 @@
                                   name))))))))))
       (ignore-errors (tool-registry-close-runtime-state registry))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
 
 (-> test-task-tool-default-argument-types () null)
@@ -617,23 +616,23 @@
          (primary
            (task-tests--primary-agent
             configuration "task-default-types" registry))
-         (conversation (agent-conversation primary))
+         (conversation  (agent-conversation primary))
          (context
            (make-instance 'tool-context
                           :configuration configuration
-                          :worker nil
-                          :conversation conversation
-                          :registry registry
-                          :agent primary))
+                          :worker        nil
+                          :conversation  conversation
+                          :registry      registry
+                          :agent         primary))
          (orchestrator
            (task-run-tool-orchestrator
             (tool-registry-find registry "task" "run")))
          (definition
            (task-agent-definition-create
-            :name "default-types"
-            :description "Exercise explicit invalid default values."
+            :name         "default-types"
+            :description  "Exercise explicit invalid default values."
             :instructions "Remain terminal while job.wait validates."
-            :source ':test))
+            :source       ':test))
          (job
            (task-tests--register-job
             orchestrator primary definition :name "default-types"))
@@ -645,18 +644,18 @@
          (child-context
            (make-instance 'tool-context
                           :configuration configuration
-                          :worker nil
-                          :conversation (agent-conversation child)
-                          :registry registry
-                          :agent child))
+                          :worker        nil
+                          :conversation  (agent-conversation child)
+                          :registry      registry
+                          :agent         child))
          (job-result
            (task-tests--terminal-result
             job :status ':success :output "already terminal")))
     (unwind-protect
          (progn
-            (let ((helper nil)
-                  (helper-name nil)
-                  (inline-runs 0)
+            (let ((helper                    nil)
+                  (helper-name               nil)
+                  (inline-runs               0)
                   (inline-runs-before-helper nil))
               (let ((wait-result
                       (test-call-with-function-replacements
@@ -734,9 +733,8 @@
                         value)))))
       (ignore-errors (tool-registry-close-runtime-state registry))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
-
 
 (-> test-task-native-output-contracts () null)
 (defun test-task-native-output-contracts ()
@@ -769,6 +767,7 @@
        (string= (tool-error-tool-name condition) "yield.submit")))
    "generic output-value failures propagate as typed yield failures")
   nil)
+
 (-> test-task-yield-contract () null)
 (defun test-task-yield-contract ()
   "Test exact yield semantics through provider JSON argument decoding."
@@ -778,11 +777,11 @@
          (progn
            (let* ((definition
                     (task-agent-definition-create
-                     :name "boolean-output"
-                     :description "Return a boolean."
+                     :name         "boolean-output"
+                     :description  "Return a boolean."
                      :instructions "Yield one explicit boolean."
-                     :output '(:type :boolean)
-                     :source ':test))
+                     :output       '(:type :boolean)
+                     :source       ':test))
                   (fixture
                     (task-tests--yield-fixture
                      configuration definition "yield-false"))
@@ -822,11 +821,11 @@
               "yield.submit rejects every call after the exact terminal yield"))
            (let* ((definition
                     (task-agent-definition-create
-                     :name "null-output"
-                     :description "Return null."
+                     :name         "null-output"
+                     :description  "Return null."
                      :instructions "Yield one explicit null."
-                     :output '(:type :null)
-                     :source ':test))
+                     :output       '(:type :null)
+                     :source       ':test))
                   (fixture
                     (task-tests--yield-fixture
                      configuration definition "yield-null"))
@@ -845,10 +844,10 @@
               "registry decoding preserves JSON null separately from false"))
            (let* ((definition
                     (task-agent-definition-create
-                     :name "optional-output"
-                     :description "Return optional data."
+                     :name         "optional-output"
+                     :description  "Return optional data."
                      :instructions "Yield a concise result."
-                     :source ':test))
+                     :source       ':test))
                   (fixture
                     (task-tests--yield-fixture
                      configuration definition "yield-absent"))
@@ -897,11 +896,11 @@
              (destructuring-bind (name output arguments) case
                (let* ((definition
                         (task-agent-definition-create
-                         :name name
-                         :description "Exercise one invalid terminal yield."
+                         :name         name
+                         :description  "Exercise one invalid terminal yield."
                          :instructions "Follow the exact yield contract."
-                         :output output
-                         :source ':test))
+                         :output       output
+                         :source       ':test))
                       (fixture
                         (task-tests--yield-fixture
                          configuration definition name))
@@ -917,10 +916,10 @@
                           name)))))
            (let* ((definition
                     (task-agent-definition-create
-                     :name "bounded-label"
-                     :description "Exercise the terminal label bound."
+                     :name         "bounded-label"
+                     :description  "Exercise the terminal label bound."
                      :instructions "Yield one bounded label."
-                     :source ':test))
+                     :source       ':test))
                   (oversized-fixture
                     (task-tests--yield-fixture
                      configuration definition "yield-oversized-label"))
@@ -972,10 +971,10 @@
                 "a maximum-length yield label survives terminal compaction")))
            (let* ((definition
                     (task-agent-definition-create
-                     :name "failed-result"
-                     :description "Report a failure."
+                     :name         "failed-result"
+                     :description  "Report a failure."
                      :instructions "Yield one explained failure."
-                     :source ':test))
+                     :source       ':test))
                   (fixture
                     (task-tests--yield-fixture
                      configuration definition "yield-failed"))
@@ -993,9 +992,8 @@
                    (not (task-completion-data-present-p completion)))
               "an explained failed yield is an accepted terminal result")))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
-
 
 (-> test-task-child-steering-mailbox () null)
 (defun test-task-child-steering-mailbox ()
@@ -1004,10 +1002,10 @@
          (root          (test-configuration-root configuration))
          (definition
            (task-agent-definition-create
-            :name "steering-child"
-            :description "Exercise child steering."
+            :name         "steering-child"
+            :description  "Exercise child steering."
             :instructions "Accept steering before yielding."
-            :source ':test)))
+            :source       ':test)))
     (labels ((fixture (identifier &key (state ':running))
                (task-tests--yield-fixture
                 configuration definition identifier :state state))
@@ -1035,22 +1033,22 @@
                         (fixture
                          (format nil "steering-~(~A~)-race-~D"
                                  claim-kind index)))
-                      (job (mark-running (getf fixture :job)))
+                      (job               (mark-running (getf fixture :job)))
                       (normal-result
                         (agent-test-result
                          "normal-race"
                          (list (agent-test-message "done"))
                          :turn-completion ':end))
-                      (gate-lock (make-lock "Autolith steering race gate"))
-                      (gate-condition (make-condition-variable))
-                      (ready-count 0)
-                      (released-p nil)
-                      (enqueue-reason nil)
+                      (gate-lock         (make-lock "Autolith steering race gate"))
+                      (gate-condition    (make-condition-variable))
+                      (ready-count       0)
+                      (released-p        nil)
+                      (enqueue-reason    nil)
                       (enqueue-condition nil)
-                      (claim-result nil)
-                      (claim-condition nil)
-                      (enqueue-thread nil)
-                      (claim-thread nil))
+                      (claim-result      nil)
+                      (claim-condition   nil)
+                      (enqueue-thread    nil)
+                      (claim-thread      nil))
                  (labels ((await-release ()
                             (with-lock-held (gate-lock)
                               (incf ready-count)
@@ -1059,8 +1057,8 @@
                                     unless
                                     (condition-wait
                                      gate-condition gate-lock :timeout 2)
-                                      do (error
-                                          "Timed out waiting for the steering race release.")))))
+                                    do (error
+                                        "Timed out waiting for the steering race release.")))))
                    (unwind-protect
                         (progn
                           (setf enqueue-thread
@@ -1099,8 +1097,8 @@
                                   unless
                                   (condition-wait
                                    gate-condition gate-lock :timeout 2)
-                                    do (error
-                                        "Timed out synchronizing the steering race."))
+                                  do (error
+                                      "Timed out synchronizing the steering race."))
                             (setf released-p t)
                             (task--condition-broadcast gate-condition))
                           (join-thread enqueue-thread)
@@ -1114,7 +1112,8 @@
                                     (:yield
                                      (and claim-result
                                           (tool-result-success-p claim-result)))
-                                    (:normal claim-result))))
+                                    (:normal
+                                     claim-result))))
                             (test-assert
                              (and (null enqueue-condition)
                                   (null claim-condition)
@@ -1154,7 +1153,7 @@
       (unwind-protect
            (progn
              (let* ((fixture (fixture "steering-queued" :state ':queued))
-                    (job (getf fixture :job)))
+                    (job     (getf fixture :job)))
                (multiple-value-bind (entry reason)
                    (task-job-enqueue-steering job "not yet")
                  (test-assert
@@ -1163,7 +1162,7 @@
                        (zerop (task-job-steering-pending-count job)))
                   "queued children reject steering without retaining it")))
              (let* ((fixture (fixture "steering-fifo"))
-                    (job (mark-running (getf fixture :job))))
+                    (job     (mark-running (getf fixture :job))))
                (multiple-value-bind (first first-reason)
                    (task-job-enqueue-steering job "first")
                  (multiple-value-bind (second second-reason)
@@ -1196,29 +1195,29 @@
                             job (agent-steering-input-identifier second))
                            (zerop (task-job-steering-pending-count job)))
                       "child steering drains FIFO and remains retained until acknowledgment")))
-               (test-assert
-                (task-job--claim-normal-completion job)
-                "an empty mailbox permits normal completion")
-               (multiple-value-bind (entry reason)
-                   (task-job-enqueue-steering job "too late")
-                 (test-assert
-                  (and (null entry) (eq reason ':closed))
-                  "normal completion closes later steering admission")))
-             (let* ((fixture (fixture "steering-bounds"))
-                    (job (mark-running (getf fixture :job))))
-               (multiple-value-bind (entry reason)
-                   (task-job-enqueue-steering job "")
-                 (test-assert
-                  (and (null entry) (eq reason ':empty))
-                  "child steering rejects empty content"))
-               (let ((*task-steering-maximum-characters* 3))
-                 (multiple-value-bind (entry reason)
-                     (task-job-enqueue-steering job "four")
-                   (test-assert
-                    (and (null entry) (eq reason ':content-too-large))
-                    "child steering enforces its per-message bound")))
-                (let ((*task-steering-maximum-items* 3)
-                      (*task-steering-maximum-characters* 4)
+                (test-assert
+                 (task-job--claim-normal-completion job)
+                 "an empty mailbox permits normal completion")
+                (multiple-value-bind (entry reason)
+                    (task-job-enqueue-steering job "too late")
+                  (test-assert
+                   (and (null entry) (eq reason ':closed))
+                   "normal completion closes later steering admission")))
+              (let* ((fixture (fixture "steering-bounds"))
+                     (job     (mark-running (getf fixture :job))))
+                (multiple-value-bind (entry reason)
+                    (task-job-enqueue-steering job "")
+                  (test-assert
+                   (and (null entry) (eq reason ':empty))
+                   "child steering rejects empty content"))
+                (let ((*task-steering-maximum-characters* 3))
+                  (multiple-value-bind (entry reason)
+                      (task-job-enqueue-steering job "four")
+                    (test-assert
+                     (and (null entry) (eq reason ':content-too-large))
+                     "child steering enforces its per-message bound")))
+                (let ((*task-steering-maximum-items*            3)
+                      (*task-steering-maximum-characters*       4)
                       (*task-steering-maximum-total-characters* 5))
                   (multiple-value-bind (accepted accepted-reason)
                       (task-job-enqueue-steering job "1234")
@@ -1235,11 +1234,11 @@
                              job (agent-steering-input-identifier accepted))
                             (zerop (task-job-steering-pending-count job)))
                        "character rejection retains accepted in-flight steering")))
-                (task-job-close-steering job)))
+                 (task-job-close-steering job)))
               (let* ((fixture (fixture "steering-count-bound"))
-                     (job (mark-running (getf fixture :job))))
-                (let ((*task-steering-maximum-items* 2)
-                      (*task-steering-maximum-characters* 4)
+                     (job     (mark-running (getf fixture :job))))
+                (let ((*task-steering-maximum-items*            2)
+                      (*task-steering-maximum-characters*       4)
                       (*task-steering-maximum-total-characters* 20))
                   (multiple-value-bind (first first-reason)
                       (task-job-enqueue-steering job "one")
@@ -1265,96 +1264,96 @@
                               (zerop (task-job-steering-pending-count job)))
                          "count rejection retains queued and in-flight steering")))))
                 (task-job-close-steering job))
-             (let* ((fixture (fixture "steering-yield"))
-                    (job (mark-running (getf fixture :job))))
-               (multiple-value-bind (entry reason)
-                   (task-job-enqueue-steering job "context before yield")
-                 (declare (ignore reason))
-                 (let ((queued-result (valid-yield fixture)))
-                   (test-assert
-                    (and (not (tool-result-success-p queued-result))
-                         (not
+              (let* ((fixture (fixture "steering-yield"))
+                     (job     (mark-running (getf fixture :job))))
+                (multiple-value-bind (entry reason)
+                    (task-job-enqueue-steering job "context before yield")
+                  (declare (ignore reason))
+                  (let ((queued-result (valid-yield fixture)))
+                    (test-assert
+                     (and (not (tool-result-success-p queued-result))
+                          (not
+                           (task-completion-called-p
+                            (getf fixture :completion)))
+                          (= (task-job-steering-pending-count job) 1))
+                     "queued steering rejects terminal yield without mutation"))
+                  (task-job-take-steering job)
+                  (let ((in-flight-result (valid-yield fixture)))
+                    (test-assert
+                     (and (not (tool-result-success-p in-flight-result))
+                          (not
+                           (task-completion-called-p
+                            (getf fixture :completion))))
+                     "unacknowledged steering still rejects terminal yield"))
+                  (task-job-acknowledge-steering
+                   job (agent-steering-input-identifier entry))
+                  (let ((accepted-result (valid-yield fixture)))
+                    (test-assert
+                     (and (tool-result-success-p accepted-result)
                           (task-completion-called-p
                            (getf fixture :completion)))
-                         (= (task-job-steering-pending-count job) 1))
-                    "queued steering rejects terminal yield without mutation"))
-                 (task-job-take-steering job)
-                 (let ((in-flight-result (valid-yield fixture)))
-                   (test-assert
-                    (and (not (tool-result-success-p in-flight-result))
-                         (not
-                          (task-completion-called-p
-                           (getf fixture :completion))))
-                    "unacknowledged steering still rejects terminal yield"))
-                 (task-job-acknowledge-steering
-                  job (agent-steering-input-identifier entry))
-                 (let ((accepted-result (valid-yield fixture)))
-                   (test-assert
-                    (and (tool-result-success-p accepted-result)
-                         (task-completion-called-p
-                          (getf fixture :completion)))
-                    "yield succeeds after every steering append is durable"))
-                 (multiple-value-bind (late-entry late-reason)
-                     (task-job-enqueue-steering job "after yield")
-                   (test-assert
-                    (and (null late-entry) (eq late-reason ':closed))
-                    "accepted yield rejects every later steering message"))))
-             (let* ((fixture (fixture "steering-normal-stop"))
-                    (job (mark-running (getf fixture :job)))
-                    (child (getf fixture :child))
-                    (result
-                      (agent-test-result
-                       "normal-stop" (list (agent-test-message "done"))
-                       :turn-completion ':end)))
-               (multiple-value-bind (entry reason)
-                   (task-job-enqueue-steering job "continue instead")
-                 (declare (ignore reason))
-                 (test-assert
-                  (not (agent-turn-complete-p child result))
-                  "pending steering prevents a normal provider stop")
-                 (task-job-take-steering job)
-                 (task-job-acknowledge-steering
-                  job (agent-steering-input-identifier entry))
-                 (test-assert
-                  (and (agent-turn-complete-p child result)
-                       (task-job-steering-closed-p job))
-                  "normal completion atomically claims an empty mailbox")))
-             (let* ((fixture (fixture "steering-response-promotion"))
-                    (job (mark-running (getf fixture :job)))
-                    (orchestrator (task-job-orchestrator job))
-                    (events nil)
-                    (listener
-                      (lambda (channel payload)
-                        (when (eq channel ':task-subagent-verbal-response)
-                          (push (copy-tree payload) events)))))
-               (unwind-protect
-                    (progn
-                      (task-orchestrator-add-listener orchestrator listener)
-                      (multiple-value-bind (entry reason)
-                          (task-job-enqueue-steering job "background context")
-                        (test-assert
-                         (and entry
-                              (eq reason ':accepted)
-                              (zerop
-                               (task-job-response-promotion-pending-count job)))
-                         "ordinary child steering creates no response promotion token")
-                        (task-job-take-steering job)
-                        (task-job-acknowledge-steering
-                         job (agent-steering-input-identifier entry)))
-                      (multiple-value-bind (first first-reason)
-                          (task-job-enqueue-steering
-                           job "first promoted prompt" :promote-response-p t)
-                        (multiple-value-bind (second second-reason)
-                            (task-job-enqueue-steering
-                             job "second promoted prompt" :promote-response-p t)
-                          (let ((first-time (get-universal-time))
-                                (second-time (1+ (get-universal-time))))
-                            (test-assert
-                             (and (eq first-reason ':accepted)
-                                  (eq second-reason ':accepted)
-                                  (= (task-job-response-promotion-pending-count job)
-                                     2))
-                             "promoted steering reserves one FIFO token per accepted prompt")
+                     "yield succeeds after every steering append is durable"))
+                  (multiple-value-bind (late-entry late-reason)
+                      (task-job-enqueue-steering job "after yield")
+                    (test-assert
+                     (and (null late-entry) (eq late-reason ':closed))
+                     "accepted yield rejects every later steering message"))))
+              (let* ((fixture (fixture "steering-normal-stop"))
+                     (job     (mark-running (getf fixture :job)))
+                     (child   (getf fixture :child))
+                     (result
+                       (agent-test-result
+                        "normal-stop" (list (agent-test-message "done"))
+                        :turn-completion ':end)))
+                (multiple-value-bind (entry reason)
+                    (task-job-enqueue-steering job "continue instead")
+                  (declare (ignore reason))
+                  (test-assert
+                   (not (agent-turn-complete-p child result))
+                   "pending steering prevents a normal provider stop")
+                  (task-job-take-steering job)
+                  (task-job-acknowledge-steering
+                   job (agent-steering-input-identifier entry))
+                  (test-assert
+                   (and (agent-turn-complete-p child result)
+                        (task-job-steering-closed-p job))
+                   "normal completion atomically claims an empty mailbox")))
+              (let* ((fixture      (fixture "steering-response-promotion"))
+                     (job          (mark-running (getf fixture :job)))
+                     (orchestrator (task-job-orchestrator job))
+                     (events       nil)
+                     (listener
+                       (lambda (channel payload)
+                         (when (eq channel ':task-subagent-verbal-response)
+                           (push (copy-tree payload) events)))))
+                (unwind-protect
+                     (progn
+                       (task-orchestrator-add-listener orchestrator listener)
+                       (multiple-value-bind (entry reason)
+                           (task-job-enqueue-steering job "background context")
+                         (test-assert
+                          (and entry
+                               (eq reason ':accepted)
+                               (zerop
+                                (task-job-response-promotion-pending-count job)))
+                          "ordinary child steering creates no response promotion token")
+                         (task-job-take-steering job)
+                         (task-job-acknowledge-steering
+                          job (agent-steering-input-identifier entry)))
+                       (multiple-value-bind (first first-reason)
+                           (task-job-enqueue-steering
+                            job "first promoted prompt" :promote-response-p t)
+                         (multiple-value-bind (second second-reason)
+                             (task-job-enqueue-steering
+                              job "second promoted prompt" :promote-response-p t)
+                           (let ((first-time  (get-universal-time))
+                                 (second-time (1+ (get-universal-time))))
+                             (test-assert
+                              (and (eq first-reason ':accepted)
+                                   (eq second-reason ':accepted)
+                                   (= (task-job-response-promotion-pending-count job)
+                                      2))
+                              "promoted steering reserves one FIFO token per accepted prompt")
                              (task-job-note-agent-status
                               job ':assistant-response-persisted
                               (list :text "pre-steering answer" :time first-time))
@@ -1371,524 +1370,524 @@
                                (task-job-acknowledge-steering
                                 job (agent-steering-input-identifier second)))
                               "durable steering acknowledgments activate response promotions")
-                            (task-job-note-agent-status
-                             job ':provider-request-started
-                             (list :request-number 1))
-                            (task-job-note-agent-status
-                             job ':tool-call-completed
-                             (list :tool "resource.read"))
-                            (task-job-note-agent-status
-                             job ':assistant-response-persisted
-                             (list :text "   " :time first-time))
-                            (test-assert
-                             (and (null events)
-                                  (= (task-job-response-promotion-pending-count job)
-                                     2))
-                             "tools, status updates, and blank text do not consume promotion tokens")
-                            (task-job-note-agent-status
-                             job ':assistant-response-persisted
-                             (list :text "first answer" :time first-time))
-                            (test-assert
-                             (and (= (length events) 1)
-                                  (= (task-job-response-promotion-pending-count job)
-                                     1))
-                             "one durable verbal response consumes exactly one token and emits once")
-                            (task-job-note-agent-status
-                             job ':assistant-response-persisted
-                             (list :text "second answer" :time second-time))
-                            (task-job-note-agent-status
-                             job ':assistant-response-persisted
-                             (list :text "unsteered answer" :time (1+ second-time)))
-                            (let* ((ordered-events (nreverse events))
-                                   (first-event (first ordered-events))
-                                   (second-event (second ordered-events)))
-                              (test-assert
-                               (and (= (length ordered-events) 2)
-                                    (zerop
-                                     (task-job-response-promotion-pending-count
-                                      job))
-                                    (string=
-                                     (getf first-event :id)
-                                     (session-job-identifier job))
-                                    (string=
-                                     (getf first-event :execution-id)
-                                     (task-job-execution-identifier job))
-                                    (string=
-                                     (getf first-event :child-name)
-                                     (task-job-display-name job))
-                                    (string=
-                                     (getf first-event :steering-id)
-                                     (agent-steering-input-identifier first))
-                                    (string= (getf first-event :text)
-                                             "first answer")
-                                    (= (getf first-event :time) first-time)
-                                    (string=
-                                     (getf second-event :steering-id)
-                                     (agent-steering-input-identifier second))
-                                    (string= (getf second-event :text)
-                                             "second answer")
-                                    (= (getf second-event :time) second-time))
-                               "promoted responses preserve FIFO steering and portable child identity"))))))
-                 (task-orchestrator-remove-listener orchestrator listener)
-                 (task-job-close-steering job)))
-             (let* ((fixture (fixture "steering-response-bound"))
-                    (job (mark-running (getf fixture :job))))
-               (unwind-protect
-                    (let ((*task-response-promotion-maximum-items* 1))
-                      (multiple-value-bind (first first-reason)
-                          (task-job-enqueue-steering
-                           job "reserve one response" :promote-response-p t)
-                        (test-assert
-                         (and first (eq first-reason ':accepted))
-                         "the response promotion bound accepts its first token")
-                        (task-job-take-steering job)
-                        (task-job-acknowledge-steering
-                         job (agent-steering-input-identifier first))
-                        (multiple-value-bind (second second-reason)
-                            (task-job-enqueue-steering
-                             job "reserve another response" :promote-response-p t)
-                          (test-assert
-                           (and (null second)
-                                (eq second-reason ':full)
-                                (= (task-job-response-promotion-pending-count job)
-                                   1)
-                                (zerop (task-job-steering-pending-count job)))
-                           "the response token bound rejects promoted steering atomically"))
-                        (multiple-value-bind (ordinary ordinary-reason)
-                            (task-job-enqueue-steering job "ordinary still fits")
-                          (test-assert
-                           (and ordinary
-                                (eq ordinary-reason ':accepted)
-                                (= (task-job-response-promotion-pending-count job)
-                                   1)
-                                (= (task-job-close-steering job) 1)
-                                (zerop
-                                 (task-job-response-promotion-pending-count job)))
-                           "ordinary steering bypasses the token bound and close clears tokens once"))))
-                 (task-job-close-steering job)))
-             (let* ((fixture (fixture "steering-response-race"))
-                    (job (mark-running (getf fixture :job)))
-                    (orchestrator (task-job-orchestrator job))
-                    (gate-lock (make-lock "Autolith response promotion race gate"))
-                    (gate-condition (make-condition-variable))
-                    (event-lock (make-lock "Autolith response promotion race events"))
-                    (ready-count 0)
-                    (released-p nil)
-                    (results (make-array 8 :initial-element nil))
-                    (events nil)
-                    (threads nil)
-                    (listener
-                      (lambda (channel payload)
-                        (when (eq channel ':task-subagent-verbal-response)
-                          (with-lock-held (event-lock)
-                            (push (copy-tree payload) events))))))
-               (labels ((await-release ()
-                          (with-lock-held (gate-lock)
-                            (incf ready-count)
-                            (task--condition-broadcast gate-condition)
-                            (loop until released-p
-                                  unless
-                                  (condition-wait
-                                   gate-condition gate-lock :timeout 2)
-                                    do (error
-                                        "Timed out waiting for the response race release.")))))
-                 (unwind-protect
-                      (progn
-                        (task-orchestrator-add-listener orchestrator listener)
-                        (multiple-value-bind (entry reason)
-                            (task-job-enqueue-steering
-                             job "race response" :promote-response-p t)
-                          (test-assert
-                           (and entry (eq reason ':accepted))
-                           "the response race reserves one promotion token")
-                          (task-job-take-steering job)
-                          (task-job-acknowledge-steering
-                           job (agent-steering-input-identifier entry))
-                          (dotimes (index (length results))
-                            (let ((thread-index index))
-                              (push
-                               (make-thread
-                                (lambda ()
-                                  (await-release)
-                                  (setf
-                                   (aref results thread-index)
-                                   (task-job-note-verbal-response
-                                    job
-                                    (format nil "race answer ~D" thread-index)
-                                    (get-universal-time))))
-                                :name "Autolith response promotion race")
-                               threads)))
-                          (with-lock-held (gate-lock)
-                            (loop until (= ready-count (length results))
-                                  unless
-                                  (condition-wait
-                                   gate-condition gate-lock :timeout 2)
-                                    do (error
-                                        "Timed out synchronizing the response race."))
-                            (setf released-p t)
-                            (task--condition-broadcast gate-condition))
-                          (dolist (thread threads)
-                            (join-thread thread))
-                          (setf threads nil)
-                          (let* ((winner-index (position t results))
-                                 (observed-events
-                                   (with-lock-held (event-lock)
-                                     (copy-list events)))
-                                 (event (first observed-events)))
-                            (test-assert
-                             (and (= (count t results) 1)
-                                  winner-index
-                                  (= (length observed-events) 1)
-                                  (zerop
-                                   (task-job-response-promotion-pending-count
-                                    job))
-                                  (string=
-                                   (getf event :steering-id)
-                                   (agent-steering-input-identifier entry))
-                                  (string=
-                                   (getf event :text)
-                                   (format nil "race answer ~D" winner-index)))
-                             "concurrent verbal notifications consume one token exactly once"))))
-                   (with-lock-held (gate-lock)
-                     (setf released-p t)
-                     (task--condition-broadcast gate-condition))
-                   (dolist (thread threads)
-                     (ignore-errors (join-thread thread)))
-                   (task-orchestrator-remove-listener orchestrator listener)
-                   (task-job-close-steering job))))
-             (dotimes (index 12)
-               (run-claim-race index ':yield)
-               (run-claim-race index ':normal))
-             (let* ((fixture (fixture "steering-tool-free"))
-                    (job (mark-running (getf fixture :job)))
-                    (orchestrator (task-job-orchestrator job))
-                    (base-child (getf fixture :child))
-                    (conversation (getf fixture :conversation))
-                    (reasoning-item
-                      (json-object
-                       "type" "reasoning"
-                       "summary"
-                       (json-array
-                        (json-object
-                         "type" "summary_text"
-                         "text" "before context"))))
-                    (provider
-                      (make-instance
-                       'scripted-provider
-                       :results
-                       (list
-                        (agent-test-result
-                         "before-steering"
-                         (list reasoning-item)
-                         :turn-completion ':end)
-                        (agent-test-result
-                         "after-steering"
-                         (list (agent-test-message "after context"))
-                         :turn-completion ':end))))
-                    (child
-                      (make-instance
-                       'task-child-agent
-                       :configuration (agent-configuration base-child)
-                       :provider provider
-                       :conversation conversation
-                       :tool-registry (agent-tool-registry base-child)
-                       :worker nil
-                       :definition (task-child-agent-definition base-child)
-                       :identity (task-child-agent-identity base-child)
-                       :depth (task-child-agent-depth base-child)
-                       :completion (task-child-agent-completion base-child)
-                       :orchestrator (task-child-agent-orchestrator base-child)
-                       :job job))
-                    (events nil)
-                    (listener
-                      (lambda (channel payload)
-                        (when (eq channel ':task-subagent-verbal-response)
-                          (push (copy-tree payload) events))))
-                    (observer
-                      (callback-agent-observer-create
-                       :status-callback
-                       (lambda (status details)
-                         (task-job-note-agent-status job status details))
-                       :steering-callback
-                       (lambda ()
-                         (task-job-take-steering job))
-                       :steering-persisted-callback
-                       (lambda (identifier)
-                         (task-job-acknowledge-steering job identifier)))))
-               (unwind-protect
-                    (progn
-                      (task-orchestrator-add-listener orchestrator listener)
-                      (multiple-value-bind (steering reason)
-                          (task-job-enqueue-steering
-                           job "tool-free steering" :promote-response-p t)
-                        (test-assert
-                         (and steering (eq reason ':accepted))
-                         "the tool-free child accepts promoted steering")
-                        (let ((result
-                                (agent-run-user-turn
-                                 child "initial child input" :observer observer)))
-                          (test-assert
-                           (and
-                            (string=
-                             (provider-result-response-id result)
-                             "after-steering")
-                            (equal
-                             (nreverse
-                              (scripted-provider-input-counts provider))
-                             '(1 3))
-                            (zerop (task-job-steering-pending-count job))
-                            (zerop
-                             (task-job-response-promotion-pending-count job)))
-                           "tool-free steering is durable before its follow-up response"))
-                        (let ((event (first events)))
-                          (test-assert
-                           (and (= (length events) 1)
-                                (string= (getf event :id)
-                                         (session-job-identifier job))
-                                (string=
-                                 (getf event :steering-id)
-                                 (agent-steering-input-identifier steering))
-                                (string= (getf event :text) "after context")
-                                (typep (getf event :time) 'timestamp))
-                           "the durable agent boundary emits one steered verbal response after reasoning")))
-                      (let ((user-records
-                              (loop for record in
-                                      (rest
-                                       (conversation--read-records
-                                        (conversation-pathname conversation)))
-                                    when
-                                    (and (eq (first record) ':message)
-                                         (eq (getf (rest record) :role) ':user))
-                                      collect record)))
-                        (test-assert
-                         (equal
-                          (mapcar
-                           (lambda (record)
-                             (getf (rest record) :content))
-                           user-records)
-                          '("initial child input" "tool-free steering"))
-                         "tool-free child steering is durable ordinary user input")))
-                 (task-orchestrator-remove-listener orchestrator listener)
-                 (task-job-close-steering job)))
-             (let* ((fixture (fixture "steering-cancellation"))
-                    (job (mark-running (getf fixture :job))))
-               (multiple-value-bind (entry reason)
-                   (task-job-enqueue-steering job "accepted before cancellation")
-                 (test-assert
-                  (and entry (eq reason ':accepted))
-                  "running child accepts steering before cancellation")
-                 (test-assert
-                  (job-cancel job :reason ':steering-test)
-                  "running child cancellation records its first reason")
-                 (multiple-value-bind (late-entry late-reason)
-                     (task-job-enqueue-steering job "after cancellation")
-                   (test-assert
-                    (and (null late-entry) (eq late-reason ':closing))
-                    "cancelled child rejects later steering before publication"))
-                 (test-assert
-                  (task-tests--publish-terminal
-                   job ':completed
-                   (list :status ':success :output "must be discarded"))
-                  "cancelled child publishes one terminal record")
-                 (let* ((final-result (job-result job))
-                        (artifact
+                             (task-job-note-agent-status
+                              job ':provider-request-started
+                              (list :request-number 1))
+                             (task-job-note-agent-status
+                              job ':tool-call-completed
+                              (list :tool "resource.read"))
+                             (task-job-note-agent-status
+                              job ':assistant-response-persisted
+                              (list :text "   " :time first-time))
+                             (test-assert
+                              (and (null events)
+                                   (= (task-job-response-promotion-pending-count job)
+                                      2))
+                              "tools, status updates, and blank text do not consume promotion tokens")
+                             (task-job-note-agent-status
+                              job ':assistant-response-persisted
+                              (list :text "first answer" :time first-time))
+                             (test-assert
+                              (and (= (length events) 1)
+                                   (= (task-job-response-promotion-pending-count job)
+                                      1))
+                              "one durable verbal response consumes exactly one token and emits once")
+                             (task-job-note-agent-status
+                              job ':assistant-response-persisted
+                              (list :text "second answer" :time second-time))
+                             (task-job-note-agent-status
+                              job ':assistant-response-persisted
+                              (list :text "unsteered answer" :time (1+ second-time)))
+                             (let* ((ordered-events (nreverse events))
+                                    (first-event    (first ordered-events))
+                                    (second-event   (second ordered-events)))
+                               (test-assert
+                                (and (= (length ordered-events) 2)
+                                     (zerop
+                                      (task-job-response-promotion-pending-count
+                                       job))
+                                     (string=
+                                      (getf first-event :id)
+                                      (session-job-identifier job))
+                                     (string=
+                                      (getf first-event :execution-id)
+                                      (task-job-execution-identifier job))
+                                     (string=
+                                      (getf first-event :child-name)
+                                      (task-job-display-name job))
+                                     (string=
+                                      (getf first-event :steering-id)
+                                      (agent-steering-input-identifier first))
+                                     (string= (getf first-event :text)
+                                              "first answer")
+                                     (= (getf first-event :time) first-time)
+                                     (string=
+                                      (getf second-event :steering-id)
+                                      (agent-steering-input-identifier second))
+                                     (string= (getf second-event :text)
+                                              "second answer")
+                                     (= (getf second-event :time) second-time))
+                                "promoted responses preserve FIFO steering and portable child identity"))))))
+                  (task-orchestrator-remove-listener orchestrator listener)
+                  (task-job-close-steering job)))
+              (let* ((fixture (fixture "steering-response-bound"))
+                     (job     (mark-running (getf fixture :job))))
+                (unwind-protect
+                     (let ((*task-response-promotion-maximum-items* 1))
+                       (multiple-value-bind (first first-reason)
+                           (task-job-enqueue-steering
+                            job "reserve one response" :promote-response-p t)
+                         (test-assert
+                          (and first (eq first-reason ':accepted))
+                          "the response promotion bound accepts its first token")
+                         (task-job-take-steering job)
+                         (task-job-acknowledge-steering
+                          job (agent-steering-input-identifier first))
+                         (multiple-value-bind (second second-reason)
+                             (task-job-enqueue-steering
+                              job "reserve another response" :promote-response-p t)
+                           (test-assert
+                            (and (null second)
+                                 (eq second-reason ':full)
+                                 (= (task-job-response-promotion-pending-count job)
+                                    1)
+                                 (zerop (task-job-steering-pending-count job)))
+                            "the response token bound rejects promoted steering atomically"))
+                         (multiple-value-bind (ordinary ordinary-reason)
+                             (task-job-enqueue-steering job "ordinary still fits")
+                           (test-assert
+                            (and ordinary
+                                 (eq ordinary-reason ':accepted)
+                                 (= (task-job-response-promotion-pending-count job)
+                                    1)
+                                 (= (task-job-close-steering job) 1)
+                                 (zerop
+                                  (task-job-response-promotion-pending-count job)))
+                            "ordinary steering bypasses the token bound and close clears tokens once"))))
+                  (task-job-close-steering job)))
+              (let* ((fixture        (fixture "steering-response-race"))
+                     (job            (mark-running (getf fixture :job)))
+                     (orchestrator   (task-job-orchestrator job))
+                     (gate-lock      (make-lock "Autolith response promotion race gate"))
+                     (gate-condition (make-condition-variable))
+                     (event-lock     (make-lock "Autolith response promotion race events"))
+                     (ready-count    0)
+                     (released-p     nil)
+                     (results        (make-array 8 :initial-element nil))
+                     (events         nil)
+                     (threads        nil)
+                     (listener
+                       (lambda (channel payload)
+                         (when (eq channel ':task-subagent-verbal-response)
+                           (with-lock-held (event-lock)
+                             (push (copy-tree payload) events))))))
+                (labels ((await-release ()
+                           (with-lock-held (gate-lock)
+                             (incf ready-count)
+                             (task--condition-broadcast gate-condition)
+                             (loop until released-p
+                                   unless
+                                   (condition-wait
+                                    gate-condition gate-lock :timeout 2)
+                                   do (error
+                                       "Timed out waiting for the response race release.")))))
+                  (unwind-protect
+                       (progn
+                         (task-orchestrator-add-listener orchestrator listener)
+                         (multiple-value-bind (entry reason)
+                             (task-job-enqueue-steering
+                              job "race response" :promote-response-p t)
+                           (test-assert
+                            (and entry (eq reason ':accepted))
+                            "the response race reserves one promotion token")
+                           (task-job-take-steering job)
+                           (task-job-acknowledge-steering
+                            job (agent-steering-input-identifier entry))
+                           (dotimes (index (length results))
+                             (let ((thread-index index))
+                               (push
+                                (make-thread
+                                 (lambda ()
+                                   (await-release)
+                                   (setf
+                                    (aref results thread-index)
+                                    (task-job-note-verbal-response
+                                     job
+                                     (format nil "race answer ~D" thread-index)
+                                     (get-universal-time))))
+                                 :name "Autolith response promotion race")
+                                threads)))
+                           (with-lock-held (gate-lock)
+                             (loop until (= ready-count (length results))
+                                   unless
+                                   (condition-wait
+                                    gate-condition gate-lock :timeout 2)
+                                   do (error
+                                       "Timed out synchronizing the response race."))
+                             (setf released-p t)
+                             (task--condition-broadcast gate-condition))
+                           (dolist (thread threads)
+                             (join-thread thread))
+                           (setf threads nil)
+                           (let* ((winner-index (position t results))
+                                  (observed-events
+                                    (with-lock-held (event-lock)
+                                      (copy-list events)))
+                                  (event        (first observed-events)))
+                             (test-assert
+                              (and (= (count t results) 1)
+                                   winner-index
+                                   (= (length observed-events) 1)
+                                   (zerop
+                                    (task-job-response-promotion-pending-count
+                                     job))
+                                   (string=
+                                    (getf event :steering-id)
+                                    (agent-steering-input-identifier entry))
+                                   (string=
+                                    (getf event :text)
+                                    (format nil "race answer ~D" winner-index)))
+                              "concurrent verbal notifications consume one token exactly once"))))
+                    (with-lock-held (gate-lock)
+                      (setf released-p t)
+                      (task--condition-broadcast gate-condition))
+                    (dolist (thread threads)
+                      (ignore-errors (join-thread thread)))
+                    (task-orchestrator-remove-listener orchestrator listener)
+                    (task-job-close-steering job))))
+              (dotimes (index 12)
+                (run-claim-race index ':yield)
+                (run-claim-race index ':normal))
+              (let* ((fixture      (fixture "steering-tool-free"))
+                     (job          (mark-running (getf fixture :job)))
+                     (orchestrator (task-job-orchestrator job))
+                     (base-child   (getf fixture :child))
+                     (conversation (getf fixture :conversation))
+                     (reasoning-item
+                       (json-object
+                        "type" "reasoning"
+                        "summary"
+                        (json-array
+                         (json-object
+                          "type" "summary_text"
+                          "text" "before context"))))
+                     (provider
+                       (make-instance
+                        'scripted-provider
+                        :results
+                        (list
+                         (agent-test-result
+                          "before-steering"
+                          (list reasoning-item)
+                          :turn-completion ':end)
+                         (agent-test-result
+                          "after-steering"
+                          (list (agent-test-message "after context"))
+                          :turn-completion ':end))))
+                     (child
+                       (make-instance
+                        'task-child-agent
+                        :configuration (agent-configuration base-child)
+                        :provider      provider
+                        :conversation  conversation
+                        :tool-registry (agent-tool-registry base-child)
+                        :worker        nil
+                        :definition    (task-child-agent-definition base-child)
+                        :identity      (task-child-agent-identity base-child)
+                        :depth         (task-child-agent-depth base-child)
+                        :completion    (task-child-agent-completion base-child)
+                        :orchestrator  (task-child-agent-orchestrator base-child)
+                        :job           job))
+                     (events       nil)
+                     (listener
+                       (lambda (channel payload)
+                         (when (eq channel ':task-subagent-verbal-response)
+                           (push (copy-tree payload) events))))
+                     (observer
+                       (callback-agent-observer-create
+                        :status-callback
+                        (lambda (status details)
+                          (task-job-note-agent-status job status details))
+                        :steering-callback
+                        (lambda ()
+                          (task-job-take-steering job))
+                        :steering-persisted-callback
+                        (lambda (identifier)
+                          (task-job-acknowledge-steering job identifier)))))
+                (unwind-protect
+                     (progn
+                       (task-orchestrator-add-listener orchestrator listener)
+                       (multiple-value-bind (steering reason)
+                           (task-job-enqueue-steering
+                            job "tool-free steering" :promote-response-p t)
+                         (test-assert
+                          (and steering (eq reason ':accepted))
+                          "the tool-free child accepts promoted steering")
+                         (let ((result
+                                 (agent-run-user-turn
+                                  child "initial child input" :observer observer)))
+                           (test-assert
+                            (and
+                             (string=
+                              (provider-result-response-id result)
+                              "after-steering")
+                             (equal
+                              (nreverse
+                               (scripted-provider-input-counts provider))
+                              '(1 3))
+                             (zerop (task-job-steering-pending-count job))
+                             (zerop
+                              (task-job-response-promotion-pending-count job)))
+                            "tool-free steering is durable before its follow-up response"))
+                         (let ((event (first events)))
+                           (test-assert
+                            (and (= (length events) 1)
+                                 (string= (getf event :id)
+                                          (session-job-identifier job))
+                                 (string=
+                                  (getf event :steering-id)
+                                  (agent-steering-input-identifier steering))
+                                 (string= (getf event :text) "after context")
+                                 (typep (getf event :time) 'timestamp))
+                            "the durable agent boundary emits one steered verbal response after reasoning")))
+                       (let ((user-records
+                               (loop for record in
+                                       (rest
+                                        (conversation--read-records
+                                         (conversation-pathname conversation)))
+                                     when
+                                     (and (eq (first record) ':message)
+                                          (eq (getf (rest record) :role) ':user))
+                                     collect record)))
+                         (test-assert
+                          (equal
+                           (mapcar
+                            (lambda (record)
+                              (getf (rest record) :content))
+                            user-records)
+                           '("initial child input" "tool-free steering"))
+                          "tool-free child steering is durable ordinary user input")))
+                  (task-orchestrator-remove-listener orchestrator listener)
+                  (task-job-close-steering job)))
+              (let* ((fixture (fixture "steering-cancellation"))
+                     (job     (mark-running (getf fixture :job))))
+                (multiple-value-bind (entry reason)
+                    (task-job-enqueue-steering job "accepted before cancellation")
+                  (test-assert
+                   (and entry (eq reason ':accepted))
+                   "running child accepts steering before cancellation")
+                  (test-assert
+                   (job-cancel job :reason ':steering-test)
+                   "running child cancellation records its first reason")
+                  (multiple-value-bind (late-entry late-reason)
+                      (task-job-enqueue-steering job "after cancellation")
+                    (test-assert
+                     (and (null late-entry) (eq late-reason ':closing))
+                     "cancelled child rejects later steering before publication"))
+                  (test-assert
+                   (task-tests--publish-terminal
+                    job ':completed
+                    (list :status ':success :output "must be discarded"))
+                   "cancelled child publishes one terminal record")
+                  (let* ((final-result (job-result job))
+                         (artifact
+                           (task-tests--read-exact-native-value
+                            (uiop:read-file-string
+                             (getf final-result :output-path)))))
+                    (test-assert
+                     (and (eq (job-state job) ':aborted)
+                          (= (getf final-result :undelivered-prompt-count) 1)
+                          (= (getf artifact :undelivered-prompt-count) 1)
+                          (zerop (task-job-steering-pending-count job))
+                          (task-job-steering-closed-p job))
+                     "cancellation publication records accepted undelivered steering"))))
+              (let* ((fixture (fixture "steering-cancelled-claims"))
+                     (job     (mark-running (getf fixture :job)))
+                     (child   (getf fixture :child))
+                     (normal-result
+                       (agent-test-result
+                        "cancelled-normal-stop"
+                        (list (agent-test-message "done"))
+                        :turn-completion ':end)))
+                (test-assert
+                 (job-cancel job :reason ':steering-claim-test)
+                 "cancellation precedes the terminal claim checks")
+                (let ((yield-result (valid-yield fixture)))
+                  (test-assert
+                   (and (not (tool-result-success-p yield-result))
+                        (not
+                         (task-completion-called-p
+                          (getf fixture :completion)))
+                        (not (task-job-steering-closed-p job)))
+                   "cancelled child rejects terminal yield without closing its mailbox"))
+                (test-assert
+                 (and (not (agent-turn-complete-p child normal-result))
+                      (not (task-job-steering-closed-p job)))
+                 "cancelled child rejects normal completion without closing its mailbox")
+                (test-assert
+                 (task-tests--publish-terminal job ':completed nil)
+                 "cancelled terminal-claim fixture publishes its aborted result"))
+              (let* ((fixture               (fixture "steering-publication-claim"))
+                     (job                   (mark-running (getf fixture :job)))
+                     (child                 (getf fixture :child))
+                     (normal-result
+                       (agent-test-result
+                        "publication-normal-stop"
+                        (list (agent-test-message "done"))
+                        :turn-completion ':end))
+                     (original-hook
+                       (cl-jobpond:job-terminal-result-function job))
+                     (gate-lock
+                       (make-lock "Autolith steering publication gate"))
+                     (gate-condition        (make-condition-variable))
+                     (entered-p             nil)
+                     (released-p            nil)
+                     (publication-result    nil)
+                     (publication-condition nil)
+                     (publication-thread    nil))
+                (unwind-protect
+                     (progn
+                       (setf (slot-value
+                              job 'cl-jobpond::terminal-result-function)
+                             (lambda (hook-job state result report)
+                               (with-lock-held (gate-lock)
+                                 (setf entered-p t)
+                                 (task--condition-broadcast gate-condition)
+                                 (loop until released-p
+                                       unless
+                                       (condition-wait
+                                        gate-condition gate-lock :timeout 2)
+                                       do (error
+                                           "Timed out holding the publication claim.")))
+                               (funcall original-hook
+                                        hook-job state result report)))
+                       (setf publication-thread
+                             (make-thread
+                              (lambda ()
+                                (handler-case
+                                    (setf publication-result
+                                          (task-tests--publish-terminal
+                                           job
+                                           ':failed
+                                           (list :id     (job-identifier job)
+                                                 :name   (task-job-display-name job)
+                                                 :agent  (task-job-agent-name job)
+                                                 :assignment
+                                                 "Exercise publication admission."
+                                                 :status ':failed
+                                                 :error  "stopped")))
+                                  (condition (condition)
+                                    (setf publication-condition condition))))
+                              :name "Autolith steering publication claim"))
+                       (with-lock-held (gate-lock)
+                         (loop until entered-p
+                               unless
+                               (condition-wait
+                                gate-condition gate-lock :timeout 2)
+                               do (error
+                                   "Timed out waiting for the publication claim.")))
+                       (multiple-value-bind (entry reason)
+                           (task-job-enqueue-steering job "after claim")
+                         (test-assert
+                          (and (null entry) (eq reason ':closing))
+                          "an active publication claim rejects steering"))
+                       (let ((yield-result (valid-yield fixture)))
+                         (test-assert
+                          (and (not (tool-result-success-p yield-result))
+                               (not
+                                (task-completion-called-p
+                                 (getf fixture :completion)))
+                               (not (task-job-steering-closed-p job)))
+                          "an active publication claim rejects terminal yield"))
+                       (test-assert
+                        (and (not (agent-turn-complete-p child normal-result))
+                             (not (task-job-steering-closed-p job)))
+                        "an active publication claim rejects normal completion")
+                       (with-lock-held (gate-lock)
+                         (setf released-p t)
+                         (task--condition-broadcast gate-condition))
+                       (join-thread publication-thread)
+                       (setf publication-thread nil)
+                       (test-assert
+                        (and publication-result
+                             (null publication-condition)
+                             (eq (job-state job) ':failed)
+                             (zerop (task-job-steering-pending-count job)))
+                        "publication completes after rejecting post-claim steering"))
+                  (with-lock-held (gate-lock)
+                    (setf released-p t)
+                    (task--condition-broadcast gate-condition))
+                  (when publication-thread
+                    (join-thread publication-thread))
+                  (unless (job-terminal-p job)
+                    (setf (slot-value
+                           job 'cl-jobpond::terminal-result-function)
+                          original-hook))))
+              (let* ((fixture (fixture "steering-terminal"))
+                     (job     (mark-running (getf fixture :job))))
+                (task-job-enqueue-steering job "undelivered one")
+                (task-job-enqueue-steering job "undelivered two")
+                (task-job-take-steering job)
+                (test-assert
+                 (= (task-job-steering-pending-count job) 2)
+                 "drained steering remains retained until durable acknowledgment")
+                (multiple-value-bind (final-result final-report final-state)
+                    (task-job--terminal-record
+                     job
+                     ':failed
+                     (list :id         (job-identifier job)
+                           :name       (task-job-display-name job)
+                           :agent      (task-job-agent-name job)
+                           :assignment "Exercise terminal retention."
+                           :status     ':failed
+                           :error      "stopped")
+                     nil)
+                  (declare (ignore final-report))
+                  (let ((artifact
                           (task-tests--read-exact-native-value
                            (uiop:read-file-string
                             (getf final-result :output-path)))))
-                   (test-assert
-                    (and (eq (job-state job) ':aborted)
-                         (= (getf final-result :undelivered-prompt-count) 1)
-                         (= (getf artifact :undelivered-prompt-count) 1)
-                         (zerop (task-job-steering-pending-count job))
-                         (task-job-steering-closed-p job))
-                    "cancellation publication records accepted undelivered steering"))))
-             (let* ((fixture (fixture "steering-cancelled-claims"))
-                    (job (mark-running (getf fixture :job)))
-                    (child (getf fixture :child))
-                    (normal-result
-                      (agent-test-result
-                       "cancelled-normal-stop"
-                       (list (agent-test-message "done"))
-                       :turn-completion ':end)))
-               (test-assert
-                (job-cancel job :reason ':steering-claim-test)
-                "cancellation precedes the terminal claim checks")
-               (let ((yield-result (valid-yield fixture)))
-                 (test-assert
-                  (and (not (tool-result-success-p yield-result))
-                       (not
-                        (task-completion-called-p
-                         (getf fixture :completion)))
-                       (not (task-job-steering-closed-p job)))
-                  "cancelled child rejects terminal yield without closing its mailbox"))
-               (test-assert
-                (and (not (agent-turn-complete-p child normal-result))
-                     (not (task-job-steering-closed-p job)))
-                "cancelled child rejects normal completion without closing its mailbox")
-               (test-assert
-                (task-tests--publish-terminal job ':completed nil)
-                "cancelled terminal-claim fixture publishes its aborted result"))
-             (let* ((fixture (fixture "steering-publication-claim"))
-                    (job (mark-running (getf fixture :job)))
-                    (child (getf fixture :child))
-                    (normal-result
-                      (agent-test-result
-                       "publication-normal-stop"
-                       (list (agent-test-message "done"))
-                       :turn-completion ':end))
-                    (original-hook
-                      (cl-jobpond:job-terminal-result-function job))
-                    (gate-lock
-                      (make-lock "Autolith steering publication gate"))
-                    (gate-condition (make-condition-variable))
-                    (entered-p nil)
-                    (released-p nil)
-                    (publication-result nil)
-                    (publication-condition nil)
-                    (publication-thread nil))
-               (unwind-protect
-                    (progn
-                      (setf (slot-value
-                             job 'cl-jobpond::terminal-result-function)
-                            (lambda (hook-job state result report)
-                              (with-lock-held (gate-lock)
-                                (setf entered-p t)
-                                (task--condition-broadcast gate-condition)
-                                (loop until released-p
-                                      unless
-                                      (condition-wait
-                                       gate-condition gate-lock :timeout 2)
-                                        do (error
-                                            "Timed out holding the publication claim.")))
-                              (funcall original-hook
-                                       hook-job state result report)))
-                      (setf publication-thread
-                            (make-thread
-                             (lambda ()
-                               (handler-case
-                                   (setf publication-result
-                                         (task-tests--publish-terminal
-                                          job
-                                          ':failed
-                                          (list :id (job-identifier job)
-                                                :name (task-job-display-name job)
-                                                :agent (task-job-agent-name job)
-                                                :assignment
-                                                "Exercise publication admission."
-                                                :status ':failed
-                                                :error "stopped")))
-                                 (condition (condition)
-                                   (setf publication-condition condition))))
-                             :name "Autolith steering publication claim"))
-                      (with-lock-held (gate-lock)
-                        (loop until entered-p
-                              unless
-                              (condition-wait
-                               gate-condition gate-lock :timeout 2)
-                                do (error
-                                    "Timed out waiting for the publication claim.")))
-                      (multiple-value-bind (entry reason)
-                          (task-job-enqueue-steering job "after claim")
-                        (test-assert
-                         (and (null entry) (eq reason ':closing))
-                         "an active publication claim rejects steering"))
-                      (let ((yield-result (valid-yield fixture)))
-                        (test-assert
-                         (and (not (tool-result-success-p yield-result))
-                              (not
-                               (task-completion-called-p
-                                (getf fixture :completion)))
-                              (not (task-job-steering-closed-p job)))
-                         "an active publication claim rejects terminal yield"))
-                      (test-assert
-                       (and (not (agent-turn-complete-p child normal-result))
-                            (not (task-job-steering-closed-p job)))
-                       "an active publication claim rejects normal completion")
-                      (with-lock-held (gate-lock)
-                        (setf released-p t)
-                        (task--condition-broadcast gate-condition))
-                      (join-thread publication-thread)
-                      (setf publication-thread nil)
-                      (test-assert
-                       (and publication-result
-                            (null publication-condition)
-                            (eq (job-state job) ':failed)
-                            (zerop (task-job-steering-pending-count job)))
-                       "publication completes after rejecting post-claim steering"))
-                 (with-lock-held (gate-lock)
-                   (setf released-p t)
-                   (task--condition-broadcast gate-condition))
-                 (when publication-thread
-                   (join-thread publication-thread))
-                 (unless (job-terminal-p job)
-                   (setf (slot-value
-                          job 'cl-jobpond::terminal-result-function)
-                         original-hook))))
-             (let* ((fixture (fixture "steering-terminal"))
-                    (job (mark-running (getf fixture :job))))
-               (task-job-enqueue-steering job "undelivered one")
-               (task-job-enqueue-steering job "undelivered two")
-               (task-job-take-steering job)
-               (test-assert
-                (= (task-job-steering-pending-count job) 2)
-                "drained steering remains retained until durable acknowledgment")
-               (multiple-value-bind (final-result final-report final-state)
-                   (task-job--terminal-record
-                    job
-                    ':failed
-                    (list :id (job-identifier job)
-                          :name (task-job-display-name job)
-                          :agent (task-job-agent-name job)
-                          :assignment "Exercise terminal retention."
-                          :status ':failed
-                          :error "stopped")
-                    nil)
-                 (declare (ignore final-report))
-                 (let ((artifact
-                         (task-tests--read-exact-native-value
-                          (uiop:read-file-string
-                           (getf final-result :output-path)))))
-                   (test-assert
-                    (and (eq final-state ':failed)
-                         (= (getf final-result :undelivered-prompt-count) 2)
-                         (= (getf artifact :undelivered-prompt-count) 2)
-                         (zerop (task-job-steering-pending-count job))
-                         (task-job-steering-closed-p job))
-                    "terminal publication records queued and in-flight prompts")))))
-        (platform-delete-directory-tree *platform* root :validate t
-                                             :if-does-not-exist ':ignore)))
-    nil)))
+                    (test-assert
+                     (and (eq final-state ':failed)
+                          (= (getf final-result :undelivered-prompt-count) 2)
+                          (= (getf artifact :undelivered-prompt-count) 2)
+                          (zerop (task-job-steering-pending-count job))
+                          (task-job-steering-closed-p job))
+                     "terminal publication records queued and in-flight prompts")))))
+            (platform-delete-directory-tree *platform* root :validate t
+                                                 :if-does-not-exist   ':ignore)))
+     nil)))
 
 (-> test-task-child-messaging () null)
 (defun test-task-child-messaging ()
   "Test parent steering through job.send and child notes to the parent."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (definition (task-agent-definition-create
-                      :name "messaging-child"
-                      :description "Exercise child messaging."
-                      :instructions "Note progress, accept steering, yield."
-                      :source ':test))
-         (fixture (task-tests--yield-fixture configuration definition
-                                             "messaging-child-1"))
-         (job (getf fixture :job))
-         (parent (task-job-parent-agent job))
-         (orchestrator (task-job-orchestrator job))
-         (send-tool (make-instance 'task-job-tool
-                                   :orchestrator orchestrator
-                                   :namespace "job"
-                                   :name "send"
-                                   :description "Test job send."
-                                   :parameters (tool-object-schema
-                                                (json-object) '())))
+  (let* ((configuration  (test-configuration))
+         (root           (test-configuration-root configuration))
+         (definition     (task-agent-definition-create
+                          :name         "messaging-child"
+                          :description  "Exercise child messaging."
+                          :instructions "Note progress, accept steering, yield."
+                          :source       ':test))
+         (fixture        (task-tests--yield-fixture configuration definition
+                                                    "messaging-child-1"))
+         (job            (getf fixture :job))
+         (parent         (task-job-parent-agent job))
+         (orchestrator   (task-job-orchestrator job))
+         (send-tool      (make-instance 'task-job-tool
+                                        :orchestrator orchestrator
+                                        :namespace    "job"
+                                        :name         "send"
+                                        :description  "Test job send."
+                                        :parameters   (tool-object-schema
+                                                       (json-object) '())))
          (parent-context (make-instance 'tool-context
                                         :configuration configuration
-                                        :worker nil
+                                        :worker        nil
                                         :conversation
                                         (agent-conversation parent)
                                         :registry
                                         (make-instance 'tool-registry)
-                                        :agent parent)))
+                                        :agent         parent)))
     (unwind-protect
          (progn
            ;; The fixture job is unregistered; make it findable and counted
@@ -1943,7 +1942,7 @@
                     (find "task-notes"
                           (context-delivery-contributions delivery)
                           :test #'string=
-                          :key #'context-contribution-identifier)))
+                          :key  #'context-contribution-identifier)))
              (test-assert
               (and contribution
                    (search "halfway done"
@@ -1959,12 +1958,12 @@
                           (agent-conversation parent)
                           #()))
                         :test #'string=
-                        :key #'context-contribution-identifier))
+                        :key  #'context-contribution-identifier))
             "delivered notes drain and do not repeat")
            (let ((*task-note-maximum-pending* 0))
              (test-assert (eq (task-note-post "any-parent" "child" "text")
                               ':full)
                           "a full note queue refuses further notes")))
       (platform-delete-directory-tree *platform* root :validate t
-                                     :if-does-not-exist ':ignore)))
+                                     :if-does-not-exist         ':ignore)))
   nil)

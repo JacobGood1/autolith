@@ -17,8 +17,8 @@
   (test-telemetry--call
    (lambda (configuration)
      (let ((*model-catalog-poll-seconds* 0.01)
-           (refreshed (sb-thread:make-semaphore))
-           (calls 0))
+           (refreshed                    (sb-thread:make-semaphore))
+           (calls                        0))
        (let ((*model-catalog-fetch-function*
                (lambda (run)
                  (declare (ignore run))
@@ -29,7 +29,7 @@
          (telemetry-attach configuration)
          (test-model-catalog--await *telemetry-controller*)
          (let* ((controller *telemetry-controller*)
-                (timer (model-catalog-timer controller)))
+                (timer      (model-catalog-timer controller)))
            (bt:with-lock-held ((telemetry-controller-lock controller))
              (setf (model-catalog-fetched-at controller) (- (get-universal-time) 86401)
                    (model-catalog-attempt-at controller) (- (get-universal-time) 301)))
@@ -47,8 +47,8 @@
     (test-telemetry--call
      (lambda (configuration)
        (let* ((*model-catalog-poll-seconds* 0.01)
-              (refreshed (sb-thread:make-semaphore))
-              (calls 0)
+              (refreshed                    (sb-thread:make-semaphore))
+              (calls                        0)
               (*model-catalog-fetch-function*
                 (lambda (run)
                   (declare (ignore run))
@@ -58,7 +58,7 @@
          (telemetry-attach configuration)
          (test-model-catalog--await *telemetry-controller*)
          (let* ((controller *telemetry-controller*)
-                (old-timer (model-catalog-timer controller)))
+                (old-timer  (model-catalog-timer controller)))
            (catch 'checkpoint-exit
              (telemetry-call-with-quiescence
               (lambda ()
@@ -86,7 +86,7 @@
          (telemetry-attach configuration)
          (test-model-catalog--await *telemetry-controller*)
          (let* ((controller *telemetry-controller*)
-                (path (model-catalog--path controller)))
+                (path       (model-catalog--path controller)))
            (test-assert (= calls 1) "Cold startup attempts one background refresh.")
            (test-assert (eq (telemetry--model controller "new-public-model") ':custom)
                         "Cold offline uses a category until public membership is available.")
@@ -174,9 +174,9 @@
   (dolist (action '(disable shutdown checkpoint))
     (test-telemetry--call
      (lambda (configuration)
-       (let ((entered (sb-thread:make-semaphore))
-             (release (sb-thread:make-semaphore))
-             (joining (sb-thread:make-semaphore))
+       (let ((entered  (sb-thread:make-semaphore))
+             (release  (sb-thread:make-semaphore))
+             (joining  (sb-thread:make-semaphore))
              (finished (sb-thread:make-semaphore))
              (calls 0) (revoker nil) (controller nil))
          (let ((*model-catalog-fetch-function*
@@ -206,8 +206,10 @@
                               (lambda ()
                                 (unwind-protect
                                      (ecase action
-                                       (disable (setf (config :telemetry-enabled-p configuration) nil))
-                                       (shutdown (telemetry-shutdown))
+                                       (disable
+                                        (setf (config :telemetry-enabled-p configuration) nil))
+                                       (shutdown
+                                        (telemetry-shutdown))
                                        (checkpoint
                                         (telemetry-call-with-quiescence
                                          (lambda ()
@@ -248,11 +250,11 @@
      (telemetry-attach configuration)
      (test-model-catalog--await *telemetry-controller*)
      (let* ((*model-catalog-maximum-bytes* 1024)
-            (controller *telemetry-controller*)
-            (path (model-catalog--path controller))
-            (fixture (test-model-catalog--fixture '("padded-model")))
-            (body (concatenate 'string fixture
-                               (make-string (- 1024 (length fixture)) :initial-element #\Newline))))
+            (controller                    *telemetry-controller*)
+            (path                          (model-catalog--path controller))
+            (fixture                       (test-model-catalog--fixture '("padded-model")))
+            (body                          (concatenate 'string fixture
+                                                        (make-string (- 1024 (length fixture)) :initial-element #\Newline))))
        (test-model-catalog--refresh controller (telemetry-controller-epoch controller)
                                     (lambda (run) (declare (ignore run)) body))
        (test-assert (probe-file path) "A maximum body with escape expansion can be cached.")
@@ -313,9 +315,9 @@
      (telemetry-attach configuration)
      (test-model-catalog--await *telemetry-controller*)
      (let ((controller *telemetry-controller*)
-           (entered (sb-thread:make-semaphore))
-           (release (sb-thread:make-semaphore))
-           (original (symbol-function 'model-catalog-join))
+           (entered    (sb-thread:make-semaphore))
+           (release    (sb-thread:make-semaphore))
+           (original   (symbol-function 'model-catalog-join))
            (paused nil) (stopper nil))
        (setf (model-catalog-attempt-at controller) nil)
        (unwind-protect
@@ -351,9 +353,9 @@
            (config :telemetry-timeout-ms configuration) 100)
      (telemetry-attach configuration)
      (test-model-catalog--await *telemetry-controller*)
-     (let ((original (symbol-function 'uiop:launch-program))
-           (ready-path (merge-pathnames "catalog-stall.ready" (config :cache-root configuration)))
-           (process nil)
+     (let ((original                     (symbol-function 'uiop:launch-program))
+           (ready-path                   (merge-pathnames "catalog-stall.ready" (config :cache-root configuration)))
+           (process                      nil)
            (*telemetry-process-function* nil))
        (test-call-with-function-replacements
         (list (list 'uiop:launch-program
@@ -363,7 +365,7 @@
                                 (test-telemetry--launch-stalled-child original options ready-path))
                           (apply original command options)))))
         (lambda ()
-          (let* ((run (telemetry--begin-run configuration))
+          (let* ((run   (telemetry--begin-run configuration))
                  (start (get-internal-real-time)))
             (test-assert (null (telemetry--process run '(:catalog))) "A stalled catalog yields no response.")
             (test-assert (probe-file ready-path)
@@ -407,7 +409,6 @@
                           "Unknown-length responses have a hard streaming byte bound."))
            (test-assert (not (open-stream-p opened)) "Oversized response closes the stream.")))))))
 
-
 (defun test-model-catalog-network-fallback ()
   "A trickling or unreachable HTTP source leaves last-good cache and membership intact."
   (test-telemetry--call
@@ -416,17 +417,17 @@
      (telemetry-attach configuration)
      (test-model-catalog--await *telemetry-controller*)
      (let* ((controller *telemetry-controller*)
-            (epoch (telemetry-controller-epoch controller))
-            (body (test-model-catalog--fixture '("cached-model")))
-            (path (model-catalog--path controller)))
+            (epoch      (telemetry-controller-epoch controller))
+            (body       (test-model-catalog--fixture '("cached-model")))
+            (path       (model-catalog--path controller)))
        (test-model-catalog--refresh controller epoch (lambda (run) (declare (ignore run)) body))
-       (let ((saved (uiop:read-file-string path))
+       (let ((saved      (uiop:read-file-string path))
              (fetched-at (model-catalog-fetched-at controller)))
          (dolist (trickle-p '(nil t))
            (let* ((listener (usocket:socket-listen "127.0.0.1" 0 :reuse-address t
-                                                   :element-type '(unsigned-byte 8)))
-                  (port (usocket:get-local-port listener))
-                  (server nil))
+                                                   :element-type                '(unsigned-byte 8)))
+                  (port     (usocket:get-local-port listener))
+                  (server   nil))
              (unwind-protect
                   (progn
                     (if trickle-p
@@ -436,9 +437,9 @@
                                  (ignore-errors
                                    (when (usocket:wait-for-input listener :timeout 2 :ready-only t)
                                      (let* ((connection (usocket:socket-accept listener))
-                                            (stream (usocket:socket-stream connection))
-                                            (text (flexi-streams:make-flexi-stream stream :external-format :utf-8))
-                                            (crlf (format nil "~C~C" #\Return #\Newline)))
+                                            (stream     (usocket:socket-stream connection))
+                                            (text       (flexi-streams:make-flexi-stream stream :external-format :utf-8))
+                                            (crlf       (format nil "~C~C" #\Return #\Newline)))
                                        (unwind-protect
                                             (progn
                                               (loop for line = (read-line text nil nil)
@@ -451,9 +452,9 @@
                                          (usocket:socket-close connection))))))
                                :name "trickling catalog fixture"))
                         (usocket:socket-close listener))
-                    (let ((*model-catalog-source* (format nil "http://127.0.0.1:~D/api.json" port))
+                    (let ((*model-catalog-source*          (format nil "http://127.0.0.1:~D/api.json" port))
                           (*model-catalog-request-seconds* 0.15)
-                          (start (get-internal-real-time)))
+                          (start                           (get-internal-real-time)))
                       (test-model-catalog--refresh controller epoch
                                                   (lambda (run) (declare (ignore run))
                                                     (model-catalog--worker-fetch configuration)))

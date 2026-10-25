@@ -31,22 +31,22 @@
 (defun mistral-provider-test--credentials ()
   "Test Mistral environment precedence and private-store fallback."
   (let* ((configuration (mistral-provider-test--configuration))
-         (root (test-configuration-root configuration))
-         (saved (uiop:getenv *mistral-environment-variable*)))
+         (root          (test-configuration-root configuration))
+         (saved         (uiop:getenv *mistral-environment-variable*)))
     (unwind-protect
          (progn
            (platform-setenv *mistral-environment-variable* "mistral-environment-key")
            (let ((manager (mistral-credential-manager-create configuration)))
              (api-key-credential-manager-save-key manager "mistral-private-key"))
            (let* ((manager (mistral-credential-manager-create configuration))
-                  (loaded (credential-manager-load manager)))
+                  (loaded  (credential-manager-load manager)))
              (test-assert
               (string= (oauth-credentials-access-token loaded)
                        "mistral-environment-key")
               "Mistral environment credentials take precedence"))
            (platform-unsetenv *mistral-environment-variable*)
            (let* ((manager (mistral-credential-manager-create configuration))
-                  (loaded (credential-manager-load manager)))
+                  (loaded  (credential-manager-load manager)))
              (test-assert
               (string= (oauth-credentials-access-token loaded)
                        "mistral-private-key")
@@ -68,23 +68,23 @@
                 "id" "mistral-large-latest"
                 "max_context_length" 128000
                 "capabilities" (json-object "completion_chat" t))
-               (json-object
-                "id" "codestral-embed"
-                "capabilities" (json-object "completion_chat" (json-false))))))))
+             (json-object
+              "id" "codestral-embed"
+              "capabilities" (json-object "completion_chat" (json-false))))))))
       (test-assert
        (equal (openai-compatible--decode-model-list
                body
                :entry-predicate #'mistral--chat-model-p)
               '((:name "mistral-large-latest" :context-window 128000)))
        "Mistral discovery exposes only chat-capable models"))
-    nil)
+  nil)
 
 (-> mistral-provider-test--provider () null)
 (defun mistral-provider-test--provider ()
   "Test Mistral's output-token request field."
   (let* ((configuration (mistral-provider-test--configuration))
-         (root (test-configuration-root configuration))
-         (provider (mistral-provider-create configuration))
+         (root          (test-configuration-root configuration))
+         (provider      (mistral-provider-create configuration))
          (conversation
            (conversation-create configuration :identifier "mistral-request")))
     (unwind-protect
@@ -101,7 +101,7 @@
                "Mistral requests include max_tokens")
               (test-assert
                (null (json-get request "max_completion_tokens"))
-              "Mistral requests omit max_completion_tokens"))))
+               "Mistral requests omit max_completion_tokens"))))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
@@ -109,10 +109,10 @@
 (defun mistral-provider-test--endpoints-and-discovery ()
   "Test endpoint overrides, authenticated discovery, and key validation."
   (let* ((configuration (mistral-provider-test--configuration))
-         (root (test-configuration-root configuration))
-         (saved-chat (uiop:getenv "AUTOLITH_MISTRAL_PROVIDER_ENDPOINT"))
-         (saved-models (uiop:getenv "AUTOLITH_MISTRAL_MODELS_ENDPOINT"))
-         (observed nil))
+         (root          (test-configuration-root configuration))
+         (saved-chat    (uiop:getenv "AUTOLITH_MISTRAL_PROVIDER_ENDPOINT"))
+         (saved-models  (uiop:getenv "AUTOLITH_MISTRAL_MODELS_ENDPOINT"))
+         (observed      nil))
     (unwind-protect
          (progn
            (platform-setenv "AUTOLITH_MISTRAL_PROVIDER_ENDPOINT"
@@ -144,14 +144,14 @@
                             "id" "mistral-small-latest"
                             "max_context_length" 32000
                             "capabilities" (json-object "completion_chat" t)))))
-                        200
-                        nil))))
-              (lambda ()
-                  (test-assert
-                   (equal (mistral--fetch-models configuration)
-                          '((:name "mistral-small-latest" :context-window 32000)))
-                   "Mistral fetches chat-capable models")
-              (mistral-validate-api-key "mistral-validation-key")))
+                      200
+                      nil))))
+            (lambda ()
+                (test-assert
+                 (equal (mistral--fetch-models configuration)
+                        '((:name "mistral-small-latest" :context-window 32000)))
+                 "Mistral fetches chat-capable models")
+             (mistral-validate-api-key "mistral-validation-key")))
            (test-assert
             (and (= (length observed) 2)
                  (every
@@ -187,12 +187,12 @@
          (progn
            (register-provider
             "mistral-test"
-            :family ':mistral
+            :family   ':mistral
             :protocol ':chat-completions
-            :models '("mistral-test")
+            :models   '("mistral-test")
             :endpoint *mistral-chat-completions-endpoint*
-            :factory #'provider--mistral-registration-factory
-            :source ':runtime)
+            :factory  #'provider--mistral-registration-factory
+            :source   ':runtime)
            (mistral-provider-test--credentials)
            (mistral-provider-test--model-decoding)
            (mistral-provider-test--provider)

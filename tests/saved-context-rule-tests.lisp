@@ -10,9 +10,9 @@
   "Exercise detached persistence, reload, conflict, replacement, and validation."
   (with-test-configuration (configuration root)
     (let* ((configuration (configuration-copy configuration :working-directory root))
-           (rule (saved-context-rule-tests--rule "saved" "Saved advice."))
-           (replacement (saved-context-rule-tests--rule "saved" "Replaced advice."))
-           (path (context-rule-saved-path configuration :workspace)))
+           (rule          (saved-context-rule-tests--rule "saved" "Saved advice."))
+           (replacement   (saved-context-rule-tests--rule "saved" "Replaced advice."))
+           (path          (context-rule-saved-path configuration :workspace)))
       (test-assert (pathnamep (context-rule-save configuration rule))
                    "saving a workspace rule returns its pathname")
       (test-assert (probe-file path) "saving publishes the snapshot")
@@ -40,9 +40,9 @@
 (defun test-saved-context-rule-scope-and-precedence ()
   "Exercise global/workspace isolation and workspace ID precedence."
   (with-test-configuration (configuration root)
-    (let* ((workspace (configuration-copy configuration :working-directory root))
+    (let* ((workspace  (configuration-copy configuration :working-directory root))
            (other-root (test-make-temporary-root root))
-           (other (configuration-copy configuration :working-directory other-root)))
+           (other      (configuration-copy configuration :working-directory other-root)))
       (context-rule-save workspace
                          (saved-context-rule-tests--rule "same" "Workspace")
                          :scope ':workspace)
@@ -50,7 +50,7 @@
                          (saved-context-rule-tests--rule "same" "Global")
                          :scope ':global)
       (test-assert (equal '("same") (mapcar (lambda (r) (getf r ':id))
-                                               (context-rule-saved workspace)))
+                                            (context-rule-saved workspace)))
                    "workspace rules override global IDs")
       (test-assert (string= "Global"
                             (getf (first (context-rule-saved other)) ':instruction))
@@ -95,12 +95,12 @@
 (defun test-saved-context-rule-resolution-boundaries ()
   "Deliver live saved output rules through the shared resolver budget and lifecycle."
   (with-test-configuration (configuration root)
-    (let* ((configuration (configuration-copy configuration :working-directory root))
-           (conversation (conversation-create configuration))
+    (let* ((configuration          (configuration-copy configuration :working-directory root))
+           (conversation           (conversation-create configuration))
            (*context-contributors* nil)
-           (*context-resolver* (cl-llm-provider-api:make-context-resolver))
-           (rule (list :id "output" :when '(:output-contains ("distinctive output"))
-                       :instruction "Saved output advice.")))
+           (*context-resolver*     (cl-llm-provider-api:make-context-resolver))
+           (rule                   (list :id "output" :when '(:output-contains ("distinctive output"))
+                                         :instruction "Saved output advice.")))
       (register-context-contributor "saved-test" #'context-rule-saved-contributions)
       (context-rule-save configuration rule)
       (test-assert (null (saved-context-rule-tests--instructions configuration conversation))
@@ -123,7 +123,7 @@
       (test-assert (null (context-rule-saved-contributions
                           (make-instance 'request-context :configuration configuration
                                          :conversation conversation :tool-namespaces #()
-                                         :compaction-p t)))
+                                         :compaction-p                   t)))
                    "compaction excludes saved advisory rules")))
   nil)
 
@@ -131,7 +131,7 @@
 (defun test-saved-context-rule-corrupt-input-boundaries ()
   "Reject unsafe reader input, invalid record shapes and duplicate rule IDs."
   (with-test-configuration (configuration)
-    (let ((path (context-rule-saved-path configuration ':global))
+    (let ((path                                        (context-rule-saved-path configuration ':global))
           (*saved-context-rule-tests-read-evaluated-p* nil))
       (saved-context-rule-tests--write-form
        path "#.(progn (setf autolith::*saved-context-rule-tests-read-evaluated-p* t) nil)"
@@ -146,8 +146,8 @@
                          '(:context-rules :version 1 :rules nil :rules nil)
                          '(:context-rules :version 99 :rules nil)
                          (list :context-rules :version 1
-                               :rules (list (saved-context-rule-tests--rule "x" "one")
-                                            (saved-context-rule-tests--rule "x" "two")))))
+                               :rules         (list (saved-context-rule-tests--rule "x" "one")
+                                                    (saved-context-rule-tests--rule "x" "two")))))
         (saved-context-rule-tests--write-form path form)
         (test-assert (handler-case (progn (context-rule-saved configuration) nil)
                        (context-rule-corruption-error () t))
@@ -158,7 +158,7 @@
 (defun test-saved-context-rule-save-preserves-corruption ()
   "Reject corrupt source data before publishing a save."
   (with-test-configuration (configuration)
-    (let* ((path (context-rule-saved-path configuration ':global))
+    (let* ((path    (context-rule-saved-path configuration ':global))
            (corrupt "(:context-rules :version 999 :rules nil)"))
       (saved-context-rule-tests--write-form path corrupt :raw-p t)
       (test-assert (handler-case
@@ -176,8 +176,8 @@
 (defun test-saved-context-rule-publication-failures ()
   "Translate directory and atomic replacement failures without losing saved rules."
   (with-test-configuration (configuration)
-    (let* ((rule (saved-context-rule-tests--rule "original" "Original advice."))
-           (path (context-rule-save configuration rule :scope ':global))
+    (let* ((rule   (saved-context-rule-tests--rule "original" "Original advice."))
+           (path   (context-rule-save configuration rule :scope ':global))
            (before (uiop:read-file-string path))
            (rename (symbol-function 'uiop:rename-file-overwriting-target)))
       (test-call-with-function-replacements
@@ -213,14 +213,14 @@
 (defun test-saved-context-rule-concurrent-writers ()
   "Serialize independent store instances without losing concurrent rule IDs."
   (with-test-configuration (configuration root)
-    (let ((configuration (configuration-copy configuration :working-directory root))
-          (lock (make-lock "saved-rule-test"))
+    (let ((configuration   (configuration-copy configuration :working-directory root))
+          (lock            (make-lock "saved-rule-test"))
           (ready-condition (make-condition-variable))
           (start-condition (make-condition-variable))
-          (ready 0)
-          (start-p nil)
-          (errors nil)
-          (threads nil))
+          (ready           0)
+          (start-p         nil)
+          (errors          nil)
+          (threads         nil))
       (labels ((write-rules (prefix)
                  (with-lock-held (lock)
                    (incf ready)

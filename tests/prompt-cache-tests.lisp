@@ -14,8 +14,8 @@
   "Test measured uncached input, observation limits, and stagnant cache counts."
   (let ((baseline (make-instance 'prompt-cache-baseline
                                  :prompt-tokens 40000
-                                 :completed-at 1000
-                                 :model "model-a")))
+                                 :completed-at  1000
+                                 :model         "model-a")))
     (dolist (case '((:model-changed 1010 "model-b" 41000 0 41000 10)
                     (:idle 1400 "model-a" 41000 100 40900 400)
                     (:prompt-shrank 1010 "model-a" 8000 0 8000 10)
@@ -108,7 +108,7 @@
                                               (list (list "cached_tokens" 0)
                                                     (list "input_tokens" 9221)))))))))
                  :started-at 1010
-                 :model "model-a")))
+                 :model      "model-a")))
       (test-assert
        (and miss
              (= (getf miss :instructions-uncached) 111)
@@ -148,15 +148,15 @@
 (defun test-prompt-cache-miss-notices ()
   "Exercise compact colored cache-miss notices through the request lifecycle."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "cache-miss-ui"))
-         (terminal (make-instance 'recording-terminal :columns 40 :styled-p t))
-         (ui (terminal-ui-create :terminal terminal))
-         (application (make-instance 'application
-                                     :configuration configuration
-                                     :conversation conversation
-                                     :ui ui)))
+         (terminal      (make-instance 'recording-terminal :columns 40 :styled-p t))
+         (ui            (terminal-ui-create :terminal terminal))
+         (application   (make-instance 'application
+                                       :configuration configuration
+                                       :conversation  conversation
+                                       :ui            ui)))
     (unwind-protect
          (let* ((observer (application-agent-observer application))
                 (send-status
@@ -185,7 +185,7 @@
              (conversation-append-provider-metadata
               conversation
               (list :request-number 1
-                    :usage (prompt-cache-tests--usage 30000 0)))
+                    :usage          (prompt-cache-tests--usage 30000 0)))
              (request (prompt-cache-tests--usage 31000 0))
              (test-assert (not (notice-p))
                           "disabled notices are omitted")
@@ -201,13 +201,13 @@
              (setf (application-prompt-cache-baseline application)
                    (make-instance 'prompt-cache-baseline
                                   :prompt-tokens 32000
-                                  :completed-at (- (get-universal-time) 900)
-                                  :model (config :model configuration)))
+                                  :completed-at  (- (get-universal-time) 900)
+                                  :model         (config :model configuration)))
              (request (prompt-cache-tests--usage 33000 0))
              (test-assert (notice-counts-p 33000 33000)
                           "an idle miss reports measured uncached and total input")
-             (let* ((spans (application--prompt-cache-miss-notice
-                             '(:uncached-tokens 33000 :prompt-tokens 33000)))
+             (let* ((spans  (application--prompt-cache-miss-notice
+                              '(:uncached-tokens 33000 :prompt-tokens 33000)))
                     (counts (remove-if-not
                              (lambda (span) (eq ':code (terminal-span-style span))) spans)))
                (test-assert (and (eq ':failure (terminal-span-style (first spans)))
@@ -215,13 +215,13 @@
                             "the cache-miss ledger entry begins with a red exclamation mark")
                (test-assert (equal (mapcar #'terminal-span-text counts)
                                    (mapcar #'application--token-count-description '(33000 33000)))
-                             "the renderer reports measured uncached input"))
+                            "the renderer reports measured uncached input"))
              (setf (application-prompt-cache-baseline application)
                    (make-instance 'prompt-cache-baseline
                                   :prompt-tokens 72000
                                   :cached-tokens 63872
-                                  :completed-at (get-universal-time)
-                                  :model (config :model configuration)))
+                                  :completed-at  (get-universal-time)
+                                  :model         (config :model configuration)))
              (request (append
                        (prompt-cache-tests--usage 73000 63872)
                        (list
@@ -251,7 +251,7 @@
                (conversation-append-provider-metadata
                 resumed
                 (list :request-number 1
-                      :usage (prompt-cache-tests--usage 20000 19000)))
+                      :usage          (prompt-cache-tests--usage 20000 19000)))
                (setf (application-conversation application) resumed)
                (request (prompt-cache-tests--usage 21000 0))
                (test-assert (not (notice-p))
@@ -275,15 +275,15 @@
 (defun test-cache-misses-command ()
   "Test the /cache-misses command persists and applies its preference."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "cache-miss-command"))
-         (terminal (make-instance 'recording-terminal :columns 100))
-         (ui (terminal-ui-create :terminal terminal))
-         (application (make-instance 'application
-                                     :configuration configuration
-                                     :conversation conversation
-                                     :ui ui)))
+         (terminal      (make-instance 'recording-terminal :columns 100))
+         (ui            (terminal-ui-create :terminal terminal))
+         (application   (make-instance 'application
+                                       :configuration configuration
+                                       :conversation  conversation
+                                       :ui            ui)))
     (unwind-protect
          (progn
            (terminal-ui-start ui)

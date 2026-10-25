@@ -4,19 +4,19 @@
 
 (defclass application-operation-test-tool (tool)
   ((calls
-    :initform 0
-    :accessor application-operation-test-tool-calls
-    :type integer
+    :initform      0
+    :accessor      application-operation-test-tool-calls
+    :type          integer
     :documentation "The number of test executions observed.")
    (arguments
-    :initform nil
-    :accessor application-operation-test-tool-arguments
-    :type t
+    :initform      nil
+    :accessor      application-operation-test-tool-arguments
+    :type          t
     :documentation "The newest decoded argument object.")
    (context
-    :initform nil
-    :accessor application-operation-test-tool-context
-    :type t
+    :initform      nil
+    :accessor      application-operation-test-tool-context
+    :type          t
     :documentation "The newest local-user tool context."))
   (:documentation "A deterministic tool exercising the local operation boundary."))
 
@@ -44,17 +44,17 @@
 (defun application-operation-tests--application ()
   "Return one isolated application and its local operation test resources."
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
+         (root               (test-configuration-root base-configuration))
          (configuration
            (configuration-copy base-configuration :working-directory root))
          (conversation
            (conversation-create configuration :identifier "operation-surface"))
-         (registry (make-default-tool-registry))
+         (registry           (make-default-tool-registry))
          (tool
            (make-instance
             'application-operation-test-tool
-            :namespace "test-operation"
-            :name "echo"
+            :namespace   "test-operation"
+            :name        "echo"
             :description "Echo one local operation test value."
             :parameters
             (tool-object-schema
@@ -64,25 +64,25 @@
               "items" (json-object "type" "array")
               "odd key)" (tool-string-property "Escaped completion key."))
              '("text"))))
-         (terminal (make-instance 'recording-terminal :columns 100))
-         (ui (terminal-ui-create :terminal terminal)))
+         (terminal           (make-instance 'recording-terminal :columns 100))
+         (ui                 (terminal-ui-create :terminal terminal)))
     (tool-registry-register registry tool)
     (tool-registry-register
      registry
      (make-instance 'task-yield-tool
-                    :namespace "yield"
-                    :name "submit"
+                    :namespace   "yield"
+                    :name        "submit"
                     :description "Child-only test yield."
-                    :parameters (tool-object-schema (json-object) nil)))
+                    :parameters  (tool-object-schema (json-object) nil)))
     (values
      (make-instance 'application
                     :configuration configuration
-                    :conversation conversation
-                    :provider nil
+                    :conversation  conversation
+                    :provider      nil
                     :tool-registry registry
-                    :worker nil
-                    :agent nil
-                    :ui ui)
+                    :worker        nil
+                    :agent         nil
+                    :ui            ui)
      root
      terminal
      tool)))
@@ -91,35 +91,35 @@
 (defun test-prompt-operation ()
   "Test local primary prompting, computed content, and named child steering."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (prompt-image (merge-pathnames "prompt-image.png" root))
+         (root          (test-configuration-root configuration))
+         (prompt-image  (merge-pathnames "prompt-image.png" root))
          (conversation
            (conversation-create configuration :identifier "prompt-operation"))
-         (registry (task-augment-tool-registry (make-default-tool-registry)))
+         (registry      (task-augment-tool-registry (make-default-tool-registry)))
          (primary
            (agent-create :configuration configuration
-                         :conversation conversation
+                         :conversation  conversation
                          :tool-registry registry
-                         :worker nil))
-         (terminal (make-instance 'recording-terminal :columns 100))
-         (ui (terminal-ui-create :terminal terminal))
+                         :worker        nil))
+         (terminal      (make-instance 'recording-terminal :columns 100))
+         (ui            (terminal-ui-create :terminal terminal))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :provider nil
+                          :conversation  conversation
+                          :provider      nil
                           :tool-registry registry
-                          :worker nil
-                          :agent primary
-                          :ui ui))
-         (controller nil)
-         (orchestrator (application--task-orchestrator application))
+                          :worker        nil
+                          :agent         primary
+                          :ui            ui))
+         (controller    nil)
+         (orchestrator  (application--task-orchestrator application))
          (definition
            (task-agent-definition-create
-            :name "prompt-child"
-            :description "Exercise named child prompting."
+            :name         "prompt-child"
+            :description  "Exercise named child prompting."
             :instructions "Accept ordered steering."
-            :source ':test)))
+            :source       ':test)))
     (labels ((mark-state (job state)
                (with-lock-held ((cl-jobpond::job--lock job))
                  (setf (job-state job) state))
@@ -151,113 +151,113 @@
                     application
                     :load-pending-p nil
                     :start-reader-p nil))
-              (let ((path (merge-pathnames "prompt-content.txt" root)))
-                (with-open-file (stream path
-                                        :direction ':output
-                                        :if-exists ':supersede
-                                        :if-does-not-exist ':create
-                                        :external-format ':utf-8)
-                  (write-string "computed prompt text" stream))
-                (test-conversation--write-tiny-png prompt-image)
-                (let ((*application-operation-application* application))
-                  (let ((receipt (prompt "ordinary prompt text")))
-                    (test-assert
-                     (and (eq (first receipt) ':prompt)
-                          (getf (rest receipt) :accepted-p)
-                          (eq (getf (rest receipt) :target) ':autolith)
-                          (eq (getf (rest receipt) :delivery) ':queued))
-                     "PROMPT returns a portable primary acceptance receipt"))
-                  (let ((receipt
-                          (prompt :to 'autolith "explicit primary prompt")))
-                    (test-assert
-                     (eq (getf (rest receipt) :target) ':autolith)
-                     ":TO AUTOLITH explicitly targets the primary agent"))
-                  (let ((receipt
-                          (prompt :to "AuToLiTh"
-                                  "case-insensitive primary prompt")))
-                    (test-assert
-                     (eq (getf (rest receipt) :target) ':autolith)
-                     "string AUTOLITH targets the primary case-insensitively"))
-                  (let ((receipt
-                          (prompt :images (list prompt-image) "image prompt")))
-                    (test-assert
-                     (and (= (getf (rest receipt) :image-count) 1)
-                          (= (getf (rest receipt) :content-characters)
-                             (length "[Image #1] image prompt")))
-                     "PROMPT returns primary image acceptance metadata")))
-                (let ((evaluation
-                        (application-lisp-evaluate
-                         (format nil "(prompt (read-file ~S))" (namestring path))
-                         :application application)))
-                  (test-assert
-                   (eq (application-lisp-evaluation-status evaluation) ':ok)
-                   "computed READ-FILE prompt executes through local Lisp"))
-                (let* ((work-items
-                         (application-input-controller--state controller :work-items))
-                       (image-input (second (fourth work-items))))
-                  (test-assert
-                   (equal
-                    (mapcar
-                     (lambda (work)
-                       (user-message-input-text (second work)))
-                     work-items)
-                    '("ordinary prompt text"
-                      "explicit primary prompt"
-                      "case-insensitive primary prompt"
-                      "[Image #1] image prompt"
-                      "computed prompt text"))
-                   "primary PROMPT preserves exact computed content and FIFO order")
-                  (test-assert
-                   (and (typep image-input 'user-message-input)
-                        (equal (user-message-input-image-pathnames image-input)
-                               (list (truename prompt-image))))
-                   "primary PROMPT preserves validated image attachments"))
-                (test-assert
-                 (string= (read-file path) "computed prompt text")
-                 "READ-FILE returns exact UTF-8 text")
-                (test-assert
-                 (eq (let ((*prompt-maximum-characters* 3))
-                       (prompt-reason (lambda () (read-file path))))
-                     ':content-too-large)
-                 "READ-FILE enforces its bound while consuming one open stream"))
-              (dolist (case
-                       (list
-                        (list nil ':malformed-arguments)
-                        (list '("one" "two") ':malformed-arguments)
-                        (list '(:to child) ':malformed-arguments)
-                        (list '(:to 42 "text") ':invalid-target)
-                        (list '(:images 42 "text") ':invalid-images)
-                        (list '(:unknown t "text") ':malformed-arguments)
-                        (list '("") ':empty-content)
-                        (list '(42) ':invalid-content)))
-                (destructuring-bind (arguments expected) case
-                  (test-assert
-                   (eq
-                    (let ((*application-operation-application* application))
+             (let ((path (merge-pathnames "prompt-content.txt" root)))
+               (with-open-file (stream path
+                                       :direction         ':output
+                                       :if-exists         ':supersede
+                                       :if-does-not-exist ':create
+                                       :external-format   ':utf-8)
+                 (write-string "computed prompt text" stream))
+               (test-conversation--write-tiny-png prompt-image)
+               (let ((*application-operation-application* application))
+                 (let ((receipt (prompt "ordinary prompt text")))
+                   (test-assert
+                    (and (eq (first receipt) ':prompt)
+                         (getf (rest receipt) :accepted-p)
+                         (eq (getf (rest receipt) :target) ':autolith)
+                         (eq (getf (rest receipt) :delivery) ':queued))
+                    "PROMPT returns a portable primary acceptance receipt"))
+                 (let ((receipt
+                         (prompt :to 'autolith "explicit primary prompt")))
+                   (test-assert
+                    (eq (getf (rest receipt) :target) ':autolith)
+                    ":TO AUTOLITH explicitly targets the primary agent"))
+                 (let ((receipt
+                         (prompt :to "AuToLiTh"
+                                 "case-insensitive primary prompt")))
+                   (test-assert
+                    (eq (getf (rest receipt) :target) ':autolith)
+                    "string AUTOLITH targets the primary case-insensitively"))
+                 (let ((receipt
+                         (prompt :images (list prompt-image) "image prompt")))
+                   (test-assert
+                    (and (= (getf (rest receipt) :image-count) 1)
+                         (= (getf (rest receipt) :content-characters)
+                            (length "[Image #1] image prompt")))
+                    "PROMPT returns primary image acceptance metadata")))
+               (let ((evaluation
+                       (application-lisp-evaluate
+                        (format nil "(prompt (read-file ~S))" (namestring path))
+                        :application application)))
+                 (test-assert
+                  (eq (application-lisp-evaluation-status evaluation) ':ok)
+                  "computed READ-FILE prompt executes through local Lisp"))
+               (let* ((work-items
+                        (application-input-controller--state controller :work-items))
+                      (image-input (second (fourth work-items))))
+                 (test-assert
+                  (equal
+                   (mapcar
+                    (lambda (work)
+                      (user-message-input-text (second work)))
+                    work-items)
+                   '("ordinary prompt text"
+                     "explicit primary prompt"
+                     "case-insensitive primary prompt"
+                     "[Image #1] image prompt"
+                     "computed prompt text"))
+                  "primary PROMPT preserves exact computed content and FIFO order")
+                 (test-assert
+                  (and (typep image-input 'user-message-input)
+                       (equal (user-message-input-image-pathnames image-input)
+                              (list (truename prompt-image))))
+                  "primary PROMPT preserves validated image attachments"))
+               (test-assert
+                (string= (read-file path) "computed prompt text")
+                "READ-FILE returns exact UTF-8 text")
+               (test-assert
+                (eq (let ((*prompt-maximum-characters* 3))
+                      (prompt-reason (lambda () (read-file path))))
+                    ':content-too-large)
+                "READ-FILE enforces its bound while consuming one open stream"))
+             (dolist (case
+                      (list
+                       (list nil ':malformed-arguments)
+                       (list '("one" "two") ':malformed-arguments)
+                       (list '(:to child) ':malformed-arguments)
+                       (list '(:to 42 "text") ':invalid-target)
+                       (list '(:images 42 "text") ':invalid-images)
+                       (list '(:unknown t "text") ':malformed-arguments)
+                       (list '("") ':empty-content)
+                       (list '(42) ':invalid-content)))
+               (destructuring-bind (arguments expected) case
+                 (test-assert
+                  (eq
+                   (let ((*application-operation-application* application))
+                     (prompt-reason
+                      (lambda () (apply #'prompt arguments))))
+                   expected)
+                  (format nil "PROMPT rejects malformed arguments with ~S" expected))))
+             (let ((circular-images (list prompt-image)))
+               (setf (rest circular-images) circular-images)
+               (test-assert
+                (eq (let ((*application-operation-application* application))
                       (prompt-reason
-                       (lambda () (apply #'prompt arguments))))
-                    expected)
-                   (format nil "PROMPT rejects malformed arguments with ~S" expected))))
-              (let ((circular-images (list prompt-image)))
-                (setf (rest circular-images) circular-images)
-                (test-assert
-                 (eq (let ((*application-operation-application* application))
-                       (prompt-reason
-                        (lambda ()
-                          (prompt :images circular-images "circular images"))))
-                     ':invalid-images)
-                 "PROMPT rejects circular image lists without traversing forever"))
-              (test-assert
-               (eq (let ((*application-operation-application* nil))
-                     (prompt-reason (lambda () (prompt "text"))))
-                   ':no-application)
-               "PROMPT rejects calls outside local application evaluation")
-              (test-assert
-               (eq (let ((*application-operation-application* application)
-                         (*prompt-maximum-characters* 3))
-                     (prompt-reason (lambda () (prompt "four"))))
-                   ':content-too-large)
-               "PROMPT enforces its content bound before routing")
+                       (lambda ()
+                         (prompt :images circular-images "circular images"))))
+                    ':invalid-images)
+                "PROMPT rejects circular image lists without traversing forever"))
+             (test-assert
+              (eq (let ((*application-operation-application* nil))
+                    (prompt-reason (lambda () (prompt "text"))))
+                  ':no-application)
+              "PROMPT rejects calls outside local application evaluation")
+             (test-assert
+              (eq (let ((*application-operation-application* application)
+                        (*prompt-maximum-characters*         3))
+                    (prompt-reason (lambda () (prompt "four"))))
+                  ':content-too-large)
+              "PROMPT enforces its content bound before routing")
              (let* ((named
                       (task-tests--register-job
                        orchestrator primary definition
@@ -265,7 +265,7 @@
                     (blocking
                       (task-tests--register-job
                        orchestrator primary definition
-                       :name "blocking-review"
+                       :name       "blocking-review"
                        :detached-p nil))
                     (identifier-target
                       (task-tests--register-job
@@ -291,39 +291,39 @@
                       (task-tests--register-job
                        orchestrator primary definition
                        :name "duplicate-review"))
-                     (hidden
-                       (task-tests--register-job
-                        orchestrator primary definition
-                        :name "hidden-review"
-                        :owner-identifiers '("foreign-owner")
-                        :root-conversation-identifier "foreign-root"))
-                     (closing-job
-                       (task-tests--register-job
-                        orchestrator primary definition
-                        :name "closing-review"))
-                     (closed-job
-                       (task-tests--register-job
-                        orchestrator primary definition
-                        :name "closed-review"))
-                     (race-closing
-                       (task-tests--register-job
-                        orchestrator primary definition
-                        :name "race-closing-review"))
-                     (race-closed
-                       (task-tests--register-job
-                        orchestrator primary definition
-                        :name "race-closed-review"))
+                    (hidden
+                      (task-tests--register-job
+                       orchestrator primary definition
+                       :name                         "hidden-review"
+                       :owner-identifiers            '("foreign-owner")
+                       :root-conversation-identifier "foreign-root"))
+                    (closing-job
+                      (task-tests--register-job
+                       orchestrator primary definition
+                       :name "closing-review"))
+                    (closed-job
+                      (task-tests--register-job
+                       orchestrator primary definition
+                       :name "closed-review"))
+                    (race-closing
+                      (task-tests--register-job
+                       orchestrator primary definition
+                       :name "race-closing-review"))
+                    (race-closed
+                      (task-tests--register-job
+                       orchestrator primary definition
+                       :name "race-closed-review"))
                     (job-count
                       (length (task-orchestrator-list-jobs orchestrator))))
                (declare (ignore duplicate-one duplicate-two hidden))
-                (mapc (lambda (job) (mark-state job ':running))
-                      (list named blocking identifier-target closing-job closed-job
-                            race-closing race-closed))
-                (mark-state terminal-job ':completed)
-                (task-job-cancel cancelled ':test-cancellation)
-                (with-lock-held ((cl-jobpond::job--lock closing-job))
-                  (setf (cl-jobpond::job--publication-claimed-p closing-job) t))
-                (task-job-close-steering closed-job)
+               (mapc (lambda (job) (mark-state job ':running))
+                     (list named blocking identifier-target closing-job closed-job
+                           race-closing race-closed))
+               (mark-state terminal-job ':completed)
+               (task-job-cancel cancelled ':test-cancellation)
+               (with-lock-held ((cl-jobpond::job--lock closing-job))
+                 (setf (cl-jobpond::job--publication-claimed-p closing-job) t))
+               (task-job-close-steering closed-job)
                (let ((*application-operation-application* application))
                  (let ((receipt
                          (prompt :to 'shared-diff-final-review
@@ -347,35 +347,35 @@
                   (equal (steering-texts named)
                          '("first child context" "second child context"))
                   "multiple child prompts enter the existing mailbox in FIFO order")
-                  (let* ((receipt
-                           (prompt :to 'shared-diff-final-review
-                                   :images (list prompt-image)
-                                   "image child context"))
-                          (entry (first (last (steering-items named))))
-                          (input (agent-steering-input-content entry)))
-                    (test-assert
-                     (and (eq (getf (rest receipt) :target) ':child)
-                          (= (getf (rest receipt) :image-count) 1)
-                          (typep input 'user-message-input)
-                          (string= (user-message-input-text input)
-                                   "[Image #1] image child context")
-                          (equal (user-message-input-image-pathnames input)
-                                 (list (truename prompt-image))))
-                     "child PROMPT preserves validated image attachments"))
-                  (let ((*task-steering-maximum-items* 2))
-                    (test-assert
-                     (eq (prompt-reason
-                          (lambda ()
-                            (prompt :to "shared-diff-final-review" "overflow")))
-                         ':full)
-                     "PROMPT reports a full child steering mailbox"))
-                  (let ((*task-steering-maximum-characters* 3))
-                    (test-assert
-                     (eq (prompt-reason
-                          (lambda ()
-                            (prompt :to "shared-diff-final-review" "four")))
-                         ':content-too-large)
-                     "PROMPT reports the child steering content bound"))
+                 (let* ((receipt
+                          (prompt :to     'shared-diff-final-review
+                                  :images (list prompt-image)
+                                  "image child context"))
+                        (entry (first (last (steering-items named))))
+                        (input (agent-steering-input-content entry)))
+                   (test-assert
+                    (and (eq (getf (rest receipt) :target) ':child)
+                         (= (getf (rest receipt) :image-count) 1)
+                         (typep input 'user-message-input)
+                         (string= (user-message-input-text input)
+                                  "[Image #1] image child context")
+                         (equal (user-message-input-image-pathnames input)
+                                (list (truename prompt-image))))
+                    "child PROMPT preserves validated image attachments"))
+                 (let ((*task-steering-maximum-items* 2))
+                   (test-assert
+                    (eq (prompt-reason
+                         (lambda ()
+                           (prompt :to "shared-diff-final-review" "overflow")))
+                        ':full)
+                    "PROMPT reports a full child steering mailbox"))
+                 (let ((*task-steering-maximum-characters* 3))
+                   (test-assert
+                    (eq (prompt-reason
+                         (lambda ()
+                           (prompt :to "shared-diff-final-review" "four")))
+                        ':content-too-large)
+                    "PROMPT reports the child steering content bound"))
                  (let ((receipt
                          (prompt :to "blocking-review" "blocking context")))
                    (test-assert
@@ -390,57 +390,57 @@
                     (string= (getf (rest receipt) :job-id)
                              (session-job-identifier identifier-target))
                     "PROMPT falls back from display name to visible job ID"))
-                  (dolist (case
-                           (list
-                            (list "missing-review" ':unknown-target)
-                            (list "duplicate-review" ':ambiguous-target)
-                            (list "queued-review" ':not-running)
-                            (list "terminal-review" ':terminal)
-                            (list "cancelled-review" ':cancelled)
-                            (list "closing-review" ':closing)
-                            (list "closed-review" ':closed)
-                            (list "hidden-review" ':unknown-target)))
-                    (destructuring-bind (target expected) case
-                      (test-assert
-                       (eq (prompt-reason
-                            (lambda () (prompt :to target "context")))
-                           expected)
-                       (format nil "child target ~A rejects with ~S"
-                               target expected)))))
-                (let ((*application-operation-application* application)
-                      (original-enqueue
-                        (symbol-function 'task-job-enqueue-steering)))
-                  (test-call-with-function-replacements
+                 (dolist (case
+                          (list
+                           (list "missing-review" ':unknown-target)
+                           (list "duplicate-review" ':ambiguous-target)
+                           (list "queued-review" ':not-running)
+                           (list "terminal-review" ':terminal)
+                           (list "cancelled-review" ':cancelled)
+                           (list "closing-review" ':closing)
+                           (list "closed-review" ':closed)
+                           (list "hidden-review" ':unknown-target)))
+                   (destructuring-bind (target expected) case
+                     (test-assert
+                      (eq (prompt-reason
+                           (lambda () (prompt :to target "context")))
+                          expected)
+                      (format nil "child target ~A rejects with ~S"
+                              target expected)))))
+               (let ((*application-operation-application* application)
+                     (original-enqueue
+                       (symbol-function 'task-job-enqueue-steering)))
+                 (test-call-with-function-replacements
+                  (list
                    (list
-                    (list
-                     'task-job-enqueue-steering
-                     (lambda (job content &key (promote-response-p nil))
-                       (cond
-                         ((eq job race-closing)
-                          (with-lock-held ((cl-jobpond::job--lock job))
-                            (setf (cl-jobpond::job--publication-claimed-p job) t)))
-                         ((eq job race-closed)
-                          (task-job-close-steering job)))
-                       (funcall original-enqueue
-                                job content
-                                :promote-response-p promote-response-p))))
-                   (lambda ()
-                     (test-assert
-                      (eq (prompt-reason
-                           (lambda ()
-                             (prompt :to "race-closing-review" "context")))
-                          ':closing)
-                      "PROMPT reports closure beginning after child lookup")
-                     (test-assert
-                      (eq (prompt-reason
-                           (lambda ()
-                             (prompt :to "race-closed-review" "context")))
-                          ':closed)
-                      "PROMPT reports mailbox closure after child lookup")))
-                  (test-assert
-                   (and (zerop (task-job-steering-pending-count race-closing))
-                        (zerop (task-job-steering-pending-count race-closed)))
-                   "racing child closure never admits a steering entry"))
+                    'task-job-enqueue-steering
+                    (lambda (job content &key (promote-response-p nil))
+                      (cond
+                        ((eq job race-closing)
+                         (with-lock-held ((cl-jobpond::job--lock job))
+                           (setf (cl-jobpond::job--publication-claimed-p job) t)))
+                        ((eq job race-closed)
+                         (task-job-close-steering job)))
+                      (funcall original-enqueue
+                               job content
+                               :promote-response-p promote-response-p))))
+                  (lambda ()
+                    (test-assert
+                     (eq (prompt-reason
+                          (lambda ()
+                            (prompt :to "race-closing-review" "context")))
+                         ':closing)
+                     "PROMPT reports closure beginning after child lookup")
+                    (test-assert
+                     (eq (prompt-reason
+                          (lambda ()
+                            (prompt :to "race-closed-review" "context")))
+                         ':closed)
+                     "PROMPT reports mailbox closure after child lookup")))
+                 (test-assert
+                  (and (zerop (task-job-steering-pending-count race-closing))
+                       (zerop (task-job-steering-pending-count race-closed)))
+                  "racing child closure never admits a steering entry"))
                (test-assert
                 (= (length (task-orchestrator-list-jobs orchestrator)) job-count)
                 "named child prompting never respawns or changes job identity")))
@@ -449,7 +449,7 @@
         (ignore-errors (terminal-ui-stop ui))
         (ignore-errors (tool-registry-close-runtime-state registry))
         (platform-delete-directory-tree *platform* root :validate t
-                                             :if-does-not-exist ':ignore))))
+                                             :if-does-not-exist   ':ignore))))
   nil)
 
 (-> test-tool-boolean-argument () null)
@@ -482,25 +482,25 @@
   "Test canonical operation conflicts fail registration and never break evaluation."
   (let* ((command
            (application-command-create
-            :definition-name 'application-operation-tests--conflicting-search
-            :name "/search"
-            :aliases nil
-            :argument nil
-            :description "Conflict with the inherited Common Lisp SEARCH function."
-            :tip "exists for binding conflict tests."
-            :busy-behavior ':inspect
+            :definition-name   'application-operation-tests--conflicting-search
+            :name              "/search"
+            :aliases           nil
+            :argument          nil
+            :description       "Conflict with the inherited Common Lisp SEARCH function."
+            :tip               "exists for binding conflict tests."
+            :busy-behavior     ':inspect
             :terminal-behavior ':shared
-            :lambda-list nil
-            :callable-p nil
-            :static-options nil
+            :lambda-list       nil
+            :callable-p        nil
+            :static-options    nil
             :handler
             (lambda (application invocation)
               (declare (ignore application invocation))
               ':continue)))
          (operation (application-operation--from-command command))
-         (symbol (application-operation--function-symbol "search"))
-         (existing (fdefinition symbol))
-         (snapshot (application-command--registry-snapshot)))
+         (symbol    (application-operation--function-symbol "search"))
+         (existing  (fdefinition symbol))
+         (snapshot  (application-command--registry-snapshot)))
     (test-assert
      (handler-case
          (progn
@@ -519,15 +519,15 @@
      (eq (fdefinition symbol) existing)
      "skipped operation bindings preserve the existing function"))
   (let ((snapshot (application-command--registry-snapshot))
-        (command (application-command-create
-                  :definition-name 'application-operation-tests--conflicting-alias
-                  :name "/alias-conflict" :aliases '("/search")
-                  :description "An alias conflicting with Common Lisp SEARCH."
-                  :tip "Exercise native alias binding conflicts."
-                  :busy-behavior ':inspect :terminal-behavior ':shared
-                  :handler (lambda (application invocation)
-                             (declare (ignore application invocation))
-                             ':continue))))
+        (command  (application-command-create
+                   :definition-name 'application-operation-tests--conflicting-alias
+                   :name "/alias-conflict" :aliases '("/search")
+                   :description     "An alias conflicting with Common Lisp SEARCH."
+                   :tip             "Exercise native alias binding conflicts."
+                   :busy-behavior ':inspect :terminal-behavior ':shared
+                   :handler         (lambda (application invocation)
+                                      (declare (ignore application invocation))
+                                      ':continue))))
     (test-assert (handler-case (progn (register-application-command command :source ':test) nil)
                    (configuration-error () t))
                  "registration rejects aliases that shadow existing Lisp functions")
@@ -561,7 +561,6 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> run-application-operation-tests () boolean)
 (defun run-application-operation-tests ()
   "Run focused unified command and tool operation tests."
@@ -572,7 +571,7 @@
       (application-operation-tests--application)
     (unwind-protect
          (let* ((operations (application-operation-list application))
-                (names (mapcar #'application-operation-name operations))
+                (names      (mapcar #'application-operation-name operations))
                 (command-operation
                   (application-operation-find application 'help))
                 (local-operation
@@ -611,9 +610,9 @@
                         "operation lookup resolves command symbols case-insensitively")
            (test-assert (eq (application-operation-kind tool-operation) ':tool)
                         "operation lookup resolves dotted tool names case-insensitively")
-           (let* ((provider (terminal-ui-completion-function
-                             (application-ui application)))
-                  (entries (and provider (funcall provider)))
+           (let* ((provider    (terminal-ui-completion-function
+                                (application-ui application)))
+                  (entries     (and provider (funcall provider)))
                   (entry-names (mapcar (lambda (entry) (getf entry :name))
                                        entries))
                   (resource-entry
@@ -626,42 +625,42 @@
                      (lambda (entry)
                        (string= (getf entry :name) "(lisp.paren-check"))
                      entries))
-                  (test-entry (find-if
-                               (lambda (entry)
-                                 (string= (getf entry :name)
-                                          "(test-operation.echo"))
-                               entries)))
+                  (test-entry  (find-if
+                                (lambda (entry)
+                                  (string= (getf entry :name)
+                                           "(test-operation.echo"))
+                                entries)))
              (test-assert (functionp provider)
                           "applications install a dynamic operation completion provider")
              (test-assert (member "/help" entry-names :test #'string=)
                           "slash compatibility completion retains canonical commands")
              (test-assert (member "(conversations)" entry-names :test #'string=)
                           "completion offers a canonical no-argument Lisp command")
-              (test-assert
-               (and (member "/ste on" entry-names :test #'string=)
-                    (member "/ste off" entry-names :test #'string=))
-               "slash completion offers every finite command option")
-              (test-assert
-               (and (member "(ste t)" entry-names :test #'string=)
-                    (member "(ste nil)" entry-names :test #'string=))
-               "Lisp completion offers every finite command option")
-              (flet ((primary-of (name)
-                       "Return the :PRIMARY of the completion entry named NAME."
-                       (getf (find name entries
-                                   :key (lambda (entry) (getf entry :name))
-                                   :test #'string=)
-                             :primary)))
-                (test-assert
-                 (and (equal (primary-of "/ste on") "/ste")
-                      (equal (primary-of "(ste nil)") "(ste")
-                      (null (primary-of "/ste"))
-                      (null (primary-of "(conversations)")))
-                 "finite option entries stay behind their canonical command rows")
-                (test-assert
-                 (and (equal (primary-of "/exit") "/quit")
-                      (equal (primary-of "/usage") "/status")
-                      (null (primary-of "/quit")))
-                 "alias entries stay behind their canonical command rows"))
+             (test-assert
+              (and (member "/ste on" entry-names :test #'string=)
+                   (member "/ste off" entry-names :test #'string=))
+              "slash completion offers every finite command option")
+             (test-assert
+              (and (member "(ste t)" entry-names :test #'string=)
+                   (member "(ste nil)" entry-names :test #'string=))
+              "Lisp completion offers every finite command option")
+             (flet ((primary-of (name)
+                      "Return the :PRIMARY of the completion entry named NAME."
+                      (getf (find name entries
+                                  :key  (lambda (entry) (getf entry :name))
+                                  :test #'string=)
+                            :primary)))
+               (test-assert
+                (and (equal (primary-of "/ste on") "/ste")
+                     (equal (primary-of "(ste nil)") "(ste")
+                     (null (primary-of "/ste"))
+                     (null (primary-of "(conversations)")))
+                "finite option entries stay behind their canonical command rows")
+               (test-assert
+                (and (equal (primary-of "/exit") "/quit")
+                     (equal (primary-of "/usage") "/status")
+                     (null (primary-of "/quit")))
+                "alias entries stay behind their canonical command rows"))
              (test-assert
               (and resource-entry
                    (search ":uri" (or (getf resource-entry :argument) "")))
@@ -686,20 +685,20 @@
            (let ((unclassified
                    (make-instance
                     'tool
-                    :namespace "unclassified"
-                    :name "safe-looking"
+                    :namespace   "unclassified"
+                    :name        "safe-looking"
                     :description "An intentionally unclassified test tool."
-                    :parameters (tool-object-schema (json-object) nil))))
+                    :parameters  (tool-object-schema (json-object) nil))))
              (test-assert (eq (tool-active-turn-action unclassified) ':hold)
                           "unclassified tools wait regardless of their names"))
            (dolist (case
                      '(("(help)" :execute)
                        ("(prompt \"text\")" :execute)
                        ("(prompt (read-file \"/tmp/example\"))" :execute)
-                        ("(goal \"pause\")" :hold)
+                       ("(goal \"pause\")" :hold)
                        ("(quit)" :cancel)
                        ("(update)" :hold)
-                        ("(compact)" :hold)
+                       ("(compact)" :hold)
                        ("(resource.read :uri \"workspace:.\")" :execute)
                        ("(lisp.paren-check :path \".\")" :execute)
                        ("(shell.run :command \"true\")" :hold)
@@ -726,10 +725,10 @@
               "eval-now rejects noninteractive evaluator callers"))
            (let ((path (merge-pathnames "operation-check.lisp" root)))
              (with-open-file (stream path
-                                     :direction ':output
-                                     :if-exists ':supersede
+                                     :direction         ':output
+                                     :if-exists         ':supersede
                                      :if-does-not-exist ':create
-                                     :external-format ':utf-8)
+                                     :external-format   ':utf-8)
                (write-string "(defun operation-check () 42)" stream))
              (let ((evaluation
                      (application-lisp-evaluate
@@ -744,7 +743,7 @@
                            (application-lisp-evaluation-values evaluation)))
                 "canonical Lisp dispatch executes the built-in source checker")))
            (let ((command-authorizations 0)
-                 (tool-authorizations 0))
+                 (tool-authorizations    0))
              (test-call-with-function-replacements
               (list
                (list 'application-authorize-command
@@ -778,7 +777,7 @@
                   (test-assert
                    (and (eq (application-lisp-evaluation-status evaluation) ':ok)
                         (equal (application-lisp-evaluation-values evaluation)
-                                '("sandboxed allow: hello")))
+                               '("sandboxed allow: hello")))
                    "a typed tool form executes through the ordinary decoder and method"))))
              (test-assert (= (application-operation-test-tool-calls tool) 1)
                           "a local tool form executes its tool object exactly once")
@@ -787,7 +786,7 @@
              (test-assert (= tool-authorizations 1)
                           "a local tool reuses external authorization exactly once"))
            (let* ((arguments (application-operation-test-tool-arguments tool))
-                  (items (tool-argument arguments "items")))
+                  (items     (tool-argument arguments "items")))
              (test-assert (null (tool-argument arguments "enabled"))
                           "Lisp NIL crosses the local tool boundary as JSON false")
              (test-assert
@@ -810,19 +809,19 @@
              (test-assert (fboundp name)
                           (format nil "canonical operation ~S has a Lisp function binding"
                                   name)))
-            (setf (application-goal application)
-                  (list :objective "existing"
-                        :status ':paused
-                        :continuations 0
-                        :created-at (get-universal-time)))
-            (let ((evaluation
-                    (application-lisp-evaluate
-                     "(goal :clear)"
-                     :application application)))
-              (test-assert
-               (and (eq (application-lisp-evaluation-status evaluation) ':ok)
-                    (null (application-goal application)))
-               "keyword goal actions execute through the local Lisp binding"))
+           (setf (application-goal application)
+                 (list :objective     "existing"
+                       :status        ':paused
+                       :continuations 0
+                       :created-at    (get-universal-time)))
+           (let ((evaluation
+                   (application-lisp-evaluate
+                    "(goal :clear)"
+                    :application application)))
+             (test-assert
+              (and (eq (application-lisp-evaluation-status evaluation) ':ok)
+                   (null (application-goal application)))
+              "keyword goal actions execute through the local Lisp binding"))
            (recording-terminal-reset terminal)
            (let* ((evaluation
                     (application-lisp-evaluate
@@ -864,7 +863,7 @@
              (setf (application-installation-provenance application)
                    (make-instance
                     'installation-provenance
-                    :method ':release
+                    :method      ':release
                     :current-tag (format nil "v~A" *autolith-version*)))
              (test-assert
               (handler-case
@@ -912,10 +911,10 @@
                  (application-agent application)
                  (agent-create
                   :configuration (application-configuration application)
-                  :conversation (application-conversation application)
-                  :provider provider
+                  :conversation  (application-conversation application)
+                  :provider      provider
                   :tool-registry (application-tool-registry application)
-                  :worker nil))
+                  :worker        nil))
            (funcall function application))
       (terminal-ui-stop (application-ui application))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
@@ -938,16 +937,16 @@
       (application-operation-tests--call-with-compaction-provider
        provider
        (lambda (application)
-         (let* ((conversation (application-conversation application))
+         (let* ((conversation  (application-conversation application))
                 (configuration (application-configuration application)))
            (conversation-append-user-message conversation "Earlier work.")
            (let* ((sequence-before (conversation-next-sequence conversation))
-                  (evaluation (application-lisp-evaluate
-                               "(compact)" :application application))
-                  (records-after (conversation--read-records
-                                 (conversation-pathname conversation)))
-                  (reloaded (conversation-load-by-id
-                             configuration (conversation-identifier conversation))))
+                  (evaluation      (application-lisp-evaluate
+                                    "(compact)" :application application))
+                  (records-after   (conversation--read-records
+                                    (conversation-pathname conversation)))
+                  (reloaded        (conversation-load-by-id
+                                    configuration (conversation-identifier conversation))))
              (test-assert (eq (application-lisp-evaluation-status evaluation) ':ok)
                           "the registered Lisp command compacts below the automatic threshold")
              (test-assert
@@ -989,13 +988,13 @@
        (let ((*image-replay-skips*
                (list (let ((definition '(defun test-self-target () 7)))
                        (make-instance 'image-replay-skip
-                                      :definition definition
-                                      :key (definition-key definition)
-                                      :source "(defun test-self-target () 7)"
-                                      :tracked nil
+                                      :definition         definition
+                                      :key                (definition-key definition)
+                                      :source             "(defun test-self-target () 7)"
+                                      :tracked            nil
                                       :tracked-recorded-p nil
-                                      :reason ':revision-moved
-                                      :message "skipped")))))
+                                      :reason             ':revision-moved
+                                      :message            "skipped")))))
          (test-assert
           (handler-case
               (progn (application-command application "/fix-skipped-definitions")
@@ -1006,8 +1005,8 @@
          (let* ((controller (make-instance 'application-input-controller
                                            :application application))
                 (work-items (application-input-controller-work-items controller))
-                (comment (format nil "Drop these experiments, including \"quoted\" names.~%Keep ~A literal."
-                                 "~%")))
+                (comment    (format nil "Drop these experiments, including \"quoted\" names.~%Keep ~A literal."
+                                    "~%")))
            (setf (application-input-controller application) controller)
            (dolist (case (list (list ':lisp "(fix-skipped-definitions)" "")
                               (list ':lisp "(fix-skipped-definitions \"\")" "")
@@ -1024,8 +1023,8 @@
                         ':ok)
                     (eq (application-command application input) ':continue))
                 "the command accepts an omitted, empty, or complete direction string")
-               (let* ((work (deque-pop-front work-items))
-                      (text (getf (second work) :text))
+               (let* ((work    (deque-pop-front work-items))
+                      (text    (getf (second work) :text))
                       (request (getf (second work) :request)))
                  (test-assert
                   (and (eq (first work) ':operation-request)
@@ -1064,8 +1063,8 @@
      (lambda (application)
        (setf (application-agent application) nil)
        (let* ((conversation (application-conversation application))
-              (evaluation (application-lisp-evaluate
-                           "(compact)" :application application)))
+              (evaluation   (application-lisp-evaluate
+                             "(compact)" :application application)))
          (test-assert (eq (application-lisp-evaluation-status evaluation) ':ok)
                       "compacting an empty conversation succeeds without an agent")
          (test-assert
@@ -1096,16 +1095,16 @@
              'native-scripted-provider
              :native-items (list (json-object "type" "context_compaction"
                                              "encrypted_content" "uncommitted-checkpoint"))
-             :results (list result))))
+             :results      (list result))))
       (application-operation-tests--call-with-compaction-provider
        provider
        (lambda (application)
          (let ((conversation (application-conversation application)))
            (conversation-append-user-message conversation "Context to preserve.")
            (let* ((records-before (conversation--read-records
-                                  (conversation-pathname conversation)))
-                  (input-before (json-encode
-                                 (coerce (conversation-input-items conversation) 'vector)))
+                                   (conversation-pathname conversation)))
+                  (input-before   (json-encode
+                                   (coerce (conversation-input-items conversation) 'vector)))
                   (failure
                     (handler-case
                         (progn (application-command application "/compact") nil)
@@ -1123,6 +1122,7 @@
                    (null (terminal-ui-status (application-ui application))))
               "failed compaction clears its progress indicators")))))))
   nil)
+
 
 ;;;; -- Local Lisp Result Presentation --
 
@@ -1153,7 +1153,7 @@
                      (list
                       (list '(:task-agents :offset 0 :count 1 :total 1 :next-offset nil
                               :entries ((:kind :agent :name "scout" :source :bundled
-                                         :description "All original fields."
+                                         :description      "All original fields."
                                          :pathname #P"roles/scout.md" :models ("@smol")
                                          :reasoning-effort :medium
                                          :tools ("resource.read" "search.*") :spawns nil
@@ -1163,9 +1163,9 @@
                               :budget (:tokens 10000000 :calls 1000)) t)
                       (list nil nil)))
               (destructuring-bind (native mission-p) case
-                (let* ((result (application-operation-tests--native-result native :mission-p mission-p))
+                (let* ((result  (application-operation-tests--native-result native :mission-p mission-p))
                        (content (tool-result-content result))
-                       (calls 0))
+                       (calls   0))
                   (test-call-with-function-replacements
                    (list (list 'tool-execute
                                (lambda (&rest arguments)
@@ -1182,7 +1182,7 @@
                                  "(progn (format t \"captured~%\") (values (test-operation.echo :text \"native\") \"(:looks :like :lisp)\"))"
                                  :application application))
                               (values (application-lisp-evaluation-values evaluation))
-                              (text (terminal--spans-text (application-lisp--result-entry evaluation))))
+                              (text   (terminal--spans-text (application-lisp--result-entry evaluation))))
                          (test-assert (eq ':ok (application-lisp-evaluation-status evaluation))
                                       "Native rendering preserves successful execution.")
                          (test-assert (equal native (read-from-string (first values)))
@@ -1216,8 +1216,8 @@
                      (let ((source "(test-operation.echo :text \"retain\")"))
                        (conversation-append-user-message (application-conversation application) "Retain native output.")
                        (application-run-lisp-input application source :interactive-p nil)
-                       (let* ((record (first (last (conversation-user-operation-snapshot
-                                                   (application-conversation application)))))
+                       (let* ((record   (first (last (conversation-user-operation-snapshot
+                                                      (application-conversation application)))))
                               (retained (getf (rest record) :result)))
                          (test-assert (equal native (read-from-string (subseq retained 2)))
                                       "Retained output contains the full native S-expression.")
@@ -1268,7 +1268,7 @@
             ;; A real object printer failure must not hide a successful tool call.
             (let ((result (make-instance 'task-tool-result :content "printer fallback"
                                         :success-p t :category ':success
-                                        :details (make-instance 'lisp-values-tests--broken-printer))))
+                                        :details                    (make-instance 'lisp-values-tests--broken-printer))))
               (test-call-with-function-replacements
                (list (list 'tool-execute (lambda (&rest arguments)
                                           (declare (ignore arguments)) result)))
@@ -1293,7 +1293,7 @@
     (unwind-protect
          (dolist (kinds '((t t) (t nil) (nil t)))
            (let ((shared (copy-seq "shared report"))
-                 (calls 0))
+                 (calls  0))
              (test-call-with-function-replacements
               (list (list 'tool-execute
                           (lambda (&rest arguments)
@@ -1334,7 +1334,7 @@
                     (application-lisp-evaluate
                      "(list :name \"scout\" :source :bundled :models '(\"@smol\") :tools '(\"resource.read\" \"search.*\" \"web_search\") :blocking-p nil)"
                      :application application))
-                  (text (terminal--spans-text (application-lisp--result-entry evaluation)))
+                  (text  (terminal--spans-text (application-lisp--result-entry evaluation)))
                   (lines (uiop:split-string text :separator '(#\Newline))))
              (test-assert (every (lambda (line) (< (text-cell-width line) columns)) lines)
                           "Breakable result rows and their prefix fit the terminal width.")
@@ -1346,7 +1346,6 @@
         (ignore-errors (tool-registry-close-runtime-state (application-tool-registry application)))
         (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore))))
   nil)
-
 
 (-> test-application-lisp-report-text () null)
 (defun test-application-lisp-report-text ()
@@ -1385,8 +1384,8 @@
               (dolist (source '("(copy-seq (test-operation.echo :text \"copy\"))"
                                 "(list (test-operation.echo :text \"nested\"))"))
                 (let* ((evaluation (application-lisp-evaluate source :application application))
-                       (value (read-from-string
-                               (first (application-lisp-evaluation-values evaluation)))))
+                       (value      (read-from-string
+                                    (first (application-lisp-evaluation-values evaluation)))))
                   (test-assert (equal (if (listp value) (list report) report) value)
                                "Copied and nested reports preserve their returned string values.")))
               (conversation-append-user-message (application-conversation application)
@@ -1395,8 +1394,8 @@
                                           "(test-operation.echo :text \"retain\")"
                                           :interactive-p nil)
               (let* ((conversation (application-conversation application))
-                     (records (conversation-user-operation-snapshot conversation))
-                     (retained (getf (rest (first (last records))) :result)))
+                     (records      (conversation-user-operation-snapshot conversation))
+                     (retained     (getf (rest (first (last records))) :result)))
                 (test-assert (string= (concatenate 'string "⇒ " report) retained)
                              "Retained report text matches its displayed content.")
                 (test-assert (equal records

@@ -6,16 +6,16 @@
 (defun test-rlm-stream-progress ()
   "Test real direct/read-frame events refresh activity while silent clocks do not."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (provider (make-instance 'rlm-inference-test-provider :results nil)))
+         (root          (test-configuration-root configuration))
+         (provider      (make-instance 'rlm-inference-test-provider :results nil)))
     (unwind-protect
          (dolist (framed-p '(nil t))
-           (let* ((clock 0)
+           (let* ((clock      0)
                   (*rlm-activity-clock-function*
                     (lambda () (round (* clock internal-time-units-per-second))))
-                  (ui (terminal-ui-create
-                       :terminal (make-instance 'recording-terminal)
-                       :clock-function (lambda () clock)))
+                  (ui         (terminal-ui-create
+                               :terminal       (make-instance 'recording-terminal)
+                               :clock-function (lambda () clock)))
                   (activities nil))
              (labels ((publish (activity)
                         (push activity activities)
@@ -92,23 +92,23 @@
 (defun test-rlm-job-activity ()
   "Test detached RLM phases, nested-thread ownership and terminal cleanup."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (registry (task-augment-tool-registry (make-instance 'tool-registry)))
+         (root          (test-configuration-root configuration))
+         (registry      (task-augment-tool-registry (make-instance 'tool-registry)))
          (orchestrator
            (task-run-tool-orchestrator (tool-registry-find registry "task" "run")))
-         (parent (task-tests--primary-agent configuration "rlm-activity" registry))
-         (conversation (agent-conversation parent))
-         (terminal (make-instance 'recording-terminal :columns 100 :rows 30))
-         (ui (terminal-ui-create :terminal terminal))
-         (application (make-instance 'application
-                                     :configuration configuration
-                                     :conversation conversation
-                                     :tool-registry registry :ui ui))
-         (context (make-instance 'tool-context
-                                :configuration configuration :worker nil
-                                :conversation conversation :registry registry
-                                :agent parent))
-         (provider (make-instance 'rlm-inference-test-provider :results nil)))
+         (parent        (task-tests--primary-agent configuration "rlm-activity" registry))
+         (conversation  (agent-conversation parent))
+         (terminal      (make-instance 'recording-terminal :columns 100 :rows 30))
+         (ui            (terminal-ui-create :terminal terminal))
+         (application   (make-instance 'application
+                                       :configuration configuration
+                                       :conversation  conversation
+                                       :tool-registry registry :ui ui))
+         (context       (make-instance 'tool-context
+                                      :configuration configuration :worker nil
+                                      :conversation conversation :registry registry
+                                      :agent parent))
+         (provider      (make-instance 'rlm-inference-test-provider :results nil)))
     (unwind-protect
          (with-terminal-ui (active-ui ui)
            (application-connect-task-presentation application)
@@ -118,15 +118,15 @@
                       (rlm-complete-tool-create rlm-complete :aborted)
                       (rlm-distill-tool-create rlm-distill :completed)))
              (destructuring-bind (constructor operation expected-state) specification
-               (let* ((lock (make-lock "RLM activity test"))
-                      (condition (make-condition-variable))
-                      (ready-p nil)
-                      (release-p nil)
+               (let* ((lock       (make-lock "RLM activity test"))
+                      (condition  (make-condition-variable))
+                      (ready-p    nil)
+                      (release-p  nil)
                       (finished-p nil)
-                      (emit (symbol-function 'task-orchestrator-emit))
-                      (reporter nil)
-                      (job nil)
-                      (tool (funcall constructor :provider provider))
+                      (emit       (symbol-function 'task-orchestrator-emit))
+                      (reporter   nil)
+                      (job        nil)
+                      (tool       (funcall constructor :provider provider))
                       (arguments
                         (cond
                           ((eq operation 'rlm-map)
@@ -180,7 +180,7 @@
                                          (tool-execute tool context arguments))
                                         "RLM admission returns its background job")
                            (setf job (first (last (task-orchestrator-list-jobs
-                                                  orchestrator))))
+                                                   orchestrator))))
                            (with-lock-held (lock)
                              (loop until ready-p
                                    unless (condition-wait condition lock :timeout 5)
@@ -246,7 +246,7 @@
 (-> test-rlm-frame-budget-activity () null)
 (defun test-rlm-frame-budget-activity ()
   "Test framed inference forwards nested budget activity."
-  (let ((budget (rlm-budget-create :calls 2 :tokens 100 :depth 1))
+  (let ((budget     (rlm-budget-create :calls 2 :tokens 100 :depth 1))
         (activities nil))
     (multiple-value-bind (status-callback flush-tranche)
         (rlm--frame-budget-callback
@@ -272,22 +272,22 @@
 (defun test-rlm-response-usage-normalization ()
   "Test inference traces persist canonical provider cache usage."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "rlm-cache-usage"))
          (result
            (make-instance
             'provider-result
-            :response-id "rlm-cache-response"
-            :output-items nil
-            :tool-calls nil
-            :usage (json-object
-                    "prompt_tokens" 100
-                    "completion_tokens" 25
-                    "prompt_tokens_details"
-                    (json-object "cached_tokens" 80
-                                 "cache_write_tokens" 10))
-            :turn-state nil
+            :response-id     "rlm-cache-response"
+            :output-items    nil
+            :tool-calls      nil
+            :usage           (json-object
+                              "prompt_tokens" 100
+                              "completion_tokens" 25
+                              "prompt_tokens_details"
+                              (json-object "cached_tokens" 80
+                                           "cache_write_tokens" 10))
+            :turn-state      nil
             :turn-completion ':unspecified)))
     (unwind-protect
          (progn
@@ -296,7 +296,7 @@
                     (conversation--read-records
                      (conversation-pathname conversation)))
                   (record (find :provider records :key #'first))
-                  (usage (getf (getf (rest record) :metadata) :usage)))
+                  (usage  (getf (getf (rest record) :metadata) :usage)))
              (test-assert
               (and (= (second (assoc "input_tokens" usage :test #'string=)) 100)
                    (= (second (assoc "output_tokens" usage :test #'string=)) 25)
@@ -313,24 +313,24 @@
 
 (defclass rlm-inference-test-provider (model-provider)
   ((results
-    :initarg :results
-    :accessor rlm-inference-test-provider-results
-    :type list
+    :initarg       :results
+    :accessor      rlm-inference-test-provider-results
+    :type          list
     :documentation "The provider results returned in request order.")
    (input-snapshots
-    :initform nil
-    :accessor rlm-inference-test-provider-input-snapshots
-    :type list
+    :initform      nil
+    :accessor      rlm-inference-test-provider-input-snapshots
+    :type          list
     :documentation "The provider request items observed, newest first.")
    (output-limits
-    :initform nil
-    :accessor rlm-inference-test-provider-output-limits
-    :type list
+    :initform      nil
+    :accessor      rlm-inference-test-provider-output-limits
+    :type          list
     :documentation "The bound output ceilings observed per request, newest first.")
    (tool-schema-counts
-    :initform nil
-    :accessor rlm-inference-test-provider-tool-schema-counts
-    :type list
+    :initform      nil
+    :accessor      rlm-inference-test-provider-tool-schema-counts
+    :type          list
     :documentation "The provider tool schema counts observed, newest first."))
   (:documentation "A deterministic provider for exercising inference frames."))
 
@@ -367,14 +367,14 @@
 
 CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
   (make-instance 'provider-result
-                 :response-id response-id
-                 :output-items (list (agent-test-message text))
-                 :tool-calls nil
-                 :usage (if cached-tokens
-                            (json-object "total_tokens" total-tokens
-                                         "cached_input_tokens" cached-tokens)
-                            (json-object "total_tokens" total-tokens))
-                 :turn-state nil
+                 :response-id     response-id
+                 :output-items    (list (agent-test-message text))
+                 :tool-calls      nil
+                 :usage           (if cached-tokens
+                                      (json-object "total_tokens" total-tokens
+                                                   "cached_input_tokens" cached-tokens)
+                                      (json-object "total_tokens" total-tokens))
+                 :turn-state      nil
                  :turn-completion ':unspecified))
 
 (-> test-rlm-value-preview () null)
@@ -406,8 +406,8 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                                                      :cached-tokens 80))))
         (budget (rlm-budget-create :calls 2 :tokens 1000 :depth 1)))
     (test-assert (string= (infer "Say plain."
-                                 :budget budget
-                                 :provider provider
+                                 :budget        budget
+                                 :provider      provider
                                  :configuration (test-configuration))
                           "plain")
                  "an inference with cached usage returns its answer")
@@ -430,16 +430,16 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
              (list (rlm-inference-test-result "resp-1" "not json" 100)
                    (rlm-inference-test-result
                     "resp-2" "{\"answer\": \"42\"}" 150))))
-          (budget (rlm-budget-create :calls 4 :tokens 1000 :depth 1))
+          (budget     (rlm-budget-create :calls 4 :tokens 1000 :depth 1))
           (activities nil))
       (multiple-value-bind (value trace-identifier tokens-spent)
           (infer "Answer the question."
-                 :context (list "the question is six times seven")
-                 :contract '(:type :object
-                             :properties (("answer" (:type :string)))
-                             :required ("answer"))
-                 :budget budget
-                 :provider provider
+                 :context       (list "the question is six times seven")
+                 :contract      '(:type :object
+                                  :properties (("answer" (:type :string)))
+                                  :required ("answer"))
+                 :budget        budget
+                 :provider      provider
                  :configuration configuration
                  :activity-callback
                  (lambda (activity)
@@ -472,13 +472,13 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
             (make-instance
              'rlm-inference-test-provider
              :results (list (rlm-inference-test-result "resp-1" "plain" 10))))
-          (budget (rlm-budget-create :calls 2 :tokens 100 :depth 1))
+          (budget         (rlm-budget-create :calls 2 :tokens 100 :depth 1))
           (callback-count 0))
       (test-assert
        (string=
         (infer "Ignore activity callback failures."
-               :budget budget
-               :provider provider
+               :budget        budget
+               :provider      provider
                :configuration configuration
                :activity-callback
                (lambda (activity)
@@ -497,8 +497,8 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
              'rlm-inference-test-provider
              :results (list (rlm-inference-test-result "resp-1" "plain" 10)))))
       (test-assert (string= (infer "Say plain."
-                                   :context "one bare slice"
-                                   :provider provider
+                                   :context       "one bare slice"
+                                   :provider      provider
                                    :configuration configuration)
                             "plain")
                    "text contracts accept a bare context designator"))
@@ -509,19 +509,19 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                              "resp-1"
                              "The findings: [\"first\", \"second\"]" 10)))))
       (test-assert (equal (infer "List findings."
-                                 :contract '(:type :array
-                                             :items (:type :string))
-                                 :provider provider
+                                 :contract      '(:type :array
+                                                  :items (:type :string))
+                                 :provider      provider
                                  :configuration configuration)
                           '(:array "first" "second"))
                    "top-level array contracts parse and validate"))
     (flet ((structured (text contract)
              (infer "Answer structurally."
-                    :contract contract
-                    :provider (make-instance
-                               'rlm-inference-test-provider
-                               :results (list (rlm-inference-test-result
-                                               "resp-1" text 10)))
+                    :contract      contract
+                    :provider      (make-instance
+                                    'rlm-inference-test-provider
+                                    :results (list (rlm-inference-test-result
+                                                    "resp-1" text 10)))
                     :configuration configuration)))
       (test-assert (null (structured "false" '(:type :boolean)))
                    "a JSON false answer validates as native nil")
@@ -561,11 +561,11 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
        (handler-case
            (progn
              (infer "Structured."
-                    :contract '(:type :object
-                                :properties (("answer" (:type :string)))
-                                :required ("answer"))
-                    :budget (rlm-budget-create :calls 1 :tokens 1000 :depth 1)
-                    :provider provider
+                    :contract      '(:type :object
+                                     :properties (("answer" (:type :string)))
+                                     :required ("answer"))
+                    :budget        (rlm-budget-create :calls 1 :tokens 1000 :depth 1)
+                    :provider      provider
                     :configuration configuration)
              nil)
          (rlm-budget-exhausted (condition)
@@ -581,9 +581,9 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 
 (defclass rlm-frame-test-search-tool (tool)
   ((executed-p
-    :initform nil
-    :accessor rlm-frame-test-search-tool-executed-p
-    :type boolean
+    :initform      nil
+    :accessor      rlm-frame-test-search-tool-executed-p
+    :type          boolean
     :documentation "True once the frame executed this fake search tool."))
   (:documentation "A deterministic read-only stand-in for frame registries."))
 
@@ -601,26 +601,26 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
   (make-instance (if (string= namespace "search")
                      'rlm-frame-test-search-tool
                      'tool)
-                 :namespace namespace
-                 :name name
+                 :namespace   namespace
+                 :name        name
                  :description "Deterministic test tool."
-                 :parameters (tool-object-schema (json-object) '())))
+                 :parameters  (tool-object-schema (json-object) '())))
 
 (-> test-rlm-frame-registry () null)
 (defun test-rlm-frame-registry ()
   "Test frame registries keep read-only tools and add nested rlm.infer."
-  (let ((source (make-instance 'tool-registry))
+  (let ((source   (make-instance 'tool-registry))
         (provider (make-instance 'rlm-inference-test-provider :results nil))
-        (budget (rlm-budget-create :calls 2 :tokens 100 :depth 1)))
+        (budget   (rlm-budget-create :calls 2 :tokens 100 :depth 1)))
     (dolist (specification '(("resource" "read") ("resource" "edit")
                              ("shell" "run") ("search" "content")))
       (tool-registry-register
        source
        (rlm-frame-test-tool (first specification) (second specification))))
     (let* ((registry (rlm--frame-registry source provider budget))
-           (names (sort (mapcar #'tool-canonical-name
-                                (tool-registry-tools registry))
-                        #'string<)))
+           (names    (sort (mapcar #'tool-canonical-name
+                                   (tool-registry-tools registry))
+                           #'string<)))
       (test-assert (equal names
                           '("resource.read" "rlm.infer" "rlm.map"
                             "search.content"))
@@ -635,27 +635,27 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 (defun test-rlm-framed-inference ()
   "Test read-capability frames execute restricted tools and charge budgets."
   (let* ((configuration (test-configuration))
-         (source (make-instance 'tool-registry))
-         (search-tool (rlm-frame-test-tool "search" "content"))
+         (source        (make-instance 'tool-registry))
+         (search-tool   (rlm-frame-test-tool "search" "content"))
          (provider
            (make-instance
             'rlm-inference-test-provider
             :results
             (list (agent-test-result
                    "resp-1"
-                   (list (agent-test-call :call-id "call-1"
+                   (list (agent-test-call :call-id   "call-1"
                                           :namespace "search"
-                                          :name "content"
+                                          :name      "content"
                                           :arguments "{}")))
                   (rlm-inference-test-result "resp-2" "frame answer" 100))))
-         (budget (rlm-budget-create :calls 5 :tokens 1000 :depth 1)))
+         (budget        (rlm-budget-create :calls 5 :tokens 1000 :depth 1)))
     (tool-registry-register source search-tool)
     (multiple-value-bind (value trace-identifier)
         (infer "Find the evidence and answer."
-               :capabilities ':read
-               :budget budget
-               :provider provider
-               :configuration configuration
+               :capabilities    ':read
+               :budget          budget
+               :provider        provider
+               :configuration   configuration
                :source-registry source)
       (test-assert (string= value "frame answer")
                    "read-capability frames return the final answer")
@@ -668,28 +668,28 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
       (test-assert (= (rlm-budget-remaining-tokens budget) 898)
                    "every reported frame usage drains the token pool")))
   (let* ((configuration (test-configuration))
-         (source (make-instance 'tool-registry))
-         (search-tool (rlm-frame-test-tool "search" "content"))
+         (source        (make-instance 'tool-registry))
+         (search-tool   (rlm-frame-test-tool "search" "content"))
          (provider
            (make-instance
             'rlm-inference-test-provider
             :results
             (list (agent-test-result
                    "reserved-1"
-                   (list (agent-test-call :call-id "reserved-call"
+                   (list (agent-test-call :call-id   "reserved-call"
                                           :namespace "search"
-                                          :name "content"
+                                          :name      "content"
                                           :arguments "{}")))
                   (rlm-inference-test-result
                    "reserved-2" "budgeted answer" 10))))
-         (budget (rlm-budget-create :calls 2 :tokens 1000 :depth 1)))
+         (budget        (rlm-budget-create :calls 2 :tokens 1000 :depth 1)))
     (tool-registry-register source search-tool)
     (test-assert
      (string= (infer "Inspect once, then answer."
-                     :capabilities ':read
-                     :budget budget
-                     :provider provider
-                     :configuration configuration
+                     :capabilities    ':read
+                     :budget          budget
+                     :provider        provider
+                     :configuration   configuration
                      :source-registry source)
               "budgeted answer")
      "read-capability frames reserve the final provider call for an answer")
@@ -704,9 +704,9 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 
 (defclass rlm-routing-test-provider (rlm-inference-test-provider)
   ((configurations
-    :initform nil
-    :type list
-    :accessor rlm-routing-test-configurations
+    :initform      nil
+    :type          list
+    :accessor      rlm-routing-test-configurations
     :documentation "Configurations applied before scripted provider requests."))
   (:documentation "Record the configurations selected for scripted requests."))
 
@@ -720,16 +720,16 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
   "Test distinct root routes, invalid selections and nested route inheritance."
   (with-test-configuration (configuration root)
     (declare (ignore root))
-    (let* ((model (find-if
-                   (lambda (candidate)
-                     (and (not (equal candidate (config :model configuration)))
-                          (provider-model-reasoning-efforts-for candidate)))
-                   (provider-model-identifiers)))
-           (effort (first (provider-model-reasoning-efforts-for model)))
+    (let* ((model    (find-if
+                      (lambda (candidate)
+                        (and (not (equal candidate (config :model configuration)))
+                             (provider-model-reasoning-efforts-for candidate)))
+                      (provider-model-identifiers)))
+           (effort   (first (provider-model-reasoning-efforts-for model)))
            (registry (make-instance 'tool-registry))
-           (context (make-instance 'tool-context :configuration configuration
-                                  :worker nil :registry registry
-                                  :conversation (conversation-create configuration)))
+           (context  (make-instance 'tool-context :configuration configuration
+                                   :worker nil :registry registry
+                                   :conversation                 (conversation-create configuration)))
            (provider (make-instance 'rlm-routing-test-provider :results nil)))
       (test-assert model "routing tests select a different registered model")
       (labels ((check-route ()
@@ -754,7 +754,7 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
               (let ((nested-context
                       (make-instance 'tool-context :configuration routed
                                      :worker nil :registry registry
-                                     :conversation (tool-context-conversation context))))
+                                     :conversation                (tool-context-conversation context))))
                 (dolist (nested-constructor (list #'rlm-infer-tool-create #'rlm-map-tool-create))
                   (let* ((budget (rlm-budget-create :calls 4 :tokens 10000 :depth 2))
                          (nested (funcall nested-constructor :provider selected :budget budget)))
@@ -839,14 +839,14 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 (defun test-rlm-infer-tool ()
   "Test rlm.infer runs frames from tool arguments and reports failures."
   (let* ((configuration (test-configuration))
-         (source (make-instance 'tool-registry))
-         (conversation (conversation-create configuration
-                                            :identifier "rlm-tool-test"))
-         (context (make-instance 'tool-context
-                                 :configuration configuration
-                                 :worker nil
-                                 :conversation conversation
-                                 :registry source)))
+         (source        (make-instance 'tool-registry))
+         (conversation  (conversation-create configuration
+                                             :identifier "rlm-tool-test"))
+         (context       (make-instance 'tool-context
+                                       :configuration configuration
+                                       :worker        nil
+                                       :conversation  conversation
+                                       :registry      source)))
     (let* ((provider
              (make-instance
               'rlm-inference-test-provider
@@ -925,7 +925,7 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
              (make-instance 'rlm-inference-test-provider :results nil))
            (tool (rlm-infer-tool-create
                   :provider provider
-                  :budget (rlm-budget-create :calls 4 :tokens 100 :depth 0)))
+                  :budget   (rlm-budget-create :calls 4 :tokens 100 :depth 0)))
            (result
              (tool-execute tool context (json-object "task" "Nested."))))
       (test-assert (and (not (tool-result-success-p result))
@@ -935,13 +935,13 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 
 (defclass rlm-map-test-provider (model-provider)
   ((request-count
-    :initform 0
-    :accessor rlm-map-test-provider-request-count
-    :type (integer 0)
+    :initform      0
+    :accessor      rlm-map-test-provider-request-count
+    :type          (integer 0)
     :documentation "The total provider requests served across all threads.")
    (count-lock
-    :initform (make-lock "Autolith map test provider")
-    :reader rlm-map-test-provider--count-lock
+    :initform      (make-lock "Autolith map test provider")
+    :reader        rlm-map-test-provider--count-lock
     :documentation "The lock serializing concurrent request counting."))
   (:documentation "A thread-safe provider answering from the request itself."))
 
@@ -972,32 +972,32 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
     (when (search "explode" text)
       (error 'rlm-inference-error :message "scripted map explosion"))
     (make-instance 'provider-result
-                   :response-id "map-response"
-                   :output-items (list (agent-test-message
-                                        (format nil "echo: ~A" text)))
-                   :tool-calls nil
-                   :usage (json-object "total_tokens" 10)
-                   :turn-state nil
+                   :response-id     "map-response"
+                   :output-items    (list (agent-test-message
+                                           (format nil "echo: ~A" text)))
+                   :tool-calls      nil
+                   :usage           (json-object "total_tokens" 10)
+                   :turn-state      nil
                    :turn-completion ':unspecified)))
 
 (-> test-rlm-map () null)
 (defun test-rlm-map ()
   "Test parallel maps keep order, share budgets, and capture failures."
   (let* ((configuration (test-configuration))
-         (provider (make-instance 'rlm-map-test-provider))
-         (budget (rlm-budget-create :calls 10 :tokens 1000 :depth 1))
+         (provider      (make-instance 'rlm-map-test-provider))
+         (budget        (rlm-budget-create :calls 10 :tokens 1000 :depth 1))
          (activity-lock (make-lock "Autolith inference activity test"))
-         (activities nil)
+         (activities    nil)
          (results
            (rlm-map (list "alpha"
                           (list ':task "beta"
                                 ':context (list "beta extra view"))
                           "gamma explode"
                           "delta")
-                    :budget budget
-                    :provider provider
+                    :budget        budget
+                    :provider      provider
                     :configuration configuration
-                    :concurrency 3
+                    :concurrency   3
                     :activity-callback
                     (lambda (activity)
                       (with-lock-held (activity-lock)
@@ -1041,13 +1041,13 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
              activities)
        "map activity reports live frame request progress")))
   (let* ((configuration (test-configuration))
-         (provider (make-instance 'rlm-map-test-provider))
-         (budget (rlm-budget-create :calls 2 :tokens 1000 :depth 1))
-         (results (rlm-map (list "one" "two" "three" "four")
-                           :budget budget
-                           :provider provider
-                           :configuration configuration
-                           :concurrency 1)))
+         (provider      (make-instance 'rlm-map-test-provider))
+         (budget        (rlm-budget-create :calls 2 :tokens 1000 :depth 1))
+         (results       (rlm-map (list "one" "two" "three" "four")
+                                 :budget        budget
+                                 :provider      provider
+                                 :configuration configuration
+                                 :concurrency   1)))
     (test-assert (equal (mapcar (lambda (result)
                                  (or (getf result :status) ':complete))
                                results)
@@ -1057,8 +1057,8 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                "an empty task list maps to no results")
   (test-assert (handler-case
                    (progn (rlm-map (list 42)
-                                   :provider (make-instance
-                                              'rlm-map-test-provider)
+                                   :provider      (make-instance
+                                                   'rlm-map-test-provider)
                                    :configuration (test-configuration))
                           nil)
                  (rlm-inference-error () t)
@@ -1069,21 +1069,21 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 (-> inference-tests--map-interruption (keyword (integer 1)) null)
 (defun inference-tests--map-interruption (mode concurrency)
   "Interrupt a map with running and queued frames and verify complete cleanup."
-  (let* ((owner-pool (make-job-pool :maximum-concurrency 1 :start-threads-p nil))
+  (let* ((owner-pool  (make-job-pool :maximum-concurrency 1 :start-threads-p nil))
          (create-pool (symbol-function 'make-job-pool))
-         (await-job (symbol-function 'job-await))
-         (lock (make-lock "Inference map interruption test"))
-         (entered 0)
-         (unwound 0)
-         (map-pool nil))
+         (await-job   (symbol-function 'job-await))
+         (lock        (make-lock "Inference map interruption test"))
+         (entered     0)
+         (unwound     0)
+         (map-pool    nil))
     (labels ((ready-p ()
                (with-lock-held (lock)
                  (= entered concurrency)))
 
              (run-map ()
                (rlm-map '("one" "two" "three" "four" "five" "six")
-                        :concurrency concurrency
-                        :provider (make-instance 'rlm-map-test-provider)
+                        :concurrency   concurrency
+                        :provider      (make-instance 'rlm-map-test-provider)
                         :configuration (test-configuration))))
       (unwind-protect
            (test-call-with-function-replacements
@@ -1166,16 +1166,16 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                (error 'rlm-inference-error :message "supervised frame failure"))
               ((string= (getf item :task) "aborted")
                (error 'job-aborted :identifier "frame"
-                                   :reason ':user
-                                   :message "frame cancelled"))
+                                   :reason     ':user
+                                   :message    "frame cancelled"))
               (t
                (list :task (getf item :task) :value "done"))))))
    (lambda ()
      (let ((results
              (rlm-map (append '("failed" "aborted")
                               (loop repeat 20 collect "completed"))
-                      :concurrency 2
-                      :provider (make-instance 'rlm-map-test-provider)
+                      :concurrency   2
+                      :provider      (make-instance 'rlm-map-test-provider)
                       :configuration (test-configuration))))
        (test-assert (search "supervised frame failure" (getf (first results) :error))
                     "a failed supervised job is a per-frame error")
@@ -1185,9 +1185,9 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                          (every (lambda (result) (equal (getf result :value) "done"))
                                 (rest (rest results))))
                     "all admitted siblings finish beyond the library's default batch bound"))))
-  (let ((pool (make-job-pool :start-threads-p nil))
+  (let ((pool       (make-job-pool :start-threads-p nil))
         (close-pool (symbol-function 'job-pool-close))
-        (attempts 0))
+        (attempts   0))
     (unwind-protect
          (test-call-with-function-replacements
           (list (list 'job-pool-close
@@ -1213,10 +1213,10 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 (defun test-rlm-map-tool ()
   "Test rlm.map fans tool tasks out and bounds the fan width."
   (let* ((configuration (test-configuration))
-         (conversation (conversation-create configuration
-                                            :identifier "rlm-map-tool-test"))
+         (conversation  (conversation-create configuration
+                                             :identifier "rlm-map-tool-test"))
          (activity-lock (make-lock "Autolith inference tool activity test"))
-         (activities nil)
+         (activities    nil)
          (observer
            (callback-agent-observer-create
             :status-callback
@@ -1224,14 +1224,14 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
               (when (eq status ':tool-call-progress)
                 (with-lock-held (activity-lock)
                   (push (getf details :activity) activities))))))
-         (context (make-instance 'tool-context
-                                 :configuration configuration
-                                 :worker nil
-                                 :conversation conversation
-                                 :registry (make-instance 'tool-registry)
-                                 :observer observer)))
+         (context       (make-instance 'tool-context
+                                       :configuration configuration
+                                       :worker        nil
+                                       :conversation  conversation
+                                       :registry      (make-instance 'tool-registry)
+                                       :observer      observer)))
     (let* ((provider (make-instance 'rlm-map-test-provider))
-           (tool (rlm-map-tool-create :provider provider))
+           (tool     (rlm-map-tool-create :provider provider))
            (result
              (tool-execute
               tool
@@ -1253,18 +1253,18 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                           (search ":RESULTS" content)
                           (search ":TRACE" content))
                      "rlm.map reports ordered values with traces")))
-      (let ((activities
-              (with-lock-held (activity-lock)
-                (copy-list activities))))
-        (test-assert
-         (some (lambda (activity)
-                 (and (stringp activity)
-                      (search "rlm.map · " activity)
-                      (search "frame" activity)))
-               activities)
-         "rlm.map publishes compact live activity through its tool observer"))
+    (let ((activities
+            (with-lock-held (activity-lock)
+              (copy-list activities))))
+      (test-assert
+       (some (lambda (activity)
+               (and (stringp activity)
+                    (search "rlm.map · " activity)
+                    (search "frame" activity)))
+             activities)
+       "rlm.map publishes compact live activity through its tool observer"))
     (let* ((provider (make-instance 'rlm-map-test-provider))
-           (tool (rlm-map-tool-create :provider provider))
+           (tool     (rlm-map-tool-create :provider provider))
            (result
              (tool-execute
               tool
@@ -1292,13 +1292,13 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 (defun test-rlm-policies ()
   "Test policies decompose, fan out, and synthesize under one budget."
   (let* ((configuration (test-configuration))
-         (provider (make-instance 'rlm-map-test-provider))
-         (budget (rlm-budget-create :calls 10 :tokens 1000 :depth 1)))
+         (provider      (make-instance 'rlm-map-test-provider))
+         (budget        (rlm-budget-create :calls 10 :tokens 1000 :depth 1)))
     (multiple-value-bind (value trace-identifier)
         (rlm-run "summarize the module"
-                 :policy ':rlm-policy-test-split
-                 :budget budget
-                 :provider provider
+                 :policy        ':rlm-policy-test-split
+                 :budget        budget
+                 :provider      provider
                  :configuration configuration)
       (test-assert (and (search "part one of: summarize the module" value)
                         (search "part two of: summarize the module" value)
@@ -1313,10 +1313,10 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
       (test-assert (= (rlm-map-test-provider-request-count provider) 3)
                    "the split policy runs exactly three frames")))
   (let* ((configuration (test-configuration))
-         (provider (make-instance 'rlm-map-test-provider)))
+         (provider      (make-instance 'rlm-map-test-provider)))
     (test-assert (search "direct question"
                          (rlm-run "direct question"
-                                  :provider provider
+                                  :provider      provider
                                   :configuration configuration))
                  "the default policy runs the task as one frame")
     (test-assert (= (rlm-map-test-provider-request-count provider) 1)
@@ -1327,33 +1327,33 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 (defun test-rlm-trace-resource ()
   "Test persisted frame traces read back through the inference scheme."
   (let* ((configuration (test-configuration))
-         (provider (make-instance 'rlm-map-test-provider))
-         (conversation (conversation-create configuration
-                                            :identifier "rlm-trace-test"))
-         (context (make-instance 'tool-context
-                                 :configuration configuration
-                                 :worker nil
-                                 :conversation conversation
-                                 :registry (make-instance 'tool-registry)))
-         (resolver (make-instance 'inference-trace-resolver
-                                  :scheme "inference"))
-         (read-tool (make-instance 'resource-read-tool
-                                   :namespace "resource"
-                                   :name "read"
-                                   :description "Test resource read."
-                                   :parameters (tool-object-schema
-                                                (json-object) '())
-                                   :resource-registry
-                                   (make-resource-registry))))
+         (provider      (make-instance 'rlm-map-test-provider))
+         (conversation  (conversation-create configuration
+                                             :identifier "rlm-trace-test"))
+         (context       (make-instance 'tool-context
+                                       :configuration configuration
+                                       :worker        nil
+                                       :conversation  conversation
+                                       :registry      (make-instance 'tool-registry)))
+         (resolver      (make-instance 'inference-trace-resolver
+                                       :scheme "inference"))
+         (read-tool     (make-instance 'resource-read-tool
+                                       :namespace   "resource"
+                                       :name        "read"
+                                       :description "Test resource read."
+                                       :parameters  (tool-object-schema
+                                                     (json-object) '())
+                                       :resource-registry
+                                       (make-resource-registry))))
     (multiple-value-bind (value trace-identifier)
         (infer "trace me please"
-               :provider provider
+               :provider      provider
                :configuration configuration)
       (declare (ignore value))
       (let* ((resource (resource-resolver-resolve resolver trace-identifier
                                                   context))
-             (result (resource-tool-read resource read-tool context
-                                         (json-object))))
+             (result   (resource-tool-read resource read-tool context
+                                           (json-object))))
         (test-assert (tool-result-success-p result)
                      "persisted traces read back successfully")
         (test-assert (search "trace me please" (tool-result-content result))
@@ -1367,9 +1367,9 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
           (test-assert (uiop:string-prefix-p "lines 2-2 of "
                                              (tool-result-content window))
                        "trace reads honor start-line and line-count")))
-      (let* ((index (resource-resolver-resolve resolver
-                                               *rlm-index-identifier*
-                                               context))
+      (let* ((index    (resource-resolver-resolve resolver
+                                                  *rlm-index-identifier*
+                                                  context))
              (rendered (tool-result-content
                         (resource-tool-read index read-tool context
                                             (json-object)))))
@@ -1399,13 +1399,13 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
     (flet ((classify (&rest texts)
              (permissions-model-classify-command
               "cargo build" #p"/root/project/"
-              :provider (make-instance
-                         'rlm-inference-test-provider
-                         :results
-                         (mapcar (lambda (text)
-                                   (rlm-inference-test-result "response" text 20))
-                                 texts))
-              :configuration configuration
+              :provider          (make-instance
+                                  'rlm-inference-test-provider
+                                  :results
+                                  (mapcar (lambda (text)
+                                            (rlm-inference-test-result "response" text 20))
+                                          texts))
+              :configuration     configuration
               :user-instructions "Build the project in this workspace.")))
       (test-assert
        (equal (getf (second
@@ -1430,8 +1430,8 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
         (test-assert
          (eq (permissions-model-classify-command
               "cargo build" #p"/root/project/"
-              :provider provider
-              :configuration configuration
+              :provider          provider
+              :configuration     configuration
               :user-instructions "Build and test the current checkout.")
              ':sandboxed)
          "a valid sandbox decision is returned")
@@ -1468,9 +1468,9 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
               "unavailable-sandbox"
               "{\"decision\": \"sandboxed\", \"reason\": \"read-only inspection\"}"
               20)))
-           :configuration configuration
+           :configuration       configuration
            :sandbox-available-p nil
-           :user-instructions "Inspect the checkout.")
+           :user-instructions   "Inspect the checkout.")
         (test-assert (eq decision ':deny)
                      "unavailable sandbox decisions are denied")
         (test-assert (string= reason "the workspace sandbox is unavailable")
@@ -1499,7 +1499,7 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                "pick-2"
                "{\"decision\": \"pick\", \"reason\": \"still uncertain\"}"
                20)))
-            :configuration configuration
+            :configuration     configuration
             :user-instructions "Inspect changes only.")
            ':deny)
        "unknown pick output is denied")
@@ -1517,8 +1517,8 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 (defun test-rlm-context-object-adapter ()
   "Test Autolith maps configurations to provider API context stores."
   (let* ((configuration (test-configuration))
-         (object (rlm-context-intern configuration "shared corpus"
-                                     :label "corpus")))
+         (object        (rlm-context-intern configuration "shared corpus"
+                                            :label "corpus")))
     (test-assert (uiop:subpathp (rlm-context-object-pathname object)
                                 (rlm-object-root configuration))
                  "context objects are stored below the configuration data root")
@@ -1538,27 +1538,27 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                  "the adapter preserves provider API designator validation")
     (let* ((conversation (conversation-create configuration
                                               :identifier "context-index"))
-           (context (make-instance 'tool-context
-                                   :configuration configuration
-                                   :worker nil
-                                   :conversation conversation
-                                   :registry (make-instance 'tool-registry)))
-           (resolver (make-instance 'context-object-resolver
-                                    :scheme "context"))
-           (read-tool (make-instance 'resource-read-tool
-                                     :namespace "resource"
-                                     :name "read"
-                                     :description "Test resource read."
-                                     :parameters (tool-object-schema
-                                                  (json-object) '())
-                                     :resource-registry
-                                     (make-resource-registry)))
-           (index (resource-resolver-resolve resolver
-                                             *rlm-index-identifier*
-                                             context))
-           (rendered (tool-result-content
-                      (resource-tool-read index read-tool context
-                                          (json-object)))))
+           (context      (make-instance 'tool-context
+                                        :configuration configuration
+                                        :worker        nil
+                                        :conversation  conversation
+                                        :registry      (make-instance 'tool-registry)))
+           (resolver     (make-instance 'context-object-resolver
+                                        :scheme "context"))
+           (read-tool    (make-instance 'resource-read-tool
+                                        :namespace   "resource"
+                                        :name        "read"
+                                        :description "Test resource read."
+                                        :parameters  (tool-object-schema
+                                                      (json-object) '())
+                                        :resource-registry
+                                        (make-resource-registry)))
+           (index        (resource-resolver-resolve resolver
+                                                    *rlm-index-identifier*
+                                                    context))
+           (rendered     (tool-result-content
+                          (resource-tool-read index read-tool context
+                                              (json-object)))))
       (test-assert (search (rlm-context-object-digest object) rendered)
                    "the context index lists the interned object digest")
       (test-assert (search "shared corpus" rendered)
@@ -1581,14 +1581,14 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 (defun test-rlm-endpoint ()
   "Test the loopback endpoint proxies inference under the shared budget."
   (let* ((configuration (test-configuration))
-         (provider (make-instance 'rlm-map-test-provider))
-         (budget (rlm-budget-create :calls 6 :tokens 1000 :depth 1))
-         (records nil)
-         (endpoint (rlm-endpoint-start :provider provider
-                                       :configuration configuration
-                                       :budget budget
-                                       :ledger (lambda (record)
-                                                 (push record records)))))
+         (provider      (make-instance 'rlm-map-test-provider))
+         (budget        (rlm-budget-create :calls 6 :tokens 1000 :depth 1))
+         (records       nil)
+         (endpoint      (rlm-endpoint-start :provider      provider
+                                            :configuration configuration
+                                            :budget        budget
+                                            :ledger        (lambda (record)
+                                                             (push record records)))))
     (unwind-protect
          (progn
            (test-assert
@@ -1611,7 +1611,7 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                     (list :rlm-request
                           :token (rlm-endpoint-token endpoint)
                           :operation ':infer
-                          :arguments (list :task "proxy this question"
+                          :arguments (list :task    "proxy this question"
                                            :context (list "proxy view"))))))
              (test-assert (eq (getf (rest response) ':status) ':ok)
                           "proxied inference succeeds through the endpoint")
@@ -1648,7 +1648,7 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                           :token (rlm-endpoint-token endpoint)
                           :operation ':map
                           :arguments
-                          (list :tasks (list "first part" "second part")
+                          (list :tasks       (list "first part" "second part")
                                 :concurrency 2)))))
              (test-assert (and (eq (getf (rest response) ':status) ':ok)
                                (= (length (getf (rest response) ':value)) 2))
@@ -1659,7 +1659,7 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                     (list :rlm-request
                           :token (rlm-endpoint-token endpoint)
                           :operation ':run
-                          :arguments (list :task "run this directly"
+                          :arguments (list :task    "run this directly"
                                            :context "run view")))))
              (test-assert (and (eq (getf (rest response) ':status) ':ok)
                                (search "run this directly"
@@ -1681,7 +1681,7 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                     (list :rlm-request
                           :token (rlm-endpoint-token endpoint)
                           :operation ':run
-                          :arguments (list :task "run under a missing policy"
+                          :arguments (list :task   "run under a missing policy"
                                            :policy ':nonexistent-policy)))))
              (test-assert (and (eq (getf (rest response) ':status) ':error)
                                (search "No decomposition policy"
@@ -1735,18 +1735,18 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                           "ledger records link child traces and budget state")))
       (rlm-endpoint-stop endpoint)))
   (let* ((configuration (test-configuration))
-         (activities nil)
+         (activities    nil)
          (endpoint
            (rlm-endpoint-start
-            :provider (make-instance 'rlm-map-test-provider)
+            :provider      (make-instance 'rlm-map-test-provider)
             :configuration configuration
-             :budget (rlm-budget-create :calls 5 :tokens 200 :depth 1)
+             :budget       (rlm-budget-create :calls 5 :tokens 200 :depth 1)
             :activity-callback
             (lambda (activity)
               (push activity activities))))
          (retained-callback
            (rlm-endpoint--operation-activity-callback endpoint ':infer))
-         (stopped-p nil))
+         (stopped-p     nil))
     (unwind-protect
          (progn
            (dolist (policy '(:direct :rlm-policy-test-split))
@@ -1754,9 +1754,9 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                      (rlm-endpoint-test-call
                       endpoint
                       (list :rlm-request :token (rlm-endpoint-token endpoint)
-                            :operation ':run
-                            :arguments (list :task "private policy task"
-                                             :policy policy :concurrency 1)))))
+                            :operation   ':run
+                            :arguments   (list :task "private policy task"
+                                               :policy policy :concurrency 1)))))
                (test-assert (eq (getf (rest response) :status) ':ok)
                             "endpoint policy runs complete through the transport")))
            (test-assert
@@ -1785,28 +1785,28 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 
 (defclass rlm-litmus-provider (model-provider)
   ((window-limit
-    :initarg :window-limit
-    :reader rlm-litmus-provider--window-limit
-    :type (integer 1)
+    :initarg       :window-limit
+    :reader        rlm-litmus-provider--window-limit
+    :type          (integer 1)
     :documentation "The simulated provider context window in request characters.")
    (largest-request
-    :initform 0
-    :accessor rlm-litmus-provider-largest-request
-    :type (integer 0)
+    :initform      0
+    :accessor      rlm-litmus-provider-largest-request
+    :type          (integer 0)
     :documentation "The largest request observed across all threads.")
    (request-count
-    :initform 0
-    :accessor rlm-litmus-provider-request-count
-    :type (integer 0)
+    :initform      0
+    :accessor      rlm-litmus-provider-request-count
+    :type          (integer 0)
     :documentation "The total provider requests served.")
    (root-results
-    :initarg :root-results
-    :accessor rlm-litmus-provider--root-results
-    :type list
+    :initarg       :root-results
+    :accessor      rlm-litmus-provider--root-results
+    :type          list
     :documentation "The scripted root-model results in request order.")
    (lock
-    :initform (make-lock "Autolith litmus provider")
-    :reader rlm-litmus-provider--lock
+    :initform      (make-lock "Autolith litmus provider")
+    :reader        rlm-litmus-provider--lock
     :documentation "The lock guarding counters across handler threads."))
   (:documentation
    "A window-limited provider serving scripted root turns and computed sub-answers."))
@@ -1846,9 +1846,9 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
              :message
              (format nil "A ~D character request exceeds the ~D window."
                      size (rlm-litmus-provider--window-limit provider))))
-    (let* ((text (or (rlm-map-test--last-user-text conversation) ""))
+    (let* ((text       (or (rlm-map-test--last-user-text conversation) ""))
            (view-start (search "<view" text))
-           (view-end (search "</view" text :from-end t)))
+           (view-end   (search "</view" text :from-end t)))
       (if (and view-start view-end)
           (rlm-inference-test-result
            "litmus-sub"
@@ -1884,9 +1884,9 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 (defun test-rlm-litmus-completion ()
   "Test the defining RLM property over an input beyond the provider window."
   (let* ((configuration (test-configuration))
-         (corpus (rlm-litmus--corpus))
-         (expected (rlm-litmus--count-occurrences "XYZZY" corpus))
-         (window-limit 60000)
+         (corpus        (rlm-litmus--corpus))
+         (expected      (rlm-litmus--count-occurrences "XYZZY" corpus))
+         (window-limit  60000)
          (code
            "(finish (loop for start from 0 below (context-length) by 40000 sum (parse-integer (infer \"Count the marker occurrences and reply with only the integer.\" :context (list (context-slice start (min (context-length) (+ start 40000))))))))")
          (provider
@@ -1897,15 +1897,15 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
             (list (agent-test-result
                    "root-1"
                    (list (agent-test-call
-                          :call-id "eval-1"
+                          :call-id   "eval-1"
                           :namespace "env"
-                          :name "eval"
+                          :name      "eval"
                           :arguments (json-encode
                                       (json-object "form" code))))))))
           ;; Exactly one root request plus four sub-inferences: a finish on
           ;; the last remaining call must end the run without another request.
-          (budget (rlm-budget-create :calls 5 :tokens 100000 :depth 2))
-          (activities nil))
+         (budget        (rlm-budget-create :calls 5 :tokens 100000 :depth 2))
+         (activities    nil))
     (test-assert (= (length corpus) 160000)
                  "the corpus is four exact provider-window-sized blocks")
     (test-assert (> (length corpus) window-limit)
@@ -1914,9 +1914,9 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                  "the corpus contains markers to count")
     (multiple-value-bind (value trace-identifier)
         (rlm-complete "Count how many marker lines the corpus contains."
-                      :context (list ':label "corpus" ':content corpus)
-                      :budget budget
-                      :provider provider
+                      :context       (list ':label "corpus" ':content corpus)
+                      :budget        budget
+                      :provider      provider
                       :configuration configuration
                       :activity-callback
                       (lambda (activity)
@@ -1998,10 +1998,10 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
   (let ((configuration (test-configuration)))
     (multiple-value-bind (seed-value trace-identifier)
         (infer "Say seed."
-               :provider (make-instance
-                          'rlm-inference-test-provider
-                          :results (list (rlm-inference-test-result
-                                          "seed" "seed answer" 10)))
+               :provider      (make-instance
+                               'rlm-inference-test-provider
+                               :results (list (rlm-inference-test-result
+                                               "seed" "seed answer" 10)))
                :configuration configuration)
       (declare (ignore seed-value))
       (let* ((provider
@@ -2012,8 +2012,8 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                        "gate"
                        "{\"worth\": false, \"rationale\": \"one-off noise\"}"
                        10))))
-             (result (rlm-distill :traces (list trace-identifier)
-                                  :provider provider
+             (result (rlm-distill :traces        (list trace-identifier)
+                                  :provider      provider
                                   :configuration configuration)))
         (test-assert (and (null (getf result ':worth))
                           (search "noise" (getf result ':rationale))
@@ -2025,11 +2025,11 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                "(defmethod rlm-decompose-inference-task ((policy (eql ':chunked-count)) (task string) (views list) (budget rlm-budget)) nil)")
              (approval
                "{\"worth\": true, \"rationale\": \"repeated chunked pattern\"}")
-             (plan (json-encode
-                    (json-object "policy" "chunked-count"
-                                 "title" "Chunked counting"
-                                 "rationale" "Traces show chunked counting."
-                                 "method-source" valid-method)))
+             (plan     (json-encode
+                        (json-object "policy" "chunked-count"
+                                     "title" "Chunked counting"
+                                     "rationale" "Traces show chunked counting."
+                                     "method-source" valid-method)))
              (bad-plan (json-encode
                         (json-object "policy" "chunked-count"
                                      "title" "Chunked counting"
@@ -2042,10 +2042,10 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                 (list (rlm-inference-test-result "gate" approval 10)
                       (rlm-inference-test-result "plan-1" bad-plan 10)
                       (rlm-inference-test-result "plan-2" plan 10))))
-             (result (rlm-distill :traces (list trace-identifier)
-                                  :instructions "Focus on counting."
-                                  :provider provider
-                                  :configuration configuration)))
+             (result   (rlm-distill :traces        (list trace-identifier)
+                                    :instructions  "Focus on counting."
+                                    :provider      provider
+                                    :configuration configuration)))
         (test-assert (and (eq (getf result ':worth) t)
                           (eq (getf result ':policy) ':chunked-count)
                           (string= (getf result ':method-source) valid-method)
@@ -2077,8 +2077,8 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
         (test-assert
          (handler-case
              (progn
-               (rlm-distill :traces (list trace-identifier)
-                            :provider provider
+               (rlm-distill :traces        (list trace-identifier)
+                            :provider      provider
                             :configuration configuration)
                nil)
            (rlm-inference-error (condition)
@@ -2088,10 +2088,10 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
       (test-assert
        (handler-case
            (progn
-             (rlm-distill :traces (list "missing-trace-identifier")
-                          :provider (make-instance
-                                     'rlm-inference-test-provider
-                                     :results nil)
+             (rlm-distill :traces        (list "missing-trace-identifier")
+                          :provider      (make-instance
+                                          'rlm-inference-test-provider
+                                          :results nil)
                           :configuration configuration)
              nil)
          (rlm-inference-error (condition)
@@ -2104,20 +2104,20 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 (defun test-rlm-distill-tool ()
   "Test rlm.distill reviews traces from tool arguments and reports refusals."
   (let* ((configuration (test-configuration))
-         (source (make-instance 'tool-registry))
-         (conversation (conversation-create configuration
-                                            :identifier "rlm-distill-tool"))
-         (context (make-instance 'tool-context
-                                 :configuration configuration
-                                 :worker nil
-                                 :conversation conversation
-                                 :registry source)))
+         (source        (make-instance 'tool-registry))
+         (conversation  (conversation-create configuration
+                                             :identifier "rlm-distill-tool"))
+         (context       (make-instance 'tool-context
+                                       :configuration configuration
+                                       :worker        nil
+                                       :conversation  conversation
+                                       :registry      source)))
     (multiple-value-bind (seed-value trace-identifier)
         (infer "Say seed."
-               :provider (make-instance
-                          'rlm-inference-test-provider
-                          :results (list (rlm-inference-test-result
-                                          "seed" "seed answer" 10)))
+               :provider      (make-instance
+                               'rlm-inference-test-provider
+                               :results (list (rlm-inference-test-result
+                                               "seed" "seed answer" 10)))
                :configuration configuration)
       (declare (ignore seed-value))
       (let* ((provider
@@ -2127,7 +2127,7 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                                 "gate"
                                 "{\"worth\": false, \"rationale\": \"noise\"}"
                                 10))))
-             (tool (rlm-distill-tool-create :provider provider))
+             (tool   (rlm-distill-tool-create :provider provider))
              (result (tool-execute
                       tool context
                       (json-object "traces"
@@ -2160,9 +2160,9 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
    (list (agent-test-result
           "reuse-root"
           (list (agent-test-call
-                 :call-id "reuse-eval"
+                 :call-id   "reuse-eval"
                  :namespace "env"
-                 :name "eval"
+                 :name      "eval"
                  :arguments (json-encode (json-object "form" form))))))))
 
 (-> test-rlm-environment-reuse () null)
@@ -2170,17 +2170,17 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
   "Test root environments persist across runs over one context object."
   (rlm-environment-pool-flush)
   (let ((configuration (test-configuration))
-        (context (list ':label "shared corpus"
-                       ':content "reusable context body")))
+        (context       (list ':label "shared corpus"
+                             ':content "reusable context body")))
     (unwind-protect
          (progn
            (multiple-value-bind (value trace-identifier)
                (rlm-complete
                 "Remember the base value."
-                :context context
-                :budget (rlm-budget-create :calls 2 :tokens 50000 :depth 1)
-                :provider (rlm-environment-reuse--provider
-                           "(progn (defvar *reuse-state* 41) (finish 41))")
+                :context       context
+                :budget        (rlm-budget-create :calls 2 :tokens 50000 :depth 1)
+                :provider      (rlm-environment-reuse--provider
+                                "(progn (defvar *reuse-state* 41) (finish 41))")
                 :configuration configuration)
              (declare (ignore trace-identifier))
              (test-assert (eql value 41)
@@ -2190,10 +2190,10 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
            (multiple-value-bind (value trace-identifier)
                (rlm-complete
                 "Recall the base value."
-                :context context
-                :budget (rlm-budget-create :calls 2 :tokens 50000 :depth 1)
-                :provider (rlm-environment-reuse--provider
-                           "(finish (list (1+ *reuse-state*) (environment-names)))")
+                :context       context
+                :budget        (rlm-budget-create :calls 2 :tokens 50000 :depth 1)
+                :provider      (rlm-environment-reuse--provider
+                                "(finish (list (1+ *reuse-state*) (environment-names)))")
                 :configuration configuration)
              (test-assert (eql (first value) 42)
                           "the reused environment keeps prior definitions")
@@ -2213,10 +2213,10 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
            (multiple-value-bind (value trace-identifier)
                (rlm-complete
                 "Start over."
-                :context context
-                :budget (rlm-budget-create :calls 2 :tokens 50000 :depth 1)
-                :provider (rlm-environment-reuse--provider
-                           "(finish (boundp (quote *reuse-state*)))")
+                :context       context
+                :budget        (rlm-budget-create :calls 2 :tokens 50000 :depth 1)
+                :provider      (rlm-environment-reuse--provider
+                                "(finish (boundp (quote *reuse-state*)))")
                 :configuration configuration)
              (test-assert (null value)
                           "a dead pooled environment starts fresh")
@@ -2230,8 +2230,8 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 (defun test-rlm-boundary-litmus ()
   "Test overlapping slices count evidence crossing naive slice boundaries."
   (let* ((configuration (test-configuration))
-         (corpus (rlm-litmus--corpus))
-         (window-limit 60000)
+         (corpus        (rlm-litmus--corpus))
+         (window-limit  60000)
          (code
            "(finish (let* ((size 40000) (overlap 100) (step (- size overlap))) (- (loop for start from 0 below (context-length) by step sum (parse-integer (infer \"Count the marker occurrences and reply with only the integer.\" :context (list (context-slice start (min (context-length) (+ start size))))))) (loop for start from step below (context-length) by step sum (parse-integer (infer \"Count the marker occurrences and reply with only the integer.\" :context (list (context-slice start (min (context-length) (+ start overlap))))))))))")
          (provider
@@ -2242,29 +2242,29 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
             (list (agent-test-result
                    "root-1"
                    (list (agent-test-call
-                          :call-id "eval-1"
+                          :call-id   "eval-1"
                           :namespace "env"
-                          :name "eval"
+                          :name      "eval"
                           :arguments (json-encode
                                       (json-object "form" code))))))))
-         (budget (rlm-budget-create :calls 12 :tokens 100000 :depth 2)))
+         (budget        (rlm-budget-create :calls 12 :tokens 100000 :depth 2)))
     ;; Plant markers straddling the naive 40000-character boundaries; the
     ;; base corpus pads block edges with dots, so the splice is exact.
     (replace corpus "XYZZY" :start1 39998)
     (replace corpus "XYZZY" :start1 79998)
     (let ((expected (rlm-litmus--count-occurrences "XYZZY" corpus))
-          (naive (loop for start from 0 below (length corpus) by 40000
-                       sum (rlm-litmus--count-occurrences
-                            "XYZZY"
-                            (subseq corpus start
-                                    (min (length corpus) (+ start 40000)))))))
+          (naive    (loop for start from 0 below (length corpus) by 40000
+                          sum (rlm-litmus--count-occurrences
+                               "XYZZY"
+                               (subseq corpus start
+                                       (min (length corpus) (+ start 40000)))))))
       (test-assert (> expected naive)
                    "the planted markers straddle naive slice boundaries")
       (multiple-value-bind (value trace-identifier)
           (rlm-complete "Count how many marker lines the corpus contains."
-                        :context (list ':label "corpus" ':content corpus)
-                        :budget budget
-                        :provider provider
+                        :context       (list ':label "corpus" ':content corpus)
+                        :budget        budget
+                        :provider      provider
                         :configuration configuration)
         (declare (ignore trace-identifier))
         (test-assert (eql value expected)
@@ -2278,21 +2278,21 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 (defun test-rlm-complete-tool ()
   "Test rlm.complete runs a root completion from tool arguments."
   (let* ((configuration (test-configuration))
-         (conversation (conversation-create configuration
-                                            :identifier "rlm-complete-tool"))
-         (activities nil)
+         (conversation  (conversation-create configuration
+                                             :identifier "rlm-complete-tool"))
+         (activities    nil)
          (observer
            (callback-agent-observer-create
             :status-callback
             (lambda (status details)
               (when (eq status ':tool-call-progress)
                 (push (getf details :activity) activities)))))
-         (context (make-instance 'tool-context
-                                 :configuration configuration
-                                 :worker nil
-                                 :conversation conversation
-                                 :registry (make-instance 'tool-registry)
-                                 :observer observer))
+         (context       (make-instance 'tool-context
+                                       :configuration configuration
+                                       :worker        nil
+                                       :conversation  conversation
+                                       :registry      (make-instance 'tool-registry)
+                                       :observer      observer))
          (provider
            (make-instance
             'rlm-litmus-provider
@@ -2301,14 +2301,14 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
             (list (agent-test-result
                    "root-1"
                    (list (agent-test-call
-                          :call-id "eval-1"
+                          :call-id   "eval-1"
                           :namespace "env"
-                          :name "eval"
+                          :name      "eval"
                           :arguments (json-encode
                                       (json-object
                                        "form"
                                        "(finish (context-length))"))))))))
-         (tool (rlm-complete-tool-create :provider provider))
+         (tool          (rlm-complete-tool-create :provider provider))
          (result
            (tool-execute
             tool
@@ -2335,13 +2335,13 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                                      (json-object "task" "No context."))))
                  "rlm.complete refuses a missing context argument"))
   (let* ((configuration (test-configuration))
-         (conversation (conversation-create configuration
-                                            :identifier "rlm-big-value"))
-         (context (make-instance 'tool-context
-                                 :configuration configuration
-                                 :worker nil
-                                 :conversation conversation
-                                 :registry (make-instance 'tool-registry)))
+         (conversation  (conversation-create configuration
+                                             :identifier "rlm-big-value"))
+         (context       (make-instance 'tool-context
+                                       :configuration configuration
+                                       :worker        nil
+                                       :conversation  conversation
+                                       :registry      (make-instance 'tool-registry)))
          (provider
            (make-instance
             'rlm-litmus-provider
@@ -2350,20 +2350,20 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
             (list (agent-test-result
                    "root-1"
                    (list (agent-test-call
-                          :call-id "eval-1"
+                          :call-id   "eval-1"
                           :namespace "env"
-                          :name "eval"
+                          :name      "eval"
                           :arguments
                           (json-encode
                            (json-object
                             "form"
                             "(finish (make-string 20000 :initial-element #\\x))"))))))))
-         (result (tool-execute (rlm-complete-tool-create :provider provider)
-                               context
-                               (json-object
-                                "task" "Produce a huge value."
-                                "context" (json-object "text" "small")
-                                "calls" 4))))
+         (result        (tool-execute (rlm-complete-tool-create :provider provider)
+                                      context
+                                      (json-object
+                                       "task" "Produce a huge value."
+                                       "context" (json-object "text" "small")
+                                       "calls" 4))))
     (test-assert (tool-result-success-p result)
                  "rlm.complete succeeds on an oversized final value")
     (let ((content (tool-result-content result)))
@@ -2379,14 +2379,14 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
 (defun test-rlm-designator-confinement ()
   "Test model-visible designators stay inside the resource protocol."
   (let* ((configuration (test-configuration))
-         (conversation (conversation-create configuration
-                                            :identifier "rlm-designators"))
-         (registry (make-instance 'tool-registry))
-         (context (make-instance 'tool-context
-                                 :configuration configuration
-                                 :worker nil
-                                 :conversation conversation
-                                 :registry registry)))
+         (conversation  (conversation-create configuration
+                                             :identifier "rlm-designators"))
+         (registry      (make-instance 'tool-registry))
+         (context       (make-instance 'tool-context
+                                       :configuration configuration
+                                       :worker        nil
+                                       :conversation  conversation
+                                       :registry      registry)))
     (resource-registry-register
      (tool-registry-resource-registry registry)
      (make-instance 'workspace-file-resolver :scheme "workspace"))
@@ -2432,7 +2432,6 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                      "unknown context object digests are refused"))))
   nil)
 
-
 (-> test-rlm-partial-results () null)
 (defun test-rlm-partial-results ()
   "Preserve unvalidated frame evidence and completed map siblings on exhaustion."
@@ -2442,13 +2441,13 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                (make-instance 'rlm-inference-test-provider
                               :results (list (rlm-inference-test-result
                                               "partial" "useful but invalid JSON" 10))))
-             (budget (rlm-budget-create :calls (if (eq dimension ':calls) 1 2)
+             (budget (rlm-budget-create :calls  (if (eq dimension ':calls) 1 2)
                                         :tokens (if (eq dimension ':tokens) 10 100)
-                                        :depth 1))
+                                        :depth  1))
              (partial
                (handler-case
                    (infer "Answer with an integer."
-                          :contract '(:type :integer)
+                          :contract      '(:type :integer)
                           :budget budget :provider provider
                           :configuration configuration)
                  (rlm-partial-result (condition)
@@ -2471,8 +2470,8 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                             :results (list (rlm-inference-test-result "complete" "42" 10)
                                            (rlm-inference-test-result "partial" "evidence" 10))))
            (results (rlm-map '("first" "second" "third")
-                             :contract '(:type :integer)
-                             :budget (rlm-budget-create :calls 2 :tokens 100 :depth 1)
+                             :contract    '(:type :integer)
+                             :budget      (rlm-budget-create :calls 2 :tokens 100 :depth 1)
                              :provider provider :configuration configuration
                              :concurrency 1)))
       (test-assert (= (getf (first results) :value) 42)
@@ -2497,7 +2496,7 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
               :results
               (list (agent-test-result
                      "read"
-                     (list (agent-test-call :call-id "evidence-call"
+                     (list (agent-test-call :call-id   "evidence-call"
                                             :namespace "search" :name "content"
                                             :arguments "{}")))
                     (rlm-inference-test-result "draft" "unvalidated draft" 10)))))
@@ -2507,7 +2506,7 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                 (lambda ()
                   (infer "Inspect then answer with an integer."
                          :capabilities ':read :contract '(:type :integer)
-                         :budget (rlm-budget-create :calls 2 :tokens 100 :depth 1)
+                         :budget          (rlm-budget-create :calls 2 :tokens 100 :depth 1)
                          :provider provider :configuration configuration
                          :source-registry source))))
              (partial (let ((*read-eval* nil))
@@ -2531,7 +2530,7 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
             (lambda ()
               (error 'rlm-budget-exhausted
                      :dimension ':tokens
-                     :task "audit the whole repository"))))
+                     :task      "audit the whole repository"))))
          (content (tool-result-content result)))
     (test-assert (not (tool-result-success-p result))
                  "an exhausted budget without partial evidence stays a failure")
@@ -2554,11 +2553,11 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                   (handler-case
                       (rlm-complete
                        "Remember a value before finishing."
-                       :context context
-                       :model "gpt-5.6-luna"
-                       :budget (rlm-budget-create :calls 1 :tokens 50000 :depth 1)
-                       :provider (rlm-environment-reuse--provider
-                                  "(defparameter *partial-sentinel* 41)")
+                       :context       context
+                       :model         "gpt-5.6-luna"
+                       :budget        (rlm-budget-create :calls 1 :tokens 50000 :depth 1)
+                       :provider      (rlm-environment-reuse--provider
+                                       "(defparameter *partial-sentinel* 41)")
                        :configuration configuration)
                     (rlm-partial-result (condition)
                       (rlm-partial-result-observation condition)))))
@@ -2571,12 +2570,12 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
            (test-assert
             (= (rlm-complete
                 "Continue using the retained intermediate value."
-                :context (rlm-context-object-find
-                          configuration (subseq (getf partial :context) 8))
-                :model "gpt-5.6-luna"
-                :budget (rlm-budget-create :calls 2 :tokens 50000 :depth 1)
-                :provider (rlm-environment-reuse--provider
-                           "(finish (1+ *partial-sentinel*))")
+                :context       (rlm-context-object-find
+                                configuration (subseq (getf partial :context) 8))
+                :model         "gpt-5.6-luna"
+                :budget        (rlm-budget-create :calls 2 :tokens 50000 :depth 1)
+                :provider      (rlm-environment-reuse--provider
+                                "(finish (1+ *partial-sentinel*))")
                 :configuration configuration)
                42)
             "continuation reuses the actual state rather than recomputing it"))

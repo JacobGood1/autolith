@@ -7,22 +7,21 @@
   "Write the valid one-pixel test PNG to PATHNAME."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction    ':output
+                          :if-exists    ':supersede
                           :element-type '(unsigned-byte 8))
     (write-sequence
      (base64-string-to-usb8-array *test-conversation-tiny-png*)
      stream))
   pathname)
 
-
 (-> test-conversation--write-tiny-jpeg (pathname) pathname)
 (defun test-conversation--write-tiny-jpeg (pathname)
   "Write a minimal three-by-two JPEG fixture to PATHNAME."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction    ':output
+                          :if-exists    ':supersede
                           :element-type '(unsigned-byte 8))
     (write-sequence
      #(255 216
@@ -30,7 +29,6 @@
        255 217)
      stream))
   pathname)
-
 
 (-> test-conversation--all-records (conversation) list)
 (defun test-conversation--all-records (conversation)
@@ -46,7 +44,7 @@
 (defun test-conversation-turn-aborted-boundary ()
   "Test durable aborted-turn boundaries are bounded, idempotent, and replayed."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "turn-aborted")))
     (unwind-protect
@@ -57,10 +55,10 @@
              (conversation-append-turn-aborted
               conversation
               :turn-start-sequence turn-start-sequence
-              :reason ':cancelled
-              :condition-type "APPLICATION-TURN-CANCELLED"
-              :message "cancelled"
-              :request-number nil))
+              :reason              ':cancelled
+              :condition-type      "APPLICATION-TURN-CANCELLED"
+              :message             "cancelled"
+              :request-number      nil))
             "an aborted turn without durable work emits no boundary")
            (conversation-append-user-message conversation "partial turn")
            (let* ((long-message
@@ -71,10 +69,10 @@
                     (conversation-append-turn-aborted
                      conversation
                      :turn-start-sequence turn-start-sequence
-                     :reason ':agent-loop
-                     :condition-type "AGENT-LOOP-ERROR"
-                     :message long-message
-                     :request-number 3)))
+                     :reason              ':agent-loop
+                     :condition-type      "AGENT-LOOP-ERROR"
+                     :message             long-message
+                     :request-number      3)))
              (test-assert
               (and (eq (first marker) ':turn-aborted)
                    (= (getf (rest marker) :turn-start-seq)
@@ -90,14 +88,14 @@
                (conversation-append-turn-aborted
                 conversation
                 :turn-start-sequence turn-start-sequence
-                :reason ':agent-loop
-                :condition-type "AGENT-LOOP-ERROR"
-                :message "duplicate"
-                :request-number 3))
+                :reason              ':agent-loop
+                :condition-type      "AGENT-LOOP-ERROR"
+                :message             "duplicate"
+                :request-number      3))
               "one turn cannot append its aborted boundary twice")
              (let* ((loaded
                       (conversation-load (conversation-pathname conversation)))
-                    (records (test-conversation--all-records loaded))
+                    (records       (test-conversation--all-records loaded))
                     (loaded-marker (find :turn-aborted records :key #'first)))
                (test-assert
                 (and loaded-marker
@@ -122,16 +120,16 @@
                  (null (user-message-input-image-pathnames "plain input"))
                  (not (eq (user-message-input-copy "plain input") "plain input")))
             "legacy strings satisfy the user input protocol")
-            (test-conversation--write-tiny-jpeg jpeg-source)
-            (multiple-value-bind (format width height)
-                (image-input--inspect jpeg-source)
-              (test-assert
-               (and (eq format ':jpeg) (= width 3) (= height 2))
-               "JPEG inspection returns dimensions from its frame marker"))
-            (test-assert
-             (equal (image-input-validate-pathname jpeg-source)
-                    (truename jpeg-source))
-             "JPEG attachments pass pathname validation")
+           (test-conversation--write-tiny-jpeg jpeg-source)
+           (multiple-value-bind (format width height)
+               (image-input--inspect jpeg-source)
+             (test-assert
+              (and (eq format ':jpeg) (= width 3) (= height 2))
+              "JPEG inspection returns dimensions from its frame marker"))
+           (test-assert
+            (equal (image-input-validate-pathname jpeg-source)
+                   (truename jpeg-source))
+            "JPEG attachments pass pathname validation")
            (test-conversation--write-tiny-png source)
            (test-assert
             (equal (image-input-recognize-pasted-path
@@ -142,15 +140,15 @@
                     (conversation-create configuration :identifier "images"))
                   (input
                     (user-message-input-create
-                     :text "Describe [Image #1]."
+                     :text            "Describe [Image #1]."
                      :image-pathnames (list (truename source))))
                   (input-copy (user-message-input-copy input))
-                  (item (conversation-append-user-message conversation input))
-                  (content (json-get item "content"))
+                  (item       (conversation-append-user-message conversation input))
+                  (content    (json-get item "content"))
                   (records
                     (conversation--read-records
                      (conversation-pathname conversation)))
-                  (record (second records))
+                  (record     (second records))
                   (descriptor (first (getf (rest record) :images)))
                   (artifact
                     (merge-pathnames
@@ -212,7 +210,7 @@
                       conversation
                       "view-1"
                       :tool-name "fs.view-image"
-                      :output "Viewed the image."
+                      :output    "Viewed the image."
                       :content-blocks
                       (list "Before image."
                             tool-attachment
@@ -249,51 +247,51 @@
                              (with-output-to-string (stream)
                                (prin1 tool-record stream)))))
                   "image tool results persist descriptors instead of base64"))
-             (let* ((loaded
-                      (conversation-load-by-id configuration "images"))
-                    (loaded-content
-                      (json-get (first (conversation-input-items loaded))
-                                "content"))
-                    (loaded-tool-output
-                      (json-get (third (conversation-input-items loaded))
-                                "output")))
-               (test-assert
-                (string= (json-get (aref loaded-content 1) "image_url")
-                         (json-get (aref content 1) "image_url"))
-                "conversation replay reconstructs the exact user image")
-               (test-assert
-                (and (vectorp loaded-tool-output)
-                     (string=
-                      (json-get (aref loaded-tool-output 0) "text")
-                      "Before image.")
-                     (string=
-                      (json-get (aref loaded-tool-output 1) "image_url")
-                      (json-get
-                       (aref (json-get tool-item "output") 1)
-                       "image_url"))
-                     (string=
-                      (json-get (aref loaded-tool-output 2) "text")
-                      "After image."))
-                "conversation replay reconstructs ordered image tool output")))
-              (let* ((artifact-root
-                       (conversation-image-artifact-root conversation))
-                     (orphan
-                       (merge-pathnames
-                        (make-pathname :name (make-identifier) :type "png")
-                        artifact-root)))
-                (uiop:copy-file source orphan)
-                (multiple-value-bind (owned lease acquired-p)
-                    (application--conversation-load-owned
-                     nil configuration "images")
-                  (declare (ignore owned))
-                  (unwind-protect
-                       (test-assert
-                        (and acquired-p
-                             (probe-file artifact)
-                             (not (probe-file orphan)))
-                        "owned conversation loading prunes unreferenced image artifacts")
-                    (when acquired-p
-                      (conversation-lease-release lease)))))
+              (let* ((loaded
+                       (conversation-load-by-id configuration "images"))
+                     (loaded-content
+                       (json-get (first (conversation-input-items loaded))
+                                 "content"))
+                     (loaded-tool-output
+                       (json-get (third (conversation-input-items loaded))
+                                 "output")))
+                (test-assert
+                 (string= (json-get (aref loaded-content 1) "image_url")
+                          (json-get (aref content 1) "image_url"))
+                 "conversation replay reconstructs the exact user image")
+                (test-assert
+                 (and (vectorp loaded-tool-output)
+                      (string=
+                       (json-get (aref loaded-tool-output 0) "text")
+                       "Before image.")
+                      (string=
+                       (json-get (aref loaded-tool-output 1) "image_url")
+                       (json-get
+                        (aref (json-get tool-item "output") 1)
+                        "image_url"))
+                      (string=
+                       (json-get (aref loaded-tool-output 2) "text")
+                       "After image."))
+                 "conversation replay reconstructs ordered image tool output")))
+             (let* ((artifact-root
+                      (conversation-image-artifact-root conversation))
+                    (orphan
+                      (merge-pathnames
+                       (make-pathname :name (make-identifier) :type "png")
+                       artifact-root)))
+               (uiop:copy-file source orphan)
+               (multiple-value-bind (owned lease acquired-p)
+                   (application--conversation-load-owned
+                    nil configuration "images")
+                 (declare (ignore owned))
+                 (unwind-protect
+                      (test-assert
+                       (and acquired-p
+                            (probe-file artifact)
+                            (not (probe-file orphan)))
+                       "owned conversation loading prunes unreferenced image artifacts")
+                   (when acquired-p
+                     (conversation-lease-release lease)))))
              (delete-file artifact)
              (test-assert
               (handler-case
@@ -310,7 +308,7 @@
 (defun test-conversation-compaction ()
   "Test summary records, projection replacement, and usage tracking."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let ((conversation (conversation-create configuration
                                                   :identifier "compact")))
@@ -318,8 +316,8 @@
            (conversation-append-provider-metadata
             conversation
             (list :request-number 1
-                  :response-id "one"
-                  :usage '(("total_tokens" 4321))))
+                  :response-id    "one"
+                  :usage          '(("total_tokens" 4321))))
            (test-assert (= (conversation-last-total-tokens conversation) 4321)
                         "usage totals track the newest provider step")
            (conversation-append-summary conversation
@@ -331,8 +329,8 @@
            (test-assert (null (conversation-turn-state conversation))
                         "compaction drops the provider turn state")
            (conversation-append-user-message conversation "later question")
-           (let* ((reloaded (conversation-load-by-id configuration "compact"))
-                  (items (conversation-input-items reloaded))
+           (let* ((reloaded    (conversation-load-by-id configuration "compact"))
+                  (items       (conversation-input-items reloaded))
                   (bridge-text (json-get
                                 (aref (json-get (first items) "content") 0)
                                 "text")))
@@ -351,7 +349,7 @@
 (defun test-conversation-native-compaction ()
   "Test durable opaque compaction with a portable cross-family handoff."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration :identifier "native-compact"))
@@ -362,8 +360,8 @@
            (conversation-append-provider-metadata
             conversation
             (list :request-number 1
-                  :response-id "before-native-compact"
-                  :usage '(("total_tokens" 4321))))
+                  :response-id    "before-native-compact"
+                  :usage          '(("total_tokens" 4321))))
            (conversation-append-native-compaction
             conversation item :family ':codex :summary "Portable handoff.")
            (test-assert
@@ -378,9 +376,9 @@
             "native compaction preserves Codex's current checkpoint encoding")
            (test-assert (zerop (conversation-last-total-tokens conversation))
                         "native compaction resets the tracked usage")
-            (test-assert
-             (= (length (conversation-input-items-for-family conversation ':codex)) 1)
-             "the producing family receives only its opaque checkpoint")
+           (test-assert
+            (= (length (conversation-input-items-for-family conversation ':codex)) 1)
+            "the producing family receives only its opaque checkpoint")
            (let ((grok-items
                    (conversation-input-items-for-family conversation ':grok)))
              (test-assert (= (length grok-items) 1)
@@ -408,17 +406,16 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-conversation-chunk-storage () null)
 (defun test-conversation-chunk-storage ()
   "Test deterministic compaction chunks and self-contained newest-chunk resume."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (identifier "7Hk2mNp"))
+         (root          (test-configuration-root configuration))
+         (identifier    "7Hk2mNp"))
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration :identifier identifier))
-                (identity (conversation-pathname conversation))
+                (identity      (conversation-pathname conversation))
                 (initial-chunk (conversation-log-pathname conversation)))
            (test-assert
             (and (equal initial-chunk (conversation-chunk-pathname identity 1))
@@ -437,7 +434,7 @@
            (conversation-set-model-selection conversation "gpt-5.6-luna" "high")
            (conversation-append-user-operation
             conversation
-            :kind ':lisp
+            :kind   ':lisp
             :source "(values :before-compaction)"
             :status ':ok
             :result "⇒ :BEFORE-COMPACTION")
@@ -445,17 +442,17 @@
             conversation
             (list :goal
                   :objective "Finish chunk storage."
-                  :status ':active
+                  :status        ':active
                   :continuations 2
-                  :created-at (get-universal-time)))
+                  :created-at    (get-universal-time)))
            (setf (conversation-working-seconds conversation) 37
                  (conversation-last-activity-at conversation) (get-universal-time))
            (let* ((summary
                     (conversation-append-summary conversation "Portable checkpoint."))
                   (summary-sequence (getf (rest summary) :seq))
-                  (pathnames (conversation-storage-pathnames identity))
-                  (active (conversation-log-pathname conversation))
-                  (forms (conversation--read-records active))
+                  (pathnames        (conversation-storage-pathnames identity))
+                  (active           (conversation-log-pathname conversation))
+                  (forms            (conversation--read-records active))
                   (expected-working-seconds
                     (conversation-working-seconds conversation))
                   (expected-last-activity
@@ -510,8 +507,8 @@
                               "before compaction"))
                 "the newest chunk restores all cumulative resumable state alone")
                (with-open-file (stream initial-chunk
-                                       :direction ':output
-                                       :if-exists ':append
+                                       :direction       ':output
+                                       :if-exists       ':append
                                        :external-format ':utf-8)
                  (write-string "(:interrupted" stream))
                (let ((search-pathname
@@ -525,33 +522,33 @@
                   (conversation-picker-search-find identity))
                  '("before compaction" "after compaction"))
                 "a search after a compacted append rebuilds cross-chunk text"))
-              (let* ((loaded (conversation-load-by-id configuration identifier))
-                     (log-append-function (symbol-function 'log-append))
-                     (failure-injected-p nil)
-                     (expected-sequence
-                       (conversation-next-sequence loaded)))
-                (let ((record
-                        (test-call-with-function-replacements
+             (let* ((loaded              (conversation-load-by-id configuration identifier))
+                    (log-append-function (symbol-function 'log-append))
+                    (failure-injected-p  nil)
+                    (expected-sequence
+                      (conversation-next-sequence loaded)))
+               (let ((record
+                       (test-call-with-function-replacements
+                        (list
                          (list
-                          (list
-                           'log-append
-                           (lambda (&rest arguments)
-                             (multiple-value-prog1
-                                 (apply log-append-function arguments)
-                               (unless failure-injected-p
-                                 (setf failure-injected-p t)
-                                 (error "simulated failure after chunk publication"))))))
-                         (lambda ()
-                           (conversation-append-summary
-                            loaded "post-publication checkpoint")))))
-                  (test-assert
-                   (and (= (getf (rest record) :seq) expected-sequence)
-                        (= (conversation-next-sequence loaded)
-                           (1+ expected-sequence))
-                        (= (conversation-chunk-start-sequence
-                            (conversation-log-pathname loaded))
-                           expected-sequence))
-                   "a complete chunk publication survives a post-publication failure")))
+                          'log-append
+                          (lambda (&rest arguments)
+                            (multiple-value-prog1
+                                (apply log-append-function arguments)
+                              (unless failure-injected-p
+                                (setf failure-injected-p t)
+                                (error "simulated failure after chunk publication"))))))
+                        (lambda ()
+                          (conversation-append-summary
+                           loaded "post-publication checkpoint")))))
+                 (test-assert
+                  (and (= (getf (rest record) :seq) expected-sequence)
+                       (= (conversation-next-sequence loaded)
+                          (1+ expected-sequence))
+                       (= (conversation-chunk-start-sequence
+                           (conversation-log-pathname loaded))
+                          expected-sequence))
+                  "a complete chunk publication survives a post-publication failure")))
              (test-assert
               (and (find identity (conversation-list configuration) :test #'equal)
                    (plusp (conversation-storage-write-date identity)))
@@ -565,13 +562,12 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-conversation-segment-validation () null)
 (defun test-conversation-segment-validation ()
   "Test exact chunk paths, headers, checkpoints, and sequences are validated."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (identifier "5Vk8sQr"))
+         (root          (test-configuration-root configuration))
+         (identifier    "5Vk8sQr"))
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration :identifier identifier))
@@ -580,9 +576,9 @@
            (conversation-append-summary conversation "checkpoint")
            (conversation-append-user-message conversation "after checkpoint")
            (let ((failure
-                   (make-condition 'store-error :pathname identity
+                   (make-condition 'store-error :pathname  identity
                                                 :operation ':callback
-                                                :message "Record visitor failed.")))
+                                                :message   "Record visitor failed.")))
              (test-assert
               (handler-case
                   (conversation-map-records
@@ -594,7 +590,7 @@
                   (eq failure condition)))
               "record visitor failures are not translated into conversation corruption"))
            (let* ((pathnames (conversation-storage-pathnames identity))
-                  (active (second pathnames))
+                  (active    (second pathnames))
                   (active-forms
                     (copy-tree (conversation--read-records active))))
              (labels ((check-active-rejected (forms message)
@@ -672,20 +668,20 @@
 (defun test-conversation-legacy-storage ()
   "Test legacy single-file replay and mixed legacy-plus-chunk rotation."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (identifier "9Jt4qRs"))
+         (root          (test-configuration-root configuration))
+         (identifier    "9Jt4qRs"))
     (unwind-protect
-         (let* ((created (conversation-create configuration :identifier identifier))
+         (let* ((created  (conversation-create configuration :identifier identifier))
                 (identity (conversation-pathname created)))
            (conversation-append-user-message created "legacy message")
            (let* ((active (conversation-log-pathname created))
-                  (forms (copy-tree (conversation--read-records active))))
+                  (forms  (copy-tree (conversation--read-records active))))
              (setf (getf (rest (first forms)) :version) 1)
              (conversation-identifier-migration--write-forms identity forms)
              (platform-delete-directory-tree
               *platform*
               (conversation-storage-directory-pathname identity)
-              :validate t
+              :validate          t
               :if-does-not-exist ':ignore))
            (let ((legacy (conversation-load identity)))
              (test-assert
@@ -696,7 +692,7 @@
              (let* ((summary
                       (conversation-append-summary legacy "legacy checkpoint"))
                     (summary-sequence (getf (rest summary) :seq))
-                    (pathnames (conversation-storage-pathnames identity)))
+                    (pathnames        (conversation-storage-pathnames identity)))
                (test-assert
                 (and (= summary-sequence 2)
                      (= (length pathnames) 2)
@@ -704,7 +700,7 @@
                      (= (conversation-chunk-start-sequence (second pathnames)) 2))
                 "compacting a legacy file retains it as the oldest storage segment")
                (let* ((reloaded (conversation-load identity))
-                      (records (test-conversation--all-records reloaded)))
+                      (records  (test-conversation--all-records reloaded)))
                  (test-assert
                   (and (equal (conversation-log-pathname reloaded)
                               (second pathnames))
@@ -721,7 +717,7 @@
 (defun test-conversation-ephemeral-tool-projection ()
   "Test request-local tool correlation stays out of durable history and replay."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration
                                 :identifier "ephemeral-tool-projection"))
@@ -751,14 +747,14 @@
             conversation
             "durable-call"
             :tool-name "test.echo"
-            :output "echo: durable"
+            :output    "echo: durable"
             :success-p t)
            (conversation-append-tool-result
             conversation
             "ephemeral-call"
-            :tool-name "skill.load"
-            :output "Selected alpha-secret."
-            :success-p t
+            :tool-name   "skill.load"
+            :output      "Selected alpha-secret."
+            :success-p   t
             :persistence ':next-response)
            (let* ((live
                     (conversation-input-items-for-request conversation))
@@ -803,8 +799,8 @@
                      (null
                       (find "ephemeral-call"
                             (conversation-input-items reloaded)
-                            :key (lambda (item)
-                                   (json-get item "call_id"))
+                            :key  (lambda (item)
+                                    (json-get item "call_id"))
                             :test #'string=)))
                 "crash replay omits request-local call correlation without synthesizing repair")))
            (conversation-append-summary conversation "Durable mixed-call work.")
@@ -831,7 +827,7 @@
               (= (length (conversation-input-items reloaded)) 1)
               "replay after compaction contains only the durable summary bridge")))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -839,7 +835,7 @@
 (defun test-conversation-ephemeral-append-interruption ()
   "Test interrupted request-local insertion remains owned and removable."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create
             configuration :identifier "ephemeral-append-interruption"))
@@ -894,12 +890,12 @@
 (defun test-conversation-origin-directory ()
   "Test origin directory persistence, peeking, and legacy header tolerance."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation (conversation-create configuration
                                                    :identifier "origin"))
-                (expected (namestring
-                           (config :working-directory configuration))))
+                (expected     (namestring
+                               (config :working-directory configuration))))
            (test-assert (string= (conversation-origin-directory conversation)
                                  expected)
                         "a new conversation records its origin directory")
@@ -933,7 +929,7 @@
 (defun test-conversation-model-selection ()
   "Test model selection headers, append-only changes, and legacy loading."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let ((conversation (conversation-create configuration
                                                   :identifier "model-choice")))
@@ -958,8 +954,8 @@
               (string= (getf (rest header) :reasoning-effort) "high")
               "the initial effort is stored in the header"))
            (conversation-set-model-selection conversation "gpt-5.6-terra" "low")
-           (let* ((records (conversation--read-records
-                            (conversation-pathname conversation)))
+           (let* ((records   (conversation--read-records
+                              (conversation-pathname conversation)))
                   (selection (first (last records))))
              (test-assert (eq (first selection) :configuration)
                           "later model changes append configuration records")
@@ -973,17 +969,17 @@
              (test-assert
               (string= (conversation-reasoning-effort reloaded) "low")
               "conversation replay restores the latest effort"))
-             (let ((*supported-reasoning-efforts*
-                     (remove-if
-                      (lambda (effort)
-                        (member effort '("high" "low") :test #'string=))
-                      *supported-reasoning-efforts*)))
-               (let ((reloaded
-                       (conversation-load-by-id configuration "model-choice")))
-                 (test-assert
-                  (and (string= (conversation-model reloaded) "gpt-5.6-terra")
-                       (string= (conversation-reasoning-effort reloaded) "low"))
-                  "conversation replay accepts retired reasoning efforts")))
+           (let ((*supported-reasoning-efforts*
+                   (remove-if
+                    (lambda (effort)
+                      (member effort '("high" "low") :test #'string=))
+                    *supported-reasoning-efforts*)))
+             (let ((reloaded
+                     (conversation-load-by-id configuration "model-choice")))
+               (test-assert
+                (and (string= (conversation-model reloaded) "gpt-5.6-terra")
+                     (string= (conversation-reasoning-effort reloaded) "low"))
+                "conversation replay accepts retired reasoning efforts")))
            (let ((legacy (conversation-pathname-for-id configuration "legacy-model")))
              (snapshot-write
               legacy
@@ -1000,19 +996,19 @@
 (defun test-conversation-interrupted-tool-call ()
   "Test append-only repair of a function call whose process exited mid-tool."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration :identifier "interrupted"))
-                 (call
-                   ;; Keep the removed name to cover interrupted pre-upgrade history.
-                   (json-object
-                    "type" "function_call"
-                    "status" "completed"
-                    "arguments" "{\"patterns\":[\"one\",\"two\"]}"
-                    "call_id" "call-interrupted"
-                    "name" "multi-content"
-                    "namespace" "search")))
+                (call
+                  ;; Keep the removed name to cover interrupted pre-upgrade history.
+                  (json-object
+                   "type" "function_call"
+                   "status" "completed"
+                   "arguments" "{\"patterns\":[\"one\",\"two\"]}"
+                   "call_id" "call-interrupted"
+                   "name" "multi-content"
+                   "namespace" "search")))
            (conversation-append-user-message conversation "continue the task")
            (conversation-append-provider-item conversation call)
            ;; Reproduce a user message persisted after restart but before the
@@ -1066,7 +1062,7 @@
 (defun test-conversation-late-duplicate-tool-output ()
   "Test replay keeps the result used before a stale writer appended another."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "duplicate-output"))
          (call
@@ -1095,7 +1091,7 @@
             conversation
             "call-duplicate"
             :tool-name "shell.run"
-            :output *conversation-interrupted-tool-output*
+            :output    *conversation-interrupted-tool-output*
             :success-p nil)
            (conversation-append-user-message conversation "continue")
            (log-append
@@ -1144,7 +1140,7 @@
 (defun test-conversation-malformed-tool-projections ()
   "Test replay rejects impossible durable tool-output projections."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "malformed-tools")))
     (unwind-protect
@@ -1190,7 +1186,7 @@
     (unwind-protect
          (let ((conversation
                  (conversation-create configuration
-                                      :identifier "private-turn"
+                                      :identifier   "private-turn"
                                       :storage-root storage-root)))
             (test-assert (not (conversation-storage-occupied-p
                                (conversation-pathname conversation)))
@@ -1226,7 +1222,7 @@
 (defun test-conversation-concurrent-appends ()
   "Test concurrent writers retain one contiguous sequence and matching input history."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "concurrent-appends"))
          (threads
@@ -1240,8 +1236,8 @@
                        (list :message
                              :role ':user
                              :content (format nil "writer ~D input ~D" writer index)
-                             :writer writer
-                             :index index))))
+                             :writer  writer
+                             :index   index))))
                   :name (format nil
                                 "Autolith conversation writer ~D"
                                 writer)))))
@@ -1291,9 +1287,9 @@
 (-> test-conversation--child-configuration-form (configuration) string)
 (defun test-conversation--child-configuration-form (configuration)
   "Return a readable form that reconstructs CONFIGURATION in a child process."
-  (let ((*package* (find-package '#:cl-user))
+  (let ((*package*        (find-package '#:cl-user))
         (*print-readably* t)
-        (*print-circle* nil))
+        (*print-circle*   nil))
     (prin1-to-string
      `(make-configuration
        :source-root
@@ -1359,8 +1355,8 @@
   "Test fresh children load Autolith through the locked project setup."
   (with-test-environment (("CL_SOURCE_REGISTRY" nil))
     (let* ((configuration (test-configuration))
-           (root (test-configuration-root configuration))
-           (home (merge-pathnames "isolated-home/" root)))
+           (root          (test-configuration-root configuration))
+           (home          (merge-pathnames "isolated-home/" root)))
       (unwind-protect
            (progn
              (ensure-directories-exist (merge-pathnames "placeholder" home))
@@ -1380,7 +1376,7 @@
                         "the clean child loads locked Autolith dependencies:~%~A"
                         output))))
         (platform-delete-directory-tree *platform* root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   nil)
 
@@ -1490,8 +1486,8 @@ process without releasing the lease, exercising kernel cleanup."
 (defun test-conversation-process-lease ()
   "Test live-owner exclusion and automatic lease release after process death."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (identifier "K8vQ2mp")
+         (root          (test-configuration-root configuration))
+         (identifier    "K8vQ2mp")
          (conversation
            (conversation-create configuration :identifier identifier)))
     (unwind-protect
@@ -1527,15 +1523,15 @@ process without releasing the lease, exercising kernel cleanup."
                 (conversation-peek-header
                  (conversation-pathname conversation)))
                "conversation picker enumeration remains read-only while leased")
-               (let ((records-seen 0))
-                 (conversation--map-records
-                  (conversation-log-pathname conversation)
-                  (lambda (record)
-                    (declare (ignore record))
-                    (incf records-seen)))
-                 (test-assert
-                  (= records-seen 2)
-                  "history enumeration remains read-only while leased"))))
+              (let ((records-seen 0))
+                (conversation--map-records
+                 (conversation-log-pathname conversation)
+                 (lambda (record)
+                   (declare (ignore record))
+                   (incf records-seen)))
+                (test-assert
+                 (= records-seen 2)
+                 "history enumeration remains read-only while leased"))))
            (let ((lease
                    (conversation-lease-acquire configuration identifier)))
              (unwind-protect
@@ -1565,9 +1561,9 @@ process without releasing the lease, exercising kernel cleanup."
 (defun test-conversation-inherited-reference ()
   "Test filtered spawn-time parent history, durable replay, and isolation."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (parent (conversation-create configuration :identifier "reference-parent"))
-         (child (conversation-create configuration :identifier "reference-child"))
+         (root          (test-configuration-root configuration))
+         (parent        (conversation-create configuration :identifier "reference-parent"))
+         (child         (conversation-create configuration :identifier "reference-child"))
          (assistant-part
            (json-object "type" "output_text" "text" "Parent answer."))
          (assistant-item
@@ -1746,7 +1742,7 @@ process without releasing the lease, exercising kernel cleanup."
                     (list :inherited-reference
                           :seq 2
                           :source-conversation-id "reference-parent"
-                          :wire-json "{not-json"))
+                          :wire-json              "{not-json"))
                    nil)
                (conversation-invariant-error ()
                  t))
@@ -1758,7 +1754,7 @@ process without releasing the lease, exercising kernel cleanup."
 (defun test-conversation-persistence ()
   "Test append-only conversation projection and incomplete-tail recovery."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation (conversation-create configuration :identifier "test-turn"))
                 (projection
@@ -1794,11 +1790,11 @@ process without releasing the lease, exercising kernel cleanup."
             conversation
             "call-1"
             :tool-name "lisp.eval"
-            :output "42"
+            :output    "42"
             :success-p t)
            (with-open-file (stream (conversation-log-pathname conversation)
-                                   :direction ':output
-                                   :if-exists ':append
+                                   :direction       ':output
+                                   :if-exists       ':append
                                    :external-format ':utf-8)
              (write-string "(:incomplete" stream))
            (let ((loaded (conversation-load-by-id configuration "test-turn")))
@@ -1830,9 +1826,9 @@ process without releasing the lease, exercising kernel cleanup."
 (defun test-conversation-working-seconds ()
   "Test working-time accumulation across durable records and replay."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
-         (let ((pathname (conversation-pathname-for-id configuration "worked"))
+         (let ((pathname       (conversation-pathname-for-id configuration "worked"))
                (message-json
                  "{\"type\":\"message\",\"role\":\"user\",\"content\":[]}")
                (reasoning-json "{\"type\":\"reasoning\",\"content\":[]}"))
@@ -1911,14 +1907,14 @@ process without releasing the lease, exercising kernel cleanup."
   "Rebuild picker projections only after a paused append releases its source."
   (with-test-configuration (configuration)
     (dolist (kind '(:metadata :search))
-      (let* ((conversation (conversation-create configuration))
-             (pathname (conversation-pathname conversation))
-             (invalidated (sb-thread:make-semaphore :count 0))
+      (let* ((conversation    (conversation-create configuration))
+             (pathname        (conversation-pathname conversation))
+             (invalidated     (sb-thread:make-semaphore :count 0))
              (continue-writer (sb-thread:make-semaphore :count 0))
-             (reader-started (sb-thread:make-semaphore :count 0))
+             (reader-started  (sb-thread:make-semaphore :count 0))
              (reader-finished (sb-thread:make-semaphore :count 0))
              (append-function (symbol-function 'log-append))
-             (threads nil))
+             (threads         nil))
         (conversation-append-record
          conversation (list :message :role ':user :content "first"))
         (unwind-protect
@@ -1945,8 +1941,10 @@ process without releasing the lease, exercising kernel cleanup."
                        (lambda ()
                          (sb-thread:signal-semaphore reader-started)
                          (prog1 (ecase kind
-                                  (:metadata (conversation-picker-metadata-find pathname))
-                                  (:search (conversation-picker-search-find pathname)))
+                                  (:metadata
+                                   (conversation-picker-metadata-find pathname))
+                                  (:search
+                                   (conversation-picker-search-find pathname)))
                            (sb-thread:signal-semaphore reader-finished))))
                       threads)
                 (test-assert (sb-thread:wait-on-semaphore reader-started :timeout 5)
@@ -1981,8 +1979,8 @@ process without releasing the lease, exercising kernel cleanup."
 (defun test-conversation-picker-metadata-stability ()
   "Test that an append racing a cache scan cannot publish stale metadata."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (pathname (conversation-pathname-for-id configuration "metadata-race")))
+         (root          (test-configuration-root configuration))
+         (pathname      (conversation-pathname-for-id configuration "metadata-race")))
     (unwind-protect
          (progn
            (ensure-directories-exist pathname)
@@ -2014,11 +2012,11 @@ process without releasing the lease, exercising kernel cleanup."
                    (= (conversation-picker-metadata-user-turn-count metadata) 2)
                    (string= (conversation-picker-metadata-preview metadata)
                             "second"))
-               "a later picker scan rebuilds metadata from the complete log"))
+              "a later picker scan rebuilds metadata from the complete log"))
            (let* ((conversation
                    (conversation-create configuration
                                         :identifier "metadata-rotation"))
-                  (identity (conversation-pathname conversation))
+                  (identity  (conversation-pathname conversation))
                   (map-records-function
                    (symbol-function 'sexp-store:segment-map))
                   (file-identity-function
@@ -2066,13 +2064,13 @@ process without releasing the lease, exercising kernel cleanup."
 (-> test-conversation-picker-search () null)
 (defun test-conversation-picker-search ()
   "Test durable message-only search indexes, rebuilding, and scan races."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration   (test-configuration))
+         (root            (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "search-index"))
-         (pathname (conversation-pathname conversation))
+         (pathname        (conversation-pathname conversation))
          (search-pathname (conversation-picker-search-pathname pathname))
-         (expected (list "user needle" "assistant needle")))
+         (expected        (list "user needle" "assistant needle")))
     (labels ((find-with-scan-count ()
                "Find the index and return how many source scans it required."
                (let ((count 0)
@@ -2182,8 +2180,8 @@ assistant needle"))
                         expected))
                   "a malformed search sidecar rebuilds both chunks once"))
                (with-open-file (stream search-pathname
-                                       :direction ':output
-                                       :if-exists ':supersede
+                                       :direction       ':output
+                                       :if-exists       ':supersede
                                        :external-format ':utf-8)
                  (write-string "(:conversation-picker-search" stream))
                (multiple-value-bind (index scan-count)
@@ -2206,8 +2204,8 @@ assistant needle"))
                    (make-instance
                     'conversation-picker-search-index
                     :source-revision (1- revision)
-                    :message-count message-count
-                    :messages (make-list message-count :initial-element "stale")))))
+                    :message-count   message-count
+                    :messages        (make-list message-count :initial-element "stale")))))
                (multiple-value-bind (index scan-count)
                    (find-with-scan-count)
                  (test-assert
@@ -2247,8 +2245,8 @@ assistant needle"))
                         expected))
                   "a search after the racing append rebuilds the current corpus"))
                (let ((log-append-function (symbol-function 'log-append))
-                     (pre-append-index nil)
-                     (append-failed-p nil))
+                     (pre-append-index    nil)
+                     (append-failed-p     nil))
                  (handler-case
                      (test-call-with-function-replacements
                       (list
@@ -2296,8 +2294,8 @@ assistant needle"))
                     "a later find rebuilds search after the post-append crash")))
                (delete-file search-pathname)
                (with-open-file (stream (conversation-log-pathname loaded)
-                                       :direction ':output
-                                       :if-exists ':append
+                                       :direction       ':output
+                                       :if-exists       ':append
                                        :external-format ':utf-8)
                  (write-string "(:provider-item" stream))
                (multiple-value-bind (index scan-count)
@@ -2327,30 +2325,29 @@ assistant needle"))
         (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore))))
   nil)
 
-
 (-> test-conversation-tail-repair-interruptibility () null)
 (defun test-conversation-tail-repair-interruptibility ()
   "Test that torn-tail repair can be interrupted before appending new work."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration      (test-configuration))
+         (root               (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "interruptible-repair"))
-         (gate (make-lock "conversation repair interrupt test"))
-         (condition (make-condition-variable))
-         (repair-entered-p nil)
-         (release-repair-p nil)
-         (append-condition nil)
-         (thread nil)
+         (gate               (make-lock "conversation repair interrupt test"))
+         (condition          (make-condition-variable))
+         (repair-entered-p   nil)
+         (release-repair-p   nil)
+         (append-condition   nil)
+         (thread             nil)
          (log-write-function (symbol-function 'log-write)))
     (unwind-protect
          (progn
            (conversation-append-user-message conversation "before torn tail")
            (with-open-file (stream (conversation-log-pathname conversation)
-                                   :direction ':output
-                                   :if-exists ':append
+                                   :direction       ':output
+                                   :if-exists       ':append
                                    :external-format ':utf-8)
              (write-string "(:interrupted" stream))
-           (let* ((loaded (conversation-load (conversation-pathname conversation)))
+           (let* ((loaded        (conversation-load (conversation-pathname conversation)))
                   (next-sequence (conversation-next-sequence loaded)))
              (test-assert (conversation-incomplete-tail-p loaded)
                           "the fixture loads with an incomplete active tail")
@@ -2413,25 +2410,24 @@ assistant needle"))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-conversation-initial-publication-serialization () null)
 (defun test-conversation-initial-publication-serialization ()
   "Test that competing first writes cannot both publish one conversation ID."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (first (conversation-create configuration :identifier "publication-race"))
-         (second (conversation-create configuration :identifier "publication-race"))
-         (pathname (conversation-log-pathname first))
-         (gate (make-lock "conversation initial publication test"))
-         (condition (make-condition-variable))
-         (first-entered-p nil)
-         (release-first-p nil)
-         (second-entered-p nil)
-         (first-succeeded-p nil)
-         (first-condition nil)
-         (second-condition nil)
-         (first-thread nil)
-         (second-thread nil)
+  (let* ((configuration      (test-configuration))
+         (root               (test-configuration-root configuration))
+         (first              (conversation-create configuration :identifier "publication-race"))
+         (second             (conversation-create configuration :identifier "publication-race"))
+         (pathname           (conversation-log-pathname first))
+         (gate               (make-lock "conversation initial publication test"))
+         (condition          (make-condition-variable))
+         (first-entered-p    nil)
+         (release-first-p    nil)
+         (second-entered-p   nil)
+         (first-succeeded-p  nil)
+         (first-condition    nil)
+         (second-condition   nil)
+         (first-thread       nil)
+         (second-thread      nil)
          (log-write-function (symbol-function 'sexp-store:log-write)))
     (unwind-protect
          (test-call-with-function-replacements
@@ -2499,25 +2495,24 @@ assistant needle"))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-conversation-deletion () null)
 (defun test-conversation-deletion ()
   "Test deletion ownership checks and private artifact cleanup."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "delete-me"))
-         (pathname (conversation-pathname conversation))
+         (pathname      (conversation-pathname conversation))
          (lease-pathname
            (conversation--lease-pathname configuration "delete-me"))
-         (sidecars (conversation-picker-sidecar-pathnames pathname))
+         (sidecars      (conversation-picker-sidecar-pathnames pathname))
          (image-root
            (merge-pathnames "conversation-images/delete-me/"
                             (config :data-root configuration)))
          (task-root
            (merge-pathnames "tasks/delete-me/"
                             (config :data-root configuration)))
-         (lease nil))
+         (lease         nil))
     (unwind-protect
          (progn
            (conversation-append-user-message conversation "temporary")
@@ -2608,7 +2603,7 @@ assistant needle"))
                     (merge-pathnames
                      "conversation-images/cleanup-failure/"
                      (config :data-root configuration)))
-                  (reported nil))
+                  (reported        nil))
              (conversation-append-user-message failed "temporary")
              (snapshot-write
               (merge-pathnames "image.sexp" failed-image-root)
@@ -2627,9 +2622,9 @@ assistant needle"))
               "artifact cleanup failures report the committed deletion")
              (test-assert (not (probe-file failed-pathname))
                           "cleanup failure cannot leave a broken resumable conversation")
-              (test-assert
-               (notany #'probe-file failed-sidecars)
-               "committed deletion removes sidecars before artifact cleanup")
+             (test-assert
+              (notany #'probe-file failed-sidecars)
+              "committed deletion removes sidecars before artifact cleanup")
              (test-assert (probe-file failed-image-root)
                           "cleanup failure leaves undeleted artifacts recoverable")))
       (when lease
@@ -2641,7 +2636,7 @@ assistant needle"))
 (defun test-conversation-titles ()
   "Test initial prompt titles, generated replacements, picker caches, and replay."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let ((conversation
                  (conversation-create configuration :identifier "titles")))
@@ -2697,7 +2692,7 @@ assistant needle"))
                  (eq (conversation-title-source conversation) ':initial))
             "the first user prompt immediately names a conversation")
            (let* ((pathname (conversation-pathname conversation))
-                  (header (conversation-peek-header pathname))
+                  (header   (conversation-peek-header pathname))
                   (metadata (conversation-picker-metadata-read pathname)))
              (test-assert
               (string= (getf (rest header) :title)
@@ -2761,20 +2756,20 @@ assistant needle"))
                             "Automatic session titles")
                    (eq (conversation-title-source reloaded) ':generated))
               "conversation replay restores the latest generated title"))
-             (let* ((*conversation-title-maximum-characters* 20)
-                    (expected
-                      (conversation-title-normalize "Automatic session titles"))
-                    (reloaded
-                      (conversation-load-by-id configuration "titles"))
-                    (metadata
-                      (conversation-picker-metadata-read
-                       (conversation-pathname conversation))))
-               (test-assert
-                (and (string= (conversation-title reloaded) expected)
-                     (eq (conversation-title-source reloaded) ':generated)
-                     metadata
-                     (string= (conversation-picker-metadata-title metadata) expected))
-                "conversation reads normalize titles under current display policy"))
+           (let* ((*conversation-title-maximum-characters* 20)
+                  (expected
+                    (conversation-title-normalize "Automatic session titles"))
+                  (reloaded
+                    (conversation-load-by-id configuration "titles"))
+                  (metadata
+                    (conversation-picker-metadata-read
+                     (conversation-pathname conversation))))
+             (test-assert
+              (and (string= (conversation-title reloaded) expected)
+                   (eq (conversation-title-source reloaded) ':generated)
+                   metadata
+                   (string= (conversation-picker-metadata-title metadata) expected))
+              "conversation reads normalize titles under current display policy"))
            (let ((duplicate
                    (conversation-create configuration
                                         :identifier "duplicate-generated-title")))
@@ -2820,7 +2815,7 @@ assistant needle"))
              (conversation-append-user-message
               image-automatic
               (user-message-input-create
-               :text ""
+               :text            ""
                :image-pathnames (list (truename image-pathname))))
              (conversation-append-user-message
               image-automatic
@@ -2844,7 +2839,7 @@ assistant needle"))
                                          :identifier "published-title"))
                   (log-append-function (symbol-function 'log-append)))
              (conversation-append-user-message published "publish title safely")
-              (sleep 1)
+             (sleep 1)
              (let ((title-sequence (conversation-next-sequence published)))
                (test-call-with-function-replacements
                 (list
@@ -2892,12 +2887,11 @@ assistant needle"))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-conversation-cross-family-reasoning () null)
 (defun test-conversation-cross-family-reasoning ()
   "Test that reasoning replay is confined to the family that produced it."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let ((conversation (conversation-create configuration
                                                   :identifier "families")))

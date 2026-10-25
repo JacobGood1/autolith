@@ -12,19 +12,19 @@
 (defun test-context-rule-selection ()
   "Exercise conjunctive metadata predicates, alternatives and project/conversation scope."
   (with-test-configuration (configuration root)
-    (let ((configuration (configuration-copy configuration :working-directory root))
+    (let ((configuration          (configuration-copy configuration :working-directory root))
           (*context-contributors* nil)
-          (*context-rule-facts* (make-hash-table :test #'equal))
-          (*context-rule-order* nil)
-          (*context-resolver* (cl-llm-provider-api:make-context-resolver)))
+          (*context-rule-facts*   (make-hash-table :test #'equal))
+          (*context-rule-order*   nil)
+          (*context-resolver*     (cl-llm-provider-api:make-context-resolver)))
       (let ((conversation (conversation-create configuration))
-            (other (conversation-create configuration)))
+            (other        (conversation-create configuration)))
         (register-context-rule
          (list :id "coding" :workspace (namestring root)
-               :when '(:paths ("src/" "lib/") :languages ("common-lisp")
-                       :tools ("resource.read") :namespaces ("resource")
-                       :roles ("engineering") :diagnostics ("warning")
-                       :events ("diagnostics"))
+               :when        '(:paths ("src/" "lib/") :languages ("common-lisp")
+                              :tools ("resource.read") :namespaces ("resource")
+                              :roles ("engineering") :diagnostics ("warning")
+                              :events ("diagnostics"))
                :instruction "Check the changed Lisp declarations."))
         (context-rule-note conversation :paths '("src/module.lisp")
                            :languages '("common-lisp") :tools '("resource.read")
@@ -39,15 +39,15 @@
                      "trigger metadata is conversation-owned")
         (let ((request (make-instance 'request-context :configuration configuration
                                      :conversation conversation :tool-namespaces #()
-                                     :compaction-p t)))
+                                     :compaction-p                    t)))
           (test-assert (not (context-rule--matches-p
-                            (list :workspace (namestring root) :when '(:roles ("engineering"))) request))
+                             (list :workspace (namestring root) :when '(:roles ("engineering"))) request))
                        "compaction does not select contextual advice")
           (test-assert (not (context-rule--matches-p
-                            (list :workspace (namestring (merge-pathnames "other/" root))
-                                  :when '(:roles ("engineering")))
-                            (make-instance 'request-context :configuration configuration
-                                           :conversation conversation :tool-namespaces #())))
+                             (list :workspace (namestring (merge-pathnames "other/" root))
+                                   :when      '(:roles ("engineering")))
+                             (make-instance 'request-context :configuration configuration
+                                            :conversation conversation :tool-namespaces #())))
                        "project rule scope excludes another workspace")))))
   nil)
 
@@ -55,9 +55,9 @@
   "Validate declarative values and exercise the existing advisory budget and replacement semantics."
   (with-test-configuration (configuration)
     (let ((*context-contributors* nil)
-          (*context-rule-facts* (make-hash-table :test #'equal))
-          (*context-rule-order* nil)
-          (*context-resolver* (cl-llm-provider-api:make-context-resolver)))
+          (*context-rule-facts*   (make-hash-table :test #'equal))
+          (*context-rule-order*   nil)
+          (*context-resolver*     (cl-llm-provider-api:make-context-resolver)))
       (let ((conversation (conversation-create configuration)))
         (dolist (rule '((:id "x" :when (:unknown ("x")) :instruction "Advice")
                         (:id "x" :when (:roles nil) :instruction "Advice")
@@ -81,8 +81,8 @@
         (test-assert (null (context-rule-tests--selected configuration conversation))
                      "removed rules no longer contribute")
         (let* ((mutable (copy-seq "primary"))
-               (rule (list :id "detached" :when (list :roles (list mutable))
-                           :instruction "Detached rule metadata")))
+               (rule    (list :id "detached" :when (list :roles (list mutable))
+                              :instruction "Detached rule metadata")))
           (register-context-rule rule)
           (setf (char mutable 0) #\X)
           (test-assert (equal '("rule/detached") (context-rule-tests--selected configuration conversation))
@@ -92,22 +92,22 @@
 (defun test-context-rule-tool-events ()
   "Capture real authorized resource operations and preserve bounded metadata lifecycle."
   (with-test-configuration (configuration root)
-    (let ((configuration (configuration-copy configuration :working-directory root))
+    (let ((configuration          (configuration-copy configuration :working-directory root))
           (*context-contributors* nil)
-          (*context-rule-facts* (make-hash-table :test #'equal))
-          (*context-rule-order* nil)
-          (*context-resolver* (cl-llm-provider-api:make-context-resolver)))
+          (*context-rule-facts*   (make-hash-table :test #'equal))
+          (*context-rule-order*   nil)
+          (*context-resolver*     (cl-llm-provider-api:make-context-resolver)))
       (let* ((conversation (conversation-create configuration))
-             (registry (make-default-tool-registry :configuration configuration))
-             (context (make-instance 'tool-context :configuration configuration
-                                    :conversation conversation :registry registry :worker nil))
-             (source (merge-pathnames "module.lisp" root)))
+             (registry     (make-default-tool-registry :configuration configuration))
+             (context      (make-instance 'tool-context :configuration configuration
+                                         :conversation conversation :registry registry :worker nil))
+             (source       (merge-pathnames "module.lisp" root)))
         (with-open-file (stream source :direction ':output :if-does-not-exist ':create)
           (write-line "(values 1)" stream))
         (register-context-rule '(:id "read-lisp" :when (:languages ("common-lisp")
-                                                       :tools ("resource.read")
-                                                       :roles ("primary") :events ("tool-success"))
-                                :instruction "Use the observed revision for edits."))
+                                                        :tools     ("resource.read")
+                                                        :roles ("primary") :events ("tool-success"))
+                                 :instruction "Use the observed revision for edits."))
         (let ((result (tool-registry-execute-call
                        registry (json-object "namespace" "resource" "name" "read"
                                              "arguments" (json-encode (json-object "uri" "workspace:module.lisp")))
@@ -135,28 +135,27 @@
                      "trigger reset does not remove configured rules"))))
   nil)
 
-
 (defun test-context-rule-generation-and-diagnostics ()
   "Reject old-turn completions and capture structured diagnostics at the registry boundary."
   (with-test-configuration (configuration root)
-    (let* ((configuration (configuration-copy configuration :working-directory root))
+    (let* ((configuration          (configuration-copy configuration :working-directory root))
            (*context-contributors* nil)
-           (*context-rule-facts* (make-hash-table :test #'equal))
-           (*context-rule-order* nil)
-           (*context-resolver* (cl-llm-provider-api:make-context-resolver))
-           (conversation (conversation-create configuration))
-           (registry (lsp-register-tools (make-instance 'tool-registry)))
-           (agent (make-instance 'agent :configuration configuration :conversation conversation
-                                       :tool-registry registry :worker nil))
-           (source (merge-pathnames "diagnostics.lisp" root))
-           (reset-during-query-p nil))
+           (*context-rule-facts*   (make-hash-table :test #'equal))
+           (*context-rule-order*   nil)
+           (*context-resolver*     (cl-llm-provider-api:make-context-resolver))
+           (conversation           (conversation-create configuration))
+           (registry               (lsp-register-tools (make-instance 'tool-registry)))
+           (agent                  (make-instance 'agent :configuration configuration :conversation conversation
+                                                        :tool-registry registry :worker nil))
+           (source                 (merge-pathnames "diagnostics.lisp" root))
+           (reset-during-query-p   nil))
       (with-open-file (stream source :direction ':output :if-does-not-exist ':create)
         (write-line "(values 1)" stream))
       (context-rule-start-turn agent)
       (register-context-rule '(:id "diagnostics" :when (:diagnostics ("warning")
-                                                      :tools ("lsp.diagnostics")
-                                                      :events ("tool-success"))
-                              :instruction "Inspect the structured warning."))
+                                                        :tools       ("lsp.diagnostics")
+                                                        :events      ("tool-success"))
+                               :instruction "Inspect the structured warning."))
       (unwind-protect
            (let ((old-context (make-instance 'tool-context :configuration configuration
                                             :conversation conversation :registry registry :agent agent)))
@@ -186,9 +185,9 @@
                                "old-turn diagnostics and completion do not enter the newer turn")
                   (let* ((new-context (make-instance 'tool-context :configuration configuration
                                                      :conversation conversation :registry registry :agent agent))
-                         (clone (make-instance 'tool-context :configuration configuration
-                                              :conversation conversation
-                                              :context-rule-generation (tool-context-rule-generation old-context))))
+                         (clone       (make-instance 'tool-context :configuration configuration
+                                                    :conversation                 conversation
+                                                    :context-rule-generation      (tool-context-rule-generation old-context))))
                     (test-assert (not (equal (tool-context-rule-generation old-context)
                                             (tool-context-rule-generation new-context)))
                                  "new contexts capture the new logical turn")

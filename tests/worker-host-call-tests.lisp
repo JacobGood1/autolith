@@ -4,13 +4,13 @@
 
 (defclass worker-host-test-tool (tool)
   ((function
-    :initarg :function
-    :reader worker-host-test-tool-function
+    :initarg       :function
+    :reader        worker-host-test-tool-function
     :documentation "Fixture body receiving the actual dispatch context."))
   (:documentation "An observable ordinary tool for worker authority tests."))
 
 (defmethod tool-execute ((tool worker-host-test-tool) (context tool-context)
-                        (arguments hash-table))
+                         (arguments hash-table))
   "Execute the fixture through the same generic boundary as production tools."
   (funcall (worker-host-test-tool-function tool) context arguments))
 
@@ -21,28 +21,28 @@
    registry (make-instance 'worker-host-test-tool
                            :namespace "host-test" :name name
                            :description "Observable worker callback fixture."
-                           :parameters (tool-object-schema (json-object) nil)
-                           :function function)))
+                           :parameters  (tool-object-schema (json-object) nil)
+                           :function    function)))
 
 (-> worker-host-tests--fixture (function) null)
 (defun worker-host-tests--fixture (function)
   "Call FUNCTION with a disposable configuration, registry, agent and worker context."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (registry (make-default-tool-registry))
-         (conversation (conversation-create configuration))
-         (pool (lisp-worker-pool-create configuration))
-         (agent (make-instance 'agent :configuration configuration
-                              :conversation conversation :worker pool
-                              :tool-registry registry))
-         (context (make-instance 'tool-context :configuration configuration
-                                :conversation conversation :worker pool
-                                :registry registry :agent agent :call-id "origin-call")))
+         (root          (test-configuration-root configuration))
+         (registry      (make-default-tool-registry))
+         (conversation  (conversation-create configuration))
+         (pool          (lisp-worker-pool-create configuration))
+         (agent         (make-instance 'agent :configuration configuration
+                                      :conversation conversation :worker pool
+                                      :tool-registry         registry))
+         (context       (make-instance 'tool-context :configuration configuration
+                                      :conversation conversation :worker pool
+                                      :registry registry :agent agent :call-id "origin-call")))
     (unwind-protect
          (funcall function context)
       (lisp-worker-pool-stop-all pool)
       (platform-delete-directory-tree *platform* root :validate t
-                                      :if-does-not-exist ':ignore)))
+                                      :if-does-not-exist        ':ignore)))
   nil)
 
 (-> worker-host-tests--call (tool-context string string) list)
@@ -50,8 +50,8 @@
   "Dispatch one correlated callback with explicit fixture capabilities."
   (worker-host--dispatch
    (list :tool name :arguments arguments)
-   :context (list context (list name) (worker-host--bindings) "default" nil)
-   :identity (list :session "fixture" :request-id 9 :call-id 3)
+   :context     (list context (list name) (worker-host--bindings) "default" nil)
+   :identity    (list :session "fixture" :request-id 9 :call-id 3)
    :cancelled-p (constantly nil)))
 
 (-> test-worker-host-dispatch-authority () null)
@@ -59,28 +59,28 @@
   "Exercise exact context, authorization, condition/restart and audit boundaries."
   (worker-host-tests--fixture
    (lambda (origin)
-     (let* ((registry (tool-context-registry origin))
-            (configuration (tool-context-configuration origin))
-            (conversation (tool-context-conversation origin))
-            (agent (tool-context-agent origin))
+     (let* ((registry            (tool-context-registry origin))
+            (configuration       (tool-context-configuration origin))
+            (conversation        (tool-context-conversation origin))
+            (agent               (tool-context-agent origin))
             (authorization-count 0)
-            (effect-count 0)
-            (command-function (lambda (command directory)
-                                (test-assert (string= command "fixture-command") "command callback receives exact command")
-                                (test-assert (eq directory (config :working-directory configuration)) "command directory identity")
-                                (incf authorization-count)
-                                ':deny))
-            (tool-function (lambda (tool arguments)
-                             (declare (ignore tool arguments))
-                             (incf authorization-count)
-                             ':deny))
+            (effect-count        0)
+            (command-function    (lambda (command directory)
+                                   (test-assert (string= command "fixture-command") "command callback receives exact command")
+                                   (test-assert (eq directory (config :working-directory configuration)) "command directory identity")
+                                   (incf authorization-count)
+                                   ':deny))
+            (tool-function       (lambda (tool arguments)
+                                   (declare (ignore tool arguments))
+                                   (incf authorization-count)
+                                   ':deny))
             (context
-              (make-instance 'tool-context :configuration configuration
+              (make-instance 'tool-context :configuration    configuration
                              :conversation conversation :registry registry
                              :worker (tool-context-worker origin) :agent agent
-                             :call-id "origin-call"
+                             :call-id                        "origin-call"
                              :command-authorization-function command-function
-                             :tool-authorization-function tool-function)))
+                             :tool-authorization-function    tool-function)))
        (worker-host-tests--register
         registry "authority"
         (lambda (actual arguments)
@@ -141,10 +141,10 @@
           (job-aborted (condition)
             (eq (job-aborted-reason condition) ':cancelled)))
         "ordinary cancellation remains control flow through the callback")
-       (let* ((admitted (allocate-instance (find-class 'mission-context)))
+       (let* ((admitted    (allocate-instance (find-class 'mission-context)))
               (replacement (allocate-instance (find-class 'mission-context)))
-              (captured nil)
-              (function nil))
+              (captured    nil)
+              (function    nil))
          (unwind-protect
               (progn
                 (mission-context-bind admitted agent)
@@ -157,31 +157,31 @@
                              "execution thread retains the exact admitted mission across replacement"))
            (with-lock-held (*mission-contexts-lock*)
              (remhash agent *mission-contexts*))))
-        (let* ((worker (lisp-worker-manager-worker (tool-context-worker context) "default"))
-               (admitted (allocate-instance (find-class 'mission-context)))
-               (replacement (allocate-instance (find-class 'mission-context))))
-          (unwind-protect
-               (dolist (expected (list nil admitted))
-                 (with-lock-held (*mission-contexts-lock*)
-                   (remhash agent *mission-contexts*))
-                 (when expected (mission-context-bind expected agent))
-                 (test-call-with-function-replacements
-                  (list (list 'sbcl-workers:sbcl-worker-host-request
-                              (lambda (worker operation arguments &key dispatcher context worker-context
-                                                                    cancel-p request-limit result-limit)
-                                (declare (ignore worker operation arguments dispatcher worker-context
-                                                 cancel-p request-limit result-limit))
-                                (mission-context-bind replacement agent)
-                                (let ((bindings (third context)))
-                                  (progv (mapcar #'first bindings) (mapcar #'rest bindings)
-                                    (test-assert *worker-host-admission* "request captures an explicit admission snapshot")
-                                    (test-assert (eq expected (mission--agent-context agent))
-                                                 "callback and nested admission retain exact mission or explicit absence")))
-                                '(:response :status :ok))))
-                  (lambda ()
-                    (worker-host-request worker ':eval '(:forms ("42")) :context context :tools nil))))
-            (with-lock-held (*mission-contexts-lock*)
-              (remhash agent *mission-contexts*))))
+       (let* ((worker      (lisp-worker-manager-worker (tool-context-worker context) "default"))
+              (admitted    (allocate-instance (find-class 'mission-context)))
+              (replacement (allocate-instance (find-class 'mission-context))))
+         (unwind-protect
+              (dolist (expected (list nil admitted))
+                (with-lock-held (*mission-contexts-lock*)
+                  (remhash agent *mission-contexts*))
+                (when expected (mission-context-bind expected agent))
+                (test-call-with-function-replacements
+                 (list (list 'sbcl-workers:sbcl-worker-host-request
+                             (lambda (worker operation arguments &key dispatcher context worker-context
+                                                                   cancel-p request-limit result-limit)
+                               (declare (ignore worker operation arguments dispatcher worker-context
+                                                cancel-p request-limit result-limit))
+                               (mission-context-bind replacement agent)
+                               (let ((bindings (third context)))
+                                 (progv (mapcar #'first bindings) (mapcar #'rest bindings)
+                                   (test-assert *worker-host-admission* "request captures an explicit admission snapshot")
+                                   (test-assert (eq expected (mission--agent-context agent))
+                                                "callback and nested admission retain exact mission or explicit absence")))
+                               '(:response :status :ok))))
+                 (lambda ()
+                   (worker-host-request worker ':eval '(:forms ("42")) :context context :tools nil))))
+           (with-lock-held (*mission-contexts-lock*)
+             (remhash agent *mission-contexts*))))
        (let ((records nil))
          (conversation-map-records conversation (lambda (record) (push record records)))
          (test-assert (= (count :worker-tool-call records :key #'first) 4) "durable callback audit admission")
@@ -235,8 +235,8 @@
   (worker-host-tests--fixture
    (lambda (context)
      (let* ((registry (tool-context-registry context))
-            (effects 0)
-            (worker (lisp-worker-manager-worker (tool-context-worker context) "default")))
+            (effects  0)
+            (worker   (lisp-worker-manager-worker (tool-context-worker context) "default")))
        (test-assert
         (equal (getf (rest (lisp-worker-request worker :eval
                                                 '(:forms ("(package-name *package*)")))) :values)

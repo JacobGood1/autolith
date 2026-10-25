@@ -8,8 +8,8 @@
   "Run FUNCTION with a real recorded application, controller, and scripted provider."
   (with-test-configuration (configuration)
     (let* ((application (mission-test--application configuration :results results))
-           (controller (make-instance 'application-input-controller
-                                      :application application :main-thread (current-thread))))
+           (controller  (make-instance 'application-input-controller
+                                       :application application :main-thread (current-thread))))
       (setf (application-input-controller application) controller
             (config :prompt-cache-retention-seconds configuration) 300)
       (change-class (terminal-ui-terminal (application-ui application)) 'waiting-recording-terminal)
@@ -64,9 +64,9 @@
      (setf (config :prompt-cache-retention-seconds configuration) 300)
      (idle-compaction-tests--prime application :tokens 1000)
      (test-assert (null (application-idle-compaction-delay application :now 1180))
-                   "small prompts do not buy an extra compaction request")
+                  "small prompts do not buy an extra compaction request")
      (let* ((conversation (application-conversation application))
-            (items (conversation-input-items conversation)))
+            (items        (conversation-input-items conversation)))
        (unwind-protect
             (progn
               (setf (conversation-input-items conversation)
@@ -76,8 +76,8 @@
                            "large fixed instructions cannot make tiny history worth compacting"))
          (setf (conversation-input-items conversation) items)))
      (test-assert (zerop (application-idle-compaction--history-characters
-                         (json-object "image_url" (make-string 140000 :initial-element #\x)
-                                      "encrypted_content" "private")))
+                          (json-object "image_url" (make-string 140000 :initial-element #\x)
+                                       "encrypted_content" "private")))
                   "encoded images and private metadata are not summarizable text")
      (application-idle-compaction-note-started application :now 1000)
      (test-assert (null (application-idle-compaction-delay application :now 1180))
@@ -85,8 +85,8 @@
      (application-idle-compaction-note-completed application nil)
      (test-assert (null (application-idle-compaction-delay application :now 1180))
                   "missing usage cannot establish worthwhile compaction")
-     (let* ((episode (idle-compaction-tests--prime application))
-            (old-model (config :model configuration))
+     (let* ((episode      (idle-compaction-tests--prime application))
+            (old-model    (config :model configuration))
             (old-provider (agent-provider (application-agent application))))
        (setf (config :model configuration)
              (find-if (lambda (model) (not (equal model old-model)))
@@ -130,9 +130,9 @@
   (idle-compaction-tests--fixture
    (lambda (application controller configuration)
      (declare (ignore configuration))
-     (let* ((now 1000)
+     (let* ((now                              1000)
             (*idle-compaction-clock-function* (lambda () now))
-            (provider (application-provider application)))
+            (provider                         (application-provider application)))
        (push (mission-test--result "Ordinary answer."
                                    :usage (json-object "input_tokens" 40000 "output_tokens" 10))
              (scripted-provider-results provider))
@@ -149,7 +149,7 @@
          (test-assert (equal '(nil t) (reverse (scripted-provider-compaction-flags provider)))
                       "only idle work uses the provider's compaction protocol")
          (test-assert (find :summary (conversation-records-newest (application-conversation application) 20)
-                            :key #'first)
+                            :key     #'first)
                       "the handoff is durably published")
          (test-assert (null (application-idle-compaction-episode application))
                       "compaction does not rearm itself")
@@ -170,14 +170,21 @@
            (idle-compaction-tests--prime application)
            (let ((work (application-input-controller--next-work controller)))
              (ecase race
-               (:draft (terminal-ui-set-input (application-ui application) "User draft"))
-               (:queue (deque-push-back (application-input-controller-work-items controller)
-                                        (list ':message "Pending user input")))
-               (:stopping (setf (application-input-controller-stopping-p controller) t))
-               (:disabled (setf (config :idle-compaction-p configuration) nil))
-               (:superseded (application-idle-compaction-note-started application :now 1180))
-               (:expired (setf now 1300))
-               (:buffered-input nil))
+               (:draft
+                (terminal-ui-set-input (application-ui application) "User draft"))
+               (:queue
+                (deque-push-back (application-input-controller-work-items controller)
+                                 (list ':message "Pending user input")))
+               (:stopping
+                (setf (application-input-controller-stopping-p controller) t))
+               (:disabled
+                (setf (config :idle-compaction-p configuration) nil))
+               (:superseded
+                (application-idle-compaction-note-started application :now 1180))
+               (:expired
+                (setf now 1300))
+               (:buffered-input
+                nil))
              (test-call-with-function-replacements
               (when (eq race ':buffered-input)
                 (list (list 'terminal-input-ready-p (lambda (terminal) (declare (ignore terminal)) t))))
@@ -216,7 +223,7 @@
   (idle-compaction-tests--fixture
    (lambda (application controller configuration)
      (let* ((*idle-compaction-lead-seconds* 4/5)
-            (started (/ (get-internal-real-time) internal-time-units-per-second)))
+            (started                        (/ (get-internal-real-time) internal-time-units-per-second)))
        (setf (config :prompt-cache-retention-seconds configuration) 1)
        (application-idle-compaction-note-started application)
        (application-idle-compaction-note-completed application (prompt-cache-tests--usage 40000 39000))

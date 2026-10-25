@@ -46,13 +46,13 @@
   "Return renewable Nous credentials rooted at PATHNAME."
   (make-instance
    'oauth-credentials
-   :access-token (or access-token
-                     (nous-test--jwt :subject subject :scope scope))
+   :access-token  (or access-token
+                      (nous-test--jwt :subject subject :scope scope))
    :refresh-token refresh-token
-   :id-token nil
-   :account-id (or account-id subject)
-   :expires-at nil
-   :source-path pathname))
+   :id-token      nil
+   :account-id    (or account-id subject)
+   :expires-at    nil
+   :source-path   pathname))
 
 (-> nous-authentication-test--header-value (string list) (option string))
 (defun nous-authentication-test--header-value (name headers)
@@ -66,10 +66,10 @@
 (defun nous-authentication-test--manager-loading ()
   "Test the dedicated Nous store, scope validation, and account continuity."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (manager (nous-credential-manager-create configuration))
-         (source (credential-manager-primary-source manager))
-         (pathname (credential-source-pathname source)))
+         (root          (test-configuration-root configuration))
+         (manager       (nous-credential-manager-create configuration))
+         (source        (credential-manager-primary-source manager))
+         (pathname      (credential-source-pathname source)))
     (unwind-protect
          (progn
            (test-assert
@@ -97,7 +97,7 @@
             source
             (nous-authentication-test--credentials
              pathname
-             :scope "profile"
+             :scope         "profile"
              :refresh-token "missing-scope-secret"))
            (test-assert
             (handler-case
@@ -114,7 +114,7 @@
             source
             (nous-authentication-test--credentials
              pathname
-             :account-id "different-account"
+             :account-id    "different-account"
              :refresh-token "account-mismatch-secret"))
            (test-assert
             (handler-case
@@ -127,7 +127,7 @@
                       "account-mismatch-secret"))))
             "the stored account identity must match the access JWT subject"))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -135,8 +135,8 @@
 (defun nous-authentication-test--refresh-validation ()
   "Test rotated refresh response fields, scopes, and account continuity."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (manager (nous-credential-manager-create configuration))
+         (root          (test-configuration-root configuration))
+         (manager       (nous-credential-manager-create configuration))
          (pathname
            (credential-source-pathname
             (credential-manager-primary-source manager)))
@@ -187,31 +187,31 @@
                   t))
               "a Nous refresh response rejects invalid scope, rotation, or account data")))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
 (-> nous-authentication-test--serialized-refresh () null)
 (defun nous-authentication-test--serialized-refresh ()
   "Test one network rotation across concurrent managers sharing a credential store."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (pathname (configuration-nous-auth-path configuration))
-         (request-count 0)
-         (request-lock (make-lock "Nous refresh request test"))
+  (let* ((configuration    (test-configuration))
+         (root             (test-configuration-root configuration))
+         (pathname         (configuration-nous-auth-path configuration))
+         (request-count    0)
+         (request-lock     (make-lock "Nous refresh request test"))
          (captured-request nil)
-         (new-access (nous-test--jwt))
+         (new-access       (nous-test--jwt))
          (old
            (nous-authentication-test--credentials
             pathname
-            :access-token (nous-test--jwt)
+            :access-token  (nous-test--jwt)
             :refresh-token "single-use-refresh")))
     (labels ((request (&key method url headers content)
                (with-lock-held (request-lock)
                  (incf request-count)
                  (setf captured-request
-                       (list :method method
-                             :url url
+                       (list :method  method
+                             :url     url
                              :headers headers
                              :content content)))
                (sleep 0.05)
@@ -231,10 +231,10 @@
                (nous-credential-manager-create
                 configuration
                 :refresh-request-function #'request))
-             (source (credential-manager-primary-source first-manager))
-             (first-result nil)
-             (second-result nil)
-             (first-condition nil)
+             (source           (credential-manager-primary-source first-manager))
+             (first-result     nil)
+             (second-result    nil)
+             (first-condition  nil)
              (second-condition nil))
         (unwind-protect
              (progn
@@ -282,9 +282,9 @@
                   "the rotated Nous refresh token is published before releasing the lock"))
                (test-assert
                 (and (eq (getf captured-request :method) ':post)
-                      (uiop:string-suffix-p
-                       (getf captured-request :url)
-                       "/api/oauth/token")
+                     (uiop:string-suffix-p
+                      (getf captured-request :url)
+                      "/api/oauth/token")
                      (string=
                       (nous-authentication-test--header-value
                        "x-nous-refresh-token"
@@ -298,7 +298,7 @@
                                   (getf captured-request :content))))
                 "Nous refresh uses the header token and form-encoded public fields"))
           (platform-delete-directory-tree *platform* root
-                                          :validate t
+                                          :validate          t
                                           :if-does-not-exist ':ignore)))))
   nil)
 
@@ -306,12 +306,12 @@
 (defun nous-authentication-test--refresh-redaction ()
   "Test that refresh failures cannot retain echoed Nous credential material."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (pathname (configuration-nous-auth-path configuration))
+         (root          (test-configuration-root configuration))
+         (pathname      (configuration-nous-auth-path configuration))
          (old
            (nous-authentication-test--credentials
             pathname
-            :access-token (nous-test--jwt)
+            :access-token  (nous-test--jwt)
             :refresh-token "echoed-refresh-secret"))
          (manager
            (nous-credential-manager-create
@@ -341,6 +341,6 @@
                      (test-object-contains-string-p condition "auth nous"))))
             "Nous refresh failures redact echoed tokens and point at reauthentication"))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)

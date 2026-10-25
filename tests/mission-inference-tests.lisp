@@ -10,16 +10,16 @@
    (result :initarg :result :reader mission-inference-test-provider-result
            :type provider-result :documentation "Result returned by the provider.")
    (failure :initarg :failure :initform nil
-            :reader mission-inference-test-provider-failure
-            :type (or null function)
+            :reader        mission-inference-test-provider-failure
+            :type          (or null function)
             :documentation "Optional function called to raise a provider failure.")
    (blocked-p :initarg :blocked-p :initform t
               :reader mission-inference-test-provider-blocked-p
               :type boolean :documentation "Whether calls wait for RELEASE.")
    (seen-output-cap :initform nil :accessor mission-inference-test-provider-seen-output-cap
                     :documentation "Output caps observed at the provider boundary.")
-   (observation-lock :initform (bordeaux-threads:make-lock "Inference provider observations")
-                     :reader mission-inference-test-provider-observation-lock
+   (observation-lock :initform      (bordeaux-threads:make-lock "Inference provider observations")
+                     :reader        mission-inference-test-provider-observation-lock
                      :documentation "Protects the shared observation list."))
   (:documentation "A provider whose requests can be held at the protocol boundary."))
 
@@ -48,7 +48,7 @@
    (values :initform nil :accessor mission-inference-test-thread-values
            :documentation "Multiple values returned by the worker.")
    (condition :initform nil :accessor mission-inference-test-thread-condition
-              :type (or null condition)
+              :type          (or null condition)
               :documentation "Condition caught at the worker boundary."))
   (:documentation "Result cell for a bounded inference worker."))
 
@@ -63,7 +63,7 @@
 (defun mission-inference-test--call (provider conversation)
   "Call PROVIDER through the executable streaming protocol."
   (provider-stream-turn provider conversation :tool-namespaces #()
-                        :event-callback #'identity))
+                        :event-callback                        #'identity))
 
 (-> mission-inference-test--start (function) mission-inference-test-thread)
 (defun mission-inference-test--start (thunk)
@@ -97,17 +97,17 @@
 (defun test-mission-inference-overlap-and-settlement ()
   "Two inherited conversations overlap and settle reservations exactly once."
   (with-test-configuration (configuration)
-    (let* ((entered (bordeaux-threads:make-semaphore :count 0))
-           (release (bordeaux-threads:make-semaphore :count 0))
-           (provider (make-instance 'mission-inference-test-provider
-                                    :entered entered :release release
-                                    :result (mission-test--result "done")))
-           (application (mission-inference-test--application configuration provider))
-           (context nil)
-           (parent (application-conversation application))
-           (first-child (conversation-create configuration))
+    (let* ((entered      (bordeaux-threads:make-semaphore :count 0))
+           (release      (bordeaux-threads:make-semaphore :count 0))
+           (provider     (make-instance 'mission-inference-test-provider
+                                        :entered entered :release release
+                                        :result (mission-test--result "done")))
+           (application  (mission-inference-test--application configuration provider))
+           (context      nil)
+           (parent       (application-conversation application))
+           (first-child  (conversation-create configuration))
            (second-child (conversation-create configuration))
-           (cells nil))
+           (cells        nil))
       (application-mission-start application (mission-test--specification :turns 4 :tokens 100))
       (setf context (mission-context-find parent))
       (mission-context-inherit parent first-child)
@@ -140,11 +140,11 @@
 (defun test-mission-inference-turn-contention ()
   "A second request cannot consume a turn already reserved by a live request."
   (with-test-configuration (configuration)
-    (let* ((entered (bordeaux-threads:make-semaphore :count 0))
-           (release (bordeaux-threads:make-semaphore :count 0))
-           (provider (make-instance 'mission-inference-test-provider
-                                    :entered entered :release release
-                                    :result (mission-test--result "done")))
+    (let* ((entered     (bordeaux-threads:make-semaphore :count 0))
+           (release     (bordeaux-threads:make-semaphore :count 0))
+           (provider    (make-instance 'mission-inference-test-provider
+                                       :entered entered :release release
+                                       :result (mission-test--result "done")))
            (application (mission-inference-test--application configuration provider))
            (context nil) (conversation (application-conversation application))
            (cell nil) (caught nil))
@@ -169,12 +169,12 @@
 (defun test-mission-inference-verification-pending ()
   "Verification records pending work while a provider request is outstanding."
   (with-test-configuration (configuration)
-    (let* ((entered (bordeaux-threads:make-semaphore :count 0))
-           (release (bordeaux-threads:make-semaphore :count 0))
-           (provider (make-instance 'mission-inference-test-provider
-                                    :entered entered :release release
-                                    :result (mission-test--result "done")))
-           (application (mission-inference-test--application configuration provider))
+    (let* ((entered      (bordeaux-threads:make-semaphore :count 0))
+           (release      (bordeaux-threads:make-semaphore :count 0))
+           (provider     (make-instance 'mission-inference-test-provider
+                                        :entered entered :release release
+                                        :result (mission-test--result "done")))
+           (application  (mission-inference-test--application configuration provider))
            (conversation (application-conversation application))
            (context nil) (cell nil))
       (application-mission-start application (mission-test--specification))
@@ -195,14 +195,14 @@
 (defun test-mission-inference-review-accounting ()
   "Ordinary and bound reviewer provider calls overlap and charge both policies."
   (with-test-configuration (configuration)
-    (let* ((entered (bordeaux-threads:make-semaphore :count 0))
-           (release (bordeaux-threads:make-semaphore :count 0))
-           (provider (make-instance 'mission-inference-test-provider
-                                    :entered entered :release release
-                                    :result (mission-test--result "review")))
-           (application (mission-inference-test--application configuration provider))
+    (let* ((entered      (bordeaux-threads:make-semaphore :count 0))
+           (release      (bordeaux-threads:make-semaphore :count 0))
+           (provider     (make-instance 'mission-inference-test-provider
+                                        :entered entered :release release
+                                        :result (mission-test--result "review")))
+           (application  (mission-inference-test--application configuration provider))
            (conversation (application-conversation application))
-           (reviewer (conversation-create configuration))
+           (reviewer     (conversation-create configuration))
            (context nil) (policy nil) (cells nil))
       (application-mission-start application (mission-test--specification :turns 4 :tokens 100))
       (setf context (mission-context-find conversation)
@@ -237,13 +237,13 @@
 (defun test-mission-inference-unknown-and-interruption-cleanup ()
   "Unknown usage, cancellation, nonlocal exits and usage errors clean reservations."
   (with-test-configuration (configuration)
-    (let* ((provider (make-instance 'mission-inference-test-provider
-                                    :entered (bordeaux-threads:make-semaphore :count 0)
-                                    :release (bordeaux-threads:make-semaphore :count 1)
-                                    :blocked-p nil :result (mission-test--result "unknown" :usage (json-object))))
-           (application (mission-inference-test--application configuration provider))
+    (let* ((provider     (make-instance 'mission-inference-test-provider
+                                        :entered (bordeaux-threads:make-semaphore :count 0)
+                                        :release (bordeaux-threads:make-semaphore :count 1)
+                                        :blocked-p nil :result (mission-test--result "unknown" :usage (json-object))))
+           (application  (mission-inference-test--application configuration provider))
            (conversation (application-conversation application))
-           (context nil))
+           (context      nil))
       (application-mission-start application (mission-test--specification))
       (setf context (mission-context-find conversation))
       (mission-inference-test--call provider conversation)
@@ -251,12 +251,12 @@
         (test-assert (eq ':blocked (getf goal :status)) "unknown usage blocks the mission")
         (test-assert (zerop (getf goal :tokens-reserved)) "unknown usage releases reservation")
         (test-assert (zerop (getf goal :requests-outstanding)) "unknown usage releases request")))
-    (let* ((entered (bordeaux-threads:make-semaphore :count 0))
-           (release (bordeaux-threads:make-semaphore :count 0))
-           (provider (make-instance 'mission-inference-test-provider
-                                    :entered entered :release release
-                                    :result (mission-test--result "cancelled")))
-           (application (mission-inference-test--application configuration provider))
+    (let* ((entered      (bordeaux-threads:make-semaphore :count 0))
+           (release      (bordeaux-threads:make-semaphore :count 0))
+           (provider     (make-instance 'mission-inference-test-provider
+                                        :entered entered :release release
+                                        :result (mission-test--result "cancelled")))
+           (application  (mission-inference-test--application configuration provider))
            (conversation (application-conversation application))
            (context nil) (cell nil))
       (application-mission-start application (mission-test--specification))
@@ -301,12 +301,12 @@
 (defun test-mission-inference-output-reservation-cap ()
   "Output reservation follows remaining turns and binds an explicit provider cap."
   (with-test-configuration (configuration)
-    (let* ((provider (make-instance 'mission-inference-test-provider
-                                    :entered (bordeaux-threads:make-semaphore :count 0)
-                                    :release (bordeaux-threads:make-semaphore :count 1)
-                                    :blocked-p nil :result (mission-test--result "capped")))
+    (let* ((provider    (make-instance 'mission-inference-test-provider
+                                       :entered (bordeaux-threads:make-semaphore :count 0)
+                                       :release (bordeaux-threads:make-semaphore :count 1)
+                                       :blocked-p nil :result (mission-test--result "capped")))
            (application (mission-inference-test--application configuration provider))
-           (context nil))
+           (context     nil))
       (application-mission-start application (mission-test--specification :turns 4 :tokens 100))
       (setf context (mission-context-find (application-conversation application)))
       (let ((*provider-maximum-output-tokens* 7))
@@ -317,7 +317,6 @@
         (test-assert (= 5 (getf goal :tokens-used)) "settlement charges usage once, not the ceiling")
         (test-assert (zerop (getf goal :tokens-reserved)) "explicit ceiling is released")))))
 
-
 (-> test-mission-inference-reservation-recovery () null)
 (defun test-mission-inference-reservation-recovery ()
   "Replay old counters and conservatively recover shared reviewer reservations."
@@ -327,7 +326,7 @@
       (application-mission-review-configure
        application '(:id "review" :phase :final-acceptance :inputs ("artifact")
                      :context "Inspect the artifact." :turn-limit 2 :token-limit 50 :run-limit 1))
-      (let* ((goal (application-goal application))
+      (let* ((goal   (application-goal application))
              (policy (first (getf goal :reviews))))
         (setf (getf goal :turns-used) 2
               (getf goal :requests-outstanding) 2
@@ -337,7 +336,7 @@
         (remf goal :tokens-reserved)
         (application--record-goal application))
       (application--load-goal application)
-      (let* ((goal (application-goal application))
+      (let* ((goal   (application-goal application))
              (policy (first (getf goal :reviews))))
         (test-assert (eq ':blocked (getf goal :status)) "interrupted inference restores as blocked")
         (test-assert (= 2 (getf goal :unknown-usage)) "each interrupted request retains unknown usage")

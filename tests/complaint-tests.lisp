@@ -7,12 +7,12 @@
   "Create a local application with a private conversation and captured terminal."
   (make-instance 'application
                  :configuration configuration
-                 :conversation (conversation-create configuration)
-                 :ui (terminal-ui-create
-                      :terminal (make-instance 'stream-terminal
-                                               :input-stream (make-string-input-stream "")
-                                               :output-stream (make-string-output-stream)
-                                               :input-file-descriptor -1 :columns 80))))
+                 :conversation  (conversation-create configuration)
+                 :ui            (terminal-ui-create
+                                 :terminal (make-instance 'stream-terminal
+                                                          :input-stream  (make-string-input-stream "")
+                                                          :output-stream (make-string-output-stream)
+                                                          :input-file-descriptor -1 :columns 80))))
 
 (-> complaint-tests--message (string) hash-table)
 (defun complaint-tests--message (text)
@@ -60,7 +60,7 @@
       (conversation-append-provider-item
        conversation (complaint-tests--message (make-string 20000 :initial-element #\x)))
       (test-assert (= (length (first (context-rule-recent-outputs
-                                     conversation :limit 1 :maximum-characters 17))) 17)
+                                      conversation :limit 1 :maximum-characters 17))) 17)
                    "evidence is bounded before concatenation")))
   nil)
 
@@ -112,11 +112,11 @@
 (defun test-complaint-review-and-save ()
   "Require scope, unconfirmed-match and replacement approval, with amendment and cancellation."
   (with-test-configuration (configuration root)
-    (let* ((configuration (configuration-copy configuration :working-directory root))
-           (application (complaint-tests--application configuration))
-           (choices nil)
-           (matched-p t)
-           (instruction "Use concise answers.")
+    (let* ((configuration     (configuration-copy configuration :working-directory root))
+           (application       (complaint-tests--application configuration))
+           (choices           nil)
+           (matched-p         t)
+           (instruction       "Use concise answers.")
            (generation-inputs nil))
       (test-call-with-function-replacements
        (list (list 'terminal-interactive-p (lambda (terminal) (declare (ignore terminal)) t))
@@ -201,8 +201,8 @@
   "Invoke canonical and alias commands through local Lisp and slash dispatch."
   (with-test-configuration (configuration)
     (let* ((application (complaint-tests--application configuration))
-           (canonical (application-command-find "/complain"))
-           (calls nil))
+           (canonical   (application-command-find "/complain"))
+           (calls       nil))
       (test-assert (and canonical (eq canonical (application-command-find "/wtf")))
                    "both callable names resolve to the same command")
       (test-assert (find "/complain" (application-command-completion-entries)
@@ -211,7 +211,7 @@
       (test-assert (find "/wtf" (application-command-alias-completion-entries)
                          :key (lambda (entry) (getf entry :name)) :test #'equal)
                    "alias is completable")
-      (let* ((operation (application-operation-find application "wtf"))
+      (let* ((operation  (application-operation-find application "wtf"))
              (completion (find "(wtf" (application-operation-completion-entries application)
                                :key (lambda (entry) (getf entry :name)) :test #'equal)))
         (test-assert (and operation (eq (application-operation-backend operation) canonical))

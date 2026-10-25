@@ -6,9 +6,9 @@
 (defun test-pristine-image-state ()
   "Test pristine startup never reads or replays the selected private commit."
   (with-test-configuration (configuration)
-    (let ((*image-state-initialized-p* nil)
-          (*active-image-commit-identifier* "previous-commit")
-          (*active-image-history-commit* "previous-history")
+    (let ((*image-state-initialized-p*       nil)
+          (*active-image-commit-identifier*  "previous-commit")
+          (*active-image-history-commit*     "previous-history")
           (*active-image-lineage-identifier* nil))
       (test-call-with-function-replacements
        (list (list 'image-commit--pointer-state
@@ -121,10 +121,10 @@
             configuration
             '(:mutation :id "complete-before" :result :pending))
            (with-open-file (stream pathname
-                                   :direction ':output
-                                   :if-exists ':append
+                                   :direction         ':output
+                                   :if-exists         ':append
                                    :if-does-not-exist ':error
-                                   :external-format ':utf-8)
+                                   :external-format   ':utf-8)
              (write-string "(:mutation :id \"interrupted" stream)
              (finish-output stream))
            (let ((records (mutation-journal-read-records configuration)))
@@ -149,18 +149,18 @@
 (-> test-self-tools () null)
 (defun test-self-tools ()
   "Test active definition installation, inspection, and form-aware persistence."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (pathname (merge-pathnames "definitions.lisp" root))
-         (previous-function (symbol-function 'test-self-target))
+  (let* ((configuration          (test-configuration))
+         (root                   (test-configuration-root configuration))
+         (pathname               (merge-pathnames "definitions.lisp" root))
+         (previous-function      (symbol-function 'test-self-target))
          (implementation-package (find-package '#:sb-ext))
          (implementation-name
            (format nil "AUTOLITH-ACTIVE-IMAGE-TEST-~A"
                    (string-upcase (make-identifier))))
          (implementation-source
            nil)
-         (implementation-key nil)
-         (implementation-record nil))
+         (implementation-key     nil)
+         (implementation-record  nil))
     (unwind-protect
          (progn
            (setf implementation-source
@@ -221,7 +221,7 @@
              (image-commit-write-script
               script
               :identifier "implementation-replay"
-              :title "Replay implementation instrumentation"
+              :title      "Replay implementation instrumentation"
               :entries
               (list (image-commit--record->entry implementation-record)))
              (call-with-package-unlocked
@@ -242,16 +242,16 @@
                                  (sb-ext:package-locked-p
                                   implementation-package))
                             "private replay reconstructs a locked-package definition")))
-           (let* ((source-root (merge-pathnames "source/" root))
+           (let* ((source-root     (merge-pathnames "source/" root))
                   (source-pathname (merge-pathnames "src/nested/sample.lisp" source-root))
                   (source-configuration
                     (test-configuration-for-source-root source-root)))
              (ensure-directories-exist source-pathname)
              (with-open-file (stream source-pathname
-                                     :direction ':output
-                                     :if-exists ':supersede
+                                     :direction         ':output
+                                     :if-exists         ':supersede
                                      :if-does-not-exist ':create
-                                     :external-format ':utf-8)
+                                     :external-format   ':utf-8)
                (format stream
                        "(in-package #:autolith)~%~%(defun test-self-target () ~
                         \"Tracked source documentation.\" 0)~%"))
@@ -267,45 +267,45 @@
                             "tracked source inspection reports its nested repository path")
                (test-assert (search "Tracked source documentation." rendered)
                             "tracked source inspection returns exact definition text")))
-            (let* ((conversation
-                     (conversation-create configuration
-                                          :identifier "self-describe"))
-                   (context
-                     (make-instance 'tool-context
-                                    :configuration configuration
-                                    :worker nil
-                                    :conversation conversation))
-                   (registry (make-default-tool-registry))
-                   (result
-                     (tool-execute
-                      (tool-registry-find registry "lisp" "describe")
-                      context
-                      (json-object "designator" "TEST-SELF-TARGET"
-                                   "target" "self"))))
-              (test-assert
-               (and (null (tool-registry-find registry "self" "inspect"))
-                    (null (tool-registry-find registry "self" "source"))
-                    (tool-result-success-p result)
-                    (search "Return the installed test value."
-                            (tool-result-content result)))
-               "lisp.describe target self replaces self.inspect"))
+           (let* ((conversation
+                    (conversation-create configuration
+                                         :identifier "self-describe"))
+                  (context
+                    (make-instance 'tool-context
+                                   :configuration configuration
+                                   :worker        nil
+                                   :conversation  conversation))
+                  (registry (make-default-tool-registry))
+                  (result
+                    (tool-execute
+                     (tool-registry-find registry "lisp" "describe")
+                     context
+                     (json-object "designator" "TEST-SELF-TARGET"
+                                  "target" "self"))))
+             (test-assert
+              (and (null (tool-registry-find registry "self" "inspect"))
+                   (null (tool-registry-find registry "self" "source"))
+                   (tool-result-success-p result)
+                   (search "Return the installed test value."
+                           (tool-result-content result)))
+              "lisp.describe target self replaces self.inspect"))
            (let* ((conversation
                     (conversation-create configuration
                                          :identifier "self-sbcl-source"))
                   (context
                     (make-instance 'tool-context
                                    :configuration configuration
-                                   :worker nil
-                                   :conversation conversation))
-                   (result
-                     (tool-execute
-                      (tool-registry-find (make-default-tool-registry)
-                                          "lisp"
-                                          "source")
-                      context
-                      (json-object "name" "CL:MAPCAR"
-                                   "target" "self"
-                                   "kind" "function"))))
+                                   :worker        nil
+                                   :conversation  conversation))
+                  (result
+                    (tool-execute
+                     (tool-registry-find (make-default-tool-registry)
+                                         "lisp"
+                                         "source")
+                     context
+                     (json-object "name" "CL:MAPCAR"
+                                  "target" "self"
+                                  "kind" "function"))))
               (test-assert
                (and (tool-result-success-p result)
                     (search "src/code/list.lisp"
@@ -317,17 +317,17 @@
                   (context
                     (make-instance 'tool-context
                                    :configuration configuration
-                                   :worker nil
-                                   :conversation conversation))
-                   (result
-                     (tool-execute
-                      (tool-registry-find (make-default-tool-registry)
-                                          "lisp"
-                                          "source")
-                      context
-                      (json-object
-                       "name" "SBCL-WORKERS:SBCL-WORKER-CREATE"
-                       "target" "self"))))
+                                   :worker        nil
+                                   :conversation  conversation))
+                  (result
+                    (tool-execute
+                     (tool-registry-find (make-default-tool-registry)
+                                         "lisp"
+                                         "source")
+                     context
+                     (json-object
+                      "name" "SBCL-WORKERS:SBCL-WORKER-CREATE"
+                      "target" "self"))))
               (test-assert
                (and (tool-result-success-p result)
                     (search "sbcl-workers:source/workers.lisp"
@@ -367,7 +367,7 @@
             "durable definitions reject compatibility constant macros")
            (let ((original
                    (make-condition 'simple-error
-                                   :format-control "original failure"
+                                   :format-control   "original failure"
                                    :format-arguments nil)))
              (test-assert
               (handler-case
@@ -389,10 +389,10 @@
               "a restoration failure preserves both conditions and escapes tool handling"))
            (ensure-directories-exist pathname)
            (with-open-file (stream pathname
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create
-                                   :external-format ':utf-8)
+                                   :external-format   ':utf-8)
              (format stream
                      "; preserve this comment~%~%(defun first-definition () 1)~%~%(defun test-self-target () 0)~%"))
            (source-replace-definition
@@ -425,24 +425,24 @@
 (-> test-self-definition-installation-rollback () null)
 (defun test-self-definition-installation-rollback ()
   "Test failed definition installation restores exact live and cached state."
-  (let* ((*package* (find-package '#:autolith))
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (existing-name 'test-self-atomic-existing)
-         (new-name 'test-self-atomic-new)
+  (let* ((*package*                 (find-package '#:autolith))
+         (configuration             (test-configuration))
+         (root                      (test-configuration-root configuration))
+         (existing-name             'test-self-atomic-existing)
+         (new-name                  'test-self-atomic-new)
          (existing-identifier
            (context--definition-identifier existing-name))
-         (new-identifier (context--definition-identifier new-name))
+         (new-identifier            (context--definition-identifier new-name))
          (baseline-source
            "(define-context-contributor test-self-atomic-existing (context) (declare (ignore context)) :baseline)")
          (replacement-source
            "(define-context-contributor test-self-atomic-existing (context) (declare (ignore context)) :replacement)")
          (new-source
            "(define-context-contributor test-self-atomic-new (context) (declare (ignore context)) :new)")
-         (baseline-definition (self-read-form baseline-source))
-         (new-definition (self-read-form new-source))
-         (existing-target (definition-key baseline-definition))
-         (new-target (definition-key new-definition))
+         (baseline-definition       (self-read-form baseline-source))
+         (new-definition            (self-read-form new-source))
+         (existing-target           (definition-key baseline-definition))
+         (new-target                (definition-key new-definition))
          (original-journal-function (symbol-function 'mutation-journal-append))
          (original-register-function
            (symbol-function 'register-context-contributor)))
@@ -536,10 +536,10 @@
 (-> test-self-application-command-definitions () null)
 (defun test-self-application-command-definitions ()
   "Test command definition identity, rollback, discard, and private replay."
-  (let* ((*package* (find-package '#:autolith))
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (registry-snapshot (application-command--registry-snapshot))
+  (let* ((*package*                    (find-package '#:autolith))
+         (configuration                (test-configuration))
+         (root                         (test-configuration-root configuration))
+         (registry-snapshot            (application-command--registry-snapshot))
          (definition-names
            '(test-self-command-existing
              test-self-command-new
@@ -553,59 +553,59 @@
          (existing-baseline-source
            (test-application-command-definition-source
             :definition-name 'test-self-command-existing
-            :name "/self-command-existing"
-            :aliases nil
-            :action ':continue
-            :description "Return the baseline command action."
-            :tip "Use /self-command-existing for the baseline action."))
+            :name            "/self-command-existing"
+            :aliases         nil
+            :action          ':continue
+            :description     "Return the baseline command action."
+            :tip             "Use /self-command-existing for the baseline action."))
          (existing-replacement-source
            (test-application-command-definition-source
             :definition-name 'test-self-command-existing
-            :name "/self-command-existing"
-            :aliases '("/self-command-existing-alias")
-            :action ':quit
-            :description "Return the replacement command action."
-            :tip "Use /self-command-existing for the replacement action."))
+            :name            "/self-command-existing"
+            :aliases         '("/self-command-existing-alias")
+            :action          ':quit
+            :description     "Return the replacement command action."
+            :tip             "Use /self-command-existing for the replacement action."))
          (new-source
            (test-application-command-definition-source
             :definition-name 'test-self-command-new
-            :name "/self-command-new"
-            :aliases nil
-            :action ':continue
-            :description "Return the new command action."
-            :tip "Use /self-command-new for the new action."))
+            :name            "/self-command-new"
+            :aliases         nil
+            :action          ':continue
+            :description     "Return the new command action."
+            :tip             "Use /self-command-new for the new action."))
          (collision-owner-source
            (test-application-command-definition-source
             :definition-name 'test-self-command-collision-owner
-            :name "/self-command-collision-owner"
-            :aliases '("/self-command-collision")
-            :action ':continue
-            :description "Own the colliding command alias."
-            :tip "Use /self-command-collision-owner for the owner."))
+            :name            "/self-command-collision-owner"
+            :aliases         '("/self-command-collision")
+            :action          ':continue
+            :description     "Own the colliding command alias."
+            :tip             "Use /self-command-collision-owner for the owner."))
          (collision-rejected-source
            (test-application-command-definition-source
             :definition-name 'test-self-command-collision-rejected
-            :name "/self-command-collision"
-            :aliases nil
-            :action ':quit
-            :description "Attempt to collide with an existing alias."
-            :tip "This colliding command must never become effective."))
+            :name            "/self-command-collision"
+            :aliases         nil
+            :action          ':quit
+            :description     "Attempt to collide with an existing alias."
+            :tip             "This colliding command must never become effective."))
          (replay-source
            (test-application-command-definition-source
             :definition-name 'test-self-command-replay
-            :name "/self-command-replay"
-            :aliases '("/self-command-replay-alias")
-            :action ':continue
-            :description "Return the replayed command action."
-            :tip "Use /self-command-replay after private replay."))
+            :name            "/self-command-replay"
+            :aliases         '("/self-command-replay-alias")
+            :action          ':continue
+            :description     "Return the replayed command action."
+            :tip             "Use /self-command-replay after private replay."))
          (existing-baseline-definition
            (self-read-form existing-baseline-source :read-eval nil))
          (existing-replacement-definition
            (self-read-form existing-replacement-source :read-eval nil))
-         (new-definition (self-read-form new-source :read-eval nil))
+         (new-definition               (self-read-form new-source :read-eval nil))
          (collision-rejected-definition
            (self-read-form collision-rejected-source :read-eval nil))
-         (replay-definition (self-read-form replay-source :read-eval nil))
+         (replay-definition            (self-read-form replay-source :read-eval nil))
          (targets
            (mapcar
             #'definition-key
@@ -614,9 +614,9 @@
                   collision-rejected-definition
                   replay-definition)))
          (previous-state-initialized-p *image-state-initialized-p*)
-         (previous-commit-identifier *active-image-commit-identifier*)
-         (previous-history-commit *active-image-history-commit*)
-         (previous-lineage-identifier *active-image-lineage-identifier*))
+         (previous-commit-identifier   *active-image-commit-identifier*)
+         (previous-history-commit      *active-image-history-commit*)
+         (previous-lineage-identifier  *active-image-lineage-identifier*))
     (unwind-protect
          (progn
            (dolist (name definition-names)
@@ -649,10 +649,10 @@
                     (test-configuration-for-source-root tracked-root)))
              (ensure-directories-exist tracked-pathname)
              (with-open-file (stream tracked-pathname
-                                     :direction ':output
-                                     :if-exists ':supersede
+                                     :direction         ':output
+                                     :if-exists         ':supersede
                                      :if-does-not-exist ':create
-                                     :external-format ':utf-8)
+                                     :external-format   ':utf-8)
                (format stream "(in-package #:autolith)~2%~A~%"
                        replay-source))
              (let ((definitions
@@ -762,14 +762,14 @@
              (image-commit-write-script
               script
               :identifier "command-replay"
-              :title "Replay one application command"
+              :title      "Replay one application command"
               :entries
               (list
-               (list :kind ':definition
-                     :id "command-replay-definition"
-                     :target (definition-key replay-definition)
+               (list :kind    ':definition
+                     :id      "command-replay-definition"
+                     :target  (definition-key replay-definition)
                      :package "AUTOLITH"
-                     :source replay-source)))
+                     :source  replay-source)))
              (load script)
              (load script))
            (test-assert
@@ -814,16 +814,16 @@
 (defun test-self-restart-selection ()
   "Test restart discovery and selection through the active-image tools."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation (conversation-create configuration
                                                    :identifier "restarts"))
-                (context (make-instance 'tool-context
-                                        :configuration configuration
-                                        :worker nil
-                                        :conversation conversation))
-                (registry (make-default-tool-registry))
-                (eval-tool (tool-registry-find registry "self" "eval")))
+                (context      (make-instance 'tool-context
+                                             :configuration configuration
+                                             :worker        nil
+                                             :conversation  conversation))
+                (registry     (make-default-tool-registry))
+                (eval-tool    (tool-registry-find registry "self" "eval")))
            (labels ((run (&rest arguments)
                       "Execute self.eval with ARGUMENTS through the registry."
                       (tool-registry-execute-call
@@ -835,13 +835,13 @@
                                                         arguments)))
                        context)))
              (declare (ignorable eval-tool))
-              (test-assert
-               (tool-result-success-p
-                (run "forms"
-                     (vector "(assert (eq *package* (find-package \"AUTOLITH\")))"
-                             "(assert (fboundp 'application-prompt-cache-request-model))"
-                             "(assert (eq 'autolith:application-prompt-cache-request-model 'autolith::application-prompt-cache-request-model))")))
-               "self.eval reads and evaluates internal symbols in AUTOLITH")
+             (test-assert
+              (tool-result-success-p
+               (run "forms"
+                    (vector "(assert (eq *package* (find-package \"AUTOLITH\")))"
+                            "(assert (fboundp 'application-prompt-cache-request-model))"
+                            "(assert (eq 'autolith:application-prompt-cache-request-model 'autolith::application-prompt-cache-request-model))")))
+              "self.eval reads and evaluates internal symbols in AUTOLITH")
              (let ((result (run "forms"
                                 (vector "(cerror \"Keep going anyway.\" \"Deliberate stop.\")"))))
                (test-assert (not (tool-result-success-p result))
@@ -878,21 +878,21 @@
                (test-assert (and (tool-result-success-p late)
                                  (search "42" (tool-result-content late)))
                             "a later form uses a package an earlier form created"))
-              (unwind-protect
-                   (progn
-                     (test-assert
-                      (tool-result-success-p
-                       (run "forms"
-                            (vector "(defpackage #:self-eval-private (:use #:cl))"
-                                    "(defun self-eval-private::answer () 42)"
-                                    "(assert (= (self-eval-private::answer) 42))")))
-                      "explicit internal qualification works in foreign packages")
-                     (test-assert
-                      (not (tool-result-success-p
-                            (run "forms" (vector "(self-eval-private:answer)"))))
-                      "foreign packages require exports for single-colon references"))
-                (when (find-package '#:self-eval-private)
-                  (delete-package '#:self-eval-private)))
+             (unwind-protect
+                  (progn
+                    (test-assert
+                     (tool-result-success-p
+                      (run "forms"
+                           (vector "(defpackage #:self-eval-private (:use #:cl))"
+                                   "(defun self-eval-private::answer () 42)"
+                                   "(assert (= (self-eval-private::answer) 42))")))
+                     "explicit internal qualification works in foreign packages")
+                    (test-assert
+                     (not (tool-result-success-p
+                           (run "forms" (vector "(self-eval-private:answer)"))))
+                     "foreign packages require exports for single-colon references"))
+               (when (find-package '#:self-eval-private)
+                 (delete-package '#:self-eval-private)))
              (let ((failed (run "forms" (vector "1" "(error \"second form failed\")" "3"))))
                (test-assert (and (not (tool-result-success-p failed))
                                  (search "Form 2 of 3 failed: second form failed"
@@ -906,27 +906,27 @@
 (-> test-self-discard () null)
 (defun test-self-discard ()
   "Test exact layered restoration and append-only exploratory discard state."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (previous-function (symbol-function 'test-self-target))
-         (previous-setting *test-discard-setting*)
+  (let* ((configuration                (test-configuration))
+         (root                         (test-configuration-root configuration))
+         (previous-function            (symbol-function 'test-self-target))
+         (previous-setting             *test-discard-setting*)
          (previous-state-initialized-p *image-state-initialized-p*)
-         (previous-commit-identifier *active-image-commit-identifier*)
-         (previous-history-commit *active-image-history-commit*)
-         (previous-lineage-identifier *active-image-lineage-identifier*))
+         (previous-commit-identifier   *active-image-commit-identifier*)
+         (previous-history-commit      *active-image-history-commit*)
+         (previous-lineage-identifier  *active-image-lineage-identifier*))
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration :identifier "self-discard"))
                 (context
                   (make-instance 'tool-context
                                  :configuration configuration
-                                 :worker nil
-                                 :conversation conversation))
-                (registry (make-default-tool-registry))
-                (set-tool (tool-registry-find registry "self" "set"))
-                (diff-tool (tool-registry-find registry "self" "diff"))
+                                 :worker        nil
+                                 :conversation  conversation))
+                (registry      (make-default-tool-registry))
+                (set-tool      (tool-registry-find registry "self" "set"))
+                (diff-tool     (tool-registry-find registry "self" "diff"))
                 (exercise-tool (tool-registry-find registry "self" "exercise"))
-                (discard-tool (tool-registry-find registry "self" "discard")))
+                (discard-tool  (tool-registry-find registry "self" "discard")))
            (setf *image-state-initialized-p* nil
                  *active-image-commit-identifier* nil
                  *active-image-history-commit* nil
@@ -1130,19 +1130,19 @@
             (merge-pathnames
              (format nil "autolith-durable-tests-~A/" (make-identifier))
              (uiop:temporary-directory))))
-         (configuration (test-configuration-for-source-root source-root))
+         (configuration                (test-configuration-for-source-root source-root))
          (outside-workspace
            (uiop:ensure-directory-pathname
             (merge-pathnames "unrelated-workspace/"
                              (uiop:temporary-directory))))
-         (source-pathname (merge-pathnames "src/definitions.lisp" source-root))
-         (previous-function (symbol-function 'test-self-target))
-         (previous-setting *test-self-setting*)
+         (source-pathname              (merge-pathnames "src/definitions.lisp" source-root))
+         (previous-function            (symbol-function 'test-self-target))
+         (previous-setting             *test-self-setting*)
          (previous-state-initialized-p *image-state-initialized-p*)
-         (previous-commit-identifier *active-image-commit-identifier*)
-         (previous-history-commit *active-image-history-commit*)
-         (previous-lineage-identifier *active-image-lineage-identifier*)
-         (legacy-identifier nil)
+         (previous-commit-identifier   *active-image-commit-identifier*)
+         (previous-history-commit      *active-image-history-commit*)
+         (previous-lineage-identifier  *active-image-lineage-identifier*)
+         (legacy-identifier            nil)
          (*image-commit-replay-probe-function*
            (lambda (checked-configuration script identifier)
              (declare (ignore checked-configuration identifier))
@@ -1160,10 +1160,10 @@
          (progn
            (ensure-directories-exist source-pathname)
            (with-open-file (stream source-pathname
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create
-                                   :external-format ':utf-8)
+                                   :external-format   ':utf-8)
              (format stream
                      "(in-package #:autolith)~%~%(defun test-self-target () \"Return the durable baseline.\" 0)~%"))
            (self-git-command configuration '("init" "--quiet"))
@@ -1180,26 +1180,26 @@
                                          :identifier "durable-mutation"))
                   (context
                     (make-instance 'tool-context
-                                   :configuration configuration
-                                   :worker nil
-                                   :conversation conversation
+                                   :configuration    configuration
+                                   :worker           nil
+                                   :conversation     conversation
                                    :mutation-checker checker))
                   (outside-configuration
                     (configuration-copy configuration
-                                        :source-root source-root
+                                        :source-root       source-root
                                         :working-directory outside-workspace))
                   (outside-context
                     (make-instance 'tool-context
-                                   :configuration outside-configuration
-                                   :worker nil
-                                   :conversation conversation
+                                   :configuration    outside-configuration
+                                   :worker           nil
+                                   :conversation     conversation
                                    :mutation-checker checker))
                   (failing-active-context
                     (make-instance
                      'tool-context
                      :configuration configuration
-                     :worker nil
-                     :conversation conversation
+                     :worker        nil
+                     :conversation  conversation
                      :mutation-checker
                      (make-instance
                       'callback-mutation-checker
@@ -1208,13 +1208,13 @@
                         (declare (ignore checked-configuration
                                          definition-source))
                         (error "Injected active check failure.")))))
-                  (registry (make-default-tool-registry))
+                  (registry     (make-default-tool-registry))
                   (persist-tool (tool-registry-find registry
                                                     "self"
                                                     "persist-definition"))
-                  (set-tool (tool-registry-find registry "self" "set"))
-                  (diff-tool (tool-registry-find registry "self" "diff"))
-                  (commit-tool (tool-registry-find registry "self" "commit")))
+                  (set-tool     (tool-registry-find registry "self" "set"))
+                  (diff-tool    (tool-registry-find registry "self" "diff"))
+                  (commit-tool  (tool-registry-find registry "self" "commit")))
               (setf *image-state-initialized-p* nil
                     *active-image-commit-identifier* nil
                     *active-image-history-commit* nil
@@ -1229,72 +1229,72 @@
                     (list :mutation
                           :kind :durable-definition
                           :id "retired-overlay-record"
-                          :target (definition-key
-                                   '(defun test-self-target () 0))
+                          :target      (definition-key
+                                        '(defun test-self-target () 0))
                           :pathname
                           (namestring
                            (merge-pathnames
                             "retired/overlays/test-self-target.lisp"
                             (uiop:temporary-directory)))
-                          :previous ""
+                          :previous    ""
                           :proposed
                           "(defun test-self-target () 0)"
                           :base-commit nil
-                          :result ':failed))
+                          :result      ':failed))
                    t)
                "v0.31.1 overlay journal paths remain valid after the upgrade")
               (let* ((legacy-source
                        "(defun test-self-target () \"Return the legacy private value.\" 9)")
                      (current-source
                        "(defun test-self-target () \"Return the v0.31.1 committed value.\" 10)")
-                     (identifier (make-identifier))
-                     (directory (image-commit--directory configuration identifier))
-                     (script-pathname (merge-pathnames "reconstruct.lisp" directory))
+                     (identifier        (make-identifier))
+                     (directory         (image-commit--directory configuration identifier))
+                     (script-pathname   (merge-pathnames "reconstruct.lisp" directory))
                      (manifest-pathname (merge-pathnames "manifest.sexp" directory))
                      (entries
-                       (list (list :kind ':legacy
-                                   :id "legacy-test-self-target"
+                       (list (list :kind   ':legacy
+                                   :id     "legacy-test-self-target"
                                    :target "defun-test-self-target.lisp"
                                    :source legacy-source)
-                             (list :kind ':definition
-                                   :id "definition-test-self-target"
-                                   :target (definition-key
-                                            '(defun test-self-target () 0))
+                             (list :kind    ':definition
+                                   :id      "definition-test-self-target"
+                                   :target  (definition-key
+                                             '(defun test-self-target () 0))
                                    :package "AUTOLITH"
-                                   :source current-source)))
+                                   :source  current-source)))
                      (generation-script
                        (merge-pathnames "legacy-generation.lisp" source-root)))
                 (image-commit-write-script
                  script-pathname
                  :identifier identifier
-                 :title "Selected v0.31.1 mixed private commit"
-                 :entries entries)
+                 :title      "Selected v0.31.1 mixed private commit"
+                 :entries    entries)
                 (image-commit--write-form-atomically
                  manifest-pathname
                  (image-commit--manifest-form
-                  :identifier identifier
+                  :identifier        identifier
                   :parent-identifier nil
-                  :title "Selected v0.31.1 mixed private commit"
-                  :source-commit nil
-                  :script-pathname script-pathname
-                  :entries entries
+                  :title             "Selected v0.31.1 mixed private commit"
+                  :source-commit     nil
+                  :script-pathname   script-pathname
+                  :entries           entries
                   :consumed-mutation-identifiers
                   '("legacy-test-self-target" "definition-test-self-target")
-                  :journal-position 0
-                  :created-at (get-universal-time)))
+                  :journal-position  0
+                  :created-at        (get-universal-time)))
                 (let ((history-commit
                         (image-history-commit
                          configuration
-                         :identifier identifier
-                         :title "Selected v0.31.1 mixed private commit"
+                         :identifier        identifier
+                         :title             "Selected v0.31.1 mixed private commit"
                          :manifest-pathname manifest-pathname
-                         :script-pathname script-pathname)))
+                         :script-pathname   script-pathname)))
                   (image-commit--write-form-atomically
                    (configuration-current-image-commit-path configuration)
                    (list :current-image-commit
                          :version 2
-                         :id identifier
-                         :manifest (namestring manifest-pathname)
+                         :id             identifier
+                         :manifest       (namestring manifest-pathname)
                          :history-commit history-commit)))
                 (setf legacy-identifier identifier
                       (symbol-function 'test-self-target) previous-function
@@ -1315,7 +1315,7 @@
                 (image-commit-write-generation-script
                  generation-script
                  :generation-identifier "legacy-generation"
-                 :commit (image-commit-current configuration))
+                 :commit                (image-commit-current configuration))
                 (setf (symbol-function 'test-self-target) previous-function)
                 (load generation-script)
                 (test-assert (= (test-self-target) 10)
@@ -1343,13 +1343,13 @@
                 (error ()
                   t))
               "a failing active check rejects private persistence")
-              (test-assert (= (test-self-target) 10)
-                           "a rejected definition restores the newest historical value")
-              (test-assert
-               (string= (or (image-commit--pointer-identifier configuration) "")
-                        legacy-identifier)
-               "a rejected definition preserves private selection")
-             (let* ((*package* (find-package '#:autolith))
+             (test-assert (= (test-self-target) 10)
+                          "a rejected definition restores the newest historical value")
+             (test-assert
+              (string= (or (image-commit--pointer-identifier configuration) "")
+                       legacy-identifier)
+              "a rejected definition preserves private selection")
+             (let* ((*package*  (find-package '#:autolith))
                     (new-definition-source
                       "(defun test-self-new-rejected-definition () \"Exist only during a rejected durable mutation.\" 17)")
                     (new-definition
@@ -1403,18 +1403,18 @@
                  (image-commit-script-pathname first-commit)
                  ':read-only)
                 "published private replay scripts are read-only")
-                (test-assert
-                 (string= (or (image-commit-parent-identifier first-commit) "")
-                          legacy-identifier)
-                 "durable persistence advances the selected legacy lineage")
-                (let ((script
-                        (uiop:read-file-string
-                         (image-commit-script-pathname first-commit))))
-                  (test-assert
-                   (and (search "Return the durable value." script)
-                        (not (search "Return the legacy private value." script))
-                        (not (search "Return the v0.31.1 committed value." script)))
-                   "durable persistence normalizes the historical definition entries"))
+               (test-assert
+                (string= (or (image-commit-parent-identifier first-commit) "")
+                         legacy-identifier)
+                "durable persistence advances the selected legacy lineage")
+               (let ((script
+                       (uiop:read-file-string
+                        (image-commit-script-pathname first-commit))))
+                 (test-assert
+                  (and (search "Return the durable value." script)
+                       (not (search "Return the legacy private value." script))
+                       (not (search "Return the v0.31.1 committed value." script)))
+                  "durable persistence normalizes the historical definition entries"))
                (let ((first-identifier (image-commit-identifier first-commit)))
                  (tool-execute
                   persist-tool
@@ -1423,8 +1423,8 @@
                    "definition"
                    "(defun test-self-target () \"Return the second value.\" 85)"))
                  (let* ((second-commit (image-commit-current configuration))
-                        (script (uiop:read-file-string
-                                 (image-commit-script-pathname second-commit))))
+                        (script        (uiop:read-file-string
+                                        (image-commit-script-pathname second-commit))))
                    (test-assert
                     (string= (or (image-commit-parent-identifier second-commit) "")
                              first-identifier)
@@ -1492,8 +1492,8 @@
                              (tool-result-content diff)))
                 "self.diff shows pending reconstructible image mutations"))
              (with-open-file (stream source-pathname
-                                     :direction ':output
-                                     :if-exists ':append
+                                     :direction       ':output
+                                     :if-exists       ':append
                                      :external-format ':utf-8)
                (format stream "~%;; A user-made repository change.~%"))
              (let* ((head-before
@@ -1545,7 +1545,7 @@
              (test-assert
               (null (image-commit-pending-records configuration))
               "self.commit consumes every successful staged mutation")
-             (let* ((committed (image-commit-current configuration))
+             (let* ((committed  (image-commit-current configuration))
                     (identifier (image-commit-identifier committed))
                     (canonical-directory
                       (image-commit-directory committed))
@@ -1590,11 +1590,11 @@
               "self.commit refuses an empty private commit")
              (image-commit-publish
               configuration
-              :title "Retain a failing v0.31.1 replay entry"
+              :title            "Retain a failing v0.31.1 replay entry"
               :mutation-records nil
               :additional-entries
-              (list (list :kind ':legacy
-                          :id "legacy-broken-replay"
+              (list (list :kind   ':legacy
+                          :id     "legacy-broken-replay"
                           :target "broken-replay.lisp"
                           :source
                           "(error \"Injected private replay failure.\")")))
@@ -1606,12 +1606,12 @@
                     (application
                       (make-instance 'application
                                      :configuration configuration
-                                     :conversation conversation
-                                     :provider nil
+                                     :conversation  conversation
+                                     :provider      nil
                                      :tool-registry registry
-                                     :worker nil
-                                     :agent nil
-                                     :ui nil)))
+                                     :worker        nil
+                                     :agent         nil
+                                     :ui            nil)))
                (setf (application-mutation-replay-failures application)
                      failures)
                (test-assert
@@ -1647,7 +1647,7 @@
         (dolist (identifier test-identifiers)
           (remhash identifier *durable-mutations*)))
       (platform-delete-directory-tree *platform* source-root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -1659,15 +1659,15 @@
             (merge-pathnames
              (format nil "autolith-replay-tests-~A/" (make-identifier))
              (uiop:temporary-directory))))
-         (configuration (test-configuration-for-source-root source-root))
-         (source-pathname (merge-pathnames "src/definitions.lisp" source-root))
-         (package (find-package '#:autolith))
-         (previous-function (symbol-function 'test-self-target))
+         (configuration                (test-configuration-for-source-root source-root))
+         (source-pathname              (merge-pathnames "src/definitions.lisp" source-root))
+         (package                      (find-package '#:autolith))
+         (previous-function            (symbol-function 'test-self-target))
          (previous-state-initialized-p *image-state-initialized-p*)
-         (previous-commit-identifier *active-image-commit-identifier*)
-         (previous-history-commit *active-image-history-commit*)
-         (previous-lineage-identifier *active-image-lineage-identifier*)
-         (previous-skips *image-replay-skips*)
+         (previous-commit-identifier   *active-image-commit-identifier*)
+         (previous-history-commit      *active-image-history-commit*)
+         (previous-lineage-identifier  *active-image-lineage-identifier*)
+         (previous-skips               *image-replay-skips*)
          (tracked-source
            (format nil
                    "(defun test-self-target ()~%  \"Return the tracked baseline.\"~%  0)"))
@@ -1683,7 +1683,7 @@
            (let ((*package* package))
              (definition-key (self-read-form override-source
                                              :read-eval nil
-                                             :package package))))
+                                             :package   package))))
          (*image-commit-replay-probe-function*
            (lambda (checked-configuration script identifier)
              (declare (ignore checked-configuration script identifier))
@@ -1692,10 +1692,10 @@
                "Write SOURCE as the only tracked definition file."
                (ensure-directories-exist source-pathname)
                (with-open-file (stream source-pathname
-                                       :direction ':output
-                                       :if-exists ':supersede
+                                       :direction         ':output
+                                       :if-exists         ':supersede
                                        :if-does-not-exist ':create
-                                       :external-format ':utf-8)
+                                       :external-format   ':utf-8)
                  (format stream "(in-package #:autolith)~2%~A~%" source)))
 
              (reset ()
@@ -1708,23 +1708,23 @@
                    (remhash (definition-key
                              (self-read-form source
                                              :read-eval nil
-                                             :package package))
+                                             :package   package))
                             *exploratory-definitions*))))
 
              (replay (context source &rest arguments)
                "Replay SOURCE under CONTEXT, returning the recorded skips."
                (let ((*image-replay-context* context)
-                     (*image-replay-skips* nil)
-                     (*package* package))
+                     (*image-replay-skips*   nil)
+                     (*package*              package))
                  (apply #'self-replay-definition "AUTOLITH" source arguments)
                  *image-replay-skips*))
 
              (context (lineage image)
                "Return a replay context for LINEAGE and IMAGE source revisions."
                (make-instance 'image-replay-context
-                              :configuration configuration
+                              :configuration         configuration
                               :lineage-source-commit lineage
-                              :image-source-commit image))
+                              :image-source-commit   image))
 
              (installed-value (source)
                "Return the live value of the function SOURCE defines, or NIL."
@@ -1789,7 +1789,7 @@
                                         (definition-key
                                          (self-read-form source
                                                          :read-eval nil
-                                                         :package package)))))
+                                                         :package   package)))))
                         (null skips))
                     (format nil "~A: skip record" label)))))
              (reset)
@@ -1805,7 +1805,7 @@
                        :title "Override the tracked baseline"
                        :mutation-records
                        (image-commit-effective-pending-records configuration)))
-                    (entry (manifest-entry commit))
+                    (entry  (manifest-entry commit))
                     (script (uiop:read-file-string
                              (image-commit-script-pathname commit))))
                (test-assert
@@ -1842,7 +1842,7 @@
                        (= (length (image-commit-base-entries configuration)) 1))
                   "startup replays the override while tracked source matches"))
                (self-install-definition configuration fresh-source)
-               (let* ((reads 0)
+               (let* ((reads            0)
                       (read-file-string (symbol-function 'uiop:read-file-string))
                       (counting-read
                         (list 'uiop:read-file-string
@@ -1881,14 +1881,14 @@
                (test-assert (= (length *image-replay-skips*) 1)
                             "startup skips the override once tracked source moves again")
                (let* ((registry (make-default-tool-registry))
-                      (result (tool-execute
-                               (tool-registry-find registry "self" "commit")
-                               (make-instance 'tool-context
-                                              :configuration configuration
-                                              :worker nil
-                                              :conversation
-                                              (conversation-create configuration))
-                               (json-object "title" "Drop stale private definitions"))))
+                      (result   (tool-execute
+                                 (tool-registry-find registry "self" "commit")
+                                 (make-instance 'tool-context
+                                                :configuration configuration
+                                                :worker        nil
+                                                :conversation
+                                                (conversation-create configuration))
+                                 (json-object "title" "Drop stale private definitions"))))
                  (test-assert (and (tool-result-success-p result)
                                    (search "dropped 1 skipped definition"
                                            (tool-result-content result)))
@@ -1908,32 +1908,32 @@
               *active-image-lineage-identifier* previous-lineage-identifier
               *image-replay-skips* previous-skips)
         (platform-delete-directory-tree *platform* source-root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   nil)
 
 (-> test-durable-definition-publication-boundary () null)
 (defun test-durable-definition-publication-boundary ()
   "Test a post-publication failure does not undo selected live definition state."
-  (let* ((*package* (find-package '#:autolith))
+  (let* ((*package*                    (find-package '#:autolith))
          (source-root
            (uiop:ensure-directory-pathname
             (merge-pathnames
              (format nil "autolith-publication-tests-~A/" (make-identifier))
              (uiop:temporary-directory))))
-         (configuration (test-configuration-for-source-root source-root))
-         (source-pathname (merge-pathnames "src/baseline.lisp" source-root))
+         (configuration                (test-configuration-for-source-root source-root))
+         (source-pathname              (merge-pathnames "src/baseline.lisp" source-root))
          (definition-source
            "(defun test-self-published-definition () \"Remain live after publication.\" 23)")
-         (definition (self-read-form definition-source :read-eval nil))
-         (target (definition-key definition))
+         (definition                   (self-read-form definition-source :read-eval nil))
+         (target                       (definition-key definition))
          (previous-state-initialized-p *image-state-initialized-p*)
-         (previous-commit-identifier *active-image-commit-identifier*)
-         (previous-history-commit *active-image-history-commit*)
-         (previous-lineage-identifier *active-image-lineage-identifier*)
+         (previous-commit-identifier   *active-image-commit-identifier*)
+         (previous-history-commit      *active-image-history-commit*)
+         (previous-lineage-identifier  *active-image-lineage-identifier*)
          (original-transition-function
            (symbol-function 'durable-mutation-transition))
-         (mutation nil)
+         (mutation                     nil)
          (*image-commit-replay-probe-function*
            (lambda (checked-configuration script identifier)
              (declare (ignore checked-configuration script identifier))
@@ -1942,10 +1942,10 @@
          (progn
            (ensure-directories-exist source-pathname)
            (with-open-file (stream source-pathname
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create
-                                   :external-format ':utf-8)
+                                   :external-format   ':utf-8)
              (format stream "(in-package #:autolith)~%"))
            (self-git-command configuration '("init" "--quiet"))
            (self-git-command configuration
@@ -1971,8 +1971,8 @@
                     (make-instance
                      'tool-context
                      :configuration configuration
-                     :worker nil
-                     :conversation conversation
+                     :worker        nil
+                     :conversation  conversation
                      :mutation-checker
                      (make-instance
                       'callback-mutation-checker
@@ -1990,7 +1990,7 @@
                                       checked-configuration
                                       checked-mutation
                                       phase
-                                      :detail detail
+                                      :detail     detail
                                       :git-commit git-commit)))
                        (when (eq phase :source-written)
                          (error "Injected post-publication journal failure."))
@@ -2052,20 +2052,20 @@
       (when mutation
         (remhash (durable-mutation-identifier mutation) *durable-mutations*))
       (platform-delete-directory-tree *platform* source-root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
 (-> test-self-tuning-experiments () null)
 (defun test-self-tuning-experiments ()
   "Test explicit append-only tuning experiments and their mutation gates."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (previous-setting *test-discard-setting*)
+  (let* ((configuration                (test-configuration))
+         (root                         (test-configuration-root configuration))
+         (previous-setting             *test-discard-setting*)
          (previous-state-initialized-p *image-state-initialized-p*)
-         (previous-commit-identifier *active-image-commit-identifier*)
-         (previous-history-commit *active-image-history-commit*)
-         (previous-lineage-identifier *active-image-lineage-identifier*))
+         (previous-commit-identifier   *active-image-commit-identifier*)
+         (previous-history-commit      *active-image-history-commit*)
+         (previous-lineage-identifier  *active-image-lineage-identifier*))
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration
@@ -2073,16 +2073,16 @@
                 (context
                   (make-instance 'tool-context
                                  :configuration configuration
-                                 :worker nil
-                                 :conversation conversation))
-                (registry (make-default-tool-registry))
-                (set-tool (tool-registry-find registry "self" "set"))
+                                 :worker        nil
+                                 :conversation  conversation))
+                (registry      (make-default-tool-registry))
+                (set-tool      (tool-registry-find registry "self" "set"))
                 (start-tool
                   (tool-registry-find registry "self" "experiment-start"))
                 (settle-tool
                   (tool-registry-find registry "self" "experiment-settle"))
                 (exercise-tool (tool-registry-find registry "self" "exercise"))
-                (status-tool (tool-registry-find registry "self" "status")))
+                (status-tool   (tool-registry-find registry "self" "status")))
            (setf *image-state-initialized-p* nil
                  *active-image-commit-identifier* nil
                  *active-image-history-commit* nil
@@ -2151,11 +2151,11 @@
               (find identifier
                     (mutation-journal-read-records configuration)
                     :test #'string=
-                    :key (lambda (record)
-                           (and (eq (first record) :mutation)
-                                (eq (getf (rest record) :kind) :exercise)
-                                (eq (getf (rest record) :result) :passed)
-                                (getf (rest record) :experiment))))
+                    :key  (lambda (record)
+                            (and (eq (first record) :mutation)
+                                 (eq (getf (rest record) :kind) :exercise)
+                                 (eq (getf (rest record) :result) :passed)
+                                 (getf (rest record) :experiment))))
               "self.exercise evidence is associated with the open experiment")
              (let ((result
                      (tool-execute
@@ -2176,10 +2176,10 @@
                        settle-tool context
                        (json-object "verdict" "better"
                                     "observation" long-observation)))
-                    (settled (find identifier
-                                   (tuning-experiment-list configuration)
-                                   :key #'tuning-experiment-identifier
-                                   :test #'string=)))
+                    (settled          (find identifier
+                                            (tuning-experiment-list configuration)
+                                            :key  #'tuning-experiment-identifier
+                                            :test #'string=)))
                (test-assert
                 (and (null (tuning-experiment-open configuration))
                      (eq (tuning-experiment-verdict settled) :better)
@@ -2210,8 +2210,8 @@
                          (search (second case) (tool-result-content result)))
                     "worse and unchanged are terminal and guide discard"))))
              (with-open-file (stream (configuration-journal-path configuration)
-                                     :direction ':output
-                                     :if-exists ':append
+                                     :direction       ':output
+                                     :if-exists       ':append
                                      :external-format ':utf-8)
                (write-string "(:mutation :kind :tuning-experiment" stream))
              (test-assert
@@ -2230,8 +2230,8 @@
 (defun test-self-replay-foreign-home ()
   "Test replay skips stale definitions whose names moved to a library."
   (let ((*image-replay-skips* nil)
-        (original (symbol-function
-                   'provider--call-with-transport-normalization)))
+        (original             (symbol-function
+                               'provider--call-with-transport-normalization)))
     (test-assert
      (null (self-replay-definition
             "AUTOLITH"
@@ -2287,7 +2287,6 @@
    "methods on foreign generics stay replayable")
   nil)
 
-
 (-> test-self--foreign-definition (keyword symbol keyword) list)
 (defun test-self--foreign-definition (kind symbol value)
   "Build a fixture definition of KIND under foreign SYMBOL returning VALUE."
@@ -2305,16 +2304,16 @@
 (-> test-self-foreign-definition-lifecycle () null)
 (defun test-self-foreign-definition-lifecycle ()
   "Test foreign definitions across installation, discard, replay and failure."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (package (find-package '#:sb-ext))
-         (*image-state-initialized-p* nil)
-         (*active-image-commit-identifier* nil)
-         (*active-image-history-commit* nil)
+  (let* ((configuration                     (test-configuration))
+         (root                              (test-configuration-root configuration))
+         (package                           (find-package '#:sb-ext))
+         (*image-state-initialized-p*       nil)
+         (*active-image-commit-identifier*  nil)
+         (*active-image-history-commit*     nil)
          (*active-image-lineage-identifier* nil)
-         (*exploratory-definitions* (make-hash-table :test #'equal))
-         (*exploratory-undo-actions* (make-hash-table :test #'equal))
-         (*image-replay-skips* nil))
+         (*exploratory-definitions*         (make-hash-table :test #'equal))
+         (*exploratory-undo-actions*        (make-hash-table :test #'equal))
+         (*image-replay-skips*              nil))
     (unwind-protect
          (progn
            (image-state-load configuration)
@@ -2325,10 +2324,10 @@
                        (lambda ()
                          (intern (format nil "AUTOLITH-FOREIGN-~A" (make-identifier))
                                  package))))
-                    (baseline (test-self--foreign-definition kind symbol ':original))
+                    (baseline    (test-self--foreign-definition kind symbol ':original))
                     (replacement (test-self--foreign-definition kind symbol ':replacement))
-                    (source (write-to-string replacement :readably t))
-                    (script (merge-pathnames "foreign-replay.lisp" root)))
+                    (source      (write-to-string replacement :readably t))
+                    (script      (merge-pathnames "foreign-replay.lisp" root)))
                (flet ((observe ()
                         (ecase kind
                           (:function
@@ -2348,12 +2347,12 @@
                         (test-assert (sb-ext:package-locked-p package)
                                      "installation restores the foreign package lock")
                         (let* ((record (first (image-commit-effective-pending-records configuration)))
-                               (entry (image-commit--record->entry record)))
+                               (entry  (image-commit--record->entry record)))
                           (test-assert (equal (getf entry :home-package) "SB-EXT")
                                        "replay entries retain the mutation's actual owner")
                           (image-commit-write-script script :identifier "foreign-replay"
-                                                     :title "Replay foreign definition"
-                                                     :entries (list entry)))
+                                                     :title             "Replay foreign definition"
+                                                     :entries           (list entry)))
                         (self-discard-mutation configuration nil)
                         (test-assert (eq (observe) ':original)
                                      "discard restores a locked foreign target")
@@ -2380,8 +2379,8 @@
                                      (load pathname)
                                      nil))
                                  (context (make-instance 'tool-context :configuration configuration))
-                                 (tool (tool-registry-find (make-default-tool-registry)
-                                                           "self" "persist-definition"))
+                                 (tool    (tool-registry-find (make-default-tool-registry)
+                                                              "self" "persist-definition"))
                                  (result
                                    (tool-execute
                                     tool context
@@ -2393,7 +2392,7 @@
                                               (eq (observe) ':persisted))
                                          "direct persistence installs and replays foreign methods")
                             (let* ((commit (image-commit-current configuration))
-                                   (entry (first (image-commit-base-entries configuration))))
+                                   (entry  (first (image-commit-base-entries configuration))))
                               (test-assert (equal "SB-EXT" (getf entry :home-package))
                                            "direct persistence records the foreign target owner")
                               (call-with-package-unlocked package (lambda () (eval baseline)))
@@ -2416,7 +2415,7 @@
                                             (sb-ext:package-locked-p package))
                                        "failed installation restores value and lock")
                           (let* ((context (make-instance 'tool-context :configuration configuration))
-                                 (tool (tool-registry-find (make-default-tool-registry) "self" "set")))
+                                 (tool    (tool-registry-find (make-default-tool-registry) "self" "set")))
                             (tool-execute tool context
                                           (json-object "symbol" (write-to-string symbol)
                                                        "value" ":set"))
@@ -2435,7 +2434,7 @@
                         (makunbound symbol))
                       (unintern symbol package))))))))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -2445,15 +2444,15 @@
   (with-test-configuration (configuration root)
     (declare (ignore configuration))
     (let* ((source-configuration (test-configuration-for-source-root root))
-           (identifier (make-identifier))
-           (loaded-name (format nil "autolith/source-reader-~A-loaded" identifier))
-           (unloaded-name (format nil "autolith/source-reader-~A-unloaded" identifier))
-           (shared-pathname (merge-pathnames "src/shared.lisp" root))
-           (foreign-pathname (merge-pathnames "src/foreign.lisp" root))
-           (gated-pathname (merge-pathnames "src/gated.lisp" root))
-           (unowned-pathname (merge-pathnames "src/unowned.lisp" root))
-           (source "(defun test-source-reader-shared () :shared)")
-           (unreadable "(defun test-source-reader-unavailable () autolith-absent-optional-reader:value)"))
+           (identifier           (make-identifier))
+           (loaded-name          (format nil "autolith/source-reader-~A-loaded" identifier))
+           (unloaded-name        (format nil "autolith/source-reader-~A-unloaded" identifier))
+           (shared-pathname      (merge-pathnames "src/shared.lisp" root))
+           (foreign-pathname     (merge-pathnames "src/foreign.lisp" root))
+           (gated-pathname       (merge-pathnames "src/gated.lisp" root))
+           (unowned-pathname     (merge-pathnames "src/unowned.lisp" root))
+           (source               "(defun test-source-reader-shared () :shared)")
+           (unreadable           "(defun test-source-reader-unavailable () autolith-absent-optional-reader:value)"))
       (unwind-protect
            (progn
              (test-assert (null (find-package "AUTOLITH-ABSENT-OPTIONAL-READER"))
@@ -2463,12 +2462,12 @@
                                  (cons gated-pathname unreadable)))
                (ensure-directories-exist (first entry))
                (with-open-file (stream (first entry) :direction ':output
-                                                    :if-exists ':supersede)
+                                                    :if-exists  ':supersede)
                  (format stream "(in-package #:autolith)~%~A~%" (rest entry))))
              (eval `(asdf:defsystem ,loaded-name
                       :pathname ,root
                       :components ((:file "src/shared")
-                                   (:file "src/gated"
+                                   (:file       "src/gated"
                                     :if-feature :autolith-absent-source-reader-feature))))
              (eval `(asdf:defsystem ,unloaded-name
                       :pathname ,root
@@ -2517,8 +2516,8 @@
            (context
              (make-instance 'tool-context
                             :configuration configuration
-                            :worker nil
-                            :conversation conversation))
+                            :worker        nil
+                            :conversation  conversation))
            (registry (make-default-tool-registry))
            (message
              (handler-case
@@ -2563,8 +2562,8 @@
            (context
              (make-instance 'tool-context
                             :configuration configuration
-                            :worker nil
-                            :conversation conversation))
+                            :worker        nil
+                            :conversation  conversation))
            (tool (tool-registry-find (make-default-tool-registry)
                                      "lisp" "apropos")))
       (intern "APROPOS-TEST-UNDEFINED-INTERNED-NAME" (find-package '#:autolith))
@@ -2616,8 +2615,8 @@
            (context
              (make-instance 'tool-context
                             :configuration configuration
-                            :worker nil
-                            :conversation conversation))
+                            :worker        nil
+                            :conversation  conversation))
            (tool (tool-registry-find (make-default-tool-registry) "lisp" "describe")))
       (dolist (designator '("'self-resolve-symbol"
                             "#'self-resolve-symbol"
@@ -2648,7 +2647,7 @@
   "Register self.define as the same tool class and schema as self.redefine."
   (let* ((registry (make-default-tool-registry))
          (redefine (tool-registry-find registry "self" "redefine"))
-         (define (tool-registry-find registry "self" "define")))
+         (define   (tool-registry-find registry "self" "define")))
     (test-assert (and (typep redefine 'self-redefine-tool)
                       (typep define 'self-redefine-tool))
                  "self.define is a second self-redefine-tool")
@@ -2659,19 +2658,19 @@
 (-> test-image-commit-skipped-entry-key () null)
 (defun test-image-commit-skipped-entry-key ()
   "Test a journal target spelled with its package still matches the replay skip key."
-  (let* ((package (find-package '#:autolith))
-         (source "(defun test-self-target () 7)")
+  (let* ((package    (find-package '#:autolith))
+         (source     "(defun test-self-target () 7)")
          (definition (self-read-form source :read-eval nil :package package))
          (*image-replay-skips*
            (list (make-instance 'image-replay-skip
-                                :definition definition
-                                :key (let ((*package* package))
-                                       (definition-key definition))
-                                :source source
-                                :tracked nil
+                                :definition         definition
+                                :key                (let ((*package* package))
+                                                      (definition-key definition))
+                                :source             source
+                                :tracked            nil
                                 :tracked-recorded-p nil
-                                :reason ':revision-moved
-                                :message "skipped"))))
+                                :reason             ':revision-moved
+                                :message            "skipped"))))
     (dolist (case (list (list "(defun autolith::test-self-target)" source t)
                         (list "(defun test-self-target)" source t)
                         (list "(defun autolith::test-self-replay-fresh)"

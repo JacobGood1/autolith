@@ -19,7 +19,7 @@
   (let* ((resource (resource-resolver-resolve
                     (make-instance 'shell-log-resolver :scheme "shell-log")
                     (subseq reference 10) context))
-         (capture (shell-log-resource--capture resource)))
+         (capture  (shell-log-resource--capture resource)))
     (merge-pathnames (getf capture :file) (shell-log-resource-directory resource))))
 
 (-> shell-output-tests--read-bytes (pathname) vector)
@@ -44,15 +44,15 @@
 (defun test-shell-retained-preview-and-ranges ()
   "Retain exact large merged/separate bytes, head/tail diagnostics and middle range/search."
   (with-test-configuration (configuration root)
-    (let* ((registry (make-default-tool-registry))
-           (context (shell-output-tests--context configuration registry))
-           (tool (tool-registry-find registry "shell" "run"))
-           (read-tool (tool-registry-find registry "resource" "read"))
-           (payload-path (merge-pathnames "raw-output.bin" root))
-           (text (concatenate 'string "BEGIN-OUTPUT\n" (make-string 40000 :initial-element #\x)
-                              "MIDDLE-NEEDLE" (make-string 40000 :initial-element #\y)
-                              "END-OUTPUT\n"))
-           (payload (utf8-string-to-octets text))
+    (let* ((registry       (make-default-tool-registry))
+           (context        (shell-output-tests--context configuration registry))
+           (tool           (tool-registry-find registry "shell" "run"))
+           (read-tool      (tool-registry-find registry "resource" "read"))
+           (payload-path   (merge-pathnames "raw-output.bin" root))
+           (text           (concatenate 'string "BEGIN-OUTPUT\n" (make-string 40000 :initial-element #\x)
+                                        "MIDDLE-NEEDLE" (make-string 40000 :initial-element #\y)
+                                        "END-OUTPUT\n"))
+           (payload        (utf8-string-to-octets text))
            (overflow-count 0)
            (*tool-result-overflow-function*
              (lambda (content)
@@ -60,24 +60,24 @@
                (incf overflow-count)
                "context:unexpected")))
       (setf (aref payload 10) 255)
-      (with-open-file (stream payload-path :direction ':output
+      (with-open-file (stream payload-path :direction   ':output
                                           :element-type '(unsigned-byte 8))
         (write-sequence payload stream))
       (dolist (separate-p '(nil t))
-        (let* ((result (tool-execute
-                        tool context
-                        (json-object "command" (shell-output-tests--emit-command payload-path :fail-p t)
-                                   "separate-output" separate-p)))
-               (details (tool-result-details result))
-               (metadata (first (getf details :shell-logs)))
-               (captures (getf metadata :captures))
-               (capture (find ':output captures :key (lambda (entry) (getf entry :stream))))
+        (let* ((result    (tool-execute
+                           tool context
+                           (json-object "command" (shell-output-tests--emit-command payload-path :fail-p t)
+                                      "separate-output" separate-p)))
+               (details   (tool-result-details result))
+               (metadata  (first (getf details :shell-logs)))
+               (captures  (getf metadata :captures))
+               (capture   (find ':output captures :key (lambda (entry) (getf entry :stream))))
                (reference (getf capture :reference))
-               (actual (shell-output-tests--read-bytes
-                         (shell-output-tests--capture-path context reference)))
-               (expected (if separate-p payload
-                             (concatenate '(vector (unsigned-byte 8)) payload
-                                          (utf8-string-to-octets (format nil "FINAL-DIAGNOSTIC~%"))))))
+               (actual    (shell-output-tests--read-bytes
+                            (shell-output-tests--capture-path context reference)))
+               (expected  (if separate-p payload
+                              (concatenate '(vector (unsigned-byte 8)) payload
+                                           (utf8-string-to-octets (format nil "FINAL-DIAGNOSTIC~%"))))))
           (test-assert (and (not (tool-result-success-p result))
                             (eq (tool-result-error-code result) ':nonzero-exit)
                             (= 7 (getf details :exit-code)))
@@ -93,8 +93,8 @@
                        "Bounded preview includes beginning and trailing diagnostics")
           (test-assert (= (length captures) (if separate-p 2 1))
                        "Separate captures preserve distinct stream identities")
-          (let ((range (tool-execute read-tool context
-                                    (json-object "uri" reference "byte-offset" 39990 "byte-count" 100)))
+          (let ((range         (tool-execute read-tool context
+                                            (json-object "uri" reference "byte-offset" 39990 "byte-count" 100)))
                 (search-result (tool-execute read-tool context
                                             (json-object "uri" reference "query" "MIDDLE-NEEDLE"))))
             (test-assert (search "MIDDLE-NEEDLE" (tool-result-content range))
@@ -110,7 +110,7 @@
   (with-test-configuration (configuration root)
     (declare (ignore root))
     (let* ((registry (make-default-tool-registry))
-           (context (shell-output-tests--context configuration registry))
+           (context  (shell-output-tests--context configuration registry))
            (result
              (test-call-with-function-replacements
               (list (list 'run-sandboxed
@@ -134,16 +134,16 @@
   (with-test-configuration (configuration root)
     (declare (ignore root))
     (let* ((registry (make-default-tool-registry))
-           (context (shell-output-tests--context configuration registry))
-           (result (tool-execute
-                    (tool-registry-find registry "shell" "run") context
-                    (json-object
-                     "command" (test-fixture-shell-command
-                                *platform* "printf BEFORE-TIMEOUT; sleep 5"
-                                "[Console]::Write('BEFORE-TIMEOUT'); Start-Sleep -Seconds 5")
-                     "timeout-seconds" 1)))
+           (context  (shell-output-tests--context configuration registry))
+           (result   (tool-execute
+                      (tool-registry-find registry "shell" "run") context
+                      (json-object
+                       "command" (test-fixture-shell-command
+                                  *platform* "printf BEFORE-TIMEOUT; sleep 5"
+                                  "[Console]::Write('BEFORE-TIMEOUT'); Start-Sleep -Seconds 5")
+                       "timeout-seconds" 1)))
            (metadata (first (getf (tool-result-details result) :shell-logs)))
-           (capture (first (getf metadata :captures))))
+           (capture  (first (getf metadata :captures))))
       (test-assert (not (tool-result-success-p result)) "Timeout reports a failed execution")
       (test-assert (and (getf metadata :timed-out-p)
                         (not (getf capture :complete-p))
@@ -153,16 +153,15 @@
                    "Timeout preview includes captured diagnostics")))
   nil)
 
-
 (-> test-shell-log-export-boundary () null)
 (defun test-shell-log-export-boundary ()
   "Collect task assets without reading private command-output subtrees."
   (with-test-configuration (configuration root)
     (declare (ignore root))
-    (let* ((owner "log-export-owner")
+    (let* ((owner      "log-export-owner")
            (asset-root (data-transfer--asset-root configuration ':tasks owner))
-           (terminal (merge-pathnames "execution/terminal.sexp" asset-root))
-           (capture (merge-pathnames "execution/shell-log/artifact/raw.bin" asset-root)))
+           (terminal   (merge-pathnames "execution/terminal.sexp" asset-root))
+           (capture    (merge-pathnames "execution/shell-log/artifact/raw.bin" asset-root)))
       (ensure-directories-exist capture)
       (dolist (path (list terminal capture))
         (with-open-file (stream path :direction ':output)

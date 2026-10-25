@@ -14,13 +14,13 @@
 (defun preferences-tests--create (configuration &rest overrides)
   "Create a process configuration on CONFIGURATION's roots, reading its preferences."
   (apply #'configuration-create
-         :source-root (config :source-root configuration)
-         :working-directory (config :working-directory configuration)
-         :config-root (config :config-root configuration)
-         :data-root (config :data-root configuration)
-         :state-root (config :state-root configuration)
-         :cache-root (config :cache-root configuration)
-         :codex-auth-path (config :codex-auth-path configuration)
+         :source-root              (config :source-root configuration)
+         :working-directory        (config :working-directory configuration)
+         :config-root              (config :config-root configuration)
+         :data-root                (config :data-root configuration)
+         :state-root               (config :state-root configuration)
+         :cache-root               (config :cache-root configuration)
+         :codex-auth-path          (config :codex-auth-path configuration)
          :grok-bootstrap-auth-path (config :grok-bootstrap-auth-path configuration)
          overrides))
 
@@ -120,31 +120,31 @@ Source precedence, source recording, and value rejection belong to setinka."
                                (eq (getf plist :fullscreen-p) t)
                                (null (member :turn-timestamps-p plist)))
                           "storing merges into the file as another process left it")))
-          (snapshot-write pathname
-                          '(:preferences :version 8
-                            :model "first" :model "second"))
-          (let ((plist (preferences--read configuration)))
-            (test-assert (string= (getf plist :model) "first")
-                         "duplicate preference keys use their first value"))
-          (preferences-store configuration :compact-view-p t)
-          (test-assert (string= (getf (preferences-tests--file-plist configuration)
-                                     :model)
-                               "first")
-                       "preference writes retain first-value duplicate semantics")
-          (dolist (version '(1 2 3 4 5 6 7 9))
-            (let ((form (list ':preferences ':version version
-                              ':model "gpt-5.6-luna"
-                              ':reasoning-effort "high"))
-                  (created nil))
-              (snapshot-write pathname form)
-              (test-assert
-               (preferences-tests--warned-p
-                (lambda () (setf created (preferences-tests--create configuration))))
-               "an unsupported preference version is reported and ignored")
-              (test-assert (string= (config :model created) *default-model*)
-                           "an unsupported file leaves the default model in place")
-              (test-assert (equal (snapshot-read pathname) form)
-                           "loading an unsupported file preserves its stored data")))
+         (snapshot-write pathname
+                         '(:preferences :version 8
+                           :model "first" :model "second"))
+         (let ((plist (preferences--read configuration)))
+           (test-assert (string= (getf plist :model) "first")
+                        "duplicate preference keys use their first value"))
+         (preferences-store configuration :compact-view-p t)
+         (test-assert (string= (getf (preferences-tests--file-plist configuration)
+                                    :model)
+                              "first")
+                      "preference writes retain first-value duplicate semantics")
+         (dolist (version '(1 2 3 4 5 6 7 9))
+           (let ((form    (list ':preferences ':version version
+                                ':model "gpt-5.6-luna"
+                                ':reasoning-effort "high"))
+                 (created nil))
+             (snapshot-write pathname form)
+             (test-assert
+              (preferences-tests--warned-p
+               (lambda () (setf created (preferences-tests--create configuration))))
+              "an unsupported preference version is reported and ignored")
+             (test-assert (string= (config :model created) *default-model*)
+                          "an unsupported file leaves the default model in place")
+             (test-assert (equal (snapshot-read pathname) form)
+                          "loading an unsupported file preserves its stored data")))
          (with-open-file (stream pathname :direction ':output :if-exists ':supersede
                                           :external-format ':utf-8)
            (write-string "(:preferences :version 8 :model" stream))
@@ -157,4 +157,4 @@ Source precedence, source recording, and value rejection belong to setinka."
            (test-assert (equal (preferences-tests--file-plist configuration)
                                '(:compact-view-p nil))
                         "the next store replaces a damaged file"))
-    nil)))))
+        nil)))))

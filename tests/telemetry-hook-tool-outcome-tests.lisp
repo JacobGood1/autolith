@@ -6,7 +6,7 @@
   (:documentation "Check that correction metadata does not reach the underlying tool."))
 
 (defmethod tool-execute :before ((tool telemetry-test-correction-tool)
-                                (context tool-context) (arguments hash-table))
+                                 (context tool-context) (arguments hash-table))
   (declare (ignore tool context))
   (test-assert (not (nth-value 1 (gethash "corrects_previous" arguments)))
                "The registry consumes correction metadata before invoking the tool."))
@@ -15,24 +15,24 @@
   "An explicit correction reaches telemetry without changing arguments or leaking between calls."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((registry (make-instance 'tool-registry))
-            (tool (default-tools--register
-                   registry (list 'telemetry-test-correction-tool "test" "echo" "Fixture echo."
-                                  (tool-object-schema (json-object "value" (tool-string-property "Value.")) '("value")))))
+     (let* ((registry     (make-instance 'tool-registry))
+            (tool         (default-tools--register
+                           registry (list 'telemetry-test-correction-tool "test" "echo" "Fixture echo."
+                                          (tool-object-schema (json-object "value" (tool-string-property "Value.")) '("value")))))
             (conversation (conversation-create configuration :identifier "telemetry-correction"))
-            (provider (make-instance 'scripted-provider
-                                     :results
-                                     (list (agent-test-result
-                                            "correction-calls"
-                                            (list (agent-test-call :call-id "first" :arguments "{\"value\":\"same\"}")
-                                                  (agent-test-call :call-id "second" :arguments "{\"value\":\"same\",\"corrects_previous\":true}")
-                                                  (agent-test-call :call-id "third" :arguments "{\"value\":\"different\"}")))
-                                           (agent-test-result "done" (list (agent-test-message "done"))))))
-            (agent (agent-create :configuration configuration :conversation conversation
-                                 :provider provider :tool-registry registry :worker :unused))
-            (bodies (test-telemetry-hooks--capture configuration
-                                                   (lambda () (agent-run-user-turn agent "Fixture correction."))))
-            (spans (test-telemetry-hooks--kind (first bodies) "tool")))
+            (provider     (make-instance 'scripted-provider
+                                         :results
+                                         (list (agent-test-result
+                                                "correction-calls"
+                                                (list (agent-test-call :call-id "first" :arguments "{\"value\":\"same\"}")
+                                                      (agent-test-call :call-id "second" :arguments "{\"value\":\"same\",\"corrects_previous\":true}")
+                                                      (agent-test-call :call-id "third" :arguments "{\"value\":\"different\"}")))
+                                               (agent-test-result "done" (list (agent-test-message "done"))))))
+            (agent        (agent-create :configuration configuration :conversation conversation
+                                        :provider provider :tool-registry registry :worker :unused))
+            (bodies       (test-telemetry-hooks--capture configuration
+                                                         (lambda () (agent-run-user-turn agent "Fixture correction."))))
+            (spans        (test-telemetry-hooks--kind (first bodies) "tool")))
        (test-assert (equal (json-get (json-get (json-get (tool-parameters tool) "properties") "corrects_previous") "type") "boolean")
                     "Builtin registration advertises the annotation as a boolean.")
        (test-assert (equal (mapcar (lambda (span) (json-true-p (test-telemetry--attribute span "autolith.tool.corrects_previous"))) spans)
@@ -47,27 +47,27 @@
   "Export actual shell failures and exit status through the agent completion path."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((registry (make-default-tool-registry))
+     (let* ((registry     (make-default-tool-registry))
             (conversation (conversation-create configuration))
-            (provider (make-instance 'scripted-provider
-                                    :results
-                                    (list (agent-test-result
-                                           "shell-exit"
-                                           (list (agent-test-call
-                                                  :call-id "shell" :namespace "shell" :name "run"
-                                                  :arguments (json-encode
-                                                              (json-object "command"
-                                                                           (test-fixture-shell-command
-                                                                            *platform* "exit 7" "exit 7"))))))
-                                          (agent-test-result "done" (list (agent-test-message "done"))))))
-            (agent (agent-create :configuration configuration :conversation conversation
-                                 :provider provider :tool-registry registry :worker :unused))
-            (observer (callback-agent-observer-create
-                       :command-authorization-callback
-                       (lambda (command directory) (declare (ignore command directory)) ':full-access)))
-            (bodies (test-telemetry-hooks--capture
-                     configuration (lambda () (agent-run-user-turn agent "exit" :observer observer))))
-            (span (first (test-telemetry-hooks--kind (first bodies) "tool"))))
+            (provider     (make-instance 'scripted-provider
+                                        :results
+                                        (list (agent-test-result
+                                               "shell-exit"
+                                               (list (agent-test-call
+                                                      :call-id "shell" :namespace "shell" :name "run"
+                                                      :arguments (json-encode
+                                                                  (json-object "command"
+                                                                               (test-fixture-shell-command
+                                                                                *platform* "exit 7" "exit 7"))))))
+                                              (agent-test-result "done" (list (agent-test-message "done"))))))
+            (agent        (agent-create :configuration configuration :conversation conversation
+                                        :provider provider :tool-registry registry :worker :unused))
+            (observer     (callback-agent-observer-create
+                           :command-authorization-callback
+                           (lambda (command directory) (declare (ignore command directory)) ':full-access)))
+            (bodies       (test-telemetry-hooks--capture
+                           configuration (lambda () (agent-run-user-turn agent "exit" :observer observer))))
+            (span         (first (test-telemetry-hooks--kind (first bodies) "tool"))))
        (test-telemetry-hooks--assert-attributes
         span
         '((failed-command "autolith.tool.outcome" "error"
@@ -82,37 +82,37 @@
   "Export real worker, missing-resource and yield failures through agent completion."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((registry (task-augment-tool-registry (make-default-tool-registry)))
-            (orchestrator (task-run-tool-orchestrator (tool-registry-find registry "task" "run")))
+     (let* ((registry                                (task-augment-tool-registry (make-default-tool-registry)))
+            (orchestrator                            (task-run-tool-orchestrator (tool-registry-find registry "task" "run")))
             (*tool-execution-blocking-grace-seconds* 90)
-            (worker (lisp-worker-pool-create configuration))
-            (cases '(("lisp" "eval" "{\"forms\":[\"(/ 1 0)\"]}" "division-by-zero")
-                     ("lisp" "eval" "{\"forms\":[\"(error \\\"boom-custom\\\")\"]}" "simple-error")
-                     ("lisp" "eval" "{\"forms\":[\"(+ 1 \\\"two\\\")\"]}" "type-error")
-                     ("resource" "read" "{\"uri\":\"workspace:private-missing-file.txt\"}" "not-found")
-                     ("yield" "submit" "{\"status\":\"success\"}" "invalid-yield")))
-            (provider (make-instance
-                       'scripted-provider :configuration configuration
-                       :results (append
-                                 (loop for (namespace name arguments code) in cases
-                                       for index from 1
-                                       collect (agent-test-result
-                                                (format nil "failure-~D" index)
-                                                (list (agent-test-call
-                                                       :call-id (format nil "call-~D" index)
-                                                       :namespace namespace :name name :arguments arguments))))
-                                 (list (agent-test-result "done" (list (agent-test-message "done")))))))
-            (agent (agent-create :configuration configuration :provider provider
-                                 :conversation (conversation-create configuration)
-                                 :tool-registry registry :worker worker)))
+            (worker                                  (lisp-worker-pool-create configuration))
+            (cases                                   '(("lisp" "eval" "{\"forms\":[\"(/ 1 0)\"]}" "division-by-zero")
+                                                       ("lisp" "eval" "{\"forms\":[\"(error \\\"boom-custom\\\")\"]}" "simple-error")
+                                                       ("lisp" "eval" "{\"forms\":[\"(+ 1 \\\"two\\\")\"]}" "type-error")
+                                                       ("resource" "read" "{\"uri\":\"workspace:private-missing-file.txt\"}" "not-found")
+                                                       ("yield" "submit" "{\"status\":\"success\"}" "invalid-yield")))
+            (provider                                (make-instance
+                                                      'scripted-provider :configuration configuration
+                                                      :results                          (append
+                                                                                         (loop for (namespace name arguments code) in cases
+                                                                                               for index from 1
+                                                                                               collect (agent-test-result
+                                                                                                        (format nil "failure-~D" index)
+                                                                                                        (list (agent-test-call
+                                                                                                               :call-id (format nil "call-~D" index)
+                                                                                                               :namespace namespace :name name :arguments arguments))))
+                                                                                         (list (agent-test-result "done" (list (agent-test-message "done")))))))
+            (agent                                   (agent-create :configuration configuration :provider provider
+                                                                   :conversation (conversation-create configuration)
+                                                                   :tool-registry registry :worker worker)))
        (tool-registry-register
         registry (make-instance 'task-yield-tool :namespace "yield" :name "submit"
                                 :description "Test terminal yield."
-                                :parameters (tool-object-schema (json-object) nil)))
+                                :parameters  (tool-object-schema (json-object) nil)))
        (unwind-protect
             (let* ((bodies (test-telemetry-hooks--capture
                             configuration (lambda () (agent-run-user-turn agent "Exercise failures."))))
-                   (tools (test-telemetry-hooks--kind (first bodies) "tool")))
+                   (tools  (test-telemetry-hooks--kind (first bodies) "tool")))
               (test-assert (= (length tools) (length cases)) "Every attempted tool is exported.")
               (loop for span in tools
                     for case in cases
@@ -140,32 +140,32 @@
    (lambda (configuration)
      (with-test-fixture (':posix-adapter "absolute POSIX resource failure paths")
        (let* ((configuration (configuration-copy configuration :working-directory #P"/tmp/"))
-              (paths '("/definitely/missing/e2e-file.txt" "/tmp/e2e-no-such-file-123.txt"))
-              (registry (make-default-tool-registry))
-              (provider (make-instance
-                         'scripted-provider :configuration configuration
-                         :results (append
-                                   (loop for path in paths for index from 1
-                                         collect (agent-test-result
-                                                  (format nil "missing-~D" index)
-                                                  (list (agent-test-call
-                                                         :call-id (format nil "missing-~D" index)
-                                                         :namespace "resource" :name "read"
-                                                         :arguments (json-encode (json-object "uri" path))))))
-                                   (list (agent-test-result "done" (list (agent-test-message "done")))))))
-              (agent (agent-create :configuration configuration :provider provider
-                                   :conversation (conversation-create configuration)
-                                   :tool-registry registry :worker :unused))
-              (authorized nil)
-              (observer (callback-agent-observer-create
-                         :command-authorization-callback
-                         (lambda (command directory)
-                           (declare (ignore directory))
-                           (push command authorized)
-                           ':full-access)))
-              (bodies (test-telemetry-hooks--capture
-                       configuration (lambda () (agent-run-user-turn agent "Read missing." :observer observer))))
-              (tools (test-telemetry-hooks--kind (first bodies) "tool")))
+              (paths         '("/definitely/missing/e2e-file.txt" "/tmp/e2e-no-such-file-123.txt"))
+              (registry      (make-default-tool-registry))
+              (provider      (make-instance
+                              'scripted-provider :configuration configuration
+                              :results                          (append
+                                                                 (loop for path in paths for index from 1
+                                                                       collect (agent-test-result
+                                                                                (format nil "missing-~D" index)
+                                                                                (list (agent-test-call
+                                                                                       :call-id   (format nil "missing-~D" index)
+                                                                                       :namespace "resource" :name "read"
+                                                                                       :arguments (json-encode (json-object "uri" path))))))
+                                                                 (list (agent-test-result "done" (list (agent-test-message "done")))))))
+              (agent         (agent-create :configuration configuration :provider provider
+                                           :conversation (conversation-create configuration)
+                                           :tool-registry registry :worker :unused))
+              (authorized    nil)
+              (observer      (callback-agent-observer-create
+                              :command-authorization-callback
+                              (lambda (command directory)
+                                (declare (ignore directory))
+                                (push command authorized)
+                                ':full-access)))
+              (bodies        (test-telemetry-hooks--capture
+                              configuration (lambda () (agent-run-user-turn agent "Read missing." :observer observer))))
+              (tools         (test-telemetry-hooks--kind (first bodies) "tool")))
          (test-assert authorized "The absolute path exercises out-of-root authorization.")
          (test-assert (= (length tools) 2) "Both resource attempts are exported.")
          (dolist (span tools)
@@ -189,51 +189,51 @@
   "Bound extension keyword codes at the real agent-to-export boundary."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((cases (append '((:division-by-zero "division-by-zero")
-                            (:permission-denied "permission-denied")
-                            (:access-denied "access-denied")
-                            (:authorization "authorization")
-                            (:not-authorized "not-authorized")
-                            (:capability-denied "capability-denied")
-                            (:authority "authority")
-                            (:os-permission-denied "os-permission-denied")
-                            (:|custom-code9| "custom-code9")
-                            (:|| "tool-failure")
-                            (:|private.name| "tool-failure")
-                            (:|private/path| "tool-failure")
-                            (:|private name| "tool-failure")
-                            (:|échec| "tool-failure"))
-                          (list (list (intern (make-string 64 :initial-element #\A) :keyword)
-                                      (make-string 64 :initial-element #\a))
-                                (list (intern (make-string 65 :initial-element #\A) :keyword) "tool-failure"))))
+     (let* ((cases    (append '((:division-by-zero "division-by-zero")
+                                (:permission-denied "permission-denied")
+                                (:access-denied "access-denied")
+                                (:authorization "authorization")
+                                (:not-authorized "not-authorized")
+                                (:capability-denied "capability-denied")
+                                (:authority "authority")
+                                (:os-permission-denied "os-permission-denied")
+                                (:|custom-code9| "custom-code9")
+                                (:|| "tool-failure")
+                                (:|private.name| "tool-failure")
+                                (:|private/path| "tool-failure")
+                                (:|private name| "tool-failure")
+                                (:|échec| "tool-failure"))
+                             (list (list (intern (make-string 64 :initial-element #\A) :keyword)
+                                         (make-string 64 :initial-element #\a))
+                                   (list (intern (make-string 65 :initial-element #\A) :keyword) "tool-failure"))))
             (registry (make-default-tool-registry))
             (provider (make-instance
                        'scripted-provider :configuration configuration
-                       :results (append
-                                 (loop for index from 1 to (length cases)
-                                       collect (agent-test-result
-                                                (format nil "error-~D" index)
-                                                (list (agent-test-call :call-id (format nil "error-~D" index)
-                                                                       :namespace "fixture"
-                                                                       :name (format nil "failure~D" index)
-                                                                       :arguments "{}"))))
-                                 (list (agent-test-result "done" (list (agent-test-message "done")))))))
-            (agent (agent-create :configuration configuration :provider provider
-                                 :conversation (conversation-create configuration)
-                                 :tool-registry registry :worker :unused)))
+                       :results                          (append
+                                                          (loop for index from 1 to (length cases)
+                                                                collect (agent-test-result
+                                                                         (format nil "error-~D" index)
+                                                                         (list (agent-test-call :call-id   (format nil "error-~D" index)
+                                                                                                :namespace "fixture"
+                                                                                                :name      (format nil "failure~D" index)
+                                                                                                :arguments "{}"))))
+                                                          (list (agent-test-result "done" (list (agent-test-message "done")))))))
+            (agent    (agent-create :configuration configuration :provider provider
+                                    :conversation (conversation-create configuration)
+                                    :tool-registry registry :worker :unused)))
        (loop for (code expected) in cases for index from 1
              do (tool-registry-register
                  registry (make-instance 'telemetry-test-failure-tool :code code
                                          :namespace "fixture" :name (format nil "failure~D" index)
-                                         :description "Emit a fixture failure."
-                                         :parameters (tool-object-schema (json-object) nil))))
+                                         :description                       "Emit a fixture failure."
+                                         :parameters                        (tool-object-schema (json-object) nil))))
        (let* ((bodies (test-telemetry-hooks--capture
                        configuration (lambda () (agent-run-user-turn agent "Exercise error codes."))))
-              (tools (test-telemetry-hooks--kind (first bodies) "tool")))
+              (tools  (test-telemetry-hooks--kind (first bodies) "tool")))
          (test-assert (= (length tools) (length cases)) "Every extension tool is executed and exported.")
          (loop for span in tools for (code expected) in cases
                do (test-assert (equal (test-telemetry--attribute span "autolith.tool.error_code") expected)
-                                "Only bounded lowercase ASCII codes reach the wire.")
+                               "Only bounded lowercase ASCII codes reach the wire.")
                   (test-assert
                    (equal (test-telemetry--attribute span "autolith.tool.outcome")
                           (if (member code '(:permission-denied :access-denied :authorization
@@ -263,28 +263,28 @@
   (test-telemetry--call
    (lambda (configuration)
      (let* ((conversation (conversation-create configuration :identifier "telemetry-parallel"))
-            (state (make-instance 'agent-test-concurrency-state))
-            (tool (make-instance 'telemetry-test-concurrent-tool
-                                 :namespace "concurrency" :name "run" :description "Parallel fixture."
-                                 :parameters (tool-parameters (agent-test-concurrency-tool state "run"))
-                                 :state state :execution-policy :parallel))
-            (registry (agent-test-concurrency-registry (list tool)))
-            (provider (make-instance 'scripted-provider :results
-                                    (list (agent-test-result
-                                           "parallel-calls"
-                                           (list (agent-test-call
-                                                  :call-id "first" :namespace "concurrency" :name "run"
-                                                  :arguments "{\"label\":\"first\",\"await_peer\":true,\"delay\":0.05,\"fail\":true}")
-                                                 (agent-test-call
-                                                  :call-id "second" :namespace "concurrency" :name "run"
-                                                  :arguments "{\"label\":\"second\",\"await_peer\":true}")))
-                                          (agent-test-result "parallel-done" (list (agent-test-message "done"))))))
-            (agent (agent-create :configuration configuration :conversation conversation
-                                 :provider provider :tool-registry registry :worker :unused))
-            (bodies (test-telemetry-hooks--capture
-                     configuration (lambda () (agent-run-user-turn agent "parallel"))))
-            (spans (test-telemetry-hooks--kind (first bodies) "tool"))
-            (runs (telemetry-test-concurrent-runs tool)))
+            (state        (make-instance 'agent-test-concurrency-state))
+            (tool         (make-instance 'telemetry-test-concurrent-tool
+                                         :namespace "concurrency" :name "run" :description "Parallel fixture."
+                                         :parameters (tool-parameters (agent-test-concurrency-tool state "run"))
+                                         :state state :execution-policy :parallel))
+            (registry     (agent-test-concurrency-registry (list tool)))
+            (provider     (make-instance 'scripted-provider :results
+                                        (list (agent-test-result
+                                               "parallel-calls"
+                                               (list (agent-test-call
+                                                      :call-id "first" :namespace "concurrency" :name "run"
+                                                      :arguments "{\"label\":\"first\",\"await_peer\":true,\"delay\":0.05,\"fail\":true}")
+                                                     (agent-test-call
+                                                      :call-id "second" :namespace "concurrency" :name "run"
+                                                      :arguments "{\"label\":\"second\",\"await_peer\":true}")))
+                                              (agent-test-result "parallel-done" (list (agent-test-message "done"))))))
+            (agent        (agent-create :configuration configuration :conversation conversation
+                                        :provider provider :tool-registry registry :worker :unused))
+            (bodies       (test-telemetry-hooks--capture
+                           configuration (lambda () (agent-run-user-turn agent "parallel"))))
+            (spans        (test-telemetry-hooks--kind (first bodies) "tool"))
+            (runs         (telemetry-test-concurrent-runs tool)))
        (test-assert (agent-test-concurrency-state-overlap-observed-p state) "The fixture executes concurrently.")
        (test-assert (and (= (length runs) 2) (first runs) (eq (first runs) (second runs)))
                     "Both real worker threads inherit the same telemetry run.")

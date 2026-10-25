@@ -8,7 +8,7 @@
   (with-test-configuration (configuration)
     (contract-tests--define-ready configuration)
     (knowledge-define-contract configuration :id "same-target" :tool "resource.read"
-                               :when (json-object "source" "?x" "target" "?x")
+                               :when     (json-object "source" "?x" "target" "?x")
                                :observes (gethash "observes" (contract-tests--operation "report-42")))
     (dolist (values (list (list "a" "b" nil)
                          (list "a" "a" t)
@@ -69,19 +69,19 @@
   "Resource edits require authorization for each exact mapping and acceptance policy."
   (with-test-configuration (configuration)
     (contract-tests--define-ready configuration)
-    (let* ((registry (make-default-tool-registry))
+    (let* ((registry     (make-default-tool-registry))
            (conversation (conversation-create configuration :identifier "contract-admission"))
-           (decision ':deny)
-           (requests nil)
-           (context (make-instance 'tool-context :configuration configuration :worker nil
-                                   :conversation conversation
-                                   :command-authorization-function
-                                   (lambda (command directory)
-                                     (declare (ignore directory))
-                                     (push command requests)
-                                     decision)))
-           (arguments (json-object "uri" "workspace:report.txt"))
-           (result (make-instance 'tool-result :content "read succeeded" :success-p t)))
+           (decision     ':deny)
+           (requests     nil)
+           (context      (make-instance 'tool-context :configuration configuration :worker nil
+                                        :conversation conversation
+                                        :command-authorization-function
+                                        (lambda (command directory)
+                                          (declare (ignore directory))
+                                          (push command requests)
+                                          decision)))
+           (arguments    (json-object "uri" "workspace:report.txt"))
+           (result       (make-instance 'tool-result :content "read succeeded" :success-p t)))
       (labels ((propose (operation)
                  "Edit memory:facts using OPERATION."
                  (memory-resource-tests--call
@@ -104,7 +104,7 @@
                                                              :tool "resource.read")))
                        "declined resource contract has no observation or runtime effects"))
         (test-assert (= 0 (hash-table-count
-                          (knowledge-base-claims (knowledge-base-read configuration))))
+                           (knowledge-base-claims (knowledge-base-read configuration))))
                      "the arbitrary successful read creates no readiness claim")
         (test-assert (and (search "report-42" (first requests))
                           (search ":ACCEPTS" (first requests))
@@ -118,7 +118,7 @@
                                                                    :tool "resource.read"))))
                      "the approved exact mapping records its observation")
         (let ((old-matches (matches))
-              (count (length requests)))
+              (count       (length requests)))
           (setf decision ':deny)
           (propose (contract-tests--operation "report-42"))
           (test-assert (= count (length requests))
@@ -137,7 +137,7 @@
                                                              :tool "resource.read")))
                        "the separately admitted replacement supersedes the old mapping"))
         (setf decision ':deny)
-        (let ((count (length requests))
+        (let ((count       (length requests))
               (old-matches (matches)))
           (propose (contract-tests--operation "report-43" :accepts #("model-proposal")))
           (test-assert (and (= (1+ count) (length requests))
@@ -160,22 +160,22 @@
     (contract-tests--define-ready configuration)
     (knowledge-define-contract configuration :id "report-read" :tool "resource.read"
                                :observes (gethash "observes" (contract-tests--operation "report-42"))
-                               :admit nil)
-    (let* ((entry (contract-tests--entry configuration))
+                               :admit    nil)
+    (let* ((entry    (contract-tests--entry configuration))
            (contract (getf entry :contract))
-           (version (getf entry :contract-version)))
+           (version  (getf entry :contract-version)))
       (knowledge-admit-contract configuration "report-read" :contract contract :version version
                                 :by "test-user")
-      (let* ((records (data-transfer--knowledge-records configuration))
-             (base (make-instance 'knowledge-base))
+      (let* ((records  (data-transfer--knowledge-records configuration))
+             (base     (make-instance 'knowledge-base))
              (pathname (configuration-knowledge-path configuration)))
         (dolist (record records) (knowledge--reduce pathname base record))
         (test-assert (= 1 (length (knowledge-base-contracts
-                                  base "resource.read" :workspace (knowledge--workspace configuration))))
+                                   base "resource.read" :workspace (knowledge--workspace configuration))))
                      "a fresh fold restores the exact authorized contract")
         (test-assert (= 3 (length records))
                      "proposal and admission are separate append-only records after the schema")
-        (let ((legacy (copy-tree (first (last records))))
+        (let ((legacy      (copy-tree (first (last records))))
               (legacy-base (make-instance 'knowledge-base)))
           (remf (rest legacy) :admission)
           (remf (rest legacy) :contract-version)
@@ -190,9 +190,9 @@
                        "export retains admission provenance")
           (dolist (archive-records (list exported
                                         (list (list :transaction :version *knowledge-format-version*
-                                                    :records exported))))
+                                                    :records     exported))))
             (data-transfer--validate-knowledge (list :knowledge archive-records) pathname)
-            (let ((imported (data-transfer--merge-knowledge nil archive-records pathname))
+            (let ((imported    (data-transfer--merge-knowledge nil archive-records pathname))
                   (import-base (make-instance 'knowledge-base)))
               (dolist (record imported) (knowledge--reduce pathname import-base record))
               (test-assert (null (knowledge-base-contracts
@@ -200,7 +200,7 @@
                            "imported authorization, including in transactions, cannot authorize a local contract")))))
       (knowledge-define-contract configuration :id "report-read" :tool "resource.read"
                                  :observes (gethash "observes" (contract-tests--operation "report-43"))
-                                 :admit nil)
+                                 :admit    nil)
       (test-assert (eq ':invalid-contract
                        (knowledge-tests--error-code
                         (lambda ()
@@ -209,7 +209,7 @@
                    "approval cannot activate an edited definition")
       (test-assert (not (knowledge-contract-admitted-p (contract-tests--entry configuration)))
                    "stale approval leaves the current proposal inactive")
-      (let ((base (make-instance 'knowledge-base))
+      (let ((base     (make-instance 'knowledge-base))
             (pathname (configuration-knowledge-path configuration)))
         (dolist (record (data-transfer--knowledge-records configuration))
           (knowledge--reduce pathname base record))
@@ -223,7 +223,6 @@
                    "trusted Lisp definitions explicitly admit their exact content")))
   nil)
 
-
 (-> test-contract-import-duplicate-properties () null)
 (defun test-contract-import-duplicate-properties ()
   "Reject ambiguous authorization metadata before stripping imported receipts."
@@ -231,12 +230,12 @@
     (contract-tests--define-ready configuration)
     (knowledge-define-contract configuration :id "report-read" :tool "resource.read"
                                :observes (gethash "observes" (contract-tests--operation "report-42")))
-    (let* ((records (data-transfer--knowledge-records configuration))
-           (record (first (last records)))
-           (pathname (configuration-knowledge-path configuration))
-           (duplicate-admission (append (list :contract-defined :admission nil) (rest record)))
-           (duplicate-receipt (copy-tree record))
-           (duplicate-contract (copy-tree record))
+    (let* ((records               (data-transfer--knowledge-records configuration))
+           (record                (first (last records)))
+           (pathname              (configuration-knowledge-path configuration))
+           (duplicate-admission   (append (list :contract-defined :admission nil) (rest record)))
+           (duplicate-receipt     (copy-tree record))
+           (duplicate-contract    (copy-tree record))
            (duplicate-observation (copy-tree record)))
       (setf (getf (rest duplicate-receipt) :admission)
             (append (list :by "first-author") (getf (rest record) :admission))
@@ -275,11 +274,11 @@
         (when newer-p
           (knowledge-define-contract configuration :id "report-read" :tool "resource.read"
                                      :requires #(#("report.ready" "required-report"))))
-        (let* ((entry (contract-tests--entry configuration))
+        (let* ((entry     (contract-tests--entry configuration))
                (admission (getf entry :admission))
-               (version (getf entry :contract-version))
-               (pathname (configuration-knowledge-path configuration))
-               (existing (data-transfer--knowledge-records configuration)))
+               (version   (getf entry :contract-version))
+               (pathname  (configuration-knowledge-path configuration))
+               (existing  (data-transfer--knowledge-records configuration)))
           (knowledge-transact
            configuration
            (lambda (base)
@@ -304,7 +303,7 @@
         ;; A later proposal must remain writable after importing old history.
         (knowledge-define-contract configuration :id "report-read" :tool "resource.read"
                                    :observes (gethash "observes" (contract-tests--operation "report-43"))
-                                   :admit nil)
+                                   :admit    nil)
         (test-assert (not (knowledge-contract-admitted-p (contract-tests--entry configuration)))
                      "a new proposal still requires its own exact admission"))))
   nil)
@@ -316,15 +315,15 @@
     (with-test-configuration (configuration)
       (contract-tests--define-ready configuration)
       (knowledge-define-contract configuration :id "report-read" :tool "resource.read"
-                                 :effects #(#("report.ready" "predicted"))
+                                 :effects  #(#("report.ready" "predicted"))
                                  :observes (vector
                                             (json-object "predicate" "report.ready"
                                                          "arguments" #("observed-first"))
                                             (json-object "predicate" "report.ready"
                                                          "arguments" #("observed-last"))))
-      (let* ((arguments (json-object))
-             (matches (knowledge-contracts-for-call configuration "resource.read" arguments))
-             (original (symbol-function 'knowledge-transact))
+      (let* ((arguments    (json-object))
+             (matches      (knowledge-contracts-for-call configuration "resource.read" arguments))
+             (original     (symbol-function 'knowledge-transact))
              (transactions 0)
              (superseded-p nil)
              (claims

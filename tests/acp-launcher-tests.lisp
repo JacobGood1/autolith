@@ -4,16 +4,16 @@
 
 (defun acp-launcher-tests--run-parser (&rest arguments)
   "Run the shared shell launcher parser and return its exported state."
-  (let* ((script (asdf:system-relative-pathname :autolith
-                                               "script/launcher-cli.sh"))
-         (quoted (mapcar (lambda (argument)
-                           (format nil "'~A'" argument))
-                         arguments))
+  (let* ((script  (asdf:system-relative-pathname :autolith
+                                                "script/launcher-cli.sh"))
+         (quoted  (mapcar (lambda (argument)
+                            (format nil "'~A'" argument))
+                          arguments))
          (command (format nil
                           "source ~A; autolith_launcher_parse source ~{~A ~}; printf '%s\\n' \"$from_source_requested\" \"$recovery_requested\" \"$update_requested\" \"$uninstall_requested\" \"$data_requested\" \"$acp_requested\" \"${remaining_arguments[*]}\""
                           (namestring script) quoted)))
     (uiop:run-program (list "bash" "-c" command)
-                      :output :string
+                      :output       :string
                       :error-output :string)))
 
 (-> test-acp-launcher-forwards-pristine-and-permissions () null)
@@ -61,7 +61,6 @@
                        "ACP routing follows the command, not an operand")))))
   nil)
 
-
 (-> acp-launcher-tests--call-with-roots (pathname function) t)
 (defun acp-launcher-tests--call-with-roots (root function)
   "Run FUNCTION with isolated process configuration and the managed SBCL."
@@ -98,8 +97,8 @@
   (let ((channel (agentcomms:acp-launch-agent program
                                              :arguments arguments
                                              :directory directory))
-        (client (make-instance 'agentcomms:acp-client))
-        (result nil)
+        (client  (make-instance 'agentcomms:acp-client))
+        (result  nil)
         (failure nil))
     (unwind-protect
          (handler-case
@@ -168,7 +167,6 @@
          (test-assert (zerop (length output)) "startup failures emit no non-protocol stdout")
          (test-assert (plusp (length diagnostics)) "startup diagnostics are on stderr")))))
   nil)
-
 
 (-> test-acp-launcher-failure-diagnostics () null)
 (defun test-acp-launcher-failure-diagnostics ()

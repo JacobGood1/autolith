@@ -26,15 +26,15 @@
 (-> chatgpt-test--refresh-response-deadline () null)
 (defun chatgpt-test--refresh-response-deadline ()
   "Test ChatGPT refresh uses its deadline and normalizes deadline failure."
-  (let* ((manager (chatgpt-test--manager))
+  (let* ((manager  (chatgpt-test--manager))
          (credentials
            (make-instance 'oauth-credentials
-                          :access-token "old-access"
+                          :access-token  "old-access"
                           :refresh-token "old-refresh"
-                          :id-token nil
-                          :account-id "account-refresh-deadline"
-                          :expires-at nil
-                          :source-path #P"/tmp/chatgpt-auth.sexp"))
+                          :id-token      nil
+                          :account-id    "account-refresh-deadline"
+                          :expires-at    nil
+                          :source-path   #P"/tmp/chatgpt-auth.sexp"))
          (deadline nil))
     (test-call-with-function-replacements
      (list
@@ -94,12 +94,12 @@
   (let* ((redirect-uri "http://localhost:1455/auth/callback")
          (url
            (chatgpt-oauth-authorization-url
-            :redirect-uri redirect-uri
-            :state "state-test"
+            :redirect-uri   redirect-uri
+            :state          "state-test"
             :code-challenge "challenge-test"
-            :issuer "https://issuer.test/"
-            :client-id "client-test"
-            :originator "autolith-test")))
+            :issuer         "https://issuer.test/"
+            :client-id      "client-test"
+            :originator     "autolith-test")))
     (test-assert (string= (subseq url 0 (position #\? url))
                           "https://issuer.test/oauth/authorize")
                  "ChatGPT authorization uses the configured issuer")
@@ -117,9 +117,9 @@
       (test-assert
        (string= (chatgpt-test--parameter url (first case)) (rest case))
        (format nil "ChatGPT authorization includes ~A" (first case)))))
-  (let* ((manager (chatgpt-test--manager))
-         (id-token (test-account-jwt "account-test"))
-         (request-url nil)
+  (let* ((manager         (chatgpt-test--manager))
+         (id-token        (test-account-jwt "account-test"))
+         (request-url     nil)
          (request-content nil)
          (credentials
            (chatgpt-oauth-exchange-code
@@ -127,7 +127,7 @@
             "code-secret"
             "verifier-secret"
             "http://localhost:1455/auth/callback"
-            :client-id "client-test"
+            :client-id      "client-test"
             :token-endpoint "https://issuer.test/oauth/token"
             :request-function
             (lambda (&key url content)
@@ -160,7 +160,7 @@
           (string= (oauth-credentials-account-id credentials) "account-test"))
      "ChatGPT exchange returns renewable account credentials"))
   (let ((condition nil)
-        (secret "verifier-do-not-leak"))
+        (secret    "verifier-do-not-leak"))
     (handler-case
         (chatgpt-oauth--token-document
          (lambda (&key url content)
@@ -185,71 +185,71 @@
           (string= (chatgpt-oauth-error-code condition) "invalid_grant")
           (not (test-object-contains-string-p condition secret)))
      "ChatGPT token failures use typed redacted diagnostics"))
-    (let* ((manager (chatgpt-test--manager))
-           (id-token (test-account-jwt "account-login"))
-           (*chatgpt-test-saved-credentials* nil)
-           (output (make-string-output-stream))
-           (browser-url nil)
-           (secret-guard-observed-p nil))
-      (chatgpt-oauth-login
-       manager
-       :stream output
-       :browser-function (lambda (url) (setf browser-url url) nil)
-       :callback-function
-        (lambda (listener expected-state &key timeout)
-          (let* ((uri (quri:uri (chatgpt-test--parameter browser-url "redirect_uri")))
-                 (port (quri:uri-port uri))
-                 (socket (usocket:socket-connect "127.0.0.1" port :element-type '(unsigned-byte 8)))
-                 (stream (usocket:socket-stream socket)))
-            (unwind-protect
-                 (progn
-                   (write-sequence
-                    (babel:string-to-octets
-                     (format nil "GET ~A?code=code-test&state=~A.onboarding_entrypoint%3Dlife_sciences HTTP/1.1~C~C"
-                             (quri:uri-path uri) expected-state #\Return #\Newline)
-                     :encoding ':utf-8)
-                    stream)
-                   (finish-output stream))
-              (usocket:socket-close socket)))
-          (setf secret-guard-observed-p (secret-use-active-p))
-          (chatgpt-oauth-await-loopback listener expected-state :timeout (min timeout 5)))
-       :request-function
-       (lambda (&key url content)
-         (declare (ignore url content))
-         (values
-          (json-encode
-           (json-object "id_token" id-token
-                        "access_token" "access-login"
-                        "refresh_token" "refresh-login"))
-          200
-          nil)))
-      (let ((text (get-output-stream-string output)))
-        (test-assert
-         (and browser-url
-              (let ((redirect (quri:uri (chatgpt-test--parameter browser-url "redirect_uri"))))
-                (and (string= (quri:uri-host redirect) "localhost")
-                     (member (quri:uri-port redirect) '(1455 1457))
-                     (string= (quri:uri-path redirect) "/auth/callback")))
-              (search "code_challenge_method=S256" browser-url)
-              (search browser-url text))
-         "ChatGPT login uses the fixed localhost redirect and PKCE"))
-      (test-assert secret-guard-observed-p
-                   "ChatGPT login keeps transient OAuth data in secret scope")
+  (let* ((manager                          (chatgpt-test--manager))
+         (id-token                         (test-account-jwt "account-login"))
+         (*chatgpt-test-saved-credentials* nil)
+         (output                           (make-string-output-stream))
+         (browser-url                      nil)
+         (secret-guard-observed-p          nil))
+    (chatgpt-oauth-login
+     manager
+     :stream           output
+     :browser-function (lambda (url) (setf browser-url url) nil)
+     :callback-function
+      (lambda (listener expected-state &key timeout)
+        (let* ((uri    (quri:uri (chatgpt-test--parameter browser-url "redirect_uri")))
+               (port   (quri:uri-port uri))
+               (socket (usocket:socket-connect "127.0.0.1" port :element-type '(unsigned-byte 8)))
+               (stream (usocket:socket-stream socket)))
+          (unwind-protect
+               (progn
+                 (write-sequence
+                  (babel:string-to-octets
+                   (format nil "GET ~A?code=code-test&state=~A.onboarding_entrypoint%3Dlife_sciences HTTP/1.1~C~C"
+                           (quri:uri-path uri) expected-state #\Return #\Newline)
+                   :encoding ':utf-8)
+                  stream)
+                 (finish-output stream))
+            (usocket:socket-close socket)))
+        (setf secret-guard-observed-p (secret-use-active-p))
+        (chatgpt-oauth-await-loopback listener expected-state :timeout (min timeout 5)))
+     :request-function
+     (lambda (&key url content)
+       (declare (ignore url content))
+       (values
+        (json-encode
+         (json-object "id_token" id-token
+                      "access_token" "access-login"
+                      "refresh_token" "refresh-login"))
+        200
+        nil)))
+    (let ((text (get-output-stream-string output)))
       (test-assert
-       (and *chatgpt-test-saved-credentials*
-            (string= (oauth-credentials-access-token
-                      *chatgpt-test-saved-credentials*)
-                     "access-login"))
-       "ChatGPT login publishes credentials through the credential manager"))
+       (and browser-url
+            (let ((redirect (quri:uri (chatgpt-test--parameter browser-url "redirect_uri"))))
+              (and (string= (quri:uri-host redirect) "localhost")
+                   (member (quri:uri-port redirect) '(1455 1457))
+                   (string= (quri:uri-path redirect) "/auth/callback")))
+            (search "code_challenge_method=S256" browser-url)
+            (search browser-url text))
+       "ChatGPT login uses the fixed localhost redirect and PKCE"))
+    (test-assert secret-guard-observed-p
+                 "ChatGPT login keeps transient OAuth data in secret scope")
+    (test-assert
+     (and *chatgpt-test-saved-credentials*
+          (string= (oauth-credentials-access-token
+                    *chatgpt-test-saved-credentials*)
+                   "access-login"))
+     "ChatGPT login publishes credentials through the credential manager"))
   (let* ((provider
            (provider-authentication-provider (test-configuration) "chatgpt"))
-         (output (make-string-output-stream))
-         (browser-setting nil)
-         (device-setting nil)
+         (output              (make-string-output-stream))
+         (browser-setting     nil)
+         (device-setting      nil)
          (browser-login-count 0)
-         (device-login-count 0)
-         (browser-message nil)
-         (device-message nil))
+         (device-login-count  0)
+         (browser-message     nil)
+         (device-message      nil))
     (test-call-with-function-replacements
      (list
       (list 'chatgpt-oauth-login

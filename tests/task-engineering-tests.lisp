@@ -22,16 +22,16 @@
 (defun test-task-engineering-native-contract ()
   "Exercise native role expansion, extensions, provider projection and provenance."
   (with-test-configuration (configuration)
-    (let* ((pathname (merge-pathnames "agents/engineering.sexp"
-                                     (test-configuration-root configuration)))
+    (let* ((pathname   (merge-pathnames "agents/engineering.sexp"
+                                       (test-configuration-root configuration)))
            (definition
              (task-parse-agent-file
               (task-tests--write-text
                pathname
                "(:name \"engineering\" :description \"Engineering role\" :instructions \"Return engineering evidence.\" :output (:type :engineering :properties ((\"review\" (:type :string))) :required (\"review\")))")
               ':project))
-           (schema (task-agent-definition-output definition))
-           (result (task-engineering-tests--result))
+           (schema     (task-agent-definition-output definition))
+           (result     (task-engineering-tests--result))
            (projection (task-output-schema->json schema)))
       (test-assert (not (task-output-schema-valid-p result schema))
                    "role-specific required fields extend the common contract")
@@ -46,9 +46,9 @@
               (handler-case
                   (progn
                     (task-parse-agent-file
-                    (task-tests--write-text
-                     pathname
-                     "(:name \"engineering\" :description \"Invalid extension\" :instructions \"Override a common field.\" :output (:type :engineering :properties ((\"baseline\" (:type :string)))))")
+                     (task-tests--write-text
+                      pathname
+                      "(:name \"engineering\" :description \"Invalid extension\" :instructions \"Override a common field.\" :output (:type :engineering :properties ((\"baseline\" (:type :string)))))")
                      ':project)
                     nil)
                 (task-agent-definition-error (condition) condition))))
@@ -81,7 +81,7 @@
                        "evidence" "issues" "integrationNotes"))
         (let* ((fixture (task-tests--yield-fixture
                          configuration definition (format nil "missing-~A" field)))
-               (data (task-engineering-tests--result)))
+               (data    (task-engineering-tests--result)))
           (remhash field data)
           (test-assert
            (and (not (tool-result-success-p
@@ -93,7 +93,7 @@
                       ("change" "not-an-object")))
         (let* ((fixture (task-tests--yield-fixture
                          configuration definition (format nil "invalid-~A" (first case))))
-               (data (task-engineering-tests--result)))
+               (data    (task-engineering-tests--result)))
           (setf (gethash (first case) data) (second case))
           (test-assert
            (not (tool-result-success-p
@@ -101,9 +101,9 @@
                   fixture (json-encode (json-object "status" "success" "data" data)))))
            (format nil "invalid common field ~A is rejected" (first case)))))
       (dolist (status '("success"))
-        (let* ((fixture (task-tests--yield-fixture
-                         configuration definition (format nil "engineering-~A" status)))
-               (data (task-engineering-tests--result))
+        (let* ((fixture   (task-tests--yield-fixture
+                           configuration definition (format nil "engineering-~A" status)))
+               (data      (task-engineering-tests--result))
                (arguments (json-object "status" status "data" data)))
           (test-assert
            (tool-result-success-p
@@ -115,7 +115,7 @@
                     (getf fixture :child) (getf fixture :conversation)
                     (getf fixture :completion)))
                  (shared (make-array 5 :element-type 'character :initial-contents "child"))
-                 (base (coerce "base text" 'base-string)))
+                 (base   (coerce "base text" 'base-string)))
             (setf (getf durable :id) shared
                   (getf durable :name) shared
                   (getf durable :assignment) base
@@ -136,7 +136,7 @@
                     (string= (getf restored :label) "Příliš žluťoučký"))
                "shared strings, native base strings and Unicode survive durable lookup")))))
       (let* ((fixture (task-tests--yield-fixture configuration definition "engineering-cyclic"))
-             (cycle (list "cycle")))
+             (cycle   (list "cycle")))
         (setf (rest cycle) cycle)
         (test-assert
          (handler-case

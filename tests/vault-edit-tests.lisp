@@ -5,12 +5,12 @@
 (-> vault-edit-tests--call (function) null)
 (defun vault-edit-tests--call (function)
   "Run FUNCTION with a durable conversation and a controller whose turn is active."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (ui (terminal-ui-create :terminal (make-instance 'recording-terminal :columns 80)))
-         (conversation (conversation-create configuration :identifier "vault-edit"))
-         (application (make-instance 'application :configuration configuration :conversation conversation :ui ui))
-         (controller nil)
+  (let* ((configuration        (test-configuration))
+         (root                 (test-configuration-root configuration))
+         (ui                   (terminal-ui-create :terminal (make-instance 'recording-terminal :columns 80)))
+         (conversation         (conversation-create configuration :identifier "vault-edit"))
+         (application          (make-instance 'application :configuration configuration :conversation conversation :ui ui))
+         (controller           nil)
          (*active-application* application))
     (unwind-protect
          (progn
@@ -67,7 +67,7 @@
 (defun vault-edit-tests--publications (checkpoint function)
   "Call CHECKPOINT after each successful pending or vault publication during FUNCTION."
   (let ((publish (symbol-function 'application-vault--publish))
-        (write (symbol-function 'application-recovery-input-vault--write-captures)))
+        (write   (symbol-function 'application-recovery-input-vault--write-captures)))
     (test-call-with-function-replacements
      (list (list 'application-vault--publish
                  (lambda (&rest arguments)
@@ -153,7 +153,6 @@
                     "vault controls are reachable after a storage failure"))))
   nil)
 
-
 (-> test-vault-store-concurrent-admission () null)
 (defun test-vault-store-concurrent-admission ()
   "Accept newer input during store publication, including a subsequent rollback."
@@ -162,10 +161,10 @@
      (lambda (application controller)
        (declare (ignore application))
        (application-input-controller--enqueue controller ':message "earlier")
-       (let ((capture (symbol-function 'application-input-controller--capture-pending-publication-locked))
+       (let ((capture  (symbol-function 'application-input-controller--capture-pending-publication-locked))
              (admitted (sb-thread:make-semaphore))
-             (thread nil)
-             (calls 0))
+             (thread   nil)
+             (calls    0))
          (unwind-protect
               (test-call-with-function-replacements
                (list (list 'application-input-controller--capture-pending-publication-locked

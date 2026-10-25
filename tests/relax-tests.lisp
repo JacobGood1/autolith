@@ -6,12 +6,12 @@
 (defun relax-tests--application (configuration)
   "Return a local application with shared provider configuration and private history."
   (make-instance 'application :configuration configuration
-                 :conversation (conversation-create configuration)
-                 :ui (terminal-ui-create
-                      :terminal (make-instance 'stream-terminal
-                                               :input-stream (make-string-input-stream "")
-                                               :output-stream (make-string-output-stream)
-                                               :input-file-descriptor -1 :columns 80))))
+                 :conversation               (conversation-create configuration)
+                 :ui                         (terminal-ui-create
+                                              :terminal (make-instance 'stream-terminal
+                                                                       :input-stream  (make-string-input-stream "")
+                                                                       :output-stream (make-string-output-stream)
+                                                                       :input-file-descriptor -1 :columns 80))))
 
 (-> relax-tests--marker-count (string string) (integer 0))
 (defun relax-tests--marker-count (text marker)
@@ -27,8 +27,8 @@
 (-> test-relax-setting-and-command () null)
 (defun test-relax-setting-and-command ()
   "Test native and slash relax controls without creating a conversation turn."
-  (let* ((configuration (test-configuration))
-         (application (relax-tests--application configuration))
+  (let* ((configuration        (test-configuration))
+         (application          (relax-tests--application configuration))
          (conversation-bound-p (slot-boundp application 'conversation)))
     (unwind-protect
          (progn
@@ -58,11 +58,11 @@
 (defun test-relax-warning-rebuilds-with-system-prompt ()
   "Include the private reminder in actual provider requests across compaction."
   (with-test-configuration (configuration)
-    (let* ((provider (provider-create configuration))
-           (conversation (conversation-create configuration))
-           (*context-contributors* nil)
+    (let* ((provider                      (provider-create configuration))
+           (conversation                  (conversation-create configuration))
+           (*context-contributors*        nil)
            (*system-prompt-relax-warning* "RELAX-TEST-MARKER-7e2d")
-           (marker *system-prompt-relax-warning*))
+           (marker                        *system-prompt-relax-warning*))
       (flet ((instructions ()
                (json-get (provider-request-object provider conversation #()) "instructions")))
         (test-assert (not (search marker (instructions)))

@@ -9,10 +9,10 @@
   "Write a strict release record carrying TAG, and PLATFORM when given, to PATHNAME."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :external-format ':utf-8)
+                          :external-format   ':utf-8)
     (format stream "version=~A~%tag=~A~%commit=~A~%~@[platform=~A~%~]"
             (subseq tag 1)
             tag
@@ -24,10 +24,10 @@
 (defun update-tests--packaged-configuration (configuration packaged-source)
   "Return CONFIGURATION rehomed on the bundled PACKAGED-SOURCE tree."
   (configuration-copy configuration
-                      :source-root packaged-source
+                      :source-root       packaged-source
                       :working-directory packaged-source
-                      :model *default-model*
-                      :reasoning-effort *default-reasoning-effort*))
+                      :model             *default-model*
+                      :reasoning-effort  *default-reasoning-effort*))
 
 (-> update-tests--qualified-release-provenance
     (configuration pathname string string (option string))
@@ -35,9 +35,9 @@
 (defun update-tests--qualified-release-provenance
     (configuration install-root release-tag directory-name record-platform)
   "Install RELEASE-TAG under DIRECTORY-NAME with RECORD-PLATFORM and detect it."
-  (let* ((release-root (merge-pathnames
-                        (format nil "releases/~A/" directory-name)
-                        install-root))
+  (let* ((release-root    (merge-pathnames
+                           (format nil "releases/~A/" directory-name)
+                           install-root))
          (packaged-source (merge-pathnames "libexec/autolith/" release-root)))
     (ensure-directories-exist (merge-pathnames ".keep" packaged-source))
     (update-tests--write-release-record
@@ -52,21 +52,21 @@
        current))
     (installation-provenance-detect
      (update-tests--packaged-configuration configuration packaged-source)
-     :kind "release"
+     :kind         "release"
      :release-root (namestring release-root))))
 
 (-> test-update-state-and-installation-provenance () null)
 (defun test-update-state-and-installation-provenance ()
   "Test strict cached availability, dismissal, refresh, and trusted provenance."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (state-path (configuration-update-state-path configuration))
-         (release-tag (format nil "v~A" *autolith-version*))
-         (newer-tag "v99.0.0")
-         (install-root (merge-pathnames "installation/" root))
-         (release-root (merge-pathnames
-                        (format nil "releases/~A/" release-tag)
-                        install-root))
+  (let* ((configuration   (test-configuration))
+         (root            (test-configuration-root configuration))
+         (state-path      (configuration-update-state-path configuration))
+         (release-tag     (format nil "v~A" *autolith-version*))
+         (newer-tag       "v99.0.0")
+         (install-root    (merge-pathnames "installation/" root))
+         (release-root    (merge-pathnames
+                           (format nil "releases/~A/" release-tag)
+                           install-root))
          (packaged-source (merge-pathnames "libexec/autolith/" release-root)))
     (unwind-protect
          (progn
@@ -82,7 +82,7 @@
 
            (let ((source (installation-provenance-detect
                           configuration
-                          :kind "release"
+                          :kind         "release"
                           :release-root (namestring root))))
              (test-assert (eq (installation-provenance-method source) ':source)
                           "a release environment marker alone remains source"))
@@ -109,7 +109,7 @@
                     (release
                       (installation-provenance-detect
                        packaged-configuration
-                       :kind "release"
+                       :kind         "release"
                        :release-root (namestring release-root))))
                (test-assert (eq (installation-provenance-method release) ':release)
                             "selected packaged topology validates release provenance")
@@ -153,17 +153,17 @@
                 (make-instance 'update-state
                                :last-attempt-at 100
                                :last-success-at 100
-                               :latest-tag newer-tag))
+                               :latest-tag      newer-tag))
                (test-assert
                 (not (update-state-check-due-p
                       (update-state-load configuration)
-                      :now 101
+                      :now      101
                       :interval 20))
                 "a fresh cache suppresses another network request")
                (test-assert
                 (update-state-check-due-p
                  (update-state-load configuration)
-                 :now 120
+                 :now      120
                  :interval 20)
                 "a stale cache permits another bounded request")
                (test-assert

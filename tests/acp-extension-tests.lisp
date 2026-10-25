@@ -6,8 +6,8 @@
 (defun test-acp-extension-portable-values ()
   "Copy JSON values without sharing mutable containers or printing opaque objects."
   (let* ((source (agentcomms:json-object "array" (vector "a" (argo:json-false) ':null)))
-         (copy (acp-extension-value source))
-         (array (gethash "array" copy)))
+         (copy   (acp-extension-value source))
+         (array  (gethash "array" copy)))
     (test-assert (not (eq source copy)) "extension objects are copied")
     (test-assert (not (eq array (gethash "array" source))) "extension arrays are copied")
     (test-assert (argo:json-false-p (aref array 1)) "false is distinct from null")
@@ -32,17 +32,17 @@
      (lambda (service client)
        (let* ((capabilities (agentcomms:client-agent-request
                              client "_autolith/capabilities" (agentcomms:json-object)))
-              (value (agentcomms:json-get capabilities "value"))
-              (identifier (agentcomms:client-new-session client (namestring root)))
-              (params (agentcomms:json-object "sessionId" identifier))
-              (state (agentcomms:client-agent-request client "_autolith/state" params)))
+              (value        (agentcomms:json-get capabilities "value"))
+              (identifier   (agentcomms:client-new-session client (namestring root)))
+              (params       (agentcomms:json-object "sessionId" identifier))
+              (state        (agentcomms:client-agent-request client "_autolith/state" params)))
          (test-assert (equal "ok" (agentcomms:json-get capabilities "outcome"))
                       "capability negotiation returns a typed success")
          (test-assert (= 1 (agentcomms:json-get value "schemaVersion")) "schema version is explicit")
          (test-assert (find "_autolith/state" (agentcomms:json-get value "methods") :test #'equal)
                       "installed state is advertised")
          (test-assert (equal "ok" (agentcomms:json-get state "outcome")) "an owned session is readable")
-         (let* ((row (agentcomms:json-get state "value"))
+         (let* ((row   (agentcomms:json-get state "value"))
                 (usage (agentcomms:json-get row "usage")))
            (test-assert (equal "idle" (agentcomms:json-get row "turnState")) "new sessions are idle")
            (test-assert (null (agentcomms:json-get usage "input")) "unmeasured input is unknown")
@@ -51,7 +51,7 @@
            (test-assert (argo:json-false-p (gethash "planPresent" row)) "a missing plan is false"))
          (with-test-environment (("AUTOLITH_CONTEXT_WINDOW" "123456"))
            (let* ((reported (agentcomms:client-agent-request client "_autolith/state" params))
-                  (usage (agentcomms:json-get (agentcomms:json-get reported "value") "usage")))
+                  (usage    (agentcomms:json-get (agentcomms:json-get reported "value") "usage")))
              (test-assert (= 123456 (agentcomms:json-get usage "contextLimit"))
                           "ACP reports the session's effective context budget.")))
          (dolist (bad (list (agentcomms:json-object)
@@ -63,7 +63,7 @@
                                  "outcome"))
             "missing, malformed and foreign session identifiers fail before reading state"))
          (let* ((session (acp-service--session service identifier))
-                (usage (agentcomms:json-object "input_tokens" 0 "output_tokens" 3 "cached_input_tokens" 0)))
+                (usage   (agentcomms:json-object "input_tokens" 0 "output_tokens" 3 "cached_input_tokens" 0)))
            (agent-observer-status (acp-observer-create session) ':provider-request-completed
                                   (list :usage usage))
            (let ((measured (agentcomms:json-get
@@ -82,12 +82,12 @@
     (acp-session-test--call-with-client
      configuration
      (lambda (service client)
-       (let* ((identifier (agentcomms:client-new-session client (namestring root)))
-              (session (acp-service--session service identifier))
-              (params (agentcomms:json-object "sessionId" identifier))
+       (let* ((identifier              (agentcomms:client-new-session client (namestring root)))
+              (session                 (acp-service--session service identifier))
+              (params                  (agentcomms:json-object "sessionId" identifier))
               (*acp-extension-methods* (cons '("_autolith/test-write" identity :write)
                                              *acp-extension-methods*))
-              (events nil))
+              (events                  nil))
          (acp-service--call-with-operation
           service session
           (lambda ()
@@ -120,9 +120,9 @@
      (lambda (service client)
        (dolist (cancelled-p '(nil t))
          (let* ((identifier (agentcomms:client-new-session client (namestring root)))
-                (session (acp-service--session service identifier))
+                (session    (acp-service--session service identifier))
                 (entered-p nil) (cleaned-p nil) (outcome nil)
-                (worker nil))
+                (worker     nil))
            (setf (acp-session-cancelled-p session) cancelled-p)
            (unwind-protect
                 (progn
@@ -164,8 +164,8 @@
      configuration
      (lambda (service client)
        (let* ((identifier (agentcomms:client-new-session client (namestring root)))
-              (session (acp-service--session service identifier))
-              (entered-p nil)
+              (session    (acp-service--session service identifier))
+              (entered-p  nil)
               (rejected-p nil))
          (with-lock-held ((acp-service-lock service))
            (setf (acp-service-closed-p service) t))

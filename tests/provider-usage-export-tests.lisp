@@ -6,7 +6,7 @@
   ((result :initarg :result :reader usage-export-test-provider-result
            :documentation "The successful fixture response.")
    (failure-p :initarg :failure-p :initform nil
-              :reader usage-export-test-provider-failure-p
+              :reader        usage-export-test-provider-failure-p
               :documentation "Whether the fixture signals a provider failure."))
   (:documentation "A deterministic provider for the usage export boundary."))
 
@@ -29,11 +29,11 @@
   "Resolve opt-in configuration when a request starts, not when loading a core."
   (with-test-configuration (configuration root)
     (let* ((*llm-usage-events-file* nil)
-           (path (merge-pathnames "usage.jsonl" root))
-           (conversation (conversation-create configuration))
-           (result (agent-test-result "usage-result" nil))
-           (provider (make-instance 'usage-export-test-provider
-                                    :result result)))
+           (path                    (merge-pathnames "usage.jsonl" root))
+           (conversation            (conversation-create configuration))
+           (result                  (agent-test-result "usage-result" nil))
+           (provider                (make-instance 'usage-export-test-provider
+                                                   :result result)))
       (with-test-environment (("ANALYTICS_EVENTS_FILE" nil))
         (test-assert (null (llm-usage--destination)) "export requires a configured destination")
         (test-assert (eq result (provider-stream-turn provider conversation))
@@ -53,8 +53,8 @@
   "Preserve known zero counts, omit unknown counts, and encode JSON strings."
   (with-test-configuration (configuration root)
     (let* ((*llm-usage-events-file* (merge-pathnames "usage.jsonl" root))
-           (conversation (conversation-create configuration))
-           (actor (format nil "žluťoučký ~S~%actor" "quoted")))
+           (conversation            (conversation-create configuration))
+           (actor                   (format nil "žluťoučký ~S~%actor" "quoted")))
       (with-test-environment (("ANALYTICS_ACTOR" actor))
         (dolist (usage (list (json-object "input_tokens" 0 "output_tokens" 12
                                           "cached_input_tokens" 0)
@@ -65,8 +65,8 @@
            (make-instance 'usage-export-test-provider
                           :result (agent-test-result "usage-result" nil :usage usage))
            conversation)))
-      (let* ((events (usage-export-tests--read *llm-usage-events-file*))
-             (first-event (first events))
+      (let* ((events       (usage-export-tests--read *llm-usage-events-file*))
+             (first-event  (first events))
              (second-event (second events)))
         (test-assert (= 3 (length events)) "each completed call has one physical JSONL record")
         (test-assert (string= actor (json-get first-event "actor")) "Unicode and escapes round-trip")
@@ -96,10 +96,10 @@
   "Keep exporter failures separate from provider failures."
   (with-test-configuration (configuration root)
     (let* ((*llm-usage-events-file* (merge-pathnames "usage.jsonl" root))
-           (conversation (conversation-create configuration))
-           (result (agent-test-result "usage-result" nil))
-           (provider (make-instance 'usage-export-test-provider
-                                    :result result :failure-p t)))
+           (conversation            (conversation-create configuration))
+           (result                  (agent-test-result "usage-result" nil))
+           (provider                (make-instance 'usage-export-test-provider
+                                                   :result result :failure-p t)))
       (test-assert
        (handler-case (progn (provider-stream-turn provider conversation) nil)
          (provider-error () t))
@@ -118,16 +118,16 @@
 (defun test-provider-usage-export-concurrent ()
   "Serialize concurrent appenders without partial JSONL records."
   (with-test-configuration (configuration root)
-    (let* ((path (merge-pathnames "usage.jsonl" root))
+    (let* ((path         (merge-pathnames "usage.jsonl" root))
            (conversation (conversation-create configuration))
-           (result (agent-test-result "usage-result" nil))
-           (threads (loop repeat 4 collect
-                          (make-thread
-                           (lambda ()
-                             (dotimes (index 5)
-                               (declare (ignore index))
-                               (llm-usage--export conversation result
-                                                  :destination path :wall-seconds 1d0)))))))
+           (result       (agent-test-result "usage-result" nil))
+           (threads      (loop repeat 4 collect
+                               (make-thread
+                                (lambda ()
+                                  (dotimes (index 5)
+                                    (declare (ignore index))
+                                    (llm-usage--export conversation result
+                                                       :destination path :wall-seconds 1d0)))))))
       (unwind-protect
            (progn
              (mapc #'join-thread threads)

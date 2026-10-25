@@ -97,10 +97,10 @@
          (target-pathname
            (merge-pathnames (uiop:parse-native-namestring target)
                             (uiop:pathname-directory-pathname link-pathname)))
-         (flags (logior *win32-symbolic-link-flag-allow-unprivileged-create*
-                        (if (uiop:directory-exists-p target-pathname)
-                            *win32-symbolic-link-flag-directory*
-                            0))))
+         (flags         (logior *win32-symbolic-link-flag-allow-unprivileged-create*
+                                (if (uiop:directory-exists-p target-pathname)
+                                    *win32-symbolic-link-flag-directory*
+                                    0))))
     (when (zerop (win32-fixture--create-symbolic-link
                   (win32-fixture--native link)
                   (substitute #\\ #\/ target)
@@ -111,8 +111,8 @@
 (defmethod test-fixture-remove-link ((platform win32-platform) link)
   "Delete LINK through the entry point for its kind, leaving its target alone."
   (declare (ignore platform))
-  (let* ((native (win32-fixture--native link))
-         (pathname (uiop:parse-native-namestring link))
+  (let* ((native     (win32-fixture--native link))
+         (pathname   (uiop:parse-native-namestring link))
          (attributes (win32--get-file-attributes native)))
     (when (= attributes *win32-invalid-file-attributes*)
       (win32--fail ':unlink pathname))
@@ -172,12 +172,12 @@
 (defun win32-fixture--handle-stream (handle direction)
   "Return an unbuffered character stream over pipe HANDLE in DIRECTION."
   (sb-sys:make-fd-stream handle
-                         :input (eq direction ':input)
-                         :output (eq direction ':output)
-                         :element-type 'character
+                         :input           (eq direction ':input)
+                         :output          (eq direction ':output)
+                         :element-type    'character
                          :external-format ':utf-8
-                         :buffering ':none
-                         :auto-close nil))
+                         :buffering       ':none
+                         :auto-close      nil))
 
 (defmethod test-fixture-call-with-descriptor-input ((platform win32-platform)
                                                     content function)
@@ -185,7 +185,7 @@
   (declare (ignore platform))
   (multiple-value-bind (read-handle write-handle)
       (win32-fixture--create-pipe-handles)
-    (let ((input nil)
+    (let ((input  nil)
           (output nil))
       (unwind-protect
            (progn

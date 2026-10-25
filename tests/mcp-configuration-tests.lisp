@@ -7,8 +7,8 @@
   "Write native MCP test CONTENTS to PATHNAME."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create)
     (write-string contents stream)
     (finish-output stream))
@@ -53,11 +53,11 @@
        (trusted-read-only-tools nil)
        (child-tools nil))
   "Return one native MCP server form for focused validation tests."
-  (list :name name
-        :transport transport
-        :approval approval
+  (list :name                    name
+        :transport               transport
+        :approval                approval
         :trusted-read-only-tools trusted-read-only-tools
-        :child-tools child-tools))
+        :child-tools             child-tools))
 
 (-> test-mcp-configuration--http-server-form
     (string &key (:headers list))
@@ -66,8 +66,8 @@
   "Return one native Streamable HTTP test server for URL and HEADERS."
   (test-mcp-configuration--server-form
    :transport
-   (list :type :http
-         :url url
+   (list :type    :http
+         :url     url
          :headers headers)))
 
 (-> test-mcp-configuration--server-signals-p (list) boolean)
@@ -89,9 +89,9 @@
    'mcp-server-registration
    :configuration
    (mcp-server-configuration-create
-    :name name
+    :name      name
     :transport '(:type :stdio :command "/bin/true")
-    :approval approval)
+    :approval  approval)
    :source source))
 
 (-> test-mcp-configuration--effective-approval (string) keyword)
@@ -124,60 +124,60 @@
                    (uiop:ensure-directory-pathname
                      (platform-truename *platform* site-root)))
              (test-configuration :site-config-root site-root)))
-         (root (test-configuration-root configuration))
-         (pathname (configuration-mcp-path configuration))
-         (site-pathname (configuration-site-mcp-path configuration))
+         (root              (test-configuration-root configuration))
+         (pathname          (configuration-mcp-path configuration))
+         (site-pathname     (configuration-site-mcp-path configuration))
          (registry-snapshot (mcp--registry-snapshot)))
     (unwind-protect
          (progn
            (test-assert
             (string= (file-namestring pathname) "mcp.sexp")
             "native MCP configuration has one XDG mcp.sexp entry point")
-            (let* ((directory (merge-pathnames "stdio-directory/" root))
-                   (probe (merge-pathnames "probe" directory)))
-              (ensure-directories-exist probe)
-              (let* ((configured
-                       (string-right-trim '(#\/)
-                                          (namestring directory)))
-                     (transport
-                       (make-instance 'mcp-stdio-transport-configuration
-                                      :command "/bin/true"
-                                      :directory configured))
-                     (server
-                       (make-instance 'mcp-server-configuration
-                                      :name "directory-test"
-                                      :transport transport)))
-                (test-assert
-                 (equal (mcp-tools--stdio-directory
-                         server configuration transport)
-                        (truename directory))
-                 "stdio directories do not require a trailing slash")))
-            (test-mcp-configuration--write
-             pathname
-             "(:version 1 :servers ((:name\"adjacent\" :transport (:type :stdio :command\"/bin/true\") :approval :deny :trusted-read-only-tools () :child-tools ())))")
-            (let ((definitions (mcp-configuration-read configuration)))
-              (test-assert
-               (and (= (length definitions) 1)
-                    (string=
-                     (mcp-server-configuration-name (first definitions))
-                     "adjacent"))
-               "native MCP parsing accepts a string adjacent to its keyword"))
-            (delete-file pathname)
+           (let* ((directory (merge-pathnames "stdio-directory/" root))
+                  (probe     (merge-pathnames "probe" directory)))
+             (ensure-directories-exist probe)
+             (let* ((configured
+                      (string-right-trim '(#\/)
+                                         (namestring directory)))
+                    (transport
+                      (make-instance 'mcp-stdio-transport-configuration
+                                     :command   "/bin/true"
+                                     :directory configured))
+                    (server
+                      (make-instance 'mcp-server-configuration
+                                     :name      "directory-test"
+                                     :transport transport)))
+               (test-assert
+                (equal (mcp-tools--stdio-directory
+                        server configuration transport)
+                       (truename directory))
+                "stdio directories do not require a trailing slash")))
+           (test-mcp-configuration--write
+            pathname
+            "(:version 1 :servers ((:name\"adjacent\" :transport (:type :stdio :command\"/bin/true\") :approval :deny :trusted-read-only-tools () :child-tools ())))")
+           (let ((definitions (mcp-configuration-read configuration)))
+             (test-assert
+              (and (= (length definitions) 1)
+                   (string=
+                    (mcp-server-configuration-name (first definitions))
+                    "adjacent"))
+              "native MCP parsing accepts a string adjacent to its keyword"))
+           (delete-file pathname)
            (labels
                ((read-nonregular-source (source-pathname)
                   "Read SOURCE-PATHNAME in a bounded thread and return its condition."
                   (let* ((caught-condition nil)
-                        (thread
-                          (make-thread
-                           (lambda ()
-                             (setf caught-condition
-                                   (handler-case
-                                       (progn
-                                         (mcp-configuration-read configuration)
-                                         nil)
-                                     (serious-condition (cause)
-                                       cause))))
-                           :name "Autolith MCP nonregular configuration test")))
+                         (thread
+                           (make-thread
+                            (lambda ()
+                              (setf caught-condition
+                                    (handler-case
+                                        (progn
+                                          (mcp-configuration-read configuration)
+                                          nil)
+                                      (serious-condition (cause)
+                                        cause))))
+                            :name "Autolith MCP nonregular configuration test")))
                     (loop repeat 100
                           while (thread-alive-p thread)
                           do (sleep 0.01))
@@ -269,8 +269,8 @@
                  :approval :read-only
                  :trusted-read-only-tools (\"lookup\"))))")
            (let* ((servers (mcp-configuration-read configuration))
-                  (local (first servers))
-                  (remote (second servers))
+                  (local   (first servers))
+                  (remote  (second servers))
                   (stdio
                     (mcp-server-configuration-transport local))
                   (http
@@ -316,19 +316,19 @@
                   (mcp-http-configuration-header-bindings http)))
                 "AUTOLITH_TEST_AUTHORIZATION"))
               "HTTP credentials are retained only as environment names")
-           (test-assert
-              (and
-               (eq (mcp-server-configuration-approval-policy remote)
-                   :read-only)
-               (equal
-                (mcp-server-configuration-trusted-read-only-tools remote)
-                '("lookup")))
-              "read-only approval trusts annotations only for exact raw names"))
+            (test-assert
+               (and
+                (eq (mcp-server-configuration-approval-policy remote)
+                    :read-only)
+                (equal
+                 (mcp-server-configuration-trusted-read-only-tools remote)
+                 '("lookup")))
+               "read-only approval trusts annotations only for exact raw names"))
            (test-assert
             (eq
              (mcp-server-configuration-approval-policy
               (mcp-server-configuration-create
-               :name "programmatic-default"
+               :name      "programmatic-default"
                :transport '(:type :stdio :command "/bin/true")))
              :prompt)
             "programmatic MCP registration defaults to prompt")
@@ -339,7 +339,7 @@
                ((:name \"reader-state\"
                  :transport (:type :stdio :command \"/bin/true\")
                  :startup-timeout-seconds 15)))")
-           (let ((*read-base* 16)
+           (let ((*read-base*     16)
                  (*read-suppress* t))
              (let ((server
                      (first (mcp-configuration-read configuration))))
@@ -543,7 +543,7 @@
              (test-mcp-configuration--server-form
               :transport
               (list
-               :type :stdio
+               :type    :stdio
                :command "/bin/true"
                :arguments
                (make-list
@@ -555,12 +555,12 @@
              (test-mcp-configuration--server-form
               :transport
               (list
-               :type :stdio
+               :type    :stdio
                :command "/bin/true"
                :arguments
                (list
                 (make-string
-                (1+ *mcp-stdio-argument-maximum-characters*)
+                 (1+ *mcp-stdio-argument-maximum-characters*)
                  :initial-element #\a)))))
             "individual MCP standard-input arguments are bounded")
            (test-assert
@@ -568,7 +568,7 @@
              (test-mcp-configuration--server-form
               :transport
               (list
-               :type :stdio
+               :type    :stdio
                :command "/bin/true"
                :directory
                (make-string
@@ -580,7 +580,7 @@
              (test-mcp-configuration--server-form
               :transport
               (list
-               :type :stdio
+               :type    :stdio
                :command "/bin/true"
                :environment
                (loop for index
@@ -597,7 +597,7 @@
              (test-mcp-configuration--server-form
               :transport
               (list
-               :type :stdio
+               :type    :stdio
                :command "/bin/true"
                :environment
                (list
@@ -669,13 +669,13 @@
            (test-assert
             (test-mcp-configuration--server-signals-p
              (test-mcp-configuration--server-form
-              :approval ':read-only
+              :approval                ':read-only
               :trusted-read-only-tools '("duplicate" "duplicate")))
             "trusted read-only MCP tool names must be unique")
            (test-assert
             (test-mcp-configuration--server-signals-p
              (test-mcp-configuration--server-form
-              :approval ':prompt
+              :approval                ':prompt
               :trusted-read-only-tools '("unused")))
             "trusted read-only MCP tools require the read-only policy")
            (test-assert
@@ -694,44 +694,44 @@
                 (1+ *mcp-child-tool-name-maximum-characters*)
                 :initial-element #\t))))
             "individual MCP child tool names are bounded")
-            (dolist
-                (url
-                  '("http://localhost:3000/mcp"
-                    "http://localhost.:3000/mcp"
-                    "http://127.0.0.2:3000/mcp"
-                    "http://[::1]:3000/mcp"
-                    "http://[0:0:0:0:0:0:0:1]:3000/mcp"
-                    "https://example.test/mcp"
-                    "https://[2001:db8::1]:65535/mcp"
-                    "https://user@example.test/mcp"
-                    "https://example.test/mcp?token=secret"
-                    "https://example.test/mcp?"
-                    "https://example.test/mcp#fragment"
-                    "https://example.test/mcp#"))
-              (test-assert
-               (not
-                (test-mcp-configuration--server-signals-p
-                 (test-mcp-configuration--http-server-form url)))
-               (format nil "secure or loopback MCP URL ~S is accepted" url)))
-            (dolist
-                (url
-                  '("http://example.test/mcp"
-                    "http://localhost.example/mcp"
-                    "http://127.0.0.1.example/mcp"
-                    "https://-example.test/mcp"
-                    "https://example..test/mcp"
-                    "https://exa_mple.test/mcp"
-                    "https://127.999.1.1/mcp"
-                    "https://[:::]/mcp"
-                    "https://[192.0.2.1::]/mcp"
-                    "https://example.test:/mcp"
-                    "https://example.test:+1/mcp"
-                    "https://example.test:0/mcp"
-                    "https://example.test:65536/mcp"))
+           (dolist
+               (url
+                 '("http://localhost:3000/mcp"
+                   "http://localhost.:3000/mcp"
+                   "http://127.0.0.2:3000/mcp"
+                   "http://[::1]:3000/mcp"
+                   "http://[0:0:0:0:0:0:0:1]:3000/mcp"
+                   "https://example.test/mcp"
+                   "https://[2001:db8::1]:65535/mcp"
+                   "https://user@example.test/mcp"
+                   "https://example.test/mcp?token=secret"
+                   "https://example.test/mcp?"
+                   "https://example.test/mcp#fragment"
+                   "https://example.test/mcp#"))
              (test-assert
-              (test-mcp-configuration--server-signals-p
-               (test-mcp-configuration--http-server-form url))
-              (format nil "unsafe or malformed MCP URL ~S is rejected" url)))
+              (not
+               (test-mcp-configuration--server-signals-p
+                (test-mcp-configuration--http-server-form url)))
+              (format nil "secure or loopback MCP URL ~S is accepted" url)))
+           (dolist
+               (url
+                 '("http://example.test/mcp"
+                   "http://localhost.example/mcp"
+                   "http://127.0.0.1.example/mcp"
+                   "https://-example.test/mcp"
+                   "https://example..test/mcp"
+                   "https://exa_mple.test/mcp"
+                   "https://127.999.1.1/mcp"
+                   "https://[:::]/mcp"
+                   "https://[192.0.2.1::]/mcp"
+                   "https://example.test:/mcp"
+                   "https://example.test:+1/mcp"
+                   "https://example.test:0/mcp"
+                   "https://example.test:65536/mcp"))
+            (test-assert
+             (test-mcp-configuration--server-signals-p
+              (test-mcp-configuration--http-server-form url))
+             (format nil "unsafe or malformed MCP URL ~S is rejected" url)))
            (let* ((sentinel "AUTOLITH-URL-CREDENTIAL-SENTINEL")
                   (condition
                     (handler-case
@@ -899,7 +899,7 @@
                   (mcp-server-registration-configuration registration)))))
              ':site-config)
             "site mcp.sexp survives executable-init loading below user config")
-           (let ((*user-init-loading-p* t)
+           (let ((*user-init-loading-p*           t)
                  (*extension-registration-source* ':user))
              (register-mcp-server
               '(:name "layered"

@@ -24,13 +24,13 @@
 (defun test-localgroup--application (configuration)
   "Return a minimal APPLICATION and responsive controller for localgroup tests."
   (let* ((conversation (conversation-create configuration))
-         (ui (terminal-ui-create
-              :terminal (make-instance 'recording-terminal :columns 80)))
+         (ui           (terminal-ui-create
+                        :terminal (make-instance 'recording-terminal :columns 80)))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui ui))
+                          :conversation  conversation
+                          :ui            ui))
          (controller
            (make-instance 'application-input-controller
                           :application application
@@ -50,14 +50,13 @@
 (-> test-localgroup--attach
     (localgroup-session keyword &key (:styled-p boolean))
     (values sb-bsd-sockets:socket stream list))
-
 (defun test-localgroup--attach (session mode &key styled-p)
   "Open one test attachment to SESSION with MODE from a STYLED-P client."
   (multiple-value-bind (socket stream)
       (daemon-connect (image-daemon:daemon-runtime-port session))
     (daemon-write-packet stream
                          (list :localgroup-request :version *daemon-protocol-version*
-                               :token (image-daemon:daemon-runtime-token session)
+                               :token              (image-daemon:daemon-runtime-token session)
                                :operation ':attach :arguments
                                (list :mode mode :rows 31 :columns 91 :styled-p styled-p)))
     (values socket stream (test-localgroup--read-packet stream))))
@@ -90,12 +89,11 @@
   nil)
 
 (-> test-localgroup-terminal-restart () null)
-
 (defun test-localgroup-terminal-restart ()
   "Test that stopping a relay retains its direct terminal for restart."
   (let* ((direct
-          (stream-terminal-create :input-stream (make-string-input-stream "")
-                                  :output-stream (make-string-output-stream)
+          (stream-terminal-create :input-stream          (make-string-input-stream "")
+                                  :output-stream         (make-string-output-stream)
                                   :input-file-descriptor -1))
          (relay (localgroup-terminal-create direct)))
     (terminal-start relay)
@@ -112,15 +110,14 @@
   nil)
 
 (-> test-localgroup-picker-waits-for-relayed-input () null)
-
 (defun test-localgroup-picker-waits-for-relayed-input ()
   "Test a modal picker blocks until its controlling relay sends a fresh event."
-  (let* ((terminal (localgroup-terminal-create))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((terminal      (localgroup-terminal-create))
+         (ui            (terminal-ui-create :terminal terminal))
          (attachment
           (make-instance 'image-daemon:attachment :socket nil :stream
                          (make-broadcast-stream) :mode ':control))
-         (result ':pending)
+         (result        ':pending)
          (picker-thread nil))
     (terminal-start terminal)
     (multiple-value-bind (attached-p released-p)
@@ -153,11 +150,10 @@
   nil)
 
 (-> test-localgroup-remote-detach-never-pauses-reader () null)
-
 (defun test-localgroup-remote-detach-never-pauses-reader ()
   "Test remote detach releases control without trying to join the input reader."
-  (let* ((terminal (localgroup-terminal-create))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((terminal    (localgroup-terminal-create))
+         (ui          (terminal-ui-create :terminal terminal))
          (application (make-instance 'application :ui ui))
          (session
           (make-instance 'localgroup-session :application application :identifier
@@ -193,9 +189,7 @@
     (terminal-ui-stop ui)
     nil))
 
-
 (-> test-localgroup-session-identifiers () null)
-
 (defun test-localgroup-session-identifiers ()
   "Test canonical timestamp-bearing IDs and retained legacy discovery behavior."
   (let* ((timestamp (encode-universal-time 5 4 3 2 1 2025 0))
@@ -234,9 +228,9 @@
   (with-test-configuration (configuration root)
     (declare (ignore root))
     (configuration-ensure-directories configuration)
-    (let ((calls nil)
-          (probes nil)
-          (live-ports nil)
+    (let ((calls             nil)
+          (probes            nil)
+          (live-ports        nil)
           (*standard-output* (make-string-output-stream)))
       (labels ((publish (session-id port)
                  "Publish a private endpoint using PORT as its test identity."
@@ -305,7 +299,7 @@
                     (error "Test endpoint is unreachable."))
                   (unless (eq operation ':status)
                     (push (list port operation arguments) calls))
-                  (list :ok :operation operation
+                  (list :ok         :operation operation
                         :session-id (nth (1- port) '("b6uouHJ" "c6uouHJ" "d6uouHJ")))))
           (list 'localgroup--run-status
                 (lambda (&key sexp-p) (push (list :status sexp-p) calls) nil))
@@ -378,7 +372,7 @@
   (with-test-configuration (configuration root)
     (declare (ignore root))
     (configuration-ensure-directories configuration)
-    (let ((calls nil)
+    (let ((calls             nil)
           (*standard-output* (make-string-output-stream)))
       (labels ((publish (session-id)
                  "Publish a private discovery record for SESSION-ID."
@@ -480,11 +474,10 @@
   nil)
 
 (-> test-localgroup-protocol () null)
-
 (defun test-localgroup-protocol ()
   "Test bounded safe packets, private discovery, status, and control routing."
   (test-localgroup-session-identifiers)
-  (let* ((timestamp (encode-universal-time 5 4 3 2 1 2025 0))
+  (let* ((timestamp     (encode-universal-time 5 4 3 2 1 2025 0))
          (status
           (list :localgroup-status :session-id (identifier-from-seed timestamp 0) :pid
                 41234 :state ':idle :created-at timestamp :conversation-display-id
@@ -527,7 +520,7 @@
           (eq (localgroup--status-field-style titled-status ':conversation) ':plain)
           (eq (localgroup--status-field-style status ':conversation) ':code))
      "localgroup status shows titles at every width and falls back to coded IDs")
-    (let ((table-top (third plain-lines))
+    (let ((table-top    (third plain-lines))
           (table-middle (fifth plain-lines))
           (table-bottom (first (last plain-lines))))
       (test-assert
@@ -545,7 +538,7 @@
           (every (lambda (line) (<= (text-cell-width line) 24))
                  (uiop/utility:split-string narrow-output :separator '(#\Newline))))
      "localgroup status exposes encoded start times and fits narrow terminals"))
-  (let ((*standard-input* (make-string-input-stream ""))
+  (let ((*standard-input*  (make-string-input-stream ""))
         (*standard-output* (make-string-output-stream)))
     (test-call-with-function-replacements
      (list
@@ -572,10 +565,10 @@
                (search "interactive terminal" (autolith-error-message condition)))))
         "localgroup attach rejects noninteractive input before connecting"))))
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (application nil)
-         (controller nil)
-         (session nil))
+         (root          (test-configuration-root configuration))
+         (application   nil)
+         (controller    nil)
+         (session       nil))
     (unwind-protect
         (progn
          (configuration-ensure-directories configuration)
@@ -585,11 +578,11 @@
                                            "named localgroup session")
          (setf session (localgroup-start application))
          (let* ((record-pathname (image-daemon:daemon-runtime-registry-pathname session))
-                (record (image-daemon:daemon-registry-read record-pathname))
+                (record          (image-daemon:daemon-registry-read record-pathname))
                 (response
                  (daemon-call (image-daemon:daemon-runtime-port session)
                               (image-daemon:daemon-runtime-token session) ':status))
-                (status (getf (rest response) :status)))
+                (status          (getf (rest response) :status)))
            (test-assert (image-daemon:daemon-registry-record-p record)
             "localgroup start publishes one valid private record")
            (test-assert
@@ -613,7 +606,7 @@
              ':error)
             "an invalid capability token receives no successful status"))
          (let ((identifier (image-daemon:daemon-runtime-identifier session))
-               (token (image-daemon:daemon-runtime-token session))
+               (token      (image-daemon:daemon-runtime-token session))
                (created-at (image-daemon:daemon-runtime-created-at session)))
            (test-assert
             (eq
@@ -660,7 +653,7 @@
          (test-assert (not (application-localgroup-paused-p application))
           "new localgroup input resumes a paused session")
          (let ((kill-response-state nil)
-               (write-packet (symbol-function 'daemon-write-packet)))
+               (write-packet        (symbol-function 'daemon-write-packet)))
            (test-call-with-function-replacements
             (list
              (list 'daemon-write-packet
@@ -698,15 +691,15 @@
 (defun test-localgroup-checkpoint-reconnect-transition ()
   "Test repeated checkpoint reconnects over real controller and observer sockets."
   (with-test-configuration (configuration root)
-    (let* ((relay (localgroup-terminal-create nil))
+    (let* ((relay       (localgroup-terminal-create nil))
            (application (make-instance 'application
                                        :configuration configuration
-                                       :conversation (conversation-create configuration)
-                                       :ui (terminal-ui-create :terminal relay)))
-           (controller (make-instance 'application-input-controller
-                                      :application application :main-thread (current-thread)))
-           (outputs (list (make-string-output-stream) (make-string-output-stream)))
-           (threads nil))
+                                       :conversation  (conversation-create configuration)
+                                       :ui            (terminal-ui-create :terminal relay)))
+           (controller  (make-instance 'application-input-controller
+                                       :application application :main-thread (current-thread)))
+           (outputs     (list (make-string-output-stream) (make-string-output-stream)))
+           (threads     nil))
       (setf (application-input-controller application) controller)
       (unwind-protect
            (test-call-with-function-replacements
@@ -723,12 +716,12 @@
             (lambda ()
               (configuration-ensure-directories configuration)
               (terminal-start relay)
-              (let* ((session (localgroup-start application))
+              (let* ((session  (localgroup-start application))
                      (pathname (image-daemon:daemon-runtime-registry-pathname session))
-                     (entry (cons pathname (localgroup--registry-record session))))
+                     (entry    (cons pathname (localgroup--registry-record session))))
                 (loop for mode in '(:control :read-only)
                       for output in outputs
-                      do (let ((client-mode mode)
+                      do (let ((client-mode   mode)
                                (client-output output))
                            (push (make-thread
                                   (lambda ()
@@ -757,7 +750,7 @@
                                 (terminal--write relay (format nil "gap-~D" iteration))
                                 (sleep 0.15)
                                 (when (= iteration 1)
-                                  (error 'localgroup-error :message "Synthetic save failure."
+                                  (error 'localgroup-error :message  "Synthetic save failure."
                                                           :operation ':checkpoint))
                                 ':saved))
                            (localgroup-error () ':failed))
@@ -812,9 +805,9 @@
     (multiple-value-bind (application controller)
         (test-localgroup--application configuration)
       (unwind-protect
-           (let* ((session (localgroup-start application :checkpoint-reconnect-id "expected"))
-                  (record (localgroup--registry-record session))
-                  (entry (cons (image-daemon:daemon-runtime-registry-pathname session) record))
+           (let* ((session                                    (localgroup-start application :checkpoint-reconnect-id "expected"))
+                  (record                                     (localgroup--registry-record session))
+                  (entry                                      (cons (image-daemon:daemon-runtime-registry-pathname session) record))
                   (*localgroup-handoff-start-timeout-seconds* 0.1))
              (dolist (change (list (list :checkpoint-reconnect-id "stale")
                                   (list :session-id "different")
@@ -855,15 +848,15 @@
                  (error "An ordinary attachment end must not reconnect"))))
    (lambda ()
      (dolist (packet '(nil (:detached) (:revoked) (:exit :status 76 :message "restart")))
-       (let* ((wire (if packet (image-daemon:daemon-packet-string packet) ""))
-              (output (make-string-output-stream))
+       (let* ((wire              (if packet (image-daemon:daemon-packet-string packet) ""))
+              (output            (make-string-output-stream))
               (*standard-output* output)
-              (socket (make-instance 'sb-bsd-sockets:inet-socket :type ':stream :protocol ':tcp))
-              (result (unwind-protect
-                           (localgroup--attach-terminal-loop
-                            (make-string-input-stream wire)
-                            (make-instance 'recording-terminal :columns 80) ':control :socket socket)
-                        (sb-bsd-sockets:socket-close socket))))
+              (socket            (make-instance 'sb-bsd-sockets:inet-socket :type ':stream :protocol ':tcp))
+              (result            (unwind-protect
+                                      (localgroup--attach-terminal-loop
+                                       (make-string-input-stream wire)
+                                       (make-instance 'recording-terminal :columns 80) ':control :socket socket)
+                                   (sb-bsd-sockets:socket-close socket))))
          (test-assert (equal result (when (eq (first packet) ':exit) (rest packet)))
                       "EOF, detach, revocation and application exit end reception directly")
          (test-call-with-function-replacements
@@ -883,19 +876,19 @@
                    "checkpoint source validation with an attached client")
     (return-from test-localgroup-checkpoint-source-precheck-order nil))
   (with-test-configuration (configuration root)
-    (let* ((application nil)
-           (controller nil)
-           (session nil)
-           (socket nil)
-           (stream nil)
+    (let* ((application   nil)
+           (controller    nil)
+           (session       nil)
+           (socket        nil)
+           (stream        nil)
            (quiesce-count 0))
       (unwind-protect
            (progn
              (configuration-ensure-directories configuration)
              (multiple-value-setq (application controller)
                (test-localgroup--application configuration))
-              (setf (application-ui application)
-                    (terminal-ui-create :terminal (localgroup-terminal-create nil)))
+             (setf (application-ui application)
+                   (terminal-ui-create :terminal (localgroup-terminal-create nil)))
              (terminal-ui-start (application-ui application))
              (setf session (localgroup-start application))
              (multiple-value-setq (socket stream)
@@ -915,8 +908,8 @@
                        (lambda (active-configuration)
                          (declare (ignore active-configuration))
                          (error 'checkpoint-error
-                                :message "Synthetic source check failure."
-                                :stage ':validation
+                                :message  "Synthetic source check failure."
+                                :stage    ':validation
                                 :pathname nil))))
                      (lambda ()
                        (checkpoint-create backend)))
@@ -929,12 +922,12 @@
                 "source-check failure does not invoke session quiescence")
                (test-assert (eq (application-localgroup-session application) session)
                 "source-check failure preserves the active localgroup session"))
-              (terminal--write (localgroup--terminal session) "after-source-failure")
-              (loop for response = (test-localgroup--read-packet stream)
-                    when (and (eq (first response) ':output)
-                              (search "after-source-failure" (second response)))
-                      do (test-assert t "the original socket receives output after failure")
-                         (return)))
+             (terminal--write (localgroup--terminal session) "after-source-failure")
+             (loop for response = (test-localgroup--read-packet stream)
+                   when (and (eq (first response) ':output)
+                             (search "after-source-failure" (second response)))
+                     do (test-assert t "the original socket receives output after failure")
+                        (return)))
         (when stream (ignore-errors (close stream)))
         (when (and socket (null stream))
           (ignore-errors (sb-bsd-sockets:socket-close socket)))
@@ -943,32 +936,31 @@
         (when application (ignore-errors (terminal-ui-stop (application-ui application))))
         (when application (application-release-conversation-lease application))
         (platform-delete-directory-tree *platform* root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   nil)
 
 (-> test-localgroup-detached-terminal-lifecycle () null)
-
 (defun test-localgroup-detached-terminal-lifecycle ()
   "Test detached prompt handoff and bounded shutdown with idle clients."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (localgroup-terminal-create))
-         (conversation (conversation-create configuration))
-         (ui (terminal-ui-create :terminal terminal))
+         (root          (test-configuration-root configuration))
+         (terminal      (localgroup-terminal-create))
+         (conversation  (conversation-create configuration))
+         (ui            (terminal-ui-create :terminal terminal))
          (application
           (make-instance 'application :configuration configuration :conversation
                          conversation :ui ui))
          (controller
           (make-instance 'application-input-controller :application application
-                         :main-thread (current-thread)))
-         (session nil)
-         (socket nil)
-         (stream nil)
-         (stop-thread nil)
+                         :main-thread                               (current-thread)))
+         (session       nil)
+         (socket        nil)
+         (stream        nil)
+         (stop-thread   nil)
          (wedged-thread nil)
-         (stopped-p nil)
-         (stop-failure nil))
+         (stopped-p     nil)
+         (stop-failure  nil))
     (setf (application-input-controller application) controller)
     (unwind-protect
         (progn
@@ -1024,25 +1016,25 @@
 (defun test-localgroup-attachments ()
   "Test read-only observation and controlling terminal handoff over the endpoint."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (output (make-string-output-stream))
+         (root          (test-configuration-root configuration))
+         (output        (make-string-output-stream))
          (direct
           (stream-terminal-create :input-stream (make-string-input-stream "")
                                   :output-stream output :input-file-descriptor 0 :rows 24
-                                  :columns 80))
-         (relay (localgroup-terminal-create direct))
-         (conversation (conversation-create configuration))
-         (ui (terminal-ui-create :terminal relay))
+                                  :columns      80))
+         (relay         (localgroup-terminal-create direct))
+         (conversation  (conversation-create configuration))
+         (ui            (terminal-ui-create :terminal relay))
          (application
           (make-instance 'application :configuration configuration :conversation
                          conversation :ui ui))
-         (main-thread (test-localgroup--make-main-thread))
+         (main-thread   (test-localgroup--make-main-thread))
          (controller
           (make-instance 'application-input-controller :application application
-                         :main-thread main-thread))
-         (session nil)
-         (socket nil)
-         (stream nil))
+                         :main-thread                               main-thread))
+         (session       nil)
+         (socket        nil)
+         (stream        nil))
     (setf (application-input-controller application) controller)
     (unwind-protect
         (progn
@@ -1129,18 +1121,18 @@
   "Test a detached session's resume advice reaches the terminal that relays it."
   (with-test-configuration (configuration root)
     (declare (ignore root))
-    (let* ((terminal (localgroup-terminal-create))
-           (ui (terminal-ui-create :terminal terminal))
+    (let* ((terminal     (localgroup-terminal-create))
+           (ui           (terminal-ui-create :terminal terminal))
            (conversation (conversation-create configuration))
            (application
              (make-instance 'application :configuration configuration
-                                         :conversation conversation
-                                         :ui ui))
+                                         :conversation  conversation
+                                         :ui            ui))
            (controller
              (make-instance 'application-input-controller :application application
                                                           :main-thread (current-thread)))
-           (socket nil)
-           (stream nil))
+           (socket       nil)
+           (stream       nil))
       (setf (application-input-controller application) controller)
       (unwind-protect
            (progn
@@ -1181,17 +1173,17 @@
   (with-test-configuration (configuration root)
     (declare (ignore root))
     (let* ((terminal (localgroup-terminal-create))
-           (ui (terminal-ui-create :terminal terminal))
+           (ui       (terminal-ui-create :terminal terminal))
            (application
              (make-instance 'application :configuration configuration
-                                         :conversation (conversation-create configuration)
-                                         :ui ui))
+                                         :conversation  (conversation-create configuration)
+                                         :ui            ui))
            (controller
              (make-instance 'application-input-controller :application application
                                                           :main-thread (current-thread)))
-           (message "Autolith will update to 9.9.9 after restoring the terminal.")
-           (socket nil)
-           (stream nil))
+           (message  "Autolith will update to 9.9.9 after restoring the terminal.")
+           (socket   nil)
+           (stream   nil))
       (setf (application-input-controller application) controller)
       (unwind-protect
            (progn
@@ -1234,7 +1226,7 @@
 (defun test-localgroup-relay-exit ()
   "Test the relaying process exits like its session, and observers only report it."
   (let ((statuses nil)
-        (exit (list :status 76 :message "Autolith will update to 9.9.9.")))
+        (exit     (list :status 76 :message "Autolith will update to 9.9.9.")))
     (test-call-with-function-replacements
      (list (list 'uiop:quit (lambda (&optional (status 0) &rest ignored)
                               (declare (ignore ignored))
@@ -1255,13 +1247,16 @@
       (multiple-value-bind (actual-status message actual-style)
           (main--launcher-exit
            (ecase kind
-             (:update (make-condition 'update-requested :message "Update." :tag "v1.2.3"))
-             (:rollback (make-condition 'rollback-requested :message "Roll back."
-                                                            :generation-id "G1"))
-             (:fatal (make-condition 'fatal-control-path-error
-                                     :message "Fatal."
-                                     :cause (make-condition 'simple-error)
-                                     :capsule-pathname #P"/tmp/capsule.sexp"))))
+             (:update
+              (make-condition 'update-requested :message "Update." :tag "v1.2.3"))
+             (:rollback
+              (make-condition 'rollback-requested :message       "Roll back."
+                                                  :generation-id "G1"))
+             (:fatal
+              (make-condition 'fatal-control-path-error
+                              :message          "Fatal."
+                              :cause            (make-condition 'simple-error)
+                              :capsule-pathname #P"/tmp/capsule.sexp"))))
         (test-assert (and (= actual-status status) (search text message)
                           (eq actual-style style))
                      (format nil "a ~(~A~) exit maps to launcher status ~D in ~(~A~) style"

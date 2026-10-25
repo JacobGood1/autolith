@@ -4,9 +4,9 @@
 
 (defclass test-generation-core-probe-runner (generation-core-probe-runner)
   ((output
-    :initarg :output
-    :reader test-generation-core-probe-runner-output
-    :type string
+    :initarg       :output
+    :reader        test-generation-core-probe-runner-output
+    :type          string
     :documentation "The exact probe output returned without starting an SBCL core."))
   (:documentation "A deterministic generation-core probe runner for publication tests."))
 
@@ -27,8 +27,8 @@
   (let ((directory (merge-pathnames (format nil "~A/" identifier)
                                     (generation-root configuration))))
     (make-instance 'generation
-                   :identifier identifier
-                   :directory directory
+                   :identifier    identifier
+                   :directory     directory
                    :core-pathname (merge-pathnames "autolith.core" directory)
                    :temporary-core-pathname
                    (merge-pathnames ".autolith.core.tmp" directory)
@@ -37,20 +37,20 @@
                    :metadata
                    (list :reconstruction
                          (namestring (merge-pathnames "reconstruct.lisp" directory))
-                         :git-commit git-commit
+                         :git-commit       git-commit
                          :journal-position 27)
-                   :created-at 4000000000
-                   :status ':pending)))
+                   :created-at    4000000000
+                   :status        ':pending)))
 
 (-> generation-tests--write-fake-core (generation) pathname)
 (defun generation-tests--write-fake-core (generation)
   "Write one deliberately non-bootable byte to GENERATION's temporary core."
   (ensure-directories-exist (generation-temporary-core-pathname generation))
   (with-open-file (stream (generation-temporary-core-pathname generation)
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :element-type '(unsigned-byte 8))
+                          :element-type      '(unsigned-byte 8))
     (write-byte 42 stream))
   (generation-temporary-core-pathname generation))
 
@@ -60,17 +60,17 @@
   (image-commit-write-script
    (generation-reconstruction-pathname generation)
    :identifier (generation-identifier generation)
-   :title "Test generation reconstruction"
-   :entries nil))
+   :title      "Test generation reconstruction"
+   :entries    nil))
 
 (-> generation-tests--make-core-plausible (generation) pathname)
 (defun generation-tests--make-core-plausible (generation)
   "Expand GENERATION's published core past the static compatibility threshold."
   (with-open-file (stream (generation-core-pathname generation)
-                          :direction ':output
-                          :if-exists ':overwrite
+                          :direction         ':output
+                          :if-exists         ':overwrite
                           :if-does-not-exist ':error
-                          :element-type '(unsigned-byte 8))
+                          :element-type      '(unsigned-byte 8))
     (file-position stream 1048576)
     (write-byte 42 stream))
   (generation-core-pathname generation))
@@ -128,12 +128,12 @@
   "Test source validation precedes quiescence and fork preparation uses it."
   (with-platform-capability (':forked-image-saver "checkpoint source validation")
     (with-test-configuration (configuration)
-      (let ((quiesced-p nil)
-            (prechecked-p nil)
+      (let ((quiesced-p          nil)
+            (prechecked-p        nil)
             (precheck-quiesced-p nil)
             (validate-quiesced-p nil)
-            (fork-quiesced-p nil)
-            (quiesce-count 0))
+            (fork-quiesced-p     nil)
+            (quiesce-count       0))
         (let ((*checkpoint-thread-quiescer*
                 (lambda (thunk)
                   (incf quiesce-count)
@@ -182,26 +182,26 @@
 (-> generation-tests--test-checkpoint-runtime-resume () null)
 (defun generation-tests--test-checkpoint-runtime-resume ()
   "Test failed checkpoint preparation resumes every quiesced tool runtime."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (registry (make-instance 'tool-registry))
+  (let* ((configuration    (test-configuration))
+         (root             (test-configuration-root configuration))
+         (registry         (make-instance 'tool-registry))
          (runtime-identity (list ':checkpoint-runtime))
-         (close-count 0)
-         (resume-count 0)
-         (secret-lock (make-lock "Autolith checkpoint secret drain"))
+         (close-count      0)
+         (resume-count     0)
+         (secret-lock      (make-lock "Autolith checkpoint secret drain"))
          (secret-condition
            (make-condition-variable
             :name "Autolith checkpoint secret drain"))
-         (secret-ready-p nil)
+         (secret-ready-p   nil)
          (release-secret-p nil)
-         (secret-thread nil)
+         (secret-thread    nil)
          (tool
            (make-instance
             'tool-test-runtime-tool
-            :namespace "checkpoint-test"
-            :name "runtime"
-            :description "Exercise checkpoint runtime recovery."
-            :parameters (tool-object-schema (json-object) nil)
+            :namespace        "checkpoint-test"
+            :name             "runtime"
+            :description      "Exercise checkpoint runtime recovery."
+            :parameters       (tool-object-schema (json-object) nil)
             :runtime-identity runtime-identity
             :close-function
             (lambda ()
@@ -210,8 +210,8 @@
                 (setf release-secret-p t)
                 (condition-notify secret-condition))
               (join-thread secret-thread))
-            :resume-function (lambda () (incf resume-count))
-            :detach-function (lambda () nil)))
+            :resume-function  (lambda () (incf resume-count))
+            :detach-function  (lambda () nil)))
          (backend
            (checkpoint-backend-create configuration nil
                                       :tool-registry registry)))
@@ -282,16 +282,16 @@
 (-> generation-tests--test-partial-runtime-quiescence () null)
 (defun generation-tests--test-partial-runtime-quiescence ()
   "Test checkpoint failure resumes only runtimes whose close completed."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (registry (make-instance 'tool-registry))
-         (successful-close-count 0)
+  (let* ((configuration           (test-configuration))
+         (root                    (test-configuration-root configuration))
+         (registry                (make-instance 'tool-registry))
+         (successful-close-count  0)
          (successful-resume-count 0)
-         (failed-resume-count 0)
+         (failed-resume-count     0)
          (close-failure
            (make-condition
             'simple-error
-            :format-control "Synthetic checkpoint close failure."
+            :format-control   "Synthetic checkpoint close failure."
             :format-arguments nil))
          (backend
            (checkpoint-backend-create configuration nil
@@ -302,21 +302,21 @@
            "Return one checkpoint runtime test tool."
            (make-instance
             'tool-test-runtime-tool
-            :namespace "checkpoint-partial"
-            :name name
-            :description "Exercise partial checkpoint runtime quiescence."
-            :parameters (tool-object-schema (json-object) nil)
+            :namespace        "checkpoint-partial"
+            :name             name
+            :description      "Exercise partial checkpoint runtime quiescence."
+            :parameters       (tool-object-schema (json-object) nil)
             :runtime-identity identity
-            :close-priority priority
-            :close-function close-function
-            :resume-function resume-function
-            :detach-function (lambda () nil))))
+            :close-priority   priority
+            :close-function   close-function
+            :resume-function  resume-function
+            :detach-function  (lambda () nil))))
       (unwind-protect
            (progn
              (tool-registry-register
-             registry
+              registry
               (runtime-tool
-               :name "closed"
+               :name     "closed"
                :identity (list ':closed)
                :priority 100
                :close-function
@@ -328,7 +328,7 @@
              (tool-registry-register
               registry
               (runtime-tool
-               :name "still-live"
+               :name     "still-live"
                :identity (list ':still-live)
                :priority 50
                :close-function
@@ -373,13 +373,13 @@
 (defun generation-tests--test-active-provider-secret-refusal ()
   "Test checkpoint preparation refuses an undrained provider secret scope."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (barrier-lock (make-lock "Autolith checkpoint provider secret"))
+         (root          (test-configuration-root configuration))
+         (barrier-lock  (make-lock "Autolith checkpoint provider secret"))
          (barrier
            (make-condition-variable
             :name "Autolith checkpoint provider secret"))
-         (ready-p nil)
-         (release-p nil)
+         (ready-p       nil)
+         (release-p     nil)
          (thread
            (make-thread
             (lambda ()
@@ -448,7 +448,7 @@
 (defun generation-tests--test-rollback-control-path ()
   "Test rollback selection and propagation through the tool registry."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (generation
            (generation-tests--generation configuration
                                          "rollback-generation"
@@ -471,8 +471,8 @@
                   (context
                     (make-instance 'tool-context
                                    :configuration configuration
-                                   :worker nil
-                                   :conversation conversation))
+                                   :worker        nil
+                                   :conversation  conversation))
                   (call
                     (json-object
                      "namespace" "self"
@@ -506,12 +506,12 @@
              (let* ((application
                       (make-instance 'application
                                      :configuration configuration
-                                     :conversation conversation
-                                     :provider nil
+                                     :conversation  conversation
+                                     :provider      nil
                                      :tool-registry (make-instance 'tool-registry)
-                                     :worker nil
-                                     :agent nil
-                                     :ui nil))
+                                     :worker        nil
+                                     :agent         nil
+                                     :ui            nil))
                     (command-condition
                       (handler-case
                           (progn
@@ -533,14 +533,14 @@
 (-> generation-tests--test-reconstruction-capture () null)
 (defun generation-tests--test-reconstruction-capture ()
   "Test automatic mutation commits and per-generation replay scripts."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (previous-function (symbol-function 'test-generation-replay-target))
+  (let* ((configuration                (test-configuration))
+         (root                         (test-configuration-root configuration))
+         (previous-function            (symbol-function 'test-generation-replay-target))
          (previous-state-initialized-p *image-state-initialized-p*)
-         (previous-commit-identifier *active-image-commit-identifier*)
-         (previous-history-commit *active-image-history-commit*)
-         (previous-lineage-identifier *active-image-lineage-identifier*)
-         (check-count 0)
+         (previous-commit-identifier   *active-image-commit-identifier*)
+         (previous-history-commit      *active-image-history-commit*)
+         (previous-lineage-identifier  *active-image-lineage-identifier*)
+         (check-count                  0)
          (checker
            (make-instance
             'callback-mutation-checker
@@ -563,7 +563,7 @@
            (let* ((generation
                     (generation-create-record
                      configuration
-                     :git-commit "0123456789abcdef"
+                     :git-commit       "0123456789abcdef"
                      :mutation-checker checker))
                   (commit (image-commit-current configuration))
                   (script
@@ -607,18 +607,17 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> generation-tests--test-checkpoint-worker-detachment () null)
 (defun generation-tests--test-checkpoint-worker-detachment ()
   "Test coordinator and saver processes detach inherited worker state."
-  (let* ((configuration (test-configuration))
-         (root          (test-configuration-root configuration))
-         (worker        (list ':checkpoint-worker))
-         (backend       (checkpoint-backend-create configuration worker))
+  (let* ((configuration       (test-configuration))
+         (root                (test-configuration-root configuration))
+         (worker              (list ':checkpoint-worker))
+         (backend             (checkpoint-backend-create configuration worker))
          (guard
            (sbcl-generations::checkpoint-backend-fork-guard-function backend))
          (process-identifiers nil)
-         (events nil))
+         (events              nil))
     (unwind-protect
          (progn
            (labels ((process-identifier ()
@@ -656,11 +655,11 @@
               (equal events '(:thunk))
               "the live parent keeps ownership of its worker state"))
            (let ((*credentials-in-request-scope* (list "test credential"))
-                 (*active-secret-use-count* 2)
-                 (*secret-use-depth* 2)
-                 (*secret-use-quiescence-owner* sb-thread:*current-thread*)
-                 (*active-application* ':saved-application)
-                 (saved-events nil))
+                 (*active-secret-use-count*      2)
+                 (*secret-use-depth*             2)
+                 (*secret-use-quiescence-owner*  sb-thread:*current-thread*)
+                 (*active-application*           ':saved-application)
+                 (saved-events                   nil))
              (test-call-with-function-replacements
               (list
                (list 'checkpoint--detach-worker
@@ -728,16 +727,16 @@
   "Test generation translation preserves structured Autolith failures."
   (let* ((cause
            (make-condition 'image-commit-error
-                           :message "Private replay failed."
+                           :message   "Private replay failed."
                            :tool-name "self.commit"
-                           :pathname nil
-                           :stage ':replay-probe))
+                           :pathname  nil
+                           :stage     ':replay-probe))
          (wrapper
            (make-condition 'sbcl-generations:checkpoint-error
-                           :message "Checkpoint preparation failed."
-                           :stage ':backend
+                           :message  "Checkpoint preparation failed."
+                           :stage    ':backend
                            :pathname nil
-                           :cause cause)))
+                           :cause    cause)))
     (test-assert
      (handler-case
          (progn
@@ -748,13 +747,14 @@
      "checkpoint translation preserves a structured Autolith cause"))
   nil)
 
+
 ;;;; -- Subsystem Tests --
 
 (-> generation-tests--test-checkpoint-resume-identity () null)
 (defun generation-tests--test-checkpoint-resume-identity ()
   "Verify retained sessions resume directly by their persisted conversation ID."
   (let ((main-arguments nil)
-        (style-events nil))
+        (style-events   nil))
     (let ((*active-application* t))
       (test-call-with-function-replacements
        (list
@@ -777,14 +777,13 @@
                   (push value style-events)))))
        (lambda ()
          (checkpoint-resume-main '("--localgroup-handoff" "consumed"))))
-    (test-assert (equal main-arguments '("resume" "conversation-identity"))
-                 "saved checkpoints resume their originating conversation")
-    (test-assert (member "direct" style-events :test #'string=)
-                 "saved checkpoints bypass client-first startup")
-    (test-assert (member nil style-events)
-                 "saved checkpoint startup restores the prior session style")))
+     (test-assert (equal main-arguments '("resume" "conversation-identity"))
+                  "saved checkpoints resume their originating conversation")
+     (test-assert (member "direct" style-events :test #'string=)
+                  "saved checkpoints bypass client-first startup")
+     (test-assert (member nil style-events)
+                  "saved checkpoint startup restores the prior session style")))
   nil)
-
 
 (-> test-checkpoint-backend-selection () null)
 (defun test-checkpoint-backend-selection ()
@@ -797,8 +796,10 @@
           (list 'platform-supports-p
                 (lambda (platform capability)
                   (case capability
-                    (:restartable-image-saver restart-p)
-                    (:forked-image-saver nil)
+                    (:restartable-image-saver
+                     restart-p)
+                    (:forked-image-saver
+                     nil)
                     (otherwise
                      (funcall supports-p platform capability))))))
          (lambda ()
@@ -830,7 +831,7 @@
   (generation-tests--test-active-image-single-thread-check)
   (generation-tests--test-autolith-error-translation)
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (generation
            (generation-tests--generation configuration
                                          "generation-under-test"
@@ -880,26 +881,26 @@
               "publication atomically selects the ready generation")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (directory (merge-pathnames "legacy-generation/"
-                                     (generation-root configuration)))
-         (manifest (merge-pathnames "manifest.sexp" directory))
-         (core (merge-pathnames "autolith.core" directory)))
+         (root          (test-configuration-root configuration))
+         (directory     (merge-pathnames "legacy-generation/"
+                                         (generation-root configuration)))
+         (manifest      (merge-pathnames "manifest.sexp" directory))
+         (core          (merge-pathnames "autolith.core" directory)))
     (unwind-protect
          (progn
            (snapshot-write
             manifest
             (list :generation
                   :version 1
-                  :id "legacy-generation"
-                  :core (namestring core)
-                  :git-commit "0123456789abcdef"
-                  :journal-position 11
-                  :sbcl-version (lisp-implementation-version)
-                  :operating-system (software-type)
+                  :id                       "legacy-generation"
+                  :core                     (namestring core)
+                  :git-commit               "0123456789abcdef"
+                  :journal-position         11
+                  :sbcl-version             (lisp-implementation-version)
+                  :operating-system         (software-type)
                   :operating-system-version (software-version)
-                  :architecture (machine-type)
-                  :created-at 3999999999))
+                  :architecture             (machine-type)
+                  :created-at               3999999999))
            (let ((legacy (generation-load-manifest manifest configuration)))
              (test-assert
               (and (string= (generation-identifier legacy)
@@ -908,7 +909,7 @@
               "version-one generation manifests remain readable")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (wrong-commit
            (generation-tests--generation configuration
                                          "wrong-commit"
@@ -989,21 +990,21 @@
 (-> test-crash-capsule-correlation () null)
 (defun test-crash-capsule-correlation ()
   "Test secret-free crash capsules and per-launch pointer publication."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration    (test-configuration))
+         (root             (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "crash-capsule"))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :provider nil
+                          :conversation  conversation
+                          :provider      nil
                           :tool-registry (make-instance 'tool-registry)
-                          :worker nil
-                          :agent nil
-                          :ui nil))
-         (pointer (merge-pathnames "crash-pointers/test-launch.path"
-                                   (config :state-root configuration)))
+                          :worker        nil
+                          :agent         nil
+                          :ui            nil))
+         (pointer          (merge-pathnames "crash-pointers/test-launch.path"
+                                            (config :state-root configuration)))
          (session-pointer
            (merge-pathnames
             "recovery-session-pointers/test-launch.sexp"
@@ -1039,7 +1040,7 @@
                     (application-write-crash-capsule
                      application
                      (make-condition 'simple-error
-                                     :format-control "secret ~A"
+                                     :format-control   "secret ~A"
                                      :format-arguments '("credential-value"))
                      :backtrace '((secret-frame "credential-value"))))
                   (record (read-portable-form capsule)))
@@ -1062,15 +1063,15 @@
                                     (uiop:read-file-string pointer))
                        (namestring capsule))
               "the exact launch pointer names its own crash capsule"))
-           (let* ((empty (conversation-create configuration
-                                              :identifier "empty-crash"))
+           (let* ((empty        (conversation-create configuration
+                                                     :identifier "empty-crash"))
                   (empty-capsule
                     (progn
                       (setf (application-conversation application) empty)
                       (application-write-crash-capsule
                        application
                        (make-condition 'simple-error
-                                       :format-control "empty crash"
+                                       :format-control   "empty crash"
                                        :format-arguments nil))))
                   (empty-record (read-portable-form empty-capsule)))
              (application-publish-recovery-session application)
@@ -1097,9 +1098,9 @@
 (defun generation-tests--test-checkpoint-restart-finish-boundary ()
   "Test that a scheduled restart saves only at the completed-turn boundary."
   (let ((application (make-instance 'application))
-        (calls nil)
-        (backend :checkpoint-backend)
-        (generation :pending-generation))
+        (calls       nil)
+        (backend     :checkpoint-backend)
+        (generation  :pending-generation))
     (setf (application-checkpoint-restart-request application)
           (cons backend generation))
     (test-assert (null calls)

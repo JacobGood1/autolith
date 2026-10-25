@@ -8,10 +8,10 @@
   (let ((pathname (merge-pathnames relative-path root)))
     (ensure-directories-exist pathname)
     (with-open-file (stream pathname
-                            :direction ':output
+                            :direction         ':output
                             :if-does-not-exist ':create
-                            :if-exists ':supersede
-                            :external-format ':utf-8)
+                            :if-exists         ':supersede
+                            :external-format   ':utf-8)
       (write-string content stream))
     pathname))
 
@@ -32,21 +32,21 @@
 (defun test-skill-provider-context ()
   "Exercise selection and ephemeral injection through every provider projection."
   (with-test-configuration (configuration)
-    (let* ((body "SELECTED-SKILL-PROVIDER-BOUNDARY-PROBE")
+    (let* ((body         "SELECTED-SKILL-PROVIDER-BOUNDARY-PROBE")
            (conversation (conversation-create configuration :identifier "skill-provider"))
-           (registry (skill-edit-augment-tool-registry
-                      (skill-augment-tool-registry (make-instance 'tool-registry))))
-           (namespaces (tool-registry-provider-schemas registry))
-           (hidden (tool-registry-provider-schemas registry :canonical-names '("skill.edit")))
-           (context (make-instance 'tool-context :configuration configuration
-                                                :worker nil :conversation conversation
-                                                :registry registry))
-           (providers (list (provider-create configuration)
-                            (grok-provider-create configuration)
-                            (openai-compatible-provider-create
-                             configuration :name "skill-test" :family ':skill-test)
-                            (anthropic-provider-create configuration)
-                            (gemini-code-assist-provider-create configuration))))
+           (registry     (skill-edit-augment-tool-registry
+                          (skill-augment-tool-registry (make-instance 'tool-registry))))
+           (namespaces   (tool-registry-provider-schemas registry))
+           (hidden       (tool-registry-provider-schemas registry :canonical-names '("skill.edit")))
+           (context      (make-instance 'tool-context :configuration configuration
+                                                     :worker nil :conversation conversation
+                                                     :registry       registry))
+           (providers    (list (provider-create configuration)
+                               (grok-provider-create configuration)
+                               (openai-compatible-provider-create
+                                configuration :name "skill-test" :family ':skill-test)
+                               (anthropic-provider-create configuration)
+                               (gemini-code-assist-provider-create configuration))))
       (skill-tool-tests--write
        (skill-global-root configuration) "probe/SKILL.sexp"
        (skill-tests--definition "probe" "Probe request-local injection." body))
@@ -57,7 +57,7 @@
          (lambda ()
            (test-assert
             (not (search body (json-encode
-                              (provider-request-object provider conversation namespaces))))
+                               (provider-request-object provider conversation namespaces))))
             "an unselected skill contributes only catalog metadata")
            (let ((result (skill-tool-tests--call registry context "probe")))
              (test-assert (and (tool-result-success-p result)
@@ -75,16 +75,16 @@
            (dolist (schemas (list #() hidden))
              (test-assert
               (not (search body (json-encode
-                                (provider-request-object provider conversation schemas))))
+                                 (provider-request-object provider conversation schemas))))
               "requests without skill.load do not receive selected instructions"))
            (test-assert
             (not (search body (json-encode
-                              (provider-request-object provider conversation namespaces
-                                                       :compaction-p t))))
+                               (provider-request-object provider conversation namespaces
+                                                        :compaction-p t))))
             "compaction excludes selected instructions")))
         (test-assert
          (not (search body (json-encode
-                           (provider-request-object provider conversation namespaces))))
+                            (provider-request-object provider conversation namespaces))))
          "selection ends with the logical turn"))
       (test-assert
        (and (= 1 (length (conversation-input-items conversation)))
@@ -99,25 +99,25 @@
   "Return the contribution named IDENTIFIER from CONTRIBUTIONS."
   (find identifier
         contributions
-        :key #'context-contribution-identifier
+        :key  #'context-contribution-identifier
         :test #'string=))
 
 (-> test-skill-edit-tool () null)
 (defun test-skill-edit-tool ()
   "Exercise global skill creation, replacement, validation, and failed publication."
   (with-test-configuration (configuration)
-    (let* ((registry (skill-edit-augment-tool-registry (make-instance 'tool-registry)))
+    (let* ((registry    (skill-edit-augment-tool-registry (make-instance 'tool-registry)))
            (authoring-configuration
              (configuration-copy
               configuration
               :cache-root (uiop:ensure-directory-pathname
                            (skill-tool-tests--write (config :cache-root configuration)
                                                     "unavailable" "Not a directory."))))
-           (context (make-instance 'tool-context :configuration authoring-configuration
-                                                :worker nil :registry registry))
-           (root (skill-global-root configuration))
-           (pathname (merge-pathnames "editable/SKILL.md" root))
-           (initial (skill-tests--agent-definition "editable" "An editable skill." "First body."))
+           (context     (make-instance 'tool-context :configuration authoring-configuration
+                                                    :worker nil :registry registry))
+           (root        (skill-global-root configuration))
+           (pathname    (merge-pathnames "editable/SKILL.md" root))
+           (initial     (skill-tests--agent-definition "editable" "An editable skill." "First body."))
            (replacement (skill-tests--agent-definition "editable" "Updated skill." "Second body.")))
       (labels ((edit (name content)
                  (tool-registry-execute-call
@@ -175,9 +175,9 @@
 (defun test-skill-load-tool ()
   "Test exact, ephemeral, child-safe Skill selection through skill.load."
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
-         (project (merge-pathnames "project/" root))
-         (skill-root (merge-pathnames ".autolith/skills/" project))
+         (root               (test-configuration-root base-configuration))
+         (project            (merge-pathnames "project/" root))
+         (skill-root         (merge-pathnames ".autolith/skills/" project))
          (secret-body
            "FOLLOW-THE-ALPHA-INSTRUCTION-BODY-ONLY-IN-REQUEST-CONTEXT")
          (configuration
@@ -193,13 +193,13 @@
          (registry
            (skill-augment-tool-registry
             (make-instance 'tool-registry)))
-         (tool (tool-registry-find registry "skill" "load"))
+         (tool               (tool-registry-find registry "skill" "load"))
          (context
            (make-instance 'tool-context
                           :configuration configuration
-                          :worker nil
-                          :conversation conversation
-                          :registry registry)))
+                          :worker        nil
+                          :conversation  conversation
+                          :registry      registry)))
     (unwind-protect
          (progn
            (skill-tool-tests--write
@@ -305,11 +305,11 @@
                                '(:kind :skill-load
                                  :name "alpha"
                                  :newly-selected-p nil))
-                         (equal (skill-logical-turn-selection-names)
-                                '("alpha")))
-                     "repeated selection is idempotent")))))
-             (let ((*skill-instruction-character-limit* 128))
-               (call-with-skill-logical-turn
+                        (equal (skill-logical-turn-selection-names)
+                               '("alpha")))
+                   "repeated selection is idempotent")))))
+           (let ((*skill-instruction-character-limit* 128))
+             (call-with-skill-logical-turn
               (user-message-input-create :text "Use the large workflow.")
               (lambda ()
                 (let ((result
@@ -332,7 +332,7 @@
                               ':mandatory))
                      "deferred body failure becomes request-local warning")))))))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -340,20 +340,20 @@
 (defun test-skill-load-presentation ()
   "Test compact transcript markers and malformed Skill result rejection."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration
                                 :identifier "skill-load-presentation"))
-         (registry (skill-augment-tool-registry
-                    (make-instance 'tool-registry)))
-         (terminal (make-instance 'recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
+         (registry      (skill-augment-tool-registry
+                         (make-instance 'tool-registry)))
+         (terminal      (make-instance 'recording-terminal :columns 80))
+         (ui            (terminal-ui-create :terminal terminal))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
+                          :conversation  conversation
                           :tool-registry registry
-                          :ui ui))
+                          :ui            ui))
          (observer
            (application-agent-observer
             application
@@ -367,7 +367,7 @@
            (funcall
             send-status
             ':tool-call-completed
-            (list :tool "skill.load"
+            (list :tool      "skill.load"
                   :success-p t
                   :details
                   '(:kind :skill-load
@@ -395,7 +395,7 @@
            (funcall
             send-status
             ':tool-call-completed
-            (list :tool "skill.load"
+            (list :tool      "skill.load"
                   :success-p t
                   :details
                   '(:kind :skill-load
@@ -407,32 +407,32 @@
             "a repeated Skill selection remains visibly distinguishable")
            (dolist (details
                     (list
-                     (list :tool "skill.load"
+                     (list :tool      "skill.load"
                            :success-p nil
                            :details
                            '(:kind :skill-load
                              :name "failed"
                              :newly-selected-p t))
-                     (list :tool "skill.load"
+                     (list :tool      "skill.load"
                            :success-p t
                            :details
                            '(:kind :skill-load
                              :name "missing-state"))
-                     (list :tool "skill.load"
+                     (list :tool      "skill.load"
                            :success-p t
                            :details
                            '(:kind :other
                              :name "wrong-kind"
                              :newly-selected-p t))
-                     (list :tool "skill.load"
+                     (list :tool      "skill.load"
                            :success-p t
                            :details
                            '(:kind :skill-load
                              :name "invalid-state"
                              :newly-selected-p :yes))
-                     (list :tool "skill.load"
+                     (list :tool      "skill.load"
                            :success-p t
-                           :details "not-a-property-list")))
+                           :details   "not-a-property-list")))
              (recording-terminal-reset terminal)
              (funcall send-status ':tool-call-completed details)
              (let ((output (recording-terminal-output terminal)))
@@ -445,9 +445,9 @@
            (funcall
             send-status
             ':tool-call-completed
-            (list :tool "skill.load"
+            (list :tool      "skill.load"
                   :success-p t
-                  :output "Selected skill expanded-view for this logical turn."
+                  :output    "Selected skill expanded-view for this logical turn."
                   :details
                   '(:kind :skill-load
                     :name "expanded-view"
@@ -460,7 +460,7 @@
               "expanded tool view presents its ordinary result exactly once")))
       (ignore-errors (terminal-ui-stop ui))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -472,16 +472,16 @@
   "Exercise stable skill placement, live edits, expiry, and metadata replay."
   (with-test-configuration (configuration)
     (let* ((*context-contributors* nil)
-           (*context-resolver* (cl-llm-provider-api:make-context-resolver))
-           (conversation (conversation-create configuration :identifier "skill-cache"))
-           (registry (skill-augment-tool-registry (make-instance 'tool-registry)))
-           (schemas (tool-registry-provider-schemas registry))
-           (context (make-instance 'tool-context :configuration configuration
-                                               :worker nil :conversation conversation
-                                               :registry registry))
-           (provider (provider-create configuration))
-           (body (concatenate 'string "ALPHA-CACHE-BODY-" (make-string 16000 :initial-element #\a)))
-           (state "Mutable state one."))
+           (*context-resolver*     (cl-llm-provider-api:make-context-resolver))
+           (conversation           (conversation-create configuration :identifier "skill-cache"))
+           (registry               (skill-augment-tool-registry (make-instance 'tool-registry)))
+           (schemas                (tool-registry-provider-schemas registry))
+           (context                (make-instance 'tool-context :configuration configuration
+                                                              :worker nil :conversation conversation
+                                                              :registry        registry))
+           (provider               (provider-create configuration))
+           (body                   (concatenate 'string "ALPHA-CACHE-BODY-" (make-string 16000 :initial-element #\a)))
+           (state                  "Mutable state one."))
       (register-context-contributor "skills" 'skill-context-contributor :source ':built-in)
       (dolist (name '("alpha" "beta"))
         (skill-tool-tests--write
@@ -495,9 +495,9 @@
                    (provider-request-object provider conversation namespaces)))
 
                (select (name)
-                 (let* ((tool (tool-registry-find registry "skill" "load"))
+                 (let* ((tool        (tool-registry-find registry "skill" "load"))
                         (persistence (tool-conversation-persistence tool))
-                        (call-id (format nil "select-~A" name)))
+                        (call-id     (format nil "select-~A" name)))
                    (conversation-append-provider-item
                     conversation
                     (json-object "type" "function_call" "namespace" "skill" "name" "load"
@@ -516,7 +516,7 @@
 
                (prefix-p (earlier later)
                  (let ((prefix (stable-input earlier))
-                       (input (json-get later "input")))
+                       (input  (json-get later "input")))
                    (and (<= (length prefix) (length input))
                         (string= (json-encode prefix)
                                  (json-encode (subseq input 0 (length prefix))))))))
@@ -565,8 +565,8 @@
                     (and (search "Compacted work." (json-encode (aref input 0)))
                          (search "UPDATED-ALPHA-BODY" (json-encode input)))
                     "removed history boundaries relocate active context after compaction")))))))
-        (let* ((next (json-encode (request)))
-               (loaded (conversation-load (conversation-pathname conversation)))
+        (let* ((next     (json-encode (request)))
+               (loaded   (conversation-load (conversation-pathname conversation)))
                (replayed (json-encode (coerce (conversation-input-items loaded) 'vector))))
           (test-assert (and (not (search "UPDATED-ALPHA-BODY" next))
                             (not (search "BETA-CACHE-BODY" next)))

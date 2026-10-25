@@ -19,9 +19,9 @@
   "Exercise real primary turns while isolating the completion service's durable boundary."
   (with-test-configuration (configuration)
     (let* ((application (mission-test--application configuration :results results))
-           (controller (make-instance 'application-input-controller
-                                      :application application :main-thread (current-thread)))
-           (notices nil))
+           (controller  (make-instance 'application-input-controller
+                                       :application application :main-thread (current-thread)))
+           (notices     nil))
       (setf (application-input-controller application) controller)
       (unwind-protect
            (test-call-with-function-replacements
@@ -40,7 +40,7 @@
                        (dolist (notice delivered)
                          (conversation-append-user-message
                           (agent-conversation agent) (getf notice :summary)
-                          :automatic-p t
+                          :automatic-p              t
                           :pending-input-identifier (format nil "completion:~A" (getf notice :id))))
                        (setf notices nil)
                        delivered)))
@@ -84,12 +84,12 @@
        (recording-terminal-reset terminal)
        (application-input-controller--run-work
         controller (application-input-controller--next-work controller))
-       (let* ((output (recording-terminal-output terminal))
-              (record (find-if (lambda (record)
-                                 (equal (getf (rest record) :content)
-                                        *application-job-completion-continuation-prompt*))
-                               (conversation-records-newest
-                                (application-conversation application) 10)))
+       (let* ((output   (recording-terminal-output terminal))
+              (record   (find-if (lambda (record)
+                                   (equal (getf (rest record) :content)
+                                          *application-job-completion-continuation-prompt*))
+                                 (conversation-records-newest
+                                  (application-conversation application) 10)))
               (replayed (and record
                              (terminal--spans-text
                               (conversation-record-entry application record)))))
@@ -110,14 +110,14 @@
     (job-completion-controller-tests--fixture
      (lambda (application controller notices)
        (let* ((conversation (application-conversation application))
-              (provider (application-provider application))
-              (terminal (terminal-ui-terminal (application-ui application)))
+              (provider     (application-provider application))
+              (terminal     (terminal-ui-terminal (application-ui application)))
               (work
                 (if (eq work-kind ':operation-request)
                     (list ':operation-request
-                          (list :text "Run the generated fixture request."
+                          (list :text    "Run the generated fixture request."
                                 :request (list :operation "fixture"
-                                               :summary "Run the fixture.")))
+                                               :summary   "Run the fixture.")))
                     (progn
                       (funcall notices
                                (list (job-completion-controller-tests--notice
@@ -161,7 +161,7 @@
                  (list (mission-test--result "integrated")))
                (list (make-condition 'provider-error
                                      :message "The provider returned cyber_policy."
-                                     :code "cyber_policy")
+                                     :code    "cyber_policy")
                      (mission-test--result "continued")))))
   nil)
 
@@ -206,9 +206,9 @@
   (job-completion-controller-tests--fixture
    (lambda (application controller notices)
      (application-mission-start application (mission-test--specification))
-     (let* ((goal (application-goal application))
+     (let* ((goal     (application-goal application))
             (identity "fixture-mission")
-            (notice (job-completion-controller-tests--notice application "mission" :mission-id identity)))
+            (notice   (job-completion-controller-tests--notice application "mission" :mission-id identity)))
         (nconc goal (list :completion-id identity))
        (funcall notices (list notice))
        (test-assert (application-job-completions--take-work controller) "current active mission permits completion")
@@ -224,24 +224,23 @@
        (test-assert (null (application-job-completions--take-work controller)) "replaced mission identity blocks continuation")
        (test-assert (= 1 (length (funcall notices))) "inadmissible outcomes remain inspectable")))))
 
-
 (-> test-job-completion-controller-real-runtime () null)
 (defun test-job-completion-controller-real-runtime ()
   "Coalesce real terminal publications through the normal controller and busy request boundary."
   (with-test-configuration (configuration root)
     (setf configuration (configuration-copy configuration :working-directory root))
     (let* ((*task-completion-coalescing-seconds* 0)
-           (application (mission-test--application
-                         configuration :results (loop repeat 3 collect (mission-test--result "done"))))
-           (parent (application-agent application))
-           (registry (task-augment-tool-registry (application-tool-registry application)))
-           (runtime (task-completion--runtime parent))
-           (controller (application-input-controller-create application :start-reader-p nil :load-pending-p nil)))
+           (application                          (mission-test--application
+                                                  configuration :results (loop repeat 3 collect (mission-test--result "done"))))
+           (parent                               (application-agent application))
+           (registry                             (task-augment-tool-registry (application-tool-registry application)))
+           (runtime                              (task-completion--runtime parent))
+           (controller                           (application-input-controller-create application :start-reader-p nil :load-pending-p nil)))
       (declare (ignore registry))
       (unwind-protect
            (progn
              (conversation-append-user-message (agent-conversation parent) "Start asynchronous work.")
-             (let ((first (job-completion-tests--start parent runtime))
+             (let ((first  (job-completion-tests--start parent runtime))
                    (second (job-completion-tests--start parent runtime)))
                (test-assert (null (scripted-provider-input-snapshots (application-provider application)))
                             "publication callbacks never invoke the provider")
@@ -274,24 +273,23 @@
         (terminal-ui-stop (application-ui application)))))
   nil)
 
-
 (-> test-job-completion-controller-goal-awaits-jobs () null)
 (defun test-job-completion-controller-goal-awaits-jobs ()
   "Hold goal continuations while an owned job runs, then resume them after its wakeup."
   (with-test-configuration (configuration root)
     (setf configuration (configuration-copy configuration :working-directory root))
     (let* ((*task-completion-coalescing-seconds* 0)
-           (application (mission-test--application
-                         configuration
-                         :results (list (mission-test--result "started")
-                                        (mission-test--result "integrated")
-                                        (mission-test--result "[GOAL-COMPLETE]"))))
-           (provider (application-provider application))
-           (parent (application-agent application))
-           (registry (task-augment-tool-registry (application-tool-registry application)))
-           (runtime (task-completion--runtime parent))
-           (release (sb-thread:make-semaphore))
-           (controller (application-input-controller-create application :start-reader-p nil :load-pending-p nil)))
+           (application                          (mission-test--application
+                                                  configuration
+                                                  :results (list (mission-test--result "started")
+                                                                 (mission-test--result "integrated")
+                                                                 (mission-test--result "[GOAL-COMPLETE]"))))
+           (provider                             (application-provider application))
+           (parent                               (application-agent application))
+           (registry                             (task-augment-tool-registry (application-tool-registry application)))
+           (runtime                              (task-completion--runtime parent))
+           (release                              (sb-thread:make-semaphore))
+           (controller                           (application-input-controller-create application :start-reader-p nil :load-pending-p nil)))
       (declare (ignore registry))
       (unwind-protect
            (let ((job (task-orchestrator-start-execution-job
@@ -332,14 +330,14 @@
   (dolist (mode '(:notify :stale-mission))
     (with-test-configuration (configuration root)
       (setf configuration (configuration-copy configuration :working-directory root))
-      (let* ((*task-completion-capacity* 2)
-             (*task-completion-history-limit* 4)
+      (let* ((*task-completion-capacity*           2)
+             (*task-completion-history-limit*      4)
              (*task-completion-coalescing-seconds* 0)
-             (application (mission-test--application configuration :results (list (mission-test--result "done"))))
-             (parent (application-agent application))
-             (registry (task-augment-tool-registry (application-tool-registry application)))
-             (runtime (task-completion--runtime parent))
-             (controller (application-input-controller-create application :start-reader-p nil :load-pending-p nil)))
+             (application                          (mission-test--application configuration :results (list (mission-test--result "done"))))
+             (parent                               (application-agent application))
+             (registry                             (task-augment-tool-registry (application-tool-registry application)))
+             (runtime                              (task-completion--runtime parent))
+             (controller                           (application-input-controller-create application :start-reader-p nil :load-pending-p nil)))
         (declare (ignore registry))
         (unwind-protect
              (progn
@@ -351,9 +349,9 @@
                  (job-completion-tests--start parent runtime :policy (if (eq mode ':notify) ':notify ':continue)))
                (when (eq mode ':stale-mission)
                  (application-mission-start application (mission-test--specification)))
-               (let* ((job (task-orchestrator-start-execution-job
-                            runtime parent :tool-name "completion.fixture" :summary "eligible overflow"
-                            :operation-function (lambda () (tool-success "done")) :detached-p t))
+               (let* ((job          (task-orchestrator-start-execution-job
+                                     runtime parent :tool-name "completion.fixture" :summary "eligible overflow"
+                                     :operation-function (lambda () (tool-success "done")) :detached-p t))
                       (subscription (task-completion-service-subscription (task-completion--service parent))))
                  (task-completion-watch job parent)
                  (session-job-await job 5)
@@ -388,7 +386,7 @@
 (defun test-job-completion-yield-presentation ()
   "Finalize empty turns using owned wakeup authority and replay the historical snapshot."
   (with-test-configuration (configuration root)
-    (setf configuration (configuration-copy configuration :working-directory root
+    (setf configuration (configuration-copy configuration :working-directory        root
                                                         :session-title-generation-p nil))
     (let* ((application (mission-test--application
                          configuration
@@ -396,14 +394,14 @@
                                         (mission-test--result "ordinary reply")
                                         (mission-test--result "")
                                         (mission-test--result ""))))
-           (parent (application-agent application))
-           (registry (task-augment-tool-registry (application-tool-registry application)))
-           (runtime (task-completion--runtime parent))
-           (controller (application-input-controller-create
-                        application :start-reader-p nil :load-pending-p nil))
-           (terminal (terminal-ui-terminal (application-ui application)))
-           (release (sb-thread:make-semaphore))
-           (held-jobs nil))
+           (parent      (application-agent application))
+           (registry    (task-augment-tool-registry (application-tool-registry application)))
+           (runtime     (task-completion--runtime parent))
+           (controller  (application-input-controller-create
+                         application :start-reader-p nil :load-pending-p nil))
+           (terminal    (terminal-ui-terminal (application-ui application)))
+           (release     (sb-thread:make-semaphore))
+           (held-jobs   nil))
       (declare (ignore registry))
       (labels ((hold-job (owner &key (policy ':continue))
                  "Start and watch one real job held until fixture cleanup."
@@ -427,9 +425,9 @@
                (hold-job parent)
                (hold-job parent :policy ':notify)
                (hold-job (make-instance 'agent :configuration configuration
-                                              :conversation (conversation-create configuration)
-                                              :provider (application-provider application)
-                                              :tool-registry (application-tool-registry application)))
+                                              :conversation   (conversation-create configuration)
+                                              :provider       (application-provider application)
+                                              :tool-registry  (application-tool-registry application)))
                ;; Keep a genuine detached child queued, without starting another model.
                (let ((submit (symbol-function 'job-pool-submit-batch)))
                  (test-call-with-function-replacements
@@ -445,7 +443,7 @@
                                   :name "yield-fixture" :description "Queued wakeup fixture"
                                   :instructions "Wait for fixture release" :source ':test)
                                  :detached t
-                                 :item (list :name "yield-child" :agent "yield-fixture" :task "Wait")))))))
+                                 :item     (list :name "yield-child" :agent "yield-fixture" :task "Wait")))))))
                (let ((finished (job-completion-tests--start parent runtime)))
                  (test-assert (job-terminal-p finished) "a published outcome is already terminal"))
                (test-assert (= 2 (application-job-completions-awaited-count application))
@@ -453,7 +451,7 @@
                (recording-terminal-reset terminal)
                (application-run-message application "Wait for asynchronous work.")
                (let* ((record (first (yield-records)))
-                      (entry (conversation-record-entry application record)))
+                      (entry  (conversation-record-entry application record)))
                  (test-assert (and (= 1 (length (yield-records)))
                                    (= 2 (getf (rest record) :job-count))
                                    (application--record-visible-p application record))

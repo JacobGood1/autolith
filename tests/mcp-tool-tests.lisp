@@ -8,39 +8,39 @@
 
 (defclass test-mcp-transport (mcp-transport)
   ((handler
-    :initarg :handler
-    :reader test-mcp-transport-handler
-    :type function
+    :initarg       :handler
+    :reader        test-mcp-transport-handler
+    :type          function
     :documentation "The deterministic JSON-RPC request handler.")
    (requests
-    :initform nil
-    :accessor test-mcp-transport-requests
-    :type list
+    :initform      nil
+    :accessor      test-mcp-transport-requests
+    :type          list
     :documentation "Requests observed in chronological order.")
    (notifications
-    :initform nil
-    :accessor test-mcp-transport-notifications
-    :type list
+    :initform      nil
+    :accessor      test-mcp-transport-notifications
+    :type          list
     :documentation "Notifications observed in chronological order.")
    (open-p
-    :initform nil
-    :accessor test-mcp-transport-open-p
-    :type boolean
+    :initform      nil
+    :accessor      test-mcp-transport-open-p
+    :type          boolean
     :documentation "Whether the scripted transport is logically open.")
    (close-count
-    :initform 0
-    :accessor test-mcp-transport-close-count
-    :type (integer 0)
+    :initform      0
+    :accessor      test-mcp-transport-close-count
+    :type          (integer 0)
     :documentation "The number of explicit close operations.")
    (close-secret-use-p
-    :initform nil
-    :accessor test-mcp-transport-close-secret-use-p
-    :type boolean
+    :initform      nil
+    :accessor      test-mcp-transport-close-secret-use-p
+    :type          boolean
     :documentation "Whether close ran inside the transient secret-use guard.")
    (detach-count
-    :initform 0
-    :accessor test-mcp-transport-detach-count
-    :type (integer 0)
+    :initform      0
+    :accessor      test-mcp-transport-detach-count
+    :type          (integer 0)
     :documentation "The number of inherited-resource detach operations."))
   (:documentation "A deterministic in-memory MCP transport for Autolith tests."))
 
@@ -164,13 +164,13 @@
          (vector
           (test-mcp--tool-definition
            "read file"
-           :description "Read a deterministic value."
-           :read-only-p t
+           :description   "Read a deterministic value."
+           :read-only-p   t
            :destructive-p nil)
           (test-mcp--tool-definition
            "read/file"
-           :description "Exercise a provider-name collision."
-           :read-only-p t
+           :description   "Exercise a provider-name collision."
+           :read-only-p   t
            :destructive-p nil)
           (test-mcp--tool-definition
            "mutate"
@@ -183,7 +183,7 @@
            :description "Return one MCP image result.")
           (test-mcp--tool-definition
            "background-only"
-           :description "Require unsupported MCP task execution."
+           :description     "Require unsupported MCP task execution."
            :task-required-p t)))))
       ((string= method "tools/call")
        (let ((name (json-get (json-get request "params") "name")))
@@ -306,12 +306,12 @@
   "Return a ready scripted MCP manager and its transport."
   (let* ((server-configuration
            (mcp-server-configuration-create
-            :name "Test Server"
+            :name                    "Test Server"
             :transport
             '(:type :stdio :command "/bin/true")
-            :approval ':read-only
+            :approval                ':read-only
             :trusted-read-only-tools '("read file")
-            :child-tools '("read file")))
+            :child-tools             '("read file")))
          (transport
            (make-instance
             'test-mcp-transport
@@ -319,20 +319,20 @@
          (client
            (make-mcp-client
             transport
-            :name "autolith-test"
+            :name    "autolith-test"
             :version "1"))
          (runtime
            (make-instance
             'mcp-server-runtime
-            :configuration server-configuration
+            :configuration       server-configuration
             :registration-source ':runtime
-            :provider-namespace "mcp__test_server"
-            :client client))
+            :provider-namespace  "mcp__test_server"
+            :client              client))
          (manager
            (make-instance
             'mcp-manager
             :configuration configuration
-            :runtimes (list runtime))))
+            :runtimes      (list runtime))))
     (mcp-server-runtime-connect runtime)
     (values manager transport)))
 
@@ -357,22 +357,22 @@
   (make-instance
    'tool-context
    :configuration configuration
-   :worker nil
-   :conversation conversation
-   :registry registry))
+   :worker        nil
+   :conversation  conversation
+   :registry      registry))
 
 (-> test-mcp--generation-rediscovery () null)
 (defun test-mcp--generation-rediscovery ()
   "Test stable rediscovery after a transparent MCP session replacement."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (session 0)
-         (resources-expired-p nil)
-         (tool-list-expired-p nil)
+  (let* ((configuration           (test-configuration))
+         (root                    (test-configuration-root configuration))
+         (session                 0)
+         (resources-expired-p     nil)
+         (tool-list-expired-p     nil)
          (tool-list-request-count 0)
          (server
            (mcp-server-configuration-create
-            :name "generation-test"
+            :name      "generation-test"
             :transport '(:type :stdio :command "/bin/true")))
          (transport
            (make-instance
@@ -404,9 +404,9 @@
                          (setf resources-expired-p t)
                          (error
                           'mcp-session-expired
-                          :message "Expire the first scripted session."
+                          :message   "Expire the first scripted session."
                           :transport transport
-                          :cause nil))
+                          :cause     nil))
                        (test-mcp--rpc-result
                         request
                         (json-object "resources" (vector)))))
@@ -421,7 +421,7 @@
                           :message
                           "Expire the first rediscovery session."
                           :transport transport
-                          :cause nil))
+                          :cause     nil))
                        (test-mcp--rpc-result
                         request
                         (json-object
@@ -431,7 +431,7 @@
                            (if (= session 1)
                                "before-reconnect"
                                "after-reconnect")
-                           :read-only-p t
+                           :read-only-p   t
                            :destructive-p nil))))))
                   (t
                    (error
@@ -442,17 +442,17 @@
          (runtime
            (make-instance
             'mcp-server-runtime
-            :configuration server
+            :configuration       server
             :registration-source ':runtime
-            :provider-namespace "mcp__generation_test"
-            :client client))
+            :provider-namespace  "mcp__generation_test"
+            :client              client))
          (manager
            (make-instance
             'mcp-manager
             :configuration configuration
-            :runtimes (list runtime)))
-         (first-registry (make-instance 'tool-registry))
-         (second-registry (make-instance 'tool-registry)))
+            :runtimes      (list runtime)))
+         (first-registry          (make-instance 'tool-registry))
+         (second-registry         (make-instance 'tool-registry)))
     (unwind-protect
          (progn
            (mcp-server-runtime-connect runtime)
@@ -521,13 +521,13 @@
 (defun test-mcp--reload-command (definition-name name)
   "Return one inert application command for reload transaction tests."
   (application-command-create
-   :definition-name definition-name
-   :name name
-   :aliases nil
-   :argument nil
-   :description "Exercise MCP reload registry rollback."
-   :tip "exists only during the MCP reload transaction test."
-   :busy-behavior ':inspect
+   :definition-name   definition-name
+   :name              name
+   :aliases           nil
+   :argument          nil
+   :description       "Exercise MCP reload registry rollback."
+   :tip               "exists only during the MCP reload transaction test."
+   :busy-behavior     ':inspect
    :terminal-behavior ':shared
    :handler
    (lambda (application invocation)
@@ -540,11 +540,11 @@
 (-> test-mcp-reload-registry-rollback () null)
 (defun test-mcp-reload-registry-rollback ()
   "Test failed MCP reload restores MCP, context, and command registrations."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (mcp-pathname (configuration-mcp-path configuration))
-         (init-pathname (configuration-user-init-path configuration))
-         (original-mcp-registrations (mcp--registry-snapshot))
+  (let* ((configuration                  (test-configuration))
+         (root                           (test-configuration-root configuration))
+         (mcp-pathname                   (configuration-mcp-path configuration))
+         (init-pathname                  (configuration-user-init-path configuration))
+         (original-mcp-registrations     (mcp--registry-snapshot))
          (original-context-registrations (context--registry-snapshot))
          (original-command-registrations
            (application-command--registry-snapshot)))
@@ -567,21 +567,21 @@
              'test-mcp--reload-old-command
              "/mcp-reload-old")
             :source ':user)
-           (let* ((mcp-registrations (mcp--registry-snapshot))
+           (let* ((mcp-registrations     (mcp--registry-snapshot))
                   (context-registrations (context--registry-snapshot))
                   (command-registrations
                     (application-command--registry-snapshot))
-                  (old-tool-registry (make-instance 'tool-registry))
+                  (old-tool-registry     (make-instance 'tool-registry))
                   (application
                     (make-instance
                      'application
                      :configuration configuration
                      :tool-registry old-tool-registry)))
              (with-open-file (stream mcp-pathname
-                                     :direction ':output
-                                     :if-exists ':supersede
+                                     :direction         ':output
+                                     :if-exists         ':supersede
                                      :if-does-not-exist ':create
-                                     :external-format ':utf-8)
+                                     :external-format   ':utf-8)
                (write-string
                 "(:version 1
                    :servers
@@ -593,10 +593,10 @@
                      :startup-timeout-seconds 1)))"
                 stream))
              (with-open-file (stream init-pathname
-                                     :direction ':output
-                                     :if-exists ':supersede
+                                     :direction         ':output
+                                     :if-exists         ':supersede
                                      :if-does-not-exist ':create
-                                     :external-format ':utf-8)
+                                     :external-format   ':utf-8)
                (write-string
                 "(progn
                    (register-context-contributor
@@ -634,14 +634,14 @@
                (find "mcp-reload-old-context"
                      (context-contributor-registrations)
                      :test #'string=
-                     :key (lambda (registration)
-                            (getf registration :identifier)))
+                     :key  (lambda (registration)
+                             (getf registration :identifier)))
                (null
                 (find "mcp-reload-new-context"
                       (context-contributor-registrations)
                       :test #'string=
-                      :key (lambda (registration)
-                             (getf registration :identifier))))
+                      :key  (lambda (registration)
+                              (getf registration :identifier))))
                (application-command-find "/mcp-reload-old")
                (null (application-command-find "/mcp-reload-new")))
               "failed MCP reload keeps old user policy and rejects new policy")
@@ -673,27 +673,27 @@
 (-> test-mcp-reload-registry-isolation () null)
 (defun test-mcp-reload-registry-isolation ()
   "Test reload publishes one registry generation and preserves later writers."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (mcp-pathname (configuration-mcp-path configuration))
-         (init-pathname (configuration-user-init-path configuration))
-         (original-mcp-registrations (mcp--registry-snapshot))
+  (let* ((configuration                  (test-configuration))
+         (root                           (test-configuration-root configuration))
+         (mcp-pathname                   (configuration-mcp-path configuration))
+         (init-pathname                  (configuration-user-init-path configuration))
+         (original-mcp-registrations     (mcp--registry-snapshot))
          (original-context-registrations (context--registry-snapshot))
          (original-command-registrations
            (application-command--registry-snapshot))
-         (barrier-lock (make-lock "Autolith MCP reload isolation barrier"))
-         (barrier (make-condition-variable))
-         (reload-paused-p nil)
-         (release-reload-p nil)
-         (state-lock (make-lock "Autolith MCP reload isolation state"))
-         (reload-failure nil)
-         (reload-finished-p nil)
-         (reader-result nil)
-         (reader-finished-p nil)
-         (writer-finished-p nil)
-         (reload-thread nil)
-         (reader-thread nil)
-         (writer-thread nil))
+         (barrier-lock                   (make-lock "Autolith MCP reload isolation barrier"))
+         (barrier                        (make-condition-variable))
+         (reload-paused-p                nil)
+         (release-reload-p               nil)
+         (state-lock                     (make-lock "Autolith MCP reload isolation state"))
+         (reload-failure                 nil)
+         (reload-finished-p              nil)
+         (reader-result                  nil)
+         (reader-finished-p              nil)
+         (writer-finished-p              nil)
+         (reload-thread                  nil)
+         (reader-thread                  nil)
+         (writer-thread                  nil))
     (labels
         ((mcp-names (registrations)
            "Return raw server names from MCP REGISTRATIONS."
@@ -743,10 +743,10 @@
                "/mcp-isolation-old")
               :source ':user)
              (with-open-file (stream mcp-pathname
-                                     :direction ':output
-                                     :if-exists ':supersede
+                                     :direction         ':output
+                                     :if-exists         ':supersede
                                      :if-does-not-exist ':create
-                                     :external-format ':utf-8)
+                                     :external-format   ':utf-8)
                (write-string
                 "(:version 1
                    :servers
@@ -755,10 +755,10 @@
                      (:type :stdio :command \"/bin/true\"))))"
                 stream))
              (with-open-file (stream init-pathname
-                                     :direction ':output
-                                     :if-exists ':supersede
+                                     :direction         ':output
+                                     :if-exists         ':supersede
                                      :if-does-not-exist ':create
-                                     :external-format ':utf-8)
+                                     :external-format   ':utf-8)
                (write-string
                 "(progn
                    (register-context-contributor
@@ -860,7 +860,7 @@
              (destructuring-bind
                  (reader-mcp reader-context reader-commands)
                  reader-result
-               (let* ((reader-mcp-names (mcp-names reader-mcp))
+               (let* ((reader-mcp-names     (mcp-names reader-mcp))
                       (reader-context-identifiers
                         (context-identifiers reader-context))
                       (reader-command-names (command-names reader-commands))
@@ -931,9 +931,9 @@
   "Test pre-commit rollback and post-commit cleanup failure isolation."
   (labels ((run-case (stage)
              "Exercise one late failure STAGE in a complete reload."
-             (let* ((configuration (test-configuration))
-                    (root (test-configuration-root configuration))
-                    (mcp-pathname (configuration-mcp-path configuration))
+             (let* ((configuration              (test-configuration))
+                    (root                       (test-configuration-root configuration))
+                    (mcp-pathname               (configuration-mcp-path configuration))
                     (init-pathname
                       (configuration-user-init-path configuration))
                     (original-mcp-registrations (mcp--registry-snapshot))
@@ -954,12 +954,12 @@
                        'tool-registry-close-runtime-state))
                     (context-reset
                       (symbol-function 'context-runtime-reset))
-                    (old-registry nil)
-                    (new-registry nil)
-                    (new-registry-closed-p nil)
-                    (context-reset-p nil)
-                    (worker nil)
-                    (application nil))
+                    (old-registry               nil)
+                    (new-registry               nil)
+                    (new-registry-closed-p      nil)
+                    (context-reset-p            nil)
+                    (worker                     nil)
+                    (application                nil))
                (unwind-protect
                     (progn
                       (configuration-ensure-directories configuration)
@@ -976,18 +976,18 @@
                         "/mcp-reload-late-old")
                        :source ':user)
                       (with-open-file (stream mcp-pathname
-                                              :direction ':output
-                                              :if-exists ':supersede
+                                              :direction         ':output
+                                              :if-exists         ':supersede
                                               :if-does-not-exist ':create
-                                              :external-format ':utf-8)
+                                              :external-format   ':utf-8)
                         (write-string
                          "(:version 1 :servers ())"
                          stream))
                       (with-open-file (stream init-pathname
-                                              :direction ':output
-                                              :if-exists ':supersede
+                                              :direction         ':output
+                                              :if-exists         ':supersede
                                               :if-does-not-exist ':create
-                                              :external-format ':utf-8)
+                                              :external-format   ':utf-8)
                         (write-string
                          "(progn
                             (register-context-contributor
@@ -1012,19 +1012,19 @@
                         (let ((agent
                                 (agent-create
                                  :configuration configuration
-                                 :provider provider
-                                 :conversation conversation
+                                 :provider      provider
+                                 :conversation  conversation
                                  :tool-registry old-registry
-                                 :worker worker)))
+                                 :worker        worker)))
                           (setf application
                                 (make-instance
                                  'application
                                  :configuration configuration
-                                 :conversation conversation
-                                 :provider provider
+                                 :conversation  conversation
+                                 :provider      provider
                                  :tool-registry old-registry
-                                 :worker worker
-                                 :agent agent
+                                 :worker        worker
+                                 :agent         agent
                                  :ui
                                  (terminal-ui-create
                                   :terminal
@@ -1210,15 +1210,15 @@
                                 new-orchestrator))
                               "cleanup failure leaves the replacement application installed")
                              (test-assert
-                             (and
-                               context-reset-p
-                               (not new-registry-closed-p)
-                               (eq
-                                (job-pool-lifecycle-state
-                                 (task-orchestrator-pool new-orchestrator))
-                                ':open)
-                               (application-task-presentation-listener
-                                application))
+                              (and
+                                context-reset-p
+                                (not new-registry-closed-p)
+                                (eq
+                                 (job-pool-lifecycle-state
+                                  (task-orchestrator-pool new-orchestrator))
+                                 ':open)
+                                (application-task-presentation-listener
+                                 application))
                               "cleanup failure leaves the replacement runtime live")
                              (test-assert
                               (let ((ui (application-ui application))
@@ -1299,7 +1299,7 @@
   "Echo the current credential through every server-controlled result surface."
   (declare (ignore transport))
   (let ((credential (uiop:getenv environment-name))
-        (method (json-get request "method")))
+        (method     (json-get request "method")))
     (cond
       ((string= method "initialize")
        (test-mcp--rpc-result
@@ -1347,9 +1347,9 @@
             "destructiveHint" (json-false))
            "_meta" (json-object "credential" credential))))))
       ((string= method "tools/call")
-       (let* ((params (json-get request "params"))
+       (let* ((params    (json-get request "params"))
               (arguments (json-get params "arguments"))
-              (mode (json-get arguments "mode")))
+              (mode      (json-get arguments "mode")))
          (cond
            ((and (stringp mode) (string= mode "exception"))
             (error "MCP exception echoed ~A." credential))
@@ -1481,7 +1481,7 @@
 (defun test-mcp-retained-tool-metadata-boundaries ()
   "Test retained MCP tools discard unused metadata and bound input schemas."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (environment-name
            (format nil
                    "AUTOLITH_MCP_METADATA_~A"
@@ -1497,20 +1497,20 @@
              :initial-element #\X)))
          (server
            (mcp-server-configuration-create
-            :name "metadata-boundary"
+            :name                    "metadata-boundary"
             :transport
             `(:type :stdio
               :command "/bin/true"
               :environment
               (("SERVICE_TOKEN" :environment ,environment-name)))
-            :approval ':read-only
+            :approval                ':read-only
             :trusted-read-only-tools '("bounded")))
-         (transport nil)
-         (runtime nil)
-         (manager nil)
-         (registry nil)
-         (conversation nil)
-         (poisoned nil)
+         (transport     nil)
+         (runtime       nil)
+         (manager       nil)
+         (registry      nil)
+         (conversation  nil)
+         (poisoned      nil)
          (input-runtime nil))
     (unwind-protect
          (progn
@@ -1577,19 +1577,19 @@
             runtime
             (make-instance
              'mcp-server-runtime
-             :configuration server
+             :configuration       server
              :registration-source ':runtime
-             :provider-namespace "mcp__metadata_boundary"
+             :provider-namespace  "mcp__metadata_boundary"
              :client
              (make-mcp-client
               transport
-              :name "autolith-test"
+              :name    "autolith-test"
               :version "1"))
             manager
             (make-instance
              'mcp-manager
              :configuration configuration
-             :runtimes (list runtime))
+             :runtimes      (list runtime))
             registry (make-instance 'tool-registry)
             conversation
             (conversation-create
@@ -1602,7 +1602,7 @@
               (mcp-tools--sanitize-tool
                (make-instance
                 'mcp-tool
-                :name "poisoned-annotations"
+                :name        "poisoned-annotations"
                 :description "Reject non-boolean policy annotations."
                 :input-schema
                 (json-object
@@ -1692,12 +1692,12 @@
                      (make-instance
                       'application
                       :configuration configuration
-                      :conversation conversation
-                      :provider nil
+                      :conversation  conversation
+                      :provider      nil
                       :tool-registry registry
-                      :worker nil
-                      :agent nil
-                      :ui nil)))
+                      :worker        nil
+                      :agent         nil
+                      :ui            nil)))
                (tool-registry-close-runtime-state registry)
                (checkpoint-detach-state application)
                (test-assert
@@ -1757,13 +1757,13 @@
               input-runtime
               (make-instance
                'mcp-server-runtime
-               :configuration input-server
+               :configuration       input-server
                :registration-source ':runtime
-               :provider-namespace "mcp__input_boundary"
+               :provider-namespace  "mcp__input_boundary"
                :client
                (make-mcp-client
                 input-transport
-                :name "autolith-test"
+                :name    "autolith-test"
                 :version "1")))
              (let ((failure
                      (handler-case
@@ -1803,18 +1803,18 @@
 (-> test-mcp-http-credential-exchange-scope () null)
 (defun test-mcp-http-credential-exchange-scope ()
   "Test background HTTP exchanges sanitize transient credential echoes."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (registrations (mcp--registry-snapshot))
+  (let* ((configuration  (test-configuration))
+         (root           (test-configuration-root configuration))
+         (registrations  (mcp--registry-snapshot))
          (environment-name
            (format nil
                    "AUTOLITH_MCP_HTTP_ECHO_~A"
                    (remove #\- (string-upcase (make-identifier)))))
          (credential
            (format nil "mcp-http-secret-~A" (make-identifier)))
-         (manager nil)
-         (runtime nil)
-         (transport nil)
+         (manager        nil)
+         (runtime        nil)
+         (transport      nil)
          (scope-active-p nil)
          (thread-failure nil))
     (unwind-protect
@@ -1825,7 +1825,7 @@
             `(:name "credential-http"
               :transport
               (:type :http
-               :url "https://example.test/mcp"
+               :url  "https://example.test/mcp"
                :headers
                (("Authorization" :environment ,environment-name)))
               :approval :allow)
@@ -1907,7 +1907,7 @@
 (defun test-mcp-credential-echo-containment ()
   "Test configured credentials cannot survive any MCP result boundary."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (environment-name
            (format nil
                    "AUTOLITH_MCP_ECHO_~A"
@@ -1916,18 +1916,18 @@
            (format nil "mcp-secret-~A" (make-identifier)))
          (server
            (mcp-server-configuration-create
-            :name "credential-echo"
+            :name     "credential-echo"
             :transport
             `(:type :stdio
               :command "/bin/true"
               :environment
               (("SERVICE_TOKEN" :environment ,environment-name)))
             :approval ':allow))
-         (transport nil)
-         (runtime nil)
-         (manager nil)
-         (registry nil)
-         (conversation nil))
+         (transport     nil)
+         (runtime       nil)
+         (manager       nil)
+         (registry      nil)
+         (conversation  nil))
     (unwind-protect
          (progn
            (platform-setenv environment-name credential)
@@ -1942,19 +1942,19 @@
             runtime
             (make-instance
              'mcp-server-runtime
-             :configuration server
+             :configuration       server
              :registration-source ':runtime
-             :provider-namespace "mcp__credential_echo"
+             :provider-namespace  "mcp__credential_echo"
              :client
              (make-mcp-client
               transport
-              :name "autolith-test"
+              :name    "autolith-test"
               :version "1"))
             manager
             (make-instance
              'mcp-manager
              :configuration configuration
-             :runtimes (list runtime))
+             :runtimes      (list runtime))
             registry (make-instance 'tool-registry)
             conversation
             (conversation-create
@@ -2076,7 +2076,7 @@
                        conversation
                        (format nil "credential-echo-~D" index)
                        :tool-name "mcp"
-                       :output (tool-result-content result)
+                       :output    (tool-result-content result)
                        :success-p (tool-result-success-p result)))
              (test-assert
               (test-mcp--credential-redacted-p
@@ -2089,15 +2089,15 @@
                     (stdio-runtime
                       (make-instance
                        'mcp-server-runtime
-                       :configuration server
+                       :configuration       server
                        :registration-source ':runtime
-                       :provider-namespace "mcp__credential_stderr"
-                       :client stdio-client))
+                       :provider-namespace  "mcp__credential_stderr"
+                       :client              stdio-client))
                     (stdio-manager
                       (make-instance
                        'mcp-manager
                        :configuration configuration
-                       :runtimes (list stdio-runtime)))
+                       :runtimes      (list stdio-runtime)))
                     (stdio-transport
                       (mcp-client-transport stdio-client))
                     (condition-text nil))
@@ -2142,25 +2142,25 @@
                       (make-instance
                        'application
                        :configuration configuration
-                       :conversation conversation
-                       :provider provider
+                       :conversation  conversation
+                       :provider      provider
                        :tool-registry registry
-                       :worker nil
+                       :worker        nil
                        :agent
                        (agent-create
                         :configuration configuration
-                        :provider provider
-                        :conversation conversation
+                        :provider      provider
+                        :conversation  conversation
                         :tool-registry registry
-                        :worker nil)
-                       :ui nil)))
+                        :worker        nil)
+                       :ui            nil)))
                (tool-registry-close-runtime-state registry)
                (checkpoint-detach-state application)
                (test-assert
                 (not
                  (test-mcp--object-contains-string-p
                   application credential))
-               "a detached checkpoint graph contains no MCP credential")
+                "a detached checkpoint graph contains no MCP credential")
                (test-assert
                 (notany
                  (lambda (tool)
@@ -2191,7 +2191,7 @@
 (defun test-mcp-credential-stdio-ingress-projection ()
   "Test value-independent ingress projection for credential-bearing stdio."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (credential-server
            (mcp-server-configuration-create
             :name "credential-ingress"
@@ -2204,7 +2204,7 @@
                 "AUTOLITH_MCP_INGRESS_TOKEN")))))
          (plain-server
            (mcp-server-configuration-create
-            :name "plain-ingress"
+            :name      "plain-ingress"
             :transport '(:type :stdio :command "/bin/true")))
          (credential-transport
            (mcp-tools--transport credential-server configuration))
@@ -2238,7 +2238,7 @@
               ':reader-failure
               (make-condition
                'simple-error
-               :format-control "raw server failure"
+               :format-control   "raw server failure"
                :format-arguments nil)))
             "credential stdio replaces reader failures before retention")
            (let* ((params (json-object "secret" "raw notification params"))
@@ -2322,7 +2322,7 @@
          (bindings
            (mcp-stdio-configuration-environment-bindings
             (mcp-server-configuration-transport server)))
-         (first-binding (first bindings))
+         (first-binding  (first bindings))
          (second-binding (second bindings))
          (snapshot
            (list
@@ -2362,29 +2362,29 @@
                (not (string= first changed))
                (not (string= first-boundary second-boundary)))
               "one key yields stable collision-resistant canonical digests")
-              (let* ((configuration (test-configuration))
-                     (root (test-configuration-root configuration))
-                     (closing-manager
-                       (make-instance 'mcp-manager :configuration configuration))
-                     (detaching-manager
-                       (make-instance 'mcp-manager :configuration configuration)))
-                (unwind-protect
-                     (progn
-                       (mcp-manager-close closing-manager)
-                       (test-assert
-                        (string=
-                         first
-                         (mcp-tools--environment-snapshot-fingerprint snapshot))
-                        "closing one manager preserves the process fingerprint key")
-                       (mcp-manager-detach detaching-manager)
-                       (test-assert
-                        (string=
-                         first
-                         (mcp-tools--environment-snapshot-fingerprint snapshot))
-                        "detaching one manager preserves the process fingerprint key"))
-                  (platform-delete-directory-tree
-                   *platform*
-                   root :validate t :if-does-not-exist ':ignore)))
+             (let* ((configuration (test-configuration))
+                    (root          (test-configuration-root configuration))
+                    (closing-manager
+                      (make-instance 'mcp-manager :configuration configuration))
+                    (detaching-manager
+                      (make-instance 'mcp-manager :configuration configuration)))
+               (unwind-protect
+                    (progn
+                      (mcp-manager-close closing-manager)
+                      (test-assert
+                       (string=
+                        first
+                        (mcp-tools--environment-snapshot-fingerprint snapshot))
+                       "closing one manager preserves the process fingerprint key")
+                      (mcp-manager-detach detaching-manager)
+                      (test-assert
+                       (string=
+                        first
+                        (mcp-tools--environment-snapshot-fingerprint snapshot))
+                       "detaching one manager preserves the process fingerprint key"))
+                 (platform-delete-directory-tree
+                  *platform*
+                  root :validate t :if-does-not-exist ':ignore)))
              (mcp-tools--clear-environment-fingerprint-key)
              (test-assert
               (and
@@ -2501,7 +2501,7 @@
                 :url "https://example.test/mcp"
                 :headers
                 (("Authorization" :environment ,environment-name)))))
-           (marker nil)
+           (marker   nil)
            (rendered nil))
       (unwind-protect
            (progn
@@ -2527,7 +2527,7 @@
 (defun test-mcp-stdio-credential-snapshot-rotation ()
   "Test persistent stdio credentials rotate or disappear without residue."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (environment-name
            (format nil
                    "AUTOLITH_MCP_ROTATION_~A"
@@ -2540,7 +2540,7 @@
            (format nil "rotation-c-~A" (make-identifier)))
          (server
            (mcp-server-configuration-create
-            :name "credential-rotation"
+            :name       "credential-rotation"
             :transport
             `(:type :stdio
               :command ,(lisp-worker-sbcl-command)
@@ -2554,30 +2554,30 @@
                ,(test-mcp--rotating-stdio-server-form))
               :environment
               (("SERVICE_TOKEN" :environment ,environment-name)))
-            :approval ':allow
+            :approval   ':allow
             :required-p t))
-         (client (mcp-tools--client server configuration))
+         (client        (mcp-tools--client server configuration))
          (runtime
            (make-instance
             'mcp-server-runtime
-            :configuration server
+            :configuration       server
             :registration-source ':runtime
-            :provider-namespace "mcp__credential_rotation"
-            :client client))
+            :provider-namespace  "mcp__credential_rotation"
+            :client              client))
          (manager
            (make-instance
             'mcp-manager
             :configuration configuration
-            :runtimes (list runtime)))
-         (registry (make-instance 'tool-registry))
+            :runtimes      (list runtime)))
+         (registry      (make-instance 'tool-registry))
          (conversation
            (conversation-create
             configuration
             :identifier "mcp-credential-rotation"))
-         (transport (mcp-client-transport client))
-         (process-slot (find-symbol "PROCESS" "MCPAREN"))
-         (process-a nil)
-         (process-b nil))
+         (transport     (mcp-client-transport client))
+         (process-slot  (find-symbol "PROCESS" "MCPAREN"))
+         (process-a     nil)
+         (process-b     nil))
     (unwind-protect
          (progn
            (platform-setenv environment-name credential-a)
@@ -2622,12 +2622,12 @@
               conversation
               "credential-rotation"
               :tool-name "mcp"
-              :output (tool-result-content result)
+              :output    (tool-result-content result)
               :success-p (tool-result-success-p result))
              (let ((status (mcp-manager-render-status manager))
-                    (conversation-text
-                      (uiop:read-file-string
-                       (conversation-log-pathname conversation))))
+                   (conversation-text
+                     (uiop:read-file-string
+                      (conversation-log-pathname conversation))))
                (test-assert
                 (and
                  (tool-result-success-p result)
@@ -2682,18 +2682,18 @@
                     (make-instance
                      'application
                      :configuration configuration
-                     :conversation conversation
-                     :provider provider
+                     :conversation  conversation
+                     :provider      provider
                      :tool-registry registry
-                     :worker nil
+                     :worker        nil
                      :agent
                      (agent-create
                       :configuration configuration
-                      :provider provider
-                      :conversation conversation
+                      :provider      provider
+                      :conversation  conversation
                       :tool-registry registry
-                      :worker nil)
-                     :ui nil)))
+                      :worker        nil)
+                     :ui            nil)))
              (tool-registry-close-runtime-state registry)
              (checkpoint-detach-state application)
              (dolist
@@ -2714,7 +2714,7 @@
                (notany
                 (lambda (tool)
                   (typep tool 'mcp-provider-tool))
-               (tool-registry-tools registry))
+                (tool-registry-tools registry))
                (not
                 (test-mcp--object-contains-string-p
                  runtime *mcp-credential-redaction-marker*))
@@ -2752,8 +2752,8 @@
   (declare (ignore configuration))
   (let* ((server
            (mcp-server-configuration-create
-            :name name
-            :transport '(:type :stdio :command "/bin/true")
+            :name       name
+            :transport  '(:type :stdio :command "/bin/true")
             :required-p required-p))
          (transport
            (make-instance
@@ -2787,46 +2787,46 @@
                     method))))))))
     (make-instance
      'mcp-server-runtime
-     :configuration server
+     :configuration       server
      :registration-source ':runtime
      :provider-namespace
      (gethash name (mcp-tools--identifier-map (list name) :prefix "mcp__"))
      :client
      (make-mcp-client
       transport
-      :name "autolith-test"
+      :name    "autolith-test"
       :version "1"))))
 
 (-> test-mcp-server-scoped-tool-identifiers () null)
 (defun test-mcp-server-scoped-tool-identifiers ()
   "Test equal raw tool names remain distinct across MCP servers."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (definition (test-mcp--tool-definition "search"))
+         (root          (test-configuration-root configuration))
+         (definition    (test-mcp--tool-definition "search"))
          (first-runtime
            (test-mcp--bounded-runtime
             configuration
-            :name "first-server"
-            :required-p t
+            :name           "first-server"
+            :required-p     t
             :tools-function (lambda () (list definition))))
          (second-runtime
            (test-mcp--bounded-runtime
             configuration
-            :name "second-server"
-            :required-p t
+            :name           "second-server"
+            :required-p     t
             :tools-function (lambda () (list definition))))
          (manager
            (make-instance
             'mcp-manager
             :configuration configuration
-            :runtimes (list first-runtime second-runtime))))
+            :runtimes      (list first-runtime second-runtime))))
     (unwind-protect
          (progn
            (mcp-server-runtime-connect first-runtime)
            (mcp-server-runtime-connect second-runtime)
-           (let* ((first-tools (mcp-tools--manager-tool-objects manager))
+           (let* ((first-tools  (mcp-tools--manager-tool-objects manager))
                   (second-tools (mcp-tools--manager-tool-objects manager))
-                  (first-names (mapcar #'tool-name first-tools))
+                  (first-names  (mapcar #'tool-name first-tools))
                   (second-names (mapcar #'tool-name second-tools)))
              (test-assert
               (and (= (length first-names) 2)
@@ -2847,14 +2847,14 @@
 (defun test-mcp-initialization-metadata-bounds ()
   "Test multi-server initialization metadata is projected before retention."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (marker "MCP-INITIALIZATION-METADATA-SHOULD-DISAPPEAR")
+         (root          (test-configuration-root configuration))
+         (marker        "MCP-INITIALIZATION-METADATA-SHOULD-DISAPPEAR")
          (payload
            (concatenate
             'string
             marker
             (make-string 10000 :initial-element #\X)))
-         (instructions (make-string 3000 :initial-element #\I))
+         (instructions  (make-string 3000 :initial-element #\I))
          (initialization-function
            (lambda ()
              (json-object
@@ -2874,23 +2874,23 @@
          (first-runtime
            (test-mcp--bounded-runtime
             configuration
-            :name "initialization-one"
-            :required-p t
-            :tools-function (lambda () nil)
+            :name                    "initialization-one"
+            :required-p              t
+            :tools-function          (lambda () nil)
             :initialization-function initialization-function))
          (second-runtime
            (test-mcp--bounded-runtime
             configuration
-            :name "initialization-two"
-            :required-p t
-            :tools-function (lambda () nil)
+            :name                    "initialization-two"
+            :required-p              t
+            :tools-function          (lambda () nil)
             :initialization-function initialization-function))
          (manager
            (make-instance
             'mcp-manager
             :configuration configuration
-            :runtimes (list first-runtime second-runtime)))
-         (registry (make-instance 'tool-registry))
+            :runtimes      (list first-runtime second-runtime)))
+         (registry      (make-instance 'tool-registry))
          (conversation
            (conversation-create
             configuration
@@ -2922,34 +2922,34 @@
                   (test-mcp--object-contains-string-p runtime marker)))
                 "one MCP runtime retains only projected initialization metadata")))
            (mcp-tool-registry-register-manager registry manager)
-            (let ((contributions
-                    (mcp-tool-registry-context-contributions registry)))
-              (test-assert
-               (and
-                (= (length contributions) 2)
-                (every
-                 (lambda (contribution)
-                   (let ((evidence
-                           (context-contribution-evidence contribution)))
-                     (and
-                      (= (length evidence)
-                         *context-contribution-evidence-limit*)
-                      (uiop:string-suffix-p
-                       evidence
-                       "... [MCP server instructions truncated]")
-                      (not (string= evidence instructions)))))
-                 contributions))
-               "multi-server instructions are bounded before model context"))
+           (let ((contributions
+                   (mcp-tool-registry-context-contributions registry)))
+             (test-assert
+              (and
+               (= (length contributions) 2)
+               (every
+                (lambda (contribution)
+                  (let ((evidence
+                          (context-contribution-evidence contribution)))
+                    (and
+                     (= (length evidence)
+                        *context-contribution-evidence-limit*)
+                     (uiop:string-suffix-p
+                      evidence
+                      "... [MCP server instructions truncated]")
+                     (not (string= evidence instructions)))))
+                contributions))
+              "multi-server instructions are bounded before model context"))
            (let ((application
                    (make-instance
                     'application
                     :configuration configuration
-                    :conversation conversation
-                    :provider nil
+                    :conversation  conversation
+                    :provider      nil
                     :tool-registry registry
-                    :worker nil
-                    :agent nil
-                    :ui nil)))
+                    :worker        nil
+                    :agent         nil
+                    :ui            nil)))
              (tool-registry-close-runtime-state registry)
              (checkpoint-detach-state application)
              (test-assert
@@ -2982,8 +2982,8 @@
            (unwind-protect
                 (let* ((runtime
                          (first (mcp-manager-runtimes manager)))
-                       (property-key (copy-seq "namespace"))
-                       (string-type (copy-seq "string"))
+                       (property-key      (copy-seq "namespace"))
+                       (string-type       (copy-seq "string"))
                        (namespace-schema
                          (json-object
                           "anyOf"
@@ -3048,23 +3048,23 @@
                                 "type")
                                "string"))
                          "provider projection detaches mutable JSON strings"))))
-                   (flet ((server-failure-p (invalid)
-                            (handler-case
-                                (progn
-                                  (mcp-tools--provider-schema runtime invalid)
-                                  nil)
-                              (mcp-server-startup-error (condition)
-                                (and
-                                 (string= (mcp-server-startup-error-server-name condition)
-                                          (mcp-server-runtime-name runtime))
-                                 (stringp (mcp-server-startup-error-cause condition)))))))
-                     (test-assert
-                      (server-failure-p (json-object "required" ""))
-                      "schema failures become sanitized server-scoped startup failures")
-                     (let ((*mcp-maximum-tool-schema-nodes* 1))
-                       (test-assert
-                        (server-failure-p (json-object "type" "object"))
-                        "schema projection applies the configured retention bounds"))))
+                  (flet ((server-failure-p (invalid)
+                           (handler-case
+                               (progn
+                                 (mcp-tools--provider-schema runtime invalid)
+                                 nil)
+                             (mcp-server-startup-error (condition)
+                               (and
+                                (string= (mcp-server-startup-error-server-name condition)
+                                         (mcp-server-runtime-name runtime))
+                                (stringp (mcp-server-startup-error-cause condition)))))))
+                    (test-assert
+                     (server-failure-p (json-object "required" ""))
+                     "schema failures become sanitized server-scoped startup failures")
+                    (let ((*mcp-maximum-tool-schema-nodes* 1))
+                      (test-assert
+                       (server-failure-p (json-object "type" "object"))
+                       "schema projection applies the configured retention bounds"))))
              (mcp-manager-close manager)))
       (platform-delete-directory-tree
        *platform*
@@ -3077,15 +3077,15 @@
 (-> test-mcp-stdio-xdg-environment () null)
 (defun test-mcp-stdio-xdg-environment ()
   "Test inherited XDG bases are absolute while explicit bindings keep precedence."
-  (let* ((xdg-name "XDG_DATA_HOME")
-         (source-name "AUTOLITH_MCP_TEST_XDG_SOURCE")
-         (saved-xdg (uiop:getenv xdg-name))
+  (let* ((xdg-name     "XDG_DATA_HOME")
+         (source-name  "AUTOLITH_MCP_TEST_XDG_SOURCE")
+         (saved-xdg    (uiop:getenv xdg-name))
          (saved-source (uiop:getenv source-name))
          (server
            (mcp-server-configuration-create
-            :name "xdg-environment"
+            :name      "xdg-environment"
             :transport '(:type :stdio :command "/bin/true")))
-         (transport (mcp-server-configuration-transport server)))
+         (transport    (mcp-server-configuration-transport server)))
     (flet ((environment ()
              (mcp-tools--call-with-server-secret-use
               server
@@ -3136,12 +3136,11 @@
         (tests--restore-environment source-name saved-source))))
   nil)
 
-
 (-> test-mcp-result-text-bound () null)
 (defun test-mcp-result-text-bound ()
   "Test MCP textual and structured results cannot create unbounded model context."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration                   (test-configuration))
+         (root                            (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "mcp-result-bound"))
          (context
@@ -3202,7 +3201,7 @@
   (test-mcp-initialization-metadata-bounds)
   (test-mcp-result-text-bound)
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (multiple-value-bind (manager transport)
              (test-mcp--manager configuration)
@@ -3385,36 +3384,36 @@
                                    environment
                                    :test #'string=)))
                          "stdio MCP servers inherit only the safe environment allowlist")))
-                      (let* ((mapped-server
-                               (mcp-server-configuration-create
-                                :name "explicit-environment"
-                                :transport
-                                `(:type :stdio
-                                  :command "/bin/true"
+                    (let* ((mapped-server
+                             (mcp-server-configuration-create
+                              :name "explicit-environment"
+                              :transport
+                              `(:type :stdio
+                                :command "/bin/true"
+                                :environment
+                                (("SERVICE_TOKEN"
                                   :environment
-                                  (("SERVICE_TOKEN"
-                                    :environment
-                                    ,sentinel-name)))))
-                             (mapped-transport
-                               (mcp-server-configuration-transport
-                                mapped-server))
-                             (environment
-                               (mcp-tools--call-with-server-secret-use
-                                mapped-server
-                                (lambda ()
-                                  (funcall
-                                   (mcp-tools--stdio-environment-function
-                                    mapped-server mapped-transport))))))
-                      (test-assert
-                       (and
-                        (member "SERVICE_TOKEN=must-not-leak"
+                                  ,sentinel-name)))))
+                           (mapped-transport
+                             (mcp-server-configuration-transport
+                              mapped-server))
+                           (environment
+                             (mcp-tools--call-with-server-secret-use
+                              mapped-server
+                              (lambda ()
+                                (funcall
+                                 (mcp-tools--stdio-environment-function
+                                  mapped-server mapped-transport))))))
+                     (test-assert
+                      (and
+                       (member "SERVICE_TOKEN=must-not-leak"
+                               environment
+                                 :test #'string=)
+                       (not
+                        (member sentinel-entry
                                 environment
-                                  :test #'string=)
-                        (not
-                         (member sentinel-entry
-                                 environment
-                                 :test #'string=)))
-                       "stdio MCP servers receive only explicitly mapped secret values"))
+                                :test #'string=)))
+                      "stdio MCP servers receive only explicitly mapped secret values"))
                     (let* ((snapshot-server
                              (mcp-server-configuration-create
                               :name "shared-environment-source"
@@ -3428,9 +3427,9 @@
                                  ("SECOND_TOKEN"
                                   :environment
                                   ,sentinel-name)))))
-                           (getenv-function (symbol-function 'uiop:getenv))
+                           (getenv-function   (symbol-function 'uiop:getenv))
                            (source-read-count 0)
-                           (snapshot nil))
+                           (snapshot          nil))
                       (test-call-with-function-replacements
                        (list
                         (list
@@ -3480,19 +3479,19 @@
                    (tool-name read-tool)
                    (tool-name collision-tool))))
                 "provider tools use stable names and omit task-required tools")
-                (let ((name-map
-                        (mcp-tools--identifier-map
-                         '("read/file" "read file")
-                         :identity-scope "Test Server")))
-                 (test-assert
-                  (and
-                   (string=
-                    (gethash "read file" name-map)
-                    (tool-name read-tool))
-                   (string=
-                    (gethash "read/file" name-map)
-                    (tool-name collision-tool)))
-                  "provider-name collision resolution is order-independent"))
+               (let ((name-map
+                       (mcp-tools--identifier-map
+                        '("read/file" "read file")
+                        :identity-scope "Test Server")))
+                (test-assert
+                 (and
+                  (string=
+                   (gethash "read file" name-map)
+                   (tool-name read-tool))
+                  (string=
+                   (gethash "read/file" name-map)
+                   (tool-name collision-tool)))
+                 "provider-name collision resolution is order-independent"))
                (let* ((fields
                         (tool-authorization-identity-fields collision-tool))
                       (title
@@ -3509,7 +3508,7 @@
                      (tool-canonical-name collision-tool)
                      title)))
                   "MCP approval identifies the server and unmangled raw tool"))
-               (let* ((tail "CONSEQUENTIAL-ARGUMENT-TAIL")
+               (let* ((tail     "CONSEQUENTIAL-ARGUMENT-TAIL")
                       (long-key "a-consequential-argument-key-longer-than-one-column")
                       (arguments
                         (json-object
@@ -3518,10 +3517,10 @@
                                                tail)
                          "界" (json-object "nested" #(1 2))
                          long-key "complete value"))
-                      (entry (application--tool-authorization-request-entry
-                              mutating-tool arguments))
-                      (text (apply #'concatenate 'string
-                                   (mapcar #'terminal-span-text entry))))
+                      (entry    (application--tool-authorization-request-entry
+                                 mutating-tool arguments))
+                      (text     (apply #'concatenate 'string
+                                       (mapcar #'terminal-span-text entry))))
                  (test-assert
                   (and (search (json-encode (json-get arguments "change")) text)
                        (search tail text)
@@ -3596,9 +3595,9 @@
                        (make-instance
                         'tool-context
                         :configuration configuration
-                        :worker nil
-                        :conversation conversation
-                        :registry registry
+                        :worker        nil
+                        :conversation  conversation
+                        :registry      registry
                         :tool-authorization-function
                         (lambda (tool arguments)
                           (declare (ignore tool arguments))
@@ -3720,7 +3719,7 @@
                       (context-contribution-evidence
                        (first contributions))))
                 "server instructions reach the model as untrusted request context"))
-             (let* ((record (first (mcp-manager-status-records manager)))
+             (let* ((record   (first (mcp-manager-status-records manager)))
                     (rendered (mcp-manager-render-status manager)))
                (test-assert
                 (and
@@ -3736,8 +3735,8 @@
                   (getf record :task-required-tool-reason))
                  (eq (mcp-tool-registry-manager registry) manager))
                 "MCP status reports task-required tools without exposing them"))
-             (let* ((runtime (first (mcp-manager-runtimes manager)))
-                    (all-tools-registry (make-instance 'tool-registry))
+             (let* ((runtime             (first (mcp-manager-runtimes manager)))
+                    (all-tools-registry  (make-instance 'tool-registry))
                     (child-safe-registry (make-instance 'tool-registry)))
                (mcp-tool-registry-bind-manager
                 all-tools-registry manager (constantly t))
@@ -3747,34 +3746,34 @@
                 all-tools-registry :only-dirty-p t)
                (mcp-tool-registry-refresh
                 child-safe-registry :only-dirty-p t)
-                 (test-assert
-                  (null
-                   (with-lock-held ((mcp-manager-lock manager))
-                     (mcp-tool-registry-refresh
-                      all-tools-registry :only-dirty-p t)))
-                  "clean dirty-only refresh bypasses the manager-wide lock")
+               (test-assert
+                (null
+                 (with-lock-held ((mcp-manager-lock manager))
+                   (mcp-tool-registry-refresh
+                    all-tools-registry :only-dirty-p t)))
+                "clean dirty-only refresh bypasses the manager-wide lock")
                (let* ((binding
                          (mcp-tool-registry-binding all-tools-registry))
-                       (before-tools
-                         (tool-registry-tools all-tools-registry))
-                       (before-revisions
-                         (copy-list
-                          (mcp-registry-binding-reconciled-revisions binding)))
-                       (static-tool
-                         (make-instance
-                          'tool
-                          :namespace "static"
-                          :name "conflict"
-                          :description "Conflict with one invalid MCP replacement."
-                          :parameters (tool-object-schema (json-object) nil)))
-                       (conflicting-replacement
-                         (make-instance
-                          'tool
-                          :namespace "static"
-                          :name "conflict"
-                          :description "Invalid conflicting MCP replacement."
-                          :parameters (tool-object-schema (json-object) nil)))
-                       (failure nil))
+                      (before-tools
+                        (tool-registry-tools all-tools-registry))
+                      (before-revisions
+                        (copy-list
+                         (mcp-registry-binding-reconciled-revisions binding)))
+                      (static-tool
+                        (make-instance
+                         'tool
+                         :namespace   "static"
+                         :name        "conflict"
+                         :description "Conflict with one invalid MCP replacement."
+                         :parameters  (tool-object-schema (json-object) nil)))
+                      (conflicting-replacement
+                        (make-instance
+                         'tool
+                         :namespace   "static"
+                         :name        "conflict"
+                         :description "Invalid conflicting MCP replacement."
+                         :parameters  (tool-object-schema (json-object) nil)))
+                      (failure nil))
                   (tool-registry-register all-tools-registry static-tool)
                   (setf before-tools (tool-registry-tools all-tools-registry))
                   (setf failure
@@ -3837,7 +3836,7 @@
                    "read file"
                    (mcp-server-runtime-tools runtime)
                    :test #'string=
-                   :key #'mcp-tool-name))
+                   :key  #'mcp-tool-name))
                  (incf (mcp-server-runtime-tools-revision runtime)))
                (mcp-tool-registry-refresh registry :only-dirty-p t)
                (mcp-tool-registry-refresh
@@ -3899,7 +3898,7 @@
   (let* ((configuration (test-configuration))
          (server
            (mcp-server-configuration-create
-            :name "resources-only"
+            :name      "resources-only"
             :transport '(:type :stdio :command "/bin/true")))
          (transport
            (make-instance
@@ -3923,9 +3922,9 @@
          (runtime
            (make-instance
             'mcp-server-runtime
-            :configuration server
+            :configuration       server
             :registration-source ':runtime
-            :provider-namespace "mcp__resources_only"
+            :provider-namespace  "mcp__resources_only"
             :client
             (make-mcp-client transport :name "autolith-test"))))
     (unwind-protect
@@ -3946,10 +3945,10 @@
       (platform-delete-directory-tree
        *platform*
        (test-configuration-root configuration)
-       :validate t
+       :validate          t
        :if-does-not-exist ':ignore)))
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration     (test-configuration))
+         (root              (test-configuration-root configuration))
          (missing-directory
            (namestring
             (merge-pathnames "missing-mcp-directory/" root)))
@@ -3960,8 +3959,8 @@
            (register-mcp-server
             `(:name "optional-missing"
               :transport
-              (:type :stdio
-               :command "/bin/true"
+              (:type      :stdio
+               :command   "/bin/true"
                :directory ,missing-directory)
               :required-p nil)
             :source ':runtime)
@@ -3985,8 +3984,8 @@
            (register-mcp-server
             `(:name "required-missing"
               :transport
-              (:type :stdio
-               :command "/bin/true"
+              (:type      :stdio
+               :command   "/bin/true"
                :directory ,missing-directory)
               :required-p t)
             :source ':runtime)
@@ -4006,10 +4005,9 @@
       (platform-delete-directory-tree
        *platform*
        root
-       :validate t
+       :validate          t
        :if-does-not-exist ':ignore)))
   nil)
-
 
 (-> test-mcp-readable-presentation () null)
 (defun test-mcp-readable-presentation ()
@@ -4018,18 +4016,18 @@
     (multiple-value-bind (manager transport) (test-mcp--manager configuration)
       (declare (ignore transport))
       (unwind-protect
-           (let* ((registry (let ((registry (make-instance 'tool-registry)))
-                              (mcp-tool-registry-register-manager registry manager)
-                              registry))
-                  (tool (test-mcp--tool-with-raw-name registry "read/file"))
+           (let* ((registry    (let ((registry (make-instance 'tool-registry)))
+                                 (mcp-tool-registry-register-manager registry manager)
+                                 registry))
+                  (tool        (test-mcp--tool-with-raw-name registry "read/file"))
                   (application (application-tests--ui-application
                                 :columns 120 :compact-view-p nil))
-                  (call (json-object "type" "function_call"
-                                     "namespace" (tool-namespace tool)
-                                     "name" (tool-name tool)
-                                     "call_id" "readable-mcp"
-                                     "arguments" "{}"))
-                  (wire-json (json-encode call)))
+                  (call        (json-object "type" "function_call"
+                                            "namespace" (tool-namespace tool)
+                                            "name" (tool-name tool)
+                                            "call_id" "readable-mcp"
+                                            "arguments" "{}"))
+                  (wire-json   (json-encode call)))
              (setf (application-tool-registry application) registry)
              (dolist (entry
                       (list
@@ -4062,11 +4060,10 @@
              (test-assert (string= wire-json (json-encode call))
                           "display conversion does not mutate the provider call")
              (test-assert (eq tool (application--find-tool
-                                   application (tool-canonical-name tool)))
+                                    application (tool-canonical-name tool)))
                           "provider dispatch resolves the encoded identity"))
         (mcp-manager-close manager))))
   nil)
-
 
 (-> test-mcp-answer-presentation () null)
 (defun test-mcp-answer-presentation ()
@@ -4075,14 +4072,14 @@
     (multiple-value-bind (manager transport) (test-mcp--manager configuration)
       (declare (ignore transport))
       (unwind-protect
-           (let* ((registry (make-instance 'tool-registry))
+           (let* ((registry     (make-instance 'tool-registry))
                   (conversation (conversation-create configuration))
-                  (context (test-mcp--context configuration conversation registry))
-                  (application (application-tests--ui-application :columns 120)))
+                  (context      (test-mcp--context configuration conversation registry))
+                  (application  (application-tests--ui-application :columns 120)))
              (mcp-tool-registry-register-manager registry manager)
              (setf (application-tool-registry application) registry)
              (dolist (raw-name '("read file" "read/file" "mutate"))
-               (let* ((tool (test-mcp--tool-with-raw-name registry raw-name))
+               (let* ((tool   (test-mcp--tool-with-raw-name registry raw-name))
                       (record (list :tool-result :tool (tool-canonical-name tool)
                                     :status ':ok :output "answer")))
                  (test-assert (null (conversation-record-entry application record))
@@ -4096,20 +4093,20 @@
                        tool context
                        (make-instance
                         'mcp-call-result
-                        :content (list (json-object "type" "text" "text"
-                                                    "{\"btc_price_usd\":82225.0}")
-                                       (json-object "type" "text" "text"
-                                                    "{\"exchange\":\"test-market\"}"))
+                        :content            (list (json-object "type" "text" "text"
+                                                               "{\"btc_price_usd\":82225.0}")
+                                                  (json-object "type" "text" "text"
+                                                               "{\"exchange\":\"test-market\"}"))
                         :structured-content (json-object "updated_at" "2026-10-16")
                         :error-p nil :raw (json-object)))))
                (conversation-append-tool-result
                 conversation "mcp-answer" :tool-name (tool-canonical-name tool)
-                :output (tool-result-content result)
+                :output                              (tool-result-content result)
                 :details (tool-result-details result) :success-p t)
                (setf (application-compact-view-p application) nil)
                (let* ((record (first (conversation-records-newest conversation 1)))
-                      (entry (conversation-record-entry application record))
-                      (text (terminal--spans-text entry)))
+                      (entry  (conversation-record-entry application record))
+                      (text   (terminal--spans-text entry)))
                  (dolist (value '("btc_price_usd" "82225" "exchange" "test-market"
                                   "updated_at" "2026-10-16"))
                    (test-assert (search value text)
@@ -4122,7 +4119,6 @@
                     "MCP content sections share one bounded preview plus an omission row")))))
         (mcp-manager-close manager))))
   nil)
-
 
 (-> test-mcp-malformed-presentation-metadata () null)
 (defun test-mcp-malformed-presentation-metadata ()
@@ -4139,14 +4135,13 @@
                 (:mcp-content :sections . 1)))
       (let* ((record (list :tool-result :tool "unavailable.operation"
                            :status ':ok :output "{\"answer\":42}"
-                           :details details))
-             (entry (conversation-record-entry application record)))
+                           :details     details))
+             (entry  (conversation-record-entry application record)))
         (test-assert (and entry
                           (search "answer" (terminal--spans-text entry))
                           (search "42" (terminal--spans-text entry)))
                      "malformed section metadata cannot prevent transcript replay"))))
   nil)
-
 
 (-> test-mcp-durable-labels () null)
 (defun test-mcp-durable-labels ()
@@ -4155,40 +4150,40 @@
     (multiple-value-bind (manager transport) (test-mcp--manager configuration)
       (declare (ignore transport))
       (unwind-protect
-           (let* ((registry (make-instance 'tool-registry))
+           (let* ((registry     (make-instance 'tool-registry))
                   (conversation (conversation-create configuration))
-                  (application (application-tests--ui-application :columns 160)))
+                  (application  (application-tests--ui-application :columns 160)))
              (mcp-tool-registry-register-manager registry manager)
-             (let* ((tool (test-mcp--tool-with-raw-name registry "read file"))
-                    (label (tool-display-name tool))
-                    (call (json-object "type" "function_call"
-                                       "call_id" "durable-label"
-                                       "namespace" (tool-namespace tool)
-                                       "name" (tool-name tool)
-                                       "arguments" "{}"))
+             (let* ((tool      (test-mcp--tool-with-raw-name registry "read file"))
+                    (label     (tool-display-name tool))
+                    (call      (json-object "type" "function_call"
+                                            "call_id" "durable-label"
+                                            "namespace" (tool-namespace tool)
+                                            "name" (tool-name tool)
+                                            "arguments" "{}"))
                     (wire-json (json-encode call))
-                    (provider (make-instance
-                               'scripted-provider
-                               :results (list (agent-test-result "labels-1" (list call))
-                                              (agent-test-result "labels-2"
-                                                                 (list (agent-test-message "done"))))))
-                    (agent (agent-create :configuration configuration
-                                         :provider provider
-                                         :conversation conversation
-                                         :tool-registry registry :worker ':unused)))
+                    (provider  (make-instance
+                                'scripted-provider
+                                :results (list (agent-test-result "labels-1" (list call))
+                                               (agent-test-result "labels-2"
+                                                                  (list (agent-test-message "done"))))))
+                    (agent     (agent-create :configuration configuration
+                                             :provider      provider
+                                             :conversation  conversation
+                                             :tool-registry registry :worker ':unused)))
                (agent-run-user-turn agent "read the scripted file")
                (mcp-manager-close manager)
                (setf (application-tool-registry application) (make-instance 'tool-registry)
                      (application-compact-view-p application) nil)
-               (let* ((loaded (conversation-load (conversation-pathname conversation)))
-                      (records (let ((records nil))
-                                 (conversation-map-records loaded (lambda (record) (push record records)))
-                                 (nreverse records)))
-                      (call-record (find-if
-                                    (lambda (record)
-                                      (and (eq (first record) ':provider-item)
-                                           (equal (getf (rest record) :wire-json) wire-json)))
-                                    records))
+               (let* ((loaded        (conversation-load (conversation-pathname conversation)))
+                      (records       (let ((records nil))
+                                       (conversation-map-records loaded (lambda (record) (push record records)))
+                                       (nreverse records)))
+                      (call-record   (find-if
+                                      (lambda (record)
+                                        (and (eq (first record) ':provider-item)
+                                             (equal (getf (rest record) :wire-json) wire-json)))
+                                      records))
                       (result-record (find ':tool-result records :key #'first)))
                  (test-assert (and call-record result-record)
                               "the actual agent round persists a call and correlated result")
@@ -4207,11 +4202,11 @@
                                      (conversation-input-items loaded))
                               "presentation sidecars are excluded from provider input")
                  (let* ((handoff (copy-tree result-record))
-                        (job (list :id "saved-label-job" :state ':running)))
+                        (job     (list :id "saved-label-job" :state ':running)))
                    (setf (getf (rest handoff) :details)
                          (list :tool-execution :job job :handed-off-p t :handoff-reason ':grace-expired))
                    (test-assert (search label (terminal--spans-text
-                                              (conversation-record-entry application handoff)))
+                                               (conversation-record-entry application handoff)))
                                 "handoff headers use the saved tool label")))))
         (mcp-manager-close manager))))
   nil)

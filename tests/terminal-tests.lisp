@@ -4,9 +4,9 @@
 
 (defclass recording-terminal (terminal)
   ((chunks
-    :initform nil
-    :accessor recording-terminal-chunks
-    :type list
+    :initform      nil
+    :accessor      recording-terminal-chunks
+    :type          list
     :documentation "Trusted renderer writes captured in reverse chronological order."))
   (:documentation "A deterministic interactive terminal used by terminal seam tests."))
 
@@ -46,24 +46,24 @@
 
 (defclass scripted-terminal (recording-terminal)
   ((events
-    :initarg :events
-    :initform nil
-    :accessor scripted-terminal-events
-    :type list
+    :initarg       :events
+    :initform      nil
+    :accessor      scripted-terminal-events
+    :type          list
     :documentation "Queued semantic input events served to the reader in order.")
    (read-callback
-    :initarg :read-callback
-    :initform nil
-    :reader scripted-terminal-read-callback
-    :type (option function)
+    :initarg       :read-callback
+    :initform      nil
+    :reader        scripted-terminal-read-callback
+    :type          (option function)
     :documentation "The optional callback invoked immediately before returning an event."))
   (:documentation "A recording terminal replaying scripted input events."))
 
 (defclass failing-recording-terminal (recording-terminal)
   ((fail-next-write-p
-    :initform nil
-    :accessor failing-recording-terminal-fail-next-write-p
-    :type boolean
+    :initform      nil
+    :accessor      failing-recording-terminal-fail-next-write-p
+    :type          boolean
     :documentation "Whether the next trusted write should signal a terminal failure."))
   (:documentation "A recording terminal with one explicitly injected write failure."))
 
@@ -73,9 +73,9 @@
       (progn
         (setf (failing-recording-terminal-fail-next-write-p terminal) nil)
         (error 'terminal-error
-               :message "Injected terminal write failure."
+               :message   "Injected terminal write failure."
                :operation ':write
-               :cause nil))
+               :cause     nil))
       (call-next-method)))
 
 (defmethod terminal-read-event ((terminal scripted-terminal))
@@ -125,11 +125,11 @@
        (loop with parameter-start = (1+ start)
              for separator = (or (position #\; text
                                            :start parameter-start
-                                           :end end)
+                                           :end   end)
                                  end)
              for value = (parse-integer text
-                                        :start parameter-start
-                                        :end separator
+                                        :start        parameter-start
+                                        :end          separator
                                         :junk-allowed t)
              thereis (member value '(47 1047 1049))
              while (< separator end)
@@ -186,7 +186,7 @@
 (defun test-terminal-primary-screen-controls ()
   "Test primary-screen rendering, bounded live updates, and finalized deduplication."
   (let* ((terminal (make-instance 'recording-terminal :columns 24))
-         (ui (terminal-ui-create :terminal terminal :prompt "autolith> ")))
+         (ui       (terminal-ui-create :terminal terminal :prompt "autolith> ")))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-set-status active-ui "working")
       (terminal-ui-process-event active-ui '(:insert "hello"))
@@ -214,7 +214,7 @@
 (defun test-terminal-finalized-batch ()
   "Test finalized batches deduplicate entries and use one transcript payload."
   (let* ((terminal (make-instance 'recording-terminal :columns 40))
-         (ui (terminal-ui-create :terminal terminal)))
+         (ui       (terminal-ui-create :terminal terminal)))
     (with-terminal-ui (active-ui ui)
       (recording-terminal-reset terminal)
       (test-assert
@@ -258,7 +258,7 @@
               (not (search "BATCH-OLD" output)))
          "a later batch emits only its newly finalized entry"))))
   (let* ((terminal (make-instance 'failing-recording-terminal :columns 40))
-         (ui (terminal-ui-create :terminal terminal)))
+         (ui       (terminal-ui-create :terminal terminal)))
     (with-terminal-ui (active-ui ui)
       (recording-terminal-reset terminal)
       (setf (failing-recording-terminal-fail-next-write-p terminal) t)
@@ -284,13 +284,13 @@
            (recording-terminal-output terminal))
           1)
        "retry emits the batch exactly once after a pre-write failure"))
-  nil))
+   nil))
 
 (-> test-terminal-untrusted-text () null)
 (defun test-terminal-untrusted-text ()
   "Test that every untrusted text path neutralizes terminal control injection."
-  (let* ((escape (string *terminal-escape-character*))
-         (c1 (string (code-char #x9b)))
+  (let* ((escape   (string *terminal-escape-character*))
+         (c1       (string (code-char #x9b)))
          (malicious
            (concatenate 'string
                         "before"
@@ -300,12 +300,12 @@
                         c1 "?47h"
                         "after"))
          (terminal (make-instance 'recording-terminal :columns 40))
-         (ui (terminal-ui-create :terminal terminal :prompt malicious)))
+         (ui       (terminal-ui-create :terminal terminal :prompt malicious)))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-set-status active-ui malicious)
       (terminal-ui-process-event active-ui (list :paste malicious))
       (terminal-ui-append-finalized active-ui :malicious malicious))
-    (let ((output (recording-terminal-output terminal))
+    (let ((output      (recording-terminal-output terminal))
           (editor-text (line-editor-text (terminal-ui-editor ui))))
       (test-assert
        (not (terminal-tests--forbidden-control-p output))
@@ -319,7 +319,7 @@
 (defun test-terminal-finalized-scrollback ()
   "Test that resize and live activity never replay finalized transcript rows."
   (let* ((terminal (make-instance 'recording-terminal :columns 18))
-         (ui (terminal-ui-create :terminal terminal)))
+         (ui       (terminal-ui-create :terminal terminal)))
     (terminal-ui-start ui)
     (loop for identifier from 1 to 20
           do (terminal-ui-append-finalized
@@ -347,7 +347,7 @@
 (defun test-terminal-resize-frame ()
   "Test that a wider terminal resize replaces the reflowed live region once."
   (let* ((terminal (make-instance 'recording-terminal :columns 8))
-         (ui (terminal-ui-create :terminal terminal)))
+         (ui       (terminal-ui-create :terminal terminal)))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-process-event
        active-ui
@@ -361,11 +361,11 @@
 (-> test-terminal-relayed-resize () null)
 (defun test-terminal-relayed-resize ()
   "Test relayed client resizes reflowing geometry with composition."
-  (let ((*terminal-relayed-resize* nil)
+  (let ((*terminal-relayed-resize*   nil)
         (*terminal-resize-pending-p* nil))
     (let ((localgroup-terminal (make-instance 'localgroup-terminal
                                               :columns 60
-                                              :rows 20)))
+                                              :rows    20)))
       (localgroup-terminal-resize localgroup-terminal 24 120 t)
       (test-assert (= (terminal-columns localgroup-terminal) 60)
                    "a relayed resize packet does not poke dimension slots")
@@ -381,7 +381,7 @@
                  "a consumed relayed size does not repeat")
     (setf *terminal-relayed-resize* (cons 30 100)
           *terminal-resize-pending-p* t)
-    (let ((consume (symbol-function 'terminal-relayed-resize-consume))
+    (let ((consume     (symbol-function 'terminal-relayed-resize-consume))
           (published-p nil))
       (test-call-with-function-replacements
        (list
@@ -404,7 +404,7 @@
                (not *terminal-resize-pending-p*))
           "both resize signals clear after consuming the newer relay"))))
     (let* ((terminal (make-instance 'recording-terminal :columns 60))
-           (ui (terminal-ui-create :terminal terminal)))
+           (ui       (terminal-ui-create :terminal terminal)))
       (with-terminal-ui (active-ui ui)
         (terminal-ui-process-event
          active-ui
@@ -431,8 +431,8 @@
            (format nil "a~Cb~Cc~Cd"
                    #\Tab #\Return *terminal-escape-character*))
          (terminal (make-instance 'recording-terminal :columns 40))
-         (editor (line-editor-create :text raw-content))
-         (ui (terminal-ui-create :terminal terminal :editor editor)))
+         (editor   (line-editor-create :text raw-content))
+         (ui       (terminal-ui-create :terminal terminal :editor editor)))
     (multiple-value-bind (text display cursor)
         (terminal-ui--live-content ui)
       (declare (ignore display cursor))
@@ -440,8 +440,8 @@
        (not (terminal-tests--contains-control-character-p text))
        "externally supplied editor controls are sanitized before display")))
   (let* ((terminal (make-instance 'recording-terminal :columns 12))
-         (editor (line-editor-create :history-limit 2))
-         (ui (terminal-ui-create :terminal terminal :editor editor)))
+         (editor   (line-editor-create :history-limit 2))
+         (ui       (terminal-ui-create :terminal terminal :editor editor)))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-process-event active-ui '(:insert "abc"))
       (terminal-ui-process-event active-ui ':left)
@@ -480,9 +480,9 @@
   (let* ((terminal (make-instance 'recording-terminal :columns 40))
          (editor
            (line-editor-create
-            :history '("older" "newer")
+            :history       '("older" "newer")
             :history-limit 2))
-         (ui (terminal-ui-create :terminal terminal :editor editor)))
+         (ui       (terminal-ui-create :terminal terminal :editor editor)))
     (terminal-ui-set-input ui "draft")
     (terminal-ui-process-event ui :history-previous)
     (terminal-ui-process-event ui :left)
@@ -506,10 +506,10 @@
      (equalp (line-editor-history editor) #("beta" "draft"))
      "replacement history remains extendable and bounded"))
   (let* ((terminal (make-instance 'recording-terminal :columns 40))
-         (editor (line-editor-create))
-         (ui (terminal-ui-create :terminal terminal :editor editor))
-         (entries (loop for index from 0 below 101
-                        collect (format nil "history ~D" index))))
+         (editor   (line-editor-create))
+         (ui       (terminal-ui-create :terminal terminal :editor editor))
+         (entries  (loop for index from 0 below 101
+                         collect (format nil "history ~D" index))))
     (terminal-ui-load-history ui entries)
     (test-assert
      (= (length (line-editor-history editor)) 101)
@@ -533,17 +533,16 @@
      "a newly submitted input follows the complete restored history"))
   nil)
 
-
 (-> test-terminal-image-attachments () null)
 (defun test-terminal-image-attachments ()
   "Test pasted image labels, submission payloads, pruning, and history recall."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (first-image (merge-pathnames "first image.png" root))
-         (second-image (merge-pathnames "second image.png" root))
-         (terminal (make-instance 'recording-terminal :columns 40))
-         (editor (line-editor-create))
-         (ui (terminal-ui-create :terminal terminal :editor editor)))
+         (root          (test-configuration-root configuration))
+         (first-image   (merge-pathnames "first image.png" root))
+         (second-image  (merge-pathnames "second image.png" root))
+         (terminal      (make-instance 'recording-terminal :columns 40))
+         (editor        (line-editor-create))
+         (ui            (terminal-ui-create :terminal terminal :editor editor)))
     (unwind-protect
          (progn
            (test-conversation--write-tiny-png first-image)
@@ -597,15 +596,14 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-terminal-input-decoding () null)
 (defun test-terminal-input-decoding ()
   "Test the application's literal Ctrl-V policy over Clinedi buffered input."
-  (let* ((payload (format nil "first~%second"))
+  (let* ((payload  (format nil "first~%second"))
          (terminal (stream-terminal-create
-                    :input-stream (make-string-input-stream
-                                   (concatenate 'string (string (code-char 22)) payload))
-                    :output-stream (make-string-output-stream)
+                    :input-stream          (make-string-input-stream
+                                            (concatenate 'string (string (code-char 22)) payload))
+                    :output-stream         (make-string-output-stream)
                     :input-file-descriptor -1)))
     (setf (terminal-interactive-p terminal) t)
     (test-assert (equal (terminal-read-event terminal) (list ':paste payload))
@@ -622,11 +620,11 @@
                    (mapcar #'terminal-span-text
                            (terminal-ui--status-row-at ui 0 width)))))
     (let* ((terminal (make-instance 'recording-terminal :columns 120))
-           (ui (terminal-ui-create :terminal terminal)))
+           (ui       (terminal-ui-create :terminal terminal)))
       (with-terminal-ui (active-ui ui)
         (terminal-ui-set-context-usage active-ui
-                                       :used 0
-                                       :window 1050000
+                                       :used             0
+                                       :window           1050000
                                        :compaction-limit 840000)
         (test-assert (terminal-ui--status-row-visible-p active-ui)
                      "context usage keeps the modeline visible while idle")
@@ -634,19 +632,19 @@
          (search "ctx [..........|..] 0 / 1.05M used"
                  (row-text active-ui 120))
          "an empty context meter shows its full window and compaction marker")
-         (terminal-ui-set-idle-status-details
-          active-ui
-          (list (terminal-span ':status-model "gpt-5.6-sol")
-                (terminal-span ':status-dim " · high · git ")
-                (terminal-span ':status-branch "master")))
-         (let ((idle (row-text active-ui 120)))
-           (test-assert
-            (and (search "gpt-5.6-sol · high · git master" idle)
-                 (search "ctx [..........|..] 0 / 1.05M used" idle))
-            "the idle context row fills its left side with static runtime details"))
+        (terminal-ui-set-idle-status-details
+         active-ui
+         (list (terminal-span ':status-model "gpt-5.6-sol")
+               (terminal-span ':status-dim " · high · git ")
+               (terminal-span ':status-branch "master")))
+        (let ((idle (row-text active-ui 120)))
+          (test-assert
+           (and (search "gpt-5.6-sol · high · git master" idle)
+                (search "ctx [..........|..] 0 / 1.05M used" idle))
+           "the idle context row fills its left side with static runtime details"))
         (terminal-ui-set-context-usage active-ui
-                                       :used 262500
-                                       :window 1050000
+                                       :used             262500
+                                       :window           1050000
                                        :compaction-limit 840000)
         (test-assert
          (search "ctx [===.......|..] 263K / 1.05M used"
@@ -654,9 +652,9 @@
          "a quarter-full context meter shows used and window tokens")
         (recording-terminal-reset terminal)
         (terminal-ui-set-context-usage active-ui
-                                       :used 262500
-                                       :estimated-p t
-                                       :window 1050000
+                                       :used             262500
+                                       :estimated-p      t
+                                       :window           1050000
                                        :compaction-limit 840000)
         (test-assert
          (and (terminal-ui-context-estimated-p active-ui)
@@ -670,24 +668,24 @@
                          "compact estimates retain their marker and complete counts")))
         (recording-terminal-reset terminal)
         (terminal-ui-set-context-usage active-ui
-                                       :used 262500
-                                       :window 1050000
+                                       :used             262500
+                                       :window           1050000
                                        :compaction-limit 840000)
         (test-assert
          (and (not (terminal-ui-context-estimated-p active-ui))
               (search "263K / 1.05M used" (recording-terminal-output terminal)))
          "an equal provider-reported count repaints and replaces the estimate")
         (terminal-ui-set-context-usage active-ui
-                                       :used 840000
-                                       :window 1050000
+                                       :used             840000
+                                       :window           1050000
                                        :compaction-limit 840000)
         (test-assert
          (search "ctx [==========|..] 840K / 1.05M used"
                  (row-text active-ui 120))
          "the meter marks the automatic compaction threshold")
         (terminal-ui-set-context-usage active-ui
-                                       :used 262500
-                                       :window 1050000
+                                       :used             262500
+                                       :window           1050000
                                        :compaction-limit 840000)
         (terminal-ui-set-status active-ui "working")
         (let ((wide (row-text active-ui 120)))
@@ -723,8 +721,8 @@
           (test-assert (search "[=..|.] 263K/1.05M" intermediate)
                        "a 33-column meter selects the largest compact bar"))
         (terminal-ui-set-context-usage active-ui
-                                       :used 1050000
-                                       :window 1050000
+                                       :used             1050000
+                                       :window           1050000
                                        :compaction-limit 840000)
         (dolist (width '(24 25 26 27 28 29 30 31 32 33))
           (let ((high-usage (row-text active-ui width)))
@@ -737,8 +735,8 @@
                                  "a high-usage ~D-column meter never overflows its row"
                                  width))))
         (let ((too-narrow (row-text active-ui 24))
-              (minimum (row-text active-ui 25))
-              (preferred (row-text active-ui 26)))
+              (minimum    (row-text active-ui 25))
+              (preferred  (row-text active-ui 26)))
           (test-assert (not (search "REPL  ∙ 00:00" too-narrow))
                        "below the combined minimum, context displaces activity")
           (test-assert
@@ -753,8 +751,8 @@
                                "a high-usage ~D-column meter retains activity"
                                width)))
         (terminal-ui-set-context-usage active-ui
-                                       :used 262500
-                                       :window 1050000
+                                       :used             262500
+                                       :window           1050000
                                        :compaction-limit 840000)
         (dolist (width '(12 13))
           (let ((narrow (row-text active-ui width)))
@@ -783,7 +781,6 @@
                                  width)))))))
   nil)
 
-
 (-> test-terminal-async-lisp-prompt () null)
 (defun test-terminal-async-lisp-prompt ()
   "Test async Lisp prompt classification and rendered editor mapping."
@@ -807,7 +804,7 @@
   (test-assert (not (terminal-ui--lisp-draft-p "? (form"))
                "question-mark drafts do not alter ordinary Lisp classification")
   (let* ((terminal (make-instance 'recording-terminal :columns 40))
-         (ui (terminal-ui-create :terminal terminal :prompt "❯ ")))
+         (ui       (terminal-ui-create :terminal terminal :prompt "❯ ")))
     (terminal-ui-set-input ui "? (+ 1 2)")
     (multiple-value-bind (rows cursor)
         (terminal-ui--prompt-content ui)
@@ -821,13 +818,12 @@
         (test-assert (= cursor 9)
                      "cursor mapping excludes the hidden async Lisp prefix")))))
 
-
 (-> test-terminal-bounded-editor-repaint () null)
 (defun test-terminal-bounded-editor-repaint ()
   "Test atomic repaint and cursor-following height bounds for long drafts."
   (let* ((terminal (make-instance 'recording-terminal :rows 5 :columns 8))
-         (ui (terminal-ui-create :terminal terminal :prompt "❯ "))
-         (draft (make-string 160 :initial-element #\x)))
+         (ui       (terminal-ui-create :terminal terminal :prompt "❯ "))
+         (draft    (make-string 160 :initial-element #\x)))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-append-finalized active-ui :sentinel "HISTORY-SENTINEL")
       (recording-terminal-reset terminal)
@@ -862,15 +858,14 @@
                    "the bounded viewport follows the cursor to the draft start")))
   nil)
 
-
 (-> test-terminal-transient-notice () null)
 (defun test-terminal-transient-notice ()
   "Test transient notices expire without entering terminal scrollback."
-  (let* ((clock 0)
+  (let* ((clock    0)
          (terminal (make-instance 'recording-terminal :columns 60))
-         (ui (terminal-ui-create
-              :terminal terminal
-              :clock-function (lambda () clock))))
+         (ui       (terminal-ui-create
+                    :terminal       terminal
+                    :clock-function (lambda () clock))))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-set-notice
        active-ui
@@ -906,16 +901,16 @@
 (-> test-terminal-notice-lock-contention () null)
 (defun test-terminal-notice-lock-contention ()
   "Test notice updates never wait behind ordinary presentation work."
-  (let* ((terminal (make-instance 'recording-terminal :columns 60))
-         (ui (terminal-ui-create :terminal terminal))
-         (state-lock (make-lock "Autolith notice contention test"))
-         (condition (make-condition-variable
-                     :name "Autolith notice contention test"))
-         (ui-lock-held-p nil)
-         (release-ui-lock-p nil)
+  (let* ((terminal               (make-instance 'recording-terminal :columns 60))
+         (ui                     (terminal-ui-create :terminal terminal))
+         (state-lock             (make-lock "Autolith notice contention test"))
+         (condition              (make-condition-variable
+                                  :name "Autolith notice contention test"))
+         (ui-lock-held-p         nil)
+         (release-ui-lock-p      nil)
          (notice-call-returned-p nil)
-         (holder nil)
-         (setter nil))
+         (holder                 nil)
+         (setter                 nil))
     (terminal-ui-start ui)
     (unwind-protect
          (progn
@@ -965,14 +960,14 @@
 (-> test-terminal-timed-status () null)
 (defun test-terminal-timed-status ()
   "Test status animation, elapsed activity, and stale progress timing."
-  (let* ((clock 0)
+  (let* ((clock       0)
          (clock-calls 0)
-         (terminal (make-instance 'recording-terminal :columns 60))
-         (ui (terminal-ui-create
-              :terminal terminal
-              :clock-function (lambda ()
-                                (incf clock-calls)
-                                clock))))
+         (terminal    (make-instance 'recording-terminal :columns 60))
+         (ui          (terminal-ui-create
+                       :terminal       terminal
+                       :clock-function (lambda ()
+                                         (incf clock-calls)
+                                         clock))))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-set-status active-ui "working")
       (test-assert (= clock-calls 1)
@@ -1035,32 +1030,32 @@
            (and (not (search "working" (second lines)))
                 (search "working" (third lines)))
            "stale timing keeps provider activity below the modeline")))
-       (terminal-ui-set-agent-activities
-        active-ui
-        (list
-         (list :id "active-child"
-               :index 1
-               :agent "reviewer"
-               :state ':running
-               :recent-tools nil
-               :request-count 1
-               :duration-ms 30000
-               :assignment "Review the change."
-               :detached t)))
-       (multiple-value-bind (text display cursor)
-           (terminal-ui--live-content active-ui)
-         (declare (ignore display cursor))
-         (test-assert (not (search "no update" text))
-                      "running child activity suppresses the stale warning")
-         (test-assert (and (search "00:59" text)
-                           (search "active-child" text))
-                      "running child activity keeps compact timing and identity visible"))
-       (terminal-ui-set-agent-activities active-ui nil)
-       (multiple-value-bind (text display cursor)
-           (terminal-ui--live-content active-ui)
-         (declare (ignore display cursor))
-         (test-assert (search "00:59 · no update 00:30" text)
-                      "the stale warning returns after child activity ends"))
+      (terminal-ui-set-agent-activities
+       active-ui
+       (list
+        (list :id            "active-child"
+              :index         1
+              :agent         "reviewer"
+              :state         ':running
+              :recent-tools  nil
+              :request-count 1
+              :duration-ms   30000
+              :assignment    "Review the change."
+              :detached      t)))
+      (multiple-value-bind (text display cursor)
+          (terminal-ui--live-content active-ui)
+        (declare (ignore display cursor))
+        (test-assert (not (search "no update" text))
+                     "running child activity suppresses the stale warning")
+        (test-assert (and (search "00:59" text)
+                          (search "active-child" text))
+                     "running child activity keeps compact timing and identity visible"))
+      (terminal-ui-set-agent-activities active-ui nil)
+      (multiple-value-bind (text display cursor)
+          (terminal-ui--live-content active-ui)
+        (declare (ignore display cursor))
+        (test-assert (search "00:59 · no update 00:30" text)
+                     "the stale warning returns after child activity ends"))
       (terminal-ui-note-status-progress active-ui)
       (test-assert (terminal-ui-refresh-status active-ui)
                    "new progress immediately clears the stale status state")
@@ -1074,14 +1069,14 @@
 (-> test-terminal-compaction-indicator () null)
 (defun test-terminal-compaction-indicator ()
   "Test compaction state, refresh timing, and idempotent lifecycle updates."
-  (let* ((clock 0)
+  (let* ((clock       0)
          (clock-calls 0)
-         (terminal (make-instance 'recording-terminal :columns 60))
-         (ui (terminal-ui-create
-              :terminal terminal
-              :clock-function (lambda ()
-                                (incf clock-calls)
-                                clock))))
+         (terminal    (make-instance 'recording-terminal :columns 60))
+         (ui          (terminal-ui-create
+                       :terminal       terminal
+                       :clock-function (lambda ()
+                                         (incf clock-calls)
+                                         clock))))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-set-status active-ui "working")
       (recording-terminal-reset terminal)
@@ -1130,43 +1125,43 @@
         (test-assert
          (string= (recording-terminal-output terminal) "")
          "repeating cleared compaction does not repaint")))
-  nil))
+   nil))
 
 (-> test-terminal-agent-activities () null)
 (defun test-terminal-agent-activities ()
   "Test bounded cumulative traces and expanded blocking child rows."
-  (let* ((clock 65)
+  (let* ((clock    65)
          (terminal (make-instance 'recording-terminal
-                                  :columns 100
+                                  :columns  100
                                   :styled-p t))
-         (ui (terminal-ui-create
-              :terminal terminal
-              :clock-function (lambda () clock)))
+         (ui       (terminal-ui-create
+                    :terminal       terminal
+                    :clock-function (lambda () clock)))
          (activities
            (list
-            (list :id "review-agent-2"
-                  :index 2
-                  :agent "reviewer"
-                  :state ':running
-                  :current-tool "lisp.eval"
+            (list :id                       "review-agent-2"
+                  :index                    2
+                  :agent                    "reviewer"
+                  :state                    ':running
+                  :current-tool             "lisp.eval"
                   :current-tool-duration-ms 60000
-                  :recent-tools '("search.content" "resource.read")
-                  :request-count 1
-                  :duration-ms 65000
-                  :assignment "Review the finished patch."
-                  :detached nil)
-            (list :id "search-1"
-                  :index 1
-                  :agent "explorer"
-                  :state ':running
-                  :current-tool "lisp.eval"
+                  :recent-tools             '("search.content" "resource.read")
+                  :request-count            1
+                  :duration-ms              65000
+                  :assignment               "Review the finished patch."
+                  :detached                 nil)
+            (list :id                       "search-1"
+                  :index                    1
+                  :agent                    "explorer"
+                  :state                    ':running
+                  :current-tool             "lisp.eval"
                   :current-tool-duration-ms 60000
                   :recent-tools
                   '("search.files" "search.glob" "resource.read" "lisp.load-system")
-                  :request-count 2
-                  :duration-ms 65000
-                  :assignment "Locate the scheduler."
-                  :detached t))))
+                  :request-count            2
+                  :duration-ms              65000
+                  :assignment               "Locate the scheduler."
+                  :detached                 t))))
     (let ((oversized-activity (copy-list (first activities))))
       (setf (getf oversized-activity :recent-tools)
             (loop repeat (1+ *task-progress-recent-tool-limit*)
@@ -1190,8 +1185,8 @@
       (multiple-value-bind (text display cursor)
           (terminal-ui--live-content active-ui clock)
         (declare (ignore cursor))
-        (let* ((lines (uiop:split-string text :separator '(#\Newline)))
-               (header-index (position "agents 2" lines :test #'string=))
+        (let* ((lines         (uiop:split-string text :separator '(#\Newline)))
+               (header-index  (position "agents 2" lines :test #'string=))
                (search-index
                  (position-if (lambda (line)
                                 (search "search-1" line))
@@ -1208,8 +1203,8 @@
                  (position-if (lambda (line)
                                 (search "REPL " line))
                               lines))
-               (search-line (and search-index (nth search-index lines)))
-               (review-line (and review-index (nth review-index lines)))
+               (search-line   (and search-index (nth search-index lines)))
+               (review-line   (and review-index (nth review-index lines)))
                (expanded-line (and expanded-index
                                    (nth expanded-index lines)))
                (search-role-position
@@ -1299,17 +1294,17 @@
       (terminal-ui-set-agent-activities
        active-ui
        (list
-        (list :id "blocking-queued"
-              :index 1
-              :agent "reviewer"
-              :state ':queued
-              :current-tool nil
+        (list :id                       "blocking-queued"
+              :index                    1
+              :agent                    "reviewer"
+              :state                    ':queued
+              :current-tool             nil
               :current-tool-duration-ms nil
-              :recent-tools nil
-              :request-count 0
-              :duration-ms nil
-              :assignment "Wait for the implementation."
-              :detached nil)))
+              :recent-tools             nil
+              :request-count            0
+              :duration-ms              nil
+              :assignment               "Wait for the implementation."
+              :detached                 nil)))
       (terminal-ui-refresh-status active-ui)
       (multiple-value-bind (text display cursor)
           (terminal-ui--live-content active-ui clock)
@@ -1321,17 +1316,17 @@
       (let ((many-activities
               (loop for index from 1 to 10
                     collect
-                    (list :id (format nil "worker-~D" index)
-                          :index index
-                          :agent "worker"
-                          :state ':queued
-                          :current-tool nil
+                    (list :id                       (format nil "worker-~D" index)
+                          :index                    index
+                          :agent                    "worker"
+                          :state                    ':queued
+                          :current-tool             nil
                           :current-tool-duration-ms nil
-                          :recent-tools nil
-                          :request-count 0
-                          :duration-ms nil
-                          :assignment "Wait for capacity."
-                          :detached t))))
+                          :recent-tools             nil
+                          :request-count            0
+                          :duration-ms              nil
+                          :assignment               "Wait for capacity."
+                          :detached                 t))))
         (terminal-ui-set-agent-activities active-ui many-activities)
         (terminal-ui-refresh-status active-ui)
         (multiple-value-bind (text display cursor)
@@ -1353,28 +1348,28 @@
         (declare (ignore display cursor))
         (test-assert (not (search "agents " text))
                      "terminal child state disappears when no jobs remain"))))
-  (let* ((short-clock 65)
+  (let* ((short-clock    65)
          (short-terminal (make-instance 'recording-terminal
                                         :columns 80
-                                        :rows 10))
+                                        :rows    10))
          (short-ui
            (terminal-ui-create
-            :terminal short-terminal
+            :terminal       short-terminal
             :clock-function (lambda () short-clock)))
          (blocking-activities
            (loop for index from 1 to 8
                  collect
-                 (list :id (format nil "worker-~D" index)
-                       :index index
-                       :agent "reviewer"
-                       :state ':running
-                       :current-tool "lisp.eval"
+                 (list :id                       (format nil "worker-~D" index)
+                       :index                    index
+                       :agent                    "reviewer"
+                       :state                    ':running
+                       :current-tool             "lisp.eval"
                        :current-tool-duration-ms 60000
-                       :recent-tools '("resource.read")
-                       :request-count 1
-                       :duration-ms 65000
-                       :assignment "Review the implementation."
-                       :detached nil))))
+                       :recent-tools             '("resource.read")
+                       :request-count            1
+                       :duration-ms              65000
+                       :assignment               "Review the implementation."
+                       :detached                 nil))))
     (with-terminal-ui (active-ui short-ui)
       (terminal-ui-set-status active-ui "working")
       (terminal-ui-set-agent-activities active-ui blocking-activities)
@@ -1404,10 +1399,10 @@
 (defun test-terminal-rlm-activities ()
   "Test RLM grouping, reader animation, viewport bounds and real stale timing."
   (dolist (fullscreen-p '(nil t))
-    (let* ((clock 100)
+    (let* ((clock    100)
            (terminal (make-instance 'recording-terminal :columns 100 :rows 40))
-           (ui (terminal-ui-create :terminal terminal :fullscreen-p fullscreen-p
-                                   :clock-function (lambda () clock)))
+           (ui       (terminal-ui-create :terminal terminal :fullscreen-p fullscreen-p
+                                         :clock-function (lambda () clock)))
            (inference
              (list :id "exec:rlm" :type ':tool :index 2 :tool "rlm.map"
                    :description "frame 2/4 · request 1 · 6 calls left"
@@ -1438,13 +1433,13 @@
           (dolist (width '(100 24))
             (setf (terminal-rows terminal) height
                   (terminal-columns terminal) width)
-            (let* ((command-rows (terminal-ui--command-activity-rows-at
-                                   active-ui clock width))
+            (let* ((command-rows   (terminal-ui--command-activity-rows-at
+                                     active-ui clock width))
                    (inference-rows (terminal-ui--command-activity-rows-at
                                      active-ui clock width t))
-                   (agent-rows (terminal-ui--agent-activity-rows-at
-                                 active-ui clock width))
-                   (rows (append command-rows inference-rows agent-rows)))
+                   (agent-rows     (terminal-ui--agent-activity-rows-at
+                                     active-ui clock width))
+                   (rows           (append command-rows inference-rows agent-rows)))
               (test-assert
                (and (<= (length rows) (terminal-ui--activity-row-budget active-ui))
                     (every (lambda (row) (<= (terminal--spans-width row) width)) rows))
@@ -1476,14 +1471,14 @@
 (-> test-terminal-command-activities () null)
 (defun test-terminal-command-activities ()
   "Test primary command rows, timing, completion retention, and row bounds."
-  (let* ((clock 65)
+  (let* ((clock    65)
          (terminal (make-instance 'recording-terminal
-                                  :columns 90
-                                  :rows 12
+                                  :columns  90
+                                  :rows     12
                                   :styled-p t))
-         (ui (terminal-ui-create
-              :terminal terminal
-              :clock-function (lambda () clock)))
+         (ui       (terminal-ui-create
+                    :terminal       terminal
+                    :clock-function (lambda () clock)))
          (commands
            (list
             (list :id "exec:2" :type ':tool :index 2
@@ -1540,10 +1535,10 @@
        "command and child strips share the live-region viewport budget")
       (dolist (height '(40 12 8 6))
         (setf (terminal-rows terminal) height)
-        (let* ((lines (mapcar #'terminal--spans-text
-                              (terminal-ui--live-prefix-rows active-ui clock)))
+        (let* ((lines          (mapcar #'terminal--spans-text
+                                       (terminal-ui--live-prefix-rows active-ui clock)))
                (command-header (position "commands 2" lines :test #'string=))
-               (agent-header (position "agents 1" lines :test #'string=)))
+               (agent-header   (position "agents 1" lines :test #'string=)))
           (when (= height 40)
             (test-assert (and command-header agent-header)
                          "both activity labels fit in a tall viewport"))
@@ -1580,11 +1575,11 @@
        (and (null (terminal-ui-command-activities active-ui))
             (null (terminal-ui-command-pending-completions active-ui)))
        "painted command rows clear at terminal state")))
-  (let* ((clock 0)
+  (let* ((clock    0)
          (terminal (make-instance 'recording-terminal :columns 80 :rows 8))
-         (ui (terminal-ui-create
-              :terminal terminal
-              :clock-function (lambda () clock)))
+         (ui       (terminal-ui-create
+                    :terminal       terminal
+                    :clock-function (lambda () clock)))
          (command-a
            (list :id "exec:1" :type ':tool :index 1
                  :tool "shell.run" :description "Command A"
@@ -1644,7 +1639,7 @@
 (defun test-terminal-stream-update ()
   "Test continuous streamed blocks, fluid tail repaint, and block completion."
   (let* ((terminal (make-instance 'recording-terminal :columns 40))
-         (ui (terminal-ui-create :terminal terminal :placeholder "hint")))
+         (ui       (terminal-ui-create :terminal terminal :placeholder "hint")))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-set-cursor-visible active-ui nil)
       (recording-terminal-reset terminal)
@@ -1674,8 +1669,8 @@
        active-ui
        :tail (list (list (terminal-span ':plain "  alpha beta gamma"))
                    (list (terminal-span ':plain "  delta epsilon"))))
-      (let* ((output (recording-terminal-output terminal))
-             (first-row (search "  alpha beta gamma" output))
+      (let* ((output     (recording-terminal-output terminal))
+             (first-row  (search "  alpha beta gamma" output))
              (second-row (search "  delta epsilon" output)))
         (test-assert (and first-row second-row (< first-row second-row))
                      "a fluid update paints every speculative wrapped row"))
@@ -1710,8 +1705,8 @@
                    "the input cursor can be restored after streaming")))
   (let* ((terminal (make-instance 'recording-terminal
                                   :columns 40
-                                  :rows 10))
-         (ui (terminal-ui-create :terminal terminal :placeholder "hint")))
+                                  :rows    10))
+         (ui       (terminal-ui-create :terminal terminal :placeholder "hint")))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-set-status active-ui "receiving response")
       (terminal-ui-set-notice active-ui "Notice" :duration-seconds 100)
@@ -1744,8 +1739,8 @@
              (:name "/quit" :argument nil :description "leave Autolith")
              (:name "/exit" :argument nil :description "leave Autolith (alias of /quit)"
               :primary "/quit")))
-         (ui (terminal-ui-create :terminal terminal
-                                 :completions completions)))
+         (ui       (terminal-ui-create :terminal    terminal
+                                       :completions completions)))
     (with-terminal-ui (active-ui ui)
       (let ((editor (terminal-ui-editor active-ui)))
         (flet ((matching-names ()
@@ -1774,11 +1769,11 @@
            "descriptions start four cells after the widest visible label")
           (test-assert (not (search "/quit" painted))
                        "commands outside the typed prefix are not suggested"))
-          (recording-terminal-reset terminal)
-          (terminal-ui-process-event active-ui :escape)
-          (test-assert (not (search "/resume ID"
-                                    (recording-terminal-output terminal)))
-                       "escape hides a passive completion menu")
+        (recording-terminal-reset terminal)
+        (terminal-ui-process-event active-ui :escape)
+        (test-assert (not (search "/resume ID"
+                                  (recording-terminal-output terminal)))
+                     "escape hides a passive completion menu")
         (terminal-ui-process-event active-ui :complete)
         (test-assert (string= (line-editor-text editor) "/rollback ")
                      "tab cycles to and previews the next command")
@@ -1827,12 +1822,12 @@
         (test-assert (not (search "leave Autolith"
                                   (recording-terminal-output terminal)))
                      "history recall does not paint command suggestions")
-         (test-assert
-          (not (terminal-ui-completion-menu-present-p active-ui))
-          "history traversal makes retained completion state non-renderable")
-         (test-assert
-          (null (selector-items (terminal-ui-completion-selector active-ui)))
-          "history traversal clears stale completion selector items")
+        (test-assert
+         (not (terminal-ui-completion-menu-present-p active-ui))
+         "history traversal makes retained completion state non-renderable")
+        (test-assert
+         (null (selector-items (terminal-ui-completion-selector active-ui)))
+         "history traversal clears stale completion selector items")
         (recording-terminal-reset terminal)
         (terminal-ui-process-event active-ui :up)
         (test-assert (string= (line-editor-text editor) "/help")
@@ -1915,7 +1910,7 @@
           (terminal-ui-set-input
            active-ui
            (user-message-input-create
-            :text "[Image #1] revise"
+            :text            "[Image #1] revise"
             :image-pathnames (list image)))
           (multiple-value-bind (action payload)
               (terminal-ui-process-event
@@ -1931,9 +1926,9 @@
   (let* ((terminal (make-instance 'recording-terminal :columns 60))
          (completions
            '((:name "/help" :argument nil :description "show this reference")))
-         (ui (terminal-ui-create
-              :terminal terminal
-              :completion-function (lambda () completions))))
+         (ui       (terminal-ui-create
+                    :terminal            terminal
+                    :completion-function (lambda () completions))))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-process-event active-ui '(:insert "/n"))
       (test-assert
@@ -1945,7 +1940,7 @@
       (test-assert
        (find "/new"
              (terminal-ui--matching-completions active-ui)
-             :key (lambda (entry) (getf entry :name))
+             :key  (lambda (entry) (getf entry :name))
              :test #'string=)
        "dynamic command completion observes registry changes without rebuilding UI")))
   nil)
@@ -1954,22 +1949,22 @@
 (defun test-terminal-lisp-operation-completion ()
   "Test registered parenthesized operation suggestions and acceptance."
   (let* ((terminal (make-instance 'recording-terminal :columns 72))
-          (completions
-            '((:name "/help" :argument nil :description "show this reference")
-              (:name "/ste" :argument "[on|off]" :description "toggle STE")
-              (:name "/ste on" :argument nil :description "enable STE"
-               :primary "/ste")
-              (:name "/ste off" :argument nil :description "disable STE"
-               :primary "/ste")
-              (:name "(help)" :argument nil :description "show this reference")
-              (:name "(ste" :argument "[on|off])" :description "toggle STE")
-              (:name "(ste \"on\")" :argument nil :description "enable STE"
-               :primary "(ste")
-              (:name "(ste \"off\")" :argument nil :description "disable STE"
-               :primary "(ste")
-              (:name "(resource.read" :argument ":uri URI)"
-               :description "read one resource")))
-         (ui (terminal-ui-create :terminal terminal :completions completions)))
+         (completions
+           '((:name "/help" :argument nil :description "show this reference")
+             (:name "/ste" :argument "[on|off]" :description "toggle STE")
+             (:name "/ste on" :argument nil :description "enable STE"
+              :primary "/ste")
+             (:name "/ste off" :argument nil :description "disable STE"
+              :primary "/ste")
+             (:name "(help)" :argument nil :description "show this reference")
+             (:name "(ste" :argument "[on|off])" :description "toggle STE")
+             (:name "(ste \"on\")" :argument nil :description "enable STE"
+              :primary "(ste")
+             (:name "(ste \"off\")" :argument nil :description "disable STE"
+              :primary "(ste")
+             (:name "(resource.read" :argument ":uri URI)"
+              :description "read one resource")))
+         (ui       (terminal-ui-create :terminal terminal :completions completions)))
     (with-terminal-ui (active-ui ui)
       (let ((editor (terminal-ui-editor active-ui)))
         (recording-terminal-reset terminal)
@@ -2035,7 +2030,6 @@
            "Lisp argument prefixes offer the same finite command options")))))
   nil)
 
-
 (-> test-terminal-path-completion-write (pathname string) null)
 (defun test-terminal-path-completion-write (pathname contents)
   "Write CONTENTS to PATHNAME, creating parent directories as needed."
@@ -2054,7 +2048,7 @@
             (uiop:temporary-directory)))))
     (unwind-protect
          (let* ((docs (merge-pathnames "docs/" root))
-                (git (merge-pathnames ".git/" root)))
+                (git  (merge-pathnames ".git/" root)))
            (test-terminal-path-completion-write
             (merge-pathnames "documentation.org" docs) "docs")
            (test-terminal-path-completion-write
@@ -2105,7 +2099,7 @@
            (test-assert (null (terminal-path-completion-entries root "/docs/g"))
                         "a slash path without @ does not complete")
            (let ((entries (terminal-path-completion-entries root "@"))
-                 (names nil))
+                 (names   nil))
              (setf names (mapcar (lambda (entry) (getf entry :name)) entries))
              (test-assert (member "docs/" names :test #'string=)
                           "@ lists workspace directories with a trailing slash")
@@ -2116,18 +2110,18 @@
                                  entries)
                           "path entries are insert-only"))
            (let* ((terminal (make-instance 'recording-terminal :columns 72))
-                  (ui (terminal-ui-create
-                       :terminal terminal
-                       :completion-root root
-                       :completions
-                       '((:name "/help" :argument nil
-                          :description "show this reference")))))
+                  (ui       (terminal-ui-create
+                             :terminal        terminal
+                             :completion-root root
+                             :completions
+                             '((:name "/help" :argument nil
+                                :description "show this reference")))))
              (with-terminal-ui (active-ui ui)
                (terminal-ui-set-input active-ui "/help")
                (test-assert
                 (find "/help"
                       (terminal-ui--matching-completions active-ui)
-                      :key (lambda (entry) (getf entry :name))
+                      :key  (lambda (entry) (getf entry :name))
                       :test #'string=)
                 "slash commands still win over path completion")
                (terminal-ui-set-input active-ui "/docs/docu")
@@ -2169,24 +2163,23 @@
                (test-assert (null (terminal-ui--matching-completions active-ui))
                             "operation arguments still do not complete as paths"))))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
-
 
 (-> test-terminal-path-completion-history () null)
 (defun test-terminal-path-completion-history ()
   "Test @ file completion on a recalled history draft."
   (let* ((terminal (make-instance 'recording-terminal :columns 72))
-         (editor (line-editor-create
-                  :history '("see docs" "see @g")
-                  :history-limit 8))
-         (ui (terminal-ui-create
-              :terminal terminal
-              :editor editor
-              :path-search-function
-              (lambda (query)
-                (list (format nil "hit-~A" query))))))
+         (editor   (line-editor-create
+                    :history       '("see docs" "see @g")
+                    :history-limit 8))
+         (ui       (terminal-ui-create
+                    :terminal terminal
+                    :editor   editor
+                    :path-search-function
+                    (lambda (query)
+                      (list (format nil "hit-~A" query))))))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-process-event active-ui :history-previous)
       (test-assert (string= (line-editor-text editor) "see @g")
@@ -2218,15 +2211,12 @@
                    "tab accepts an @ mention on an edited history draft")))
   nil)
 
-
-
-
 (-> test-terminal-modal-selection () null)
 (defun test-terminal-modal-selection ()
   "Test application picker metadata, callbacks, draft preservation and resize."
-  (let* ((terminal (make-instance 'scripted-terminal
-                                  :events '((:insert "beta") :submit) :columns 40))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((terminal  (make-instance 'scripted-terminal
+                                   :events '((:insert "beta") :submit) :columns 40))
+         (ui        (terminal-ui-create :terminal terminal))
          (resized-p nil))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-set-input active-ui "draft")
@@ -2255,7 +2245,7 @@
                      (unless replaced-p
                        (setf replaced-p t)
                        '(:replace "new title" ((:name "same" :description "" :value "old-value")
-                                                (:name "same" :description "" :value "new-value"))
+                                               (:name "same" :description "" :value "new-value"))
                                   "new hint" "new-value")))))
          "application callback replacement keeps title, hint and explicit identity semantics"))
       (setf (scripted-terminal-events terminal) '(:down :refresh :submit))
@@ -2273,22 +2263,18 @@
        "a replacement without an explicit identity keeps the moved selection")))
   nil)
 
-
-
-
-
 (-> test-terminal-fullscreen-picker-capacity () null)
 (defun test-terminal-fullscreen-picker-capacity ()
   "Keep a twenty-entry picker navigable across terminal height changes."
   (dolist (height '(40 24 12))
-    (let* ((events (append (make-list 25 :initial-element ':down)
-                           '(:inspect :shrink :inspect :grow :inspect :submit)))
-           (terminal (make-instance 'scripted-terminal :events events
-                                                      :columns 100 :rows height))
-           (ui (terminal-ui-create :terminal terminal :fullscreen-p t))
-           (items (loop for index below 30
-                        collect (list :name (format nil "provider-~2,'0D" index)
-                                      :description "registered provider")))
+    (let* ((events      (append (make-list 25 :initial-element ':down)
+                                '(:inspect :shrink :inspect :grow :inspect :submit)))
+           (terminal    (make-instance 'scripted-terminal :events events
+                                                         :columns 100 :rows height))
+           (ui          (terminal-ui-create :terminal terminal :fullscreen-p t))
+           (items       (loop for index below 30
+                              collect (list :name        (format nil "provider-~2,'0D" index)
+                                            :description "registered provider")))
            (inspections 0))
       (with-terminal-ui (active-ui ui)
         (test-assert
@@ -2328,7 +2314,7 @@
        (:name "Boot screen duration" :group "terminal" :detail "3.5" :description "default")
        (:name "Model" :group "model" :detail "gpt-6.1-sol" :description "environment")))
     (let* ((rows (mapcar #'terminal--spans-text (terminal-ui--choice-rows selector 80)))
-           (row (lambda (label) (find-if (lambda (text) (search label text)) rows))))
+           (row  (lambda (label) (find-if (lambda (text) (search label text)) rows))))
       (test-assert (and (find "terminal" rows :test #'search)
                         (find "model" rows :test #'search))
                    "each group is announced by a heading row")
@@ -2341,7 +2327,6 @@
                       (search "environment" (funcall row "Model")))
                    "descriptions start in one column after the widest detail")))
   nil)
-
 
 (-> terminal-tests--call-without-host-size (function) t)
 (defun terminal-tests--call-without-host-size (function)
@@ -2358,26 +2343,23 @@ Resize tests drive size changes through COLUMNS and LINES."
                    (values nil nil))))
      function)))
 
-
-
-
 (-> test-terminal-application-read-resize () null)
 (defun test-terminal-application-read-resize ()
   "Test that the outer application refreshes size before dispatching a read event."
-  (let* ((previous-columns (uiop:getenv "COLUMNS"))
-         (previous-lines (uiop:getenv "LINES"))
+  (let* ((previous-columns            (uiop:getenv "COLUMNS"))
+         (previous-lines              (uiop:getenv "LINES"))
          (*terminal-resize-pending-p* nil)
          (terminal
            (make-instance
             'scripted-terminal
             :columns 60
-            :events (list :submit)
+            :events  (list :submit)
             :read-callback
             (lambda ()
               (platform-setenv "COLUMNS" "19")
               (platform-setenv "LINES" "9")
               (setf *terminal-resize-pending-p* t))))
-         (ui (terminal-ui-create :terminal terminal)))
+         (ui                          (terminal-ui-create :terminal terminal)))
     (unwind-protect
          (terminal-tests--call-without-host-size
           (lambda ()
@@ -2402,15 +2384,14 @@ Resize tests drive size changes through COLUMNS and LINES."
           (platform-unsetenv "LINES"))))
   nil)
 
-
 (-> test-terminal-non-tty-fallback () null)
 (defun test-terminal-non-tty-fallback ()
   "Test application submission and transcript output through non-TTY transport."
-  (let* ((output (make-string-output-stream))
+  (let* ((output   (make-string-output-stream))
          (terminal (stream-terminal-create
                     :input-stream (make-string-input-stream (format nil "fallback input~%"))
                     :output-stream output :input-file-descriptor -1 :columns 20))
-         (ui (terminal-ui-create :terminal terminal)))
+         (ui       (terminal-ui-create :terminal terminal)))
     (with-terminal-ui (active-ui ui)
       (multiple-value-bind (action submitted)
           (terminal-ui-process-event active-ui (terminal-ui-read-event active-ui))
@@ -2424,9 +2405,6 @@ Resize tests drive size changes through COLUMNS and LINES."
                    "fallback transcript output contains no terminal controls")))
   nil)
 
-
-
-
 (-> test-terminal-prompt-markers () null)
 (defun test-terminal-prompt-markers ()
   "Test OSC 133 terminal output and its semantic UI lifecycle."
@@ -2436,17 +2414,17 @@ Resize tests drive size changes through COLUMNS and LINES."
                    payload
                    *terminal-escape-character*
                    #\\)))
-    (let ((prompt-start (expected-marker "A;redraw=0"))
-          (input-start (expected-marker "B"))
+    (let ((prompt-start    (expected-marker "A;redraw=0"))
+          (input-start     (expected-marker "B"))
           (execution-start (expected-marker "C"))
-          (success (expected-marker "D;0"))
-          (failure (expected-marker "D;7")))
+          (success         (expected-marker "D;0"))
+          (failure         (expected-marker "D;7")))
       (let ((terminal
               (make-instance 'prompt-recording-terminal
-                             :input-stream (make-string-input-stream "")
-                             :output-stream (make-string-output-stream)
+                             :input-stream          (make-string-input-stream "")
+                             :output-stream         (make-string-output-stream)
                              :input-file-descriptor 0
-                             :interactive-p t)))
+                             :interactive-p         t)))
         (test-assert
          (and (terminal-write-prompt-marker terminal ':prompt-start)
               (equal (reverse
@@ -2463,8 +2441,8 @@ Resize tests drive size changes through COLUMNS and LINES."
          "a noninteractive terminal emits and flushes no prompt marker"))
       (let* ((terminal
                (make-instance 'recording-terminal
-                              :columns 72
-                              :rows 24
+                              :columns  72
+                              :rows     24
                               :styled-p t))
              (ui (terminal-ui-create :terminal terminal)))
         (with-terminal-ui (active-ui ui)
@@ -2477,7 +2455,7 @@ Resize tests drive size changes through COLUMNS and LINES."
              (and (terminal-ui-open-prompt-block active-ui)
                   (not (terminal-ui-open-prompt-block active-ui)))
              "one idle prompt emits its boundaries only once")
-            (let* ((chunks (reverse (recording-terminal-chunks terminal)))
+            (let* ((chunks          (reverse (recording-terminal-chunks terminal)))
                    (prompt-position (position prompt-start chunks
                                               :test #'string=))
                    (retraction
@@ -2514,11 +2492,11 @@ Resize tests drive size changes through COLUMNS and LINES."
                 (not (terminal-ui-finish-prompt-block active-ui 7))
                 (terminal-ui-open-prompt-block active-ui))
            "one execution completes once before the next prompt opens")
-          (let* ((output (recording-terminal-output terminal))
+          (let* ((output       (recording-terminal-output terminal))
                  (first-prompt (search prompt-start output))
-                 (first-input (search input-start output))
-                 (execution (search execution-start output))
-                 (completion (search failure output))
+                 (first-input  (search input-start output))
+                 (execution    (search execution-start output))
+                 (completion   (search failure output))
                  (second-prompt
                    (and first-prompt
                         (search prompt-start output
@@ -2557,7 +2535,7 @@ Resize tests drive size changes through COLUMNS and LINES."
           (terminal-ui-stop ui)))
       (let* ((terminal
                (make-instance 'recording-terminal :columns 40))
-             (ui (terminal-ui-create :terminal terminal))
+             (ui           (terminal-ui-create :terminal terminal))
              (stop-failure (expected-marker "D;1")))
         (terminal-ui-start ui)
         (recording-terminal-reset terminal)
@@ -2579,9 +2557,9 @@ Resize tests drive size changes through COLUMNS and LINES."
   (let* ((ui
            (terminal-ui-create
             :terminal (make-instance 'recording-terminal :columns 80)))
-         (lock (terminal-ui-lock ui))
-         (grab-mutex (symbol-function 'sb-thread:grab-mutex))
-         (interrupted-p nil)
+         (lock           (terminal-ui-lock ui))
+         (grab-mutex     (symbol-function 'sb-thread:grab-mutex))
+         (interrupted-p  nil)
          (function-ran-p nil))
     (handler-case
         (test-call-with-function-replacements
@@ -2641,16 +2619,16 @@ Resize tests drive size changes through COLUMNS and LINES."
 (-> test-terminal-status-worked-time () null)
 (defun test-terminal-status-worked-time ()
   "Test the right-aligned total worked time on the status row."
-  (let* ((columns 96)
+  (let* ((columns  96)
          (terminal (make-instance 'recording-terminal
-                                  :columns columns
+                                  :columns  columns
                                   :styled-p t))
-         (ui (terminal-ui-create :terminal terminal)))
+         (ui       (terminal-ui-create :terminal terminal)))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-set-status
        active-ui
        "working"
-       :details (list (terminal-span ':status-model "model"))
+       :details        (list (terminal-span ':status-model "model"))
        :worked-seconds 3723)
       (multiple-value-bind (text display cursor)
           (terminal-ui--live-content
@@ -2672,11 +2650,11 @@ Resize tests drive size changes through COLUMNS and LINES."
       (terminal-ui-set-status active-ui nil)
       (test-assert (null (terminal-ui-status-worked-seconds active-ui))
                    "clearing the status clears the worked baseline")))
-  (let* ((columns 24)
+  (let* ((columns  24)
          (terminal (make-instance 'recording-terminal
-                                  :columns columns
+                                  :columns  columns
                                   :styled-p t))
-         (ui (terminal-ui-create :terminal terminal)))
+         (ui       (terminal-ui-create :terminal terminal)))
     (with-terminal-ui (active-ui ui)
       (terminal-ui-set-status active-ui "working" :worked-seconds 3723)
       (multiple-value-bind (text display cursor)
@@ -2689,7 +2667,6 @@ Resize tests drive size changes through COLUMNS and LINES."
           (test-assert (not (search "worked" status-row))
                        "a narrow status row drops the worked segment first")))))
   nil)
-
 
 (defclass prompt-recording-terminal (stream-terminal)
   ((chunks :initform nil :accessor prompt-recording-terminal-chunks
@@ -2711,4 +2688,3 @@ Resize tests drive size changes through COLUMNS and LINES."
 (defun prompt-recording-terminal-write-count (terminal)
   "Return the number of captured prompt marker writes."
   (length (prompt-recording-terminal-chunks terminal)))
-

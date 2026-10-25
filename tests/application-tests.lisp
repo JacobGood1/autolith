@@ -13,12 +13,11 @@
     (make-instance 'application
                    :configuration (make-configuration
                                    :reasoning-traces-p reasoning-traces-p
-                                   :compact-view-p compact-view-p)
+                                   :compact-view-p     compact-view-p)
                    :tool-registry (make-default-tool-registry)
-                   :ui (terminal-ui-create
-                        :terminal (make-instance 'recording-terminal
-                                                 :columns columns)))))
-
+                   :ui            (terminal-ui-create
+                                   :terminal (make-instance 'recording-terminal
+                                                            :columns columns)))))
 
 (-> test-presentation-configuration-isolation () null)
 (defun test-presentation-configuration-isolation ()
@@ -32,7 +31,7 @@
                 (push (list target name value) writes)
                 nil)))
        (lambda ()
-         (let* ((application (application-tests--ui-application))
+         (let* ((application  (application-tests--ui-application))
                 (presentation (application-configuration application)))
            (test-assert (null (setinka:configuration-store presentation))
                         "Recording UI configuration must not own a durable store.")
@@ -47,14 +46,14 @@
 
 (defclass cursor-observing-provider (scripted-provider)
   ((visibility-function
-    :initarg :visibility-function
-    :reader cursor-observing-provider-visibility-function
-    :type function
+    :initarg       :visibility-function
+    :reader        cursor-observing-provider-visibility-function
+    :type          function
     :documentation "Function reporting live-region cursor visibility.")
    (visible-during-request-p
-    :initform t
-    :accessor cursor-observing-provider-visible-during-request-p
-    :type boolean
+    :initform      t
+    :accessor      cursor-observing-provider-visible-during-request-p
+    :type          boolean
     :documentation "Cursor visibility observed when a provider request begins."))
   (:documentation "A scripted provider recording cursor state during a request."))
 
@@ -70,29 +69,29 @@
 
 (defclass gated-provider (scripted-provider)
   ((gate-lock
-    :initform (make-lock "Autolith gated provider")
-    :reader gated-provider-lock
-    :type t
+    :initform      (make-lock "Autolith gated provider")
+    :reader        gated-provider-lock
+    :type          t
     :documentation "The lock protecting deterministic provider timing.")
    (gate-condition-variable
-    :initform (make-condition-variable :name "Autolith gated provider")
-    :reader gated-provider-condition-variable
-    :type t
+    :initform      (make-condition-variable :name "Autolith gated provider")
+    :reader        gated-provider-condition-variable
+    :type          t
     :documentation "The wait point for first-request entry and release.")
    (request-count
-    :initform 0
-    :accessor gated-provider-request-count
-    :type (integer 0)
+    :initform      0
+    :accessor      gated-provider-request-count
+    :type          (integer 0)
     :documentation "The number of provider requests that reached the gate.")
    (entered-p
-    :initform nil
-    :accessor gated-provider-entered-p
-    :type boolean
+    :initform      nil
+    :accessor      gated-provider-entered-p
+    :type          boolean
     :documentation "Whether the first provider request reached the gate.")
    (released-p
-    :initform nil
-    :accessor gated-provider-released-p
-    :type boolean
+    :initform      nil
+    :accessor      gated-provider-released-p
+    :type          boolean
     :documentation "Whether the first provider request may continue."))
   (:documentation "A scripted provider whose first request waits for terminal input."))
 
@@ -131,33 +130,34 @@
     (condition-notify (gated-provider-condition-variable provider)))
   nil)
 
+
 ;;;; -- Active-Turn Cancellation Test Support --
 
 (defclass application-test-gated-tool (tool)
   ((lock
-    :initform (make-lock "Autolith gated tool")
-    :reader application-test-gated-tool-lock
-    :type t
+    :initform      (make-lock "Autolith gated tool")
+    :reader        application-test-gated-tool-lock
+    :type          t
     :documentation "The lock protecting deterministic tool execution timing.")
    (condition-variable
-    :initform (make-condition-variable :name "Autolith gated tool")
-    :reader application-test-gated-tool-condition-variable
-    :type t
+    :initform      (make-condition-variable :name "Autolith gated tool")
+    :reader        application-test-gated-tool-condition-variable
+    :type          t
     :documentation "The wait point for gated tool execution.")
    (entered-p
-    :initform nil
-    :accessor application-test-gated-tool-entered-p
-    :type boolean
+    :initform      nil
+    :accessor      application-test-gated-tool-entered-p
+    :type          boolean
     :documentation "Whether the tool reached its cancellable execution point.")
    (released-p
-    :initform nil
-    :accessor application-test-gated-tool-released-p
-    :type boolean
+    :initform      nil
+    :accessor      application-test-gated-tool-released-p
+    :type          boolean
     :documentation "Whether a fallback cleanup may complete the tool.")
    (completed-p
-    :initform nil
-    :accessor application-test-gated-tool--completed-p
-    :type boolean
+    :initform      nil
+    :accessor      application-test-gated-tool--completed-p
+    :type          boolean
     :documentation "Whether the tool reached its normal completion point."))
   (:documentation "A deterministic tool that waits until cancelled or released."))
 
@@ -205,14 +205,14 @@
 
 (defclass application-test-counting-provider (scripted-provider)
   ((lock
-    :initform (make-lock "Autolith counting provider")
-    :reader application-test-counting-provider-lock
-    :type t
+    :initform      (make-lock "Autolith counting provider")
+    :reader        application-test-counting-provider-lock
+    :type          t
     :documentation "The lock protecting the completed request count.")
    (request-count
-    :initform 0
-    :accessor application-test-counting-provider-request-count
-    :type (integer 0)
+    :initform      0
+    :accessor      application-test-counting-provider-request-count
+    :type          (integer 0)
     :documentation "The number of provider requests that returned a result."))
   (:documentation "A scripted provider exposing a synchronized request count."))
 
@@ -242,31 +242,31 @@
 
 (defclass responsive-scripted-terminal (scripted-terminal)
   ((provider
-    :initarg :provider
-    :reader responsive-scripted-terminal-provider
-    :type gated-provider
+    :initarg       :provider
+    :reader        responsive-scripted-terminal-provider
+    :type          gated-provider
     :documentation "The provider whose first request paces later input.")
    (conversation
-    :initarg :conversation
-    :reader responsive-scripted-terminal-conversation
-    :type conversation
+    :initarg       :conversation
+    :reader        responsive-scripted-terminal-conversation
+    :type          conversation
     :documentation "The conversation whose durable answers permit final EOF.")
    (pre-provider-event-count
-    :initarg :pre-provider-event-count
-    :initform 2
-    :reader responsive-scripted-terminal-pre-provider-event-count
-    :type (integer 0)
+    :initarg       :pre-provider-event-count
+    :initform      2
+    :reader        responsive-scripted-terminal-pre-provider-event-count
+    :type          (integer 0)
     :documentation "The number of initial events admitted before the provider gate opens.")
    (events-read
-    :initform 0
-    :accessor responsive-scripted-terminal-events-read
-    :type (integer 0)
+    :initform      0
+    :accessor      responsive-scripted-terminal-events-read
+    :type          (integer 0)
     :documentation "The number of scripted events already returned.")
    (final-provider-item-count
-    :initarg :final-provider-item-count
-    :initform 2
-    :reader responsive-scripted-terminal-final-provider-item-count
-    :type (integer 0)
+    :initarg       :final-provider-item-count
+    :initform      2
+    :reader        responsive-scripted-terminal-final-provider-item-count
+    :type          (integer 0)
     :documentation "The durable provider item count required before physical EOF."))
   (:documentation
    "A terminal that types more input only while its provider request is active."))
@@ -293,9 +293,9 @@
 
 (defmethod terminal-input-ready-p ((terminal responsive-scripted-terminal))
   "Pace TERMINAL input around its first active request and durable answers."
-  (let* ((events (scripted-terminal-events terminal))
+  (let* ((events    (scripted-terminal-events terminal))
          (remaining (length events))
-         (provider (responsive-scripted-terminal-provider terminal)))
+         (provider  (responsive-scripted-terminal-provider terminal)))
     (multiple-value-bind (entered-p released-p)
         (gated-provider-state provider)
       (cond
@@ -332,14 +332,14 @@
 
 (defclass queued-recording-terminal (recording-terminal)
   ((event-lock
-    :initform (make-lock "Autolith queued terminal")
-    :reader queued-recording-terminal-event-lock
-    :type t
+    :initform      (make-lock "Autolith queued terminal")
+    :reader        queued-recording-terminal-event-lock
+    :type          t
     :documentation "The lock protecting events submitted by test threads.")
    (events
-    :initform nil
-    :accessor queued-recording-terminal-events
-    :type list
+    :initform      nil
+    :accessor      queued-recording-terminal-events
+    :type          list
     :documentation "FIFO semantic events awaiting the responsive reader."))
   (:documentation
    "A recording terminal accepting deterministic events from other threads."))
@@ -374,16 +374,16 @@
           (application-command-list))
    "every canonical application command carries a non-empty tip")
   (dolist (metadata
-           '((:name "/missing-tip"
-              :argument nil
-              :description "omit the tip"
-              :busy-behavior :inspect
+           '((:name              "/missing-tip"
+              :argument          nil
+              :description       "omit the tip"
+              :busy-behavior     :inspect
               :terminal-behavior :shared)
-             (:name "/blank-tip"
-              :argument nil
-              :description "leave the tip blank"
-              :tip "   "
-              :busy-behavior :inspect
+             (:name              "/blank-tip"
+              :argument          nil
+              :description       "leave the tip blank"
+              :tip               "   "
+              :busy-behavior     :inspect
               :terminal-behavior :shared)))
     (test-assert
      (handler-case
@@ -422,10 +422,10 @@
                   ("/data.export" "(data.export pathname :workspace directory)")
                   ("/auth" "(auth \"chatgpt\" :device-code)" ":browser")))
     (let* ((command (application-command-find (first case)))
-           (spans (application--command-tip-spans command))
-           (code (loop for span in spans
-                       when (eq (terminal-span-style span) ':code)
-                         collect (terminal-span-text span))))
+           (spans   (application--command-tip-spans command))
+           (code    (loop for span in spans
+                          when (eq (terminal-span-style span) ':code)
+                            collect (terminal-span-text span))))
       (test-assert
        (every (lambda (form) (member form code :test #'string=)) (rest case))
        "authored tips style every example, including quoted arguments and strings")
@@ -437,7 +437,7 @@
            (make-instance
             'application-command
             :name "/test-tip"
-            :tip "Try `(let ((label \"(x)\")) (list 'resume label))` (or later), then `'(a (b c))`."))
+            :tip  "Try `(let ((label \"(x)\")) (list 'resume label))` (or later), then `'(a (b c))`."))
          (spans (application--command-tip-spans command)))
     (test-assert
      (equal (loop for span in spans
@@ -468,28 +468,27 @@
          "code examples and prose fit the available terminal width"))))
   (let* ((*random-state* (make-random-state nil))
          (captured-state (make-random-state *random-state*))
-         (tip (application--startup-tip-spans)))
+         (tip            (application--startup-tip-spans)))
     (test-assert (typep tip 'terminal-styled-text)
                  "startup selection returns styled command or general advice")
     (test-assert (equalp *random-state* captured-state)
                  "startup tip selection does not consume saved image RNG state"))
   nil)
 
-
 (-> test-application-banner-policy () null)
 (defun test-application-banner-policy ()
   "Test startup mode, recovery, and safety notice policy without layout snapshots."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration   (test-configuration))
+         (root            (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "banner-policy"))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui (terminal-ui-create
-                               :terminal (make-instance 'recording-terminal
-                                                        :columns 80))))
+                          :conversation  conversation
+                          :ui            (terminal-ui-create
+                                          :terminal (make-instance 'recording-terminal
+                                                                   :columns 80))))
          (saved-recovered (uiop:getenv "AUTOLITH_RECOVERED")))
     (unwind-protect
          (progn
@@ -499,8 +498,8 @@
                   (immutable-application
                     (make-instance 'application
                                    :configuration immutable-configuration
-                                   :conversation conversation
-                                   :ui (application-ui application)))
+                                   :conversation  conversation
+                                   :ui            (application-ui application)))
                   (text
                     (format nil "~{~A~}"
                             (mapcar #'terminal-span-text
@@ -526,7 +525,7 @@
                             (mapcar #'terminal-span-text
                                     (application-banner application))))
                   (notice-start (search "Autolith executes" text))
-                  (tip-start (search "Tip: " text)))
+                  (tip-start    (search "Tip: " text)))
              (test-assert
               (and notice-start
                    tip-start
@@ -545,11 +544,11 @@
 (defun test-startup-update-choice ()
   "Test cached update notices, attended release choices, and Nix advice."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (tag "v99.0.0")
+         (root          (test-configuration-root configuration))
+         (tag           "v99.0.0")
          (release-provenance
            (make-instance 'installation-provenance
-                          :method ':release
+                          :method      ':release
                           :current-tag (format nil "v~A" *autolith-version*)))
          (release-availability
            (make-instance 'update-availability :tag tag :method ':release)))
@@ -557,20 +556,20 @@
                "Return a release application scripted with EVENTS."
                (make-instance
                 'application
-                :configuration configuration
+                :configuration           configuration
                 :installation-provenance release-provenance
-                :update-availability release-availability
-                :ui (terminal-ui-create
-                     :terminal (make-instance 'scripted-terminal
-                                              :columns 72
-                                              :events events)))))
+                :update-availability     release-availability
+                :ui                      (terminal-ui-create
+                                          :terminal (make-instance 'scripted-terminal
+                                                                   :columns 72
+                                                                   :events  events)))))
       (unwind-protect
            (progn
              (let* ((application (make-application (list :submit)))
-                    (ui (application-ui application))
-                    (notice (application--update-notice application))
-                    (text (format nil "~{~A~}"
-                                  (mapcar #'terminal-span-text notice))))
+                    (ui          (application-ui application))
+                    (notice      (application--update-notice application))
+                    (text        (format nil "~{~A~}"
+                                         (mapcar #'terminal-span-text notice))))
                (test-assert
                 (and (search "Update available: Autolith" text)
                      (search "Choose whether to install" text))
@@ -614,23 +613,23 @@
 
              (let* ((availability
                       (make-instance 'update-availability
-                                     :tag tag
+                                     :tag    tag
                                      :method ':nix))
                     (application
                       (make-instance 'application
-                                     :configuration configuration
+                                     :configuration       configuration
                                      :update-availability availability))
                     (notice (application--update-notice application))
-                    (text (format nil "~{~A~}"
-                                  (mapcar #'terminal-span-text notice))))
+                    (text   (format nil "~{~A~}"
+                                    (mapcar #'terminal-span-text notice))))
                (test-assert
                 (and (search "Installed through Nix" text)
                      (search "flake or profile" text))
                 "Nix receives package-manager advice without an update action"))
 
              (let* ((application (make-instance 'application))
-                    (thread (make-thread (lambda () (sleep 0.01))
-                                         :name "Autolith update check test")))
+                    (thread      (make-thread (lambda () (sleep 0.01))
+                                              :name "Autolith update check test")))
                (setf (application-update-check-thread application) thread)
                (application--quiesce-update-check application)
                (test-assert
@@ -638,19 +637,18 @@
                      (not (thread-alive-p thread)))
                 "checkpoint quiescence joins the background update check")))
         (platform-delete-directory-tree *platform* root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   nil)
-
 
 (-> test-explicit-update-operation () null)
 (defun test-explicit-update-operation ()
   "Test fresh installed-release updates and nonmutating external update advice."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (application (make-instance 'application :configuration configuration))
-         (presented nil)
-         (fetches 0))
+         (root          (test-configuration-root configuration))
+         (application   (make-instance 'application :configuration configuration))
+         (presented     nil)
+         (fetches       0))
     (unwind-protect
          (test-call-with-function-replacements
           (list
@@ -679,11 +677,11 @@
               (setf (application-installation-provenance application)
                     (make-instance
                      'installation-provenance
-                     :method ':release
+                     :method      ':release
                      :current-tag (format nil "v~A" *autolith-version*))
                     (application-update-availability application)
                     (make-instance 'update-availability
-                                   :tag "v99.0.0"
+                                   :tag    "v99.0.0"
                                    :method ':release)
                     presented nil)
               (application-update application)
@@ -708,105 +706,105 @@
   "Test session permission commands and fail-closed command authorization."
   (if (application--command-sandbox-available-p)
       (let* ((configuration (test-configuration))
-             (root (test-configuration-root configuration))
-             (terminal (make-instance 'recording-terminal :columns 72))
-             (ui (terminal-ui-create :terminal terminal))
-              (state (permissions-load configuration))
-              (conversation
-                (conversation-create configuration :identifier "permission-modes"))
-              (application
-                (make-instance 'application
-                               :configuration configuration
-                               :conversation conversation
-                               :ui ui
-                               :permission-state state
-                               :provider
-                              (make-instance
-                               'rlm-inference-test-provider
-                               :results
-                               (list (rlm-inference-test-result
-                                      "classify-1"
-                                      "{\"decision\": \"sandboxed\", \"reason\": \"read-only inspection\"}"
-                                      20)
-                                     (rlm-inference-test-result
-                                      "classify-2"
-                                      "{\"decision\": \"deny\", \"reason\": \"privilege escalation\"}"
-                                      20)
-                                     (rlm-inference-test-result
-                                      "classify-3"
-                                      "{\"decision\": \"sandboxed\", \"reason\": \"read-only inspection\"}"
-                                      20)
-                                     (rlm-inference-test-result
-                                      "classify-4"
-                                      "{\"decision\": \"full\", \"reason\": \"sandbox unavailable\"}"
-                                      20)
-                                      (rlm-inference-test-result
-                                       "classify-5"
-                                       "{\"decision\": \"sandboxed\", \"reason\": \"read-only inspection\"}"
-                                       20)
-                                     (rlm-inference-test-result
-                                      "classify-6"
-                                      "{\"decision\": \"sandboxed\", \"reason\": \"read-only inspection\"}"
-                                      20))))))
+             (root          (test-configuration-root configuration))
+             (terminal      (make-instance 'recording-terminal :columns 72))
+             (ui            (terminal-ui-create :terminal terminal))
+             (state         (permissions-load configuration))
+             (conversation
+               (conversation-create configuration :identifier "permission-modes"))
+             (application
+               (make-instance 'application
+                              :configuration    configuration
+                              :conversation     conversation
+                              :ui               ui
+                              :permission-state state
+                              :provider
+                             (make-instance
+                              'rlm-inference-test-provider
+                              :results
+                              (list (rlm-inference-test-result
+                                     "classify-1"
+                                     "{\"decision\": \"sandboxed\", \"reason\": \"read-only inspection\"}"
+                                     20)
+                                    (rlm-inference-test-result
+                                     "classify-2"
+                                     "{\"decision\": \"deny\", \"reason\": \"privilege escalation\"}"
+                                     20)
+                                    (rlm-inference-test-result
+                                     "classify-3"
+                                     "{\"decision\": \"sandboxed\", \"reason\": \"read-only inspection\"}"
+                                     20)
+                                    (rlm-inference-test-result
+                                     "classify-4"
+                                     "{\"decision\": \"full\", \"reason\": \"sandbox unavailable\"}"
+                                     20)
+                                    (rlm-inference-test-result
+                                     "classify-5"
+                                     "{\"decision\": \"sandboxed\", \"reason\": \"read-only inspection\"}"
+                                     20)
+                                    (rlm-inference-test-result
+                                     "classify-6"
+                                     "{\"decision\": \"sandboxed\", \"reason\": \"read-only inspection\"}"
+                                     20))))))
         (unwind-protect
              (progn
                (terminal-ui-start ui)
-                (conversation-append-user-message
-                 conversation
-                 "Fetch dependencies and inspect this workspace.")
-                (test-call-with-function-replacements
-                 (list
-                    (list 'permissions-model-classify-command
-                          (lambda (command directory &key provider configuration
-                                                          sandbox-available-p
-                                                          user-instructions)
-                            (declare (ignore command directory provider
-                                             configuration sandbox-available-p))
-                            (test-assert
-                             (string= user-instructions
-                                      "Fetch dependencies and inspect this workspace.")
-                             "application classification receives current user instructions")
-                            (values ':sandboxed "read-only inspection"))))
-                 (lambda ()
-                   (test-assert
-                    (eq (application-authorize-command
-                         application "printf unknown" root)
-                        ':sandboxed)
-                    "ask mode classifies commands when no approval UI is available")
-                   (test-assert
-                    (eq (application-permission-mode application) ':ask)
-                    "noninteractive classification preserves ask mode")))
-                (conversation-append-user-message
-                 conversation
-                 "Run the exact pending command with the access it needs.")
-                (test-call-with-function-replacements
-                 (list
-                  (list 'permissions-model-classify-command
-                        (lambda (command directory &key provider configuration
-                                                        sandbox-available-p
-                                                        user-instructions)
-                          (declare (ignore command directory provider configuration
-                                           sandbox-available-p))
-                          (test-assert
-                           (string= user-instructions
-                                    "Run the exact pending command with the access it needs.")
-                           "classification cache keys include current user instructions")
-                          (values ':full-access "explicitly requested"))))
-                 (lambda ()
-                   (test-assert
-                    (eq (application-authorize-command
-                         application "printf unknown" root)
-                        ':full-access)
-                    "changed user instructions trigger fresh classification")))
-                (permissions-allow :configuration configuration
-                                   :state         state
-                                   :command       "printf saved"
-                                   :directory     root)
-                (test-assert
-                 (eq (application-authorize-command
-                      application "printf saved" root)
-                     ':full-access)
-                 "ask mode runs an exact saved approval with full access")
+               (conversation-append-user-message
+                conversation
+                "Fetch dependencies and inspect this workspace.")
+               (test-call-with-function-replacements
+                (list
+                   (list 'permissions-model-classify-command
+                         (lambda (command directory &key provider configuration
+                                                         sandbox-available-p
+                                                         user-instructions)
+                           (declare (ignore command directory provider
+                                            configuration sandbox-available-p))
+                           (test-assert
+                            (string= user-instructions
+                                     "Fetch dependencies and inspect this workspace.")
+                            "application classification receives current user instructions")
+                           (values ':sandboxed "read-only inspection"))))
+                (lambda ()
+                  (test-assert
+                   (eq (application-authorize-command
+                        application "printf unknown" root)
+                       ':sandboxed)
+                   "ask mode classifies commands when no approval UI is available")
+                  (test-assert
+                   (eq (application-permission-mode application) ':ask)
+                   "noninteractive classification preserves ask mode")))
+               (conversation-append-user-message
+                conversation
+                "Run the exact pending command with the access it needs.")
+               (test-call-with-function-replacements
+                (list
+                 (list 'permissions-model-classify-command
+                       (lambda (command directory &key provider configuration
+                                                       sandbox-available-p
+                                                       user-instructions)
+                         (declare (ignore command directory provider configuration
+                                          sandbox-available-p))
+                         (test-assert
+                          (string= user-instructions
+                                   "Run the exact pending command with the access it needs.")
+                          "classification cache keys include current user instructions")
+                         (values ':full-access "explicitly requested"))))
+                (lambda ()
+                  (test-assert
+                   (eq (application-authorize-command
+                        application "printf unknown" root)
+                       ':full-access)
+                   "changed user instructions trigger fresh classification")))
+               (permissions-allow :configuration configuration
+                                  :state         state
+                                  :command       "printf saved"
+                                  :directory     root)
+               (test-assert
+                (eq (application-authorize-command
+                     application "printf saved" root)
+                    ':full-access)
+                "ask mode runs an exact saved approval with full access")
                (application-command application "/permissions sandbox")
                (test-assert
                 (eq (application-authorize-command
@@ -850,7 +848,7 @@
                 "/permissions full grants full command access for the session")
                (application-command application "/permissions auto")
                (test-assert (eq (application-permission-mode application) ':auto)
-                             "/permissions auto selects autonomous classification mode")
+                            "/permissions auto selects autonomous classification mode")
                (test-assert
                 (eq (application-authorize-command
                      application "git status" root)
@@ -861,55 +859,55 @@
                      application "sudo ls" root)
                     ':deny)
                 "auto mode refuses privilege-escalation commands")
-                (test-call-with-function-replacements
-                 (list
-                  (list 'permissions-model-classify-command
-                        (lambda (command directory &key provider configuration
-                                                        sandbox-available-p
-                                                        user-instructions)
-                          (declare (ignore command directory provider configuration
-                                           sandbox-available-p user-instructions))
-                          (values ':pick "destructive change"))))
-                 (lambda ()
-                   (test-assert
-                    (eq (application-authorize-command
-                         application "git restore file" root)
-                        ':deny)
-                    "auto mode rejects a classifier pick decision")))
-                (let ((provider (application-provider application)))
-                  (unwind-protect
-                       (progn
-                         (setf (application-provider application) nil)
-                         (test-assert
-                          (eq (application-authorize-command
-                               application "uname -a" root)
-                              ':deny)
-                          "auto mode denies when no classifier is available"))
-                    (setf (application-provider application) provider)))
-                (let ((capability-checks 0))
-                  (test-call-with-function-replacements
-                   (list
-                    (list 'sandbox-supported-p
-                          (lambda (&optional capability)
-                            (declare (ignore capability))
-                            (= (incf capability-checks) 1)))
-                    (list 'application--interactive-command-approval-p
-                          (lambda (ignored)
-                            (declare (ignore ignored))
-                            t))
-                    (list 'application--ask-command-permission
-                          (lambda (&rest ignored)
-                            (declare (ignore ignored))
-                            (error "auto mode attempted to open a permission picker"))))
-                   (lambda ()
-                     (test-assert
-                      (eq (application-authorize-command
-                           application "git diff" root)
-                          ':deny)
-                      "auto mode denies when containment disappears with a picker available")
-                     (test-assert
-                      (= capability-checks 2)
-                      "a sandbox grant is checked at the final authorization boundary"))))
+               (test-call-with-function-replacements
+                (list
+                 (list 'permissions-model-classify-command
+                       (lambda (command directory &key provider configuration
+                                                       sandbox-available-p
+                                                       user-instructions)
+                         (declare (ignore command directory provider configuration
+                                          sandbox-available-p user-instructions))
+                         (values ':pick "destructive change"))))
+                (lambda ()
+                  (test-assert
+                   (eq (application-authorize-command
+                        application "git restore file" root)
+                       ':deny)
+                   "auto mode rejects a classifier pick decision")))
+               (let ((provider (application-provider application)))
+                 (unwind-protect
+                      (progn
+                        (setf (application-provider application) nil)
+                        (test-assert
+                         (eq (application-authorize-command
+                              application "uname -a" root)
+                             ':deny)
+                         "auto mode denies when no classifier is available"))
+                   (setf (application-provider application) provider)))
+               (let ((capability-checks 0))
+                 (test-call-with-function-replacements
+                  (list
+                   (list 'sandbox-supported-p
+                         (lambda (&optional capability)
+                           (declare (ignore capability))
+                           (= (incf capability-checks) 1)))
+                   (list 'application--interactive-command-approval-p
+                         (lambda (ignored)
+                           (declare (ignore ignored))
+                           t))
+                   (list 'application--ask-command-permission
+                         (lambda (&rest ignored)
+                           (declare (ignore ignored))
+                           (error "auto mode attempted to open a permission picker"))))
+                  (lambda ()
+                    (test-assert
+                     (eq (application-authorize-command
+                          application "git diff" root)
+                         ':deny)
+                     "auto mode denies when containment disappears with a picker available")
+                    (test-assert
+                     (= capability-checks 2)
+                     "a sandbox grant is checked at the final authorization boundary"))))
                (test-call-with-function-replacements
                 (list
                  (list 'sandbox-supported-p
@@ -919,85 +917,85 @@
                   (test-assert
                    (application--command-sandbox-available-p)
                    "optional sandbox capabilities do not disable auto containment")))
-                (let ((authorization-item-names nil))
-                 (test-call-with-function-replacements
-                  (list
-                   (list 'sandbox-supported-p
-                         (lambda (&optional capability)
-                           (declare (ignore capability))
-                           nil))
-                   (list 'application-input-controller
-                         (lambda (ignored)
-                           (declare (ignore ignored))
-                           ':test-controller))
-                   (list 'terminal-interactive-p
-                         (lambda (ignored)
-                           (declare (ignore ignored))
-                           t))
-                   (list 'application-input-controller-call-with-reader-paused
-                         (lambda (ignored function)
-                           (declare (ignore ignored))
-                           (funcall function)))
-                   (list 'terminal-ui-select
-                         (lambda (ignored &key items &allow-other-keys)
-                           (declare (ignore ignored))
-                           (setf authorization-item-names
-                                 (mapcar (lambda (item) (getf item ':name)) items))
-                           "once")))
-                  (lambda ()
-                    (test-assert
-                     (eq (application-authorize-command
-                          application "git status" root)
-                         ':full-access)
-                     "sandbox availability separates cached auto decisions")
-                    (test-assert
-                     (eq (application-authorize-command
-                          application "printf saved" root)
-                         ':full-access)
-                     "auto mode reclassifies saved commands without a sandbox")
-                    (setf (application-permission-mode application) ':ask)
-                    (test-assert
-                     (eq (application-authorize-command
-                          application "git log" root)
-                         ':full-access)
-                     "manual once approval grants full access")
-                    (test-assert
-                     (equal authorization-item-names
-                            '("auto" "once" "always" "full" "deny"))
-                     "the manual command picker retains full-access approvals without a sandbox")
-                    (test-assert
-                     (eq (application--apply-command-authorization-choice
-                          application "git log" root "once")
-                         ':full-access)
-                     "once grants full access without changing session mode")
-                    (test-assert
-                     (eq (application-permission-mode application) ':ask)
-                     "once preserves manual permission mode")
-                     (test-assert
-                      (eq (application--apply-command-authorization-choice
-                           application "git log" root "always")
-                          ':full-access)
-                      "always grants full access when the sandbox is unavailable")
-                     (test-assert
-                      (permissions-allowed-p state "git log" root)
-                      "always persists the exact full-access approval"))))
-               (setf (application-permission-mode application) ':ask)
+               (let ((authorization-item-names nil))
                 (test-call-with-function-replacements
                  (list
-                  (list 'permissions-model-classify-command
-                        (lambda (command directory &key provider configuration
-                                                        sandbox-available-p
-                                                        user-instructions)
-                          (declare (ignore command directory provider
-                                           configuration sandbox-available-p
-                                           user-instructions))
-                          (values ':full-access "prints a literal"))))
+                  (list 'sandbox-supported-p
+                        (lambda (&optional capability)
+                          (declare (ignore capability))
+                          nil))
+                  (list 'application-input-controller
+                        (lambda (ignored)
+                          (declare (ignore ignored))
+                          ':test-controller))
+                  (list 'terminal-interactive-p
+                        (lambda (ignored)
+                          (declare (ignore ignored))
+                          t))
+                  (list 'application-input-controller-call-with-reader-paused
+                        (lambda (ignored function)
+                          (declare (ignore ignored))
+                          (funcall function)))
+                  (list 'terminal-ui-select
+                        (lambda (ignored &key items &allow-other-keys)
+                          (declare (ignore ignored))
+                          (setf authorization-item-names
+                                (mapcar (lambda (item) (getf item ':name)) items))
+                          "once")))
                  (lambda ()
                    (test-assert
-                    (eq (application--apply-command-authorization-choice
-                         application "printf picked" root "auto")
+                    (eq (application-authorize-command
+                         application "git status" root)
                         ':full-access)
-                    "auto classifies the pending command immediately")))
+                    "sandbox availability separates cached auto decisions")
+                   (test-assert
+                    (eq (application-authorize-command
+                         application "printf saved" root)
+                        ':full-access)
+                    "auto mode reclassifies saved commands without a sandbox")
+                   (setf (application-permission-mode application) ':ask)
+                   (test-assert
+                    (eq (application-authorize-command
+                         application "git log" root)
+                        ':full-access)
+                    "manual once approval grants full access")
+                   (test-assert
+                    (equal authorization-item-names
+                           '("auto" "once" "always" "full" "deny"))
+                    "the manual command picker retains full-access approvals without a sandbox")
+                   (test-assert
+                    (eq (application--apply-command-authorization-choice
+                         application "git log" root "once")
+                        ':full-access)
+                    "once grants full access without changing session mode")
+                   (test-assert
+                    (eq (application-permission-mode application) ':ask)
+                    "once preserves manual permission mode")
+                   (test-assert
+                    (eq (application--apply-command-authorization-choice
+                         application "git log" root "always")
+                        ':full-access)
+                    "always grants full access when the sandbox is unavailable")
+                   (test-assert
+                    (permissions-allowed-p state "git log" root)
+                    "always persists the exact full-access approval"))))
+               (setf (application-permission-mode application) ':ask)
+               (test-call-with-function-replacements
+                (list
+                 (list 'permissions-model-classify-command
+                       (lambda (command directory &key provider configuration
+                                                       sandbox-available-p
+                                                       user-instructions)
+                         (declare (ignore command directory provider
+                                          configuration sandbox-available-p
+                                          user-instructions))
+                         (values ':full-access "prints a literal"))))
+                (lambda ()
+                  (test-assert
+                   (eq (application--apply-command-authorization-choice
+                        application "printf picked" root "auto")
+                       ':full-access)
+                   "auto classifies the pending command immediately")))
                (test-assert
                 (eq (application-permission-mode application) ':auto)
                 "auto stays the session permission mode like full and sandbox")
@@ -1020,29 +1018,29 @@
 (defun test-interrupt-resume-instruction ()
   "Test that Ctrl-C exits with an exact command only for durable conversations."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (labels ((interrupt-application (conversation)
                "Run one CONVERSATION until a scripted Ctrl-C and return its output."
                (let* ((terminal (make-instance 'scripted-terminal
                                                :columns 80
-                                               :events (list :interrupt)))
+                                               :events  (list :interrupt)))
                       (application
                         (make-instance 'application
                                        :configuration configuration
-                                       :conversation conversation
-                                       :provider nil
+                                       :conversation  conversation
+                                       :provider      nil
                                        :tool-registry (make-instance 'tool-registry)
-                                       :worker nil
-                                       :agent nil
-                                       :ui (terminal-ui-create
-                                            :terminal terminal))))
+                                       :worker        nil
+                                       :agent         nil
+                                       :ui            (terminal-ui-create
+                                                       :terminal terminal))))
                  (application-run application)
                  (recording-terminal-output terminal))))
       (unwind-protect
            (let ((durable (conversation-create configuration
                                                :identifier "resume-this"))
-                 (empty (conversation-create configuration
-                                             :identifier "discard-this")))
+                 (empty   (conversation-create configuration
+                                               :identifier "discard-this")))
              (conversation-append-user-message durable "keep this conversation")
              (let ((output (interrupt-application durable)))
                (test-assert (search "To resume this conversation, run:" output)
@@ -1057,7 +1055,7 @@
                       (conversation-pathname empty)))
                 "Ctrl-C does not persist an empty conversation")))
         (platform-delete-directory-tree *platform* root
-                                        :validate t
+                                        :validate          t
                                         :if-does-not-exist ':ignore))))
   nil)
 
@@ -1065,23 +1063,23 @@
 (defun test-repeated-interrupt-forces-exit ()
   "Test a second active-cancellation Ctrl-C forces exit before cleanup finishes."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (conversation (conversation-create configuration
-                                            :identifier "force-resume")))
+         (root          (test-configuration-root configuration))
+         (conversation  (conversation-create configuration
+                                             :identifier "force-resume")))
     (unwind-protect
-         (let* ((terminal (make-instance 'recording-terminal :columns 80))
-                (ui (terminal-ui-create :terminal terminal))
-                (application (make-instance 'application
-                                            :configuration configuration
-                                            :conversation conversation
-                                            :ui ui))
-                (forced-status nil)
+         (let* ((terminal                        (make-instance 'recording-terminal :columns 80))
+                (ui                              (terminal-ui-create :terminal terminal))
+                (application                     (make-instance 'application
+                                                                :configuration configuration
+                                                                :conversation  conversation
+                                                                :ui            ui))
+                (forced-status                   nil)
                 (terminal-restored-before-exit-p nil)
                 (controller
                   (make-instance
                    'application-input-controller
-                   :application application
-                   :main-thread (current-thread)
+                   :application              application
+                   :main-thread              (current-thread)
                    :interrupt-clock-function (lambda () 10)
                    :forced-exit-function
                    (lambda (status)
@@ -1123,15 +1121,15 @@
 (-> test-forced-exit-without-durable-conversation () null)
 (defun test-forced-exit-without-durable-conversation ()
   "Test forced exit offers no resume command for an unsaved conversation."
-  (let* ((terminal (make-instance 'recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
-         (application (make-instance 'application :ui ui))
+  (let* ((terminal      (make-instance 'recording-terminal :columns 80))
+         (ui            (terminal-ui-create :terminal terminal))
+         (application   (make-instance 'application :ui ui))
          (forced-status nil)
          (controller
            (make-instance
             'application-input-controller
-            :application application
-            :main-thread (current-thread)
+            :application              application
+            :main-thread              (current-thread)
             :interrupt-clock-function (lambda () 10)
             :forced-exit-function
             (lambda (status)
@@ -1158,12 +1156,12 @@
 (defun test-graceful-shutdown-retains-interrupt-escape ()
   "Test Ctrl-C forces already-pending shutdown while Escape remains harmless."
   (dolist (reason '(:quit :end-of-input :shutdown))
-    (let* ((terminal (make-instance 'queued-recording-terminal :columns 80))
-           (ui (terminal-ui-create :terminal terminal))
-           (application (make-instance 'application :ui ui))
-           (status-lock (make-lock "Autolith graceful shutdown test"))
+    (let* ((terminal      (make-instance 'queued-recording-terminal :columns 80))
+           (ui            (terminal-ui-create :terminal terminal))
+           (application   (make-instance 'application :ui ui))
+           (status-lock   (make-lock "Autolith graceful shutdown test"))
            (forced-status nil)
-           (controller nil))
+           (controller    nil))
       (unwind-protect
            (with-terminal-ui (active-ui ui)
              (declare (ignore active-ui))
@@ -1212,17 +1210,17 @@
 (defun test-active-turn-interrupt-events ()
   "Test cancellation preserves FIFO steering, with Ctrl-C pausing follow-ups."
   (dolist (event '(:interrupt :escape))
-    (let* ((now 10)
-           (terminal (make-instance 'recording-terminal :columns 80))
-           (ui (terminal-ui-create
-                :terminal terminal
-                :clock-function (lambda () now)))
+    (let* ((now         10)
+           (terminal    (make-instance 'recording-terminal :columns 80))
+           (ui          (terminal-ui-create
+                         :terminal       terminal
+                         :clock-function (lambda () now)))
            (application (make-instance 'application :ui ui))
            (controller
              (make-instance
               'application-input-controller
-              :application application
-              :main-thread (current-thread)
+              :application              application
+              :main-thread              (current-thread)
               :interrupt-clock-function (lambda () now))))
       (setf (application-input-controller application) controller
             (application-input-controller-active-p controller) t)
@@ -1344,9 +1342,9 @@
 (-> test-active-turn-cancellation-side-effects () null)
 (defun test-active-turn-cancellation-side-effects ()
   "Test cancellation delivery survives notice failure and follows menu dismissal."
-  (let* ((terminal (make-instance 'recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
-         (application (make-instance 'application :ui ui))
+  (let* ((terminal        (make-instance 'recording-terminal :columns 80))
+         (ui              (terminal-ui-create :terminal terminal))
+         (application     (make-instance 'application :ui ui))
          (controller
            (make-instance
             'application-input-controller
@@ -1375,13 +1373,13 @@
     (test-assert
      (application-input-controller--consume-turn-cancellation-delivery-p controller)
      "notice failure preserves pending cancellation delivery"))
-  (let* ((terminal (make-instance 'recording-terminal :columns 80))
+  (let* ((terminal        (make-instance 'recording-terminal :columns 80))
          (ui
            (terminal-ui-create
             :terminal terminal
             :completions
             '((:name "/help" :argument nil :description "show help"))))
-         (application (make-instance 'application :ui ui))
+         (application     (make-instance 'application :ui ui))
          (controller
            (make-instance
             'application-input-controller
@@ -1424,14 +1422,14 @@
 (-> test-idle-interrupt-exits-without-force-hint () null)
 (defun test-idle-interrupt-exits-without-force-hint ()
   "Test idle Ctrl-C clears a draft or exits directly without force state."
-  (let* ((terminal (make-instance 'recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((terminal    (make-instance 'recording-terminal :columns 80))
+         (ui          (terminal-ui-create :terminal terminal))
          (application (make-instance 'application :ui ui))
          (controller
            (make-instance
             'application-input-controller
-            :application application
-            :main-thread (current-thread)
+            :application              application
+            :main-thread              (current-thread)
             :interrupt-clock-function (lambda () 10))))
     (setf (application-input-controller application) controller)
     (terminal-ui-set-input ui "clear me")
@@ -1460,18 +1458,18 @@
 (defun test-recalled-follow-up-interrupt ()
   "Test Ctrl-C restores recalled work before cancelling or exiting."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (labels ((call-with-controller (identifier function)
                (let* ((conversation
                         (conversation-create configuration :identifier identifier))
                       (terminal
                         (make-instance 'recording-terminal :columns 80))
-                      (ui (terminal-ui-create :terminal terminal))
+                      (ui         (terminal-ui-create :terminal terminal))
                       (application
                         (make-instance 'application
                                        :configuration configuration
-                                       :conversation conversation
-                                       :ui ui))
+                                       :conversation  conversation
+                                       :ui            ui))
                       (controller nil))
                  (with-terminal-ui (active-ui ui)
                    (declare (ignore active-ui))
@@ -1573,7 +1571,7 @@
 (defun test-active-turn-stop-keys ()
   "Test Ctrl-C and Escape cancel one provider turn and return to the prompt."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (dolist (event '(:interrupt :escape))
            (let* ((conversation
@@ -1591,28 +1589,28 @@
                        :turn-completion ':end))))
                   (terminal
                     (make-instance 'queued-recording-terminal :columns 80))
-                  (ui (terminal-ui-create :terminal terminal))
-                  (registry (agent-test-registry))
-                  (agent (agent-create :configuration configuration
-                                       :provider provider
-                                       :conversation conversation
-                                       :tool-registry registry
-                                       :worker nil))
+                  (ui                               (terminal-ui-create :terminal terminal))
+                  (registry                         (agent-test-registry))
+                  (agent                            (agent-create :configuration configuration
+                                                                  :provider      provider
+                                                                  :conversation  conversation
+                                                                  :tool-registry registry
+                                                                  :worker        nil))
                   (application
                     (make-instance 'application
                                    :configuration configuration
-                                   :conversation conversation
-                                   :provider provider
+                                   :conversation  conversation
+                                   :provider      provider
                                    :tool-registry registry
-                                   :worker nil
-                                   :agent agent
-                                   :ui ui))
-                  (forced-status nil)
-                  (provider-entered-observed-p nil)
+                                   :worker        nil
+                                   :agent         agent
+                                   :ui            ui))
+                  (forced-status                    nil)
+                  (provider-entered-observed-p      nil)
                   (cancellation-finished-observed-p nil)
-                  (draft-preserved-observed-p nil)
-                  (output-before-exit nil)
-                  (producer nil))
+                  (draft-preserved-observed-p       nil)
+                  (output-before-exit               nil)
+                  (producer                         nil))
              (queued-recording-terminal-enqueue
               terminal '(:insert "cancel this turn"))
              (queued-recording-terminal-enqueue terminal ':submit)
@@ -1701,47 +1699,48 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
+
 ;;;; -- Active Command Cancellation --
 
 (-> test-active-command-stop-key () null)
 (defun test-active-command-stop-key ()
   "Test Escape cancels a shared active command without fatal recovery."
-  (let* ((configuration (test-configuration))
-         (root          (test-configuration-root configuration))
-         (conversation  (conversation-create configuration
-                                            :identifier "active-command-stop"))
-         (terminal      (make-instance 'queued-recording-terminal :columns 80))
-         (ui            (terminal-ui-create :terminal terminal))
-         (application   (make-instance 'application
-                                       :configuration configuration
-                                       :conversation conversation
-                                       :provider nil
-                                       :tool-registry (make-instance 'tool-registry)
-                                       :worker nil
-                                       :agent nil
-                                       :ui ui))
-         (command-lock  (make-lock "Autolith active command stop-key test"))
-         (command-gate  (make-condition-variable
-                         :name "Autolith active command stop-key test"))
-         (command-entered-p nil)
-         (command-released-p nil)
-         (registrations (application-command--registry-snapshot))
-         (forced-status nil)
+  (let* ((configuration                    (test-configuration))
+         (root                             (test-configuration-root configuration))
+         (conversation                     (conversation-create configuration
+                                                               :identifier "active-command-stop"))
+         (terminal                         (make-instance 'queued-recording-terminal :columns 80))
+         (ui                               (terminal-ui-create :terminal terminal))
+         (application                      (make-instance 'application
+                                                          :configuration configuration
+                                                          :conversation  conversation
+                                                          :provider      nil
+                                                          :tool-registry (make-instance 'tool-registry)
+                                                          :worker        nil
+                                                          :agent         nil
+                                                          :ui            ui))
+         (command-lock                     (make-lock "Autolith active command stop-key test"))
+         (command-gate                     (make-condition-variable
+                                            :name "Autolith active command stop-key test"))
+         (command-entered-p                nil)
+         (command-released-p               nil)
+         (registrations                    (application-command--registry-snapshot))
+         (forced-status                    nil)
          (cancellation-finished-observed-p nil)
-         (draft-preserved-observed-p nil)
-         (producer nil))
+         (draft-preserved-observed-p       nil)
+         (producer                         nil))
     (unwind-protect
          (unwind-protect
               (progn
                 (register-application-command
                  (application-command-create
-                  :definition-name 'test-active-command-stop-key-command
-                  :name "/test-cancel-command"
-                  :aliases nil
-                  :argument nil
-                  :description "Block until the active-turn cancellation test stops it."
-                  :tip "Use this test command only from the application test suite."
-                  :busy-behavior ':hold
+                  :definition-name   'test-active-command-stop-key-command
+                  :name              "/test-cancel-command"
+                  :aliases           nil
+                  :argument          nil
+                  :description       "Block until the active-turn cancellation test stops it."
+                  :tip               "Use this test command only from the application test suite."
+                  :busy-behavior     ':hold
                   :terminal-behavior ':shared
                   :handler
                   (lambda (ignored-application ignored-invocation)
@@ -1814,6 +1813,7 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
+
 ;;;; -- Active Tool Cancellation --
 
 (-> test-active-tool-stop-repairs-unknown-outcome () null)
@@ -1834,42 +1834,42 @@
                      (list
                       (agent-test-call
                        :call-id "interrupted-tool-call"
-                       :name "gate")))
+                       :name    "gate")))
                     (agent-test-result
                      "recovered-turn"
                      (list (agent-test-message "the next turn ran"))
                      :turn-completion ':end))))
-                (registry (agent-test-registry))
+                (registry                         (agent-test-registry))
                 (tool
                   (make-instance
                    'application-test-gated-tool
-                   :namespace "test"
-                   :name "gate"
+                   :namespace   "test"
+                   :name        "gate"
                    :description "Wait at the active-tool cancellation test gate."
-                   :parameters (tool-object-schema (json-object) '())))
-                (terminal (make-instance 'queued-recording-terminal :columns 80))
-                (ui (terminal-ui-create :terminal terminal))
-                (agent (agent-create :configuration configuration
-                                     :provider provider
-                                     :conversation conversation
-                                     :tool-registry registry
-                                     :worker nil))
+                   :parameters  (tool-object-schema (json-object) '())))
+                (terminal                         (make-instance 'queued-recording-terminal :columns 80))
+                (ui                               (terminal-ui-create :terminal terminal))
+                (agent                            (agent-create :configuration configuration
+                                                                :provider      provider
+                                                                :conversation  conversation
+                                                                :tool-registry registry
+                                                                :worker        nil))
                 (application
                   (make-instance 'application
                                  :configuration configuration
-                                 :conversation conversation
-                                 :provider provider
+                                 :conversation  conversation
+                                 :provider      provider
                                  :tool-registry registry
-                                 :worker nil
-                                 :agent agent
-                                 :ui ui))
-                (forced-status nil)
-                (tool-entered-observed-p nil)
+                                 :worker        nil
+                                 :agent         agent
+                                 :ui            ui))
+                (forced-status                    nil)
+                (tool-entered-observed-p          nil)
                 (cancellation-finished-observed-p nil)
-                (next-turn-observed-p nil)
-                (next-turn-finished-observed-p nil)
-                (producer-condition nil)
-                (producer nil))
+                (next-turn-observed-p             nil)
+                (next-turn-finished-observed-p    nil)
+                (producer-condition               nil)
+                (producer                         nil))
            ;; A fresh test-worker cache may need to compile the native syntax
            ;; highlighter. Finish presentation setup before the bounded gate wait.
            (application-tool-call-entry tool application
@@ -1987,13 +1987,13 @@
 (-> test-interrupt-force-window () null)
 (defun test-interrupt-force-window ()
   "Test only a second Ctrl-C within 2.5 seconds requests forced exit."
-  (let* ((now 10)
+  (let* ((now         10)
          (application (make-instance 'application))
          (controller
            (make-instance
             'application-input-controller
-            :application application
-            :main-thread (current-thread)
+            :application              application
+            :main-thread              (current-thread)
             :interrupt-clock-function (lambda () now))))
     (setf (application-input-controller application) controller
           (application-input-controller-active-p controller) t)
@@ -2030,17 +2030,17 @@
 (-> test-visible-interrupt-hint-does-not-extend-window () null)
 (defun test-visible-interrupt-hint-does-not-extend-window ()
   "Test a delayed visible notice cannot extend an expired force deadline."
-  (let* ((now 0)
-         (terminal (make-instance 'recording-terminal :columns 80))
-         (ui (terminal-ui-create
-              :terminal terminal
-              :clock-function (lambda () now)))
+  (let* ((now         0)
+         (terminal    (make-instance 'recording-terminal :columns 80))
+         (ui          (terminal-ui-create
+                       :terminal       terminal
+                       :clock-function (lambda () now)))
          (application (make-instance 'application :ui ui))
          (controller
            (make-instance
             'application-input-controller
-            :application application
-            :main-thread (current-thread)
+            :application              application
+            :main-thread              (current-thread)
             :interrupt-clock-function (lambda () now))))
     (setf (application-input-controller application) controller
           (application-input-controller-active-p controller) t)
@@ -2065,22 +2065,22 @@
 (-> test-dropped-interrupt-hint-reappears () null)
 (defun test-dropped-interrupt-hint-reappears ()
   "Test contended presentation only delays the force-exit hint."
-  (let* ((now 0)
-         (terminal (make-instance 'recording-terminal :columns 80))
-         (ui (terminal-ui-create
-              :terminal terminal
-              :clock-function (lambda () now)))
-         (application (make-instance 'application :ui ui))
-         (gate (make-lock "Autolith hint contention test"))
+  (let* ((now            0)
+         (terminal       (make-instance 'recording-terminal :columns 80))
+         (ui             (terminal-ui-create
+                          :terminal       terminal
+                          :clock-function (lambda () now)))
+         (application    (make-instance 'application :ui ui))
+         (gate           (make-lock "Autolith hint contention test"))
          (gate-condition (make-condition-variable :name "Autolith hint test"))
-         (holding-p nil)
-         (released-p nil)
-         (holder nil)
+         (holding-p      nil)
+         (released-p     nil)
+         (holder         nil)
          (controller
            (make-instance
             'application-input-controller
-            :application application
-            :main-thread (current-thread)
+            :application              application
+            :main-thread              (current-thread)
             :interrupt-clock-function (lambda () now))))
     (setf (application-input-controller application) controller
           (application-input-controller-active-p controller) t)
@@ -2103,9 +2103,9 @@
              (loop until holding-p
                    do (condition-wait gate-condition gate :timeout 2)))
            (application-input-controller--refresh-interrupt-hint controller)
-            (test-assert
-             (string= (terminal-ui-notice ui) "Interrupting request.")
-             "contended presentation retains the earlier interruption notice")
+           (test-assert
+            (string= (terminal-ui-notice ui) "Interrupting request.")
+            "contended presentation retains the earlier interruption notice")
            (test-assert
             (application-input-controller-interrupt-hint-time controller)
             "a dropped hint stays due for a later reader pass"))
@@ -2124,16 +2124,16 @@
 (-> test-active-cancellation-interrupt-window-expiry () null)
 (defun test-active-cancellation-interrupt-window-expiry ()
   "Test an expired active-cancellation window requires a new timely press."
-  (let* ((now 0)
-         (terminal (make-instance 'recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
-         (application (make-instance 'application :ui ui))
+  (let* ((now           0)
+         (terminal      (make-instance 'recording-terminal :columns 80))
+         (ui            (terminal-ui-create :terminal terminal))
+         (application   (make-instance 'application :ui ui))
          (forced-status nil)
          (controller
            (make-instance
             'application-input-controller
-            :application application
-            :main-thread (current-thread)
+            :application              application
+            :main-thread              (current-thread)
             :interrupt-clock-function (lambda () now)
             :forced-exit-function
             (lambda (status)
@@ -2160,16 +2160,16 @@
 (-> test-cancellation-completion-clears-interrupt-state () null)
 (defun test-cancellation-completion-clears-interrupt-state ()
   "Test completed cancellation clears force state and restores idle Ctrl-C."
-  (let* ((now 0)
-         (terminal (make-instance 'recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
-         (application (make-instance 'application :ui ui))
+  (let* ((now           0)
+         (terminal      (make-instance 'recording-terminal :columns 80))
+         (ui            (terminal-ui-create :terminal terminal))
+         (application   (make-instance 'application :ui ui))
          (forced-status nil)
          (controller
            (make-instance
             'application-input-controller
-            :application application
-            :main-thread (current-thread)
+            :application              application
+            :main-thread              (current-thread)
             :interrupt-clock-function (lambda () now)
             :forced-exit-function
             (lambda (status)
@@ -2215,15 +2215,15 @@
   "Present native job identities, outcomes and progress from live and durable data."
   (with-test-configuration (configuration)
     (let* ((conversation (conversation-create configuration))
-           (application (application-tests--ui-application :columns 100 :compact-view-p nil)))
+           (application  (application-tests--ui-application :columns 100 :compact-view-p nil)))
       (dolist (case '((:running :notice) (:failed :failure)
                       (:cancelled :notice) (:completed :success)))
         (let* ((details (list :job-get :durable-p nil
-                              :job (list :id "worker-1" :agent "reviewer" :state (first case)
-                                         :summary "Review complete" :progress '(:duration-ms 42))))
-               (record (list :tool-result :tool "job.get" :status ':ok
-                             :output "#.(error \"never read output\")" :details details))
-               (live (conversation-record-entry application record)))
+                              :job     (list :id "worker-1" :agent "reviewer" :state (first case)
+                                             :summary "Review complete" :progress '(:duration-ms 42))))
+               (record  (list :tool-result :tool "job.get" :status ':ok
+                              :output "#.(error \"never read output\")" :details details))
+               (live    (conversation-record-entry application record)))
           (test-assert (and (search "worker-1" (test-terminal-row-text live))
                             (search "reviewer" (test-terminal-row-text live))
                             (search "42 ms" (test-terminal-row-text live))
@@ -2231,9 +2231,9 @@
                             (find (second case) (rest live) :key #'terminal-span-style))
                        "native job state, role, duration and summary have semantic spans")
           (conversation-append-tool-result conversation (make-identifier) :tool-name "job.get"
-                                           :output (getf (rest record) :output)
+                                           :output                                   (getf (rest record) :output)
                                            :success-p t :details details)
-          (let* ((loaded (conversation-load (conversation-pathname conversation)))
+          (let* ((loaded   (conversation-load (conversation-pathname conversation)))
                  (replayed (conversation-record-entry
                             application (first (conversation-records-newest loaded 1)))))
             (test-assert (equal live replayed)
@@ -2252,8 +2252,8 @@
                               "completed-worker" "gate rejected")))
       (let* ((record (list :tool-result :tool (first case) :status ':ok
                            :output "native output" :details (second case)))
-             (entry (conversation-record-entry application record))
-             (text (test-terminal-row-text entry)))
+             (entry  (conversation-record-entry application record))
+             (text   (test-terminal-row-text entry)))
         (test-assert (and (search (third case) text) (search (fourth case) text)
                           (find ':failure (rest entry) :key #'terminal-span-style))
                      "native discovery and continuity outcomes retain typed failure information")))
@@ -2280,21 +2280,21 @@
                                     (apply #'append (application--native-snapshot-rows application snapshot))))
                    "cyclic native progress is bounded before presentation")))
   (let* ((summary (make-string 10000 :initial-element #\x))
-         (items (loop repeat 1000 collect (list :id "bounded" :state ':failed :summary summary)))
-         (record (list :tool-result :tool "task.run" :status ':ok
-                       :output "native output" :details (list :task-run :results items))))
+         (items   (loop repeat 1000 collect (list :id "bounded" :state ':failed :summary summary)))
+         (record  (list :tool-result :tool "task.run" :status ':ok
+                        :output "native output" :details (list :task-run :results items))))
     (dolist (width '(1 4 12))
       (let* ((application (application-tests--ui-application :columns width :compact-view-p nil))
-             (entry (conversation-record-entry application record))
-             (lines (application--display-lines (test-terminal-row-text entry))))
+             (entry       (conversation-record-entry application record))
+             (lines       (application--display-lines (test-terminal-row-text entry))))
         (test-assert (< (length lines) 40) "native result rows are bounded independently of input size")
         (test-assert (every (lambda (line) (<= (text-cell-width line) width)) lines)
                      "native result rows fit narrow terminals"))))
   (let* ((application (application-tests--ui-application :columns 12 :compact-view-p nil))
-         (output (concatenate 'string (make-string 10000 :initial-element #\[)
-                              "0" (make-string 10000 :initial-element #\])))
-         (entry (conversation-record-entry
-                 application (list :tool-result :tool "unknown.run" :status ':ok :output output))))
+         (output      (concatenate 'string (make-string 10000 :initial-element #\[)
+                                   "0" (make-string 10000 :initial-element #\])))
+         (entry       (conversation-record-entry
+                       application (list :tool-result :tool "unknown.run" :status ':ok :output output))))
     (test-assert (< (length (test-terminal-row-text entry)) 100)
                  "excessively nested JSON uses safe bounded text instead of recursive decoding")))
 
@@ -2305,7 +2305,7 @@
     (dolist (name '("lisp.source" "self.diff"))
       (let* ((record (list :tool-result :tool name :status ':ok
                            :output "(defun greet () \"hello\")"))
-             (entry (conversation-record-entry application record)))
+             (entry  (conversation-record-entry application record)))
         (test-assert (and (find ':syntax-keyword entry :key #'terminal-span-style)
                           (find ':syntax-function entry :key #'terminal-span-style)
                           (find ':syntax-string entry :key #'terminal-span-style))
@@ -2331,7 +2331,7 @@
 (defun test-tool-code-output-highlighting ()
   "Format explicit code payloads through generic and shell result boundaries."
   (let* ((application (application-tests--ui-application :columns 100 :compact-view-p nil))
-         (json "{\"answer\":42,\"message\":\"hello\"}"))
+         (json        "{\"answer\":42,\"message\":\"hello\"}"))
     (dolist (output (list (format nil "```json~%~A~%```" json)
                           "(:state :ready :message \"hello\")"))
       (let ((entry (conversation-record-entry
@@ -2341,14 +2341,14 @@
         (test-assert (find-if (lambda (span) (search "│" (terminal-span-text span))) entry)
                      "Formatted tool content retains a left rail.")))
     (let* ((output (format nil "exit 0~%Execution: exited; timeout no; cancelled no~%combined output: 31 bytes retained, 31 bytes observed; capture-complete yes; status complete~%Log: shell-log:fixture~%~A" json))
-           (entry (conversation-record-entry
-                   application (list :tool-result :tool "shell.run" :status ':ok :output output))))
+           (entry  (conversation-record-entry
+                    application (list :tool-result :tool "shell.run" :status ':ok :output output))))
       (test-assert (and (find ':syntax-string entry :key #'terminal-span-style)
                         (find ':syntax-number entry :key #'terminal-span-style))
                    "Complete JSON stdout is highlighted rather than assumed to be shell source."))
     (let* ((output (format nil "```lisp~%#.(error ~S)~%~C[2J~%```" "do not read tool text" #\Esc))
-           (entry (conversation-record-entry
-                   application (list :tool-result :tool "unknown.run" :status ':ok :output output))))
+           (entry  (conversation-record-entry
+                    application (list :tool-result :tool "unknown.run" :status ':ok :output output))))
       (test-assert (not (find #\Esc (test-terminal-row-text entry)))
                    "Code output is terminal-safe and is never evaluated.")
       (let ((widget (find-if #'termdown:widget-p entry)))
@@ -2358,9 +2358,9 @@
                                   (second (termdown:widget-action widget))))
                      "Fenced tool code retains its copy action and source payload.")))
     (let* ((*application-tool-output-lines* 4)
-           (output (format nil "```json~%[~%~{~A~%~}]~%```" (make-list 30 :initial-element "42,")))
-           (entry (conversation-record-entry
-                   application (list :tool-result :tool "unknown.run" :status ':ok :output output))))
+           (output                          (format nil "```json~%[~%~{~A~%~}]~%```" (make-list 30 :initial-element "42,")))
+           (entry                           (conversation-record-entry
+                                             application (list :tool-result :tool "unknown.run" :status ':ok :output output))))
       (test-assert (<= (count #\Newline (test-terminal-row-text entry)) 6)
                    "Fenced output obeys the tool row budget."))))
 
@@ -2368,40 +2368,40 @@
 (defun test-raw-diff-output-presentation ()
   "Preserve captured diff prefixes and indentation beneath one output rail."
   (let* ((application (application-tests--ui-application :columns 100 :compact-view-p nil))
-         (lines '("diff --git a/demo.lisp b/demo.lisp"
-                  "index abcdef0..1234567 100644"
-                  "--- a/demo.lisp"
-                  "+++ b/demo.lisp"
-                  "@@ -1,2 +1,2 @@"
-                  " (in-package #:demo)"
-                  "-(defun greet () \"before\")"
-                  "+(defun greet () \"after\")"
-                  "\\ No newline at end of file"
-                  "diff --git a/notes.txt b/notes.txt"
-                  "--- a/notes.txt"
-                  "+++ b/notes.txt"
-                  "@@ -1,2 +1,2 @@"
-                  " "
-                  "-  old text"
-                  "+  new text"))
-         (diff (format nil "~{~A~^~%~}" lines)))
+         (lines       '("diff --git a/demo.lisp b/demo.lisp"
+                        "index abcdef0..1234567 100644"
+                        "--- a/demo.lisp"
+                        "+++ b/demo.lisp"
+                        "@@ -1,2 +1,2 @@"
+                        " (in-package #:demo)"
+                        "-(defun greet () \"before\")"
+                        "+(defun greet () \"after\")"
+                        "\\ No newline at end of file"
+                        "diff --git a/notes.txt b/notes.txt"
+                        "--- a/notes.txt"
+                        "+++ b/notes.txt"
+                        "@@ -1,2 +1,2 @@"
+                        " "
+                        "-  old text"
+                        "+  new text"))
+         (diff        (format nil "~{~A~^~%~}" lines)))
     (dolist (case '(("unknown.run" nil 24)
                     ("shell.run" "combined output" 24)
                     ("shell.run" "stderr" 24)
                     ("shell.run" "stdout" 6)))
       (destructuring-bind (tool stream limit) case
         (let* ((*application-tool-output-lines* limit)
-               (output (if stream
-                           (format nil "exit 0~%Execution: exited; timeout no; cancelled no~%~A: ~D bytes retained, ~D bytes observed; capture-complete yes; status complete~%Log: shell-log:fixture~%~A"
-                                   stream (length diff) (length diff) diff)
-                           diff))
-               (entry (conversation-record-entry
-                       application (list :tool-result :tool tool :status ':ok :output output)))
-               (rendered (application--display-lines (test-terminal-row-text entry)))
-               (railed (remove-if-not (lambda (line) (position #\│ line)) rendered))
-               (columns (mapcar (lambda (line) (position #\│ line)) railed))
-               (payload (mapcar (lambda (line) (subseq line (+ 2 (position #\│ line))))
-                                railed)))
+               (output                          (if stream
+                                                    (format nil "exit 0~%Execution: exited; timeout no; cancelled no~%~A: ~D bytes retained, ~D bytes observed; capture-complete yes; status complete~%Log: shell-log:fixture~%~A"
+                                                            stream (length diff) (length diff) diff)
+                                                    diff))
+               (entry                           (conversation-record-entry
+                                                 application (list :tool-result :tool tool :status ':ok :output output)))
+               (rendered                        (application--display-lines (test-terminal-row-text entry)))
+               (railed                          (remove-if-not (lambda (line) (position #\│ line)) rendered))
+               (columns                         (mapcar (lambda (line) (position #\│ line)) railed))
+               (payload                         (mapcar (lambda (line) (subseq line (+ 2 (position #\│ line))))
+                                                        railed)))
           (test-assert (and columns (apply #'= columns))
                        "metadata, context and change lines share one output rail")
           (test-assert (equal payload (subseq lines 0 (min limit (length lines))))
@@ -2411,26 +2411,26 @@
 (defun test-resource-source-highlighting ()
   "Render retained numbered file contents without depending on live file state."
   (let ((expanded (application-tests--ui-application :columns 100 :compact-view-p nil))
-        (compact (application-tests--ui-application :columns 100)))
+        (compact  (application-tests--ui-application :columns 100)))
     (dolist (case '(("source.lisp" "(defun greet () \"hello\")" :syntax-function)
                     ("data.json" "{\"answer\":42}" :syntax-number)
                     ("task.sh" "echo \"hello\"" :syntax-string)
                     ("notes.txt" "plain text" :plain)))
       (destructuring-bind (path source role) case
-        (let* ((body (text--numbered-line-window
-                      (vector source) 1 1 10000
-                      :line-anchor-function #'cl-hashline:line-anchor))
+        (let* ((body   (text--numbered-line-window
+                        (vector source) 1 1 10000
+                        :line-anchor-function #'cl-hashline:line-anchor))
                (output (format nil "URI: workspace:~A~%Revision: Rfixture~%Kind: file~%Visible lines: 1 of 1~%Elided: none~%Content:~%~A"
                                path body))
                (record (list :tool-result :tool "resource.read" :status ':ok :output output))
-               (entry (conversation-record-entry expanded record))
-               (text (test-terminal-row-text entry)))
+               (entry  (conversation-record-entry expanded record))
+               (text   (test-terminal-row-text entry)))
           (test-assert (and (search source text)
                             (search (cl-hashline:line-anchor source) text)
                             (find role entry :key #'terminal-span-style))
                        "File contents preserve source, anchors and path-specific syntax.")
           (test-assert (not (search source (test-terminal-row-text
-                                           (conversation-record-entry compact record))))
+                                            (conversation-record-entry compact record))))
                        "Resource source formatting respects compact result suppression.")
           (let ((failed (copy-list record)))
             (setf (getf (rest failed) :status) ':error)
@@ -2446,8 +2446,8 @@
     (dolist (path '("src/demo.lisp" "C:\\work\\demo.lisp"))
       (let* ((source "(defun greet () \"hello\")")
              (output (format nil "1 match~%~A:12:3 [git:clean]~%  > 12  ~A" path source))
-             (entry (conversation-record-entry
-                     application (list :tool-result :tool "search.content" :status ':ok :output output))))
+             (entry  (conversation-record-entry
+                      application (list :tool-result :tool "search.content" :status ':ok :output output))))
         (test-assert (and (search source (test-terminal-row-text entry))
                           (search (format nil "~A:12:3" path) (test-terminal-row-text entry))
                           (find ':syntax-function entry :key #'terminal-span-style)
@@ -2465,8 +2465,8 @@
                                            (json-object "status" "reported" "diagnostics"
                                                         (vector (json-object "severity" (first case)
                                                                              "message" "diagnostic")))))))
-             (entry (conversation-record-entry
-                     application (list :tool-result :tool "lsp.diagnostics" :status ':ok :output output))))
+             (entry  (conversation-record-entry
+                      application (list :tool-result :tool "lsp.diagnostics" :status ':ok :output output))))
         (test-assert (and (eq (terminal-span-style (first entry)) ':success)
                           (find-if (lambda (span) (and (eq (terminal-span-style span) ':failure)
                                                        (string= (terminal-span-text span) "offline"))) entry)
@@ -2481,12 +2481,12 @@
   (job-completion-tests--fixture
    (lambda (parent runtime configuration)
      (declare (ignore configuration))
-     (let ((lock (make-lock "Handoff presentation gate"))
-           (gate (make-condition-variable))
+     (let ((lock       (make-lock "Handoff presentation gate"))
+           (gate       (make-condition-variable))
            (released-p nil)
-           (compact (application-tests--ui-application :columns 100))
-           (expanded (application-tests--ui-application
-                      :columns 100 :compact-view-p nil)))
+           (compact    (application-tests--ui-application :columns 100))
+           (expanded   (application-tests--ui-application
+                        :columns 100 :compact-view-p nil)))
        (unwind-protect
             (loop for async-p in '(t nil)
                   for reason in '(:requested :grace-expired)
@@ -2495,19 +2495,19 @@
                          (result
                            (tool-execution-invoke
                             runtime parent
-                            :tool-name "shell.run"
+                            :tool-name   "shell.run"
                             :description "Run repository checks"
-                            :summary "check"
+                            :summary     "check"
                             :operation-function
                             (lambda ()
                               (with-lock-held (lock)
                                 (loop until released-p
                                       do (condition-wait gate lock)))
                               (tool-success "checks passed"))
-                            :async-p async-p))
-                         (details (tool-result-details result))
-                         (identifier (getf (getf (rest details) :job) :id))
-                         (conversation (agent-conversation parent)))
+                            :async-p     async-p))
+                         (details                                 (tool-result-details result))
+                         (identifier                              (getf (getf (rest details) :job) :id))
+                         (conversation                            (agent-conversation parent)))
                     (test-assert
                      (eq reason (getf (rest details) :handoff-reason))
                      "explicit async and expired blocking waits produce native handoffs")
@@ -2517,8 +2517,8 @@
                      :success-p t :cpu-microseconds 2000 :real-microseconds 1000)
                     (let* ((loaded (conversation-load (conversation-pathname conversation)))
                            (record (first (conversation-records-newest loaded 1)))
-                           (entry (conversation-record-entry compact record))
-                           (text (test-terminal-row-text entry)))
+                           (entry  (conversation-record-entry compact record))
+                           (text   (test-terminal-row-text entry)))
                       (test-assert
                        (and (eq (terminal-span-style (first entry)) ':notice)
                             (search identifier text)
@@ -2544,12 +2544,12 @@
                                         (:failed "failed" :failure)
                                         (:cancelled "cancelled" :notice)))
                           (let* ((variant (copy-tree record))
-                                 (job (getf (rest (getf (rest variant) :details)) :job)))
+                                 (job     (getf (rest (getf (rest variant) :details)) :job)))
                             (setf (getf (rest variant) :tool) tool-name
                                   (getf job :state) (first case)
                                   (getf job :description) (make-string 4000 :initial-element #\x))
                             (let* ((entry (conversation-record-entry compact variant))
-                                   (text (test-terminal-row-text entry)))
+                                   (text  (test-terminal-row-text entry)))
                               (test-assert
                                (and (application--record-visible-p compact variant)
                                     (eq (terminal-span-style (first entry)) (third case))
@@ -2583,7 +2583,7 @@
 (defun test-transcript-entries ()
   "Test styled transcript entry construction, wrapping, and output bounds."
   (let ((application (application-tests--ui-application
-                      :columns 40
+                      :columns        40
                       :compact-view-p nil)))
     (let ((item
             (json-object
@@ -2601,10 +2601,10 @@
                    "reasoning summaries stay hidden by default")
       (let* ((visible-application
                (application-tests--ui-application
-                :columns 40
+                :columns            40
                 :reasoning-traces-p t))
              (entry (response-item-entry visible-application item))
-             (text (test-terminal-row-text entry)))
+             (text  (test-terminal-row-text entry)))
         (test-assert
          (equal (first entry) (terminal-span :hint "◇ reasoning summary"))
          "trace mode labels provider-visible reasoning summaries")
@@ -2624,7 +2624,7 @@
                      "trace mode never shows raw reasoning content"))
       (let* ((narrow-application
                (application-tests--ui-application
-                :columns 20
+                :columns            20
                 :reasoning-traces-p t))
              (entry
                (application--reasoning-summary-entry
@@ -2652,7 +2652,7 @@
                         *terminal-escape-character*)
                 "tools" (json-array)))))
            (entry (response-item-entry application item))
-           (text (test-terminal-row-text entry)))
+           (text  (test-terminal-row-text entry)))
       (test-assert
        (and (application--response-item-visible-p application item)
             (= (count (terminal-span ':tool "▸ tool schemas: ")
@@ -2712,17 +2712,17 @@
               "arguments" "{\"uri\":\"workspace:x\"} trailing"))
            (wide-application
              (application-tests--ui-application
-              :columns 80
+              :columns        80
               :compact-view-p nil))
            (entry (response-item-entry wide-application call))
-           (text (test-terminal-row-text entry)))
+           (text  (test-terminal-row-text entry)))
       (test-assert
        (and (equal (first entry) (terminal-span :tool "▸ (resource.read)"))
             (not (find #\Newline text)))
        "malformed provider arguments retain the tool header without fabricated fields"))
     (let* ((narrow-application
              (application-tests--ui-application
-              :columns 20
+              :columns        20
               :compact-view-p nil))
            (entry
              (response-item-entry
@@ -2758,8 +2758,8 @@
               (json-object
                "type" "function_call" "namespace" "odd" "name" "tool"
                "arguments" "{\"z\":false,\"a key)\":true,\"nested\":{\"value\":null}}")))
-           (lines (rest (uiop:split-string (test-terminal-row-text entry)
-                                           :separator '(#\Newline))))
+           (lines         (rest (uiop:split-string (test-terminal-row-text entry)
+                                                   :separator '(#\Newline))))
            (value-columns (mapcar #'search '("true" "null" "false") lines)))
       (test-assert
        (and (search ":|a key)|" (first lines))
@@ -2805,17 +2805,17 @@
            "resource operations retain argument names, multiline previews and cell bounds"))))
     (let* ((source (format nil "~{form-line-~D~^~%~}"
                            (loop for index from 1 to 10 collect index)))
-           (entry (response-item-entry
-                   application
-                   (json-object
-                    "type" "function_call"
-                    "namespace" "self"
-                    "name" "eval"
-                    "arguments" (json-encode
-                                 (json-object
-                                  "forms" (vector source)
-                                  "restart" "CONTINUE")))))
-           (text (test-terminal-row-text entry)))
+           (entry  (response-item-entry
+                    application
+                    (json-object
+                     "type" "function_call"
+                     "namespace" "self"
+                     "name" "eval"
+                     "arguments" (json-encode
+                                  (json-object
+                                   "forms" (vector source)
+                                   "restart" "CONTINUE")))))
+           (text   (test-terminal-row-text entry)))
       (test-assert
        (and (string= (first (uiop:split-string text :separator '(#\Newline)))
                      "▸ (self.eval :restart CONTINUE)")
@@ -2841,7 +2841,7 @@
                     "name" "eval"
                     "arguments" (json-encode
                                  (json-object "forms" (vector "(+ 1 2)"))))))
-           (text (test-terminal-row-text entry)))
+           (text  (test-terminal-row-text entry)))
       (test-assert
        (and (equal (first entry) (terminal-span :tool "▸ (lisp.eval)"))
             (search "(+ 1 2)" text)
@@ -2858,7 +2858,7 @@
                                   "command" "printf hello && printf world"
                                   "directory" "/tmp/work"
                                   "timeout-seconds" 30)))))
-           (text (test-terminal-row-text entry)))
+           (text  (test-terminal-row-text entry)))
       (let ((lines (uiop:split-string text :separator '(#\Newline))))
         (test-assert
          (and (string= (first lines)
@@ -2905,10 +2905,10 @@
                    application
                    (list :tool-result :seq 2 :time 0 :call-id 1
                          :tool "shell.run" :status ':ok
-                         :cpu-microseconds 1234
+                         :cpu-microseconds  1234
                          :real-microseconds 567890
-                         :output "wrote file")))
-           (text (test-terminal-row-text entry)))
+                         :output            "wrote file")))
+           (text  (test-terminal-row-text entry)))
       (test-assert (and (search "cpu 0.001s" text)
                         (search "real 0.568s" text))
                    "tool results show CPU and real elapsed time"))
@@ -2917,7 +2917,7 @@
                    (list :tool-result :seq 3 :time 0 :call-id 2
                          :tool "shell.run" :status ':ok
                          :output (format nil "exit 3~%command output"))))
-           (text (test-terminal-row-text entry)))
+           (text  (test-terminal-row-text entry)))
       (test-assert (and (search "exit 3" text)
                         (search "command output" text))
                    "shell.run results separate exit status from command output"))
@@ -2934,7 +2934,7 @@
                                   combined output: 4 bytes retained, 4 bytes observed; ~
                                   capture-complete yes; status complete~%~
                                   Log: shell-log:a/b/c/output~%oops~%")
-                      ':failure "! shell.run exit 2" '("oops"))
+                     ':failure "! shell.run exit 2" '("oops"))
                (list "a timeout with truncated separate streams" ':error
                      (format nil "exit unavailable~%Execution: timed-out; timeout yes; cancelled no~%~
                                   stdout: 10 bytes retained, 99 bytes observed; ~
@@ -2943,7 +2943,7 @@
                                   stderr: 5 bytes retained, 5 bytes observed; ~
                                   capture-complete yes; status complete~%~
                                   Log: shell-log:a/b/c/error~%boom~%")
-                      ':failure "! shell.run exit unavailable"
+                     ':failure "! shell.run exit unavailable"
                      '("timed out" "output truncated: 10 of 99 bytes kept"
                        "stdout" "partial" "stderr" "boom"))))
       (destructuring-bind (label status output style header shown) case
@@ -2951,7 +2951,7 @@
                        application
                        (list :tool-result :seq 7 :time 0 :call-id "shell"
                              :tool "shell.run" :status status :output output)))
-               (text (test-terminal-row-text entry)))
+               (text  (test-terminal-row-text entry)))
           (test-assert
            (and (equal (first entry) (terminal-span style header))
                 (every (lambda (expected) (search expected text)) shown)
@@ -2965,7 +2965,7 @@
                          :output (format nil "Applied replace-lines 3-4.~%URI: workspace:a.lisp~%~
                                               Revision: R1~%Content:~%     3:AB12  (foo)~%~%~
                                               WARNING: The edit succeeded, but delimiters are unbalanced."))))
-           (text (test-terminal-row-text entry)))
+           (text  (test-terminal-row-text entry)))
       (test-assert (and (search "Applied replace-lines 3-4" text)
                         (search "WARNING: The edit succeeded" text)
                         (not (search "Revision" text))
@@ -2978,7 +2978,7 @@
                          :output (format nil "Path: src/~%Checked 1,204 of 1,204 recognized ~
                                               Lisp-family files.~%No unmatched or mismatched ~
                                               delimiters found."))))
-           (text (test-terminal-row-text entry)))
+           (text  (test-terminal-row-text entry)))
       (test-assert (and (search "1,204 files balanced" text)
                         (not (find #\Newline text)))
                    "a clean paren check is one line"))
@@ -2995,7 +2995,7 @@
                    (list :tool-result :seq 4 :time 0 :call-id 3
                          :tool "self.eval" :status ':ok
                          :output (format nil "Output:~%hello~%Values:~%42~%"))))
-           (text (test-terminal-row-text entry)))
+           (text  (test-terminal-row-text entry)))
       (test-assert (equal (first entry) (terminal-span :success "✓ self.eval"))
                    "successful tool results present a success header")
       (test-assert (and (search "output" text)
@@ -3011,7 +3011,7 @@
                                          "Symbol: FOO~%Package: AUTOLITH~%~
                                           Function binding: yes~%~
                                           Lambda list: (X)~%Describe:~%details"))))
-           (text (test-terminal-row-text entry)))
+           (text  (test-terminal-row-text entry)))
       (test-assert (and (search "Symbol" text)
                         (search "FOO" text)
                         (find (terminal-span :strong "Describe")
@@ -3026,27 +3026,27 @@
                                          "Output:~%Symbol: CAR~%~
                                           Documentation: list head~%~
                                           Values:~%"))))
-           (text (test-terminal-row-text entry)))
+           (text  (test-terminal-row-text entry)))
       (test-assert (and (search "description" text)
                         (search "Symbol" text)
                         (search "CAR" text)
                         (search "values" text))
                    "lisp.describe results separate structured description and values"))
     (dolist (case '(("resource.read"
-                    "resource.read failed: byte-count is out of range."
-                    "byte-count is out of range.")
-                   ("resource.read" "File not found." "File not found.")
-                   ("resource.read" "backend.run failed: unavailable"
-                    "backend.run failed: unavailable")
-                   ("unknown.run" "unknown.run failed: resource.read failed: denied"
-                    "resource.read failed: denied")))
+                     "resource.read failed: byte-count is out of range."
+                     "byte-count is out of range.")
+                    ("resource.read" "File not found." "File not found.")
+                    ("resource.read" "backend.run failed: unavailable"
+                     "backend.run failed: unavailable")
+                    ("unknown.run" "unknown.run failed: resource.read failed: denied"
+                     "resource.read failed: denied")))
       (destructuring-bind (tool output reason) case
         (let ((entry (conversation-record-entry
                       application
                       (list :tool-result :tool tool :status ':error :output output))))
           (test-assert
            (and (equal (first entry)
-                        (terminal-span ':failure (format nil "! ~A failed" tool)))
+                       (terminal-span ':failure (format nil "! ~A failed" tool)))
                 (find (terminal-span ':plain reason) entry :test #'equal))
            "the failure header identifies the tool and its body shows only the reason"))))
     (let* ((entry (conversation-record-entry
@@ -3058,9 +3058,9 @@
                                             CONTINUE  Try again.~%~
                                             USE-VALUE  Supply a value.~%~
                                           Retry the identical call with a restart."))))
-           (text (test-terminal-row-text entry)))
+           (text  (test-terminal-row-text entry)))
       (test-assert (equal (first entry)
-                           (terminal-span :failure "! self.eval failed"))
+                          (terminal-span :failure "! self.eval failed"))
                    "failed tool results present a failure header")
       (test-assert (and (find (terminal-span ':plain "Needs a value.") entry :test #'equal)
                         (search "condition" text)
@@ -3089,14 +3089,14 @@
   "Fit complete arguments by terminal cells and retain wrapped argument tables."
   (dolist (value '("sample" "界é" ""))
     (let* ((expected (format nil "▸ (odd.tool :value ~A)" value))
-           (width (text-cell-width expected)))
+           (width    (text-cell-width expected)))
       (dolist (fits-p '(nil t))
         (let* ((columns (+ width (if fits-p 1 0)))
-               (entry (response-item-entry
-                       (application-tests--ui-application :columns columns :compact-view-p nil)
-                       (json-object "type" "function_call" "namespace" "odd" "name" "tool"
-                                    "arguments" (json-encode (json-object "value" value)))))
-               (text (test-terminal-row-text entry)))
+               (entry   (response-item-entry
+                         (application-tests--ui-application :columns columns :compact-view-p nil)
+                         (json-object "type" "function_call" "namespace" "odd" "name" "tool"
+                                      "arguments" (json-encode (json-object "value" value)))))
+               (text    (test-terminal-row-text entry)))
           (test-assert
            (if fits-p
                (string= text expected)
@@ -3112,7 +3112,7 @@
                  (application-tests--ui-application :columns 24 :compact-view-p nil)
                  (json-object "type" "function_call" "namespace" "odd" "name" "tool"
                               "arguments" "{\"value\":\"alpha beta gamma delta epsilon zeta\"}")))
-         (text (test-terminal-row-text entry)))
+         (text  (test-terminal-row-text entry)))
     (test-assert
      (and (> (count #\Newline text) 1)
           (string= (terminal-span-text (first entry)) "▸ (odd.tool)")
@@ -3125,7 +3125,7 @@
 (defun test-recovery-cursor-normalization ()
   "Test recovered transcript cursors cannot exceed durable conversation state."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "cursor-recovery")))
     (unwind-protect
@@ -3158,9 +3158,9 @@
 (-> test-recovery-diagnosis-prompt () null)
 (defun test-recovery-diagnosis-prompt ()
   "Test recovered crash context becomes one bounded diagnosis-only prompt."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (state-root (config :state-root configuration))
+  (let* ((configuration     (test-configuration))
+         (root              (test-configuration-root configuration))
+         (state-root        (config :state-root configuration))
          (capsule-pathname
            (merge-pathnames "crashes/diagnosis.sexp" state-root))
          (pointer-pathname
@@ -3168,12 +3168,12 @@
          (session-pathname
            (merge-pathnames
             "recovery-session-pointers/diagnosis.sexp" state-root))
-         (recovered-name "AUTOLITH_RECOVERED")
-         (pointer-name "AUTOLITH_CRASH_POINTER")
-         (session-name "AUTOLITH_RECOVERY_SESSION_POINTER")
+         (recovered-name    "AUTOLITH_RECOVERED")
+         (pointer-name      "AUTOLITH_CRASH_POINTER")
+         (session-name      "AUTOLITH_RECOVERY_SESSION_POINTER")
          (conversation-name "AUTOLITH_RECOVERY_CONVERSATION_ID")
-         (sequence-name "AUTOLITH_RECOVERY_RENDERED_SEQUENCE")
-         (floor-name "AUTOLITH_RECOVERY_HISTORY_FLOOR_SEQUENCE")
+         (sequence-name     "AUTOLITH_RECOVERY_RENDERED_SEQUENCE")
+         (floor-name        "AUTOLITH_RECOVERY_HISTORY_FLOOR_SEQUENCE")
          (environment-names
            (list recovered-name pointer-name session-name conversation-name
                  sequence-name floor-name))
@@ -3187,29 +3187,29 @@
             session-pathname
             (list :recovery-session
                   :version 1
-                  :conversation-id "2345678"
-                  :rendered-sequence 4
+                  :conversation-id        "2345678"
+                  :rendered-sequence      4
                   :history-floor-sequence 2))
            (snapshot-write
             capsule-pathname
             (list :crash
                   :version 1
-                  :id "diagnosis"
-                  :time 1
-                  :condition-type "SIMPLE-ERROR"
-                  :condition "Injected recovery failure."
-                  :backtrace '("FRAME-ONE" "FRAME-TWO")
-                  :conversation-id "recover1"
-                  :rendered-sequence 2
+                  :id                     "diagnosis"
+                  :time                   1
+                  :condition-type         "SIMPLE-ERROR"
+                  :condition              "Injected recovery failure."
+                  :backtrace              '("FRAME-ONE" "FRAME-TWO")
+                  :conversation-id        "recover1"
+                  :rendered-sequence      2
                   :history-floor-sequence 1
-                  :git-commit "0123456789abcdef0123456789abcdef01234567"
-                  :journal-position 17))
+                  :git-commit             "0123456789abcdef0123456789abcdef01234567"
+                  :journal-position       17))
            (ensure-directories-exist pointer-pathname)
            (with-open-file (stream pointer-pathname
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create
-                                   :external-format ':utf-8)
+                                   :external-format   ':utf-8)
              (write-line (namestring capsule-pathname) stream))
            (platform-setenv recovered-name "1")
            (platform-setenv pointer-name (namestring pointer-pathname))
@@ -3219,8 +3219,8 @@
              (test-assert
               (and prompt
                    (search "diagnosis-only" prompt)
-                    (search "bounded read-only diagnostic tool rounds" prompt)
-                    (search "workspace and source" prompt)
+                   (search "bounded read-only diagnostic tool rounds" prompt)
+                   (search "workspace and source" prompt)
                    (search "Injected recovery failure" prompt)
                    (search "FRAME-ONE" prompt)
                    (search "ask" prompt)
@@ -3231,7 +3231,7 @@
            (platform-setenv sequence-name "99")
            (platform-setenv floor-name "98")
            (multiple-value-bind (conversation-id rendered-sequence
-                                history-floor-sequence)
+                                 history-floor-sequence)
                (application-recovery-state configuration)
              (test-assert
               (and (string= conversation-id "2345678")
@@ -3245,11 +3245,11 @@
             session-pathname
             (list :recovery-session
                   :version 1
-                  :version 1
-                  :conversation-id "../bad"
+                  :version           1
+                  :conversation-id   "../bad"
                   :rendered-sequence 0))
            (multiple-value-bind (conversation-id rendered-sequence
-                                history-floor-sequence)
+                                 history-floor-sequence)
                (application-recovery-state configuration)
              (test-assert
               (and (null conversation-id)
@@ -3272,25 +3272,25 @@
 (-> test-recovery-application-construction () null)
 (defun test-recovery-application-construction ()
   "Test source and retained recovery restore conversations and cursor state."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration                 (test-configuration))
+         (root                          (test-configuration-root configuration))
          (recovered
            (conversation-create configuration :identifier "recover-source"))
          (explicit
            (conversation-create configuration :identifier "explicit-resume"))
-         (conversation-name "AUTOLITH_RECOVERY_CONVERSATION_ID")
-         (sequence-name "AUTOLITH_RECOVERY_RENDERED_SEQUENCE")
-         (floor-name "AUTOLITH_RECOVERY_HISTORY_FLOOR_SEQUENCE")
+         (conversation-name             "AUTOLITH_RECOVERY_CONVERSATION_ID")
+         (sequence-name                 "AUTOLITH_RECOVERY_RENDERED_SEQUENCE")
+         (floor-name                    "AUTOLITH_RECOVERY_HISTORY_FLOOR_SEQUENCE")
          (environment-names
            (list conversation-name sequence-name floor-name))
          (previous-environment
            (loop for name in environment-names
                  collect (cons name (uiop:getenv name))))
-         (mcp-registration-snapshot (mcp--registry-snapshot))
+         (mcp-registration-snapshot     (mcp--registry-snapshot))
          (context-registration-snapshot (context--registry-snapshot))
          (command-registration-snapshot
            (application-command--registry-snapshot))
-         (application nil))
+         (application                   nil))
     (labels ((publish-recovery-context ()
                "Publish RECOVERED's one-shot cursor handoff."
                (platform-setenv
@@ -3367,10 +3367,10 @@
                                       (terminal-ui-terminal ui)))
                                "seeding an unstarted meter does not paint")
                   (terminal-ui-start ui)
-                   (test-assert (search "272K"
-                                        (recording-terminal-output
-                                         (terminal-ui-terminal ui)))
-                               "the first application paint includes its context meter")
+                  (test-assert (search "272K"
+                                       (recording-terminal-output
+                                        (terminal-ui-terminal ui)))
+                              "the first application paint includes its context meter")
                   (terminal-ui-stop ui))
                 (application-set-hurry-up application t)
                 (publish-recovery-context)
@@ -3413,10 +3413,10 @@
                                       (terminal-ui-terminal ui)))
                                "reconnect seeding does not paint an unstarted UI")
                   (terminal-ui-start ui)
-                   (test-assert (search "272K"
-                                        (recording-terminal-output
-                                         (terminal-ui-terminal ui)))
-                               "the first reconnect paint includes its context meter")
+                  (test-assert (search "272K"
+                                       (recording-terminal-output
+                                        (terminal-ui-terminal ui)))
+                              "the first reconnect paint includes its context meter")
                   (terminal-ui-stop ui)))))
         (close-application)
         (dolist (entry previous-environment)
@@ -3427,22 +3427,22 @@
         (context--registry-restore context-registration-snapshot)
         (application-command--registry-restore command-registration-snapshot)
         (platform-delete-directory-tree *platform* root :validate t
-                                             :if-does-not-exist ':ignore))))
+                                             :if-does-not-exist   ':ignore))))
   nil)
 
 (-> test-bounded-transcript-replay () null)
 (defun test-bounded-transcript-replay ()
   "Test startup replays exactly the newest two hundred fifty visible entries."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "bounded-replay"))
-         (terminal (make-instance 'recording-terminal :columns 80))
+         (terminal      (make-instance 'recording-terminal :columns 80))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui (terminal-ui-create :terminal terminal))))
+                          :conversation  conversation
+                          :ui            (terminal-ui-create :terminal terminal))))
     (unwind-protect
          (progn
            (test-assert (= *application-history-page-size* 250)
@@ -3486,7 +3486,7 @@
                     (make-instance
                      'application
                      :configuration configuration
-                     :conversation conversation
+                     :conversation  conversation
                      :ui
                      (terminal-ui-create :terminal recovery-terminal))))
              (setf (application-rendered-sequence recovery-application) 1
@@ -3507,12 +3507,11 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-chunked-transcript-replay () null)
 (defun test-chunked-transcript-replay ()
   "Test newest-first replay, one-segment fallback, history, and cursor rotation."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (progn
            (let* ((conversation
@@ -3523,8 +3522,8 @@
                     (make-instance
                      'application
                      :configuration configuration
-                     :conversation conversation
-                     :ui (terminal-ui-create :terminal terminal))))
+                     :conversation  conversation
+                     :ui            (terminal-ui-create :terminal terminal))))
              (application-render-records application)
              (test-assert
               (and (application-transcript-synchronized-p application)
@@ -3556,13 +3555,13 @@
              (conversation-append-user-message conversation "active-full-two")
              (let* ((loaded
                       (conversation-load (conversation-pathname conversation)))
-                    (terminal (make-instance 'recording-terminal :columns 80))
+                    (terminal         (make-instance 'recording-terminal :columns 80))
                     (application
                       (make-instance
                        'application
                        :configuration configuration
-                       :conversation loaded
-                       :ui (terminal-ui-create :terminal terminal)))
+                       :conversation  loaded
+                       :ui            (terminal-ui-create :terminal terminal)))
                     (mapped-pathnames nil)
                     (map-records-function
                       (symbol-function 'sexp-store:log-map)))
@@ -3619,15 +3618,15 @@
                     (pathnames
                       (conversation-storage-pathnames
                        (conversation-pathname conversation)))
-                    (active (third pathnames))
-                    (previous (second pathnames))
-                    (terminal (make-instance 'recording-terminal :columns 80))
+                    (active           (third pathnames))
+                    (previous         (second pathnames))
+                    (terminal         (make-instance 'recording-terminal :columns 80))
                     (application
                       (make-instance
                        'application
                        :configuration configuration
-                       :conversation loaded
-                       :ui (terminal-ui-create :terminal terminal)))
+                       :conversation  loaded
+                       :ui            (terminal-ui-create :terminal terminal)))
                     (mapped-pathnames nil)
                     (map-records-function
                       (symbol-function 'sexp-store:log-map)))
@@ -3659,8 +3658,8 @@
                         (recovery-application
                           (make-instance
                            'application
-                           :configuration configuration
-                           :conversation loaded
+                           :configuration      configuration
+                           :conversation       loaded
                            :recovery-startup-p t
                            :ui
                            (terminal-ui-create :terminal recovery-terminal)))
@@ -3707,14 +3706,14 @@
                       (conversation-storage-pathnames
                        (conversation-pathname conversation)))
                     (previous (first pathnames))
-                    (forms (copy-tree (conversation--read-records previous)))
+                    (forms    (copy-tree (conversation--read-records previous)))
                     (application
                       (make-instance
                        'application
                        :configuration configuration
                        :conversation
                        (conversation-load (conversation-pathname conversation))
-                       :ui (terminal-ui-create :terminal terminal))))
+                       :ui            (terminal-ui-create :terminal terminal))))
                (setf (getf (rest (second forms)) :seq) 2)
                (conversation-identifier-migration--write-forms previous forms)
                (let ((*application-history-page-size* 3))
@@ -3733,16 +3732,16 @@
 (defun test-hidden-reasoning-does-not-crowd-replay ()
   "Test hidden reasoning records do not consume visible replay capacity."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "visible-replay"))
-         (terminal (make-instance 'recording-terminal :columns 80))
+         (terminal      (make-instance 'recording-terminal :columns 80))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :provider nil
-                          :ui (terminal-ui-create :terminal terminal))))
+                          :conversation  conversation
+                          :provider      nil
+                          :ui            (terminal-ui-create :terminal terminal))))
     (unwind-protect
          (let ((*application-history-page-size* 3))
            (loop for index from 1 to 4
@@ -3793,15 +3792,15 @@
 (defun test-paged-transcript-history ()
   "Test /history appends bounded older pages without replaying live output."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "paged-history"))
-         (terminal (make-instance 'recording-terminal :columns 80))
+         (terminal      (make-instance 'recording-terminal :columns 80))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui (terminal-ui-create :terminal terminal))))
+                          :conversation  conversation
+                          :ui            (terminal-ui-create :terminal terminal))))
     (unwind-protect
          (let ((*application-history-page-size* 2))
            (loop for index from 1 to 5
@@ -3829,9 +3828,9 @@
            (test-assert
             (eq (application-command application "/history") ':continue)
             "/history keeps the interactive application running")
-           (let* ((output (recording-terminal-output terminal))
+           (let* ((output          (recording-terminal-output terminal))
                   (second-position (search "history-message-2" output))
-                  (third-position (search "history-message-3" output)))
+                  (third-position  (search "history-message-3" output)))
              (test-assert
               (and (search "2 earlier transcript entries" output)
                    second-position
@@ -3870,36 +3869,36 @@
 (defun test-compaction-presentation-lifecycle ()
   "Test compaction event presentation and every defensive cleanup boundary."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "compaction-ui"))
-         (registry (make-instance 'tool-registry))
+         (registry      (make-instance 'tool-registry))
          (provider
            (make-instance
             'scripted-provider
             :results
             (list
              (make-condition 'simple-error
-                             :format-control "manual compaction failed"
+                             :format-control   "manual compaction failed"
                              :format-arguments nil)
              (make-condition 'simple-error
-                             :format-control "turn failed"
+                             :format-control   "turn failed"
                              :format-arguments nil))))
-         (agent (agent-create :configuration configuration
-                              :provider provider
-                              :conversation conversation
-                              :tool-registry registry
-                              :worker ':unused))
-         (terminal (make-instance 'recording-terminal :columns 72))
-         (ui (terminal-ui-create :terminal terminal
-                                 :clock-function (lambda () 0)))
+         (agent         (agent-create :configuration configuration
+                                      :provider      provider
+                                      :conversation  conversation
+                                      :tool-registry registry
+                                      :worker        ':unused))
+         (terminal      (make-instance 'recording-terminal :columns 72))
+         (ui            (terminal-ui-create :terminal       terminal
+                                            :clock-function (lambda () 0)))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
+                          :conversation  conversation
                           :tool-registry registry
-                          :agent agent
-                          :ui ui)))
+                          :agent         agent
+                          :ui            ui)))
     (unwind-protect
          (progn
            (terminal-ui-start ui)
@@ -3912,11 +3911,11 @@
                   (= (terminal-ui-context-window ui) 272000)
                   (= (terminal-ui-context-compaction-limit ui) 217600))
             "application refresh projects current provider usage into the idle meter")
-            (test-assert
-             (search (config :model configuration)
-                     (terminal-ui--raw-spans-text
-                      (terminal-ui-idle-status-details ui)))
-             "application refresh projects static model details into the idle row")
+           (test-assert
+            (search (config :model configuration)
+                    (terminal-ui--raw-spans-text
+                     (terminal-ui-idle-status-details ui)))
+            "application refresh projects static model details into the idle row")
            (let* ((observer (application-agent-observer application))
                   (send-status
                     (callback-agent-observer-status-callback observer)))
@@ -3994,9 +3993,9 @@
            (let ((definition (self-read-form source :read-eval nil)))
              (make-instance 'image-replay-skip
                             :definition definition
-                            :key (definition-key definition)
-                            :reason reason
-                            :message "skipped"))))
+                            :key        (definition-key definition)
+                            :reason     reason
+                            :message    "skipped"))))
     (test-assert (null (application--replay-skips-entry nil))
                  "an image without skips presents no notice")
     (let* ((skips
@@ -4004,20 +4003,20 @@
                    (skip "(defmethod tool-execute :around ((tool shell-run-tool) context arguments) nil)"
                          ':revision-moved)
                    (skip "(defun alpha-wrapper () 0)" ':tracked-changed)))
-           (entry (application--replay-skips-entry
-                   skips
-                   :commit-identifier "c3ec5281-3622-4c30-9bc9-a223fecccd47"
-                   :lineage-source-commit "07f0e1b86da2be055f1e836a4e62e57fbf9e4b7b"
-                   :image-source-commit nil))
-           (text (terminal--spans-text entry))
+           (entry         (application--replay-skips-entry
+                           skips
+                           :commit-identifier     "c3ec5281-3622-4c30-9bc9-a223fecccd47"
+                           :lineage-source-commit "07f0e1b86da2be055f1e836a4e62e57fbf9e4b7b"
+                           :image-source-commit   nil))
+           (text          (terminal--spans-text entry))
            (changed-title (position-if
                            (lambda (span)
                              (search "changed since" (terminal-span-text span)))
                            entry))
-           (moved-title (position-if
-                         (lambda (span)
-                           (search "moved on" (terminal-span-text span)))
-                         entry)))
+           (moved-title   (position-if
+                           (lambda (span)
+                             (search "moved on" (terminal-span-text span)))
+                           entry)))
       (test-assert
        (and (search "SKIPPED 3 DEFINITIONS" text)
             (search "commit c3ec5281 · published against 07f0e1b8 · this image runs unknown"
@@ -4050,19 +4049,19 @@
             (merge-pathnames
              (format nil "autolith-skip-prompt-tests-~A/" (make-identifier))
              (uiop:temporary-directory))))
-         (configuration (test-configuration-for-source-root source-root))
+         (configuration   (test-configuration-for-source-root source-root))
          (source-pathname (merge-pathnames "src/definitions.lisp" source-root))
-         (override "(defun test-self-target () \"Return the private override.\" 7)")
-         (recorded "(defun test-self-target () \"Return the old baseline.\" 0)")
-         (current "(defun test-self-target ()~%  \"Return the current baseline.\"~%  1)"))
+         (override        "(defun test-self-target () \"Return the private override.\" 7)")
+         (recorded        "(defun test-self-target () \"Return the old baseline.\" 0)")
+         (current         "(defun test-self-target ()~%  \"Return the current baseline.\"~%  1)"))
     (unwind-protect
          (progn
            (ensure-directories-exist source-pathname)
            (with-open-file (stream source-pathname
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create
-                                   :external-format ':utf-8)
+                                   :external-format   ':utf-8)
              (format stream "(in-package #:autolith)~2%")
              (format stream current)
              (terpri stream))
@@ -4071,10 +4070,10 @@
                     (let ((definition (self-read-form source :read-eval nil)))
                       (apply #'make-instance 'image-replay-skip
                              :definition definition
-                             :key (definition-key definition)
-                             :source source
-                             :reason reason
-                             :message "The persisted defun was skipped: it moved."
+                             :key        (definition-key definition)
+                             :source     source
+                             :reason     reason
+                             :message    "The persisted defun was skipped: it moved."
                              arguments))))
              (let ((prompt
                      (application--skipped-definitions-prompt
@@ -4083,10 +4082,10 @@
                             (skip "(defun test-skip-prompt-fresh () 2)"
                                   ':revision-moved
                                   :tracked nil :tracked-recorded-p nil))
-                      :configuration configuration
-                      :commit-identifier "c3ec5281-3622-4c30-9bc9-a223fecccd47"
+                      :configuration         configuration
+                      :commit-identifier     "c3ec5281-3622-4c30-9bc9-a223fecccd47"
                       :lineage-source-commit "07f0e1b86da2be055f1e836a4e62e57fbf9e4b7b"
-                      :image-source-commit "8631cedec9e7a704ad03e6200b4d09f64f079531")))
+                      :image-source-commit   "8631cedec9e7a704ad03e6200b4d09f64f079531")))
                (test-assert
                 (and (search "skipped 2 private definitions" prompt)
                      (search "commit c3ec5281, published against 07f0e1b8; this image runs 8631cede"
@@ -4109,7 +4108,7 @@
                      (search "none: the current source has no definition" prompt))
                 "a legacy override without tracked counterparts says so"))))
       (platform-delete-directory-tree *platform* source-root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -4117,25 +4116,25 @@
 (defun test-streaming-presentation ()
   "Test safe streaming, exact record reconciliation, and live tool entries."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
-         (let* ((conversation (conversation-create configuration
-                                                   :identifier "stream-test"))
-                (terminal (make-instance 'recording-terminal :columns 30))
-                (application (progn
-                               (setf (config :reasoning-traces-p configuration) t)
-                               (make-instance 'application
-                                            :configuration configuration
-                                            :conversation conversation
-                                            :tool-registry
-                                            (make-default-tool-registry)
-                                            :ui (terminal-ui-create
-                                                 :terminal terminal))))
-                (observer (application-agent-observer application))
-                (send-text (callback-agent-observer-text-callback observer))
+         (let* ((conversation     (conversation-create configuration
+                                                       :identifier "stream-test"))
+                (terminal         (make-instance 'recording-terminal :columns 30))
+                (application      (progn
+                                    (setf (config :reasoning-traces-p configuration) t)
+                                    (make-instance 'application
+                                                 :configuration configuration
+                                                 :conversation  conversation
+                                                 :tool-registry
+                                                 (make-default-tool-registry)
+                                                 :ui            (terminal-ui-create
+                                                                 :terminal terminal))))
+                (observer         (application-agent-observer application))
+                (send-text        (callback-agent-observer-text-callback observer))
                 (send-reasoning
                   (callback-agent-observer-reasoning-callback observer))
-                (send-status (callback-agent-observer-status-callback observer))
+                (send-status      (callback-agent-observer-status-callback observer))
                 (reasoning-prefix "**<thought>** Checking the safe path.")
                 (reasoning-suffix
                   " Comparing fallback behavior and verifying the live preview remains separate from status.")
@@ -4143,12 +4142,12 @@
                   (concatenate 'string reasoning-prefix reasoning-suffix))
                 (reasoning-second-part
                   "**<thought>** Confirming the durable summary matches.")
-                (streamed-text (format nil
-                                       "The quick brown fox jumps over the lazy dog~%final tail")))
+                (streamed-text    (format nil
+                                          "The quick brown fox jumps over the lazy dog~%final tail")))
            (terminal-ui-start (application-ui application))
            (funcall send-status :provider-request-started nil)
            (funcall send-reasoning reasoning-prefix)
-           (let* ((ui (application-ui application))
+           (let* ((ui      (application-ui application))
                   (preview (terminal-ui-preview-rows ui))
                   (preview-text
                     (format nil "~{~A~^~%~}"
@@ -4182,27 +4181,27 @@
            (recording-terminal-reset terminal)
            (funcall send-text "The quick brown fox jumps over the lazy")
            (test-assert (null (terminal-ui-preview-rows
-                              (application-ui application)))
+                               (application-ui application)))
                         "assistant output replaces the live reasoning preview")
            (test-assert
             (string= (terminal-ui-status (application-ui application))
                      "receiving response")
             "assistant streaming keeps a timed activity phase visible")
            (let* ((live-output (recording-terminal-output terminal))
-                  (first-row (search "The quick brown fox" live-output))
-                  (last-row (search "over the lazy" live-output)))
+                  (first-row   (search "The quick brown fox" live-output))
+                  (last-row    (search "over the lazy" live-output)))
              (test-assert (and first-row last-row (< first-row last-row))
                           "an unfinished response paints every speculative wrapped row"))
            (funcall send-reasoning " late event")
            (test-assert (null (terminal-ui-preview-rows
-                              (application-ui application)))
+                               (application-ui application)))
                         "late reasoning deltas cannot resurrect a finalized preview")
            (funcall send-text (format nil " dog~%"))
            (test-assert (null (terminal-ui-stream-tail
                                (application-ui application)))
                         "a newline with no following text leaves no blank live tail")
            (funcall send-text "final tail")
-           (let* ((streamed (recording-terminal-output terminal))
+           (let* ((streamed           (recording-terminal-output terminal))
                   (reasoning-position (search "◇ reasoning summary" streamed))
                   (assistant-position (search "● autolith" streamed)))
              (test-assert (and reasoning-position
@@ -4281,27 +4280,27 @@
                          "◇ reasoning summary"
                          output)
                         1)
-                       (search "<thought>" output)
-                       (search "▸ (self.eval)" output)
-                       (search "(+ 1 2)" output)
-                       (null (terminal-ui-preview-rows
-                              (application-ui application))))
+                     (search "<thought>" output)
+                     (search "▸ (self.eval)" output)
+                     (search "(+ 1 2)" output)
+                     (null (terminal-ui-preview-rows
+                            (application-ui application))))
                 "tool-only provider steps finalize one trace before the tool call")))
-            (funcall send-status :tool-call-started (list :tool "rlm.map"))
-            (funcall send-status
-                     :tool-call-progress
-                     (list :tool "rlm.map"
-                           :activity
-                           "rlm.map · frame 2/4 · request 1 · 6 calls left"))
-            (test-assert
-             (string= (terminal-ui-status (application-ui application))
-                      "rlm.map · frame 2/4 · request 1 · 6 calls left")
-             "tool progress replaces the generic live activity with a compact hint")
+           (funcall send-status :tool-call-started (list :tool "rlm.map"))
+           (funcall send-status
+                    :tool-call-progress
+                    (list :tool "rlm.map"
+                          :activity
+                          "rlm.map · frame 2/4 · request 1 · 6 calls left"))
+           (test-assert
+            (string= (terminal-ui-status (application-ui application))
+                     "rlm.map · frame 2/4 · request 1 · 6 calls left")
+            "tool progress replaces the generic live activity with a compact hint")
            (conversation-append-tool-result
             conversation
             "call-live"
             :tool-name "self.eval"
-            :output "42"
+            :output    "42"
             :success-p t)
            (recording-terminal-reset terminal)
            (funcall send-status :tool-call-completed (list :tool "self.eval"))
@@ -4353,20 +4352,20 @@
 (defun test-provider-retry-presentation ()
   "Test reconnect presentation closes and labels interrupted streamed output."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration
                                        :identifier "retry-presentation"))
-                (terminal (make-instance 'recording-terminal :columns 50))
+                (terminal  (make-instance 'recording-terminal :columns 50))
                 (application
                   (progn
                     (setf (config :reasoning-traces-p configuration) t)
                     (make-instance 'application
                                    :configuration configuration
-                                   :conversation conversation
-                                   :ui (terminal-ui-create :terminal terminal))))
-                (observer (application-agent-observer application))
+                                   :conversation  conversation
+                                   :ui            (terminal-ui-create :terminal terminal))))
+                (observer  (application-agent-observer application))
                 (send-text (callback-agent-observer-text-callback observer))
                 (send-reasoning
                   (callback-agent-observer-reasoning-callback observer))
@@ -4381,7 +4380,7 @@
                     :provider-retrying
                     (list :attempt 1 :maximum-attempts 5 :delay 1))
            (let ((output (recording-terminal-output terminal))
-                 (ui (application-ui application)))
+                 (ui     (application-ui application)))
              (test-assert
               (and (search "Partial answer" output)
                    (search "provider stream interrupted; retrying 1/5" output)
@@ -4412,12 +4411,12 @@
 (defun test-turn-cursor-visibility ()
   "Test model turns retain the editable cursor while updates hide motion atomically."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation (conversation-create configuration
                                                    :identifier "cursor-turn"))
-                (terminal (make-instance 'recording-terminal :columns 50))
-                (ui (terminal-ui-create :terminal terminal))
+                (terminal     (make-instance 'recording-terminal :columns 50))
+                (ui           (terminal-ui-create :terminal terminal))
                 (provider
                   (make-instance
                    'cursor-observing-provider
@@ -4431,20 +4430,20 @@
                      "cursor-response"
                      (list (agent-test-message "finished"))
                      :turn-completion ':end))))
-                (registry (make-instance 'tool-registry))
-                (agent (agent-create :configuration configuration
-                                     :provider provider
-                                     :conversation conversation
-                                     :tool-registry registry
-                                     :worker t))
-                (application (make-instance 'application
-                                            :configuration configuration
-                                            :conversation conversation
-                                            :provider provider
+                (registry     (make-instance 'tool-registry))
+                (agent        (agent-create :configuration configuration
+                                            :provider      provider
+                                            :conversation  conversation
                                             :tool-registry registry
-                                            :worker t
-                                            :agent agent
-                                            :ui ui)))
+                                            :worker        t))
+                (application  (make-instance 'application
+                                             :configuration configuration
+                                             :conversation  conversation
+                                             :provider      provider
+                                             :tool-registry registry
+                                             :worker        t
+                                             :agent         agent
+                                             :ui            ui)))
            (with-terminal-ui (active-ui ui)
              (declare (ignore active-ui))
              (recording-terminal-reset terminal)
@@ -4456,10 +4455,10 @@
               (live-region-cursor-visible-p (terminal-ui-live-region ui))
               "the input cursor is restored after the model turn")
              (let* ((output (recording-terminal-output terminal))
-                    (hide (format nil "~C[?25l"
-                                  *terminal-escape-character*))
-                    (show (format nil "~C[?25h"
-                                  *terminal-escape-character*))
+                    (hide   (format nil "~C[?25l"
+                                    *terminal-escape-character*))
+                    (show   (format nil "~C[?25h"
+                                    *terminal-escape-character*))
                     (hide-count
                       (terminal-tests--substring-count hide output))
                     (show-count
@@ -4485,8 +4484,8 @@
 (defun test-responsive-model-input ()
   "Test steering, follow-up queueing, and cursor stability during model turns."
   (let* ((*conversation-title-refresh-turn-count* most-positive-fixnum)
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (configuration                           (test-configuration))
+         (root                                    (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration
@@ -4500,7 +4499,7 @@
                      "responsive-tool"
                      (list
                       (agent-test-call
-                       :call-id "responsive-call"
+                       :call-id   "responsive-call"
                        :arguments "{\"value\":\"before steering\"}")))
                     (agent-test-result
                      "responsive-steered"
@@ -4513,9 +4512,9 @@
                 (terminal
                   (make-instance
                    'responsive-scripted-terminal
-                   :columns 60
-                   :provider provider
-                   :conversation conversation
+                   :columns                   60
+                   :provider                  provider
+                   :conversation              conversation
                    :final-provider-item-count 3
                    :events
                    (list '(:insert "first message")
@@ -4525,77 +4524,77 @@
                          '(:insert "queued follow-up")
                          :complete
                          '(:insert "draft survives"))))
-                (ui (terminal-ui-create :terminal terminal))
-                (registry (agent-test-registry))
-                (agent (agent-create :configuration configuration
-                                     :provider provider
-                                     :conversation conversation
-                                     :tool-registry registry
-                                     :worker nil))
+                (ui          (terminal-ui-create :terminal terminal))
+                (registry    (agent-test-registry))
+                (agent       (agent-create :configuration configuration
+                                           :provider      provider
+                                           :conversation  conversation
+                                           :tool-registry registry
+                                           :worker        nil))
                 (application (make-instance 'application
                                             :configuration configuration
-                                            :conversation conversation
-                                            :provider provider
+                                            :conversation  conversation
+                                            :provider      provider
                                             :tool-registry registry
-                                            :worker nil
-                                            :agent agent
-                                            :ui ui)))
+                                            :worker        nil
+                                            :agent         agent
+                                            :ui            ui)))
            (application-run application)
            (test-assert
             (string= (line-editor-text (terminal-ui-editor ui))
                      "draft survives")
             "draft input survives steering and a queued follow-up turn")
-            (let* ((records
-                     (application-tests--conversation-records conversation))
+           (let* ((records
+                    (application-tests--conversation-records conversation))
                   (user-messages
                     (loop for record in records
                           when (and (eq (first record) ':message)
                                     (eq (getf (rest record) :role) ':user))
                             collect (getf (rest record) :content)))
                   (output (recording-terminal-output terminal)))
-             (test-assert (equal user-messages
-                                 '("first message"
-                                   "steer this turn"
-                                   "queued follow-up"))
-                          "steering precedes the post-turn follow-up")
-             (test-assert
-              (equal (nreverse (scripted-provider-input-counts provider))
-                     '(1 4 6))
-              "Enter reaches the current tool loop and Tab starts a later turn")
-             (test-assert (search "steered answer" output)
-                          "the steered response reaches scrollback")
-             (test-assert (search "queued answer" output)
-                          "the Tab-queued response reaches scrollback")
-             (test-assert (search "steering 1/1  steer this turn" output)
-                          "the live region previews pending steering")
-             (test-assert (search "follow-up 1/1  queued follow-up" output)
-                          "the live region previews post-turn follow-up input")
-             (test-assert
-              (live-region-cursor-visible-p (terminal-ui-live-region ui))
-              "responsive model turns leave the input cursor visible")
-             (test-assert (not (terminal-tests--forbidden-control-p output))
-                          "concurrent input and streaming preserve scrollback")))
+            (test-assert (equal user-messages
+                                '("first message"
+                                  "steer this turn"
+                                  "queued follow-up"))
+                         "steering precedes the post-turn follow-up")
+            (test-assert
+             (equal (nreverse (scripted-provider-input-counts provider))
+                    '(1 4 6))
+             "Enter reaches the current tool loop and Tab starts a later turn")
+            (test-assert (search "steered answer" output)
+                         "the steered response reaches scrollback")
+            (test-assert (search "queued answer" output)
+                         "the Tab-queued response reaches scrollback")
+            (test-assert (search "steering 1/1  steer this turn" output)
+                         "the live region previews pending steering")
+            (test-assert (search "follow-up 1/1  queued follow-up" output)
+                         "the live region previews post-turn follow-up input")
+            (test-assert
+             (live-region-cursor-visible-p (terminal-ui-live-region ui))
+             "responsive model turns leave the input cursor visible")
+            (test-assert (not (terminal-tests--forbidden-control-p output))
+                         "concurrent input and streaming preserve scrollback")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
 (-> test-responsive-goal-inspection () null)
 (defun test-responsive-goal-inspection ()
   "Test argument-free /goal remains available during an active model turn."
-  (let* ((terminal (make-instance 'waiting-recording-terminal :columns 60))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((terminal      (make-instance 'waiting-recording-terminal :columns 60))
+         (ui            (terminal-ui-create :terminal terminal))
          (configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (conversation (conversation-create configuration
-                                            :identifier "responsive-goal-inspection"))
-         (application (make-instance 'application :ui ui
-                                                 :configuration configuration
-                                                 :conversation conversation))
-         (controller nil))
+         (root          (test-configuration-root configuration))
+         (conversation  (conversation-create configuration
+                                             :identifier "responsive-goal-inspection"))
+         (application   (make-instance 'application :ui           ui
+                                                   :configuration configuration
+                                                   :conversation  conversation))
+         (controller    nil))
     (setf (application-goal application)
-          (list :objective "finish the migration"
-                :status ':active
+          (list :objective     "finish the migration"
+                :status        ':active
                 :continuations 0
-                :created-at (get-universal-time)))
+                :created-at    (get-universal-time)))
     (with-terminal-ui (active-ui ui)
       (declare (ignore active-ui))
       (setf controller (application-input-controller-create application))
@@ -4628,66 +4627,66 @@
                  (length
                   (line-editor-text (terminal-ui-editor ui))))
                 "/goal does not return to the editor after inspection"))
-              (application-input-controller--handle-submission
-               controller "/goal pause")
-              (test-assert
-               (equal (application-input-controller--state controller :work-items)
-                      (list (list ':command "/goal pause")))
-               "goal mutations wait in the idle queue while a turn is active")
-              (test-assert
-               (deque-empty-p
-                (application-input-controller-pending-apply-items controller))
-               "goal mutations never enter the active turn boundary queue")
-              (dolist (boundary '(:busy :recalled :idle))
-                (recording-terminal-reset terminal)
-                (let ((queued-work
-                        (application-input-controller--state controller :work-items)))
-                  (ecase boundary
-                    (:busy
-                     (application-input-controller--handle-submission
-                      controller "/timestamps sometimes"))
-                    (:recalled
-                     (setf (application-input-controller-follow-up-edit-index controller) 0
-                           (application-input-controller-follow-up-edit-work controller)
-                           '(:command "/goal pause"))
-                     (test-assert
-                      (application-input-controller--handle-recalled-submission
-                       controller "/timestamps sometimes")
-                      "invalid recalled commands are handled without escaping")
-                     (test-assert
-                      (and (eql (application-input-controller-follow-up-edit-index
-                                 controller)
-                                0)
-                           (equal (application-input-controller-follow-up-edit-work
-                                   controller)
-                                  '(:command "/goal pause")))
-                      "invalid recalled edits preserve the selected work")
-                     (setf (application-input-controller-follow-up-edit-index controller) nil
-                           (application-input-controller-follow-up-edit-work controller) nil))
-                    (:idle
-                     (test-assert
-                      (eq (application--run-command-input
-                           application "/timestamps sometimes")
-                          ':failed)
-                      "idle command parse errors remain recoverable")))
-                  (test-assert
-                   (equal queued-work
-                          (application-input-controller--state controller :work-items))
-                   "invalid commands do not enter the idle work queue")
-                  (test-assert
-                   (deque-empty-p
-                    (application-input-controller-pending-apply-items controller))
-                   "invalid commands do not enter the active turn boundary queue")
-                  (let* ((output (recording-terminal-output terminal))
-                         (command-position
-                           (search "/timestamps sometimes" output))
-                         (error-position (search "✗ error" output)))
+             (application-input-controller--handle-submission
+              controller "/goal pause")
+             (test-assert
+              (equal (application-input-controller--state controller :work-items)
+                     (list (list ':command "/goal pause")))
+              "goal mutations wait in the idle queue while a turn is active")
+             (test-assert
+              (deque-empty-p
+               (application-input-controller-pending-apply-items controller))
+              "goal mutations never enter the active turn boundary queue")
+             (dolist (boundary '(:busy :recalled :idle))
+               (recording-terminal-reset terminal)
+               (let ((queued-work
+                       (application-input-controller--state controller :work-items)))
+                 (ecase boundary
+                   (:busy
+                    (application-input-controller--handle-submission
+                     controller "/timestamps sometimes"))
+                   (:recalled
+                    (setf (application-input-controller-follow-up-edit-index controller) 0
+                          (application-input-controller-follow-up-edit-work controller)
+                          '(:command "/goal pause"))
                     (test-assert
-                     (and command-position
-                          error-position
-                          (< command-position error-position))
-                     (format nil "~A command errors retain their command heading"
-                             boundary))))))
+                     (application-input-controller--handle-recalled-submission
+                      controller "/timestamps sometimes")
+                     "invalid recalled commands are handled without escaping")
+                    (test-assert
+                     (and (eql (application-input-controller-follow-up-edit-index
+                                controller)
+                               0)
+                          (equal (application-input-controller-follow-up-edit-work
+                                  controller)
+                                 '(:command "/goal pause")))
+                     "invalid recalled edits preserve the selected work")
+                    (setf (application-input-controller-follow-up-edit-index controller) nil
+                          (application-input-controller-follow-up-edit-work controller) nil))
+                   (:idle
+                    (test-assert
+                     (eq (application--run-command-input
+                          application "/timestamps sometimes")
+                         ':failed)
+                     "idle command parse errors remain recoverable")))
+                 (test-assert
+                  (equal queued-work
+                         (application-input-controller--state controller :work-items))
+                  "invalid commands do not enter the idle work queue")
+                 (test-assert
+                  (deque-empty-p
+                   (application-input-controller-pending-apply-items controller))
+                  "invalid commands do not enter the active turn boundary queue")
+                 (let* ((output         (recording-terminal-output terminal))
+                        (command-position
+                          (search "/timestamps sometimes" output))
+                        (error-position (search "✗ error" output)))
+                   (test-assert
+                    (and command-position
+                         error-position
+                         (< command-position error-position))
+                    (format nil "~A command errors retain their command heading"
+                            boundary))))))
         (when controller
           (application-input-controller-stop controller))
         (platform-delete-directory-tree *platform* root
@@ -4721,23 +4720,23 @@
       (destructuring-bind (input expected) case
         (test-assert (eq (busy-action input) expected)
                      (format nil "busy ~A resolves to ~A" input expected)))))
-  (let* ((terminal (make-instance 'waiting-recording-terminal :columns 60))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((terminal      (make-instance 'waiting-recording-terminal :columns 60))
+         (ui            (terminal-ui-create :terminal terminal))
          (configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration
                                 :identifier "responsive-apply"))
-         (application (make-instance 'application
-                                     :ui ui
-                                     :configuration configuration
-                                     :conversation conversation))
-         (controller nil))
+         (application   (make-instance 'application
+                                       :ui            ui
+                                       :configuration configuration
+                                       :conversation  conversation))
+         (controller    nil))
     (setf (application-goal application)
-          (list :objective "finish the migration"
-                :status ':active
+          (list :objective     "finish the migration"
+                :status        ':active
                 :continuations 0
-                :created-at (get-universal-time)))
+                :created-at    (get-universal-time)))
     (with-terminal-ui (active-ui ui)
       (declare (ignore active-ui))
       (setf controller (application-input-controller-create application))
@@ -4746,19 +4745,19 @@
              (application-input-controller--enqueue
               controller ':message "active turn")
              (application-input-controller--next-work controller)
-              (application-input-controller--handle-submission
-               controller "/timestamps on")
-              (let* ((output (recording-terminal-output terminal))
-                     (command-position (search "/timestamps on" output))
-                     (apply-position (search "next safe point" output)))
-               (test-assert
-                (and command-position
-                     apply-position
-                     (< apply-position command-position))
-                "a busy state change labels its boundary application notice")
-               (test-assert
-                (zerop (length (line-editor-text (terminal-ui-editor ui))))
-                "a boundary-applying command does not return to the editor"))
+             (application-input-controller--handle-submission
+              controller "/timestamps on")
+             (let* ((output           (recording-terminal-output terminal))
+                    (command-position (search "/timestamps on" output))
+                    (apply-position   (search "next safe point" output)))
+              (test-assert
+               (and command-position
+                    apply-position
+                    (< apply-position command-position))
+               "a busy state change labels its boundary application notice")
+              (test-assert
+               (zerop (length (line-editor-text (terminal-ui-editor ui))))
+               "a boundary-applying command does not return to the editor"))
              (application-input-controller--handle-submission
               controller "/compact")
              (test-assert
@@ -4786,42 +4785,42 @@
               (and (deque-empty-p
                     (application-input-controller-pending-apply-items
                      controller))
-                     (application-turn-timestamps-p application))
+                   (application-turn-timestamps-p application))
               "applying pending commands executes their effects")
-              (application-input-controller--handle-submission
-               controller "/model gpt-5.6-luna")
-              (let ((picker-opened-p nil))
-                (test-call-with-function-replacements
+             (application-input-controller--handle-submission
+              controller "/model gpt-5.6-luna")
+             (let ((picker-opened-p nil))
+               (test-call-with-function-replacements
+                (list
                  (list
-                  (list
-                   'application-set-model
-                   (lambda (candidate model &key provider)
-                     (declare (ignore candidate model provider))
-                     nil))
-                  (list
-                   'application--pick-reasoning-effort
-                   (lambda (candidate)
-                     (declare (ignore candidate))
-                     (setf picker-opened-p t)
-                     nil)))
-                 (lambda ()
-                   (application-input-controller--apply-pending-commands controller)))
-                (test-assert
-                 (not picker-opened-p)
-                 "boundary-applied commands never open interactive pickers"))
-              (application-input-controller--handle-submission
-               controller "(timestamps nil)")
-              (test-assert
-               (equal (deque->list
-                       (application-input-controller-pending-apply-items controller))
-                      (list "(timestamps nil)"))
-               "canonical Lisp state changes queue for the next safe boundary")
-              (application-input-controller--apply-pending-commands controller)
-              (test-assert
-               (not (application-turn-timestamps-p application))
-               "canonical Lisp pending changes execute noninteractively")
-              (application-input-controller--handle-submission
-               controller "/timestamps on")
+                  'application-set-model
+                  (lambda (candidate model &key provider)
+                    (declare (ignore candidate model provider))
+                    nil))
+                 (list
+                  'application--pick-reasoning-effort
+                  (lambda (candidate)
+                    (declare (ignore candidate))
+                    (setf picker-opened-p t)
+                    nil)))
+                (lambda ()
+                  (application-input-controller--apply-pending-commands controller)))
+               (test-assert
+                (not picker-opened-p)
+                "boundary-applied commands never open interactive pickers"))
+             (application-input-controller--handle-submission
+              controller "(timestamps nil)")
+             (test-assert
+              (equal (deque->list
+                      (application-input-controller-pending-apply-items controller))
+                     (list "(timestamps nil)"))
+              "canonical Lisp state changes queue for the next safe boundary")
+             (application-input-controller--apply-pending-commands controller)
+             (test-assert
+              (not (application-turn-timestamps-p application))
+              "canonical Lisp pending changes execute noninteractively")
+             (application-input-controller--handle-submission
+              controller "/timestamps on")
              (application-input-controller--finish-work controller)
              (test-assert
               (equal (application-input-controller--next-work controller)
@@ -4857,10 +4856,10 @@
                  "nonmodal model commands retain responsive input")
     (test-assert (terminal-owner-p "/auth")
                  "authentication owns terminal mode while it runs"))
-  (let* ((terminal (make-instance 'waiting-recording-terminal :columns 60))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((terminal    (make-instance 'waiting-recording-terminal :columns 60))
+         (ui          (terminal-ui-create :terminal terminal))
          (application (make-instance 'application :ui ui))
-         (controller nil))
+         (controller  nil))
     (with-terminal-ui (active-ui ui)
       (declare (ignore active-ui))
       (setf controller
@@ -4892,8 +4891,8 @@
               "the terminal reader restarts after single-threaded work"))
         (application-input-controller-stop controller))))
   (dolist (start-reader-p '(nil t))
-    (let* ((terminal (make-instance 'waiting-recording-terminal :columns 60))
-           (ui (terminal-ui-create :terminal terminal))
+    (let* ((terminal    (make-instance 'waiting-recording-terminal :columns 60))
+           (ui          (terminal-ui-create :terminal terminal))
            (application (make-instance 'application :ui ui)))
       (with-terminal-ui (active-ui ui)
         (declare (ignore active-ui))
@@ -4945,7 +4944,7 @@
          (controller
            (make-instance 'application-input-controller
                           :application application))
-         (observed nil))
+         (observed    nil))
     (test-call-with-function-replacements
      (list
       (list
@@ -4981,10 +4980,10 @@
 (-> test-command-turn-steering () null)
 (defun test-command-turn-steering ()
   "Test prose steering command-hosted turns such as goal work."
-  (let* ((terminal (make-instance 'waiting-recording-terminal :columns 60))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((terminal    (make-instance 'waiting-recording-terminal :columns 60))
+         (ui          (terminal-ui-create :terminal terminal))
          (application (make-instance 'application :ui ui))
-         (controller nil))
+         (controller  nil))
     (with-terminal-ui (active-ui ui)
       (declare (ignore active-ui))
       (setf controller
@@ -5044,9 +5043,9 @@
   (labels ((call-with-controller (function)
              (let* ((terminal
                       (make-instance 'waiting-recording-terminal :columns 60))
-                    (ui (terminal-ui-create :terminal terminal))
+                    (ui          (terminal-ui-create :terminal terminal))
                     (application (make-instance 'application :ui ui))
-                    (controller nil))
+                    (controller  nil))
                (with-terminal-ui (active-ui ui)
                  (declare (ignore active-ui))
                  (setf controller
@@ -5076,48 +5075,48 @@
              (eq (application-input-controller-active-work-kind controller)
                  ':message))
         "message kind survives durable active-work acknowledgment")
-        (let* ((image
-                 (merge-pathnames
-                  (format nil "terminal-prompt-~A.png" (make-identifier))
-                  (uiop:temporary-directory)))
-               (input nil)
-                (observed nil)
-                (original-submit-prompt (symbol-function 'application-submit-prompt)))
-          (unwind-protect
-               (progn
-                 (test-conversation--write-tiny-png image)
-                 (setf input
-                       (user-message-input-create
-                        :text "[Image #1] steer active message"
-                        :image-pathnames (list (truename image))))
-                 (test-call-with-function-replacements
-                  (list
-                    (list 'application-submit-prompt
-                          (lambda (&rest arguments)
-                            (setf observed arguments)
-                            (apply original-submit-prompt arguments))))
-                  (lambda ()
-                    (application-input-controller--handle-submission
-                     controller input :steer-p t)))
-                   (let ((observed-input (third observed))
-                         (steering-input
-                           (first (application-input-controller--state
-                                   controller :steering-items))))
-                     (test-assert
-                      (and (typep observed-input 'user-message-input)
-                           (string= (user-message-input-text observed-input)
-                                    "[Image #1] steer active message")
-                           (equal (user-message-input-image-pathnames observed-input)
-                                  (list (truename image)))
-                           (getf (cdddr observed) :prefer-steering-p)
-                         (string=
-                          (user-message-input-text steering-input)
-                          "[Image #1] steer active message")
-                         (equal
-                          (user-message-input-image-pathnames steering-input)
-                          (list (truename image))))
-                    "terminal image prose invokes canonical PROMPT with steering")))
-            (ignore-errors (delete-file image))))))
+       (let* ((image
+                (merge-pathnames
+                 (format nil "terminal-prompt-~A.png" (make-identifier))
+                 (uiop:temporary-directory)))
+              (input                  nil)
+              (observed               nil)
+              (original-submit-prompt (symbol-function 'application-submit-prompt)))
+         (unwind-protect
+              (progn
+                (test-conversation--write-tiny-png image)
+                (setf input
+                      (user-message-input-create
+                       :text            "[Image #1] steer active message"
+                       :image-pathnames (list (truename image))))
+                (test-call-with-function-replacements
+                 (list
+                   (list 'application-submit-prompt
+                         (lambda (&rest arguments)
+                           (setf observed arguments)
+                           (apply original-submit-prompt arguments))))
+                 (lambda ()
+                   (application-input-controller--handle-submission
+                    controller input :steer-p t)))
+                (let ((observed-input (third observed))
+                      (steering-input
+                        (first (application-input-controller--state
+                                controller :steering-items))))
+                  (test-assert
+                   (and (typep observed-input 'user-message-input)
+                        (string= (user-message-input-text observed-input)
+                                 "[Image #1] steer active message")
+                        (equal (user-message-input-image-pathnames observed-input)
+                               (list (truename image)))
+                        (getf (cdddr observed) :prefer-steering-p)
+                      (string=
+                       (user-message-input-text steering-input)
+                       "[Image #1] steer active message")
+                      (equal
+                       (user-message-input-image-pathnames steering-input)
+                       (list (truename image))))
+                   "terminal image prose invokes canonical PROMPT with steering")))
+           (ignore-errors (delete-file image))))))
     (call-with-controller
      (lambda (controller)
        (application-input-controller--enqueue controller ':lisp "(+ 1 2)")
@@ -5128,9 +5127,9 @@
        (let* ((ui
                 (application-ui
                  (application-input-controller-application controller)))
-               (observed nil)
-               (original-submit-prompt
-                 (symbol-function 'application-submit-prompt)))
+              (observed nil)
+              (original-submit-prompt
+                (symbol-function 'application-submit-prompt)))
          (test-call-with-function-replacements
           (list
             (list 'application-submit-prompt
@@ -5140,14 +5139,14 @@
           (lambda ()
             (terminal-ui-set-input ui "ordinary during local Lisp")
             (application-input-controller--process-event controller ':complete)))
-          (test-assert
-            (and (equal (third observed) "ordinary during local Lisp")
-                 (null (getf (cdddr observed) :prefer-steering-p))
-                (null (application-input-controller--state
-                       controller :steering-items))
-                (equal (application-input-controller--state controller :work-items)
-                       '((:message "ordinary during local Lisp"))))
-           "terminal prose invokes canonical PROMPT without message steering"))))
+         (test-assert
+           (and (equal (third observed) "ordinary during local Lisp")
+                (null (getf (cdddr observed) :prefer-steering-p))
+               (null (application-input-controller--state
+                      controller :steering-items))
+               (equal (application-input-controller--state controller :work-items)
+                      '((:message "ordinary during local Lisp"))))
+          "terminal prose invokes canonical PROMPT without message steering"))))
     (call-with-controller
      (lambda (controller)
        (application-input-controller--enqueue
@@ -5324,10 +5323,10 @@
 (-> test-late-steering-promotion () null)
 (defun test-late-steering-promotion ()
   "Test steering with no later tool runs before already queued follow-up input."
-  (let* ((terminal (make-instance 'waiting-recording-terminal :columns 60))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((terminal    (make-instance 'waiting-recording-terminal :columns 60))
+         (ui          (terminal-ui-create :terminal terminal))
          (application (make-instance 'application :ui ui))
-         (controller nil))
+         (controller  nil))
     (with-terminal-ui (active-ui ui)
       (declare (ignore active-ui))
       (setf controller (application-input-controller-create application))
@@ -5355,12 +5354,12 @@
               "Tab input remains queued after promoted steering"))
         (when controller
           (application-input-controller-stop controller)))))
-  (let* ((terminal (make-instance 'waiting-recording-terminal :columns 60))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((terminal    (make-instance 'waiting-recording-terminal :columns 60))
+         (ui          (terminal-ui-create :terminal terminal))
          (application (make-instance 'application :ui ui))
-         (image (merge-pathnames "follow-up-cycle.png"
-                                 (uiop:temporary-directory)))
-         (controller nil))
+         (image       (merge-pathnames "follow-up-cycle.png"
+                                       (uiop:temporary-directory)))
+         (controller  nil))
     (with-terminal-ui (active-ui ui)
       (declare (ignore active-ui))
       (setf controller (application-input-controller-create application))
@@ -5414,7 +5413,7 @@
              (terminal-ui-set-input
               ui
               (user-message-input-create
-               :text "[Image #1] edited newest thought"
+               :text            "[Image #1] edited newest thought"
                :image-pathnames (list image)))
              (application-input-controller--process-event
               controller ':complete-previous)
@@ -5473,10 +5472,10 @@
               "finishing the active turn preserves recalled follow-up selection"))
         (when controller
           (application-input-controller-stop controller)))))
-  (let* ((terminal (make-instance 'waiting-recording-terminal :columns 60))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((terminal    (make-instance 'waiting-recording-terminal :columns 60))
+         (ui          (terminal-ui-create :terminal terminal))
          (application (make-instance 'application :ui ui))
-         (controller nil))
+         (controller  nil))
     (with-terminal-ui (active-ui ui)
       (declare (ignore active-ui))
       (setf controller (application-input-controller-create application))
@@ -5503,10 +5502,10 @@
               "Tab after turn completion restores the recalled FIFO position"))
         (when controller
           (application-input-controller-stop controller)))))
-  (let* ((terminal (make-instance 'waiting-recording-terminal :columns 60))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((terminal    (make-instance 'waiting-recording-terminal :columns 60))
+         (ui          (terminal-ui-create :terminal terminal))
          (application (make-instance 'application :ui ui))
-         (controller nil))
+         (controller  nil))
     (with-terminal-ui (active-ui ui)
       (declare (ignore active-ui))
       (setf controller (application-input-controller-create application))
@@ -5548,13 +5547,13 @@
               "recalled Enter commands use active-turn busy policy"))
         (when controller
           (application-input-controller-stop controller)))))
-  (let* ((terminal (make-instance 'waiting-recording-terminal :columns 60))
-         (ui (terminal-ui-create :terminal terminal))
-         (application (make-instance 'application :ui ui))
-         (controller nil)
-         (waiter nil)
+  (let* ((terminal         (make-instance 'waiting-recording-terminal :columns 60))
+         (ui               (terminal-ui-create :terminal terminal))
+         (application      (make-instance 'application :ui ui))
+         (controller       nil)
+         (waiter           nil)
          (waiter-started-p nil)
-         (waited-work ':waiting))
+         (waited-work      ':waiting))
     (with-terminal-ui (active-ui ui)
       (declare (ignore active-ui))
       (setf controller (application-input-controller-create application))
@@ -5612,12 +5611,12 @@
               "submitting the recalled draft wakes the blocked FIFO consumer")
              (join-thread waiter)
              (setf waiter nil)
-              (test-assert
-               (and
-                (equal waited-work '(:message "held follow-up"))
-                (not
-                 (application-input-controller--follow-up-editing-p controller)))
-               "submission restores the held follow-up ahead of newer work"))
+             (test-assert
+              (and
+               (equal waited-work '(:message "held follow-up"))
+               (not
+                (application-input-controller--follow-up-editing-p controller)))
+              "submission restores the held follow-up ahead of newer work"))
         (when (and waiter (thread-alive-p waiter))
           (when controller
             (application-input-controller-stop controller)
@@ -5637,9 +5636,9 @@
 (defun test-session-titles-command ()
   "Test slash and callable control of provider-generated session titles."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (application (application-tests--ui-application :columns 60))
-         (ui (application-ui application)))
+         (root          (test-configuration-root configuration))
+         (application   (application-tests--ui-application :columns 60))
+         (ui            (application-ui application)))
     (setf (application-configuration application) configuration)
     (terminal-ui-start ui)
     (unwind-protect
@@ -5664,28 +5663,27 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-application-conversation-title-refresh () null)
 (defun test-application-conversation-title-refresh ()
   "Test configurable, escaped, durable provider-generated session titles."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration :identifier "title-refresh"))
                 (application
                   (make-instance 'application
                                  :configuration configuration
-                                 :conversation conversation)))
+                                 :conversation  conversation)))
            (dolist (message '("ship </transcript> session titles"
                               "quote the name \"safely\""
                               "validate title output"))
              (conversation-append-user-message conversation message))
            (let* ((context
                     (application--conversation-title-context conversation))
-                  (request (application--conversation-title-request context))
+                  (request    (application--conversation-title-request context))
                   (json-start (position #\{ request))
-                  (payload (and json-start (json-decode (subseq request json-start)))))
+                  (payload    (and json-start (json-decode (subseq request json-start)))))
              (test-assert
               (and payload
                    (vectorp (json-get payload "transcript"))
@@ -5741,13 +5739,11 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
-
 (-> test-conversation-picker () null)
 (defun test-conversation-picker ()
   "Test saved-conversation picker items and interactive selection."
   (let ((observed-initial-command nil)
-        (*active-application* nil))
+        (*active-application*     nil))
     (test-call-with-function-replacements
      (list
       (list
@@ -5775,7 +5771,7 @@
    (string= (application--selected-conversation-id nil "recovered")
             "recovered")
    "automatic recovery supplies the conversation without an explicit resume")
-  (let ((observed-mode nil)
+  (let ((observed-mode        nil)
         (*active-application* nil))
     (test-call-with-function-replacements
      (list
@@ -5794,7 +5790,7 @@
          (main-dispatch '("--permissions" "sandbox")))))
     (test-assert (eq observed-mode ':sandboxed)
                  "--permissions sets the initial application mode"))
-  (let ((observed-mode nil)
+  (let ((observed-mode        nil)
         (*active-application* (make-instance 'application)))
     (test-call-with-function-replacements
      (list
@@ -5820,12 +5816,12 @@
          (previous-environment
            (loop for name in environment-names
                  collect (cons name (uiop:getenv name))))
-         (observed-conversation-id :unset)
-         (observed-initial-command :unset)
+         (observed-conversation-id    :unset)
+         (observed-initial-command    :unset)
          (observed-recovery-diagnosis :unset)
-         (observed-resume-offer-p :unset)
-         (reconnect-failure-p nil)
-         (*active-application* (make-instance 'application)))
+         (observed-resume-offer-p     :unset)
+         (reconnect-failure-p         nil)
+         (*active-application*        (make-instance 'application)))
     (unwind-protect
          (test-call-with-function-replacements
           (list
@@ -5898,8 +5894,8 @@
             (platform-setenv (first entry) (rest entry))
             (platform-unsetenv (first entry))))))
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (image (merge-pathnames "initial.png" root)))
+         (root          (test-configuration-root configuration))
+         (image         (merge-pathnames "initial.png" root)))
     (unwind-protect
          (progn
            (test-conversation--write-tiny-png image)
@@ -5914,9 +5910,9 @@
               "command-line images preload a labelled composer draft")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   (let* ((base-configuration (test-configuration))
-         (root (test-configuration-root base-configuration))
-         (current-workspace (merge-pathnames "current-workspace/" root))
-         (other-workspace (merge-pathnames "other-workspace/" root)))
+         (root               (test-configuration-root base-configuration))
+         (current-workspace  (merge-pathnames "current-workspace/" root))
+         (other-workspace    (merge-pathnames "other-workspace/" root)))
     (ensure-directories-exist current-workspace)
     (ensure-directories-exist other-workspace)
     (unwind-protect
@@ -5931,19 +5927,19 @@
                 (current-older
                   (conversation-create configuration
                                        :identifier "current-older"))
-                (active (conversation-create configuration :identifier "active"))
+                (active      (conversation-create configuration :identifier "active"))
                 (other-older
                   (conversation-create other-configuration
                                        :identifier "other-older"))
                 (other-newer
                   (conversation-create other-configuration
                                        :identifier "other-newer"))
-                (terminal (make-instance 'scripted-terminal :columns 60))
+                (terminal    (make-instance 'scripted-terminal :columns 60))
                 (application (make-instance 'application
                                             :configuration configuration
-                                            :conversation active
-                                            :ui (terminal-ui-create
-                                                 :terminal terminal))))
+                                            :conversation  active
+                                            :ui            (terminal-ui-create
+                                                            :terminal terminal))))
            (conversation-append-user-message current-older
                                              "older saved conversation")
            (conversation-append-user-message
@@ -6017,10 +6013,10 @@
                          :escape))
              (test-assert (null (application--pick-conversation application))
                           "keeping a conversation returns to the browse picker")
-              (test-assert
-               (conversation-storage-occupied-p
-                (conversation-pathname current-older))
-               "the keep confirmation preserves the conversation")
+             (test-assert
+              (conversation-storage-occupied-p
+               (conversation-pathname current-older))
+              "the keep confirmation preserves the conversation")
              (let ((image-root
                      (merge-pathnames "conversation-images/current-older/"
                                       (config :data-root configuration)))
@@ -6052,9 +6048,9 @@
     (test-assert (handler-case
                      (progn
                        (application--pick-identifier application
-                                                     :title "resume"
-                                                     :items nil
-                                                     :usage "Usage: /resume ID"
+                                                     :title        "resume"
+                                                     :items        nil
+                                                     :usage        "Usage: /resume ID"
                                                      :empty-notice "none")
                        nil)
                    (configuration-error (condition)
@@ -6067,13 +6063,13 @@
 (defun test-application-window-title ()
   "Test that a started UI writes autolith - workspace as OSC 0."
   (let* ((configuration (test-configuration))
-         (terminal (make-instance 'recording-terminal :columns 80))
+         (terminal      (make-instance 'recording-terminal :columns 80))
          (application
            (make-instance 'application
                           :configuration configuration
                           :tool-registry (make-default-tool-registry)
-                          :ui (terminal-ui-create :terminal terminal)))
-         (title (application--window-title application)))
+                          :ui            (terminal-ui-create :terminal terminal)))
+         (title         (application--window-title application)))
     (test-assert
      (and title
           (uiop:string-prefix-p "autolith - " title)
@@ -6092,38 +6088,38 @@
 (-> test-working-directory-switch () null)
 (defun test-working-directory-switch ()
   "Test transactional application, process, and worker workspace changes."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (workspace (merge-pathnames "workspace with spaces/" root))
-         (old-workspace (merge-pathnames "old workspace/" root))
+  (let* ((configuration              (test-configuration))
+         (root                       (test-configuration-root configuration))
+         (workspace                  (merge-pathnames "workspace with spaces/" root))
+         (old-workspace              (merge-pathnames "old workspace/" root))
          (observation-path
            (merge-pathnames "directory-init-observation.sexp" workspace))
          (old-observation-path
            (merge-pathnames "directory-init-observation.sexp" old-workspace))
-         (broken-workspace (merge-pathnames "broken workspace/" root))
+         (broken-workspace           (merge-pathnames "broken workspace/" root))
          (previous-process-directory (uiop:getcwd))
-         (previous-defaults *default-pathname-defaults*)
+         (previous-defaults          *default-pathname-defaults*)
          (extension-registry-snapshot
            (application--extension-registry-snapshot))
-         (pool nil)
-         (closable-application nil))
+         (pool                       nil)
+         (closable-application       nil))
     (ensure-directories-exist workspace)
     (ensure-directories-exist old-workspace)
     (ensure-directories-exist broken-workspace)
     (ensure-directories-exist (configuration-directory-init-path workspace))
     (with-open-file (stream (configuration-directory-init-path workspace)
-                            :direction ':output
-                            :if-exists ':supersede
+                            :direction         ':output
+                            :if-exists         ':supersede
                             :if-does-not-exist ':create
-                            :external-format ':utf-8)
+                            :external-format   ':utf-8)
       (let ((*print-readably* nil))
         (write
          '(with-open-file
               (stream "directory-init-observation.sexp"
-                      :direction :output
-                      :if-exists :supersede
+                      :direction         :output
+                      :if-exists         :supersede
                       :if-does-not-exist :create
-                      :external-format :utf-8)
+                      :external-format   :utf-8)
             (write
              (list (namestring (truename (uiop:getcwd)))
                    (namestring (truename *default-pathname-defaults*)))
@@ -6136,98 +6132,98 @@
      workspace
      (list
       (test-mcp-configuration--server-form
-       :name "workspace-scoped"
+       :name     "workspace-scoped"
        :approval ':deny)))
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration :identifier "working-directory"))
-                (provider (provider-create configuration))
-                (registry (make-default-tool-registry))
+                (provider    (provider-create configuration))
+                (registry    (make-default-tool-registry))
                 (worker-pool (lisp-worker-pool-create configuration))
-                (agent (agent-create :configuration configuration
-                                     :provider provider
-                                     :conversation conversation
-                                     :tool-registry registry
-                                     :worker worker-pool))
+                (agent       (agent-create :configuration configuration
+                                           :provider      provider
+                                           :conversation  conversation
+                                           :tool-registry registry
+                                           :worker        worker-pool))
                 (application
                   (make-instance 'application
                                  :configuration configuration
-                                 :conversation conversation
-                                 :provider provider
+                                 :conversation  conversation
+                                 :provider      provider
                                  :tool-registry registry
-                                 :worker worker-pool
-                                 :agent agent
+                                 :worker        worker-pool
+                                 :agent         agent
                                  :ui
                                  (terminal-ui-create
                                   :terminal
                                   (make-instance 'recording-terminal :columns 80))))
-                (worker nil))
+                (worker      nil))
            (setf pool worker-pool
                  closable-application application
                  worker (lisp-worker-pool-start pool "workspace" "pristine"))
            (lisp-worker-request
             worker :eval '(:forms ("(defparameter *workspace-marker* 73)")))
-            (uiop:chdir old-workspace)
-            (setf *default-pathname-defaults* old-workspace)
-            (let ((selected (application-set-working-directory application workspace)))
-             (test-assert (equal selected (truename workspace))
-                          "workspace switching returns the selected directory")
-             (test-assert
-              (equal (config :working-directory
-                      (application-configuration application))
-                     (truename workspace))
-              "workspace switching replaces the application configuration")
-             (test-assert (equal (uiop:getcwd) (truename workspace))
-                          "workspace switching changes the process directory")
-             (test-assert (equal *default-pathname-defaults* (truename workspace))
-                          "workspace switching changes pathname defaults")
-             (test-assert
-              (probe-file observation-path)
-              "directory initialization resolves relative files in the target workspace")
-             (test-assert
-              (not (probe-file old-observation-path))
-              "directory initialization does not resolve relative files in the old workspace")
-              (let ((observation
-                      (with-open-file (stream observation-path
-                                               :direction ':input
-                                               :external-format ':utf-8)
-                        (let ((*read-eval* nil))
-                          (read stream)))))
-                (test-assert
-                 (equal observation
-                        (list (namestring (truename workspace))
-                              (namestring (truename workspace))))
-                 "directory initialization observes the target process and pathname directories"))
-             (test-assert
-              (equal (config :working-directory
-                      (agent-configuration (application-agent application)))
-                     (truename workspace))
-              "workspace switching reconnects the agent with the new directory")
-             (test-assert
-              (equal (config :working-directory
-                      (provider-configuration
-                       (application-provider application)))
-                     (truename workspace))
-              "workspace switching reconnects the provider with the new directory")
-             (let ((ui (application-ui application))
-                   (active-configuration
-                     (application-configuration application)))
+           (uiop:chdir old-workspace)
+           (setf *default-pathname-defaults* old-workspace)
+           (let ((selected (application-set-working-directory application workspace)))
+            (test-assert (equal selected (truename workspace))
+                         "workspace switching returns the selected directory")
+            (test-assert
+             (equal (config :working-directory
+                     (application-configuration application))
+                    (truename workspace))
+             "workspace switching replaces the application configuration")
+            (test-assert (equal (uiop:getcwd) (truename workspace))
+                         "workspace switching changes the process directory")
+            (test-assert (equal *default-pathname-defaults* (truename workspace))
+                         "workspace switching changes pathname defaults")
+            (test-assert
+             (probe-file observation-path)
+             "directory initialization resolves relative files in the target workspace")
+            (test-assert
+             (not (probe-file old-observation-path))
+             "directory initialization does not resolve relative files in the old workspace")
+            (let ((observation
+                    (with-open-file (stream observation-path
+                                             :direction       ':input
+                                             :external-format ':utf-8)
+                      (let ((*read-eval* nil))
+                        (read stream)))))
               (test-assert
-               (and (plusp (terminal-ui-context-used ui))
-                    (terminal-ui-context-estimated-p ui)
-                    (= (terminal-ui-context-window ui)
-                       (config :context-window active-configuration))
-                    (= (terminal-ui-context-compaction-limit ui)
-                       (configuration-compaction-token-limit
-                        active-configuration)))
-               "workspace switching refreshes the context meter after replacement"))
-              (test-assert
-               (eq
-                (mcp-server-registration-source
-                 (test-directory-configuration--registration
-                  "workspace-scoped"))
-                :directory)
-               "workspace switching activates inherited MCP configuration"))
+               (equal observation
+                      (list (namestring (truename workspace))
+                            (namestring (truename workspace))))
+               "directory initialization observes the target process and pathname directories"))
+            (test-assert
+             (equal (config :working-directory
+                     (agent-configuration (application-agent application)))
+                    (truename workspace))
+             "workspace switching reconnects the agent with the new directory")
+            (test-assert
+             (equal (config :working-directory
+                     (provider-configuration
+                      (application-provider application)))
+                    (truename workspace))
+             "workspace switching reconnects the provider with the new directory")
+            (let ((ui (application-ui application))
+                  (active-configuration
+                    (application-configuration application)))
+             (test-assert
+              (and (plusp (terminal-ui-context-used ui))
+                   (terminal-ui-context-estimated-p ui)
+                   (= (terminal-ui-context-window ui)
+                      (config :context-window active-configuration))
+                   (= (terminal-ui-context-compaction-limit ui)
+                      (configuration-compaction-token-limit
+                       active-configuration)))
+              "workspace switching refreshes the context meter after replacement"))
+            (test-assert
+             (eq
+              (mcp-server-registration-source
+               (test-directory-configuration--registration
+                "workspace-scoped"))
+              :directory)
+             "workspace switching activates inherited MCP configuration"))
            (let ((worker-state
                    (lisp-worker-request
                     worker
@@ -6253,33 +6249,33 @@
               "invalid workspace changes retain the active configuration")
              (test-assert (equal (uiop:getcwd) (truename workspace))
                           "invalid workspace changes retain the process directory")
-              (test-directory-configuration--write-manifest
-               configuration
-               (list (namestring workspace)
-                     (namestring broken-workspace)))
-              (test-mcp-configuration--write
-               (configuration-directory-mcp-path broken-workspace)
-               "(:version 99 :servers ())")
-              (test-assert
-               (handler-case
-                   (progn
-                     (application-set-working-directory
-                      application broken-workspace)
-                     nil)
-                 (working-directory-error (condition)
-                   (eq (working-directory-error-stage condition) ':tools)))
-               "malformed inherited MCP prevents a workspace switch")
-              (test-assert
-               (and
-                (eq (application-configuration application)
-                    active-configuration)
-                (equal (uiop:getcwd) (truename workspace))
-                (eq
-                 (mcp-server-registration-source
-                  (test-directory-configuration--registration
-                   "workspace-scoped"))
-                 :directory))
-               "failed inherited configuration restores the prior runtime")))
+             (test-directory-configuration--write-manifest
+              configuration
+              (list (namestring workspace)
+                    (namestring broken-workspace)))
+             (test-mcp-configuration--write
+              (configuration-directory-mcp-path broken-workspace)
+              "(:version 99 :servers ())")
+             (test-assert
+              (handler-case
+                  (progn
+                    (application-set-working-directory
+                     application broken-workspace)
+                    nil)
+                (working-directory-error (condition)
+                  (eq (working-directory-error-stage condition) ':tools)))
+              "malformed inherited MCP prevents a workspace switch")
+             (test-assert
+              (and
+               (eq (application-configuration application)
+                   active-configuration)
+               (equal (uiop:getcwd) (truename workspace))
+               (eq
+                (mcp-server-registration-source
+                 (test-directory-configuration--registration
+                  "workspace-scoped"))
+                :directory))
+              "failed inherited configuration restores the prior runtime")))
       (when pool
         (lisp-worker-pool-stop-all pool))
       ;; A workspace switch installs a replacement registry owning task
@@ -6298,7 +6294,7 @@
 (defun test-application-busy-conversation-resume ()
   "Test resume claims ownership before crash repair can mutate a transcript."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (current
            (conversation-create configuration :identifier "N8vQ2mp"))
          (target
@@ -6312,7 +6308,7 @@
             "name" "read"
             "namespace" "fs"))
          (current-lease nil)
-         (application nil))
+         (application   nil))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -6325,30 +6321,30 @@
                  application
                  (make-instance
                   'application
-                  :configuration configuration
-                  :conversation current
+                  :configuration      configuration
+                  :conversation       current
                   :conversation-lease current-lease))
-            (let ((before
-                    (application-tests--conversation-records target)))
-              (test-conversation--call-with-child-lease
-               configuration
-               (conversation-identifier target)
-               (lambda ()
-                 (test-assert
-                  (handler-case
-                      (progn
-                        (application-resume-conversation
-                         application
-                         (conversation-identifier target))
-                        nil)
-                    (conversation-in-use ()
-                      t))
-                  "resume refuses a conversation owned by another process")
-                 (test-assert
-                  (equal
-                   before
-                   (application-tests--conversation-records target))
-                  "busy resume does not append interrupted-call repair")))))
+           (let ((before
+                   (application-tests--conversation-records target)))
+             (test-conversation--call-with-child-lease
+              configuration
+              (conversation-identifier target)
+              (lambda ()
+                (test-assert
+                 (handler-case
+                     (progn
+                       (application-resume-conversation
+                        application
+                        (conversation-identifier target))
+                       nil)
+                   (conversation-in-use ()
+                     t))
+                 "resume refuses a conversation owned by another process")
+                (test-assert
+                 (equal
+                  before
+                  (application-tests--conversation-records target))
+                 "busy resume does not append interrupted-call repair")))))
       (when application
         (application-release-conversation-lease application))
       (when (and current-lease
@@ -6361,8 +6357,8 @@
 (defun test-application-fresh-conversation-lease-collision ()
   "Test fresh application ownership probes another seed after a lease race."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (timestamp 3992846378)
+         (root          (test-configuration-root configuration))
+         (timestamp     3992846378)
          (first-identifier
            (identifier-from-seed timestamp 0))
          (second-identifier
@@ -6401,12 +6397,12 @@
 (-> test-application-tool-runtime-lifecycle () null)
 (defun test-application-tool-runtime-lifecycle ()
   "Test conversation switching replaces runtimes before checkpoint detachment."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (registry (make-instance 'tool-registry))
+  (let* ((configuration    (test-configuration))
+         (root             (test-configuration-root configuration))
+         (registry         (make-instance 'tool-registry))
          (runtime-identity (list ':application-runtime))
-         (close-count 0)
-         (detach-count 0))
+         (close-count      0)
+         (detach-count     0))
     (unwind-protect
          (let* ((first-conversation
                   (conversation-create configuration
@@ -6414,17 +6410,17 @@
                 (second-conversation
                   (conversation-create configuration
                                        :identifier "runtime-second"))
-                (provider (provider-create configuration))
+                (provider    (provider-create configuration))
                 (tool
                   (make-instance
                    'tool-test-runtime-tool
-                   :namespace "test"
-                   :name "runtime"
-                   :description "Exercise application runtime cleanup."
-                   :parameters (tool-object-schema (json-object) nil)
+                   :namespace        "test"
+                   :name             "runtime"
+                   :description      "Exercise application runtime cleanup."
+                   :parameters       (tool-object-schema (json-object) nil)
                    :runtime-identity runtime-identity
-                   :close-function (lambda () (incf close-count))
-                   :detach-function (lambda () (incf detach-count))))
+                   :close-function   (lambda () (incf close-count))
+                   :detach-function  (lambda () (incf detach-count))))
                 (application nil))
            (tool-registry-register registry tool)
            (setf registry (task-augment-tool-registry registry))
@@ -6432,16 +6428,16 @@
                  (make-instance
                   'application
                   :configuration configuration
-                  :conversation first-conversation
-                  :provider provider
+                  :conversation  first-conversation
+                  :provider      provider
                   :tool-registry registry
-                  :worker nil
-                  :agent (agent-create :configuration configuration
-                                       :provider provider
-                                       :conversation first-conversation
-                                       :tool-registry registry
-                                       :worker nil)
-                  :ui nil))
+                  :worker        nil
+                  :agent         (agent-create :configuration configuration
+                                               :provider      provider
+                                               :conversation  first-conversation
+                                               :tool-registry registry
+                                               :worker        nil)
+                  :ui            nil))
            (let ((old-registry registry)
                  (old-orchestrator
                    (application--task-orchestrator application)))
@@ -6515,21 +6511,21 @@
      registry
      (make-instance
       'tool-test-runtime-tool
-      :namespace "transition"
-      :name name
-      :description (format nil "Runtime marker ~A." name)
-      :parameters (tool-object-schema (json-object) nil)
+      :namespace        "transition"
+      :name             name
+      :description      (format nil "Runtime marker ~A." name)
+      :parameters       (tool-object-schema (json-object) nil)
       :runtime-identity (list ':runtime-transition name)
-      :close-function close-function
-      :resume-function resume-function
-      :detach-function (lambda () nil)))
+      :close-function   close-function
+      :resume-function  resume-function
+      :detach-function  (lambda () nil)))
     (task-augment-tool-registry registry)))
 
 (-> test-application-conversation-input-history () null)
 (defun test-application-conversation-input-history ()
   "Test complete editable history and bounded application views without archived replay."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "input-history")))
     (unwind-protect
@@ -6540,7 +6536,7 @@
             '(:message :role :assistant :content "ignored assistant"))
            (conversation-append-user-operation
             conversation
-            :kind ':command
+            :kind   ':command
             :source "/help"
             :status ':ok
             :result "shown")
@@ -6550,7 +6546,7 @@
            (conversation-append-summary conversation "ignored summary")
            (conversation-append-user-operation
             conversation
-            :kind ':lisp
+            :kind   ':lisp
             :source "(+ 1 2)"
             :status ':ok
             :result "3")
@@ -6558,9 +6554,9 @@
            (let ((retired (first (conversation-storage-pathnames
                                   (conversation-pathname conversation)))))
              (with-open-file (stream retired :direction ':output
-                                     :if-exists ':supersede)
+                                     :if-exists         ':supersede)
                (write-string "(" stream)))
-           (let* ((loaded (conversation-load-by-id configuration "input-history"))
+           (let* ((loaded   (conversation-load-by-id configuration "input-history"))
                   (baseline (prompt-cache-baseline-from-conversation loaded))
                   (metadata (conversation-picker-metadata-scan
                              (conversation-pathname loaded))))
@@ -6586,8 +6582,8 @@
              (conversation-append-summary loaded "second checkpoint")
              (let* ((reloaded (conversation-load-by-id configuration "input-history"))
                     (identity (conversation-pathname reloaded))
-                    (active (conversation-log-pathname reloaded))
-                    (header (conversation-peek-header active)))
+                    (active   (conversation-log-pathname reloaded))
+                    (header   (conversation-peek-header active)))
                (test-assert
                 (equal (conversation-input-history reloaded)
                        '("first user" "/help" "(+ 1 2)" "last user"))
@@ -6626,20 +6622,19 @@
        root :validate t :if-does-not-exist :ignore)))
   nil)
 
-
 (-> test-application-runtime-replacement-transactions () null)
 (defun test-application-runtime-replacement-transactions ()
   "Test workspace and conversation switches prepare fresh runtimes atomically."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (workspace-one (merge-pathnames "workspace-one/" root))
-         (workspace-two (merge-pathnames "workspace-two/" root))
+  (let* ((configuration              (test-configuration))
+         (root                       (test-configuration-root configuration))
+         (workspace-one              (merge-pathnames "workspace-one/" root))
+         (workspace-two              (merge-pathnames "workspace-two/" root))
          (previous-process-directory (uiop:getcwd))
-         (previous-defaults *default-pathname-defaults*)
-         (old-close-count 0)
-         (workspace-close-count 0)
-         (workspace-resume-count 0)
-         (conversation-close-count 0)
+         (previous-defaults          *default-pathname-defaults*)
+         (old-close-count            0)
+         (workspace-close-count      0)
+         (workspace-resume-count     0)
+         (conversation-close-count   0)
          (old-registry
            (application-tests--replacement-registry
             "old"
@@ -6653,26 +6648,26 @@
          (third-conversation
            (conversation-create configuration
                                 :identifier "runtime-transaction-third"))
-          (terminal (make-instance 'recording-terminal :columns 80))
-          (editor (line-editor-create :history-limit 4))
-          (ui (terminal-ui-create :terminal terminal :editor editor))
-         (provider (provider-create configuration))
+         (terminal                   (make-instance 'recording-terminal :columns 80))
+         (editor                     (line-editor-create :history-limit 4))
+         (ui                         (terminal-ui-create :terminal terminal :editor editor))
+         (provider                   (provider-create configuration))
          (application
            (make-instance
             'application
             :configuration configuration
-            :conversation first-conversation
-            :provider provider
+            :conversation  first-conversation
+            :provider      provider
             :tool-registry old-registry
-            :worker nil
+            :worker        nil
             :agent
             (agent-create :configuration configuration
-                          :provider provider
-                          :conversation first-conversation
+                          :provider      provider
+                          :conversation  first-conversation
                           :tool-registry old-registry
-                          :worker nil)
-            :ui ui))
-         (owned-registries (list old-registry)))
+                          :worker        nil)
+            :ui            ui))
+         (owned-registries           (list old-registry)))
     (ensure-directories-exist workspace-one)
     (ensure-directories-exist workspace-two)
     (application-connect-task-presentation application)
@@ -6751,10 +6746,10 @@
                       (declare (ignore configuration))
                       (error
                        'mcp-server-startup-error
-                       :message "Required MCP server failed."
+                       :message     "Required MCP server failed."
                        :server-name "required"
-                       :required-p t
-                       :cause nil))))
+                       :required-p  t
+                       :cause       nil))))
                   (lambda ()
                     (test-assert
                      (handler-case
@@ -6788,212 +6783,212 @@
                    (tool-registry-find
                     workspace-registry "transition" "workspace-new"))
                   "failed workspace preparation leaves the old application live"))
-             (let* ((conversation-registry
-                      (application-tests--replacement-registry
-                       "conversation-new"
-                       (lambda () (incf conversation-close-count))))
-                    (workspace-orchestrator
-                      (application--task-orchestrator application)))
-               (push conversation-registry owned-registries)
-               (conversation-append-user-message
-                second-conversation "second conversation history")
-               (terminal-ui-load-history ui '("workspace history"))
-               (terminal-ui-set-input ui "draft before install")
-               (test-call-with-function-replacements
-                (list
-                 (list
-                  'application--create-tool-registry
-                  (lambda (configuration)
-                    (declare (ignore configuration))
-                    conversation-registry))
-                 (list
-                  'application-publish-recovery-session
-                  (lambda (installed-application)
-                    (test-assert
-                     (eq installed-application application)
-                     "the late installation hook receives the active application")
-                    (terminal-ui-set-input ui "concurrent draft")
-                    (terminal-ui-process-event ui :left)
-                    nil)))
-                (lambda ()
-                  (application-install-conversation
-                   application second-conversation)))
-               (let ((conversation-orchestrator
+              (let* ((conversation-registry
+                       (application-tests--replacement-registry
+                        "conversation-new"
+                        (lambda () (incf conversation-close-count))))
+                     (workspace-orchestrator
                        (application--task-orchestrator application)))
-                 (test-assert
-                  (and
-                   (= workspace-close-count 2)
-                   (eq (application-conversation application)
-                       second-conversation)
-                   (eq (application-tool-registry application)
-                       conversation-registry)
-                   (eq
-                    (agent-tool-registry
-                     (application-agent application))
-                    conversation-registry)
-                   (tool-registry-find
-                    conversation-registry
-                    "transition"
-                    "conversation-new")
-                   (null
+                (push conversation-registry owned-registries)
+                (conversation-append-user-message
+                 second-conversation "second conversation history")
+                (terminal-ui-load-history ui '("workspace history"))
+                (terminal-ui-set-input ui "draft before install")
+                (test-call-with-function-replacements
+                 (list
+                  (list
+                   'application--create-tool-registry
+                   (lambda (configuration)
+                     (declare (ignore configuration))
+                     conversation-registry))
+                  (list
+                   'application-publish-recovery-session
+                   (lambda (installed-application)
+                     (test-assert
+                      (eq installed-application application)
+                      "the late installation hook receives the active application")
+                     (terminal-ui-set-input ui "concurrent draft")
+                     (terminal-ui-process-event ui :left)
+                     nil)))
+                 (lambda ()
+                   (application-install-conversation
+                    application second-conversation)))
+                (let ((conversation-orchestrator
+                        (application--task-orchestrator application)))
+                  (test-assert
+                   (and
+                    (= workspace-close-count 2)
+                    (eq (application-conversation application)
+                        second-conversation)
+                    (eq (application-tool-registry application)
+                        conversation-registry)
+                    (eq
+                     (agent-tool-registry
+                      (application-agent application))
+                     conversation-registry)
                     (tool-registry-find
                      conversation-registry
                      "transition"
-                     "workspace-new"))
-                   (conversation-lease-matches-p
-                    (application-conversation-lease application)
-                    (conversation-identifier second-conversation))
-                   (search
-                    "conversation-new"
-                    (json-encode
-                     (tool-registry-provider-schemas
-                      conversation-registry))))
-                  "conversation installation advertises only fresh tool schemas")
-                 (test-assert
-                  (and
-                   (equalp
-                    (line-editor-history editor)
-                    #("second conversation history"))
-                   (string= (line-editor-text editor) "concurrent draft")
-                   (= (line-editor-cursor editor) 15)
-                   (not (terminal-ui--editor-history-navigating-p editor)))
-                  "conversation installation preserves input entered before its final history commit")
-                 (test-assert
-                  (and
-                   (eq
-                    (job-pool-lifecycle-state
-                     (task-orchestrator-pool workspace-orchestrator))
-                    ':closed)
-                   (eq
-                    (job-pool-lifecycle-state
-                     (task-orchestrator-pool conversation-orchestrator))
-                    ':open)
-                   (not
-                    (eq workspace-orchestrator
-                        conversation-orchestrator)))
-                  "conversation installation replaces and restarts task runtimes")
-                 (terminal-ui-load-history ui '("old one" "old two"))
-                 (terminal-ui-set-input ui "draft before failed install")
-                 (terminal-ui-process-event ui :left)
-                 (let* ((expected-history
-                          (copy-seq (line-editor-history editor)))
-                        (failed-close-count 0)
-                        (failed-registry
-                          (application-tests--replacement-registry
-                           "conversation-failed"
-                           (lambda () (incf failed-close-count)))))
-                   (push failed-registry owned-registries)
-                   (conversation-append-user-message
-                    third-conversation "replacement history")
-                   (test-call-with-function-replacements
-                    (list
-                     (list
-                      'application--create-tool-registry
-                      (lambda (configuration)
-                        (declare (ignore configuration))
-                        failed-registry))
-                     (list
-                      'context-runtime-reset
-                      (lambda ()
-                        (terminal-ui-set-input
-                         ui "input during failed install")
-                        (terminal-ui-process-event ui :left)
-                        (error "late conversation install failure"))))
-                    (lambda ()
-                      (test-assert
-                       (handler-case
-                           (progn
-                             (application-install-conversation
-                              application third-conversation)
-                             nil)
-                         (application-runtime-replacement-error (condition)
-                           (eq
-                            (application-runtime-replacement-error-stage condition)
-                            ':install)))
-                       "late conversation failure enters installation rollback")))
-                   (test-assert
-                    (and
-                     (= failed-close-count 1)
-                     (equalp (line-editor-history editor) expected-history)
-                     (string=
-                      (line-editor-text editor)
-                      "input during failed install")
-                     (= (line-editor-cursor editor)
-                        (1- (length "input during failed install")))
-                     (not (terminal-ui--editor-history-navigating-p editor)))
-                    "conversation rollback leaves history and concurrent input untouched"))
-                 (let ((active-configuration
-                         (application-configuration application))
-                       (active-provider
-                         (application-provider application))
-                       (active-registry
-                         (application-tool-registry application))
-                       (active-agent
-                         (application-agent application))
-                       (active-rendered-sequence
-                         (application-rendered-sequence application))
-                       (active-close-count conversation-close-count)
-                       (attempted-lease nil)
-                       (lease-acquire-function
-                         (symbol-function 'conversation-lease-acquire)))
-                   (test-call-with-function-replacements
-                    (list
-                     (list
-                      'conversation-lease-acquire
-                      (lambda (replacement-configuration identifier)
-                        (setf attempted-lease
-                              (funcall
-                               lease-acquire-function
-                               replacement-configuration
-                               identifier))))
-                     (list
-                      'application--create-tool-registry
-                      (lambda (configuration)
-                        (declare (ignore configuration))
-                        (error
-                         'mcp-server-startup-error
-                         :message "Required MCP server failed."
-                         :server-name "required"
-                         :required-p t
-                         :cause nil))))
-                    (lambda ()
-                      (test-assert
-                       (handler-case
-                           (progn
-                             (application-install-conversation
-                              application third-conversation)
-                             nil)
-                         (mcp-server-startup-error (condition)
-                           (mcp-server-startup-error-required-p condition)))
-                       "required MCP failure aborts conversation preparation")))
-                   (test-assert
-                    (and
-                     (eq (application-configuration application)
-                         active-configuration)
-                     (eq (application-conversation application)
-                         second-conversation)
-                     (eq (application-provider application)
-                         active-provider)
-                     (eq (application-tool-registry application)
-                         active-registry)
-                     (eq (application-agent application) active-agent)
-                     (= (application-rendered-sequence application)
-                        active-rendered-sequence)
-                     (conversation-lease-matches-p
-                      (application-conversation-lease application)
-                      (conversation-identifier second-conversation))
-                     attempted-lease
-                     (not (conversation-lease-held-p attempted-lease))
-                     (= conversation-close-count active-close-count)
-                     (eq
-                      (job-pool-lifecycle-state
-                       (task-orchestrator-pool conversation-orchestrator))
-                      ':open)
+                     "conversation-new")
+                    (null
                      (tool-registry-find
                       conversation-registry
                       "transition"
-                      "conversation-new"))
-                    "failed conversation preparation leaves the old application live")))))))
+                      "workspace-new"))
+                    (conversation-lease-matches-p
+                     (application-conversation-lease application)
+                     (conversation-identifier second-conversation))
+                    (search
+                     "conversation-new"
+                     (json-encode
+                      (tool-registry-provider-schemas
+                       conversation-registry))))
+                   "conversation installation advertises only fresh tool schemas")
+                  (test-assert
+                   (and
+                    (equalp
+                     (line-editor-history editor)
+                     #("second conversation history"))
+                    (string= (line-editor-text editor) "concurrent draft")
+                    (= (line-editor-cursor editor) 15)
+                    (not (terminal-ui--editor-history-navigating-p editor)))
+                   "conversation installation preserves input entered before its final history commit")
+                  (test-assert
+                   (and
+                    (eq
+                     (job-pool-lifecycle-state
+                      (task-orchestrator-pool workspace-orchestrator))
+                     ':closed)
+                    (eq
+                     (job-pool-lifecycle-state
+                      (task-orchestrator-pool conversation-orchestrator))
+                     ':open)
+                    (not
+                     (eq workspace-orchestrator
+                         conversation-orchestrator)))
+                   "conversation installation replaces and restarts task runtimes")
+                  (terminal-ui-load-history ui '("old one" "old two"))
+                  (terminal-ui-set-input ui "draft before failed install")
+                  (terminal-ui-process-event ui :left)
+                  (let* ((expected-history
+                           (copy-seq (line-editor-history editor)))
+                         (failed-close-count 0)
+                         (failed-registry
+                           (application-tests--replacement-registry
+                            "conversation-failed"
+                            (lambda () (incf failed-close-count)))))
+                    (push failed-registry owned-registries)
+                    (conversation-append-user-message
+                     third-conversation "replacement history")
+                    (test-call-with-function-replacements
+                     (list
+                      (list
+                       'application--create-tool-registry
+                       (lambda (configuration)
+                         (declare (ignore configuration))
+                         failed-registry))
+                      (list
+                       'context-runtime-reset
+                       (lambda ()
+                         (terminal-ui-set-input
+                          ui "input during failed install")
+                         (terminal-ui-process-event ui :left)
+                         (error "late conversation install failure"))))
+                     (lambda ()
+                       (test-assert
+                        (handler-case
+                            (progn
+                              (application-install-conversation
+                               application third-conversation)
+                              nil)
+                          (application-runtime-replacement-error (condition)
+                            (eq
+                             (application-runtime-replacement-error-stage condition)
+                             ':install)))
+                        "late conversation failure enters installation rollback")))
+                    (test-assert
+                     (and
+                      (= failed-close-count 1)
+                      (equalp (line-editor-history editor) expected-history)
+                      (string=
+                       (line-editor-text editor)
+                       "input during failed install")
+                      (= (line-editor-cursor editor)
+                         (1- (length "input during failed install")))
+                      (not (terminal-ui--editor-history-navigating-p editor)))
+                     "conversation rollback leaves history and concurrent input untouched"))
+                  (let ((active-configuration
+                          (application-configuration application))
+                        (active-provider
+                          (application-provider application))
+                        (active-registry
+                          (application-tool-registry application))
+                        (active-agent
+                          (application-agent application))
+                        (active-rendered-sequence
+                          (application-rendered-sequence application))
+                        (active-close-count conversation-close-count)
+                        (attempted-lease    nil)
+                        (lease-acquire-function
+                          (symbol-function 'conversation-lease-acquire)))
+                    (test-call-with-function-replacements
+                     (list
+                      (list
+                       'conversation-lease-acquire
+                       (lambda (replacement-configuration identifier)
+                         (setf attempted-lease
+                               (funcall
+                                lease-acquire-function
+                                replacement-configuration
+                                identifier))))
+                      (list
+                       'application--create-tool-registry
+                       (lambda (configuration)
+                         (declare (ignore configuration))
+                         (error
+                          'mcp-server-startup-error
+                          :message     "Required MCP server failed."
+                          :server-name "required"
+                          :required-p  t
+                          :cause       nil))))
+                     (lambda ()
+                       (test-assert
+                        (handler-case
+                            (progn
+                              (application-install-conversation
+                               application third-conversation)
+                              nil)
+                          (mcp-server-startup-error (condition)
+                            (mcp-server-startup-error-required-p condition)))
+                        "required MCP failure aborts conversation preparation")))
+                    (test-assert
+                     (and
+                      (eq (application-configuration application)
+                          active-configuration)
+                      (eq (application-conversation application)
+                          second-conversation)
+                      (eq (application-provider application)
+                          active-provider)
+                      (eq (application-tool-registry application)
+                          active-registry)
+                      (eq (application-agent application) active-agent)
+                      (= (application-rendered-sequence application)
+                         active-rendered-sequence)
+                      (conversation-lease-matches-p
+                       (application-conversation-lease application)
+                       (conversation-identifier second-conversation))
+                      attempted-lease
+                      (not (conversation-lease-held-p attempted-lease))
+                      (= conversation-close-count active-close-count)
+                      (eq
+                       (job-pool-lifecycle-state
+                        (task-orchestrator-pool conversation-orchestrator))
+                       ':open)
+                      (tool-registry-find
+                       conversation-registry
+                       "transition"
+                       "conversation-new"))
+                     "failed conversation preparation leaves the old application live")))))))
       (ignore-errors
         (application-disconnect-task-presentation application))
       (application-release-conversation-lease application)
@@ -7011,12 +7006,12 @@
 (defun test-application-runtime-retirement-failures ()
   "Test replacement operations roll back a non-error serious retirement failure."
   (dolist (operation '(:mcp-reload :working-directory :conversation))
-    (let* ((configuration (test-configuration))
-           (root (test-configuration-root configuration))
-           (workspace (merge-pathnames "retirement-workspace/" root))
-           (previous-process-directory (uiop:getcwd))
-           (previous-defaults *default-pathname-defaults*)
-           (retirement-failure-enabled-p t)
+    (let* ((configuration                 (test-configuration))
+           (root                          (test-configuration-root configuration))
+           (workspace                     (merge-pathnames "retirement-workspace/" root))
+           (previous-process-directory    (uiop:getcwd))
+           (previous-defaults             *default-pathname-defaults*)
+           (retirement-failure-enabled-p  t)
            (old-registry
              (application-tests--replacement-registry
               "retirement-old"
@@ -7024,7 +7019,7 @@
                 (when retirement-failure-enabled-p
                   (signal
                    'application-test-runtime-retirement-interruption)))))
-           (new-close-count 0)
+           (new-close-count               0)
            (new-registry
              (application-tests--replacement-registry
               "retirement-new"
@@ -7038,33 +7033,33 @@
              (conversation-create
               configuration :identifier
               (format nil "runtime-retirement-new-~(~A~)" operation)))
-           (provider (provider-create configuration))
+           (provider                      (provider-create configuration))
            (old-agent
              (agent-create :configuration configuration
-                           :provider provider
-                           :conversation old-conversation
+                           :provider      provider
+                           :conversation  old-conversation
                            :tool-registry old-registry
-                           :worker nil))
+                           :worker        nil))
            (application
              (make-instance
               'application
               :configuration configuration
-              :conversation old-conversation
-              :provider provider
+              :conversation  old-conversation
+              :provider      provider
               :tool-registry old-registry
-              :worker nil
-              :agent old-agent
-              :ui nil))
+              :worker        nil
+              :agent         old-agent
+              :ui            nil))
            (old-orchestrator
              (application--task-orchestrator application))
            (new-orchestrator
              (task-run-tool-orchestrator
               (tool-registry-find new-registry "task" "run")))
-           (mcp-registration-snapshot (mcp--registry-snapshot))
+           (mcp-registration-snapshot     (mcp--registry-snapshot))
            (context-registration-snapshot (context--registry-snapshot))
            (command-registration-snapshot
              (application-command--registry-snapshot))
-           (failure nil))
+           (failure                       nil))
       (ensure-directories-exist workspace)
       (application-connect-task-presentation application)
       (unwind-protect
@@ -7185,8 +7180,8 @@
 (-> test-application-create-unwind-safety () null)
 (defun test-application-create-unwind-safety ()
   "Test late construction failure closes every newly owned runtime."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration                 (test-configuration))
+         (root                          (test-configuration-root configuration))
          (original-registry-create
            (symbol-function 'application--create-tool-registry))
          (original-worker-create
@@ -7197,15 +7192,15 @@
            (symbol-function 'lisp-worker-manager-stop))
          (original-goal-load
            (symbol-function 'application--load-goal))
-         (mcp-registration-snapshot (mcp--registry-snapshot))
+         (mcp-registration-snapshot     (mcp--registry-snapshot))
          (context-registration-snapshot (context--registry-snapshot))
          (command-registration-snapshot
            (application-command--registry-snapshot))
-         (constructed-application nil)
-         (created-registry nil)
-         (created-worker nil)
-         (registry-closed-p nil)
-         (worker-stopped-p nil))
+         (constructed-application       nil)
+         (created-registry              nil)
+         (created-worker                nil)
+         (registry-closed-p             nil)
+         (worker-stopped-p              nil))
     (unwind-protect
          (test-call-with-function-replacements
           (list
@@ -7290,23 +7285,23 @@
   "Test reconnect preparation and runtime retirement rollback."
   (labels ((run-case (stage)
              "Exercise reconnect transaction STAGE with isolated resources."
-             (let* ((configuration (test-configuration))
-                    (root (test-configuration-root configuration))
+             (let* ((configuration                 (test-configuration))
+                    (root                          (test-configuration-root configuration))
                     (conversation
                       (conversation-create
                        configuration
                        :identifier
                        (format nil "reconnect-transaction-~(~A~)" stage)))
-                    (provider (provider-create configuration))
+                    (provider                      (provider-create configuration))
                     (old-registry
                       (application--create-tool-registry configuration))
-                    (old-worker (lisp-worker-pool-create configuration))
+                    (old-worker                    (lisp-worker-pool-create configuration))
                     (old-agent
                       (agent-create :configuration configuration
-                                    :provider provider
-                                    :conversation conversation
+                                    :provider      provider
+                                    :conversation  conversation
                                     :tool-registry old-registry
-                                    :worker old-worker))
+                                    :worker        old-worker))
                     (old-ui
                       (terminal-ui-create
                        :terminal
@@ -7314,12 +7309,12 @@
                     (application
                       (make-instance 'application
                                      :configuration configuration
-                                     :conversation conversation
-                                     :provider provider
+                                     :conversation  conversation
+                                     :provider      provider
                                      :tool-registry old-registry
-                                     :worker old-worker
-                                     :agent old-agent
-                                     :ui old-ui))
+                                     :worker        old-worker
+                                     :agent         old-agent
+                                     :ui            old-ui))
                     (old-orchestrator
                       (application--task-orchestrator application))
                     (original-context-reset
@@ -7346,17 +7341,17 @@
                       (context--registry-snapshot))
                     (command-registration-snapshot
                       (application-command--registry-snapshot))
-                    (new-registry nil)
-                    (new-worker nil)
-                    (new-registry-closed-p nil)
-                    (new-worker-stopped-p nil)
-                    (old-worker-stopped-p nil)
-                    (context-transition-p nil)
-                    (image-transition-p nil)
+                    (new-registry                  nil)
+                    (new-worker                    nil)
+                    (new-registry-closed-p         nil)
+                    (new-worker-stopped-p          nil)
+                    (old-worker-stopped-p          nil)
+                    (context-transition-p          nil)
+                    (image-transition-p            nil)
                     (old-close-after-transitions-p nil)
-                    (old-registry-resumed-p nil)
-                    (returned-application nil)
-                    (failure-p nil))
+                    (old-registry-resumed-p        nil)
+                    (returned-application          nil)
+                    (failure-p                     nil))
                (configuration-ensure-directories configuration)
                (application-connect-task-presentation application)
                (unwind-protect
@@ -7374,10 +7369,10 @@
                          (configuration-copy
                           configuration
                           :working-directory working-directory
-                          :model model
-                          :reasoning-effort reasoning-effort
+                          :model             model
+                          :reasoning-effort  reasoning-effort
                           :codex-fast-mode-p codex-fast-mode-p
-                          :immutable-p immutable-p)))
+                          :immutable-p       immutable-p)))
                       (list
                        'application-terminal-ui-create
                        (lambda ()
@@ -7549,7 +7544,7 @@
                          old-agent)
                         new-registry-closed-p
                         new-worker-stopped-p)
-                      "retirement failure keeps old ownership and closes replacements")
+                       "retirement failure keeps old ownership and closes replacements")
                       (test-assert
                        (and
                         old-close-after-transitions-p
@@ -7576,31 +7571,31 @@
                          command-registration-snapshot
                          (application-command--registry-snapshot)))
                        "retirement rollback resumes the old runtime and registrations"))))
-              (ignore-errors
-                (application-disconnect-task-presentation application))
-              (when returned-application
                 (ignore-errors
-                  (application-disconnect-task-presentation
-                   returned-application)))
-              (dolist (registry
-                       (remove-duplicates
-                        (remove nil (list old-registry new-registry))
-                        :test #'eq))
-                (ignore-errors
-                  (funcall original-registry-close registry)))
-              (dolist (worker
-                       (remove-duplicates
-                        (remove nil (list old-worker new-worker))
-                        :test #'eq))
-                (ignore-errors
-                  (funcall original-worker-stop worker)))
-              (mcp--registry-restore mcp-registration-snapshot)
-              (context--registry-restore context-registration-snapshot)
-              (application-command--registry-restore
-               command-registration-snapshot)
-              (platform-delete-directory-tree
-               *platform*
-               root :validate t :if-does-not-exist ':ignore)))))
+                  (application-disconnect-task-presentation application))
+                (when returned-application
+                  (ignore-errors
+                    (application-disconnect-task-presentation
+                     returned-application)))
+                (dolist (registry
+                         (remove-duplicates
+                          (remove nil (list old-registry new-registry))
+                          :test #'eq))
+                  (ignore-errors
+                    (funcall original-registry-close registry)))
+                (dolist (worker
+                         (remove-duplicates
+                          (remove nil (list old-worker new-worker))
+                          :test #'eq))
+                  (ignore-errors
+                    (funcall original-worker-stop worker)))
+                (mcp--registry-restore mcp-registration-snapshot)
+                (context--registry-restore context-registration-snapshot)
+                (application-command--registry-restore
+                 command-registration-snapshot)
+                (platform-delete-directory-tree
+                 *platform*
+                 root :validate t :if-does-not-exist ':ignore)))))
     (run-case ':pre-commit)
     (run-case ':retirement))
   nil)
@@ -7608,41 +7603,41 @@
 (-> test-application-task-presentation () null)
 (defun test-application-task-presentation ()
   "Test task events drive one reconnectable child-agent terminal projection."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration            (test-configuration))
+         (root                     (test-configuration-root configuration))
          (conversation
            (conversation-create
             configuration :identifier "task-presentation-primary-window"))
          (registry
            (task-augment-tool-registry
             (make-default-tool-registry)))
-         (run-tool (tool-registry-find registry "task" "run"))
-         (orchestrator (task-run-tool-orchestrator run-tool))
-         (clock 65)
+         (run-tool                 (tool-registry-find registry "task" "run"))
+         (orchestrator             (task-run-tool-orchestrator run-tool))
+         (clock                    65)
          (terminal
            (make-instance 'recording-terminal :columns 72 :styled-p t))
          (ui
            (terminal-ui-create
-            :terminal terminal
+            :terminal       terminal
             :clock-function (lambda () clock)))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
+                          :conversation  conversation
                           :tool-registry registry
-                          :ui ui))
+                          :ui            ui))
          (primary
            (task-tests--primary-agent
             configuration "task-presentation-primary" registry))
          (definition
            (task-agent-definition-create
-            :name "presenter"
-            :description "Exercise task presentation events."
+            :name         "presenter"
+            :description  "Exercise task presentation events."
             :instructions "Remain visible while the test inspects the UI."
-            :source ':test))
-         (queued nil)
-         (running nil)
-         (replacement-registry nil)
+            :source       ':test))
+         (queued                   nil)
+         (running                  nil)
+         (replacement-registry     nil)
          (replacement-orchestrator nil))
     (unwind-protect
          (progn
@@ -7651,40 +7646,40 @@
            (test-assert
             (= (length (task-orchestrator-listeners orchestrator)) 1)
             "reconnection retains exactly one task presentation listener")
-            (let ((stale-command
-                    (list :id "exec:stale" :type ':tool :index 1
-                          :tool "shell.run" :description "Old session command"
-                          :state ':running :duration-ms 0 :detached nil)))
-              (terminal-ui-set-command-activities ui (list stale-command))
-              (terminal-ui-set-command-activities ui nil)
-              (test-assert
-               (terminal-ui-command-pending-completions ui)
-               "a command completed before paint is pending presentation")
-              (application-disconnect-task-presentation application)
-              (test-assert
-               (and (null (terminal-ui-command-activities ui))
-                    (null (terminal-ui-command-unpainted-identifiers ui))
-                    (null (terminal-ui-command-pending-completions ui)))
-               "disconnect discards every old-session command presentation")
-              (application-connect-task-presentation application)
-              (recording-terminal-reset terminal)
-              (terminal-ui-refresh-status ui)
-              (test-assert
-               (not (search "exec:stale" (recording-terminal-output terminal)))
-               "reconnect cannot paint a command retained by the old session"))
+           (let ((stale-command
+                   (list :id "exec:stale" :type ':tool :index 1
+                         :tool "shell.run" :description "Old session command"
+                         :state ':running :duration-ms 0 :detached nil)))
+             (terminal-ui-set-command-activities ui (list stale-command))
+             (terminal-ui-set-command-activities ui nil)
+             (test-assert
+              (terminal-ui-command-pending-completions ui)
+              "a command completed before paint is pending presentation")
+             (application-disconnect-task-presentation application)
+             (test-assert
+              (and (null (terminal-ui-command-activities ui))
+                   (null (terminal-ui-command-unpainted-identifiers ui))
+                   (null (terminal-ui-command-pending-completions ui)))
+              "disconnect discards every old-session command presentation")
+             (application-connect-task-presentation application)
+             (recording-terminal-reset terminal)
+             (terminal-ui-refresh-status ui)
+             (test-assert
+              (not (search "exec:stale" (recording-terminal-output terminal)))
+              "reconnect cannot paint a command retained by the old session"))
            (let* ((original-add-listener
                     (symbol-function 'task-orchestrator-add-listener))
                   (gate-lock
                     (make-lock "Autolith task presentation connect race"))
-                  (gate-condition (make-condition-variable))
+                  (gate-condition      (make-condition-variable))
                   (first-add-entered-p nil)
                   (release-first-add-p nil)
-                  (second-started-p nil)
-                  (add-call-count 0)
-                  (first-condition nil)
-                  (second-condition nil)
-                  (first-thread nil)
-                  (second-thread nil))
+                  (second-started-p    nil)
+                  (add-call-count      0)
+                  (first-condition     nil)
+                  (second-condition    nil)
+                  (first-thread        nil)
+                  (second-thread       nil))
              (test-call-with-function-replacements
               (list
                (list
@@ -7703,9 +7698,9 @@
                               unless
                               (condition-wait
                                gate-condition gate-lock :timeout 2)
-                                do (error
-                                    "Timed out holding the first presentation listener add."))))
-                     (funcall original-add-listener target listener)))))
+                              do (error
+                                  "Timed out holding the first presentation listener add."))))
+                    (funcall original-add-listener target listener)))))
               (lambda ()
                 (unwind-protect
                      (progn
@@ -7723,8 +7718,8 @@
                                unless
                                (condition-wait
                                 gate-condition gate-lock :timeout 2)
-                                 do (error
-                                     "Timed out waiting for the first listener add.")))
+                               do (error
+                                   "Timed out waiting for the first listener add.")))
                        (let ((acquired-p
                                (bordeaux-threads:acquire-lock
                                 (application-task-presentation-lock application)
@@ -7752,8 +7747,8 @@
                                unless
                                (condition-wait
                                 gate-condition gate-lock :timeout 2)
-                                 do (error
-                                     "Timed out starting the second listener connect."))
+                               do (error
+                                   "Timed out starting the second listener connect."))
                          (setf release-first-add-p t)
                          (task--condition-broadcast gate-condition))
                        (join-thread first-thread)
@@ -7793,7 +7788,7 @@
             running ':tool-call-started
             (list :tool "search.content"))
            (let* ((progress (task-job-progress running))
-                  (now (get-internal-real-time)))
+                  (now      (get-internal-real-time)))
              (with-lock-held ((task-progress-lock progress))
                (setf (task-progress-started-at progress)
                      (- now (* 65 internal-time-units-per-second))
@@ -7848,12 +7843,12 @@
            (let* ((timestamp
                     (encode-universal-time 0 53 22 10 8 2026))
                   (payload
-                    (list :id "child-1"
+                    (list :id           "child-1"
                           :execution-id "execution-1"
-                          :child-name "shared-diff-final-review"
-                          :steering-id "steering-1"
-                          :text "Use careful context."
-                          :time timestamp))
+                          :child-name   "shared-diff-final-review"
+                          :steering-id  "steering-1"
+                          :text         "Use careful context."
+                          :time         timestamp))
                   (entry
                     (application--child-response-entry application payload))
                   (records-before
@@ -7886,9 +7881,9 @@
              (let ((cl-colorist:*color-level* ':indexed))
                (task-orchestrator-emit
                 orchestrator ':task-subagent-verbal-response payload))
-             (let* ((output (recording-terminal-output terminal))
+             (let* ((output       (recording-terminal-output terminal))
                     (plain-output (cl-colorist:strip-ansi output))
-                    (child-style (terminal-style-sequence ':child-name t))
+                    (child-style  (terminal-style-sequence ':child-name t))
                     (basic-child-style
                       (terminal-style-sequence ':child-name nil)))
                (test-assert
@@ -7940,12 +7935,12 @@
               (string= (recording-terminal-output terminal) "")
               "the retired orchestrator cannot present after replacement")
              (let ((replacement-payload
-                     (list :id "child-2"
+                     (list :id           "child-2"
                            :execution-id "execution-2"
-                           :child-name "replacement-review"
-                           :steering-id "steering-2"
-                           :text "Replacement response."
-                           :time timestamp)))
+                           :child-name   "replacement-review"
+                           :steering-id  "steering-2"
+                           :text         "Replacement response."
+                           :time         timestamp)))
                (let ((cl-colorist:*color-level* ':indexed))
                  (task-orchestrator-emit
                   replacement-orchestrator
@@ -7987,41 +7982,41 @@
           (tool-registry-close-runtime-state replacement-registry)))
       (ignore-errors (tool-registry-close-runtime-state registry))
       (platform-delete-directory-tree *platform* root :validate t
-                                           :if-does-not-exist ':ignore)))
+                                           :if-does-not-exist   ':ignore)))
   nil)
 
 (-> test-working-directory-command () null)
 (defun test-working-directory-command ()
   "Test /cwd completion, status, and full-path parsing."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (workspace (merge-pathnames "command workspace/" root))
-         (lisp-workspace (merge-pathnames "lisp command workspace/" root))
+  (let* ((configuration              (test-configuration))
+         (root                       (test-configuration-root configuration))
+         (workspace                  (merge-pathnames "command workspace/" root))
+         (lisp-workspace             (merge-pathnames "lisp command workspace/" root))
          (previous-process-directory (uiop:getcwd))
-         (previous-defaults *default-pathname-defaults*)
-         (terminal (make-instance 'recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
-         (registry (make-default-tool-registry)))
+         (previous-defaults          *default-pathname-defaults*)
+         (terminal                   (make-instance 'recording-terminal :columns 80))
+         (ui                         (terminal-ui-create :terminal terminal))
+         (registry                   (make-default-tool-registry)))
     (ensure-directories-exist workspace)
     (ensure-directories-exist lisp-workspace)
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration :identifier "cwd-command"))
                 (provider (provider-create configuration))
-                (agent (agent-create :configuration configuration
-                                     :provider provider
-                                     :conversation conversation
-                                     :tool-registry registry
-                                     :worker nil))
+                (agent    (agent-create :configuration configuration
+                                        :provider      provider
+                                        :conversation  conversation
+                                        :tool-registry registry
+                                        :worker        nil))
                 (application
                   (make-instance 'application
                                  :configuration configuration
-                                 :conversation conversation
-                                 :provider provider
+                                 :conversation  conversation
+                                 :provider      provider
                                  :tool-registry registry
-                                 :worker nil
-                                 :agent agent
-                                 :ui ui)))
+                                 :worker        nil
+                                 :agent         agent
+                                 :ui            ui)))
            (let ((received nil))
              (test-call-with-function-replacements
               (list (list 'application-set-working-directory
@@ -8049,17 +8044,17 @@
               "the command table offers /cwd with its optional path argument")
              (test-assert (search "/cwd [PATH]" (application-help))
                           "the command reference includes optional /cwd syntax"))
-            (test-assert
-             (equal (application-command-invocation-arguments
-                     (application-command-invocation-parse
-                      "/cwd \"directory name with spaces\""))
-                    '("directory name with spaces"))
-             "slash-command quotes preserve embedded spaces in one argument")
-            (test-assert
-             (eq (application-command
-                  application
-                  (format nil "/cwd ~S" (namestring workspace)))
-                 ':continue)
+           (test-assert
+            (equal (application-command-invocation-arguments
+                    (application-command-invocation-parse
+                     "/cwd \"directory name with spaces\""))
+                   '("directory name with spaces"))
+            "slash-command quotes preserve embedded spaces in one argument")
+           (test-assert
+            (eq (application-command
+                 application
+                 (format nil "/cwd ~S" (namestring workspace)))
+                ':continue)
             "/cwd continues the application loop")
            (test-assert
             (equal (config :working-directory
@@ -8104,31 +8099,31 @@
 (-> test-effort-switch () null)
 (defun test-effort-switch ()
   "Test in-place model and reasoning-effort configuration switching."
-  (let* ((base (test-configuration))
+  (let* ((base          (test-configuration))
          (configuration (configuration-copy base :web-search-mode "live"))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation (conversation-create configuration
                                                    :identifier "effort"))
-                (provider (provider-create configuration))
-                (registry (make-default-tool-registry))
-                (worker (lisp-worker-create configuration))
-                (agent (agent-create :configuration configuration
-                                     :provider provider
-                                     :conversation conversation
-                                     :tool-registry registry
-                                     :worker worker))
-                (terminal (make-instance 'scripted-terminal :columns 60))
-                (ui (terminal-ui-create :terminal terminal))
+                (provider     (provider-create configuration))
+                (registry     (make-default-tool-registry))
+                (worker       (lisp-worker-create configuration))
+                (agent        (agent-create :configuration configuration
+                                            :provider      provider
+                                            :conversation  conversation
+                                            :tool-registry registry
+                                            :worker        worker))
+                (terminal     (make-instance 'scripted-terminal :columns 60))
+                (ui           (terminal-ui-create :terminal terminal))
                 (application
                   (make-instance 'application
                                  :configuration configuration
-                                 :conversation conversation
-                                 :provider provider
+                                 :conversation  conversation
+                                 :provider      provider
                                  :tool-registry registry
-                                 :worker worker
-                                 :agent agent
-                                 :ui ui)))
+                                 :worker        worker
+                                 :agent         agent
+                                 :ui            ui)))
            (setf (provider-rate-limits provider) '(:primary (:used-percent 25)))
            (application-set-reasoning-effort application "low")
            (test-assert (string= (config :reasoning-effort
@@ -8288,18 +8283,18 @@
 (defun test-public-goal-actions ()
   "Test literal objectives and keyword controls through the public goal operation."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
-         (let* ((conversation (conversation-create configuration
-                                                   :identifier "public-goal"))
-                (application (make-instance
-                              'application
-                              :configuration configuration
-                              :conversation conversation
-                              :tool-registry (make-default-tool-registry)
-                              :ui (terminal-ui-create
-                                   :terminal (make-instance 'recording-terminal
-                                                            :columns 60))))
+         (let* ((conversation      (conversation-create configuration
+                                                        :identifier "public-goal"))
+                (application       (make-instance
+                                    'application
+                                    :configuration configuration
+                                    :conversation  conversation
+                                    :tool-registry (make-default-tool-registry)
+                                    :ui            (terminal-ui-create
+                                                    :terminal (make-instance 'recording-terminal
+                                                                             :columns 60))))
                 (started-goal-work 0))
            (terminal-ui-start (application-ui application))
            (labels ((call-goal (&rest arguments)
@@ -8312,11 +8307,11 @@
                               (make-instance
                                'application
                                :configuration configuration
-                               :conversation (conversation-load-by-id
-                                              configuration "public-goal")
-                               :ui (terminal-ui-create
-                                    :terminal (make-instance 'recording-terminal
-                                                             :columns 60)))))
+                               :conversation  (conversation-load-by-id
+                                               configuration "public-goal")
+                               :ui            (terminal-ui-create
+                                               :terminal (make-instance 'recording-terminal
+                                                                        :columns 60)))))
                         (application--load-goal sibling)
                         (application-goal sibling)))
 
@@ -8350,7 +8345,7 @@
                     (test-assert
                      (string= (getf (reload-goal) :objective) objective)
                      "literal objectives persist without action conversion")))
-                (let ((snapshot (copy-list (application-goal application)))
+                (let ((snapshot        (copy-list (application-goal application)))
                       (previous-starts started-goal-work))
                   (call-goal)
                   (call-goal ':status)
@@ -8380,7 +8375,7 @@
                           (equal snapshot (reload-goal)))
                      "invalid requests neither mutate nor persist goal state")))
                 (call-goal "pause")
-                (let ((created-at (getf (application-goal application) :created-at))
+                (let ((created-at      (getf (application-goal application) :created-at))
                       (previous-starts started-goal-work))
                   (call-goal ':pause)
                   (test-assert
@@ -8431,25 +8426,26 @@
                 (test-assert (null (application-goal application))
                              "slash clear removes the goal")))))
       (platform-delete-directory-tree *platform* root :validate t
-                                      :if-does-not-exist ':ignore)))
+                                      :if-does-not-exist        ':ignore)))
   nil)
+
 (-> test-session-goal () null)
 (defun test-session-goal ()
   "Test goal persistence, context injection, continuation, and completion."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
-         (let* ((conversation (conversation-create configuration
-                                                   :identifier "goal"))
-                (terminal (make-instance 'recording-terminal :columns 60))
-                (application (make-instance 'application
-                                            :configuration configuration
-                                            :conversation conversation
-                                            :tool-registry
-                                            (make-default-tool-registry)
-                                            :worker nil
-                                            :ui (terminal-ui-create
-                                                 :terminal terminal)))
+         (let* ((conversation      (conversation-create configuration
+                                                        :identifier "goal"))
+                (terminal          (make-instance 'recording-terminal :columns 60))
+                (application       (make-instance 'application
+                                                  :configuration configuration
+                                                  :conversation  conversation
+                                                  :tool-registry
+                                                  (make-default-tool-registry)
+                                                  :worker        nil
+                                                  :ui            (terminal-ui-create
+                                                                  :terminal terminal)))
                 (started-goal-work 0))
            (terminal-ui-start (application-ui application))
            (test-call-with-function-replacements
@@ -8504,11 +8500,11 @@
               (let ((sibling (make-instance
                               'application
                               :configuration configuration
-                              :conversation (conversation-load-by-id configuration
-                                                                     "goal")
-                              :ui (terminal-ui-create
-                                   :terminal (make-instance 'recording-terminal
-                                                            :columns 60)))))
+                              :conversation  (conversation-load-by-id configuration
+                                                                      "goal")
+                              :ui            (terminal-ui-create
+                                              :terminal (make-instance 'recording-terminal
+                                                                       :columns 60)))))
                 (application--load-goal sibling)
                 (test-assert (string= (getf (application-goal sibling) :objective)
                                       "polish the prompt")
@@ -8547,11 +8543,11 @@
                                                        (list completion-item)
                                                        :turn-completion ':end))))
                   (agent (agent-create :configuration configuration
-                                       :provider provider
-                                       :conversation conversation
+                                       :provider      provider
+                                       :conversation  conversation
                                        :tool-registry
                                        (application-tool-registry application)
-                                       :worker nil)))
+                                       :worker        nil)))
              (setf (application-provider application) provider
                    (application-agent application) agent)
              (application-goal-command application "resume")
@@ -8583,36 +8579,36 @@
                   (test-assert (zerop (getf (application-goal application)
                                             :continuations))
                                "updating restarts the continuation budget")))))
-            (setf (application-goal application)
-                  (list :objective "persist continuation count"
-                        :status ':active
-                        :continuations 0
-                        :created-at (get-universal-time)))
-            (let ((recorded-counts nil))
-              (test-call-with-function-replacements
-               (list
-                (list
-                 'application--record-goal
-                 (lambda (candidate)
-                   (push (getf (application-goal candidate) :continuations)
-                         recorded-counts)
-                   nil))
-                (list
-                 'application--run-turn
-                 (lambda (candidate &rest arguments)
-                   (declare (ignore arguments))
-                   (setf (getf (application-goal candidate) :status) ':paused)
-                   nil)))
-               (lambda ()
-                 (application--run-goal-continuations application)))
-              (test-assert
-               (equal (nreverse recorded-counts) '(1))
-               "automatic continuations record their incremented durable count"))
            (setf (application-goal application)
-                 (list :objective "endless"
-                       :status ':active
+                 (list :objective     "persist continuation count"
+                       :status        ':active
+                       :continuations 0
+                       :created-at    (get-universal-time)))
+           (let ((recorded-counts nil))
+             (test-call-with-function-replacements
+              (list
+               (list
+                'application--record-goal
+                (lambda (candidate)
+                  (push (getf (application-goal candidate) :continuations)
+                        recorded-counts)
+                  nil))
+               (list
+                'application--run-turn
+                (lambda (candidate &rest arguments)
+                  (declare (ignore arguments))
+                  (setf (getf (application-goal candidate) :status) ':paused)
+                  nil)))
+              (lambda ()
+                (application--run-goal-continuations application)))
+             (test-assert
+              (equal (nreverse recorded-counts) '(1))
+              "automatic continuations record their incremented durable count"))
+           (setf (application-goal application)
+                 (list :objective     "endless"
+                       :status        ':active
                        :continuations *application-goal-continuation-limit*
-                       :created-at (get-universal-time)))
+                       :created-at    (get-universal-time)))
            (recording-terminal-reset terminal)
            (application--run-goal-continuations application)
            (test-assert (eq (getf (application-goal application) :status)
@@ -8635,27 +8631,26 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-pending-input-persistence () null)
 (defun test-pending-input-persistence ()
   "Test active, steering, recalled, and legacy pending input survives safely."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (make-instance 'waiting-recording-terminal :columns 60))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((configuration           (test-configuration))
+         (root                    (test-configuration-root configuration))
+         (terminal                (make-instance 'waiting-recording-terminal :columns 60))
+         (ui                      (terminal-ui-create :terminal terminal))
          (conversation
            (conversation-create configuration :identifier "pending-inputs"))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui ui))
-         (controller nil)
-         (restored nil)
-         (restored-after-append nil)
+                          :conversation  conversation
+                          :ui            ui))
+         (controller              nil)
+         (restored                nil)
+         (restored-after-append   nil)
          (restored-after-shutdown nil)
-         (legacy-controller nil)
-         (snapshot-identifier nil))
+         (legacy-controller       nil)
+         (snapshot-identifier     nil))
     (unwind-protect
          (progn
            (configuration-ensure-directories configuration)
@@ -8695,10 +8690,10 @@
                        (equal (getf active-form :work)
                               '(:message "active turn")))
                   "version-two snapshots represent dispatched active work"))))
-            (application-input-controller-submit-primary-prompt
-             controller "first steering")
-            (application-input-controller-submit-primary-prompt
-             controller "second steering")
+           (application-input-controller-submit-primary-prompt
+            controller "first steering")
+           (application-input-controller-submit-primary-prompt
+            controller "second steering")
            (application-input-controller--enqueue
             controller ':message "follow later")
            (test-assert
@@ -8794,8 +8789,8 @@
                   (legacy-application
                     (make-instance 'application
                                    :configuration configuration
-                                   :conversation legacy-conversation
-                                   :ui ui))
+                                   :conversation  legacy-conversation
+                                   :ui            ui))
                   (legacy-pathname
                     (configuration-legacy-pending-inputs-path configuration))
                   (canonical-pathname
@@ -8807,8 +8802,8 @@
               (list :pending-inputs
                     :version 1
                     :conversation-id "pending-legacy"
-                    :steering '("legacy steering")
-                    :work '((:message "legacy follow-up"))))
+                    :steering        '("legacy steering")
+                    :work            '((:message "legacy follow-up"))))
              (setf legacy-controller
                    (application-input-controller-create legacy-application))
              (test-assert
@@ -8844,24 +8839,24 @@
 (defun test-hurry-up-mode ()
   "Test urgent prompt selection, notices, and hard child-agent limits."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (conversation (conversation-create configuration :identifier "hurry-up"))
-         (registry (task-augment-tool-registry (make-default-tool-registry)))
-         (agent (agent-create :configuration configuration
-                              :conversation conversation
-                              :tool-registry registry
-                              :worker ':unused))
-         (terminal (make-instance 'recording-terminal :columns 100))
-         (ui (terminal-ui-create :terminal terminal))
-         (application (make-instance 'application
-                                     :configuration configuration
-                                     :conversation conversation
-                                     :provider (agent-provider agent)
-                                     :tool-registry registry
-                                     :agent agent
-                                     :worker ':unused
-                                     :ui ui))
-         (orchestrator (application--task-orchestrator application)))
+         (root          (test-configuration-root configuration))
+         (conversation  (conversation-create configuration :identifier "hurry-up"))
+         (registry      (task-augment-tool-registry (make-default-tool-registry)))
+         (agent         (agent-create :configuration configuration
+                                      :conversation  conversation
+                                      :tool-registry registry
+                                      :worker        ':unused))
+         (terminal      (make-instance 'recording-terminal :columns 100))
+         (ui            (terminal-ui-create :terminal terminal))
+         (application   (make-instance 'application
+                                       :configuration configuration
+                                       :conversation  conversation
+                                       :provider      (agent-provider agent)
+                                       :tool-registry registry
+                                       :agent         agent
+                                       :worker        ':unused
+                                       :ui            ui))
+         (orchestrator  (application--task-orchestrator application)))
     (unwind-protect
          (progn
            (terminal-ui-start ui)
@@ -8899,16 +8894,16 @@
 (-> test-provider-protocol-failure-is-recoverable () null)
 (defun test-provider-protocol-failure-is-recoverable ()
   "Test provider protocol failures do not enter fatal application recovery."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+  (let* ((configuration     (test-configuration))
+         (root              (test-configuration-root configuration))
          (conversation
            (conversation-create configuration
                                 :identifier "recoverable-provider-protocol"))
-         (registry (make-default-tool-registry))
+         (registry          (make-default-tool-registry))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
+                          :conversation  conversation
                           :tool-registry registry))
          (handled-condition nil))
     (unwind-protect
@@ -8919,12 +8914,12 @@
             (lambda (active-application input &rest arguments)
               (declare (ignore active-application input arguments))
               (error 'provider-protocol-error
-                     :message "Compaction produced no summary text."
-                     :status nil
-                     :code nil
-                     :request-id nil
+                     :message     "Compaction produced no summary text."
+                     :status      nil
+                     :code        nil
+                     :request-id  nil
                      :response-id "compact-empty"
-                     :response nil)))
+                     :response    nil)))
            (list
             'application-handle-expected-error
             (lambda (active-application condition)
@@ -8954,14 +8949,14 @@
 (defun test-failed-turn-publishes-durable-wreckage ()
   "Test a failed model turn repairs calls and publishes its recoverable prefix."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "failed-turn-wreckage"))
-         (registry (make-default-tool-registry))
+         (registry      (make-default-tool-registry))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
+                          :conversation  conversation
                           :tool-registry registry)))
     (unwind-protect
          (test-call-with-function-replacements
@@ -8981,7 +8976,7 @@
                 "name" "read"
                 "arguments" "{}"))
               (error 'agent-loop-error
-                     :message "provider response was malformed"
+                     :message        "provider response was malformed"
                      :conversation-id
                      (conversation-identifier
                       (application-conversation active-application))
@@ -8998,9 +8993,9 @@
                application "partial request" :fatal-agent-loop-errors-p nil)
               ':failed)
              "an expected agent-loop failure returns the ordinary failed action")
-            (let* ((records (test-conversation--all-records conversation))
+            (let* ((records     (test-conversation--all-records conversation))
                    (tool-result (find :tool-result records :key #'first))
-                   (marker (find :turn-aborted records :key #'first)))
+                   (marker      (find :turn-aborted records :key #'first)))
               (test-assert
                (and tool-result
                     marker
@@ -9019,23 +9014,23 @@
 (-> test-pending-publication-lock-boundaries () null)
 (defun test-pending-publication-lock-boundaries ()
   "Test external publication releases the controller lock and rejects stale state."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (terminal (make-instance 'waiting-recording-terminal :columns 80))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((configuration   (test-configuration))
+         (root            (test-configuration-root configuration))
+         (terminal        (make-instance 'waiting-recording-terminal :columns 80))
+         (ui              (terminal-ui-create :terminal terminal))
          (conversation
            (conversation-create configuration :identifier "pending-publication-locks"))
          (application
            (make-instance 'application
                           :configuration configuration
-                          :conversation conversation
-                          :ui ui))
-         (controller nil)
-         (gate (make-lock "Pending publication test gate"))
-         (condition (make-condition-variable :name "Pending publication test gate"))
-         (entered-p nil)
-         (released-p nil)
-         (publisher nil)
+                          :conversation  conversation
+                          :ui            ui))
+         (controller      nil)
+         (gate            (make-lock "Pending publication test gate"))
+         (condition       (make-condition-variable :name "Pending publication test gate"))
+         (entered-p       nil)
+         (released-p      nil)
+         (publisher       nil)
          (original-setter (symbol-function 'terminal-ui-set-pending-inputs))
          (original-publisher
            (symbol-function 'application-input-controller--publish-pending-publication)))
@@ -9149,7 +9144,6 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> test-application-git-branch () null)
 (defun test-application-git-branch ()
   "Test branch discovery without spawning Git subprocesses."
@@ -9157,28 +9151,28 @@
            (merge-pathnames
             (format nil "autolith-git-branch-~A/" (make-identifier))
             (uiop:temporary-directory)))
-         (repository (merge-pathnames "repository/" root))
-         (nested (merge-pathnames "src/deep/" repository))
-         (head (merge-pathnames ".git/HEAD" repository))
-         (worktree (merge-pathnames "worktree/" root))
+         (repository      (merge-pathnames "repository/" root))
+         (nested          (merge-pathnames "src/deep/" repository))
+         (head            (merge-pathnames ".git/HEAD" repository))
+         (worktree        (merge-pathnames "worktree/" root))
          (worktree-nested (merge-pathnames "src/" worktree))
          (worktree-marker (merge-pathnames ".git" worktree))
-         (worktree-head (merge-pathnames "metadata/worktrees/example/HEAD" root)))
+         (worktree-head   (merge-pathnames "metadata/worktrees/example/HEAD" root)))
     (unwind-protect
          (progn
            (ensure-directories-exist head)
            (ensure-directories-exist (merge-pathnames "placeholder" nested))
            (with-open-file (stream head
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create)
              (write-line "ref: refs/heads/feature/status" stream))
            (test-assert
             (string= (application--git-branch nested) "feature/status")
             "branch discovery reads the enclosing worktree HEAD directly")
            (with-open-file (stream head
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create)
              (write-line "892e223b0b7a2d7143787b7c9e4d7ecee644a83c" stream))
            (test-assert
@@ -9188,20 +9182,20 @@
            (ensure-directories-exist worktree-head)
            (ensure-directories-exist (merge-pathnames "placeholder" worktree-nested))
            (with-open-file (stream worktree-marker
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create)
              (write-line "gitdir: ../metadata/worktrees/example/" stream))
            (with-open-file (stream worktree-head
-                                   :direction ':output
-                                   :if-exists ':supersede
+                                   :direction         ':output
+                                   :if-exists         ':supersede
                                    :if-does-not-exist ':create)
              (write-line "ref: refs/heads/worktree-branch" stream))
            (test-assert
             (string= (application--git-branch worktree-nested) "worktree-branch")
             "branch discovery follows linked-worktree gitdir markers"))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -9210,15 +9204,15 @@
 
 (defclass application-tests--clipboard (clipboard-backend)
   ((texts
-    :initform nil
-    :accessor application-tests--clipboard-texts
-    :type list
+    :initform      nil
+    :accessor      application-tests--clipboard-texts
+    :type          list
     :documentation "Copied texts, newest first.")
    (fail-p
-    :initarg :fail-p
-    :initform nil
-    :reader application-tests--clipboard-fail-p
-    :type boolean
+    :initarg       :fail-p
+    :initform      nil
+    :reader        application-tests--clipboard-fail-p
+    :type          boolean
     :documentation "Whether every copy is refused with a clipboard error."))
   (:documentation "A clipboard backend recording copies or refusing them."))
 
@@ -9245,11 +9239,11 @@
 (-> test-application-transcript-actions () null)
 (defun test-application-transcript-actions ()
   "Test clicked copy and link actions reach the clipboard, the terminal, and the browser."
-  (let* ((terminal (make-instance 'recording-terminal :columns 60 :rows 12 :styled-p t))
-         (ui (terminal-ui-create :terminal terminal))
+  (let* ((terminal    (make-instance 'recording-terminal :columns 60 :rows 12 :styled-p t))
+         (ui          (terminal-ui-create :terminal terminal))
          (application (make-instance 'application :ui ui))
-         (backend (make-instance 'application-tests--clipboard))
-         (text (format nil "alpha~%beta")))
+         (backend     (make-instance 'application-tests--clipboard))
+         (text        (format nil "alpha~%beta")))
     (with-terminal-ui (active ui)
       (test-assert (terminal-ui-action-function active)
                    "creating an application connects transcript actions")
@@ -9284,11 +9278,11 @@
         (test-assert (search "Only http and https" (terminal-ui-notice active))
                      "refused links explain themselves"))
       (let* ((renderer (termdown:markdown-renderer-create :width 60))
-             (rows (progn
-                     (application--markdown-rows renderer "```lisp")
-                     (application--markdown-rows renderer "(+ 1 2)")
-                     (application--markdown-rows renderer "```")))
-             (widget (find-if #'termdown:widget-p (first rows))))
+             (rows     (progn
+                         (application--markdown-rows renderer "```lisp")
+                         (application--markdown-rows renderer "(+ 1 2)")
+                         (application--markdown-rows renderer "```")))
+             (widget   (find-if #'termdown:widget-p (first rows))))
         (test-assert (and widget
                           (equal '(:copy "(+ 1 2)") (termdown:widget-action widget))
                           (eq ':code-copy (termdown:widget-role widget)))
@@ -9306,28 +9300,28 @@
   (with-test-configuration (configuration root)
     (declare (ignore root))
     (let* ((conversation (conversation-create configuration))
-           (terminal (make-instance 'recording-terminal :columns 100))
-           (ui (terminal-ui-create :terminal terminal))
-           (provider (make-instance 'scripted-provider
-                                    :results (list (agent-test-result
-                                                    "repair"
-                                                    (list (agent-test-message "Dropped."))
-                                                    :turn-completion ':end))))
-           (registry (make-instance 'tool-registry))
-           (agent (agent-create :configuration configuration :provider provider
-                                :conversation conversation :tool-registry registry
-                                :worker t))
-           (application (make-instance 'application
-                                       :configuration configuration
-                                       :conversation conversation
-                                       :provider provider
-                                       :tool-registry registry
-                                       :worker t
-                                       :agent agent
-                                       :ui ui))
-           (text "Generated repair instructions the user never typed.")
-           (request (list :operation "fix-skipped-definitions"
-                          :summary "Rebuild or drop the 1 private definition skipped at startup.")))
+           (terminal     (make-instance 'recording-terminal :columns 100))
+           (ui           (terminal-ui-create :terminal terminal))
+           (provider     (make-instance 'scripted-provider
+                                        :results (list (agent-test-result
+                                                        "repair"
+                                                        (list (agent-test-message "Dropped."))
+                                                        :turn-completion ':end))))
+           (registry     (make-instance 'tool-registry))
+           (agent        (agent-create :configuration configuration :provider provider
+                                       :conversation conversation :tool-registry registry
+                                       :worker t))
+           (application  (make-instance 'application
+                                        :configuration configuration
+                                        :conversation  conversation
+                                        :provider      provider
+                                        :tool-registry registry
+                                        :worker        t
+                                        :agent         agent
+                                        :ui            ui))
+           (text         "Generated repair instructions the user never typed.")
+           (request      (list :operation "fix-skipped-definitions"
+                               :summary   "Rebuild or drop the 1 private definition skipped at startup.")))
       (conversation-append-user-message conversation "typed by the user")
       (with-terminal-ui (active-ui ui)
         (declare (ignore active-ui))
@@ -9355,18 +9349,17 @@
                    "input history keeps only what the user typed")))
   nil)
 
-
 (-> test-application-mermaid-transcript () null)
 (defun test-application-mermaid-transcript ()
   "Exercise rendered diagrams and raw-source copy actions in transcript bodies."
-  (let* ((terminal (make-instance 'recording-terminal :columns 100))
+  (let* ((terminal    (make-instance 'recording-terminal :columns 100))
          (application (make-instance 'application
                                      :ui (terminal-ui-create :terminal terminal)))
-         (source (format nil "flowchart TD~%A[Start] --> B[Finish]"))
-         (spans (application--markdown-body
-                 application (format nil "```mermaid~%~a~%```" source)))
-         (text (termdown:spans-text spans))
-         (widget (find-if #'termdown:widget-p spans)))
+         (source      (format nil "flowchart TD~%A[Start] --> B[Finish]"))
+         (spans       (application--markdown-body
+                       application (format nil "```mermaid~%~a~%```" source)))
+         (text        (termdown:spans-text spans))
+         (widget      (find-if #'termdown:widget-p spans)))
     (test-assert (and (search "Start" text) (search "Finish" text)
                       (not (search "A[Start]" text)))
                  "a completed Mermaid block appears as a diagram")
@@ -9397,14 +9390,14 @@
   (with-test-configuration (configuration root)
     (declare (ignore root))
     (dolist (closed-p '(t nil))
-      (let* ((terminal (make-instance 'recording-terminal :columns 100))
+      (let* ((terminal    (make-instance 'recording-terminal :columns 100))
              (application (make-instance 'application :configuration configuration
-                                         :ui (terminal-ui-create :terminal terminal)))
-             (observer (application-agent-observer application))
-             (send-text (callback-agent-observer-text-callback observer))
+                                         :ui                         (terminal-ui-create :terminal terminal)))
+             (observer    (application-agent-observer application))
+             (send-text   (callback-agent-observer-text-callback observer))
              (send-status (callback-agent-observer-status-callback observer))
-             (committed nil)
-             (preview nil))
+             (committed   nil)
+             (preview     nil))
         (test-call-with-function-replacements
          (list (list 'terminal-ui-stream-update
                      (lambda (ui &key rows tail)

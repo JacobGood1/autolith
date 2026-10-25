@@ -16,26 +16,26 @@
   (test-telemetry--call
    (lambda (configuration)
      (let* ((conversation (conversation-create configuration :identifier "telemetry-denial"))
-            (tool (make-instance 'telemetry-test-authorized-tool
-                                 :namespace "test" :name "echo" :description "Authorized fixture."
-                                 :parameters (tool-object-schema
-                                              (json-object "value" (tool-string-property "Value."))
-                                              '("value"))))
-            (registry (agent-test-concurrency-registry (list tool)))
-            (provider (make-instance 'scripted-provider :results
-                                    (list (agent-test-result
-                                           "denied-call"
-                                           (list (agent-test-call :call-id "denied"
-                                                                  :arguments "{\"value\":\"private-value\"}")))
-                                          (agent-test-result "denied-done" (list (agent-test-message "done"))))))
-            (agent (agent-create :configuration configuration :conversation conversation
-                                 :provider provider :tool-registry registry :worker :unused))
-            (observer (callback-agent-observer-create
-                       :tool-authorization-callback
-                       (lambda (tool arguments) (declare (ignore tool arguments)) :deny)))
-            (bodies (test-telemetry-hooks--capture
-                     configuration (lambda () (agent-run-user-turn agent "deny" :observer observer))))
-            (spans (test-telemetry-hooks--kind (first bodies) "tool")))
+            (tool         (make-instance 'telemetry-test-authorized-tool
+                                         :namespace "test" :name "echo" :description "Authorized fixture."
+                                         :parameters (tool-object-schema
+                                                      (json-object "value" (tool-string-property "Value."))
+                                                      '("value"))))
+            (registry     (agent-test-concurrency-registry (list tool)))
+            (provider     (make-instance 'scripted-provider :results
+                                        (list (agent-test-result
+                                               "denied-call"
+                                               (list (agent-test-call :call-id   "denied"
+                                                                      :arguments "{\"value\":\"private-value\"}")))
+                                              (agent-test-result "denied-done" (list (agent-test-message "done"))))))
+            (agent        (agent-create :configuration configuration :conversation conversation
+                                        :provider provider :tool-registry registry :worker :unused))
+            (observer     (callback-agent-observer-create
+                           :tool-authorization-callback
+                           (lambda (tool arguments) (declare (ignore tool arguments)) :deny)))
+            (bodies       (test-telemetry-hooks--capture
+                           configuration (lambda () (agent-run-user-turn agent "deny" :observer observer))))
+            (spans        (test-telemetry-hooks--kind (first bodies) "tool")))
        (test-assert (= (length spans) 1) "Denied execution is one completed attempt.")
        (test-assert (equal (test-telemetry--attribute (first spans) "error.type") "permission")
                     "Authorization failures export a permission category.")
@@ -112,21 +112,21 @@
                                                                     :message "No interactive approval.")
                            decision))))
                   (conversation (conversation-create configuration))
-                  (provider (make-instance 'scripted-provider
-                                          :results (list (agent-test-result
-                                                          "recover-call"
-                                                          (list (agent-test-call :call-id "recover" :namespace "test" :name "recover"
-                                                                                 :arguments (json-encode (json-object "outcome" (first case))))))
-                                                         (agent-test-result "done" (list (agent-test-message "done"))))))
-                  (agent (agent-create :configuration configuration :conversation conversation
-                                       :provider provider :tool-registry registry :worker ':unused))
-                  (cancelled-p nil)
-                  (bodies (test-telemetry-hooks--capture
-                           configuration
-                           (lambda ()
-                             (handler-case (agent-run-user-turn agent "Probe then fall back." :observer observer)
-                               (application-turn-cancelled () (setf cancelled-p t))))))
-                  (spans (test-telemetry-hooks--kind (first bodies) "tool")))
+                  (provider     (make-instance 'scripted-provider
+                                              :results (list (agent-test-result
+                                                              "recover-call"
+                                                              (list (agent-test-call :call-id "recover" :namespace "test" :name "recover"
+                                                                                     :arguments (json-encode (json-object "outcome" (first case))))))
+                                                             (agent-test-result "done" (list (agent-test-message "done"))))))
+                  (agent        (agent-create :configuration configuration :conversation conversation
+                                              :provider provider :tool-registry registry :worker ':unused))
+                  (cancelled-p  nil)
+                  (bodies       (test-telemetry-hooks--capture
+                                 configuration
+                                 (lambda ()
+                                   (handler-case (agent-run-user-turn agent "Probe then fall back." :observer observer)
+                                     (application-turn-cancelled () (setf cancelled-p t))))))
+                  (spans        (test-telemetry-hooks--kind (first bodies) "tool")))
              (test-assert (= 1 (length spans)) "The recovered attempt is exported.")
              (test-assert (eq cancelled-p (equal (first case) "cancelled")) "Cancellation retains its control condition.")
              (test-assert (equal (second case) (test-telemetry--attribute (first spans) "autolith.tool.outcome"))
@@ -142,16 +142,16 @@
   (test-telemetry--call
    (lambda (configuration)
      (let* ((registry (make-instance 'tool-registry))
-            (manager (test-mcp--manager configuration))
-            (runtime (first (mcp-manager-runtimes manager))))
+            (manager  (test-mcp--manager configuration))
+            (runtime  (first (mcp-manager-runtimes manager))))
        (unwind-protect
             (progn
               (tool-registry-register
                registry (make-instance 'mcp-provider-tool :namespace "mcp" :name "refused"
                                        :manager manager :runtime runtime
-                                       :raw-tool (first (mcp-server-runtime-tools runtime))
+                                       :raw-tool    (first (mcp-server-runtime-tools runtime))
                                        :description "Server-denied tool."
-                                       :parameters (tool-object-schema (json-object) nil)
+                                       :parameters  (tool-object-schema (json-object) nil)
                                        :approval-policy ':deny :trusted-read-only-p nil :child-safe-p nil))
               (multiple-value-bind (spans outputs)
                   (test-telemetry-hooks--tool-attempts
@@ -179,11 +179,11 @@
           (let* ((observer (callback-agent-observer-create
                             :command-authorization-callback
                             (lambda (command directory) (declare (ignore command directory)) ':sandboxed)))
-                 (spans (test-telemetry-hooks--tool-attempts
-                         configuration
-                         (list (agent-test-call :call-id "buffer" :namespace "resource" :name "read"
-                                                :arguments (json-encode (json-object "uri" (emacs-buffer-uri "*private-notes*")))))
-                         :observer observer)))
+                 (spans    (test-telemetry-hooks--tool-attempts
+                            configuration
+                            (list (agent-test-call :call-id "buffer" :namespace "resource" :name "read"
+                                                   :arguments (json-encode (json-object "uri" (emacs-buffer-uri "*private-notes*")))))
+                            :observer observer)))
             (test-assert (= 1 metadata-calls) "The actual non-file buffer emitter runs.")
             (test-telemetry-hooks--assert-failure (first spans) "permission_denied" "permission-denied")))))))
   nil)
@@ -195,7 +195,7 @@
                          (context tool-context) (arguments hash-table))
   "Run the shell refusal emitter inside an execution job with each result rendering policy."
   (declare (ignore tool))
-  (let* ((kind (tool-argument arguments "kind"))
+  (let* ((kind    (tool-argument arguments "kind"))
          (shell-p (equal kind "shell"))
          (result
            (tool-execution-invoke
@@ -203,10 +203,10 @@
             :tool-name (if shell-p "shell.run" "test.managed-denial") :summary "Authorization fixture."
             :operation-function
             (lambda ()
-              (let* ((refusal (tool-execute (tool-registry-find (tool-context-registry context) "shell" "run")
-                                            context (json-object "command" "echo private-denial-command")))
-                     (content (tool-result-content refusal))
-                     (code (tool-result-error-code refusal))
+              (let* ((refusal  (tool-execute (tool-registry-find (tool-context-registry context) "shell" "run")
+                                             context (json-object "command" "echo private-denial-command")))
+                     (content  (tool-result-content refusal))
+                     (code     (tool-result-error-code refusal))
                      (denied-p (tool-result-denied-p refusal)))
                 (test-assert denied-p "The real shell emitter refuses authorization inside the job.")
                 (cond
@@ -227,12 +227,12 @@
   "Keep real shell denials through job retention, reconstruction and agent export."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((registry (task-augment-tool-registry (make-default-tool-registry)))
-            (orchestrator (task-run-tool-orchestrator (tool-registry-find registry "task" "run")))
+     (let* ((registry                                (task-augment-tool-registry (make-default-tool-registry)))
+            (orchestrator                            (task-run-tool-orchestrator (tool-registry-find registry "task" "run")))
             (*tool-execution-blocking-grace-seconds* 90)
-            (observer (callback-agent-observer-create
-                       :command-authorization-callback
-                       (lambda (command directory) (declare (ignore command directory)) ':deny))))
+            (observer                                (callback-agent-observer-create
+                                                      :command-authorization-callback
+                                                      (lambda (command directory) (declare (ignore command directory)) ':deny))))
        (unwind-protect
             (progn
               (tool-registry-register registry
@@ -262,9 +262,9 @@
   (dolist (decision '(:deny :sandboxed :unavailable))
     (test-telemetry--call
      (lambda (configuration)
-       (let* ((root (test-configuration-root configuration))
+       (let* ((root      (test-configuration-root configuration))
               (workspace (merge-pathnames "workspace/" root))
-              (path (uiop:native-namestring (merge-pathnames "outside-missing.txt" root)))
+              (path      (uiop:native-namestring (merge-pathnames "outside-missing.txt" root)))
               (observer
                 (callback-agent-observer-create
                  :command-authorization-callback
@@ -319,7 +319,7 @@
     (test-telemetry--call
      (lambda (configuration)
        (let* ((restricted-p (second case))
-              (uri (third case))
+              (uri          (third case))
               (calls
                 (append
                  (list (agent-test-call :call-id "read" :namespace "resource" :name "read"

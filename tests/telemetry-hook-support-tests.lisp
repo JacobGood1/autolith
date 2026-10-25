@@ -24,9 +24,9 @@
               t)))
       (let ((results (multiple-value-list (funcall function))))
         (let* ((controller *telemetry-controller*)
-               (thread (when controller
-                         (bt:with-lock-held ((telemetry-controller-lock controller))
-                           (telemetry-controller-upload-thread controller)))))
+               (thread     (when controller
+                             (bt:with-lock-held ((telemetry-controller-lock controller))
+                               (telemetry-controller-upload-thread controller)))))
           (when thread (bt:join-thread thread)))
         (values (nreverse bodies) results)))))
 
@@ -42,7 +42,7 @@
   (when bodies
     (let* ((envelope (json-decode (first bodies)))
            (resource (aref (json-get envelope "resourceSpans") 0))
-           (scope (aref (json-get resource "scopeSpans") 0)))
+           (scope    (aref (json-get resource "scopeSpans") 0)))
       (setf (gethash "spans" scope)
             (coerce (loop for body in bodies append (coerce (test-telemetry--spans body) 'list)) 'vector))
       (json-encode envelope))))
@@ -50,17 +50,17 @@
 (defun test-telemetry-hooks--run-job (configuration provider &key (timeout-seconds 30) publish-p tools)
   "Run a real headless child with offline uploads and deterministic application wiring."
   (let* ((application (mission-test--application configuration))
-         (request (run-job-validate-envelope
-                   (let ((form (run-job-tests--request-form)))
-                     (setf (getf (rest form) :timeout-seconds) timeout-seconds)
-                     form)))
-         (definition (task-agent-definition-create
-                      :name "custom-runner" :description "Exercise terminal telemetry."
-                      :instructions "Yield the answer." :tools tools :source ':test
-                      :output (run-job-request-output-contract request)))
-         (bodies nil)
-         (results nil)
-         (lock (bt:make-lock "captured job telemetry")))
+         (request     (run-job-validate-envelope
+                       (let ((form (run-job-tests--request-form)))
+                         (setf (getf (rest form) :timeout-seconds) timeout-seconds)
+                         form)))
+         (definition  (task-agent-definition-create
+                       :name "custom-runner" :description "Exercise terminal telemetry."
+                       :instructions "Yield the answer." :tools tools :source ':test
+                       :output (run-job-request-output-contract request)))
+         (bodies      nil)
+         (results     nil)
+         (lock        (bt:make-lock "captured job telemetry")))
     (setf (config :telemetry-enabled-p configuration) t)
     (telemetry-attach configuration)
     (setf (application-provider application) provider
@@ -81,7 +81,7 @@
      (lambda ()
        (setf results (multiple-value-list
                       (if publish-p
-                          (let* ((input (merge-pathnames "job-input.sexp" (config :cache-root configuration)))
+                          (let* ((input  (merge-pathnames "job-input.sexp" (config :cache-root configuration)))
                                  (output (merge-pathnames "job-output.sexp" (config :cache-root configuration)))
                                  (events (make-string-output-stream)))
                             (task-tests--write-text input (run-job--write-data-sexp (run-job-tests--request-form)))
@@ -97,7 +97,7 @@
 (defun test-telemetry-hooks--assert-attempts (body count)
   "Require one span per actual attempt and an exact root counter."
   (let ((models (test-telemetry-hooks--kind body "model"))
-        (root (first (test-telemetry-hooks--kind body "run"))))
+        (root   (first (test-telemetry-hooks--kind body "run"))))
     (test-assert (= (length models) count) "Every attempted request has one model span.")
     (test-assert (equal (test-telemetry--attribute root "autolith.run.model_calls")
                         (write-to-string count))
@@ -126,8 +126,8 @@
               (setf (agent-provider agent) provider)
               (agent-run-user-turn
                agent "Exercise tool permissions." :observer observer
-               :tool-restriction-p restricted-p
-               :tool-allowlist (when restricted-p '("resource.read" "resource.edit")))))))
+               :tool-restriction-p                          restricted-p
+               :tool-allowlist                              (when restricted-p '("resource.read" "resource.edit")))))))
     (let ((body (test-telemetry-hooks--merge-bodies bodies)))
       (values (test-telemetry-hooks--kind body "tool")
               (agent-test-tool-outputs conversation)

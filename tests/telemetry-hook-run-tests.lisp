@@ -30,7 +30,7 @@
   "A borrowed run cannot finish; late reports and repeated finishes are harmless."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((diagnostics (make-string-output-stream))
+     (let* ((diagnostics    (make-string-output-stream))
             (*error-output* diagnostics)
             (bodies
               (test-telemetry-hooks--capture
@@ -74,7 +74,7 @@
          (test-assert (equal "error" (test-telemetry--attribute root "autolith.run.outcome")) "Unwinding is an error.")
          (test-assert (equal "internal" (test-telemetry--attribute root "error.type")) "Unclassified exits are internal.")
          (test-assert (equal (when (eq exit ':throw) "unfinished-run")
-                              (test-telemetry--attribute root "autolith.run.error_code"))
+                             (test-telemetry--attribute root "autolith.run.error_code"))
                       "An unreported non-local exit has a dedicated code.")
          (test-assert (null (telemetry-controller-runs *telemetry-controller*)) "No root remains open.")))))
   nil)
@@ -123,7 +123,7 @@
         (lambda ()
           (let* ((bodies (test-telemetry-hooks--capture
                           configuration (lambda () (telemetry-call-with-run configuration (lambda () t)))))
-                 (root (first (test-telemetry-hooks--kind (first bodies) "run"))))
+                 (root   (first (test-telemetry-hooks--kind (first bodies) "run"))))
             (test-assert (and (null (test-telemetry-hooks--kind (first bodies) "model"))
                               (null (test-telemetry-hooks--kind (first bodies) "tool"))
                               (equal (test-telemetry--attribute root "autolith.run.model_calls") "0")
@@ -135,18 +135,18 @@
   "A real pool child finishes and exports after the parent's run has closed."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((orchestrator (task-orchestrator-create))
-            (parent (task-tests--primary-agent configuration "telemetry-parent"))
-            (definition (task-agent-definition-create
-                         :name "telemetry-detached" :description "Exercise detached telemetry."
-                         :instructions "Complete after the parent." :source ':test))
-            (started (bt:make-semaphore))
-            (released (bt:make-semaphore))
-            (lock (bt:make-lock "detached telemetry capture"))
-            (bodies nil)
-            (job nil)
-            (parent-run nil)
-            (child-run nil)
+     (let* ((orchestrator  (task-orchestrator-create))
+            (parent        (task-tests--primary-agent configuration "telemetry-parent"))
+            (definition    (task-agent-definition-create
+                            :name "telemetry-detached" :description "Exercise detached telemetry."
+                            :instructions "Complete after the parent." :source ':test))
+            (started       (bt:make-semaphore))
+            (released      (bt:make-semaphore))
+            (lock          (bt:make-lock "detached telemetry capture"))
+            (bodies        nil)
+            (job           nil)
+            (parent-run    nil)
+            (child-run     nil)
             (worker-thread nil))
        (setf (config :telemetry-enabled-p configuration) t)
        (telemetry-attach configuration)
@@ -175,7 +175,7 @@
                                     orchestrator parent
                                     (list (list :definition definition :detached t
                                                 :telemetry-run parent-run
-                                                :item (list :name "detached" :task "Wait for release."))))))
+                                                :item          (list :name "detached" :task "Wait for release."))))))
                   (test-assert (bt:wait-on-semaphore started :timeout 10) "The child starts on the pool.")))
                (test-assert (not (telemetry-run-active parent-run)) "The parent has finished first.")
                (test-assert (and child-run (not (eq worker-thread (bt:current-thread)))
@@ -203,15 +203,15 @@
       (test-telemetry--call
        (lambda (configuration)
          (let* ((orchestrator (task-orchestrator-create))
-                (parent (agent-create :configuration configuration :provider (make-instance 'model-provider)
-                                      :conversation (conversation-create configuration)
-                                      :tool-registry (make-instance 'tool-registry) :worker nil))
-                (job (task-tests--make-job orchestrator :identifier "ownership" :parent-agent parent
-                                           :definition (task-agent-definition-create
-                                                        :name "ownership" :description "Exercise ownership."
-                                                        :instructions "Complete." :source ':test)
-                                           :item (list :task "Exercise ownership.")))
-                (bodies nil))
+                (parent       (agent-create :configuration configuration :provider (make-instance 'model-provider)
+                                            :conversation (conversation-create configuration)
+                                            :tool-registry (make-instance 'tool-registry) :worker nil))
+                (job          (task-tests--make-job orchestrator :identifier "ownership" :parent-agent parent
+                                                    :definition (task-agent-definition-create
+                                                                 :name "ownership" :description "Exercise ownership."
+                                                                 :instructions "Complete." :source ':test)
+                                                    :item       (list :task "Exercise ownership.")))
+                (bodies       nil))
            (unwind-protect
                 (test-telemetry-hooks--capture
                  configuration
@@ -231,9 +231,12 @@
                                      (lambda (job)
                                        (telemetry-report-terminal (task-job-telemetry-run job) '(:state :completed))
                                        (case exit
-                                         (:throw (throw 'leave t))
-                                         (:error (error "Injected child failure."))
-                                         (otherwise (list :status ':success :yielded-p t :request-count 0))))))
+                                         (:throw
+                                          (throw 'leave t))
+                                         (:error
+                                          (error "Injected child failure."))
+                                         (otherwise
+                                          (list :status ':success :yielded-p t :request-count 0))))))
                          (when (eq exit ':publication-throw)
                            (list (list 'task-job--publish-terminal-record
                                        (lambda (&rest arguments) (declare (ignore arguments)) (throw 'leave t))))))
@@ -261,7 +264,7 @@
   "A non-local headless executor exit still flushes its root before leaving."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((input (merge-pathnames "unwind-input.sexp" (config :cache-root configuration)))
+     (let* ((input  (merge-pathnames "unwind-input.sexp" (config :cache-root configuration)))
             (output (merge-pathnames "unwind-output.sexp" (config :cache-root configuration)))
             (bodies nil))
        (task-tests--write-text input (run-job--write-data-sexp (run-job-tests--request-form)))
@@ -273,7 +276,7 @@
             (catch 'leave
               (run-job--run-artifact
                input output ':full-access :configuration configuration
-               :executor (lambda (&rest arguments) (declare (ignore arguments)) (throw 'leave t)))))))
+               :executor                                 (lambda (&rest arguments) (declare (ignore arguments)) (throw 'leave t)))))))
        (test-assert (= (length bodies) 1) "Headless cleanup flushes once before propagating the exit.")
        (let ((root (first (test-telemetry-hooks--kind (first bodies) "run"))))
          (test-assert (equal "unfinished-run" (test-telemetry--attribute root "autolith.run.error_code"))
@@ -284,8 +287,8 @@
   "Two fresh saved-core workers export one launcher trace with distinct attempt roots."
   (test-telemetry--call
    (lambda (configuration)
-     (let ((context "00-11111111111111111111111111111111-2222222222222222-01")
-           (roots nil)
+     (let ((context         "00-11111111111111111111111111111111-2222222222222222-01")
+           (roots           nil)
            (ordinary-output (merge-pathnames "ordinary-child.json" (config :cache-root configuration))))
        (with-test-environment (("AUTOLITH_TRACEPARENT" context) ("AUTOLITH_RUN_ATTEMPT" "1"))
          (dotimes (index 2)
@@ -310,18 +313,18 @@
                                  (with-open-file (stream ,output :direction ':output :if-exists ':supersede)
                                    (write-string (third request) stream))
                                  t)))
-                         (let ((input (merge-pathnames "process-input.sexp" (config :cache-root configuration)))
+                         (let ((input  (merge-pathnames "process-input.sexp" (config :cache-root configuration)))
                                (result (merge-pathnames "process-result.sexp" (config :cache-root configuration))))
                            (ensure-directories-exist input)
                            (with-open-file (stream input :direction ':output :if-exists ':supersede)
                              (write-string (run-job--write-data-sexp ',(run-job-tests--request-form)) stream))
                            (run-job--run-artifact
                             input result ':full-access :configuration configuration
-                            :executor (lambda (&rest arguments)
-                                        (declare (ignore arguments))
-                                        ,(if (zerop index)
-                                             '(error "First attempt failed.")
-                                             '(values ':succeeded (json-object "answer" "done")))))))
+                            :executor                                 (lambda (&rest arguments)
+                                                                        (declare (ignore arguments))
+                                                                        ,(if (zerop index)
+                                                                             '(error "First attempt failed.")
+                                                                             '(values ':succeeded (json-object "answer" "done")))))))
                        (telemetry-shutdown)
                        42)))
              (when (zerop index)
@@ -342,7 +345,7 @@
                          42)))))
              (unwind-protect
                   (let* ((*package* (find-package '#:cl-user))
-                         (response (lisp-worker-request worker ':eval (list :forms (list (write-to-string form :readably t))))))
+                         (response  (lisp-worker-request worker ':eval (list :forms (list (write-to-string form :readably t))))))
                     (test-assert (eq (getf (rest response) :status) ':ok) "A fresh worker exports its process root.")
                     (push (first (test-telemetry-hooks--kind (uiop:read-file-string output) "run")) roots))
                (lisp-worker-stop worker)))
@@ -355,10 +358,10 @@
                       "Each process creates a fresh attempt span ID.")
          (loop for root in roots for attempt from 1
                do (test-assert (equal (test-telemetry--attribute root "autolith.run.attempt") (write-to-string attempt))
-                                "Recovery increments the exported attempt.")
+                               "Recovery increments the exported attempt.")
                   (test-assert (eq (json-true-p (test-telemetry--attribute root "autolith.run.recovered"))
                                    (> attempt 1))
-                                "Only reruns are marked recovered.")
+                               "Only reruns are marked recovered.")
                   (test-assert (null (json-get root "parentSpanId")) "Attempts remain parentless collector roots."))
          (test-assert (equal (test-telemetry--attribute (first roots) "autolith.run.outcome") "error")
                       "The first failed process flushes its root before stopping.")
@@ -376,26 +379,26 @@
     (test-telemetry--call
      (lambda (configuration)
        (with-test-environment (("AUTOLITH_TRACEPARENT" "00-11111111111111111111111111111111-2222222222222222-01")
-                              ("AUTOLITH_RUN_ATTEMPT" "2"))
-         (let* ((*telemetry-launch-context* (telemetry--consume-launch-context))
+                               ("AUTOLITH_RUN_ATTEMPT" "2"))
+         (let* ((*telemetry-launch-context*   (telemetry--consume-launch-context))
                 (*telemetry-launch-claimed-p* nil)
-                (registry (make-default-tool-registry))
-                (context (shell-output-tests--context configuration registry))
-                (tool (tool-registry-find registry "shell" "run"))
-                (result (tool-execute
-                         tool context
-                         (json-object "command"
-                                      "test -z \"${AUTOLITH_TRACEPARENT+x}\" && test -z \"${AUTOLITH_RUN_ATTEMPT+x}\""))))
+                (registry                     (make-default-tool-registry))
+                (context                      (shell-output-tests--context configuration registry))
+                (tool                         (tool-registry-find registry "shell" "run"))
+                (result                       (tool-execute
+                                               tool context
+                                               (json-object "command"
+                                                            "test -z \"${AUTOLITH_TRACEPARENT+x}\" && test -z \"${AUTOLITH_RUN_ATTEMPT+x}\""))))
            (unwind-protect
                 (progn
                   (test-assert (tool-result-success-p result) "An ordinary full-access shell inherits neither variable.")
                   (platform-setenv "AUTOLITH_TRACEPARENT" "changed-after-startup")
                   (let* ((bodies (test-telemetry-hooks--capture
-                                 configuration
-                                 (lambda ()
-                                   (multiple-value-bind (run token) (telemetry--begin-run configuration :launcher-p t)
-                                     (telemetry-finish-run run token '(:state :completed))))))
-                         (root (first (test-telemetry-hooks--kind (first bodies) "run"))))
+                                  configuration
+                                  (lambda ()
+                                    (multiple-value-bind (run token) (telemetry--begin-run configuration :launcher-p t)
+                                      (telemetry-finish-run run token '(:state :completed))))))
+                         (root   (first (test-telemetry-hooks--kind (first bodies) "run"))))
                     (test-assert (and (equal (json-get root "traceId") "11111111111111111111111111111111")
                                       (equal (test-telemetry--attribute root "autolith.run.attempt") "2"))
                                  "Run creation uses the startup snapshot rather than rereading the environment.")))
@@ -410,17 +413,17 @@
              (test-telemetry--call
               (lambda (configuration)
                 (with-test-environment (("AUTOLITH_TRACEPARENT" context))
-                  (let* ((diagnostics (make-string-output-stream))
-                         (*error-output* diagnostics)
-                         (*telemetry-launch-context* (telemetry--consume-launch-context))
+                  (let* ((diagnostics                  (make-string-output-stream))
+                         (*error-output*               diagnostics)
+                         (*telemetry-launch-context*   (telemetry--consume-launch-context))
                          (*telemetry-launch-claimed-p* nil)
-                         (bodies (test-telemetry-hooks--capture
-                                  configuration
-                                  (lambda ()
-                                    (multiple-value-bind (run token) (telemetry--begin-run configuration :launcher-p t)
-                                      (telemetry-finish-run run token '(:state :completed))))))
-                         (root (first (test-telemetry-hooks--kind (first bodies) "run")))
-                         (trace (json-get root "traceId")))
+                         (bodies                       (test-telemetry-hooks--capture
+                                                        configuration
+                                                        (lambda ()
+                                                          (multiple-value-bind (run token) (telemetry--begin-run configuration :launcher-p t)
+                                                            (telemetry-finish-run run token '(:state :completed))))))
+                         (root                         (first (test-telemetry-hooks--kind (first bodies) "run")))
+                         (trace                        (json-get root "traceId")))
                     (test-assert (if (equal context valid) (equal trace (subseq valid 3 35))
                                      (not (equal trace (subseq valid 3 35))))
                                  "Only strict version 00 context is adopted.")
@@ -438,7 +441,7 @@
               (check-context context))
             (check-context context))))
     (dolist (case '((nil 1) ("1" 1) ("2" 2) ("65535" 65535) ("0" 1) ("65536" 1)
-                   ("-1" 1) ("+2" 1) ("2x" 1) (" 2" 1) ("" 1) ("999999999999999999999999" 1)))
+                    ("-1" 1) ("+2" 1) ("2x" 1) (" 2" 1) ("" 1) ("999999999999999999999999" 1)))
       (let ((*error-output* (make-string-output-stream)))
         (test-assert (= (telemetry--run-attempt (first case)) (second case)) "Attempts are bounded decimal integers.")
         (when (and (first case) (= (second case) 1) (not (equal (first case) "1")))
@@ -449,10 +452,10 @@
   "Interactive turns never claim context; headless claims survive owner replacement."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((*telemetry-launch-context* '("11111111111111111111111111111111" 2))
+     (let* ((*telemetry-launch-context*   '("11111111111111111111111111111111" 2))
             (*telemetry-launch-claimed-p* nil)
-            (application (make-instance 'application :configuration configuration))
-            (replacement nil)
+            (application                  (make-instance 'application :configuration configuration))
+            (replacement                  nil)
             (bodies
               (test-telemetry-hooks--capture
                configuration
@@ -470,7 +473,7 @@
                  (setf (application-configuration application) configuration)
                  (multiple-value-bind (run token) (telemetry--begin-run configuration :launcher-p t)
                    (telemetry-finish-run run token '(:state :completed))))))
-            (roots (loop for body in bodies append (test-telemetry-hooks--kind body "run"))))
+            (roots                        (loop for body in bodies append (test-telemetry-hooks--kind body "run"))))
        (test-assert (= (length roots) 5) "Each independent owner exports one root.")
        (test-assert (= (length (remove-duplicates (mapcar (lambda (root) (json-get root "traceId")) roots)
                                                  :test #'equal)) 5)
@@ -478,9 +481,9 @@
        (loop for root in roots for index from 0
              do (test-assert (equal (test-telemetry--attribute root "autolith.run.attempt")
                                     (if (= index 3) "2" "1"))
-                              "Only the first headless owner adopts the attempt.")
+                             "Only the first headless owner adopts the attempt.")
                 (test-assert (eq (equal (json-get root "traceId") (first *telemetry-launch-context*)) (= index 3))
-                              "Only the first headless owner adopts the launcher trace.")))))
+                             "Only the first headless owner adopts the launcher trace.")))))
   nil)
 
 (defun test-telemetry-scheduler-cancellation-publication ()
@@ -492,13 +495,13 @@
     (test-telemetry--call
      (lambda (configuration)
        (let* ((publication-fails-p (second case))
-              (orchestrator (task-orchestrator-create))
-              (parent (task-tests--primary-agent configuration "cancel-publication"))
-              (definition (task-agent-definition-create
-                           :name "cancel-publication" :description "Cancel before publication."
-                           :instructions "Cancel." :source ':test))
-              (write-artifact (symbol-function 'task--write-result-artifact))
-              (bodies nil))
+              (orchestrator        (task-orchestrator-create))
+              (parent              (task-tests--primary-agent configuration "cancel-publication"))
+              (definition          (task-agent-definition-create
+                                    :name "cancel-publication" :description "Cancel before publication."
+                                    :instructions "Cancel." :source ':test))
+              (write-artifact      (symbol-function 'task--write-result-artifact))
+              (bodies              nil))
          (unwind-protect
               (test-telemetry-hooks--capture
                configuration
@@ -532,18 +535,18 @@
          (let ((roots (loop for body in bodies append (test-telemetry-hooks--kind body "run"))))
            (test-assert (= (length roots) 1) "The scheduler owner exports exactly one root.")
            (test-assert (equal (test-telemetry--attribute (first roots) "autolith.run.outcome")
-                                (third case))
+                               (third case))
                         "A publication failure overrides the earlier cancellation.")
            (test-assert (equal (test-telemetry--attribute (first roots) "error.type")
-                                (fourth case))
+                               (fourth case))
                         "Failure metadata includes publication status."))))))
   nil)
 
 (defun test-telemetry-launch-context-atomic-claim ()
   "Concurrent headless claimants consume the process context exactly once."
   (let ((previous *telemetry-launch-claimed-p*)
-        (ready (bt:make-semaphore))
-        (threads nil))
+        (ready    (bt:make-semaphore))
+        (threads  nil))
     (unwind-protect
          (progn
            (setf *telemetry-launch-claimed-p* nil)
@@ -571,11 +574,11 @@
        (let* ((provider
                 (make-instance
                  'run-job-test-provider :configuration configuration
-                 :results (list (agent-test-result
-                                 "publication-outcome"
-                                 (list (agent-test-call
-                                        :call-id "terminal" :namespace "yield" :name "submit"
-                                        :arguments "{\"status\":\"success\",\"data\":{\"answer\":\"yes\"}}"))))))
+                 :results                              (list (agent-test-result
+                                                              "publication-outcome"
+                                                              (list (agent-test-call
+                                                                     :call-id "terminal" :namespace "yield" :name "submit"
+                                                                     :arguments "{\"status\":\"success\",\"data\":{\"answer\":\"yes\"}}"))))))
               (assemble (symbol-function 'task--assemble-child-result)))
          (test-call-with-function-replacements
           (case case
@@ -601,18 +604,21 @@
           (lambda ()
             (multiple-value-bind (spans results)
                 (test-telemetry-hooks--run-job configuration provider :publish-p t)
-              (let* ((roots (remove-if-not
-                             (lambda (span)
-                               (equal (test-telemetry--attribute span "autolith.event.kind") "run"))
-                             spans))
+              (let* ((roots    (remove-if-not
+                                (lambda (span)
+                                  (equal (test-telemetry--attribute span "autolith.event.kind") "run"))
+                                spans))
                      (terminal (find ':run-finished (third results)
                                      :key (lambda (record) (getf (rest record) :kind))))
-                     (data (getf (rest terminal) :data))
-                     (fields (rest (second results)))
+                     (data     (getf (rest terminal) :data))
+                     (fields   (rest (second results)))
                      (category (case case
-                                 ((:missing-data :invalid-data) ':invalid-output)
-                                 (:artifact-failure ':artifact-failure)
-                                 (:result-publication-failed ':result-publication-failed))))
+                                 ((:missing-data :invalid-data)
+                                  ':invalid-output)
+                                 (:artifact-failure
+                                  ':artifact-failure)
+                                 (:result-publication-failed
+                                  ':result-publication-failed))))
                 (test-assert (= (length roots) 1)
                              (format nil "~A: Publication exports exactly one root." case))
                 (test-assert (eq (getf data :status) (if category ':failed ':succeeded))
@@ -632,9 +638,12 @@
                              (format nil "~A: The root agrees with the published terminal state." case))
                 (test-assert (equal (test-telemetry--attribute (first roots) "error.type")
                                     (case case
-                                      (:success nil)
-                                      ((:missing-data :invalid-data) "protocol")
-                                      (otherwise "internal")))
+                                      (:success
+                                       nil)
+                                      ((:missing-data :invalid-data)
+                                       "protocol")
+                                      (otherwise
+                                       "internal")))
                              (format nil "~A: Invalid output is protocol failure; persistence failures are internal." case))))))))))
   nil)
 
@@ -642,7 +651,7 @@
   "Respect a published provider failure even when no provider request started."
   (test-telemetry--call
    (lambda (configuration)
-     (let* ((input (merge-pathnames "zero-request.sexp" (config :cache-root configuration)))
+     (let* ((input  (merge-pathnames "zero-request.sexp" (config :cache-root configuration)))
             (output (merge-pathnames "zero-request-result.sexp" (config :cache-root configuration))))
        (task-tests--write-text input (run-job--write-data-sexp (run-job-tests--request-form)))
        (dolist (category '(:provider-failure :process-failure))
@@ -651,11 +660,11 @@
                          (lambda ()
                            (run-job-run
                             input output ':full-access :configuration configuration
-                            :executor (lambda (configuration request permissions)
-                                        (declare (ignore configuration request permissions))
-                                        (values ':failed nil nil '(:provider-requests 0) category
-                                                "Model rejected before a request."))))))
-                (root (first (test-telemetry-hooks--kind (first bodies) "run")))
+                            :executor                                 (lambda (configuration request permissions)
+                                                                        (declare (ignore configuration request permissions))
+                                                                        (values ':failed nil nil '(:provider-requests 0) category
+                                                                                "Model rejected before a request."))))))
+                (root   (first (test-telemetry-hooks--kind (first bodies) "run")))
                 (fields (rest (run-job-read-file output))))
            (test-assert (eq (getf (getf fields :failure) :category) category)
                         "The artifact keeps the supplied failure classification.")
@@ -673,7 +682,7 @@
   (test-telemetry--call
    (lambda (configuration)
      (let ((snapshot (provider--registry-snapshot))
-           (model "gpt-e2e-unlisted-9"))
+           (model    "gpt-e2e-unlisted-9"))
        (unwind-protect
             (progn
               (register-openai-compatible-provider
@@ -710,16 +719,16 @@
   (test-telemetry--call
    (lambda (configuration)
      (let* ((configuration (configuration-copy configuration :provider-validation-p nil
-                                               :model "gpt-e2e-unlisted-9"))
-            (input (merge-pathnames "unknown-model.sexp" (config :cache-root configuration)))
-            (output (merge-pathnames "unknown-model-result.sexp" (config :cache-root configuration)))
-            (exit-code nil))
+                                               :model                               "gpt-e2e-unlisted-9"))
+            (input         (merge-pathnames "unknown-model.sexp" (config :cache-root configuration)))
+            (output        (merge-pathnames "unknown-model-result.sexp" (config :cache-root configuration)))
+            (exit-code     nil))
        (task-tests--write-text input (run-job--write-data-sexp (run-job-tests--request-form)))
        (let* ((bodies (test-telemetry-hooks--capture
                        configuration
                        (lambda ()
                          (setf exit-code (run-job-run input output ':full-access :configuration configuration)))))
-              (roots (test-telemetry-hooks--kind (first bodies) "run"))
+              (roots  (test-telemetry-hooks--kind (first bodies) "run"))
               (fields (rest (run-job-read-file output))))
          (test-assert (= exit-code 1) "Deferred unknown-model rejection fails the real boundary.")
          (test-assert (eq (getf (getf fields :failure) :category) ':process-failure)
@@ -783,7 +792,7 @@
                        "before-terminal-failure"
                        (list (agent-test-call
                               :call-id "terminal-failure" :namespace "yield"
-                              :name (if timeout-p "note" "submit")
+                              :name      (if timeout-p "note" "submit")
                               :arguments (if timeout-p
                                              "{\"note\":\"Keep working.\"}"
                                              "{\"status\":\"success\",\"data\":{\"answer\":\"yes\"}}"))))))))
@@ -820,18 +829,18 @@
                        (loop for index from 1 to 2
                              collect (agent-test-result
                                       (format nil "response-~D" index)
-                                      (list (agent-test-call :call-id "repeated"
+                                      (list (agent-test-call :call-id   "repeated"
                                                              :arguments "{\"value\":\"private-value\"}"))))))
-            (agent (agent-create :configuration configuration :provider provider
-                                 :conversation (conversation-create configuration)
-                                 :tool-registry (agent-test-registry) :worker ':unused))
-            (caught nil)
-            (bodies (test-telemetry-hooks--capture
-                     configuration
-                     (lambda ()
-                       (handler-case (agent-run-user-turn agent "Exercise call identity.")
-                         (agent-loop-error () (setf caught t))))))
-            (span (first (test-telemetry-hooks--kind (first bodies) "run"))))
+            (agent    (agent-create :configuration configuration :provider provider
+                                    :conversation (conversation-create configuration)
+                                    :tool-registry (agent-test-registry) :worker ':unused))
+            (caught   nil)
+            (bodies   (test-telemetry-hooks--capture
+                       configuration
+                       (lambda ()
+                         (handler-case (agent-run-user-turn agent "Exercise call identity.")
+                           (agent-loop-error () (setf caught t))))))
+            (span     (first (test-telemetry-hooks--kind (first bodies) "run"))))
        (test-assert (and caught
                          (equal (test-telemetry--attribute span "autolith.run.outcome") "error")
                          (equal (test-telemetry--attribute span "error.type") "protocol"))
@@ -855,12 +864,12 @@
                                 (telemetry--provider-attempt
                                  (test-codex-provider-create configuration nil)
                                  (lambda ()
-                                   (error 'job-aborted :reason (first case)
+                                   (error 'job-aborted :reason    (first case)
                                                       :identifier "PRIVATE-JOB-ID"
-                                                      :message "PRIVATE-CANCELLATION-REPORT")))))
+                                                      :message    "PRIVATE-CANCELLATION-REPORT")))))
                            (job-aborted () (setf caught t))))))
-              (span (first (test-telemetry-hooks--kind (first bodies) "run")))
-              (model (first (test-telemetry-hooks--kind (first bodies) "model"))))
+              (span   (first (test-telemetry-hooks--kind (first bodies) "run")))
+              (model  (first (test-telemetry-hooks--kind (first bodies) "model"))))
          (test-assert
           (and caught
                (equal (test-telemetry--attribute span "error.type") (second case))
@@ -880,7 +889,7 @@
    (lambda (configuration)
      (let* ((application (make-instance 'application :configuration configuration))
             (replacement (configuration-copy configuration :telemetry-enabled-p nil))
-            (stale-copy nil))
+            (stale-copy  nil))
        (test-telemetry-hooks--capture
         configuration
         (lambda ()
@@ -907,7 +916,7 @@
   (test-telemetry--call
    (lambda (configuration)
      (telemetry-attach configuration)
-     (let* ((secondary (configuration-copy configuration))
+     (let* ((secondary   (configuration-copy configuration))
             (application (make-instance 'application :configuration secondary)))
        (telemetry-attach secondary)
        (application-apply-setting application :telemetry-enabled-p t)
@@ -916,7 +925,7 @@
        (test-assert (null (config :telemetry-enabled-p secondary))
                     "A copied snapshot is not the consent authority.")
        (test-assert (eq (json-get (acp-extension--setting-item
-                                 application secondary (find-setting :telemetry-enabled-p))
+                                   application secondary (find-setting :telemetry-enabled-p))
                                 "value") t)
                     "ACP displays process-authoritative consent.")
        (telemetry-call-with-run

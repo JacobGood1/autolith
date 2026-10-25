@@ -11,10 +11,10 @@
                               :fullscreen-p fullscreen-p :boot-screen-seconds 0
                               :boot-screen-tip-seconds 1))
     (let* ((terminal (make-instance 'queued-recording-terminal :columns 100 :rows 32))
-           (ui (terminal-ui-create :terminal terminal :fullscreen-p fullscreen-p))
+           (ui       (terminal-ui-create :terminal terminal :fullscreen-p fullscreen-p))
            (application
              (make-instance 'application :configuration configuration
-                            :conversation (conversation-create configuration :identifier "onboarding-test")
+                            :conversation               (conversation-create configuration :identifier "onboarding-test")
                             :provider nil :worker nil :agent nil
                             :tool-registry (make-default-tool-registry) :ui ui)))
       (with-terminal-ui (active-ui ui)
@@ -39,8 +39,8 @@
    (lambda (application controller configuration terminal)
      (declare (ignore controller configuration terminal))
      (let* ((operation (application-operation-find application 'onboard))
-            (command (application-operation-backend operation))
-            (called nil))
+            (command   (application-operation-backend operation))
+            (called    nil))
        (test-assert (typep operation 'application-command-operation) "onboard resolves to a command operation")
        (test-assert (eq ':hold (application-command-busy-behavior command)) "replay waits for active work")
        (test-assert (eq ':exclusive (application-command-terminal-behavior command)) "replay owns terminal input exclusively")
@@ -61,9 +61,9 @@
   (onboarding-tests--call
    (lambda (application controller configuration terminal)
      (declare (ignore terminal))
-     (let ((presented nil)
+     (let ((presented  nil)
            (boot-count 0)
-           (ui (application-ui application)))
+           (ui         (application-ui application)))
        (test-assert (not (config :fullscreen-p configuration)) "fixture begins with an inline preference")
        (test-call-with-function-replacements
         (list (list 'terminal-ui-boot-sequence
@@ -139,8 +139,8 @@
   (onboarding-tests--call
    (lambda (application controller configuration terminal)
      (declare (ignore terminal))
-     (let* ((pages (onboarding-tests--pages))
-            (selected nil)
+     (let* ((pages      (onboarding-tests--pages))
+            (selected   nil)
             (boot-count 0)
             (tour-count 0))
        (onboarding-state-record configuration (list (first pages)) ':completed)
@@ -176,7 +176,7 @@
   (onboarding-tests--call
    (lambda (application controller configuration terminal)
      (declare (ignore controller terminal))
-     (let ((pages (onboarding-tests--pages))
+     (let ((pages   (onboarding-tests--pages))
            (offered nil))
        (test-call-with-function-replacements
         (list (list 'onboarding-pages (lambda (config) (declare (ignore config)) pages))
@@ -213,8 +213,8 @@
       (onboarding-tests--call
        (lambda (application controller configuration terminal)
          (declare (ignore configuration terminal))
-         (let* ((ui (application-ui application))
-                (owner (terminal-ui-exclusive-input-function ui))
+         (let* ((ui                (application-ui application))
+                (owner             (terminal-ui-exclusive-input-function ui))
                 (reader-was-live-p (application-input-controller-reader-live-p controller)))
            (test-assert reader-was-live-p "fixture has a live responsive reader")
            (terminal-ui-set-input ui "user draft")
@@ -270,7 +270,6 @@
                        "interrupted startup leaves uncompleted revisions pending"))))))
   nil)
 
-
 (-> test-onboarding-settings-exercise () null)
 (defun test-onboarding-settings-exercise ()
   "Try the real settings picker, persist a change, and return to the tour."
@@ -281,7 +280,7 @@
            (configuration-copy configuration :boot-screen-p nil))
      (let ((pages (list (onboarding-ui-test--page "settings" ':settings)
                         (onboarding-ui-test--page "finish")))
-           (ui (application-ui application)))
+           (ui    (application-ui application)))
        (terminal-ui-set-input ui "saved user draft")
        (dolist (event '((:paste "(settings)") :submit
                         (:paste "theme") :submit (:paste "almighty") :submit :escape
@@ -302,7 +301,6 @@
        (test-assert (not (terminal-ui-fullscreen-p ui)) "the original inline mode is restored")
        (test-assert (not (terminal-ui-live-output-suspended-p ui)) "live output is available after the tour"))))
   nil)
-
 
 (-> test-onboarding-authentication () null)
 (defun test-onboarding-authentication ()
@@ -334,12 +332,12 @@ its native method dispatch, terminal ownership, and the tour presenter real."
          (declare (ignore controller))
          (setf (application-configuration application)
                (configuration-copy configuration :boot-screen-p nil))
-         (let* ((ui (application-ui application))
-                (model (config :model (application-configuration application)))
-                (pages (list (onboarding-ui-test--page "first-provider" ':authentication)
-                             (onboarding-ui-test--page "finish")))
+         (let* ((ui      (application-ui application))
+                (model   (config :model (application-configuration application)))
+                (pages   (list (onboarding-ui-test--page "first-provider" ':authentication)
+                               (onboarding-ui-test--page "finish")))
                 (methods nil)
-                (calls 0))
+                (calls   0))
            (terminal-ui-set-input ui "saved draft")
            (dolist (event (append events finish-events))
              (queued-recording-terminal-enqueue terminal event))
@@ -358,8 +356,10 @@ its native method dispatch, terminal ownership, and the tour presenter real."
                      (incf calls)
                      (when (= calls 1)
                        (case first-outcome
-                         (:failure (error 'authentication-error :message "Fixture login failed"))
-                         (:cancel (error 'end-of-file))))
+                         (:failure
+                          (error 'authentication-error :message "Fixture login failed"))
+                         (:cancel
+                          (error 'end-of-file))))
                      "Authenticated fixture account.")))
             (lambda ()
               (test-assert (eq ':completed (application-onboard application))
@@ -389,10 +389,10 @@ its native method dispatch, terminal ownership, and the tour presenter real."
             (declare (ignore controller))
             (setf (application-configuration application)
                   (configuration-copy configuration :boot-screen-p nil))
-            (let* ((pages (list (onboarding-ui-test--page "first-provider" ':authentication)
-                                (onboarding-ui-test--page "finish")))
-                   (output (make-string-output-stream))
-                   (input (make-string-input-stream (format nil "onboarding-fixture-key~%")))
+            (let* ((pages    (list (onboarding-ui-test--page "first-provider" ':authentication)
+                                   (onboarding-ui-test--page "finish")))
+                   (output   (make-string-output-stream))
+                   (input    (make-string-input-stream (format nil "onboarding-fixture-key~%")))
                    (requests 0))
               (dolist (event '((:paste "(auth)") :submit (:paste "openai-api")
                                :submit :submit :submit))
@@ -422,7 +422,7 @@ its native method dispatch, terminal ownership, and the tour presenter real."
               (test-assert
                (member "openai-onboarding-fixture" (provider-model-identifiers) :test #'string=)
                "the discovered model is available for selection")
-              (let* ((provider (application--authentication-provider application "openai-api"))
+              (let* ((provider   (application--authentication-provider application "openai-api"))
                      (credentials
                        (credential-source-load
                         (credential-manager-primary-source (provider-credential-manager provider))))
@@ -437,9 +437,9 @@ its native method dispatch, terminal ownership, and the tour presenter real."
                 (test-assert (not (secret-use-active-p)) "authentication exits the secret-use scope"))
               (let* ((selected
                        (configuration-copy configuration :model "openai-onboarding-fixture"))
-                     (provider (provider-create selected))
+                     (provider     (provider-create selected))
                      (conversation (conversation-create selected :identifier "openai-onboarding-request"))
-                     (request (provider-request-object provider conversation #())))
+                     (request      (provider-request-object provider conversation #())))
                 (test-assert
                  (and (string= "https://api.openai.com/v1/responses"
                                (config :provider-endpoint (provider-configuration provider)))
@@ -462,9 +462,9 @@ its native method dispatch, terminal ownership, and the tour presenter real."
      (declare (ignore controller))
      (setf (application-configuration application)
            (configuration-copy configuration :boot-screen-p nil))
-     (let* ((pages (onboarding-pages configuration))
+     (let* ((pages     (onboarding-pages configuration))
             (old-pages (remove "first-provider" pages :test #'string=
-                               :key (lambda (page) (getf page :id)))))
+                               :key                         (lambda (page) (getf page :id)))))
        (onboarding-state-record configuration old-pages ':completed)
        (test-assert (equal '("first-provider")
                            (mapcar (lambda (page) (getf page :id))

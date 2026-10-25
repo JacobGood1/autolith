@@ -40,7 +40,7 @@
     (test-assert
      (find "gemini-2.5-flash"
            (gemini-code-assist-discover-models provider)
-           :key (lambda (entry) (getf entry ':name))
+           :key  (lambda (entry) (getf entry ':name))
            :test #'string=)
      "Code Assist discovery returns upstream model identifiers"))
   nil)
@@ -48,9 +48,9 @@
 (-> gemini-code-assist-test--request-conversion () null)
 (defun gemini-code-assist-test--request-conversion ()
   "Test messages, calls, results, declarations, and thinking conversion."
-  (let* ((provider (gemini-code-assist-test--provider))
+  (let* ((provider      (gemini-code-assist-test--provider))
          (configuration (provider-configuration provider))
-         (conversation (conversation-create configuration))
+         (conversation  (conversation-create configuration))
          (tools
            (json-array
             (json-object
@@ -79,13 +79,13 @@
     (multiple-value-bind (request delivery)
         (provider-request-object provider conversation tools
                                  :goal-context "keep the active goal")
-      (let* ((inner (json-get request "request"))
-             (contents (json-get inner "contents"))
+      (let* ((inner              (json-get request "request"))
+             (contents           (json-get inner "contents"))
              (system-instruction (json-get inner "systemInstruction"))
              (system-text
                (json-get (aref (json-get system-instruction "parts") 0)
                          "text"))
-             (context-content (aref contents (1- (length contents))))
+             (context-content    (aref contents (1- (length contents))))
              (context-text
                (json-get (aref (json-get context-content "parts") 0) "text"))
              (declarations
@@ -132,7 +132,7 @@
 (-> gemini-code-assist-test--stream-fixture () null)
 (defun gemini-code-assist-test--stream-fixture ()
   "Test streamed text, thinking, calls, usage, and finish handling."
-  (let* ((provider (gemini-code-assist-test--provider))
+  (let* ((provider  (gemini-code-assist-test--provider))
          (wire-name (provider-wire-function-name--encode "fs" "read"))
          (event
            (json-object
@@ -159,9 +159,9 @@
                           "candidatesTokenCount" 4
                           "thoughtsTokenCount" 2
                           "totalTokenCount" 16))))
-         (stream (make-string-input-stream
-                  (format nil "data: ~A~%~%" (json-encode event))))
-         (events nil)
+         (stream    (make-string-input-stream
+                     (format nil "data: ~A~%~%" (json-encode event))))
+         (events    nil)
          (result
            (provider-consume-stream
             provider stream nil
@@ -190,10 +190,10 @@
 (-> gemini-code-assist-test--credential-redaction () null)
 (defun gemini-code-assist-test--credential-redaction ()
   "Test credential redaction across Gemini stream failure conditions."
-  (let* ((provider (gemini-code-assist-test--provider))
-         (access-token "ya29.a0AfH6SMB-access-token-fixture")
-         (refresh-token "1//0g-refresh-token-fixture")
-         (*provider-active-credential-values* (list access-token refresh-token))
+  (let* ((provider                                      (gemini-code-assist-test--provider))
+         (access-token                                  "ya29.a0AfH6SMB-access-token-fixture")
+         (refresh-token                                 "1//0g-refresh-token-fixture")
+         (*provider-active-credential-values*           (list access-token refresh-token))
          (*provider-active-credential-redaction-marker* "[REDACTED]")
          (finish-reason
            (format nil "finish-before-~A-middle-~A-after"
@@ -211,9 +211,9 @@
             (list
              (cons "x-request-id"
                    (format nil "request-before-~A-after" refresh-token)))))
-         (finish-report (format nil "~A" finish-condition))
-         (finish-metadata (agent--provider-error-metadata finish-condition))
-         (finish-metadata-text (prin1-to-string finish-metadata))
+         (finish-report                                 (format nil "~A" finish-condition))
+         (finish-metadata                               (agent--provider-error-metadata finish-condition))
+         (finish-metadata-text                          (prin1-to-string finish-metadata))
          (error-event
            (json-object
             "error"
@@ -228,10 +228,10 @@
             (list
              (cons "request-id"
                    (format nil "request-before-~A-after" access-token)))))
-         (error-report (format nil "~A" error-condition))
-         (error-response (provider-error-response error-condition))
-         (error-metadata (agent--provider-error-metadata error-condition))
-         (error-metadata-text (prin1-to-string error-metadata)))
+         (error-report                                  (format nil "~A" error-condition))
+         (error-response                                (provider-error-response error-condition))
+         (error-metadata                                (agent--provider-error-metadata error-condition))
+         (error-metadata-text                           (prin1-to-string error-metadata)))
     (dolist (secret (list access-token refresh-token))
       (test-assert
        (and (null (search secret finish-report))
@@ -273,8 +273,8 @@
 (-> gemini-code-assist-test--setup-and-retry () null)
 (defun gemini-code-assist-test--setup-and-retry ()
   "Test loadCodeAssist project setup and provider-specific HTTP retry."
-  (let ((provider (gemini-code-assist-test--provider))
-        (attempts 0)
+  (let ((provider                                   (gemini-code-assist-test--provider))
+        (attempts                                   0)
         (*gemini-code-assist-nonstream-retry-delay* 0))
     (test-assert
      (and (provider-retryable-status-p provider 499 nil)
@@ -293,11 +293,11 @@
               actual-provider
               (make-condition
                'http-request-failed
-               :body "temporary Code Assist failure"
-               :status 599
+               :body    "temporary Code Assist failure"
+               :status  599
                :headers nil
-               :uri nil
-               :method ':post))
+               :uri     nil
+               :method  ':post))
              (values
               (json-encode
                (json-object "currentTier" (json-object "id" "free-tier")
@@ -309,7 +309,7 @@
         provider
         (make-instance 'oauth-credentials
                        :access-token "fixture-token"
-                       :expires-at (+ (get-universal-time) 3600)))))
+                       :expires-at   (+ (get-universal-time) 3600)))))
     (test-assert (= attempts 2)
                  "Code Assist retries a raised provider-specific HTTP failure")
     (test-assert
@@ -327,7 +327,7 @@
            (configuration-copy (test-configuration) :model
                                      "gemini-3-flash-preview"))
          (registration (provider-registration-find "gemini"))
-         (provider (provider-create configuration)))
+         (provider     (provider-create configuration)))
     (test-assert
      (and registration
           (eq (provider-registration-family registration)

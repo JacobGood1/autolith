@@ -49,7 +49,7 @@
                                           :working-directory (merge-pathnames "review-workspace/" (config :data-root configuration))))
   (ensure-directories-exist (merge-pathnames "artifact.lisp" (config :working-directory configuration)))
   (let* ((application (mission-test--application configuration))
-         (provider (make-instance 'mission-review-test-provider :results results)))
+         (provider    (make-instance 'mission-review-test-provider :results results)))
     (setf (application-provider application) provider
           (agent-provider (application-agent application)) provider)
     (task-augment-tool-registry (application-tool-registry application))
@@ -71,13 +71,13 @@
   (with-test-configuration (configuration)
     (let* ((application (mission-review-test--prepare
                          configuration (list (mission-review-test--result (mission-review-test--data)))))
-           (provider (application-provider application)))
+           (provider    (application-provider application)))
       (unwind-protect
            (progn
              (application-mission-review-configure application (mission-review-test--policy))
              (application-mission-verify application)
-             (let* ((policy (first (getf (application-goal application) :reviews)))
-                    (run (first (getf policy :runs)))
+             (let* ((policy  (first (getf (application-goal application) :reviews)))
+                    (run     (first (getf policy :runs)))
                     (finding (first (getf run :findings))))
                (test-assert (eq (getf run :status) ':completed) "a real contracted reviewer completes")
                (test-assert (and (equal "critical" (getf finding :severity))
@@ -112,7 +112,7 @@
                (application-mission-review-decide application "checkpoint" "risk"
                                                   :decision ':reject :reason "Primary retained counter-evidence")
                (let* ((conversation (application-conversation application))
-                      (identifier (conversation-identifier conversation)))
+                      (identifier   (conversation-identifier conversation)))
                  (conversation-append-summary conversation "Compacted unrelated discussion")
                  (setf (application-conversation application) (conversation-load-by-id configuration identifier))
                  (application--load-goal application)
@@ -135,18 +135,18 @@
   (with-test-configuration (configuration)
     (let ((definition (mission-review--definition (mission-review-test--policy))))
       (dolist (field '("id" "severity" "confidence" "evidence"))
-        (let* ((data (mission-review-test--data))
+        (let* ((data    (mission-review-test--data))
                (fixture (task-tests--yield-fixture configuration definition (format nil "review-missing-~A" field))))
           (remhash field (aref (gethash "findings" data) 0))
           (test-assert (not (tool-result-success-p
-                            (task-tests--execute-yield fixture
-                                                      (json-encode (json-object "status" "success" "data" data)))))
+                             (task-tests--execute-yield fixture
+                                                       (json-encode (json-object "status" "success" "data" data)))))
                        "missing reviewer fields cannot complete the native output contract")))
       (let ((data (mission-review-test--data)))
         (setf (gethash "severity" (aref (gethash "findings" data) 0)) "invented")
         (test-assert (not (task-output-schema-valid-p data (task-agent-definition-output definition)))
                      "unidentified severity categories are rejected"))
-      (let* ((data (mission-review-test--data))
+      (let* ((data    (mission-review-test--data))
              (finding (aref (gethash "findings" data) 0)))
         (setf (gethash "findings" data) (vector finding finding))
         (test-assert
@@ -161,17 +161,17 @@
 (defun mission-review-test--acceptance-race ()
   "Exercise complete-current-run validation and refused admission at final acceptance."
   (with-test-configuration (configuration)
-    (let* ((application (mission-review-test--prepare
-                         configuration
-                         (list (mission-review-test--result (mission-review-test--data :findings nil)))))
+    (let* ((application         (mission-review-test--prepare
+                                 configuration
+                                 (list (mission-review-test--result (mission-review-test--data :findings nil)))))
            (original-checkpoint (symbol-function 'application-mission-review-checkpoint)))
       (unwind-protect
            (progn
              (application-mission-review-configure application (mission-review-test--policy :runs 1))
              (test-assert (application-mission-review-checkpoint application ':final-acceptance)
                           "the original completed independent review permits acceptance")
-             (let* ((policy (mission-review--policy (mission-review--context application) "checkpoint"))
-                    (run (first (getf policy :runs)))
+             (let* ((policy               (mission-review--policy (mission-review--context application) "checkpoint"))
+                    (run                  (first (getf policy :runs)))
                     (original-fingerprint (copy-tree (getf policy :current-fingerprint))))
                (dolist (status '(:running :failed :interrupted :cancelled))
                  (setf (getf run :status) status)
@@ -220,7 +220,7 @@
     (let* ((application (mission-review-test--prepare
                          configuration (list (mission-test--result "No yield yet")
                                              (mission-review-test--result (mission-review-test--data :findings nil)))))
-           (provider (application-provider application)))
+           (provider    (application-provider application)))
       (unwind-protect
            (progn
              (application-mission-review-configure application (mission-review-test--policy :turns 1))
@@ -246,8 +246,8 @@
              (test-assert (application-mission-review-checkpoint application ':final-acceptance)
                           "unconfigured missions never invoke another model")
              (application-mission-review-configure application (mission-review-test--policy))
-             (let* ((context (mission-review--context application))
-                    (policy (mission-review--policy context "checkpoint"))
+             (let* ((context     (mission-review--context application))
+                    (policy      (mission-review--policy context "checkpoint"))
                     (fingerprint (first (multiple-value-list
                                          (mission-review--snapshot policy (mission-test--context application))))))
                (setf (getf policy :runs) (list (list :fingerprint fingerprint :status ':running)))
@@ -262,11 +262,11 @@
 (defun test-mission-review-cancellation-and-authority ()
   "Retain reviewer aborts and enforce the primary tool/decision boundary."
   (with-test-configuration (configuration)
-    (let* ((response (agent-test-result
-                      (make-identifier)
-                      (list (agent-test-call :call-id "review-abort" :namespace "yield" :name "submit"
-                                             :arguments "{\"status\":\"aborted\",\"error\":\"review cancelled\"}"))
-                      :usage (json-object "input_tokens" 2 "output_tokens" 3)))
+    (let* ((response    (agent-test-result
+                         (make-identifier)
+                         (list (agent-test-call :call-id "review-abort" :namespace "yield" :name "submit"
+                                                :arguments "{\"status\":\"aborted\",\"error\":\"review cancelled\"}"))
+                         :usage (json-object "input_tokens" 2 "output_tokens" 3)))
            (application (mission-review-test--prepare configuration (list response))))
       (unwind-protect
            (progn
@@ -277,7 +277,7 @@
                             "cancelled reviewer cannot prove final acceptance"))
              (mission-review-augment-tool-registry (application-tool-registry application))
              (let* ((context (mission-test--context application))
-                    (tool (tool-registry-find (application-tool-registry application) "mission-review" "inspect")))
+                    (tool    (tool-registry-find (application-tool-registry application) "mission-review" "inspect")))
                (test-assert (tool-result-success-p (tool-execute tool context (json-object)))
                             "primary can inspect durable review state")
                (setf (slot-value context 'agent) (make-instance 'agent :configuration configuration))

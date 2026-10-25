@@ -319,6 +319,7 @@
 
 (define-test-suite hyperlinks
   test-hyperlinked-rendering)
+
 (define-test-suite stream
   test-bounded-character-reads
   test-bounded-output-stream)
@@ -352,6 +353,7 @@
   test-memory-manager-unsaved-form
   test-memory-manager-lifecycle
   test-memory-manager-command)
+
 (define-test-suite knowledge
   test-knowledge-terms
   test-knowledge-schemas
@@ -428,6 +430,7 @@
   test-contract-import-duplicate-properties
   test-contract-import-preserves-local-admission
   test-contract-record-supersession)
+
 (define-test-suite papercut
   test-papercuts)
 
@@ -641,6 +644,7 @@
   test-windows-detached-startup-failure
   test-windows-detached-release
   test-windows-restart-library)
+
 (define-test-suite plan
   test-workspace-plan)
 
@@ -662,7 +666,6 @@
   nous-authentication-test--refresh-validation
   nous-authentication-test--serialized-refresh
   nous-authentication-test--refresh-redaction)
-
 
 (define-test-suite provider-usage-export
   test-provider-usage-export-opt-in
@@ -1416,7 +1419,6 @@
   test-check-result-validation
   test-check-worker-image
   test-check-process-lifecycle)
-
 
 (define-test-suite acp
   test-acp-observer-streams-one-response

@@ -10,8 +10,8 @@
      (telemetry-attach configuration)
      (let ((entered (bt:make-semaphore))
            (release (bt:make-semaphore))
-           (thread nil)
-           (bodies nil))
+           (thread  nil)
+           (bodies  nil))
        (let ((*telemetry-process-function*
                (lambda (context request)
                  (declare (ignore context))
@@ -22,7 +22,7 @@
          (unwind-protect
               (progn
                 (test-assert (equal (multiple-value-list
-                                    (telemetry-call-with-run configuration (lambda () (values :one :two))))
+                                     (telemetry-call-with-run configuration (lambda () (values :one :two))))
                                    '(:one :two))
                              "Run values return before the blocked upload can complete.")
                 (test-assert (bt:wait-on-semaphore entered :timeout 2) "The upload starts on its own thread.")
@@ -50,10 +50,10 @@
      (setf (config :telemetry-enabled-p configuration) t
            (config :telemetry-queue-limit configuration) 3)
      (telemetry-attach configuration)
-     (let ((entered (bt:make-semaphore))
-           (release (bt:make-semaphore))
-           (bodies nil)
-           (thread nil)
+     (let ((entered                     (bt:make-semaphore))
+           (release                     (bt:make-semaphore))
+           (bodies                      nil)
+           (thread                      nil)
            (*telemetry-upload-interval* 0.01))
        (let ((*telemetry-process-function*
                (lambda (context request)
@@ -87,7 +87,7 @@
            (when thread (bt:join-thread thread)))
          (let ((spans (loop for body in bodies append (coerce (test-telemetry--spans body) 'list))))
            (test-assert (= (count "run" spans :test #'equal
-                                 :key (lambda (span) (test-telemetry--attribute span "autolith.event.kind"))) 1)
+                                 :key               (lambda (span) (test-telemetry--attribute span "autolith.event.kind"))) 1)
                         "The final summary is exported exactly once after completion.")))))
    :background-uploads-p t))
 
@@ -99,11 +99,11 @@
        (setf (config :telemetry-enabled-p configuration) t
              (config :telemetry-timeout-ms configuration) (if (eq action ':clean-exit) 250 10000))
        (telemetry-attach configuration)
-       (let ((original (symbol-function 'uiop:launch-program))
-             (ready-path (merge-pathnames "upload-stall.ready" (config :cache-root configuration)))
-             (started (bt:make-semaphore))
-             (process nil)
-             (thread nil)
+       (let ((original                     (symbol-function 'uiop:launch-program))
+             (ready-path                   (merge-pathnames "upload-stall.ready" (config :cache-root configuration)))
+             (started                      (bt:make-semaphore))
+             (process                      nil)
+             (thread                       nil)
              (*telemetry-process-function* nil))
          (test-call-with-function-replacements
           (list (list 'uiop:launch-program
@@ -121,19 +121,23 @@
             (test-assert (and (probe-file ready-path) (uiop:process-alive-p process))
                          (test-telemetry--stalled-child-diagnostic process ready-path))
             (let ((controller *telemetry-controller*)
-                  (start (get-internal-real-time)))
+                  (start      (get-internal-real-time)))
               (setf thread (telemetry-controller-upload-thread controller))
               (ecase action
-                (:revoke (setf (config :telemetry-enabled-p configuration) nil))
-                (:checkpoint (telemetry-call-with-quiescence (lambda () nil)))
-                (:shutdown (telemetry-shutdown :drain-p nil))
+                (:revoke
+                 (setf (config :telemetry-enabled-p configuration) nil))
+                (:checkpoint
+                 (telemetry-call-with-quiescence (lambda () nil)))
+                (:shutdown
+                 (telemetry-shutdown :drain-p nil))
                 (:replace-owner
                  (let ((application (make-instance 'application :configuration configuration)))
                    (setf (application-configuration application)
                          (configuration-copy configuration :telemetry-enabled-p nil)))
                  (test-assert (not (telemetry-controller-enabled *telemetry-controller*))
                               "Replacing the owner with an opted-out configuration cancels old uploads."))
-                (:clean-exit (telemetry-shutdown)))
+                (:clean-exit
+                 (telemetry-shutdown)))
               (let ((seconds (/ (- (get-internal-real-time) start) internal-time-units-per-second)))
                 (test-assert (< seconds 2)
                              (format nil "~A retirement took ~,3F seconds instead of stopping promptly."
@@ -153,11 +157,11 @@
    (lambda (configuration)
      (setf (config :telemetry-enabled-p configuration) t)
      (telemetry-attach configuration)
-     (let ((bodies nil)
+     (let ((bodies     nil)
            (controller *telemetry-controller*)
-           (entered (bt:make-semaphore))
-           (release (bt:make-semaphore))
-           (closer nil))
+           (entered    (bt:make-semaphore))
+           (release    (bt:make-semaphore))
+           (closer     nil))
        (let ((*telemetry-process-function*
                (lambda (context request)
                  (declare (ignore context))
@@ -192,7 +196,7 @@
      (setf (config :telemetry-enabled-p configuration) t)
      (telemetry-attach configuration)
      (let ((uploaded (bt:make-semaphore))
-           (roots 0))
+           (roots    0))
        (let ((*telemetry-process-function*
                (lambda (context request)
                  (declare (ignore context))
@@ -218,7 +222,7 @@
    (lambda (configuration)
      (setf (config :telemetry-enabled-p configuration) t)
      (telemetry-attach configuration)
-     (let ((bodies nil)
+     (let ((bodies   nil)
            (uploaded (bt:make-semaphore)))
        (let ((*telemetry-process-function*
                (lambda (context request)

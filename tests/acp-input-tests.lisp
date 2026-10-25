@@ -12,14 +12,14 @@
               configuration
               (lambda (service client)
                 (let* ((identifier (agentcomms:client-new-session client (namestring root)))
-                       (session (acp-service--session service identifier)))
+                       (session    (acp-service--session service identifier)))
                   (funcall function session client)
                   (agentcomms:client-close-session client identifier)))
               :results (append
                         (when tool-round-p
                           (list (agent-test-result
                                  "tool-boundary"
-                                 (list (agent-test-call :call-id "boundary-read"
+                                 (list (agent-test-call :call-id   "boundary-read"
                                                         :namespace "resource" :name "read"
                                                         :arguments "{\"uri\":\"workspace:.\"}")))))
                         (loop repeat 8 collect (acp-session-test-text-result "done"))))))
@@ -77,26 +77,26 @@
   "Apply steering and a native command at a real provider-loop safe boundary."
   (acp-input-test--session
    (lambda (session client)
-     (let ((original (symbol-function 'agent-run-user-turn))
+     (let ((original    (symbol-function 'agent-run-user-turn))
            (application (acp-session-application session)))
        (test-call-with-function-replacements
         (list
          (list 'agent-run-user-turn
                (lambda (agent text &rest arguments)
                  (when (stringp text)
-                 (let ((result (acp-input-test--submit session "_autolith/steer" "steered")))
-                   (test-assert (equal "steering" (gethash "delivery" (gethash "value" result)))
-                                "running input uses native steering"))
-                 (let ((result (agentcomms:agent-extension-request
-                                (acp-session-service session) "_autolith/invoke"
-                                (agentcomms:json-object
-                                 "sessionId" (acp-session-identifier session)
-                                 "operation" "hurry-up"
-                                 "arguments" (agentcomms:json-object "input" "on")))))
-                   (test-assert (equal "ok" (gethash "outcome" result))
-                                "boundary-applying commands are admitted during a turn")
-                   (test-assert (not (application-hurry-up-p application))
-                                "the command does not mutate active work before its safe boundary")))
+                  (let ((result (acp-input-test--submit session "_autolith/steer" "steered")))
+                    (test-assert (equal "steering" (gethash "delivery" (gethash "value" result)))
+                                 "running input uses native steering"))
+                  (let ((result (agentcomms:agent-extension-request
+                                 (acp-session-service session) "_autolith/invoke"
+                                 (agentcomms:json-object
+                                  "sessionId" (acp-session-identifier session)
+                                  "operation" "hurry-up"
+                                  "arguments" (agentcomms:json-object "input" "on")))))
+                    (test-assert (equal "ok" (gethash "outcome" result))
+                                 "boundary-applying commands are admitted during a turn")
+                    (test-assert (not (application-hurry-up-p application))
+                                 "the command does not mutate active work before its safe boundary")))
                  (apply original agent text arguments))))
         (lambda () (acp-session-run-turn session "start")))
        (test-assert (application-hurry-up-p application) "the native safe boundary applies hurry-up")
@@ -144,10 +144,10 @@
   "Retain pending input across busy admission, pre-append failure, close and reload."
   (acp-input-test--session
    (lambda (session client)
-     (let* ((service (acp-session-service session))
-            (identifier (acp-session-identifier session))
+     (let* ((service     (acp-session-service session))
+            (identifier  (acp-session-identifier session))
             (application (acp-session-application session))
-            (directory (namestring (config :working-directory (application-configuration application)))))
+            (directory   (namestring (config :working-directory (application-configuration application)))))
        (acp-input-test--submit session "_autolith/queue" "retained")
        (acp-service--call-with-operation
         service (gensym "OTHER-OWNER")
@@ -184,20 +184,20 @@
   (with-test-configuration (configuration root)
     (let ((provider (make-instance 'acp-session-test-gated-provider
                                    :configuration configuration
-                                   :results (loop repeat 4 collect (acp-session-test-text-result "done")))))
+                                   :results       (loop repeat 4 collect (acp-session-test-text-result "done")))))
       (acp-session-test--call-with-client
        configuration
        (lambda (service client)
          (let* ((identifier (agentcomms:client-new-session client (namestring root)))
-                (session (acp-service--session service identifier))
-                (outcome nil)
-                (thread (make-thread
-                         (lambda ()
-                           (setf outcome
-                                 (handler-case
-                                     (agentcomms:client-prompt
-                                      client identifier (list (agentcomms:acp-text-content "start")))
-                                   (agentcomms:acp-error () ':cancelled)))))))
+                (session    (acp-service--session service identifier))
+                (outcome    nil)
+                (thread     (make-thread
+                             (lambda ()
+                               (setf outcome
+                                     (handler-case
+                                         (agentcomms:client-prompt
+                                          client identifier (list (agentcomms:acp-text-content "start")))
+                                       (agentcomms:acp-error () ':cancelled)))))))
            (unwind-protect
                 (progn
                   (acp-completion-test--wait (lambda () (acp-session-test-gated-entered-p provider)))

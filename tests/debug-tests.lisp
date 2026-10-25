@@ -5,7 +5,7 @@
 (-> debug-tests--adapter () (values string list))
 (defun debug-tests--adapter ()
   "Use Daphne's actual subprocess fixture from its installed published system."
-  (let* ((root (asdf:system-source-directory "daphne"))
+  (let* ((root  (asdf:system-source-directory "daphne"))
          (setup (or (uiop:getenv "DAPHNE_TEST_SETUP")
                     (namestring (merge-pathnames ".qlot/setup.lisp" (asdf:system-source-directory "autolith"))))))
     (values (namestring sb-ext:*runtime-pathname*)
@@ -17,14 +17,14 @@
   "Provide an ordinary registry and isolated conversation with actual adapter execution."
   (with-test-configuration (configuration root)
     (let* ((configuration (configuration-copy configuration :working-directory root))
-           (registry (make-instance 'tool-registry))
-           (commands nil)
-           (context (make-instance 'tool-context :configuration configuration :registry registry :worker nil
-                                   :conversation (conversation-create configuration :identifier "debug")
-                                   :command-authorization-function
-                                   (lambda (command directory)
-                                     (push command commands)
-                                     (if authorization (funcall authorization command directory) ':full-access)))))
+           (registry      (make-instance 'tool-registry))
+           (commands      nil)
+           (context       (make-instance 'tool-context :configuration configuration :registry registry :worker nil
+                                         :conversation (conversation-create configuration :identifier "debug")
+                                         :command-authorization-function
+                                         (lambda (command directory)
+                                           (push command commands)
+                                           (if authorization (funcall authorization command directory) ':full-access)))))
       (multiple-value-bind (program arguments) (debug-tests--adapter)
         (debug-register-tools registry :program program :arguments arguments :cancel-p cancel-p))
       (unwind-protect
@@ -67,8 +67,8 @@
   (debug-tests--fixture
    (lambda (context commands)
      (let* ((identifier (debug-tests--session context))
-            (entry (debug-tests--entry context identifier))
-            (base (json-object "session" identifier)))
+            (entry      (debug-tests--entry context identifier))
+            (base       (json-object "session" identifier)))
        (test-assert (json-get (debug-tests--call context "status" (json-object)) "configured") "optional adapter configured")
        (test-assert (plusp (length (tool-registry-provider-schemas (tool-context-registry context)))) "optional provider schemas available")
        (test-assert (find-if (lambda (command) (uiop:string-prefix-p "debug.launch " command)) (funcall commands)) "launch independently authorized")
@@ -95,10 +95,10 @@
        (debug-tests--call context "terminate" base)
        (debug-tests--reaped entry)
        (test-assert (eq ':unknown-session (tool-result-error-code (debug-tests--invoke context "threads" base))) "terminated session handle consumed")
-       (let* ((started (debug-tests--call context "attach"
-                                         (json-object "configuration" "{}" "breakpoint-path" "source.lisp"
-                                                      "breakpoint-lines" #(3))))
-              (attached (json-get started "session"))
+       (let* ((started        (debug-tests--call context "attach"
+                                                (json-object "configuration" "{}" "breakpoint-path" "source.lisp"
+                                                             "breakpoint-lines" #(3))))
+              (attached       (json-get started "session"))
               (attached-entry (debug-tests--entry context attached)))
          (test-assert (json-get (aref (json-get (json-get started "breakpoints") "breakpoints") 0) "verified")
                       "initial breakpoints verified before configuration completion")
@@ -114,11 +114,11 @@
    (lambda (context commands)
      (declare (ignore commands))
      (test-assert (eq ':authorization (tool-result-error-code (debug-tests--invoke context "attach" (json-object "configuration" "{\"processId\":12}")))) "attach denied despite configured adapter")
-     (let* ((identifier (debug-tests--session context))
-            (entry (debug-tests--entry context identifier))
+     (let* ((identifier    (debug-tests--session context))
+            (entry         (debug-tests--entry context identifier))
             (configuration (tool-context-configuration context))
-            (foreign (make-instance 'tool-context :configuration configuration :registry (tool-context-registry context) :worker nil
-                                                  :conversation (conversation-create configuration :identifier "other"))))
+            (foreign       (make-instance 'tool-context :configuration configuration :registry (tool-context-registry context) :worker nil
+                                                        :conversation (conversation-create configuration :identifier "other"))))
        (dolist (operation '("threads" "cancel" "terminate"))
          (test-assert (eq ':unknown-session (tool-result-error-code (debug-tests--invoke foreign operation (json-object "session" identifier)))) "cross-conversation session inaccessible"))
        (test-assert (eq ':authorization (tool-result-error-code (debug-tests--invoke context "evaluate" (json-object "session" identifier "expression" "mutate()")))) "evaluation denied independently")
@@ -137,7 +137,7 @@
      (declare (ignore commands))
      (test-assert (not (tool-result-success-p (debug-tests--invoke context "launch" (json-object "configuration" "{}")))) "sandbox-only adapter authority rejected")
      (test-assert (zerop (hash-table-count (debug-session-manager-entries
-                                          (debug-tool-manager (tool-registry-find (tool-context-registry context) "debug" "status"))))) "denial admits no adapter"))
+                                            (debug-tool-manager (tool-registry-find (tool-context-registry context) "debug" "status"))))) "denial admits no adapter"))
    :authorization (lambda (command directory) (declare (ignore command directory)) ':sandboxed))
   nil)
 
@@ -148,11 +148,11 @@
    (lambda (context commands)
      (declare (ignore commands))
      (let* ((identifier (debug-tests--session context))
-            (entry (debug-tests--entry context identifier))
-            (result nil)
-            (thread (sb-thread:make-thread
-                     (lambda () (setf result (debug-tests--invoke context "events"
-                                                                  (json-object "session" identifier "wait-for" "never" "timeout" 30)))))))
+            (entry      (debug-tests--entry context identifier))
+            (result     nil)
+            (thread     (sb-thread:make-thread
+                         (lambda () (setf result (debug-tests--invoke context "events"
+                                                                      (json-object "session" identifier "wait-for" "never" "timeout" 30)))))))
        (unwind-protect
             (progn
               (loop repeat 100 until (debug-session-entry-busy-p entry) do (sleep 0.01))
@@ -166,7 +166,7 @@
            (tool-runtime-close (tool-registry-find (tool-context-registry context) "debug" "status")))
          (sb-thread:join-thread thread :timeout 5)))
      (let* ((identifier (debug-tests--session context))
-            (entry (debug-tests--entry context identifier)))
+            (entry      (debug-tests--entry context identifier)))
        (test-assert (eq ':timeout (tool-result-error-code (debug-tests--invoke context "events" (json-object "session" identifier "wait-for" "never" "timeout" 1)))) "deadline projects typed timeout")
        (debug-tests--reaped entry))))
   (let ((cancelled nil))
@@ -174,43 +174,43 @@
      (lambda (context commands)
        (declare (ignore commands))
        (let* ((identifier (debug-tests--session context))
-              (entry (debug-tests--entry context identifier)))
+              (entry      (debug-tests--entry context identifier)))
          (setf cancelled t)
          (test-assert (eq ':cancelled (tool-result-error-code (debug-tests--invoke context "threads" (json-object "session" identifier)))) "supervisor predicate cancels actual adapter request")
          (debug-tests--reaped entry)))
      :cancel-p (lambda () cancelled)))
-    (let ((cancelled nil))
-      (debug-tests--fixture
-       (lambda (context commands)
-         (declare (ignore commands))
-         (let* ((identifier (debug-tests--session context))
-                (entry (debug-tests--entry context identifier)))
-           (setf (debug-session-entry-events entry)
-                 (list (json-object "event" "stopped" "body" (json-object))))
-           (setf cancelled t)
-           (test-assert (eq ':cancelled
-                            (tool-result-error-code
-                             (debug-tests--invoke context "events" (json-object "session" identifier "wait-for" "stopped"))))
-                        "cached events observe supervisor cancellation")
-           (debug-tests--reaped entry)))
-       :cancel-p (lambda () cancelled)))
-    (let ((starts 0)
-          (start (symbol-function 'daphne:start-adapter)))
-      (test-call-with-function-replacements
-       (list (list 'daphne:start-adapter
-                   (lambda (&rest arguments)
-                     (incf starts)
-                     (apply start arguments))))
-       (lambda ()
-         (debug-tests--fixture
-          (lambda (context commands)
-            (declare (ignore commands))
-            (test-assert (eq ':cancelled
-                             (tool-result-error-code
-                              (debug-tests--invoke context "launch" (json-object "configuration" "{}"))))
-                         "already-cancelled supervisor rejects startup")
-            (test-assert (zerop starts) "cancelled startup performs no adapter process effect"))
-          :cancel-p (constantly t)))))
+  (let ((cancelled nil))
+    (debug-tests--fixture
+     (lambda (context commands)
+       (declare (ignore commands))
+       (let* ((identifier (debug-tests--session context))
+              (entry      (debug-tests--entry context identifier)))
+         (setf (debug-session-entry-events entry)
+               (list (json-object "event" "stopped" "body" (json-object))))
+         (setf cancelled t)
+         (test-assert (eq ':cancelled
+                          (tool-result-error-code
+                           (debug-tests--invoke context "events" (json-object "session" identifier "wait-for" "stopped"))))
+                      "cached events observe supervisor cancellation")
+         (debug-tests--reaped entry)))
+     :cancel-p (lambda () cancelled)))
+  (let ((starts 0)
+        (start  (symbol-function 'daphne:start-adapter)))
+    (test-call-with-function-replacements
+     (list (list 'daphne:start-adapter
+                 (lambda (&rest arguments)
+                   (incf starts)
+                   (apply start arguments))))
+     (lambda ()
+       (debug-tests--fixture
+        (lambda (context commands)
+          (declare (ignore commands))
+          (test-assert (eq ':cancelled
+                           (tool-result-error-code
+                            (debug-tests--invoke context "launch" (json-object "configuration" "{}"))))
+                       "already-cancelled supervisor rejects startup")
+          (test-assert (zerop starts) "cancelled startup performs no adapter process effect"))
+        :cancel-p (constantly t)))))
   nil)
 
 (-> test-debug-runtime-and-bounds () null)
@@ -220,9 +220,9 @@
    (lambda (context commands)
      (declare (ignore commands))
      (let* ((*debug-conversation-session-limit* 1)
-            (registry (tool-context-registry context))
-            (identifier (debug-tests--session context))
-            (entry (debug-tests--entry context identifier)))
+            (registry                           (tool-context-registry context))
+            (identifier                         (debug-tests--session context))
+            (entry                              (debug-tests--entry context identifier)))
        (test-assert (eq ':session-limit (tool-result-error-code (debug-tests--invoke context "launch" (json-object "configuration" "{}")))) "capacity rejects without eviction")
        (test-assert (eq ':invalid-arguments (tool-result-error-code (debug-tests--invoke context "variables" (json-object "session" identifier "reference" 4 "count" 101)))) "semantic page bounded independently of schema")
        (test-assert (eq ':invalid-arguments (tool-result-error-code (debug-tests--invoke context "breakpoints" (json-object "session" identifier "path" "source.lisp" "lines" #(0))))) "breakpoint lines validated")
@@ -262,12 +262,12 @@
    (lambda (context commands)
      (declare (ignore commands))
      (let ((reserved (sb-thread:make-semaphore))
-           (release (sb-thread:make-semaphore))
-           (reserve (symbol-function 'debug--reserve))
-           (start (symbol-function 'daphne:start-adapter))
-           (starts 0)
-           (thread nil)
-           (result nil))
+           (release  (sb-thread:make-semaphore))
+           (reserve  (symbol-function 'debug--reserve))
+           (start    (symbol-function 'daphne:start-adapter))
+           (starts   0)
+           (thread   nil)
+           (result   nil))
        (test-call-with-function-replacements
         (list (list 'debug--reserve
                     (lambda (manager context)
@@ -294,7 +294,6 @@
             (sb-thread:signal-semaphore release)
             (when thread (sb-thread:join-thread thread :timeout 5))))))))
   nil)
-
 
 (eval-when (:load-toplevel :execute)
   (define-test-suite debug

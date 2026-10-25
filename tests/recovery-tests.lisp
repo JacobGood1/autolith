@@ -5,7 +5,6 @@
     (load (merge-pathnames "recovery/runtime.lisp"
                            (asdf:system-source-directory :autolith)))))
 
-
 ;;;; -- Recovery Runtime Tests --
 
 (defun test-recovery-launcher-trace-context ()
@@ -13,9 +12,9 @@
   (with-test-fixture (':posix-shell "Bash launcher trace continuity")
     (with-test-configuration (configuration root)
       (declare (ignore configuration))
-      (let* ((source (asdf:system-source-directory :autolith))
-             (fake (merge-pathnames "fake-sbcl" root))
-             (log (merge-pathnames "trace.log" root))
+      (let* ((source  (asdf:system-source-directory :autolith))
+             (fake    (merge-pathnames "fake-sbcl" root))
+             (log     (merge-pathnames "trace.log" root))
              (context (recovery-tests--context root))
              (command (list "env" (format nil "AUTOLITH_SBCL=~A" fake)
                             (format nil "AUTOLITH_TEST_LOG=~A" log)
@@ -32,8 +31,8 @@ exit 64
                                 ("AUTOLITH_RECOVERED" (uiop:getenv "AUTOLITH_RECOVERED"))
                                 ("AUTOLITH_PROJECT_SETUP" (uiop:getenv "AUTOLITH_PROJECT_SETUP")))
           (uiop:run-program command :ignore-error-status t :output nil :error-output nil)
-          (let* ((first (uiop:read-file-line log))
-                 (parts (uiop:split-string first :separator " "))
+          (let* ((first       (uiop:read-file-line log))
+                 (parts       (uiop:split-string first :separator " "))
                  (traceparent (first parts)))
             (test-assert (and (telemetry--traceparent-id traceparent) (equal (second parts) "1"))
                          "The first process inherits a valid context and attempt one.")
@@ -54,10 +53,10 @@ exit 64
   "Write one readable FORM to PATHNAME and return PATHNAME."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :external-format ':utf-8)
+                          :external-format   ':utf-8)
     (let ((*print-readably* t))
       (prin1 form stream)
       (terpri stream)
@@ -70,10 +69,10 @@ exit 64
   (let ((state-root (merge-pathnames "state/autolith/" root)))
     (make-instance
      'recovery-context
-     :source-root (asdf:system-source-directory :autolith)
-     :generation-root (merge-pathnames "data/autolith/generations/" root)
-     :worktree-root (merge-pathnames "data/autolith/recovery-worktrees/" root)
-     :state-root state-root
+     :source-root      (asdf:system-source-directory :autolith)
+     :generation-root  (merge-pathnames "data/autolith/generations/" root)
+     :worktree-root    (merge-pathnames "data/autolith/recovery-worktrees/" root)
+     :state-root       state-root
      :current-pathname (merge-pathnames "current-generation.sexp" state-root))))
 
 (-> recovery-tests--generation
@@ -85,27 +84,27 @@ exit 64
           (merge-pathnames (format nil "~A/" identifier) root)))
     (make-instance
      'sbcl-generations:generation
-     :identifier identifier
-     :directory directory
-     :core-pathname (merge-pathnames "autolith.core" directory)
+     :identifier        identifier
+     :directory         directory
+     :core-pathname     (merge-pathnames "autolith.core" directory)
      :temporary-core-pathname
      (merge-pathnames ".autolith.core.tmp" directory)
      :manifest-pathname (merge-pathnames "manifest.sexp" directory)
-     :metadata (list :git-commit commit
-                     :sbcl-version (lisp-implementation-version)
-                     :operating-system (software-type)
-                     :operating-system-version (software-version)
-                     :architecture (machine-type))
-     :created-at created-at)))
+     :metadata          (list :git-commit               commit
+                              :sbcl-version             (lisp-implementation-version)
+                              :operating-system         (software-type)
+                              :operating-system-version (software-version)
+                              :architecture             (machine-type))
+     :created-at        created-at)))
 
 (-> recovery-tests--migration-record (list) list)
 (defun recovery-tests--migration-record (entries)
   "Return one complete conversation identifier migration record for ENTRIES."
   (list :conversation-identifier-migration
         :version 1
-        :status ':complete
+        :status     ':complete
         :updated-at (get-universal-time)
-        :entries entries))
+        :entries    entries))
 
 (-> recovery-tests--migration-pathname (recovery-context) pathname)
 (defun recovery-tests--migration-pathname (context)
@@ -125,10 +124,10 @@ exit 64
 (defun test-recovery-xdg-directories ()
   "Test recovery ignores empty and relative XDG directory values."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (source-root (asdf:system-source-directory :autolith))
-         (saved-data (uiop:getenv "XDG_DATA_HOME"))
-         (saved-state (uiop:getenv "XDG_STATE_HOME")))
+         (root          (test-configuration-root configuration))
+         (source-root   (asdf:system-source-directory :autolith))
+         (saved-data    (uiop:getenv "XDG_DATA_HOME"))
+         (saved-state   (uiop:getenv "XDG_STATE_HOME")))
     (unwind-protect
          (progn
            (dolist (invalid '("" "relative/xdg-home"))
@@ -136,8 +135,8 @@ exit 64
              (platform-setenv "XDG_STATE_HOME" invalid)
              ;; The platform adapter applies the same rule, so its roots are
              ;; the host's defaults once the variables are ignored.
-             (let ((context (recovery-context-create source-root))
-                   (data-root (platform-application-root *platform* ':data))
+             (let ((context    (recovery-context-create source-root))
+                   (data-root  (platform-application-root *platform* ':data))
                    (state-root (platform-application-root *platform* ':state)))
                (test-assert
                 (equal (recovery-context-generation-root context)
@@ -150,7 +149,7 @@ exit 64
                (test-assert
                 (equal (recovery-context-state-root context) state-root)
                 "recovery ignores an invalid XDG state home")))
-           (let ((data-home (merge-pathnames "xdg-data/" root))
+           (let ((data-home  (merge-pathnames "xdg-data/" root))
                  (state-home (merge-pathnames "xdg-state/" root)))
              (platform-setenv "XDG_DATA_HOME" (namestring data-home))
              (platform-setenv "XDG_STATE_HOME" (namestring state-home))
@@ -166,7 +165,7 @@ exit 64
       (recovery-tests--restore-environment "XDG_DATA_HOME" saved-data)
       (recovery-tests--restore-environment "XDG_STATE_HOME" saved-state)
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -175,14 +174,14 @@ exit 64
   "Write executable CONTENT to PATHNAME and return PATHNAME."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction ':output
-                          :if-exists ':supersede
+                          :direction         ':output
+                          :if-exists         ':supersede
                           :if-does-not-exist ':create
-                          :external-format ':utf-8)
+                          :external-format   ':utf-8)
     (write-string content stream)
     (finish-output stream))
   (uiop:run-program (list "chmod" "755" (namestring pathname))
-                    :output nil
+                    :output       nil
                     :error-output nil)
   pathname)
 
@@ -190,14 +189,14 @@ exit 64
 (defun test-recovery-conversation-identifiers ()
   "Test recovery-side short syntax and strict legacy identifier migration."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (context (recovery-tests--context root))
-         (legacy "cb472f21-969d-48f5-9c1e-e793d19054b9")
-         (unmapped "de916e8a-8227-443d-9e10-11794a62ebd6")
-         (current "K8vQ2mp")
-         (entry (list :old legacy
-                      :new current
-                      :created-at (get-universal-time)))
+         (root          (test-configuration-root configuration))
+         (context       (recovery-tests--context root))
+         (legacy        "cb472f21-969d-48f5-9c1e-e793d19054b9")
+         (unmapped      "de916e8a-8227-443d-9e10-11794a62ebd6")
+         (current       "K8vQ2mp")
+         (entry         (list :old        legacy
+                              :new        current
+                              :created-at (get-universal-time)))
          (migration-pathname
            (recovery-tests--migration-pathname context)))
     (unwind-protect
@@ -240,26 +239,26 @@ exit 64
              (test-assert
               (string= (third arguments) legacy)
               "recovery does not mutate the caller's forwarded arguments"))
-            (let ((arguments
-                    (list "--permissions" "full"
-                          "--localgroup-handoff" "/state/consumed.sexp"
-                          "resume" legacy)))
-              (test-assert
-               (equal (recovery-normalize-forwarded-arguments context arguments)
-                      (list "--permissions" "full" "resume" current))
-               "recovery removes consumed localgroup handoff arguments")
-              (test-assert
-               (equal arguments
-                      (list "--permissions" "full"
-                            "--localgroup-handoff" "/state/consumed.sexp"
-                            "resume" legacy))
-               "handoff removal does not mutate the caller's arguments"))
+           (let ((arguments
+                   (list "--permissions" "full"
+                         "--localgroup-handoff" "/state/consumed.sexp"
+                         "resume" legacy)))
+             (test-assert
+              (equal (recovery-normalize-forwarded-arguments context arguments)
+                     (list "--permissions" "full" "resume" current))
+              "recovery removes consumed localgroup handoff arguments")
+             (test-assert
+              (equal arguments
+                     (list "--permissions" "full"
+                           "--localgroup-handoff" "/state/consumed.sexp"
+                           "resume" legacy))
+              "handoff removal does not mutate the caller's arguments"))
            (recovery-tests--write-form
             migration-pathname
             (recovery-tests--migration-record
              (list entry
-                   (list :old legacy
-                         :new "96kpbjY"
+                   (list :old        legacy
+                         :new        "96kpbjY"
                          :created-at (get-universal-time)))))
            (test-assert
             (handler-case
@@ -273,8 +272,8 @@ exit 64
             migration-pathname
             (recovery-tests--migration-record
              (list entry
-                   (list :old unmapped
-                         :new current
+                   (list :old        unmapped
+                         :new        current
                          :created-at (get-universal-time)))))
            (test-assert
             (handler-case
@@ -285,17 +284,17 @@ exit 64
                 t))
             "recovery rejects duplicate current migration destinations"))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
 (-> test-recovery-session-handoff () null)
 (defun test-recovery-session-handoff ()
   "Test session fallback, capsule precedence, and history-floor propagation."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (context (recovery-tests--context root))
-         (state-root (recovery-context-state-root context))
+  (let* ((configuration          (test-configuration))
+         (root                   (test-configuration-root configuration))
+         (context                (recovery-tests--context root))
+         (state-root             (recovery-context-state-root context))
          (migration-pathname
            (recovery-tests--migration-pathname context))
          (session-pathname
@@ -305,18 +304,18 @@ exit 64
            (merge-pathnames "crashes/capsule-test.sexp" state-root))
          (outside-pointer-pathname
            (merge-pathnames "outside-session-pointer.sexp" root))
-         (legacy "cb472f21-969d-48f5-9c1e-e793d19054b9")
-         (session-id "96kpbjY")
-         (capsule-id "K8vQ2mp")
-         (pointer-name "AUTOLITH_RECOVERY_SESSION_POINTER")
-         (conversation-name "AUTOLITH_RECOVERY_CONVERSATION_ID")
-         (sequence-name "AUTOLITH_RECOVERY_RENDERED_SEQUENCE")
+         (legacy                 "cb472f21-969d-48f5-9c1e-e793d19054b9")
+         (session-id             "96kpbjY")
+         (capsule-id             "K8vQ2mp")
+         (pointer-name           "AUTOLITH_RECOVERY_SESSION_POINTER")
+         (conversation-name      "AUTOLITH_RECOVERY_CONVERSATION_ID")
+         (sequence-name          "AUTOLITH_RECOVERY_RENDERED_SEQUENCE")
          (history-floor-name
            "AUTOLITH_RECOVERY_HISTORY_FLOOR_SEQUENCE")
-         (crash-pointer-name "AUTOLITH_CRASH_POINTER")
-         (previous-pointer (uiop:getenv pointer-name))
-         (previous-conversation (uiop:getenv conversation-name))
-         (previous-sequence (uiop:getenv sequence-name))
+         (crash-pointer-name     "AUTOLITH_CRASH_POINTER")
+         (previous-pointer       (uiop:getenv pointer-name))
+         (previous-conversation  (uiop:getenv conversation-name))
+         (previous-sequence      (uiop:getenv sequence-name))
          (previous-history-floor (uiop:getenv history-floor-name))
          (previous-crash-pointer (uiop:getenv crash-pointer-name)))
     (unwind-protect
@@ -324,22 +323,22 @@ exit 64
            (recovery-tests--write-form
             migration-pathname
             (recovery-tests--migration-record
-             (list (list :old legacy
-                         :new session-id
+             (list (list :old        legacy
+                         :new        session-id
                          :created-at (get-universal-time)))))
            (recovery-tests--write-form
             session-pathname
             (list :recovery-session
                   :version 1
-                  :conversation-id legacy
-                  :rendered-sequence 41
+                  :conversation-id        legacy
+                  :rendered-sequence      41
                   :history-floor-sequence 17))
            (recovery-tests--write-form
             capsule-pathname
             (list :crash
                   :condition "fixture crash"
-                  :conversation-id capsule-id
-                  :rendered-sequence 73
+                  :conversation-id        capsule-id
+                  :rendered-sequence      73
                   :history-floor-sequence 29))
            (platform-setenv pointer-name (namestring session-pathname))
            (recovery-report-crash context :status nil :capsule nil)
@@ -354,7 +353,7 @@ exit 64
             "session fallback separately propagates the history floor")
            (recovery-report-crash
             context
-            :status nil
+            :status  nil
             :capsule (namestring capsule-pathname))
            (test-assert
             (string= (uiop:getenv conversation-name) capsule-id)
@@ -375,8 +374,8 @@ exit 64
             session-pathname
             (list :recovery-session
                   :version 1
-                  :conversation-id session-id
-                  :rendered-sequence 81
+                  :conversation-id        session-id
+                  :rendered-sequence      81
                   :history-floor-sequence 31))
            (recovery-refresh-crash-context
             context (namestring capsule-pathname))
@@ -389,8 +388,8 @@ exit 64
             outside-pointer-pathname
             (list :recovery-session
                   :version 1
-                  :conversation-id session-id
-                  :rendered-sequence 41
+                  :conversation-id        session-id
+                  :rendered-sequence      41
                   :history-floor-sequence 17))
            (platform-setenv
             pointer-name
@@ -408,8 +407,8 @@ exit 64
               session-pathname
               (list :recovery-session
                     :version 1
-                    :conversation-id session-id
-                    :rendered-sequence 41
+                    :conversation-id        session-id
+                    :rendered-sequence      41
                     :history-floor-sequence invalid-floor))
              (platform-setenv pointer-name (namestring session-pathname))
              (test-assert
@@ -429,7 +428,7 @@ exit 64
       (recovery-tests--restore-environment
        crash-pointer-name previous-crash-pointer)
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -451,12 +450,12 @@ exit 64
 (defun recovery-tests--launcher-status-boundary ()
   "Run the stable launcher over a fake SBCL that exits with status 64."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (source-root (asdf:system-source-directory :autolith))
-         (fake-sbcl (merge-pathnames "bin/fake-sbcl" root))
-         (log (merge-pathnames "calls.log" root))
-         (data-home (merge-pathnames "data/" root))
-         (state-home (merge-pathnames "state/" root)))
+         (root          (test-configuration-root configuration))
+         (source-root   (asdf:system-source-directory :autolith))
+         (fake-sbcl     (merge-pathnames "bin/fake-sbcl" root))
+         (log           (merge-pathnames "calls.log" root))
+         (data-home     (merge-pathnames "data/" root))
+         (state-home    (merge-pathnames "state/" root)))
     (unwind-protect
          (progn
            (recovery-tests--write-executable
@@ -480,8 +479,8 @@ exit 64
                       (namestring (merge-pathnames "bin/autolith" source-root))
                       "--from-source")
                 :ignore-error-status t
-                :output nil
-                :error-output nil)
+                :output              nil
+                :error-output        nil)
              (declare (ignore output error-output))
              (test-assert (= status 64)
                           "the stable launcher preserves active status 64"))
@@ -489,19 +488,19 @@ exit 64
             (= (count #\Newline (uiop:read-file-string log)) 1)
             "the stable launcher does not enter recovery for active status 64"))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
 (-> test-recovery-source-failure-reporting () null)
 (defun test-recovery-source-failure-reporting ()
   "Test clean-source recovery reports and refreshes a secondary failure."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (context (recovery-tests--context root))
-         (status 70)
+  (let* ((configuration     (test-configuration))
+         (root              (test-configuration-root configuration))
+         (context           (recovery-tests--context root))
+         (status            70)
          (refreshed-capsule :unset)
-         (capsule "/state/crashes/original.sexp"))
+         (capsule           "/state/crashes/original.sexp"))
     (unwind-protect
          (test-call-with-function-replacements
           (list
@@ -542,23 +541,23 @@ exit 64
                     (eq refreshed-capsule :unset))
                "successful source recovery emits no failure report"))))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
 (-> recovery-tests--jj-source-checkout (pathname) null)
 (defun recovery-tests--jj-source-checkout (root)
   "Exercise an unexported committed parent from a dirty non-colocated workspace."
-  (let* ((source (merge-pathnames "jj-source/" root))
-         (worktrees (merge-pathnames "jj-checkouts/" root))
-         (state (merge-pathnames "jj-state/" root))
-         (marker (merge-pathnames "fixture.txt" source))
+  (let* ((source     (merge-pathnames "jj-source/" root))
+         (worktrees  (merge-pathnames "jj-checkouts/" root))
+         (state      (merge-pathnames "jj-state/" root))
+         (marker     (merge-pathnames "fixture.txt" source))
          (executable (merge-pathnames "fixture.sh" source))
-         (link (merge-pathnames "fixture-link" source))
-         (context (make-instance 'recovery-context
-                                :source-root source :worktree-root worktrees
-                                :generation-root worktrees :state-root state
-                                :current-pathname (merge-pathnames "current.sexp" state))))
+         (link       (merge-pathnames "fixture-link" source))
+         (context    (make-instance 'recovery-context
+                                   :source-root source :worktree-root worktrees
+                                   :generation-root worktrees :state-root state
+                                   :current-pathname (merge-pathnames "current.sexp" state))))
     (uiop:run-program (list "jj" "git" "init" "--no-colocate" (namestring source))
                       :output ':string :error-output ':string)
     (recovery-tests--write-form marker :committed)
@@ -568,14 +567,14 @@ exit 64
     (with-test-fixture (':symbolic-links "jj checkout symbolic links")
       (test-fixture-make-symbolic-link *platform* "fixture.txt" (namestring link)))
     (recovery-jj-output source '("new" "-m" "dirty recovery fixture"))
-    (let* ((commit (recovery-source-commit context))
+    (let* ((commit    (recovery-source-commit context))
            (operation (recovery-jj-output source '("--ignore-working-copy" "op" "log"
                                                    "--no-graph" "--limit" "1" "-T" "id"))))
       ;; Leave this edit unsnapshotted: recovery must not update the source repo.
       (recovery-tests--write-form marker :dirty)
       (test-assert (not (probe-file (merge-pathnames ".git/" source)))
                    "fixture has jj metadata without a Git worktree")
-      (let* ((checkout (recovery-source-checkout context commit "fixture"))
+      (let* ((checkout       (recovery-source-checkout context commit "fixture"))
              (private-marker (merge-pathnames "fixture.txt" checkout)))
         (test-assert (recovery-source-checkout-valid-p checkout commit)
                      "unexported parent yields a validated isolated checkout")
@@ -583,7 +582,7 @@ exit 64
                      "source fallback excludes uncommitted workspace edits")
         (with-test-fixture (':file-modes "jj checkout executable modes")
           (test-assert (logtest #o111 (test-fixture-file-mode
-                                     *platform* (merge-pathnames "fixture.sh" checkout)))
+                                       *platform* (merge-pathnames "fixture.sh" checkout)))
                        "isolated checkout preserves executable modes"))
         (with-test-fixture (':symbolic-links "jj checkout symbolic links")
           (let ((private-link (merge-pathnames "fixture-link" checkout)))
@@ -613,19 +612,19 @@ exit 64
 (-> test-recovery-generation-revision-boundary () null)
 (defun test-recovery-generation-revision-boundary ()
   "Test automatic recovery revision matching and explicit rollback exceptions."
-  (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (context (recovery-tests--context root))
+  (let* ((configuration  (test-configuration))
+         (root           (test-configuration-root configuration))
+         (context        (recovery-tests--context root))
          (current-commit "1111111111111111111111111111111111111111")
-         (stale-commit "2222222222222222222222222222222222222222")
+         (stale-commit   "2222222222222222222222222222222222222222")
          (stale
            (recovery-tests--generation root "stale" stale-commit 30))
          (current-a
            (recovery-tests--generation root "current-a" current-commit 20))
          (current-b
            (recovery-tests--generation root "current-b" current-commit 10))
-         (selected stale)
-         (generations (list stale current-a current-b)))
+         (selected       stale)
+         (generations    (list stale current-a current-b)))
     (unwind-protect
          (let ((*error-output* (make-broadcast-stream)))
            (when (recovery-jj-p (asdf:system-source-directory :autolith))
@@ -701,9 +700,9 @@ exit 64
                (null
                 (recovery-automatic-source-commit context nil nil))
                "manual recovery without a status preserves explicit selection")))
-           (let ((selection-source :unset)
-                 (boot-source :unset)
-                 (source-arguments :unset)
+           (let ((selection-source   :unset)
+                 (boot-source        :unset)
+                 (source-arguments   :unset)
                  (selection-called-p nil))
              (test-call-with-function-replacements
               (list
@@ -791,7 +790,7 @@ exit 64
                  (and (not selection-called-p)
                       (null boot-source))
                  "explicit generation selection bypasses automatic revision policy"))))
-           (let ((booted nil)
+           (let ((booted      nil)
                  (generations (list stale current-a current-b)))
              (test-call-with-function-replacements
               (list
@@ -834,7 +833,7 @@ exit 64
                  (equal (nreverse booted) '("current-a" "current-b"))
                  "retained fallback never tries a cross-revision generation")))))
       (platform-delete-directory-tree *platform* root
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
 
@@ -842,16 +841,16 @@ exit 64
   "Copy nested object bytes independently while retaining existing objects."
   (with-test-configuration (configuration root)
     (declare (ignore configuration))
-    (let* ((source (merge-pathnames "source-objects/" root))
+    (let* ((source      (merge-pathnames "source-objects/" root))
            (destination (merge-pathnames "private-objects/" root))
            (object-name "ab/0123456789abcdef")
-           (pack-name "pack/existing.pack")
-           (bytes #(0 255 13 10 128 1)))
+           (pack-name   "pack/existing.pack")
+           (bytes       #(0 255 13 10 128 1)))
       (labels ((write-octets (file octets &optional (if-exists ':supersede))
                  (ensure-directories-exist file)
-                 (with-open-file (stream file :direction ':output
+                 (with-open-file (stream file :direction    ':output
                                               :element-type '(unsigned-byte 8)
-                                              :if-exists if-exists)
+                                              :if-exists    if-exists)
                    (write-sequence octets stream)))
 
                (read-octets (file)

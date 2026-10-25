@@ -5,35 +5,35 @@
 (-> conversation-replay-tests--session () conversation-replay-session)
 (defun conversation-replay-tests--session ()
   "Return deterministic replay navigation state spanning two local dates."
-  (let* ((first-time (encode-universal-time 0 0 9 27 8 2026))
+  (let* ((first-time  (encode-universal-time 0 0 9 27 8 2026))
          (second-time (encode-universal-time 0 30 10 28 8 2026))
          (conversation
            (make-instance 'conversation
-                          :identifier "replay-test"
+                          :identifier       "replay-test"
                           :prompt-cache-key "replay-test"
-                          :pathname #p"/tmp/replay-test.sexp"
-                          :log-pathname #p"/tmp/replay-test.sexp"
-                          :persisted-p nil
-                          :created-at first-time
-                          :next-sequence 1
-                          :input-items nil))
+                          :pathname         #p"/tmp/replay-test.sexp"
+                          :log-pathname     #p"/tmp/replay-test.sexp"
+                          :persisted-p      nil
+                          :created-at       first-time
+                          :next-sequence    1
+                          :input-items      nil))
          (records
            (vector
             (make-instance 'conversation-replay-record
                            :record (list ':message :seq 10 :time first-time
                                          :role ':user :content "first")
-                           :turn 1)
+                           :turn   1)
             (make-instance 'conversation-replay-record
                            :record (list ':assistant :seq 11 :time (1+ first-time)
                                          :content "answer")
-                           :turn 1)
+                           :turn   1)
             (make-instance 'conversation-replay-record
                            :record (list ':message :seq 20 :time second-time
                                          :role ':user :content "second")
-                           :turn 2))))
+                           :turn   2))))
     (make-instance 'conversation-replay-session
                    :conversation conversation
-                   :records records)))
+                   :records      records)))
 
 (-> test-conversation-replay-navigation () null)
 (defun test-conversation-replay-navigation ()
@@ -95,70 +95,70 @@
           (string= (getf (rest projected) :content) "projected answer")
           (< (length (prin1-to-string projected)) 200))
      "provider replay stores only bounded visible assistant content"))
+  (test-assert
+   (null
+    (conversation-replay-project-record
+     (list ':native-compaction
+           :seq       8
+           :time      101
+           :wire-json (make-string 10000 :initial-element #\x))))
+   "opaque native compaction payloads are omitted from replay projection")
+  (let ((projected
+          (conversation-replay-project-record
+           (list ':native-compaction
+                 :seq         9
+                 :time        101
+                 :through-seq 8
+                 :family      ':codex
+                 :wire-json   (make-string 10000 :initial-element #\x)
+                 :summary     "portable handoff"))))
     (test-assert
-     (null
-      (conversation-replay-project-record
-       (list ':native-compaction
-             :seq 8
-             :time 101
-             :wire-json (make-string 10000 :initial-element #\x))))
-     "opaque native compaction payloads are omitted from replay projection")
-    (let ((projected
-            (conversation-replay-project-record
-             (list ':native-compaction
-                   :seq 9
-                   :time 101
-                   :through-seq 8
-                   :family ':codex
-                   :wire-json (make-string 10000 :initial-element #\x)
-                   :summary "portable handoff"))))
+     (and (equal projected
+                 '(:summary :seq 9 :time 101 :through-seq 8
+                   :content "portable handoff"))
+          (< (length (prin1-to-string projected)) 200))
+     "native compaction replays as its portable summary without the opaque item"))
+  (let* ((record
+           (list ':turn-aborted
+                 :seq               12
+                 :time              102
+                 :turn-start-seq    8
+                 :last-complete-seq 11
+                 :reason            ':agent-loop
+                 :condition-type    "AGENT-LOOP-ERROR"
+                 :message           "provider response was malformed"
+                 :request-number    2))
+         (projected (conversation-replay-project-record record))
+         (output    (make-string-output-stream)))
+    (conversation-replay-write-record-body projected output)
+    (let ((rendered (get-output-stream-string output)))
       (test-assert
-       (and (equal projected
-                   '(:summary :seq 9 :time 101 :through-seq 8
-                     :content "portable handoff"))
-            (< (length (prin1-to-string projected)) 200))
-       "native compaction replays as its portable summary without the opaque item"))
-    (let* ((record
-             (list ':turn-aborted
-                   :seq 12
-                   :time 102
-                   :turn-start-seq 8
-                   :last-complete-seq 11
-                   :reason ':agent-loop
-                   :condition-type "AGENT-LOOP-ERROR"
-                   :message "provider response was malformed"
-                   :request-number 2))
-           (projected (conversation-replay-project-record record))
-           (output (make-string-output-stream)))
-      (conversation-replay-write-record-body projected output)
-      (let ((rendered (get-output-stream-string output)))
-        (test-assert
-         (and (equal projected record)
-              (search "durable prefix 8-11 aborted [agent-loop]" rendered)
-              (search "provider request 2" rendered)
-              (search "provider response was malformed" rendered))
-         "replay exposes the recoverable prefix and diagnosis of an aborted turn")))
+       (and (equal projected record)
+            (search "durable prefix 8-11 aborted [agent-loop]" rendered)
+            (search "provider request 2" rendered)
+            (search "provider response was malformed" rendered))
+       "replay exposes the recoverable prefix and diagnosis of an aborted turn")))
   nil)
 
 (-> test-conversation-replay-storage () null)
 (defun test-conversation-replay-storage ()
   "Test standalone replay reads a saved conversation without mutating its files."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
+         (root          (test-configuration-root configuration))
          (conversation
            (conversation-create configuration :identifier "read-only-replay")))
     (unwind-protect
          (progn
            (conversation-append-user-message conversation "inspect me")
-           (let* ((pathname (conversation-log-pathname conversation))
+           (let* ((pathname   (conversation-log-pathname conversation))
                   (write-date (file-write-date pathname))
-                  (length (with-open-file (stream pathname)
-                            (file-length stream)))
-                  (output (make-string-output-stream)))
+                  (length     (with-open-file (stream pathname)
+                                (file-length stream)))
+                  (output     (make-string-output-stream)))
              (conversation-replay-run configuration
                                       "read-only-replay"
                                       nil
-                                      :output output
+                                      :output        output
                                       :interactive-p nil)
              (test-assert
               (and (= write-date (file-write-date pathname))
@@ -190,19 +190,18 @@
      "the replay command starts an immutable selected inspection"))
   nil)
 
-
 (-> test-conversation-fork-storage () null)
 (defun test-conversation-fork-storage ()
   "Test historical forks preserve state, provenance, artifacts, and source files."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (first-image (test-conversation--write-tiny-png
-                       (merge-pathnames "first.png" root)))
-         (second-image (test-conversation--write-tiny-png
-                        (merge-pathnames "second.png" root)))
-         (source (conversation-create configuration
-                                      :identifier "fork-source"
-                                      :prompt-cache-key "source-cache")))
+         (root          (test-configuration-root configuration))
+         (first-image   (test-conversation--write-tiny-png
+                         (merge-pathnames "first.png" root)))
+         (second-image  (test-conversation--write-tiny-png
+                         (merge-pathnames "second.png" root)))
+         (source        (conversation-create configuration
+                                             :identifier       "fork-source"
+                                             :prompt-cache-key "source-cache")))
     (unwind-protect
          (progn
            (conversation-append-user-message
@@ -231,10 +230,10 @@
                     (mapcar #'uiop:read-file-string source-pathnames))
                   (fork
                     (conversation-fork configuration "fork-source"
-                                       :selection '("sequence" "5")
+                                       :selection  '("sequence" "5")
                                        :identifier "fork-target"))
-                  (records (conversation-fork--raw-records fork))
-                  (provenance (first (last records)))
+                  (records        (conversation-fork--raw-records fork))
+                  (provenance     (first (last records)))
                   (artifacts
                     (uiop:directory-files
                      (conversation-image-artifact-root fork))))
@@ -258,7 +257,7 @@
               (handler-case
                   (progn
                     (conversation-fork configuration "fork-source"
-                                       :selection arguments
+                                       :selection  arguments
                                        :identifier "rejected-target")
                     nil)
                 (error ()
@@ -273,11 +272,11 @@
 (defun test-conversation-fork-rejections ()
   "Test generated identities and gapped source rejection without partial targets."
   (let* ((configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (progn
            (let ((source (conversation-create configuration
-                                              :identifier "generated-source"
+                                              :identifier       "generated-source"
                                               :prompt-cache-key "source-cache")))
              (conversation-append-user-message source "one")
              (let ((fork (conversation-fork configuration "generated-source")))
@@ -312,7 +311,7 @@
 (-> test-conversation-fork-command-line () null)
 (defun test-conversation-fork-command-line ()
   "Test the fork command creates an explicit target and resumes it."
-  (let ((fork-call nil)
+  (let ((fork-call  nil)
         (start-call nil))
     (test-call-with-function-replacements
      (list
@@ -321,10 +320,10 @@
               (declare (ignore configuration))
               (setf fork-call (list source selection identifier))
               (make-instance 'conversation
-                             :identifier identifier
+                             :identifier       identifier
                              :prompt-cache-key "fork-cache"
-                             :pathname #P"/tmp/cli-fork.sexp"
-                             :log-pathname #P"/tmp/cli-fork.sexp"
+                             :pathname         #P"/tmp/cli-fork.sexp"
+                             :log-pathname     #P"/tmp/cli-fork.sexp"
                              :persisted-p t :created-at 1
                              :next-sequence 1 :input-items nil)))
       (list 'main--start-session

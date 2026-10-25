@@ -27,7 +27,7 @@
                       (format nil "first row~%second row is too long") 25)
                      (format nil "first row~%... [truncated]"))
             "mutable context bounds only at complete row boundaries")
-           (let ((prompt (system-prompt configuration))
+           (let ((prompt  (system-prompt configuration))
                  (context (request-context-session-state configuration)))
              (prompt-tests--contains prompt "You are Autolith"
                                      "the rendered prompt keeps the Autolith identity")
@@ -94,10 +94,9 @@
               "SIMPLE TECHNICAL ENGLISH MODE IS ACTIVE"
               "STE guidance rides in mutable context")))
       (platform-delete-directory-tree *platform* (test-configuration-root configuration)
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)
-
 
 (-> test-request-context-agenda-selection () null)
 (defun test-request-context-agenda-selection ()
@@ -125,13 +124,13 @@
               (not (search "completed-history-marker" lines))
               "request context omits completed agenda history"))
            (let* ((*request-context-agenda-limit* 96)
-                  (context (request-context--config configuration))
-                  (agenda (gethash ':agenda context)))
+                  (context                        (request-context--config configuration))
+                  (agenda                         (gethash ':agenda context)))
              (test-assert
               (and (<= (length agenda) *request-context-agenda-limit*)
                    (search *system-prompt-context-truncation-marker* agenda))
               "active agenda rendering obeys the complete-line context bound")))
       (platform-delete-directory-tree *platform* (test-configuration-root configuration)
-                                      :validate t
+                                      :validate          t
                                       :if-does-not-exist ':ignore)))
   nil)

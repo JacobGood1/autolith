@@ -46,19 +46,19 @@
 (defun fireworks-provider-test--credential-source ()
   "Test the Fireworks environment credential source without network access."
   (let* ((configuration (fireworks-provider-test--configuration))
-         (root (test-configuration-root configuration))
-         (manager (fireworks-credential-manager-create configuration))
-         (saved (uiop:getenv "FIREWORKS_API_KEY")))
+         (root          (test-configuration-root configuration))
+         (manager       (fireworks-credential-manager-create configuration))
+         (saved         (uiop:getenv "FIREWORKS_API_KEY")))
     (unwind-protect
          (progn
            (credential-source-save
             (credential-manager-primary-source manager)
             (make-instance 'oauth-credentials
-                           :access-token "saved-fireworks-key"
+                           :access-token  "saved-fireworks-key"
                            :refresh-token nil
-                           :id-token nil
-                           :account-id "fireworks"
-                           :expires-at nil
+                           :id-token      nil
+                           :account-id    "fireworks"
+                           :expires-at    nil
                            :source-path
                            (configuration-fireworks-auth-path configuration)))
            (platform-setenv "FIREWORKS_API_KEY" "environment-key-a")
@@ -77,12 +77,11 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
-
 (-> fireworks-provider-test--request-shape () null)
 (defun fireworks-provider-test--request-shape ()
   "Test Fireworks-specific Responses request controls."
   (let* ((configuration (fireworks-provider-test--configuration))
-         (root (test-configuration-root configuration)))
+         (root          (test-configuration-root configuration)))
     (unwind-protect
          (let* ((conversation
                   (conversation-create configuration :identifier "fireworks-shape"))
@@ -106,7 +105,7 @@
                        (string= (or (json-get item "type") "")
                                 "additional_tools"))
                      (json-get request "input"))
-              "Fireworks requests omit Responses Lite additional tools")))
+             "Fireworks requests omit Responses Lite additional tools")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
@@ -131,7 +130,6 @@
                           "reasoning-free models omit the reasoning object")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
-
 
 (-> fireworks-provider-test--inherited-terminal-routing () null)
 (defun fireworks-provider-test--inherited-terminal-routing ()

@@ -8,7 +8,7 @@
   (api-key-credential-manager-save-key
    (api-key-credential-manager-create
     :provider-name provider-name
-    :pathname (configuration-api-keys-path configuration))
+    :pathname      (configuration-api-keys-path configuration))
    api-key))
 
 (-> openai-compatible-provider-tests--call-with-input
@@ -22,26 +22,26 @@
 (defun test-openai-compatible-provider-tool-schemas ()
   "Project built-in tools at the request boundary without relaxing local validation."
   (with-test-configuration (configuration)
-    (let* ((provider (openai-compatible-provider-create
-                      configuration :name "chat-schema-fixture" :family ':fixture))
-           (registry (make-default-tool-registry :configuration configuration))
+    (let* ((provider     (openai-compatible-provider-create
+                          configuration :name "chat-schema-fixture" :family ':fixture))
+           (registry     (make-default-tool-registry :configuration configuration))
            (conversation (conversation-create configuration))
-           (search-tool (tool-registry-find registry "search" "content"))
-           (canonical (json-encode (tool-parameters search-tool)))
-           (context (make-instance 'tool-context
-                                   :configuration configuration
-                                   :conversation conversation
-                                   :registry registry
-                                   :worker nil))
+           (search-tool  (tool-registry-find registry "search" "content"))
+           (canonical    (json-encode (tool-parameters search-tool)))
+           (context      (make-instance 'tool-context
+                                        :configuration configuration
+                                        :conversation  conversation
+                                        :registry      registry
+                                        :worker        nil))
            (request
              (json-decode
               (json-encode
                (provider-request-object provider conversation
                                         (tool-registry-provider-schemas registry)))))
-           (tools (json-get request "tools"))
+           (tools        (json-get request "tools"))
            (search-function
              (find (openai-compatible--wire-tool-name "search" "content") tools
-                   :key (lambda (tool) (json-get (json-get tool "function") "name"))
+                   :key  (lambda (tool) (json-get (json-get tool "function") "name"))
                    :test #'string=)))
       (test-assert
        (and (plusp (length tools))
@@ -92,23 +92,23 @@
 (-> test-openai-compatible-provider-bootstrap () null)
 (defun test-openai-compatible-provider-bootstrap ()
   "Test deferred startup validation for user-defined model metadata."
-  (let* ((registry-snapshot (provider--registry-snapshot))
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (model "bootstrap/chat-model")
-         (old-environment-model (uiop:getenv "AUTOLITH_MODEL"))
+  (let* ((registry-snapshot      (provider--registry-snapshot))
+         (configuration          (test-configuration))
+         (root                   (test-configuration-root configuration))
+         (model                  "bootstrap/chat-model")
+         (old-environment-model  (uiop:getenv "AUTOLITH_MODEL"))
          (old-environment-effort (uiop:getenv "AUTOLITH_REASONING_EFFORT")))
     (unwind-protect
          (progn
            (preferences-store configuration :model model)
            (preferences-store configuration :reasoning-effort "minimal")
            (register-openai-compatible-provider
-            :name "bootstrap-openai"
+            :name     "bootstrap-openai"
             :endpoint "https://provider.invalid/v1/chat/completions"
             :models
-            '((:name "bootstrap/chat-model"
+            '((:name              "bootstrap/chat-model"
                :reasoning-efforts ("minimal")))
-            :source ':runtime)
+            :source   ':runtime)
            (let ((selected (preferences-tests--create configuration)))
              (test-assert
               (and (string= (config :model selected) model)
@@ -172,15 +172,15 @@
 (-> test-openai-compatible-provider-deferred-main-validation () null)
 (defun test-openai-compatible-provider-deferred-main-validation ()
   "Test main startup defers validation until registered providers are available."
-  (let ((model "main-bootstrap/model")
-        (old-environment-model (uiop:getenv "AUTOLITH_MODEL"))
+  (let ((model                  "main-bootstrap/model")
+        (old-environment-model  (uiop:getenv "AUTOLITH_MODEL"))
         (old-environment-effort (uiop:getenv "AUTOLITH_REASONING_EFFORT")))
     (unwind-protect
          (progn
            (platform-setenv "AUTOLITH_MODEL" model)
            (platform-setenv "AUTOLITH_REASONING_EFFORT" "minimal")
            (let ((observed-configuration nil)
-                 (*active-application* nil))
+                 (*active-application*   nil))
              (test-call-with-function-replacements
               (list
                (list 'localgroup-handoff-selection
@@ -245,11 +245,11 @@
 (-> test-openai-compatible-provider-bare-auth-selection () null)
 (defun test-openai-compatible-provider-bare-auth-selection ()
   "Test bare authentication selects the persisted registered provider."
-  (let* ((registry-snapshot (provider--registry-snapshot))
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (model "bare-auth/model")
-         (old-environment-model (uiop:getenv "AUTOLITH_MODEL"))
+  (let* ((registry-snapshot      (provider--registry-snapshot))
+         (configuration          (test-configuration))
+         (root                   (test-configuration-root configuration))
+         (model                  "bare-auth/model")
+         (old-environment-model  (uiop:getenv "AUTOLITH_MODEL"))
          (old-environment-effort (uiop:getenv "AUTOLITH_REASONING_EFFORT")))
     (unwind-protect
          (progn
@@ -258,21 +258,21 @@
            (preferences-store configuration :model model)
            (preferences-store configuration :reasoning-effort "minimal")
            (let ((authentication-calls nil)
-                 (live-application (make-instance 'application))
-                 (reconnect-called-p nil)
-                 (create #'configuration-create))
+                 (live-application     (make-instance 'application))
+                 (reconnect-called-p   nil)
+                 (create               #'configuration-create))
              (test-call-with-function-replacements
               (list
                (list 'configuration-create
                      (lambda (&rest arguments)
                        (apply create
-                              :source-root (config :source-root configuration)
+                              :source-root       (config :source-root configuration)
                               :working-directory (config :working-directory configuration)
-                              :config-root (config :config-root configuration)
-                              :data-root (config :data-root configuration)
-                              :state-root (config :state-root configuration)
-                              :cache-root (config :cache-root configuration)
-                              :codex-auth-path (config :codex-auth-path configuration)
+                              :config-root       (config :config-root configuration)
+                              :data-root         (config :data-root configuration)
+                              :state-root        (config :state-root configuration)
+                              :cache-root        (config :cache-root configuration)
+                              :codex-auth-path   (config :codex-auth-path configuration)
                               arguments)))
                (list 'localgroup-handoff-selection
                      (lambda (configuration arguments)
@@ -290,10 +290,10 @@
                      (lambda (configuration)
                        (declare (ignore configuration))
                        (register-openai-compatible-provider
-                        :name "bare-auth"
+                        :name     "bare-auth"
                         :endpoint "https://provider.invalid/v1/chat/completions"
                         :models
-                        '((:name "bare-auth/model"
+                        '((:name              "bare-auth/model"
                            :reasoning-efforts ("minimal"))))
                        nil))
                (list 'main-authenticate
@@ -353,16 +353,16 @@
 (defun test-openai-compatible-provider-discovery-is-on-demand ()
   "Test startup uses cached metadata and leaves remote discovery to /models."
   (let* ((registry-snapshot (provider--registry-snapshot))
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (original-get (symbol-function 'dexador:get))
-         (request-count 0)
-         (response-body "{\"data\":[{\"id\":\"on-demand/model\"}]}"))
+         (configuration     (test-configuration))
+         (root              (test-configuration-root configuration))
+         (original-get      (symbol-function 'dexador:get))
+         (request-count     0)
+         (response-body     "{\"data\":[{\"id\":\"on-demand/model\"}]}"))
     (unwind-protect
          (progn
            (register-openai-compatible-provider
-            :name "on-demand-test"
-            :endpoint "https://provider.invalid/v1/chat/completions"
+            :name            "on-demand-test"
+            :endpoint        "https://provider.invalid/v1/chat/completions"
             :models-endpoint "https://provider.invalid/v1/models")
            (openai-compatible-provider-tests--save-key
             configuration "on-demand-test" "synthetic-discovery-key")
@@ -387,8 +387,8 @@
             "successful discovery writes the private model cache")
            (unregister-provider "on-demand-test" :source ':runtime)
            (register-openai-compatible-provider
-            :name "on-demand-test"
-            :endpoint "https://provider.invalid/v1/chat/completions"
+            :name            "on-demand-test"
+            :endpoint        "https://provider.invalid/v1/chat/completions"
             :models-endpoint "https://provider.invalid/v1/models")
            (provider-bootstrap-configuration configuration)
            (test-assert
@@ -407,12 +407,12 @@
 (defun test-openai-compatible-provider-model-cache-boundary ()
   "Test the model cache persists dynamic metadata without retired static entries."
   (let* ((registry-snapshot (provider--registry-snapshot))
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (original-get (symbol-function 'dexador:get))
-         (provider-name "cache-boundary-test")
-         (endpoint "https://provider.invalid/v1/chat/completions")
-         (models-endpoint "https://provider.invalid/v1/models"))
+         (configuration     (test-configuration))
+         (root              (test-configuration-root configuration))
+         (original-get      (symbol-function 'dexador:get))
+         (provider-name     "cache-boundary-test")
+         (endpoint          "https://provider.invalid/v1/chat/completions")
+         (models-endpoint   "https://provider.invalid/v1/models"))
     (labels ((registration-models ()
                "Return the effective model identifiers for the test provider."
                (mapcar #'provider-model-name
@@ -422,10 +422,10 @@
              (register (&optional models)
                "Register the test provider with optional static MODELS."
                (register-openai-compatible-provider
-                :name provider-name
-                :endpoint endpoint
+                :name            provider-name
+                :endpoint        endpoint
                 :models-endpoint models-endpoint
-                :models models)))
+                :models          models)))
       (unwind-protect
            (progn
              (register '("cache/static"))
@@ -467,44 +467,44 @@
 (defun test-openai-compatible-provider-discovery ()
   "Test OpenAI-compatible model discovery, failures, and interrupts."
   (let* ((registry-snapshot (provider--registry-snapshot))
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration))
-         (original-get (symbol-function 'dexador:get))
-           (response-body
-             "{\"data\":[{\"id\":\"dynamic/model-a\",\"context_length\":128000},{\"id\":\"dynamic/model-b\",\"max_context_length\":64000}]}")
-         (response-status 200)
-         (response-error-p nil)
-         (observed-url nil)
-         (observed-headers nil))
+         (configuration     (test-configuration))
+         (root              (test-configuration-root configuration))
+         (original-get      (symbol-function 'dexador:get))
+         (response-body
+           "{\"data\":[{\"id\":\"dynamic/model-a\",\"context_length\":128000},{\"id\":\"dynamic/model-b\",\"max_context_length\":64000}]}")
+         (response-status   200)
+         (response-error-p  nil)
+         (observed-url      nil)
+         (observed-headers  nil))
     (unwind-protect
          (progn
            (register-openai-compatible-provider
-            :name "dynamic-test"
-            :endpoint "https://provider.invalid/v1/chat/completions"
+            :name            "dynamic-test"
+            :endpoint        "https://provider.invalid/v1/chat/completions"
             :models-endpoint "https://provider.invalid/v1/models"
             :models
-            '((:name "dynamic/model-a"
-               :description "Preferred dynamic model"
-               :context-window 456789
+            '((:name              "dynamic/model-a"
+               :description       "Preferred dynamic model"
+               :context-window    456789
                :reasoning-efforts ("low"))))
            (register-openai-compatible-provider
-            :name "dynamic-only"
-            :endpoint "https://provider.invalid/v1/chat/completions"
+            :name            "dynamic-only"
+            :endpoint        "https://provider.invalid/v1/chat/completions"
             :models-endpoint "https://provider.invalid/v1/models")
            (openai-compatible-provider-tests--save-key
             configuration "dynamic-test" "synthetic-discovery-key")
            (openai-compatible-provider-tests--save-key
             configuration "dynamic-only" "synthetic-discovery-key")
-            (setf (symbol-function 'dexador:get)
-                  (lambda (url &rest arguments)
-                    (setf observed-url url
-                          observed-headers (getf arguments :headers))
-                    (cond
-                      ((eq response-error-p ':interrupt)
-                       (error 'test-provider-model-discovery-interrupt))
-                      (response-error-p
-                       (error "Synthetic model discovery transport failure.")))
-                    (values response-body response-status nil nil)))
+           (setf (symbol-function 'dexador:get)
+                 (lambda (url &rest arguments)
+                   (setf observed-url url
+                         observed-headers (getf arguments :headers))
+                   (cond
+                     ((eq response-error-p ':interrupt)
+                      (error 'test-provider-model-discovery-interrupt))
+                     (response-error-p
+                      (error "Synthetic model discovery transport failure.")))
+                   (values response-body response-status nil nil)))
            (let ((failures
                    (provider-refresh-models
                     configuration
@@ -528,18 +528,18 @@
                            (provider-model-identifiers)
                            :test #'string=))
               "discovered model identifiers enter the registry")
-               (let ((metadata (provider-model-for "dynamic/model-a"))
-                     (discovered (provider-model-for "dynamic/model-b")))
-                 (test-assert
-                  (and (= (provider-model-context-window metadata) 456789)
-                       (string= (provider-model-description metadata)
-                                "Preferred dynamic model")
-                       (equal (provider-model-reasoning-efforts metadata)
-                              '("low")))
-                  "static model metadata overrides discovered defaults")
-                 (test-assert
-                  (= (provider-model-context-window discovered) 64000)
-                  "discovered models use the catalog context window")))
+             (let ((metadata   (provider-model-for "dynamic/model-a"))
+                   (discovered (provider-model-for "dynamic/model-b")))
+               (test-assert
+                (and (= (provider-model-context-window metadata) 456789)
+                     (string= (provider-model-description metadata)
+                              "Preferred dynamic model")
+                     (equal (provider-model-reasoning-efforts metadata)
+                            '("low")))
+                "static model metadata overrides discovered defaults")
+               (test-assert
+                (= (provider-model-context-window discovered) 64000)
+                "discovered models use the catalog context window")))
            (let ((failures
                    (provider-refresh-models
                     configuration
@@ -617,27 +617,27 @@
                            (provider-model-identifiers)
                            :test #'string=))
               "model discovery failures retain the last successful model list")))
-            (setf response-error-p t)
-            (let ((failures
-                    (provider-refresh-models
-                     configuration
-                     :provider-name "dynamic-test")))
-              (test-assert
-               (and (= (length failures) 1)
-                    (typep (first failures)
-                           'provider-model-discovery-error))
-               "model discovery normalizes dependency transport failures"))
-            (setf response-error-p ':interrupt)
-            (test-assert
-             (handler-case
-                 (progn
-                   (provider-refresh-models
-                    configuration
-                    :provider-name "dynamic-test")
-                   nil)
-               (test-provider-model-discovery-interrupt ()
-                 t))
-             "model discovery does not swallow non-error interrupts")
+         (setf response-error-p t)
+         (let ((failures
+                 (provider-refresh-models
+                  configuration
+                  :provider-name "dynamic-test")))
+           (test-assert
+            (and (= (length failures) 1)
+                 (typep (first failures)
+                        'provider-model-discovery-error))
+            "model discovery normalizes dependency transport failures"))
+         (setf response-error-p ':interrupt)
+         (test-assert
+          (handler-case
+              (progn
+                (provider-refresh-models
+                 configuration
+                 :provider-name "dynamic-test")
+                nil)
+            (test-provider-model-discovery-interrupt ()
+              t))
+          "model discovery does not swallow non-error interrupts")
       (setf (symbol-function 'dexador:get) original-get)
       (provider--registry-restore registry-snapshot)
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
@@ -647,17 +647,17 @@
 (defun test-openai-compatible-provider-registration-identity ()
   "Test reload validation distinguishes user providers from built-ins by source."
   (let* ((registry-snapshot (provider--registry-snapshot))
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (configuration     (test-configuration))
+         (root              (test-configuration-root configuration)))
     (unwind-protect
          (let ((provider (provider-create configuration)))
            (flet ((register-layer (source model)
                     "Register one provider layer for source-precedence testing."
                     (let ((*extension-registration-source* source))
                       (register-openai-compatible-provider
-                       :name "layered-openai"
+                       :name     "layered-openai"
                        :endpoint "https://provider.invalid/v1/chat/completions"
-                       :models (list model)))))
+                       :models   (list model)))))
              (register-layer ':builtin "builtin/model")
              (register-layer ':site "site/model")
              (register-layer ':user "user/model")
@@ -683,10 +683,10 @@
                  (unregister-provider "layered-openai"
                                       :source (first case)))))
            (register-openai-compatible-provider
-            :name "chatgpt"
+            :name     "chatgpt"
             :endpoint "https://provider.invalid/v1/chat/completions"
-            :models '((:name "gpt-5.6-sol"))
-            :source ':user)
+            :models   '((:name "gpt-5.6-sol"))
+            :source   ':user)
            (test-assert
             (handler-case
                 (progn
@@ -703,13 +703,13 @@
 (defun test-openai-compatible-provider-authentication-bootstrap ()
   "Test named authentication refreshes dynamic models after saving an API key."
   (let* ((registry-snapshot (provider--registry-snapshot))
-         (configuration (test-configuration))
-         (root (test-configuration-root configuration)))
+         (configuration     (test-configuration))
+         (root              (test-configuration-root configuration)))
     (unwind-protect
          (progn
            (register-openai-compatible-provider
-            :name "bootstrap-auth"
-            :endpoint "https://provider.invalid/v1/chat/completions"
+            :name            "bootstrap-auth"
+            :endpoint        "https://provider.invalid/v1/chat/completions"
             :models-endpoint "https://provider.invalid/v1/models")
            (let* ((provider
                     (provider-authentication-provider
@@ -735,11 +735,11 @@
                                   (json-object "id" "bootstrap-auth/live-model"))))
                                200 nil))))
                      (lambda ()
-                       (let ((*standard-input* input)
-                             (*standard-output* output)
+                       (let ((*standard-input*                input)
+                             (*standard-output*               output)
                              (*api-key-input-file-descriptor* -1))
                          (provider-authenticate provider
-                                                :stream output
+                                                :stream         output
                                                 :open-browser-p nil))))))
              (test-assert
               (typep provider 'openai-compatible-provider)
@@ -776,10 +776,10 @@
                         (let ((*standard-input*
                                 (make-string-input-stream
                                  (format nil "replacement-key~%")))
-                              (*standard-output* output)
+                              (*standard-output*               output)
                               (*api-key-input-file-descriptor* -1))
                           (provider-authenticate provider
-                                                 :stream output
+                                                 :stream         output
                                                  :open-browser-p nil))))))
                (test-assert
                 (and (search "API key was saved" failure-message)
@@ -799,7 +799,7 @@
 (-> test-provider-sse-bounds () null)
 (defun test-provider-sse-bounds ()
   "Test SSE line and joined-event bounds at and above their limits."
-  (let ((*sse-maximum-line-characters* 7)
+  (let ((*sse-maximum-line-characters*  7)
         (*sse-maximum-event-characters* 16))
     (test-assert
      (string= (read-sse-data
@@ -814,7 +814,7 @@
            nil)
        (response-stream-error () t))
      "an SSE line above the configured limit is rejected"))
-  (let ((*sse-maximum-line-characters* 32)
+  (let ((*sse-maximum-line-characters*  32)
         (*sse-maximum-event-characters* 3))
     (test-assert
      (string= (read-sse-data
@@ -835,14 +835,12 @@
   nil)
 
 (-> test-openai-compatible-provider () null)
-
-
 (defun test-openai-compatible-provider ()
   "Test registration, request projection, authentication, and stream decoding."
   (let ((registry-snapshot (provider--registry-snapshot))
-        (configuration nil)
-        (root nil)
-        (key (make-string 12 :initial-element #\LATIN_SMALL_LETTER_K)))
+        (configuration     nil)
+        (root              nil)
+        (key               (make-string 12 :initial-element #\LATIN_SMALL_LETTER_K)))
     (unwind-protect
         (progn
          (register-openai-compatible-provider :name "test-openai" :description
@@ -865,17 +863,17 @@
             "API keys are persisted in the private provider-key store")
            (test-assert (test-fixture-permissions-p *platform* pathname ':private-file)
             "the provider-key store is private to the user"))
-         (let* ((model "test/chat-model")
+         (let* ((model             "test/chat-model")
                 ;; Select the model from an effort it does not offer so the
                 ;; selection has to fall back to the registered efforts.
                 (provider-configuration
                   (configuration-copy
                    (configuration-copy configuration :reasoning-effort "ultra")
                    :model model))
-                (provider (provider-create provider-configuration))
-                (registration (provider-registration-find "test-openai"))
-                (metadata (provider-model-for model))
-                (astra-model (provider-model-for "gpt-6-astra"))
+                (provider          (provider-create provider-configuration))
+                (registration      (provider-registration-find "test-openai"))
+                (metadata          (provider-model-for model))
+                (astra-model       (provider-model-for "gpt-6-astra"))
                 (built-in-models
                  (append
                   (list "gpt-6.1-sol" "gpt-6-astra" "gpt-6-sol" "gpt-6-luna"
@@ -886,7 +884,7 @@
                         "accounts/fireworks/models/qwen3p7-plus" "claude-opus-5"
                         "claude-sonnet-5" "claude-haiku-4-5-20251001")))
                 (model-identifiers (provider-model-identifiers))
-                (model-position (position model model-identifiers :test #'string=)))
+                (model-position    (position model model-identifiers :test #'string=)))
            (test-assert
             (and model-position
                  (equal built-in-models
@@ -898,19 +896,19 @@
                  (equal (provider-model-reasoning-efforts astra-model)
                         '("low" "medium" "high" "xhigh" "max" "ultra")))
             "ChatGPT exposes gpt-6-astra with current Codex metadata")
-            (dolist (entry '(("gpt-6.1-sol" "low" "medium" "high" "xhigh" "max" "ultra")
-                             ("gpt-6-sol" "low" "medium" "high" "xhigh" "max" "ultra")
-                             ("gpt-6-luna" "low" "medium" "high" "xhigh" "max")))
-              (let* ((name (first entry))
-                     (model-metadata (provider-model-for name))
-                     (model-configuration (configuration-copy configuration :model name)))
-                (test-assert
-                 (and model-metadata
-                      (= (provider-model-context-window model-metadata) 272000)
-                      (equal (provider-model-reasoning-efforts model-metadata) (rest entry))
-                      (eq (provider-family (provider-create model-configuration)) ':codex)
-                      (configuration-codex-fast-mode-available-p model-configuration))
-                 (format nil "~A exposes Codex reasoning, context, and Fast support" name))))
+           (dolist (entry '(("gpt-6.1-sol" "low" "medium" "high" "xhigh" "max" "ultra")
+                            ("gpt-6-sol" "low" "medium" "high" "xhigh" "max" "ultra")
+                            ("gpt-6-luna" "low" "medium" "high" "xhigh" "max")))
+             (let* ((name                (first entry))
+                    (model-metadata      (provider-model-for name))
+                    (model-configuration (configuration-copy configuration :model name)))
+               (test-assert
+                (and model-metadata
+                     (= (provider-model-context-window model-metadata) 272000)
+                     (equal (provider-model-reasoning-efforts model-metadata) (rest entry))
+                     (eq (provider-family (provider-create model-configuration)) ':codex)
+                     (configuration-codex-fast-mode-available-p model-configuration))
+                (format nil "~A exposes Codex reasoning, context, and Fast support" name))))
            (test-assert
             (and registration
                  (string= (provider-registration-description registration)
@@ -1011,11 +1009,11 @@
              (multiple-value-bind (request delivery)
                  (provider-request-object provider conversation tools :goal-context
                                           "keep the active goal" :compaction-p nil)
-               (let* ((messages (json-get request "messages"))
+               (let* ((messages       (json-get request "messages"))
                       (stream-options (json-get request "stream_options"))
-                      (wire-tools (json-get request "tools"))
-                      (wire-tool (aref wire-tools 0))
-                      (wire-function (json-get wire-tool "function")))
+                      (wire-tools     (json-get request "tools"))
+                      (wire-tool      (aref wire-tools 0))
+                      (wire-function  (json-get wire-tool "function")))
                  (test-assert
                   (and (vectorp messages)
                        (search "Read the file" (json-encode messages)))
@@ -1025,9 +1023,9 @@
                        (eq (json-get stream-options "include_usage") t))
                   "Chat Completions requests ask for final streaming usage")
                  (test-assert
-                  (let* ((system-message (aref messages 0))
+                  (let* ((system-message  (aref messages 0))
                          (context-message (aref messages (1- (length messages))))
-                         (system-content (json-get system-message "content"))
+                         (system-content  (json-get system-message "content"))
                          (context-content (json-get context-message "content")))
                     (and delivery (= (length messages) 3)
                          (string= (json-get system-message "role") "system")
@@ -1048,8 +1046,8 @@
                        (not (find #\FULL_STOP (json-get wire-function "name")))
                        (json-object-p (json-get wire-function "parameters")))
                   "namespaced tools use a grammar-safe Chat Completions function wrapper"))))
-           (register-openai-compatible-provider :name "test-openai-no-stream-usage"
-                                                :models '("test/no-stream-usage")
+           (register-openai-compatible-provider :name           "test-openai-no-stream-usage"
+                                                :models         '("test/no-stream-usage")
                                                 :endpoint
                                                 "https://provider.invalid/v1/chat/completions"
                                                 :stream-usage-p nil)
@@ -1073,7 +1071,7 @@
              (conversation-append-user-message conversation "Compact this history.")
              (multiple-value-bind (request delivery)
                  (provider-request-object provider conversation #() :compaction-p t)
-               (let* ((messages (json-get request "messages"))
+               (let* ((messages       (json-get request "messages"))
                       (system-message (aref messages 0)))
                  (test-assert
                   (and (null delivery)
@@ -1096,7 +1094,7 @@
                     (lambda (input)
                       (let ((*standard-input* input) (*standard-output* prompt-output))
                         (provider-authenticate prompt-provider :stream prompt-output
-                                               :open-browser-p nil))))))
+                                               :open-browser-p         nil))))))
              (test-assert
               (and (search "API key was saved" message)
                    (not (search "prompt-key" message))
@@ -1196,25 +1194,25 @@
      (and (equal namespace "fs") (equal name "view-image"))
      "canonical dotted echoes recover their namespace"))
   (let* ((configuration (test-configuration))
-         (registry (make-instance 'tool-registry))
-         (context (make-instance 'tool-context
-                                 :configuration configuration
-                                 :worker nil
-                                 :conversation (conversation-create configuration)
-                                 :registry registry))
-         (parameters (tool-object-schema
-                      (json-object "value" (tool-string-property "Value."))
-                      '("value")))
-         (call (json-object "type" "function_call"
-                            "call_id" "bare-1"
-                            "name" "echo"
-                            "arguments" "{\"value\":\"hi\"}")))
+         (registry      (make-instance 'tool-registry))
+         (context       (make-instance 'tool-context
+                                       :configuration configuration
+                                       :worker        nil
+                                       :conversation  (conversation-create configuration)
+                                       :registry      registry))
+         (parameters    (tool-object-schema
+                         (json-object "value" (tool-string-property "Value."))
+                         '("value")))
+         (call          (json-object "type" "function_call"
+                                     "call_id" "bare-1"
+                                     "name" "echo"
+                                     "arguments" "{\"value\":\"hi\"}")))
     (tool-registry-register
      registry
      (make-instance 'agent-test-echo-tool
                     :namespace "first" :name "echo"
                     :description "Echo a value."
-                    :parameters parameters))
+                    :parameters  parameters))
     (test-assert
      (tool-result-success-p (tool-registry-execute-call registry call context))
      "a unique bare tool name dispatches to its only implementation")
@@ -1223,7 +1221,7 @@
      (make-instance 'agent-test-echo-tool
                     :namespace "second" :name "echo"
                     :description "Echo a value."
-                    :parameters parameters))
+                    :parameters  parameters))
     (let ((result (tool-registry-execute-call registry call context)))
       (test-assert
        (and (not (tool-result-success-p result))
@@ -1244,16 +1242,15 @@
        "an unknown bare tool name fails with its own name")))
   nil)
 
-
 (-> test-openai-api-responses () null)
 (defun test-openai-api-responses ()
   "Exercise public API projection, portable tools, transport, and key lifecycle."
   (let ((snapshot (provider--registry-snapshot)))
     (unwind-protect
          (with-test-configuration (configuration)
-           (let* ((registry (make-default-tool-registry :configuration configuration))
+           (let* ((registry    (make-default-tool-registry :configuration configuration))
                   (search-tool (tool-registry-find registry "search" "content"))
-                  (canonical (json-encode (tool-parameters search-tool))))
+                  (canonical   (json-encode (tool-parameters search-tool))))
              (openai-compatible-provider-tests--save-key configuration "openai-api" "discovery-fixture-key")
              (test-call-with-function-replacements
               (list (list 'dexador:get
@@ -1269,12 +1266,12 @@
                 (test-assert (null (provider-refresh-models configuration :provider-name "openai-api"))
                              "the public API catalog is discovered successfully")))
              (dolist (model '("gpt-4.1" "gpt-6-astra" "gpt-6.1-sol"))
-               (let* ((selected (configuration-copy configuration :model model))
-                      (provider (provider-create selected))
+               (let* ((selected     (configuration-copy configuration :model model))
+                      (provider     (provider-create selected))
                       (conversation (conversation-create selected))
-                      (request (provider-request-object
-                                provider conversation
-                                (tool-registry-provider-schemas registry))))
+                      (request      (provider-request-object
+                                     provider conversation
+                                     (tool-registry-provider-schemas registry))))
                  (test-assert (typep provider 'openai-api-provider)
                               "official models use the API-key Responses adapter")
                  (test-assert
@@ -1287,7 +1284,7 @@
                  (test-assert
                   (every (lambda (tool)
                            (let ((schema (json-get tool "parameters"))
-                                 (name (json-get tool "name")))
+                                 (name   (json-get tool "name")))
                              (and (json-string= (json-get schema "type") "object")
                                   (notany (lambda (key) (gethash key schema))
                                           '("oneOf" "anyOf" "allOf" "enum" "const" "not"))
@@ -1304,9 +1301,9 @@
                                 "compaction uses the public API policy"))
                  (dolist (pair '(("search" "content") ("custom__ns" "some.name")
                                  ("_x000041_" "with space")))
-                   (let* ((wire (provider-wire-tool-name provider (first pair) (second pair)))
-                          (item (json-object "type" "function_call" "name" wire
-                                             "call_id" "codec" "arguments" "{}"))
+                   (let* ((wire    (provider-wire-tool-name provider (first pair) (second pair)))
+                          (item    (json-object "type" "function_call" "name" wire
+                                                "call_id" "codec" "arguments" "{}"))
                           (decoded (provider-normalize-output-item provider item)))
                      (test-assert
                       (and (string= (first pair) (json-get decoded "namespace"))
@@ -1320,21 +1317,21 @@
                          (eq (provider-credential-manager provider)
                              (provider-credential-manager reconfigured)))
                     "reconfiguration preserves the API session and private key manager"))))
-             (let* ((selected (configuration-copy configuration :model "gpt-6-astra"))
-                    (provider (provider-create selected))
+             (let* ((selected     (configuration-copy configuration :model "gpt-6-astra"))
+                    (provider     (provider-create selected))
                     (conversation (conversation-create selected))
-                    (item (json-object "type" "function_call" "id" "server-call"
-                                       "call_id" "api-tool"
-                                       "name" (provider-wire-tool-name provider "search" "content")
-                                       "arguments" "{\"query\":\"fixture\"}"))
-                    (source (concatenate
-                             'string
-                             (test-sse-event-string
-                              (json-object "type" "response.output_item.done" "item" item))
-                             (test-sse-event-string
-                              (json-object "type" "response.completed"
-                                           "response" (json-object "id" "public-response")))))
-                    (requests 0))
+                    (item         (json-object "type" "function_call" "id" "server-call"
+                                               "call_id" "api-tool"
+                                               "name" (provider-wire-tool-name provider "search" "content")
+                                               "arguments" "{\"query\":\"fixture\"}"))
+                    (source       (concatenate
+                                   'string
+                                   (test-sse-event-string
+                                    (json-object "type" "response.output_item.done" "item" item))
+                                   (test-sse-event-string
+                                    (json-object "type" "response.completed"
+                                                 "response" (json-object "id" "public-response")))))
+                    (requests     0))
                (openai-compatible-provider-tests--save-key selected "openai-api" "public-fixture-key")
                (test-call-with-function-replacements
                 (list (list 'provider-post-event-stream
@@ -1354,7 +1351,7 @@
                                   provider conversation
                                   :tool-namespaces (tool-registry-provider-schemas registry)
                                   :event-callback #'identity :force-refresh nil))
-                         (call (first (provider-result-tool-calls result))))
+                         (call   (first (provider-result-tool-calls result))))
                     (test-assert
                      (and (= requests 1)
                           (string= "public-response" (provider-result-response-id result))

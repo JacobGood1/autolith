@@ -69,9 +69,12 @@
   "Compare PATHNAME's permission bits with the exact mode PERMISSIONS names."
   (= (test-fixture-file-mode platform pathname)
      (ecase permissions
-       (:private-file #o600)
-       (:private-directory #o700)
-       (:read-only #o444))))
+       (:private-file
+        #o600)
+       (:private-directory
+        #o700)
+       (:read-only
+        #o444))))
 
 
 ;;;; -- Descriptors and Processes --
@@ -80,12 +83,12 @@
 (defun posix-fixture--descriptor-stream (descriptor direction)
   "Return an unbuffered character stream over DESCRIPTOR in DIRECTION."
   (sb-sys:make-fd-stream descriptor
-                         :input (eq direction ':input)
-                         :output (eq direction ':output)
-                         :element-type 'character
+                         :input           (eq direction ':input)
+                         :output          (eq direction ':output)
+                         :element-type    'character
                          :external-format ':utf-8
-                         :buffering ':none
-                         :auto-close nil))
+                         :buffering       ':none
+                         :auto-close      nil))
 
 (defmethod test-fixture-call-with-descriptor-input ((platform posix-platform)
                                                     content function)
@@ -93,7 +96,7 @@
   (declare (ignore platform))
   (multiple-value-bind (read-descriptor write-descriptor)
       (sb-posix:pipe)
-    (let ((input nil)
+    (let ((input  nil)
           (output nil))
       (unwind-protect
            (progn
@@ -118,7 +121,7 @@
   (let ((buffer
           (make-array
            1
-           :element-type '(unsigned-byte 8)
+           :element-type    '(unsigned-byte 8)
            :initial-element 0)))
     (sb-sys:with-pinned-objects (buffer)
       (sb-posix:read descriptor (sb-sys:vector-sap buffer) 1))))
@@ -129,7 +132,7 @@
   (let ((buffer
           (make-array
            1
-           :element-type '(unsigned-byte 8)
+           :element-type    '(unsigned-byte 8)
            :initial-element 1)))
     (sb-sys:with-pinned-objects (buffer)
       (sb-posix:write descriptor (sb-sys:vector-sap buffer) 1))))
@@ -157,8 +160,8 @@
       (sb-posix:pipe)
     (multiple-value-bind (release-read release-write)
         (sb-posix:pipe)
-      (let ((child-pid (sb-posix:fork))
-            (reaped-p nil)
+      (let ((child-pid    (sb-posix:fork))
+            (reaped-p     nil)
             (clean-exit-p nil))
         (if (zerop child-pid)
             (progn
@@ -201,12 +204,12 @@
   (declare (ignore platform))
   (let ((process (sb-ext:run-program "/bin/sh"
                                      '("-c" "sleep 10")
-                                     :pty t
+                                     :pty  t
                                      :wait nil)))
     (unwind-protect
          (let* ((descriptor (sb-sys:fd-stream-fd (sb-ext:process-pty process)))
-                (original (sb-posix:tcgetattr descriptor))
-                (echo-mode (sb-posix:tcgetattr descriptor)))
+                (original   (sb-posix:tcgetattr descriptor))
+                (echo-mode  (sb-posix:tcgetattr descriptor)))
            (setf (sb-posix:termios-lflag echo-mode)
                  (logior (sb-posix:termios-lflag echo-mode) sb-posix:echo))
            (unwind-protect

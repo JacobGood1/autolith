@@ -50,14 +50,14 @@
 (-> test-acp-mcp-overlay-configuration () null)
 (defun test-acp-mcp-overlay-configuration ()
   "Validate client declarations without starting transports."
-  (let* ((stdio (agentcomms:acp-mcp-server-stdio
-                 "stdio" "echo" :arguments '("hello")
-                 :environment (list (agentcomms:acp-env-variable "TOKEN" "fixture-value"))))
-         (http (agentcomms:acp-mcp-server-http
-                "http" "https://example.invalid/mcp"
-                :headers (list (agentcomms:acp-http-header "Authorization" "fixture-value"))))
+  (let* ((stdio        (agentcomms:acp-mcp-server-stdio
+                        "stdio" "echo" :arguments '("hello")
+                        :environment              (list (agentcomms:acp-env-variable "TOKEN" "fixture-value"))))
+         (http         (agentcomms:acp-mcp-server-http
+                        "http" "https://example.invalid/mcp"
+                        :headers (list (agentcomms:acp-http-header "Authorization" "fixture-value"))))
          (stdio-config (acp-mcp--server stdio nil))
-         (http-config (acp-mcp--server http nil)))
+         (http-config  (acp-mcp--server http nil)))
     (test-assert (typep (mcp-server-configuration-transport stdio-config)
                         'acp-mcp-stdio-transport-configuration)
                  "stdio declarations retain native validated policy")
@@ -77,9 +77,9 @@
   "Merge native/client servers and redact literal credentials at real managed exchanges."
   (with-test-configuration (configuration)
     (let* ((*mcp-server-registrations* nil)
-           (secret "acp-literal-fixture-value")
-           (transports nil)
-           (registry nil)
+           (secret                     "acp-literal-fixture-value")
+           (transports                 nil)
+           (registry                   nil)
            (declarations
             (list (agentcomms:acp-mcp-server-stdio
                    "client-stdio" "stdio-fixture"
@@ -95,10 +95,10 @@
               (lambda (command &rest options)
                 (let ((transport
                        (make-instance 'acp-mcp-test-transport
-                                      :handler (acp-mcp-test--handler
-                                                (if (equal command "native-fixture") "native-result" secret))
+                                      :handler   (acp-mcp-test--handler
+                                                  (if (equal command "native-fixture") "native-result" secret))
                                       :projector (getf options :ingress-projector)
-                                      :bindings (getf options :environment-function))))
+                                      :bindings  (getf options :environment-function))))
                   (push transport transports)
                   transport)))
         (list 'make-mcp-streamable-http-transport
@@ -106,8 +106,8 @@
                 (declare (ignore url))
                 (let ((transport
                        (make-instance 'acp-mcp-test-transport
-                                      :handler (acp-mcp-test--handler secret)
-                                      :scope (getf options :exchange-scope-function)
+                                      :handler  (acp-mcp-test--handler secret)
+                                      :scope    (getf options :exchange-scope-function)
                                       :bindings (getf options :headers-function))))
                   (push transport transports)
                   transport))))
@@ -115,19 +115,19 @@
          (unwind-protect
               (progn
                 (setf registry (acp-mcp-create-tool-registry configuration declarations))
-                (let* ((manager (mcp-tool-registry-manager registry))
-                       (runtimes (mcp-manager-runtimes manager))
+                (let* ((manager      (mcp-tool-registry-manager registry))
+                       (runtimes     (mcp-manager-runtimes manager))
                        (conversation (conversation-create configuration))
-                       (context (test-mcp--context configuration conversation registry)))
+                       (context      (test-mcp--context configuration conversation registry)))
                   (test-assert (= 3 (length runtimes)) "native and client servers share one manager")
                   (test-assert (= 1 (length (mcp-server-registrations)))
                                "client registrations have no global lifetime")
                   (dolist (runtime runtimes)
                     (let* ((tool (find runtime (tool-registry-tools registry)
                                        :test #'eq
-                                       :key (lambda (candidate)
-                                              (and (typep candidate 'mcp-provider-tool)
-                                                   (mcp-provider-tool-runtime candidate)))))
+                                       :key  (lambda (candidate)
+                                               (and (typep candidate 'mcp-provider-tool)
+                                                    (mcp-provider-tool-runtime candidate)))))
                            (result
                             (mcparen:mcp-server-runtime-call
                              runtime
@@ -174,7 +174,7 @@
   "Reject colliding server identities before constructing a transport."
   (with-test-configuration (configuration)
     (let ((*mcp-server-registrations* nil)
-          (server (agentcomms:acp-mcp-server-stdio "duplicate" "fixture")))
+          (server                     (agentcomms:acp-mcp-server-stdio "duplicate" "fixture")))
       (dolist (native-p '(nil t))
         (when native-p
           (register-mcp-server '(:name "duplicate" :transport (:type :stdio :command "fixture"))
