@@ -22,7 +22,7 @@
            (tool-registry-register
             registry (make-instance 'mission-tool :namespace "mission" :name name
                                     :description description
-                                    :parameters (tool-object-schema properties required)))))
+                                    :parameters  (tool-object-schema properties required)))))
     (register "status" "Read the durable mission state, budgets, criteria and gate evidence."
               (json-object) nil)
     (register "verify" "Request harness verification of the current mission. Model completion is not verification."
@@ -41,7 +41,7 @@
 (defmethod tool-execute ((tool mission-tool) (context tool-context) (arguments hash-table))
   "Apply one mission operation through its owning application's durable policy."
   (handler-case
-      (let* ((mission (mission-context-find (tool-context-conversation context)))
+      (let* ((mission     (mission-context-find (tool-context-conversation context)))
              (application (and mission (mission-context-application mission))))
         (unless mission (mission--reject ':missing "No mission is set."))
         (unless (or (string= (tool-name tool) "status")
@@ -90,9 +90,9 @@
 (-> application-mission-slash-arguments (string) list)
 (defun application-mission-slash-arguments (remainder)
   "Parse legacy mission text into semantic arguments at the slash boundary."
-  (let* ((text (string-trim '(#\Space #\Tab #\Newline #\Return) remainder))
-         (space (position-if (lambda (character) (find character '(#\Space #\Tab #\Newline #\Return))) text))
-         (name (subseq text 0 space))
+  (let* ((text     (string-trim '(#\Space #\Tab #\Newline #\Return) remainder))
+         (space    (position-if (lambda (character) (find character '(#\Space #\Tab #\Newline #\Return))) text))
+         (name     (subseq text 0 space))
          (argument (and space (string-left-trim '(#\Space #\Tab) (subseq text (1+ space))))))
     (cond
       ((member name '("" "status" "run" "verify" "resume") :test #'string-equal)
@@ -100,7 +100,8 @@
          (mission--reject ':invalid "This mission action takes no arguments."))
        (list (if (equal name "") ':status
                  (find name '(:status :run :verify :resume) :test #'string-equal :key #'symbol-name))))
-      ((string-equal name "start") (list ':start (mission--read-data (or argument ""))))
+      ((string-equal name "start")
+       (list ':start (mission--read-data (or argument ""))))
       ((string-equal name "cancel")
        (if argument (list ':cancel argument) (list ':cancel)))
       ((member name '("accept" "invalidate") :test #'string-equal)
@@ -108,7 +109,8 @@
          (unless (and (proper-list-p fields) (= (length fields) 2))
            (mission--reject ':invalid "Expected (\"ID\" \"EVIDENCE\")."))
          (cons (if (string-equal name "accept") ':accept ':invalidate) fields)))
-      (t (mission--reject ':invalid "Unknown mission action.")))))
+      (t
+       (mission--reject ':invalid "Unknown mission action.")))))
 
 (-> mission--command-specification-p (t) boolean)
 (defun mission--command-specification-p (specification)
@@ -134,17 +136,20 @@
   "Apply a native mission action, preserving specifications and literal evidence."
   (unless (and (member action '(:status :start :run :verify :resume :cancel :accept :invalidate))
                (case action
-                 ((:status :run :verify :resume) (null arguments))
+                 ((:status :run :verify :resume)
+                  (null arguments))
                  (:start
                   (and (= (length arguments) 1)
                        (mission--command-specification-p (first arguments))))
-                 (:cancel (or (null arguments)
-                              (and (= (length arguments) 1) (non-empty-string-p (first arguments)))))
+                 (:cancel
+                  (or (null arguments)
+                      (and (= (length arguments) 1) (non-empty-string-p (first arguments)))))
                  ((:accept :invalidate)
                   (and (= (length arguments) 2) (every #'non-empty-string-p arguments)))))
     (mission--reject ':invalid "Invalid mission action or arguments."))
   (case action
-    (:status (application-present application (format nil "~S" (application-goal application))))
+    (:status
+     (application-present application (format nil "~S" (application-goal application))))
     (:start
      (application-mission-start application (first arguments))
      (application-present application "Mission installed. Use (mission :run) to begin."))
@@ -153,23 +158,28 @@
        (unless (and (mission-goal-p goal) (eq (getf goal :status) ':active))
          (mission--reject ':invalid "No active mission. Use (mission :resume) for paused or blocked missions."))
        (application--start-goal-work application)))
-    (:verify (application-mission-verify application))
-    (:resume (application-mission-resume application))
-    (:cancel (application-mission-stop application ':cancelled
-                                       (or (first arguments) "User cancelled the mission.")))
-    (:accept (application-mission-accept application (first arguments) (second arguments)))
-    (:invalidate (application-mission-invalidate application (first arguments) (second arguments))))
+    (:verify
+     (application-mission-verify application))
+    (:resume
+     (application-mission-resume application))
+    (:cancel
+     (application-mission-stop application ':cancelled
+                               (or (first arguments) "User cancelled the mission.")))
+    (:accept
+     (application-mission-accept application (first arguments) (second arguments)))
+    (:invalidate
+     (application-mission-invalidate application (first arguments) (second arguments))))
   nil)
 
 (define-application-command application--builtin-mission-command
-    (:name "/mission"
-     :argument "[OPERATION DATA]"
-     :description "configure, run and verify an explicitly budgeted session mission"
-     :tip "start with objective, criteria and turn/token/wall budgets; use status for durable gate evidence."
-     :busy-behavior :hold
+    (:name              "/mission"
+     :argument          "[OPERATION DATA]"
+     :description       "configure, run and verify an explicitly budgeted session mission"
+     :tip               "start with objective, criteria and turn/token/wall budgets; use status for durable gate evidence."
+     :busy-behavior     :hold
      :terminal-behavior :shared
-     :slash-parser application-mission-slash-arguments
-     :callable t)
+     :slash-parser      application-mission-slash-arguments
+     :callable          t)
     (application &optional (action ':status) &rest arguments)
   (apply #'application-mission-command application action arguments)
   ':continue)
