@@ -7,9 +7,9 @@
 
 (defclass api-key-credential-source (autolith-credential-source)
   ((provider-name
-    :initarg :provider-name
-    :reader api-key-credential-source-provider-name
-    :type non-empty-string
+    :initarg       :provider-name
+    :reader        api-key-credential-source-provider-name
+    :type          non-empty-string
     :documentation "The provider name associated with this key source."))
   (:documentation
    "A private persistent credential source for one API-key provider."))
@@ -62,7 +62,7 @@
   (let ((seen nil))
     (dolist (entry entries)
       (let ((provider-name (api-key--entry-provider-name entry))
-            (api-key (api-key--entry-key entry)))
+            (api-key       (api-key--entry-key entry)))
         (unless (and (listp entry)
                      (eq (first entry) :provider)
                      (non-empty-string-p provider-name)
@@ -80,7 +80,7 @@
   (if (not (probe-file pathname))
       nil
       (handler-case
-          (let* ((record (read-portable-form pathname))
+          (let* ((record  (read-portable-form pathname))
                  (version (and (listp record) (getf (rest record) :version)))
                  (entries (and (listp record)
                                (eq (first record) :api-keys)
@@ -100,9 +100,9 @@
   "Find the API-key entry for PROVIDER-NAME in ENTRIES."
   (find (api-key--canonical-provider-name provider-name)
         entries
-        :key (lambda (entry)
-               (api-key--canonical-provider-name
-                (api-key--entry-provider-name entry)))
+        :key  (lambda (entry)
+                (api-key--canonical-provider-name
+                 (api-key--entry-provider-name entry)))
         :test #'string=))
 
 (defmethod credential-source-label ((source api-key-credential-source))
@@ -115,22 +115,22 @@
     (api-key--call-with-store-lock
      pathname
      (lambda ()
-       (let* ((entry (api-key--entry-for
-                      (api-key-credential-source-provider-name source)
-                      (api-key--read-entries pathname)))
+       (let* ((entry        (api-key--entry-for
+                             (api-key-credential-source-provider-name source)
+                             (api-key--read-entries pathname)))
               (access-token (and entry (api-key--entry-key entry))))
          (when (non-empty-string-p access-token)
            (make-instance
             'oauth-credentials
-            :access-token access-token
+            :access-token  access-token
             :refresh-token nil
-            :id-token nil
+            :id-token      nil
             :account-id
             (format nil "api-key/~A"
                     (api-key--canonical-provider-name
                      (api-key-credential-source-provider-name source)))
-            :expires-at nil
-            :source-path pathname)))))))
+            :expires-at    nil
+            :source-path   pathname)))))))
 
 (defmethod credential-source-save ((source api-key-credential-source)
                                    (credentials oauth-credentials))
@@ -168,7 +168,7 @@
                                    (api-key--entry-provider-name entry))))
                        entries)
                       (list updated-entry))
-               :mode #o600))))))
+                :mode #o600))))))
        credentials))))
 
 
@@ -202,8 +202,8 @@ concealed signals AUTHENTICATION-ERROR before anything is read."
              "Could not identify the input descriptor for API-key entry; no key was read."))
     (handler-case
         (clinedi:terminal-read-concealed-line
-         (stream-terminal-create :input-stream input
-                                 :output-stream output
+         (stream-terminal-create :input-stream          input
+                                 :output-stream         output
                                  :input-file-descriptor (or descriptor -1)))
       (clinedi:terminal-error (condition)
         (if (eq (clinedi:terminal-error-operation condition) ':conceal)
@@ -303,10 +303,10 @@ concealed signals AUTHENTICATION-ERROR before anything is read."
   (let ((source
           (make-instance
            'api-key-credential-source
-           :pathname pathname
+           :pathname      pathname
            :provider-name provider-name)))
     (make-instance 'api-key-credential-manager
-                   :primary-source source
+                   :primary-source   source
                    :bootstrap-source source)))
 
 (-> api-key-credential-manager-save-key
@@ -320,15 +320,15 @@ concealed signals AUTHENTICATION-ERROR before anything is read."
             (credentials
               (make-instance
                'oauth-credentials
-               :access-token api-key
+               :access-token  api-key
                :refresh-token nil
-               :id-token nil
+               :id-token      nil
                :account-id
                (format nil "api-key/~A"
                        (api-key--canonical-provider-name
                         (api-key-credential-source-provider-name source)))
-               :expires-at nil
-               :source-path (credential-source-pathname source))))
+               :expires-at    nil
+               :source-path   (credential-source-pathname source))))
        (credential-source-save source credentials)))))
 
 (-> api-key-credential-available-p (api-key-credential-manager) boolean)
@@ -395,15 +395,15 @@ never retains the resulting credential after this call."
            source
            (make-instance
             'oauth-credentials
-            :access-token key
+            :access-token  key
             :refresh-token nil
-            :id-token nil
+            :id-token      nil
             :account-id
             (if (typep bootstrap 'environment-api-key-credential-source)
                 (cl-rfc8628:environment-credential-source-account-id bootstrap)
                 (string-downcase (credential-manager-provider-label manager)))
-            :expires-at nil
-            :source-path (credential-source-pathname source)))))))
+            :expires-at    nil
+            :source-path   (credential-source-pathname source)))))))
 
 (-> api-key-validate-probe (string function) null)
 (defun api-key-validate-probe (label thunk)
@@ -454,7 +454,7 @@ never retains the resulting credential after this call."
   "Prompt for MANAGER's API key, optionally validate it, and persist it."
   (call-with-secret-use
    (lambda ()
-     (let* ((label (credential-manager-provider-label manager))
+     (let* ((label     (credential-manager-provider-label manager))
             (bootstrap (credential-manager-bootstrap-source manager))
             (note
               (when (typep bootstrap 'environment-api-key-credential-source)
@@ -466,10 +466,10 @@ never retains the resulting credential after this call."
                '(#\Space #\Tab #\Newline #\Return)
                (or (api-key-read-hidden
                     label
-                    :input input
+                    :input                 input
                     :input-file-descriptor input-file-descriptor
-                    :stream stream
-                    :note note)
+                    :stream                stream
+                    :note                  note)
                    ""))))
        (unless (non-empty-string-p key)
          (error 'authentication-error
