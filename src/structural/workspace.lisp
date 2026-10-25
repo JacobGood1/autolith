@@ -50,6 +50,7 @@
          (observation
            (workspace-file--call-with-authorized-access
             resource context ':read
+            :function
             (lambda () (cl-resources:resource-check-revision resource context revision)))))
     (unless (eq (workspace-file-observation-kind observation) ':file)
       (structural--fail ':unsupported-resource "Structural queries require an existing regular text file."))
@@ -168,6 +169,7 @@
                         (progn
                           (workspace-file--call-with-authorized-access
                            (structural-proposal-resource proposal) context ':read
+                           :function
                            (lambda ()
                              (cl-resources:resource-check-revision
                               (structural-proposal-resource proposal) context

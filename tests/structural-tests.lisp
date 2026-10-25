@@ -54,7 +54,8 @@
   (let* ((resource    (resource-registry-resolve
                        (tool-registry-resource-registry (tool-context-registry context)) uri context))
          (observation (workspace-file--call-with-authorized-access
-                       resource context ':read (lambda () (resource-observe resource context)))))
+                       resource context ':read
+                       :function (lambda () (resource-observe resource context)))))
     (resource-observation-state-alias
      (resource-observation-state-ensure (tool-context-conversation context) observation :visible-ranges nil))))
 

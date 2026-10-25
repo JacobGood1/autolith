@@ -62,6 +62,7 @@
   "Authorize RESOURCE and serialize validation, publication and undo."
   (workspace-file--call-with-authorized-access
    resource context ':edit
+   :function
    (lambda ()
      (with-recursive-lock-held (*workspace-file-mutation-lock*)
        (with-recursive-lock-held
@@ -153,6 +154,7 @@
                      (resource-observation-uri donor) context)))
       (workspace-file--call-with-authorized-access
        resource context ':read
+       :function
        (lambda ()
          (let ((current (resource-observe resource context)))
            (unless (workspace-file--same-observation-p donor current)

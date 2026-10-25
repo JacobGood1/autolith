@@ -718,10 +718,11 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
 ;;;; -- Resource Tool Methods --
 
 (-> workspace-file--call-with-authorized-access
-    (workspace-file-resource tool-context (member :read :edit) function)
+    (workspace-file-resource tool-context (member :read :edit)
+     &key (:function function))
     t)
 (defun workspace-file--call-with-authorized-access
-    (resource context operation function)
+    (resource context operation &key function)
   "Call FUNCTION after authorizing out-of-root OPERATION on RESOURCE."
   (let* ((path  (workspace-file-resource-pathname resource))
          (roots (workspace-file-resource-access-roots resource context)))
@@ -750,7 +751,7 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
 Tools such as rlm.map observe resources directly. An enclosing authorization
 already admits the path to the readable roots, so it is not asked again."
   (workspace-file--call-with-authorized-access
-   resource context ':read (lambda () (call-next-method))))
+   resource context ':read :function (lambda () (call-next-method))))
 
 (defmethod resource-tool-read :around
     ((resource workspace-file-resource) (tool resource-read-tool)
@@ -758,7 +759,7 @@ already admits the path to the readable roots, so it is not asked again."
   "Authorize out-of-root workspace RESOURCE reads before inspection."
   (declare (ignore tool arguments))
   (workspace-file--call-with-authorized-access
-   resource context ':read (lambda () (call-next-method))))
+   resource context ':read :function (lambda () (call-next-method))))
 
 (defmethod resource-tool-edit :around
     ((resource workspace-file-resource) (tool resource-edit-tool)
@@ -766,7 +767,7 @@ already admits the path to the readable roots, so it is not asked again."
   "Authorize out-of-root workspace RESOURCE writes before inspection or mutation."
   (declare (ignore tool arguments))
   (workspace-file--call-with-authorized-access
-   resource context ':edit (lambda () (call-next-method))))
+   resource context ':edit :function (lambda () (call-next-method))))
 
 (defmethod resource-tool-read
     ((resource workspace-file-resource) (tool resource-read-tool)

@@ -102,7 +102,8 @@
           (let* ((resource (lsp-semantic--resource context uri))
                  (observation
                    (workspace-file--call-with-authorized-access
-                    resource context ':read (lambda () (resource-observe resource context))))
+                    resource context ':read
+                    :function (lambda () (resource-observe resource context))))
                  (kind     (workspace-file-observation-kind observation))
                  (version  (gethash uri versions))
                  (weight   (workspace-file--observation-retained-bytes observation)))
@@ -178,6 +179,7 @@
          (let ((observation (resource-observation-state-observation state)))
            (workspace-file--call-with-authorized-access
             resource context ':edit
+            :function
             (lambda ()
               (let ((current (resource-observe resource context)))
                 (unless (workspace-file--same-observation-p observation current)
