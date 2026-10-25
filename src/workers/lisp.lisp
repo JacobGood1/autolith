@@ -26,9 +26,12 @@
 (defun lisp-worker--tool-name (operation)
   "Return Autolith's dotted tool name for library OPERATION."
   (case operation
-    (:change-working-directory "lisp.cwd")
-    (:workers "lisp.repls")
-    (:save-image "lisp.save-image")
+    (:change-working-directory
+     "lisp.cwd")
+    (:workers
+     "lisp.repls")
+    (:save-image
+     "lisp.save-image")
     ((nil)
      "lisp.worker")
     (otherwise
@@ -42,11 +45,11 @@
         (funcall function)
       (sbcl-worker-image-error (condition)
         (error 'lisp-image-error
-               :message (sbcl-worker-error-message condition)
+               :message  (sbcl-worker-error-message condition)
                :tool-name
                (lisp-worker--tool-name (sbcl-worker-error-operation condition))
                :pathname (sbcl-worker-error-pathname condition)
-               :stage (or (sbcl-worker-error-stage condition) ':manifest)))
+               :stage    (or (sbcl-worker-error-stage condition) ':manifest)))
       (sbcl-worker-error (condition)
         (error 'worker-error
                :message (sbcl-worker-error-message condition)
@@ -73,7 +76,7 @@
    (lambda ()
      (sbcl-worker-create
       (lisp-worker--environment configuration)
-      :name name
+      :name             name
       :image-identifier image-identifier))))
 
 (-> lisp-worker-name (lisp-worker) string)
@@ -258,7 +261,7 @@
       (lisp-worker--environment configuration)
       worker
       :identifier identifier
-      :note note))))
+      :note       note))))
 
 
 ;;;; -- Tool Result Adaptation --
@@ -267,14 +270,14 @@
 (defun worker-response--failure-code (properties)
   "Project worker condition metadata through fixed categories, never class names or reports."
   (or (loop for (name code) in '(("DIVISION-BY-ZERO" :division-by-zero)
-                               ("TYPE-ERROR" :type-error)
-                               ("SIMPLE-TYPE-ERROR" :type-error)
-                               ("SIMPLE-ERROR" :simple-error)
-                               ("UNDEFINED-FUNCTION" :undefined-function)
-                               ("UNBOUND-VARIABLE" :unbound-variable)
-                               ("END-OF-FILE" :end-of-file)
-                               ("READER-ERROR" :reader-error)
-                               ("FILE-ERROR" :file-error))
+                                 ("TYPE-ERROR" :type-error)
+                                 ("SIMPLE-TYPE-ERROR" :type-error)
+                                 ("SIMPLE-ERROR" :simple-error)
+                                 ("UNDEFINED-FUNCTION" :undefined-function)
+                                 ("UNBOUND-VARIABLE" :unbound-variable)
+                                 ("END-OF-FILE" :end-of-file)
+                                 ("READER-ERROR" :reader-error)
+                                 ("FILE-ERROR" :file-error))
             when (equal name (getf properties :condition-type))
               return code)
       ':worker-failure))
@@ -282,13 +285,13 @@
 (-> worker-response-tool-result (list) tool-result)
 (defun worker-response-tool-result (response)
   "Convert a portable worker RESPONSE into a bounded tool result."
-  (let* ((properties (rest response))
-         (status (getf properties :status))
-         (output (getf properties :output))
+  (let* ((properties    (rest response))
+         (status        (getf properties :status))
+         (output        (getf properties :output))
          (result-values (getf properties :values))
-         (message (getf properties :message))
-         (backtrace (getf properties :backtrace))
-         (form-count (getf properties :form-count)))
+         (message       (getf properties :message))
+         (backtrace     (getf properties :backtrace))
+         (form-count    (getf properties :form-count)))
     (if (eq status :ok)
         (tool-success
          (with-output-to-string (stream)
@@ -314,7 +317,6 @@
   (lisp-repl--validate-name
    (or (tool-argument arguments "repl") "default")))
 
-
 (-> lisp-tool-asd-pathname
     (tool-context hash-table non-empty-string)
     (option pathname))
@@ -324,16 +326,16 @@
     (when requested
       (unless (non-empty-string-p requested)
         (error 'tool-error
-               :message (format nil
-                                "The ~A asd argument must be a non-empty string."
-                                tool-name)
+               :message   (format nil
+                                  "The ~A asd argument must be a non-empty string."
+                                  tool-name)
                :tool-name tool-name))
       (let ((path (workspace-tool-path context requested :tool-name tool-name)))
         (unless (uiop:file-exists-p path)
           (error 'tool-error
-                 :message (format nil
-                                  "The ~A asd argument does not name an existing file: ~A"
-                                  tool-name path)
+                 :message   (format nil
+                                    "The ~A asd argument does not name an existing file: ~A"
+                                    tool-name path)
                  :tool-name tool-name))
         path))))
 
@@ -349,12 +351,12 @@
   (tool-execution-invoke
    (tool-context-execution-runtime context)
    (tool-context-agent context)
-   :tool-name tool-name
-   :summary summary
+   :tool-name          tool-name
+   :summary            summary
    :operation-function (worker-host--bound-function operation-function :context context)
-   :async-p (tool-boolean-argument arguments "async" :tool-name tool-name)
-   :completion-policy (tool-completion-policy-argument arguments :tool-name tool-name)
-   :parent-call-id (tool-context-call-id context)))
+   :async-p            (tool-boolean-argument arguments "async" :tool-name tool-name)
+   :completion-policy  (tool-completion-policy-argument arguments :tool-name tool-name)
+   :parent-call-id     (tool-context-call-id context)))
 
 (-> lisp-tool-invoke-execution
     (tool-context hash-table
@@ -368,12 +370,12 @@
 
 Worker resolution runs inside the job. Cancellation during a protocol request detaches
 that worker, while cancellation after a completed request leaves the REPL intact."
-  (let ((manager (tool-context-worker context))
+  (let ((manager   (tool-context-worker context))
         (repl-name (lisp-tool-repl-name arguments)))
     (lisp-tool-invoke-managed-execution
      context arguments
      :tool-name tool-name
-     :summary (format nil "Lisp REPL ~A: ~A" repl-name summary)
+     :summary   (format nil "Lisp REPL ~A: ~A" repl-name summary)
      :operation-function
      (lambda ()
        (let ((worker (lisp-worker-manager-worker manager repl-name)))
@@ -391,7 +393,7 @@ that worker, while cancellation after a completed request leaves the REPL intact
       (lisp-tool-invoke-execution
        context arguments
        :tool-name "lisp.eval"
-       :summary (format nil "~{~A~^ ~}" forms)
+       :summary   (format nil "~{~A~^ ~}" forms)
        :operation-function
        (lambda (worker)
          (worker-response-tool-result
@@ -411,14 +413,14 @@ that worker, while cancellation after a completed request leaves the REPL intact
     (lisp-tool-invoke-execution
      context arguments
      :tool-name "lisp.load-system"
-     :summary (format nil "Load system ~A" system)
+     :summary   (format nil "Load system ~A" system)
      :operation-function
      (lambda (worker)
        (worker-response-tool-result
         (lisp-worker-request
          worker
          :load-system
-         (list :system system
+         (list :system       system
                :asd-pathname (and asd-pathname
                                   (namestring asd-pathname)))))))))
 
@@ -432,13 +434,13 @@ that worker, while cancellation after a completed request leaves the REPL intact
       ((string= target "self")
        (when (resource-context-child-agent-p context)
          (error 'tool-authority-denied
-                :message "Task child agents cannot inspect the active image."
-                :code ':authority
+                :message   "Task child agents cannot inspect the active image."
+                :code      ':authority
                 :tool-name tool-name))
        t)
       (t
        (error 'tool-error
-              :message (format nil "~A target must be worker or self." tool-name)
+              :message   (format nil "~A target must be worker or self." tool-name)
               :tool-name tool-name)))))
 
 (-> lisp-describe-active-image (tool-context hash-table) tool-result)
@@ -460,7 +462,7 @@ that worker, while cancellation after a completed request leaves the REPL intact
         (lisp-tool-invoke-execution
          context arguments
          :tool-name "lisp.describe"
-         :summary (format nil "Describe ~A" designator)
+         :summary   (format nil "Describe ~A" designator)
          :operation-function
          (lambda (worker)
            (worker-response-tool-result
@@ -479,7 +481,7 @@ that worker, while cancellation after a completed request leaves the REPL intact
         (lisp-tool-invoke-execution
          context arguments
          :tool-name "lisp.source"
-         :summary (format nil "Read source for ~A" name)
+         :summary   (format nil "Read source for ~A" name)
          :operation-function
          (lambda (worker)
            (worker-response-tool-result
@@ -497,14 +499,14 @@ that worker, while cancellation after a completed request leaves the REPL intact
     (lisp-tool-invoke-execution
      context arguments
      :tool-name "lisp.run-tests"
-     :summary (format nil "Run tests for system ~A" system)
+     :summary   (format nil "Run tests for system ~A" system)
      :operation-function
      (lambda (worker)
        (worker-response-tool-result
         (lisp-worker-request
          worker
          :run-tests
-         (list :system system
+         (list :system       system
                :asd-pathname (and asd-pathname
                                   (namestring asd-pathname)))))))))
 
@@ -514,13 +516,13 @@ that worker, while cancellation after a completed request leaves the REPL intact
   "Reset the named REPL to pristine or an explicitly selected saved image."
   (declare (ignore tool))
   (let* ((manager (tool-context-worker context))
-         (name (lisp-tool-repl-name arguments))
-         (image (or (tool-argument arguments "image")
-                    (pristine-lisp-image-identifier))))
+         (name    (lisp-tool-repl-name arguments))
+         (image   (or (tool-argument arguments "image")
+                      (pristine-lisp-image-identifier))))
     (lisp-tool-invoke-managed-execution
      context arguments
      :tool-name "lisp.reset"
-     :summary (format nil "Reset Lisp REPL ~A from image ~A" name image)
+     :summary   (format nil "Reset Lisp REPL ~A from image ~A" name image)
      :operation-function
      (lambda ()
        (lisp-worker-manager-reset manager name image)
@@ -533,13 +535,13 @@ that worker, while cancellation after a completed request leaves the REPL intact
   "Start a named REPL from pristine or one compatible saved image."
   (declare (ignore tool))
   (let* ((manager (tool-context-worker context))
-         (name (lisp-tool-repl-name arguments))
-         (image (or (tool-argument arguments "image")
-                    (pristine-lisp-image-identifier))))
+         (name    (lisp-tool-repl-name arguments))
+         (image   (or (tool-argument arguments "image")
+                      (pristine-lisp-image-identifier))))
     (lisp-tool-invoke-managed-execution
      context arguments
      :tool-name "lisp.start"
-     :summary (format nil "Start Lisp REPL ~A from image ~A" name image)
+     :summary   (format nil "Start Lisp REPL ~A from image ~A" name image)
      :operation-function
      (lambda ()
        (let ((worker (lisp-worker-manager-start manager name image)))
@@ -554,11 +556,11 @@ that worker, while cancellation after a completed request leaves the REPL intact
   "Stop and forget one named REPL."
   (declare (ignore tool))
   (let ((manager (tool-context-worker context))
-        (name (lisp-tool-repl-name arguments)))
+        (name    (lisp-tool-repl-name arguments)))
     (lisp-tool-invoke-managed-execution
      context arguments
      :tool-name "lisp.stop"
-     :summary (format nil "Stop Lisp REPL ~A" name)
+     :summary   (format nil "Stop Lisp REPL ~A" name)
      :operation-function
      (lambda ()
        (lisp-worker-manager-stop-worker manager name)
@@ -586,11 +588,11 @@ that worker, while cancellation after a completed request leaves the REPL intact
   "Save one named REPL as an immutable worker image with a durable note."
   (declare (ignore tool))
   (let ((identifier (tool-argument arguments "image" :required t))
-        (note (tool-argument arguments "note" :required t)))
+        (note       (tool-argument arguments "note" :required t)))
     (lisp-tool-invoke-execution
      context arguments
      :tool-name "lisp.save-image"
-     :summary (format nil "Save image ~A" identifier)
+     :summary   (format nil "Save image ~A" identifier)
      :operation-function
      (lambda (worker)
        (let ((image
@@ -598,7 +600,7 @@ that worker, while cancellation after a completed request leaves the REPL intact
                 (tool-context-configuration context)
                 worker
                 :identifier identifier
-                :note note)))
+                :note       note)))
          (tool-success
           (format nil "Saved Lisp REPL ~A as image ~A.~%Parent: ~A~%Note: ~A"
                   (lisp-worker-name worker)
@@ -613,9 +615,9 @@ that worker, while cancellation after a completed request leaves the REPL intact
 (defun worker-source (name kind)
   "Return exact matching SBCL source for NAME and optional KIND."
   (sbcl-worker-runtime-configure
-   :evaluation-package "AUTOLITH"
-   :protocol-tag ':autolith-worker
-   :protocol-version *lisp-worker-protocol-version*
+   :evaluation-package               "AUTOLITH"
+   :protocol-tag                     ':autolith-worker
+   :protocol-version                 *lisp-worker-protocol-version*
    :source-root-environment-variable "AUTOLITH_SBCL_SOURCE_ROOT")
   (lisp-worker--call
    (lambda ()
@@ -625,9 +627,9 @@ that worker, while cancellation after a completed request leaves the REPL intact
 (defun worker-handle-request (request)
   "Execute one portable worker REQUEST through sbcl-workers."
   (sbcl-worker-runtime-configure
-   :evaluation-package "AUTOLITH"
-   :protocol-tag ':autolith-worker
-   :protocol-version *lisp-worker-protocol-version*
+   :evaluation-package               "AUTOLITH"
+   :protocol-tag                     ':autolith-worker
+   :protocol-version                 *lisp-worker-protocol-version*
    :source-root-environment-variable "AUTOLITH_SBCL_SOURCE_ROOT")
   (sbcl-worker-handle-request request))
 
@@ -635,7 +637,7 @@ that worker, while cancellation after a completed request leaves the REPL intact
 (defun worker-main ()
   "Run Autolith's isolated worker protocol until standard-input reaches EOF."
   (sbcl-worker-main
-   :evaluation-package "AUTOLITH"
-   :protocol-tag ':autolith-worker
-   :protocol-version *lisp-worker-protocol-version*
+   :evaluation-package               "AUTOLITH"
+   :protocol-tag                     ':autolith-worker
+   :protocol-version                 *lisp-worker-protocol-version*
    :source-root-environment-variable "AUTOLITH_SBCL_SOURCE_ROOT"))
