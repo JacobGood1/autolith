@@ -244,8 +244,8 @@
       (win32--fail ':open pathname))
     (unwind-protect
          (prog1 (sb-sys:make-fd-stream handle :output t
-                                     :element-type '(unsigned-byte 8)
-                                     :file (win32--namestring pathname)
+                                     :element-type    '(unsigned-byte 8)
+                                     :file            (win32--namestring pathname)
                                      :pathname pathname :auto-close t)
            (setf handle nil))
       (when handle
@@ -270,11 +270,11 @@
 (defun win32--signal (operation pathname code)
   "Signal PLATFORM-ERROR for Windows error CODE raised by OPERATION on PATHNAME."
   (error 'platform-error
-         :message (format nil "~A (Windows error ~D)" (win32--system-message code) code)
+         :message   (format nil "~A (Windows error ~D)" (win32--system-message code) code)
          :operation operation
-         :pathname pathname
-         :reason (win32--failure-reason code)
-         :code code))
+         :pathname  pathname
+         :reason    (win32--failure-reason code)
+         :code      code))
 
 (-> win32--fail (keyword (option pathname)) nil)
 (defun win32--fail (operation pathname)
@@ -297,7 +297,7 @@ opened by the directory's own name."
 (defun win32--unavailable (capability message)
   "Signal that CAPABILITY is withheld on Windows, explained by MESSAGE."
   (error 'platform-capability-unavailable
-         :message message
+         :message    message
          :capability capability))
 
 
@@ -308,23 +308,22 @@ opened by the directory's own name."
   (declare (ignore platform))
   (not (null (member capability '(:detached-sessions :restartable-image-saver)))))
 
-
 (defclass win32-detached-process ()
   ((handle
-    :initarg :handle
-    :reader win32-detached-process-handle
+    :initarg       :handle
+    :reader        win32-detached-process-handle
     :documentation "The owned process handle.")
    (job-handle
-    :initarg :job-handle
-    :reader win32-detached-process-job-handle
+    :initarg       :job-handle
+    :reader        win32-detached-process-job-handle
     :documentation "The job containing the replacement and its descendants.")
    (process-id
-    :initarg :process-id
-    :reader win32-detached-process-id
+    :initarg       :process-id
+    :reader        win32-detached-process-id
     :documentation "The native process identifier.")
    (closed-p
-    :initform nil
-    :accessor win32-detached-process-closed-p
+    :initform      nil
+    :accessor      win32-detached-process-closed-p
     :documentation "Whether the process handle has been closed."))
   (:documentation "A native Windows process launched without a console attachment."))
 
@@ -337,6 +336,7 @@ opened by the directory's own name."
              :message "The stable Autolith launcher is unavailable."))
     (list (namestring sb-ext:*runtime-pathname*) "--noinform"
           "--no-userinit" "--no-sysinit" "--script" (namestring launcher))))
+
 (defun win32--command-line-argument (argument)
   "Quote ARGUMENT for the Windows command-line parser."
   (if (and (> (length argument) 0)
@@ -407,7 +407,7 @@ opened by the directory's own name."
   (sb-alien:with-alien ((size (sb-alien:unsigned 64) 0)
                        (list (sb-alien:array win32-handle 3)))
     (win32--initialize-attributes nil 1 0 (sb-alien:addr size))
-    (let ((attributes (sb-alien:make-alien (sb-alien:unsigned 8) size))
+    (let ((attributes    (sb-alien:make-alien (sb-alien:unsigned 8) size))
           (initialized-p nil))
       (unwind-protect
            (progn
@@ -434,6 +434,7 @@ opened by the directory's own name."
       (setf (sb-sys:sap-ref-32 sap 16) (if enabled-p #x2000 0))
       (unless (plusp (win32--set-job job 9 sap 144))
         (win32--fail ':launch nil)))))
+
 (defmethod platform-launch-detached-process
     ((platform win32-platform) arguments
      &key directory output ticket)
@@ -446,24 +447,24 @@ handoff explicitly releases ownership without terminating the detached session."
   (let ((launcher-pid-pathname
           (and ticket
                (image-daemon:handoff-ticket-sibling ticket ':launcher-pid)))
-        (handles nil)
+        (handles        nil)
         (process-handle 0)
-        (thread-handle 0)
-        (job-handle 0)
-        (completed-p nil))
+        (thread-handle  0)
+        (job-handle     0)
+        (completed-p    nil))
     (unwind-protect
-         (let* ((null-source (win32--null-handle))
+         (let* ((null-source   (win32--null-handle))
                 (source-output (win32--stream-handle output)))
            (push null-source handles)
            (let* ((input (win32--duplicate-inheritable-handle null-source))
-                  (out (progn
-                         (push input handles)
-                         (win32--duplicate-inheritable-handle
-                          (if (plusp source-output) source-output null-source))))
-                  (err (progn
-                         (push out handles)
-                         (win32--duplicate-inheritable-handle
-                          (if (plusp source-output) source-output null-source)))))
+                  (out   (progn
+                           (push input handles)
+                           (win32--duplicate-inheritable-handle
+                            (if (plusp source-output) source-output null-source))))
+                  (err   (progn
+                           (push out handles)
+                           (win32--duplicate-inheritable-handle
+                            (if (plusp source-output) source-output null-source)))))
              (push err handles)
              (setf job-handle (win32--create-job-object nil nil))
              (when (zerop job-handle) (win32--fail ':launch nil))
@@ -475,7 +476,7 @@ handoff explicitly releases ownership without terminating the detached session."
                     ((startup (sb-alien:array (sb-alien:unsigned 8) 112))
                      (information (sb-alien:array (sb-alien:unsigned 8) 24)))
                   (let ((start (sb-alien:alien-sap startup))
-                        (info (sb-alien:alien-sap information)))
+                        (info  (sb-alien:alien-sap information)))
                     (dotimes (index 112) (setf (sb-sys:sap-ref-8 start index) 0))
                     (dotimes (index 24) (setf (sb-sys:sap-ref-8 info index) 0))
                     (setf (sb-sys:sap-ref-32 start 0) 112
@@ -497,9 +498,9 @@ handoff explicitly releases ownership without terminating the detached session."
                     (unless (plusp (win32--assign-process-to-job-object
                                     job-handle process-handle))
                       (win32--fail ':launch nil))
-                    (let* ((pid (sb-sys:sap-ref-32 info 16))
+                    (let* ((pid     (sb-sys:sap-ref-32 info 16))
                            (process (make-instance 'win32-detached-process
-                                                   :handle process-handle
+                                                   :handle     process-handle
                                                    :job-handle job-handle
                                                    :process-id pid)))
                       (when launcher-pid-pathname
@@ -628,11 +629,11 @@ protocol."
       (ls-compat.posix:file-mode pathname)
     (ls-compat.posix:mode-failed (condition)
       (error 'platform-error
-             :message (ls-compat.posix:mode-failed-message condition)
+             :message   (ls-compat.posix:mode-failed-message condition)
              :operation ':protect
-             :pathname pathname
-             :reason ':failed
-             :code nil))))
+             :pathname  pathname
+             :reason    ':failed
+             :code      nil))))
 
 (-> win32--set-mode (pathname (integer 0 #o777)) null)
 (defun win32--set-mode (pathname mode)
@@ -641,11 +642,11 @@ protocol."
       (setf (ls-compat.posix:file-mode pathname) mode)
     (ls-compat.posix:mode-failed (condition)
       (error 'platform-error
-             :message (ls-compat.posix:mode-failed-message condition)
+             :message   (ls-compat.posix:mode-failed-message condition)
              :operation ':protect
-             :pathname pathname
-             :reason ':failed
-             :code nil)))
+             :pathname  pathname
+             :reason    ':failed
+             :code      nil)))
   nil)
 
 
@@ -685,9 +686,9 @@ process did not inherit."
   "Return the known folder the shell exposes through environment VARIABLE."
   (or (win32--absolute-environment-directory variable)
       (error 'platform-error
-             :message (format nil "The ~A environment variable does not name an absolute directory." variable)
+             :message   (format nil "The ~A environment variable does not name an absolute directory." variable)
              :operation ':roots
-             :reason ':missing)))
+             :reason    ':missing)))
 
 (defmethod platform-parse-namestring ((platform win32-platform) string)
   "Read STRING natively, so drive letters and backslashes mean what Windows means."
@@ -859,7 +860,7 @@ Autolith publishes read-only lives below a private root anyway."
 
 (defmethod platform-executable-file-p ((platform win32-platform) pathname)
   "Accept a regular file whose name carries a PATHEXT extension."
-  (let ((status (platform-path-status platform pathname :follow-links-p t))
+  (let ((status    (platform-path-status platform pathname :follow-links-p t))
         (lowercase (string-downcase (win32--namestring pathname))))
     (and status
          (eq (platform-file-status-kind status) ':file)
@@ -886,10 +887,10 @@ Autolith publishes read-only lives below a private root anyway."
              ((not (= (win32--get-last-error) *win32-error-already-exists*))
               (win32--fail ':create directory)))
         finally (error 'platform-error
-                       :message "Could not find an unused temporary directory name."
+                       :message   "Could not find an unused temporary directory name."
                        :operation ':create
-                       :pathname parent
-                       :reason ':exists)))
+                       :pathname  parent
+                       :reason    ':exists)))
 
 (-> win32--directory-entry-pathname (win32-platform pathname string) pathname)
 (defun win32--directory-entry-pathname (platform directory name)
@@ -904,7 +905,7 @@ Autolith publishes read-only lives below a private root anyway."
       (platform-list-directory platform directory)
     (declare (ignore more-p))
     (dolist (name names)
-      (let* ((entry (win32--directory-entry-pathname platform directory name))
+      (let* ((entry  (win32--directory-entry-pathname platform directory name))
              (status (platform-path-status platform entry)))
         (when status
           (when (eq (platform-file-status-kind status) ':directory)
@@ -961,7 +962,7 @@ can omit. Bounded retries cover handles released just after a child process exit
 (defmethod platform-terminal-enable-fullscreen ((platform win32-platform))
   "Enable VT output on the Windows console and retain its exact previous mode."
   (let* ((handle (win32--get-std-handle *win32-standard-output-handle*))
-         (mode (win32--console-mode handle)))
+         (mode   (win32--console-mode handle)))
     (when mode
       ;; ENABLE_PROCESSED_OUTPUT and ENABLE_VIRTUAL_TERMINAL_PROCESSING.
       (when (zerop (win32--set-console-mode handle (logior mode #x0001 #x0004)))
@@ -990,14 +991,14 @@ can omit. Bounded retries cover handles released just after a child process exit
 
 (defclass win32-resize-watch ()
   ((thread
-    :initarg :thread
-    :accessor win32-resize-watch-thread
-    :type t
+    :initarg       :thread
+    :accessor      win32-resize-watch-thread
+    :type          t
     :documentation "The polling thread comparing console window sizes.")
    (stop-p
-    :initform nil
-    :accessor win32-resize-watch-stop-p
-    :type boolean
+    :initform      nil
+    :accessor      win32-resize-watch-stop-p
+    :type          boolean
     :documentation "Whether the watcher has been asked to finish."))
   (:documentation "A polling watcher standing in for SIGWINCH on Windows."))
 
@@ -1047,8 +1048,8 @@ System application directories are available through AppContainer's system acces
 (-> win32--call-with-sandbox-lock (function) t)
 (defun win32--call-with-sandbox-lock (function)
   "Serialize sandbox scope lifetimes across Autolith processes and threads."
-  (let ((mutex (win32--create-mutex nil 0
-                                   "Global\\AutolithCommandSandbox-v1"))
+  (let ((mutex   (win32--create-mutex nil 0
+                                     "Global\\AutolithCommandSandbox-v1"))
         (owned-p nil))
     (when (zerop mutex)
       (win32--fail ':command-sandbox-lock nil))
@@ -1092,7 +1093,7 @@ System application directories are available through AppContainer's system acces
 (-> win32--sandbox-environment (pathname) list)
 (defun win32--sandbox-environment (temporary)
   "Return a child-only environment with private temporary and user cache locations."
-  (let* ((path (uiop:native-namestring temporary))
+  (let* ((path  (uiop:native-namestring temporary))
          (names '("TEMP" "TMP" "TMPDIR" "HOME" "USERPROFILE" "APPDATA" "LOCALAPPDATA")))
     (append
      (mapcar (lambda (name) (format nil "~A=~A" name path)) names)
@@ -1115,13 +1116,13 @@ System application directories are available through AppContainer's system acces
        (unwind-protect
             (funcall function
                      (cl-exec-sandbox:appcontainer-sandbox-policy
-                      :workspace-roots (append (or writable-roots (list workspace))
-                                               (list temporary))
+                      :workspace-roots          (append (or writable-roots (list workspace))
+                                                        (list temporary))
                       :protected-metadata-names (if writable-roots
                                                     '(".agents" ".codex")
                                                     '(".git" ".agents" ".codex"))
-                      :read-roots (append (list workspace)
-                                          (win32--sandbox-read-roots platform workspace)))
+                      :read-roots               (append (list workspace)
+                                                        (win32--sandbox-read-roots platform workspace)))
                      (win32--sandbox-environment temporary))
          (platform-delete-directory-tree platform temporary
                                          :validate t :if-does-not-exist ':ignore))))))
@@ -1148,26 +1149,26 @@ System application directories are available through AppContainer's system acces
 ;;;; -- Anonymous Streaming WinHTTP --
 
 (defclass win32-public-http-stream (trivial-gray-streams:fundamental-binary-input-stream)
-  ((session :initarg :session
-            :reader win32-http-session
+  ((session :initarg       :session
+            :reader        win32-http-session
             :documentation "WinHTTP session handle for this response.")
-   (connection :initarg :connection
-               :reader win32-http-connection
+   (connection :initarg       :connection
+               :reader        win32-http-connection
                :documentation "Connection handle beneath the session.")
-   (request :initarg :request
-            :reader win32-http-request
+   (request :initarg       :request
+            :reader        win32-http-request
             :documentation "Request handle used for synchronous response reads.")
-   (buffer :initform (make-array 4096 :element-type '(unsigned-byte 8))
-           :reader win32-http-buffer
+   (buffer :initform      (make-array 4096 :element-type '(unsigned-byte 8))
+           :reader        win32-http-buffer
            :documentation "Fixed-size native read buffer.")
-   (position :initform 0
-             :accessor win32-http-position
+   (position :initform      0
+             :accessor      win32-http-position
              :documentation "Index of the next buffered octet.")
-   (end :initform 0
-        :accessor win32-http-end
+   (end :initform      0
+        :accessor      win32-http-end
         :documentation "Number of buffered response octets.")
-   (closed-p :initform nil
-             :accessor win32-http-closed-p
+   (closed-p :initform      nil
+             :accessor      win32-http-closed-p
              :documentation "Whether CLOSE has been called."))
   (:documentation "A synchronous native response owned entirely by one supervised child."))
 
@@ -1223,11 +1224,11 @@ System application directories are available through AppContainer's system acces
                  connection (winhttp:http-connect session (quri:uri-host uri) (quri:uri-port uri))
                  request (winhttp:http-open-request
                           connection :verb ':get
-                          :url (format nil "~A~@[?~A~]"
-                                       (let ((path (quri:uri-path uri)))
-                                         (if (and path (plusp (length path))) path "/"))
-                                       (quri:uri-query uri))
-                          :https-p (equal (quri:uri-scheme uri) "https")))
+                          :url             (format nil "~A~@[?~A~]"
+                                                   (let ((path (quri:uri-path uri)))
+                                                     (if (and path (plusp (length path))) path "/"))
+                                                   (quri:uri-query uri))
+                          :https-p         (equal (quri:uri-scheme uri) "https")))
            ;; WINHTTP_OPTION_DISABLE_FEATURE: cookies, redirects, authentication,
            ;; and keep-alive. WinHttpOpen above uses WINHTTP_ACCESS_TYPE_NO_PROXY.
            (cffi:with-foreign-object (flags :uint32)
@@ -1236,7 +1237,7 @@ System application directories are available through AppContainer's system acces
                                          :pointer request :uint32 63
                                          :pointer flags :uint32 4 :boolean)
                (error 'platform-error :operation ':http
-                                      :message "Cannot disable ambient HTTP features.")))
+                                      :message   "Cannot disable ambient HTTP features.")))
            (winhttp:add-request-headers request "Accept: application/json")
            (winhttp:send-request request #())
            (winhttp:receive-response request)
