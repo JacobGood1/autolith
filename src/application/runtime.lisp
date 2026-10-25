@@ -701,7 +701,7 @@ exchange without scrolling through reasoning and tool activity.")
           (:stage keyword)
           (:cause serious-condition)
           (:rollback-causes list))
-    null)
+    (values nil &optional))
 (defun application--raise-runtime-replacement-error
     (&key operation stage cause rollback-causes)
   "Signal a structured runtime replacement failure for OPERATION and STAGE."
