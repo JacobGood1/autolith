@@ -3,8 +3,8 @@
 ;;;; -- Fullscreen Viewport --
 
 (defclass fullscreen-terminal-ui (terminal-ui)
-  ((viewport :initform (clinedi:make-transcript-viewport)
-             :accessor fullscreen-terminal-ui-viewport
+  ((viewport :initform      (clinedi:make-transcript-viewport)
+             :accessor      fullscreen-terminal-ui-viewport
              :documentation "The reflowing transcript, its scroll position and its last layout.")
    (active-p :initform nil :accessor fullscreen-terminal-ui-active-p :type boolean
              :documentation "Whether this UI has entered the alternate buffer.")
@@ -87,7 +87,7 @@ sequence, so it lands in the normal screen where it stays readable."
   "Enter the alternate buffer once, unwinding partial startup before propagating failure."
   (when (and (terminal-interactive-p (terminal-ui-terminal ui))
              (not (fullscreen-terminal-ui-active-p ui)))
-    (let ((token (platform-terminal-enable-fullscreen *platform*))
+    (let ((token       (platform-terminal-enable-fullscreen *platform*))
           (completed-p nil))
       (unwind-protect
            (progn
@@ -183,10 +183,10 @@ foregrounds without its background, so the legend stays distinct from the
 composer's dim placeholder without reading as a second modeline."
   (let* ((following-p (clinedi:transcript-viewport-following-p
                        (fullscreen-terminal-ui-viewport ui)))
-         (position (if following-p
-                       " LIVE "
-                       (format nil " ~D-~D / ~D "
-                               (1+ top) (min total (+ top space)) total)))
+         (position    (if following-p
+                          " LIVE "
+                          (format nil " ~D-~D / ~D "
+                                  (1+ top) (min total (+ top space)) total)))
          (spans
            (append
             (list (terminal-span ':legend-accent position))
@@ -204,10 +204,10 @@ composer's dim placeholder without reading as a second modeline."
     list)
 (defun terminal-ui-fullscreen--prompt-prefix (ui &key width limit now)
   "Bound prompt-adjacent rows to LIMIT, omitting their leading transcript gap."
-  (let* ((rows (terminal-ui-fullscreen--display-rows
-                ui (terminal-ui--prompt-prefix-rows ui now) width))
+  (let* ((rows    (terminal-ui-fullscreen--display-rows
+                   ui (terminal-ui--prompt-prefix-rows ui now) width))
          (visible (member-if (lambda (row) (plusp (length row))) rows))
-         (count (min limit (if visible (1+ (length visible)) 0))))
+         (count   (min limit (if visible (1+ (length visible)) 0))))
     (subseq (append visible (when visible (list ""))) 0 count)))
 
 (-> terminal-ui-fullscreen--frame (fullscreen-terminal-ui (option real))
@@ -215,30 +215,30 @@ composer's dim placeholder without reading as a second modeline."
 (defun terminal-ui-fullscreen--frame (ui status-now)
   "Compose scrollable transcript output above pinned activity and input rows."
   (let* ((terminal (terminal-ui-terminal ui))
-         (width (max 1 (terminal-columns terminal)))
-         (height (max 1 (terminal-rows terminal))))
+         (width    (max 1 (terminal-columns terminal)))
+         (height   (max 1 (terminal-rows terminal))))
     (terminal-ui-fullscreen--ensure-width ui width)
     (multiple-value-bind (composer cursor-row cursor-column)
         (terminal-ui-fullscreen--composer ui width height)
-      (let* ((viewport (fullscreen-terminal-ui-viewport ui))
+      (let* ((viewport    (fullscreen-terminal-ui-viewport ui))
              (separator-p (> height (length composer)))
-             (available (max 0 (- height (length composer) (if separator-p 1 0))))
+             (available   (max 0 (- height (length composer) (if separator-p 1 0))))
              ;; Keep a transcript row even when activity fills the available space.
-             (prefix (terminal-ui-fullscreen--prompt-prefix
-                      ui :width width :limit (max 0 (1- available)) :now status-now))
-             (space (- available (length prefix)))
-             (committed (clinedi:transcript-viewport-row-count viewport))
-             (tail (terminal-ui-stream-tail ui))
-             (live (coerce
-                    (terminal-ui-fullscreen--display-rows
-                     ui (when tail
-                          (append (when (terminal-ui-compact-tail-group ui) (list nil))
-                                  (terminal-ui--stream-tail-rows terminal tail width)))
-                     width)
-                    'vector))
-             (total (+ committed (length live)))
-             (top (clinedi:transcript-viewport-layout viewport space
-                                                      :extra-rows (length live)))
+             (prefix      (terminal-ui-fullscreen--prompt-prefix
+                           ui :width width :limit (max 0 (1- available)) :now status-now))
+             (space       (- available (length prefix)))
+             (committed   (clinedi:transcript-viewport-row-count viewport))
+             (tail        (terminal-ui-stream-tail ui))
+             (live        (coerce
+                           (terminal-ui-fullscreen--display-rows
+                            ui (when tail
+                                 (append (when (terminal-ui-compact-tail-group ui) (list nil))
+                                         (terminal-ui--stream-tail-rows terminal tail width)))
+                            width)
+                           'vector))
+             (total       (+ committed (length live)))
+             (top         (clinedi:transcript-viewport-layout viewport space
+                                                              :extra-rows (length live)))
              (visible
                (if (and (zerop total) (terminal-ui-fullscreen-welcome-p ui))
                    (terminal-ui--welcome-rows ui space)
@@ -408,16 +408,16 @@ lock, because copying and browser launches present notices of their own."
   "Append, paint and commit atomically; a failed paint can be retried without duplication."
   (if (terminal-ui-live-output-suspended-p ui)
       (terminal-ui--defer-live-append ui appended-text appended-display appended-regions)
-      (let* ((terminal (terminal-ui-terminal ui))
+      (let* ((terminal      (terminal-ui-terminal ui))
              (deferred-text (terminal-ui-deferred-live-appended-text ui))
-             (text (concatenate 'string deferred-text appended-text))
-             (display (concatenate 'string (terminal-ui-deferred-live-appended-display ui) appended-display))
-             (regions (append (terminal-ui-deferred-live-appended-regions ui)
-                              (termdown:shift-regions appended-regions (length deferred-text)))))
+             (text          (concatenate 'string deferred-text appended-text))
+             (display       (concatenate 'string (terminal-ui-deferred-live-appended-display ui) appended-display))
+             (regions       (append (terminal-ui-deferred-live-appended-regions ui)
+                                    (termdown:shift-regions appended-regions (length deferred-text)))))
         (terminal-ui-fullscreen--ensure-width ui (max 1 (terminal-columns terminal)))
-        (let ((checkpoint (clinedi:transcript-viewport-checkpoint
-                           (fullscreen-terminal-ui-viewport ui)))
-              (welcome-p (terminal-ui-fullscreen-welcome-p ui))
+        (let ((checkpoint  (clinedi:transcript-viewport-checkpoint
+                            (fullscreen-terminal-ui-viewport ui)))
+              (welcome-p   (terminal-ui-fullscreen-welcome-p ui))
               (completed-p nil))
           (unwind-protect
                (progn
