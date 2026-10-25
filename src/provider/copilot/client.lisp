@@ -22,7 +22,7 @@
            10 (lambda ()
                 (dexador:request
                  (format nil "~A/models/~A/policy" base-url (quri:url-encode model))
-                 :method ':post
+                 :method  ':post
                  :headers (append (copilot--headers token)
                                   (list (cons "Content-Type" "application/json")
                                         (cons "openai-intent" "chat-policy")
@@ -38,15 +38,15 @@
   "Discover picker models and Auto, preserving hidden routes for automatic selection."
   (with-credentials (credentials (copilot-credential-manager-create configuration))
     (let* ((base-url (copilot--base-url credentials))
-           (token (oauth-credentials-access-token credentials))
+           (token    (oauth-credentials-access-token credentials))
            (document (copilot--get-json
                       (concatenate 'string base-url "/models") token
                       :headers (list (cons "X-GitHub-Api-Version" "2026-06-01"))))
-           (models (copilot-model-catalog
-                    document :model-prefix "copilot/" :include-auto-p t
-                    :enable-model-function
-                    (when enable-p
-                      (lambda (model) (copilot--enable-model base-url token model))))))
+           (models   (copilot-model-catalog
+                      document :model-prefix "copilot/" :include-auto-p t
+                      :enable-model-function
+                      (when enable-p
+                        (lambda (model) (copilot--enable-model base-url token model))))))
       (snapshot-write (copilot--catalog-path configuration)
                       (list :domain (copilot--domain) :models models
                             :document (json-encode document))
@@ -60,11 +60,11 @@
     (unless (uiop:string-prefix-p "copilot/" (config :model configuration))
       (return ':chat-completions))
     (handler-case
-        (let* ((path (copilot--catalog-path configuration))
-               (catalog (and (probe-file path) (read-portable-form path)))
-               (spec (and (equal (getf catalog :domain) (copilot--domain))
-                          (find (config :model configuration) (getf catalog :models)
-                                :key (lambda (model) (getf model :name)) :test #'string=)))
+        (let* ((path     (copilot--catalog-path configuration))
+               (catalog  (and (probe-file path) (read-portable-form path)))
+               (spec     (and (equal (getf catalog :domain) (copilot--domain))
+                              (find (config :model configuration) (getf catalog :models)
+                                    :key (lambda (model) (getf model :name)) :test #'string=)))
                (protocol (and spec (getf spec :protocol))))
           (unless (member protocol '(:auto :chat-completions :messages :responses))
             (error 'configuration-error
@@ -93,14 +93,14 @@
 
 (define-condition copilot-request-error (provider-error)
   ((model
-    :initarg :model
-    :reader copilot-request-error-model
-    :type string
+    :initarg       :model
+    :reader        copilot-request-error-model
+    :type          string
     :documentation "The concrete Copilot model used for the failed request.")
    (endpoint
-    :initarg :endpoint
-    :reader copilot-request-error-endpoint
-    :type string
+    :initarg       :endpoint
+    :reader        copilot-request-error-endpoint
+    :type          string
     :documentation "The credential-free URL of the failed inference request."))
   (:documentation "A terminal Copilot failure with its resolved wire route."))
 
@@ -143,11 +143,15 @@
                        (if *provider-authentication-bootstrap-p*
                            ':chat-completions
                            (copilot--cached-protocol configuration))))
-         (class (ecase protocol
-                  (:auto 'copilot-auto-provider)
-                  (:chat-completions 'copilot-chat-provider)
-                  (:messages 'copilot-messages-provider)
-                  (:responses 'copilot-responses-provider))))
+         (class    (ecase protocol
+                     (:auto
+                      'copilot-auto-provider)
+                     (:chat-completions
+                      'copilot-chat-provider)
+                     (:messages
+                      'copilot-messages-provider)
+                     (:responses
+                      'copilot-responses-provider))))
     (apply #'make-instance class
            :configuration configuration :credential-manager manager
            :registration registration :session-id session-id
@@ -212,15 +216,15 @@
 (defmethod provider-authenticated-model
     ((configuration configuration) (provider copilot-provider-mixin))
   "Select a discovered Copilot model after login, preserving an eligible selection."
-  (let* ((previous (model-provider-registration provider))
+  (let* ((previous     (model-provider-registration provider))
          (registration (and previous
                             (provider-registration-find
                              (provider-registration-name previous)))))
     (when registration
-      (let* ((models (loop for model in (provider-registration-models registration)
-                          for name = (provider-model-name model)
-                          when (eq (provider-registration-for-model name) registration)
-                            collect name))
+      (let* ((models  (loop for model in (provider-registration-models registration)
+                           for name = (provider-model-name model)
+                           when (eq (provider-registration-for-model name) registration)
+                             collect name))
              (current (config :model configuration)))
         (unless models
           (error 'configuration-error
@@ -251,7 +255,7 @@
     (append (copilot-stream-headers
              (oauth-credentials-access-token credentials) request
              :protocol protocol :initiator initiator
-             :user-agent (provider-user-agent)
+             :user-agent        (provider-user-agent)
              :anthropic-version *anthropic-api-version*)
             (when session-token
               (list (cons "Copilot-Session-Token" session-token))))))
@@ -272,16 +276,16 @@
         (let ((model (provider--sanitize-wire-string
                       (config :model (provider-configuration provider)))))
           (error 'copilot-request-error
-                 :message (provider--sanitize-wire-string
-                           (format nil "~A~%Copilot request: ~A via ~A."
-                                   (cl-llm-provider-api:provider-api-error-message condition)
-                                   model endpoint))
+                 :message     (provider--sanitize-wire-string
+                               (format nil "~A~%Copilot request: ~A via ~A."
+                                       (cl-llm-provider-api:provider-api-error-message condition)
+                                       model endpoint))
                  :model model :endpoint endpoint
-                 :status (provider-error-status condition)
-                 :code (provider--sanitize-wire-value (provider-error-code condition))
-                 :request-id (provider--sanitize-wire-value (provider-error-request-id condition))
+                 :status      (provider-error-status condition)
+                 :code        (provider--sanitize-wire-value (provider-error-code condition))
+                 :request-id  (provider--sanitize-wire-value (provider-error-request-id condition))
                  :response-id (provider--sanitize-wire-value (provider-error-response-id condition))
-                 :response (provider--sanitize-wire-value (provider-error-response condition))))))))
+                 :response    (provider--sanitize-wire-value (provider-error-response condition))))))))
 
 (defmethod provider-call-with-request-adapter :around
     ((provider copilot-provider-mixin) (credentials oauth-credentials) (function function)
@@ -294,7 +298,7 @@
       adapter (lambda () (funcall function adapter secrets))
       :endpoint (concatenate 'string (copilot--base-url credentials)
                              (copilot-protocol-endpoint (copilot-provider-protocol adapter)))
-      :secrets secrets))
+      :secrets  secrets))
    :conversation conversation))
 
 (defmethod provider-open-response-stream
@@ -306,8 +310,8 @@
      (json-encode-utf8 request)
      :headers (copilot--request-headers
                credentials conversation request :protocol protocol
-               :session-token (when (eq provider (first *copilot-auto-request*))
-                                (second *copilot-auto-request*))))))
+               :session-token                             (when (eq provider (first *copilot-auto-request*))
+                                                            (second *copilot-auto-request*))))))
 
 (-> copilot--models-cache-key () string)
 (defun copilot--models-cache-key ()
@@ -315,10 +319,10 @@
   (format nil "https://api.~A/copilot/models" (copilot--domain)))
 
 (register-provider
- "copilot" :description "GitHub Copilot subscription"
+ "copilot" :description             "GitHub Copilot subscription"
  :family ':copilot :protocol ':custom
  :factory #'copilot-provider-create :authenticator #'copilot-provider-authenticate
- :model-discovery #'copilot--fetch-models
- :model-discovery-endpoint "https://api.individual.githubcopilot.com/models"
+ :model-discovery                   #'copilot--fetch-models
+ :model-discovery-endpoint          "https://api.individual.githubcopilot.com/models"
  :model-discovery-endpoint-resolver #'copilot--models-cache-key
- :source ':builtin)
+ :source                            ':builtin)
