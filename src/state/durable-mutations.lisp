@@ -32,7 +32,6 @@ so it is opt-in rather than the default commit gate."))
     :documentation "The injected active-image check callback."))
   (:documentation "A mutation checker backed by explicit boundary callbacks."))
 
-(-> mutation-checker-verification-scope (mutation-checker) string)
 (defgeneric mutation-checker-verification-scope (checker)
   (:documentation "Return the public scope of CHECKER's actual active-state checks."))
 
@@ -44,9 +43,6 @@ so it is opt-in rather than the default commit gate."))
   "Classify the complete in-image test suite as a full check."
   "full")
 
-(-> mutation-checker-check-active
-    (mutation-checker configuration string)
-    string)
 (defgeneric mutation-checker-check-active (checker configuration definition-source)
   (:documentation
    "Check installed DEFINITION-SOURCE in the active image and return captured output."))
