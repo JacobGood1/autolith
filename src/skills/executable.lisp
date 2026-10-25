@@ -46,24 +46,24 @@
 (defun executable-skill--identity (executable)
   "Return stable declared versions, dependencies and exact sidecar identity."
   (let ((manifest (cl-skills:skill-executable-manifest executable)))
-    (list :pathname (namestring (cl-skills:skill-executable-pathname executable))
-          :digest (cl-skills:skill-executable-digest executable)
-          :skill-version (getf manifest :skill-version)
-          :system (getf manifest :system)
+    (list :pathname       (namestring (cl-skills:skill-executable-pathname executable))
+          :digest         (cl-skills:skill-executable-digest executable)
+          :skill-version  (getf manifest :skill-version)
+          :system         (getf manifest :system)
           :system-version (getf manifest :system-version)
-          :dependencies (getf manifest :dependencies))))
+          :dependencies   (getf manifest :dependencies))))
 
 (-> executable-skill--admit (tool-context t &key (:asd (option pathname))) list)
 (defun executable-skill--admit (context executable &key asd)
   "Approve exact tool requirements and explicit full-access code execution.
 Capabilities are declarations presented to the ordinary command authorizer,
 not grants. Only declared exact tools enter the host bridge."
-  (let* ((manifest (cl-skills:skill-executable-manifest executable))
+  (let* ((manifest  (cl-skills:skill-executable-manifest executable))
          (arguments (json-object "host-tools" (coerce (getf manifest :tools) 'vector)))
-         (names (worker-host--allowlist context arguments))
-         (identity (executable-skill--identity executable))
-         (command (format nil "skill.execute -- ~S :manifest ~S :asd ~S"
-                          identity manifest (and asd (namestring asd)))))
+         (names     (worker-host--allowlist context arguments))
+         (identity  (executable-skill--identity executable))
+         (command   (format nil "skill.execute -- ~S :manifest ~S :asd ~S"
+                            identity manifest (and asd (namestring asd)))))
     (unless (eq ':full-access
                 (tool-context-authorize-command
                  context command
@@ -73,7 +73,7 @@ not grants. Only declared exact tools enter the host bridge."
     names))
 
 (-> executable-skill--form (skill-metadata t &key (:operation keyword)
-                           (:input t) (:asd (option pathname))) string)
+                            (:input t) (:asd (option pathname))) string)
 (defun executable-skill--form (metadata executable &key operation input asd)
   "Build the single worker form, retaining exact metadata and authorized identity."
   (let ((identity (executable-skill--identity executable)))
@@ -102,32 +102,32 @@ not grants. Only declared exact tools enter the host bridge."
                                           (cl-skills:skill-executable-manifest executable)))
                         (return (list :success-p nil :code ':identity-changed :identity ',identity
                                       :diagnostics (when diagnostic
-                                                     (list (list :kind (cl-skills:skill-diagnostic-kind diagnostic)
+                                                     (list (list :kind     (cl-skills:skill-diagnostic-kind diagnostic)
                                                                  :pathname (namestring (cl-skills:skill-diagnostic-pathname diagnostic))
-                                                                 :message (cl-skills:skill-diagnostic-message diagnostic))))
-                                      :message (if diagnostic
-                                                   (format nil "Selected Skill revalidation failed: ~A"
-                                                           (cl-skills:skill-diagnostic-message diagnostic))
-                                                   "Selected Skill source or executable identity changed after admission."))))
-                  ,@(when asd `((asdf:load-asd (uiop:parse-native-namestring ,(namestring asd)))))
-                  (list :success-p t :identity ',identity :value
-                        ,(if (eq operation ':invoke)
-                             `(cl-skills:skill-executable-invoke
-                               executable ',input
-                               :authorize (lambda (value &key operation context)
-                                            (declare (ignore operation context))
-                                            (equal (getf ',identity :digest) (cl-skills:skill-executable-digest value)))
-                               :loader (lambda (name &key context)
-                                         (declare (ignore context)) (asdf:load-system name))
-                               :context (autolith:worker-tool-context))
-                             `(cl-skills:skill-executable-verify
-                               executable :entrypoint ',operation
-                               :authorize (lambda (value &key operation context)
-                                            (declare (ignore operation context))
-                                            (equal (getf ',identity :digest) (cl-skills:skill-executable-digest value)))
-                               :loader (lambda (name &key context)
-                                         (declare (ignore context)) (asdf:load-system name))
-                                 :context (autolith:worker-tool-context))))))
+                                                                 :message  (cl-skills:skill-diagnostic-message diagnostic))))
+                                      :message     (if diagnostic
+                                                       (format nil "Selected Skill revalidation failed: ~A"
+                                                               (cl-skills:skill-diagnostic-message diagnostic))
+                                                       "Selected Skill source or executable identity changed after admission."))))
+                     ,@(when asd `((asdf:load-asd (uiop:parse-native-namestring ,(namestring asd)))))
+                     (list :success-p t :identity ',identity :value
+                           ,(if (eq operation ':invoke)
+                                `(cl-skills:skill-executable-invoke
+                                  executable ',input
+                                  :authorize (lambda (value &key operation context)
+                                               (declare (ignore operation context))
+                                               (equal (getf ',identity :digest) (cl-skills:skill-executable-digest value)))
+                                  :loader (lambda (name &key context)
+                                            (declare (ignore context)) (asdf:load-system name))
+                                  :context (autolith:worker-tool-context))
+                                `(cl-skills:skill-executable-verify
+                                  executable :entrypoint ',operation
+                                  :authorize (lambda (value &key operation context)
+                                               (declare (ignore operation context))
+                                               (equal (getf ',identity :digest) (cl-skills:skill-executable-digest value)))
+                                  :loader (lambda (name &key context)
+                                            (declare (ignore context)) (asdf:load-system name))
+                                    :context (autolith:worker-tool-context))))))
                 (cl-skills:skill-executable-error (condition)
                   (list :success-p nil :code (cl-skills:skill-executable-error-kind condition)
                         :identity ',identity :message (princ-to-string condition))))))))))
@@ -139,12 +139,12 @@ not grants. Only declared exact tools enter the host bridge."
 (defun executable-skill--result-grammar ()
   "Return the preconstruction-bounded portable result data dialect."
   (make-source-grammar
-   :label "Executable Skill result"
+   :label                                     "Executable Skill result"
    :maximum-depth 128 :maximum-nodes 262144
-   :maximum-string-characters *executable-skill-result-byte-limit*
+   :maximum-string-characters                 *executable-skill-result-byte-limit*
    :qualified-common-lisp-symbols-permitted-p t
-   :readable-strings-permitted-p t
-   :read-default-float-format 'single-float
+   :readable-strings-permitted-p              t
+   :read-default-float-format                 'single-float
    :allowed-atom-predicate
    (lambda (value)
      (or (null value) (eq value t) (keywordp value) (stringp value)
@@ -168,7 +168,7 @@ not grants. Only declared exact tools enter the host bridge."
        `(let ((record ,(read-from-string source)))
           (with-open-file (stream ,(namestring pathname) :direction ':output
                                   :if-exists ':error :if-does-not-exist ':create
-                                  :external-format ':utf-8)
+                                  :external-format                  ':utf-8)
             (with-standard-io-syntax
               (write (list :token ,token :record record) :stream stream :readably t)))
           t)))))
@@ -214,30 +214,30 @@ not grants. Only declared exact tools enter the host bridge."
 (defun executable-skill--record-result (value)
   "Retain complete native results and identity alongside a bounded preview."
   (make-instance 'executable-skill-result
-                 :content (bounded-string
-                           (if (getf value :success-p)
-                               (format nil "~S" (getf value :value))
-                               (getf value :message))
-                           :overflow-uri-function *tool-result-overflow-function*)
+                 :content   (bounded-string
+                             (if (getf value :success-p)
+                                 (format nil "~S" (getf value :value))
+                                 (getf value :message))
+                             :overflow-uri-function *tool-result-overflow-function*)
                  :success-p (getf value :success-p)
-                 :category (if (getf value :success-p) ':success ':failure)
+                 :category  (if (getf value :success-p) ':success ':failure)
                  :error-code (getf value :code) :record value))
 
 (-> executable-skill--run (tool-context string &key (:tools list)) tool-result)
 (defun executable-skill--run (context source &key tools)
   "Run SOURCE in a unique disposable heap and clean its private transport on every exit."
   (let* ((identifier (make-identifier))
-         (directory (merge-pathnames (format nil "executable-results/~A/" identifier)
-                                     (config :cache-root (tool-context-configuration context))))
-         (pathname (merge-pathnames "result.sexp" directory))
-         (worker (lisp-worker-create (tool-context-configuration context)
-                                     :name (format nil "skill-~A" identifier))))
+         (directory  (merge-pathnames (format nil "executable-results/~A/" identifier)
+                                      (config :cache-root (tool-context-configuration context))))
+         (pathname   (merge-pathnames "result.sexp" directory))
+         (worker     (lisp-worker-create (tool-context-configuration context)
+                                         :name (format nil "skill-~A" identifier))))
     (unwind-protect
          (progn
            (ensure-directories-exist pathname)
            (platform-make-private *platform* directory)
-           (let* ((status (platform-path-status *platform* directory :follow-links-p nil))
-                  (form (executable-skill--publication-form source pathname identifier))
+           (let* ((status   (platform-path-status *platform* directory :follow-links-p nil))
+                  (form     (executable-skill--publication-form source pathname identifier))
                   (response (worker-host-eval-request
                              worker ':eval
                              (list :forms (list "(asdf:load-system \"cl-skills/executable\")" form))
@@ -273,16 +273,16 @@ not grants. Only declared exact tools enter the host bridge."
                           ':invoke
                           (if (equal (tool-argument arguments "entrypoint") "verify")
                               ':verify ':self-test)))
-           (input (when (eq operation ':invoke)
-                    (cl-llm-provider-api:output-json->sexp
-                     (tool-argument arguments "input" :required t))))
-           (asd (lisp-tool-asd-pathname context arguments (tool-canonical-name tool)))
-           (names (executable-skill--admit context executable :asd asd))
-           (form (executable-skill--form metadata executable
-                                         :operation operation :input input :asd asd)))
+           (input     (when (eq operation ':invoke)
+                        (cl-llm-provider-api:output-json->sexp
+                         (tool-argument arguments "input" :required t))))
+           (asd       (lisp-tool-asd-pathname context arguments (tool-canonical-name tool)))
+           (names     (executable-skill--admit context executable :asd asd))
+           (form      (executable-skill--form metadata executable
+                                              :operation operation :input input :asd asd)))
       (lisp-tool-invoke-managed-execution
        context arguments :tool-name (tool-canonical-name tool)
-       :summary (format nil "Executable Skill ~A (~A)" (skill-metadata-name metadata) operation)
+       :summary                     (format nil "Executable Skill ~A (~A)" (skill-metadata-name metadata) operation)
        :operation-function
        (lambda () (executable-skill--run context form :tools names))))))
 
@@ -294,7 +294,7 @@ not grants. Only declared exact tools enter the host bridge."
       (tool-registry-register
        registry
        (make-instance 'executable-skill-tool :namespace "skill" :name (first entry)
-                      :operation (second entry)
+                      :operation   (second entry)
                       :description "Run a discovered executable Skill in a fresh worker after explicit code authorization. Only declared exact host tools are available. Verify runs self-test by default; select verify for the verification entrypoint."
                       :parameters
                       (tool-object-schema
