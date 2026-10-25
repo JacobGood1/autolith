@@ -74,7 +74,7 @@
                    :maximum-nodes 2000000 :maximum-string-characters maximum
                    :maximum-aggregate-string-characters maximum
                    :maximum-object-key-characters 4096 :maximum-object-members 100000
-                   :maximum-array-elements 100000))
+                   :maximum-array-elements              100000))
 
 (-> model-catalog-parse (string) (values hash-table hash-table))
 (defun model-catalog-parse (text)
@@ -85,10 +85,10 @@ Optional canonical_model_id must be a valid ID. Other public metadata is ignored
                (<= (length (babel:string-to-octets text :encoding :utf-8))
                    *model-catalog-maximum-bytes*))
     (model-catalog--reject "size limit"))
-  (let ((root (json-decode text :limits (model-catalog--limits
-                                       *model-catalog-maximum-bytes*)))
+  (let ((root        (json-decode text :limits (model-catalog--limits
+                                                *model-catalog-maximum-bytes*)))
         (identifiers (make-hash-table :test #'equal))
-        (entries 0))
+        (entries     0))
     (unless (and (hash-table-p root) (plusp (hash-table-count root)))
       (model-catalog--reject "provider object required"))
     (maphash
@@ -141,11 +141,11 @@ Optional canonical_model_id must be a valid ID. Other public metadata is ignored
     (setf (model-catalog-loaded controller) t)
     (ignore-errors
       (let* ((maximum (model-catalog--cache-limit))
-             (cache (json-decode (model-catalog--read-file
-                                  (model-catalog--path controller) maximum)
-                                :limits (model-catalog--limits maximum)))
-             (time (and (hash-table-p cache) (gethash "fetched_at" cache)))
-             (body (and (hash-table-p cache) (gethash "body" cache))))
+             (cache   (json-decode (model-catalog--read-file
+                                    (model-catalog--path controller) maximum)
+                                  :limits (model-catalog--limits maximum)))
+             (time    (and (hash-table-p cache) (gethash "fetched_at" cache)))
+             (body    (and (hash-table-p cache) (gethash "body" cache))))
         (unless (and (hash-table-p cache)
                      (equal (gethash "source" cache) *model-catalog-source*)
                      (eql (gethash "version" cache) 1)
@@ -159,15 +159,15 @@ Optional canonical_model_id must be a valid ID. Other public metadata is ignored
 
 (defun model-catalog--publish (controller body time)
   "Atomically publish one validated last-good catalog with source and time metadata."
-  (let* ((path (model-catalog--path controller))
+  (let* ((path      (model-catalog--path controller))
          (temporary (make-pathname :name (string-downcase
-                                         (format nil "models-dev-~{~2,'0X~}"
-                                                 (coerce (ironclad:random-data 8) 'list)))
+                                          (format nil "models-dev-~{~2,'0X~}"
+                                                  (coerce (ironclad:random-data 8) 'list)))
                                    :type "tmp" :defaults path))
-         (maximum (model-catalog--cache-limit))
-         (content (json-encode (json-object "version" 1 "source" *model-catalog-source*
-                                          "fetched_at" time "body" body)
-                               :limits (model-catalog--limits maximum))))
+         (maximum   (model-catalog--cache-limit))
+         (content   (json-encode (json-object "version" 1 "source" *model-catalog-source*
+                                            "fetched_at" time "body" body)
+                                 :limits (model-catalog--limits maximum))))
     (ensure-directories-exist path)
     (unwind-protect
          (progn
@@ -201,38 +201,38 @@ Native transports without Lisp deadlines must run only in a supervised child."
   "Fetch within one whole-request deadline, supervising native blocking transports."
   (if (platform-http-supervision-required-p *platform*)
       (let* ((configuration (or configuration (make-configuration :provider-validation-p nil)))
-             (record (supervised-process-create)))
+             (record        (supervised-process-create)))
         (supervised-process-request
          record (list *model-catalog-source* *model-catalog-maximum-bytes*)
          :seconds *model-catalog-request-seconds*
-         :start (lambda (install)
-                  (let ((core (config :active-image-core configuration)))
-                    (when (and core (probe-file core))
-                      (funcall install
-                               (uiop:launch-program
-                                (list (namestring sb-ext:*runtime-pathname*) "--noinform"
-                                      "--core" (namestring core) "--end-runtime-options"
-                                      (namestring (config :source-root configuration))
-                                      "--model-catalog-worker")
-                                :input :stream :output :stream :error-output nil
-                                :external-format :utf-8
-                                :environment (supervised-process-environment))))))))
+         :start   (lambda (install)
+                    (let ((core (config :active-image-core configuration)))
+                      (when (and core (probe-file core))
+                        (funcall install
+                                 (uiop:launch-program
+                                  (list (namestring sb-ext:*runtime-pathname*) "--noinform"
+                                        "--core" (namestring core) "--end-runtime-options"
+                                        (namestring (config :source-root configuration))
+                                        "--model-catalog-worker")
+                                  :input :stream :output :stream :error-output nil
+                                  :external-format :utf-8
+                                  :environment     (supervised-process-environment))))))))
       (model-catalog--http-fetch)))
 
 (defun model-catalog--worker-main ()
   "Serve one private anonymous catalog request without loading user state."
   (let ((input *standard-input*) (output *standard-output*))
     (let ((*standard-output* (make-broadcast-stream))
-          (*error-output* (make-broadcast-stream))
-          (*trace-output* (make-broadcast-stream))
-          (*debug-io* (make-two-way-stream (make-string-input-stream "") (make-broadcast-stream))))
+          (*error-output*    (make-broadcast-stream))
+          (*trace-output*    (make-broadcast-stream))
+          (*debug-io*        (make-two-way-stream (make-string-input-stream "") (make-broadcast-stream))))
       (let ((result
               (handler-case
                   (let* ((*read-eval* nil) (request (read input nil nil)))
                     (when (and (listp request) (= (length request) 2)
                                (stringp (first request))
                                (typep (second request) `(integer 0 ,*model-catalog-maximum-bytes*)))
-                      (let ((*model-catalog-source* (first request))
+                      (let ((*model-catalog-source*        (first request))
                             (*model-catalog-maximum-bytes* (second request)))
                         (model-catalog--http-fetch))))
                 (error () nil))))
@@ -263,14 +263,14 @@ Native transports without Lisp deadlines must run only in a supervised child."
     (when (model-catalog-context-active-p context)
       (model-catalog--load controller)
       (unless (model-catalog-timer controller)
-        (let ((fetch *model-catalog-fetch-function*)
+        (let ((fetch    *model-catalog-fetch-function*)
               (interval *model-catalog-poll-seconds*))
           (setf (model-catalog-timer controller)
                 (bt:make-thread (lambda () (model-catalog--timer controller :context context
                                                                           :fetch fetch :interval interval))
                                 :name "model catalog refresh timer"))))
       (let ((thread (model-catalog-thread controller))
-            (now (get-universal-time)))
+            (now    (get-universal-time)))
         (when (and (or (null thread) (not (bt:thread-alive-p thread)))
                    (or (null (model-catalog-fetched-at controller))
                        (>= (- now (model-catalog-fetched-at controller)) 86400))
