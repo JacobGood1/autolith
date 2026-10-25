@@ -173,7 +173,7 @@
 (-> task--plist-key-present-p (list keyword) boolean)
 (defun task--plist-key-present-p (plist key)
   "Return true when proper PLIST contains KEY in a key position."
-  (loop for tail on plist by #'cddr
+  (loop for tail on plist by (partial #'nthcdr 2)
         thereis (eq (first tail) key)))
 
 (-> task--plist-alist
@@ -203,7 +203,7 @@
                           (:duplicate
                            "The property occurs more than once."))
        :definition-name definition-name)))
-  (loop for (key child) on value by #'cddr collect (cons key child)))
+  (loop for (key child) on value by (partial #'nthcdr 2) collect (cons key child)))
 
 (-> task--alist-value (keyword list) (values t boolean))
 (defun task--alist-value (key pairs)
