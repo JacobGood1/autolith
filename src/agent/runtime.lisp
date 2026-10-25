@@ -1126,10 +1126,10 @@ restricted turn cannot discover tools outside its allowlist."
        content))))
 
 (-> agent--complete-tool-executions
-    (agent list agent-observer integer)
+    (agent list &key (:observer agent-observer) (:tool-round integer))
     null)
 (defun agent--complete-tool-executions
-    (agent executions observer tool-round)
+    (agent executions &key observer tool-round)
   "Persist EXECUTIONS and report completions in provider wire order.
 
 Every execution receives an output before its condition is re-signalled. Missing
@@ -1302,15 +1302,18 @@ worker results become explicit unknown outcomes so provider history stays valid.
                       do (setf (getf execution :condition)
                                thread-join-condition)))
             (when thread-creation-condition
-              (agent--complete-tool-executions
-               agent (coerce executions 'list) observer tool-round)
+              (agent--complete-tool-executions agent (coerce executions 'list)
+                                               :observer   observer
+                                               :tool-round tool-round)
               (error thread-creation-condition))
             (when thread-join-condition
-              (agent--complete-tool-executions
-               agent (coerce executions 'list) observer tool-round)
+              (agent--complete-tool-executions agent (coerce executions 'list)
+                                               :observer   observer
+                                               :tool-round tool-round)
               (error thread-join-condition)))))
-    (agent--complete-tool-executions
-     agent (coerce executions 'list) observer tool-round))
+    (agent--complete-tool-executions agent (coerce executions 'list)
+                                     :observer   observer
+                                     :tool-round tool-round))
   nil)
 
 (-> agent--execute-tool-calls
