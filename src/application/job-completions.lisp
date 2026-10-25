@@ -5,7 +5,7 @@
 (-> application-job-completions--notice-admissible-p (application list) boolean)
 (defun application-job-completions--notice-admissible-p (application notice)
   "Require the notice's exact conversation and current, unspent goal authority."
-  (let* ((goal (application-goal application))
+  (let* ((goal       (application-goal application))
          (mission-id (getf notice :mission-id)))
     (not
      (null
@@ -73,7 +73,7 @@ connected wakeup nothing would resume it, so nothing is awaited."
 Pending outcomes are deliberately excluded: they no longer represent running
 work. Admission uses the same owner, policy, mission and controller authority as
 completion dispatch. Both tool executions and child tasks use this job registry."
-  (let ((agent (and (slot-boundp application 'agent) (application-agent application)))
+  (let ((agent      (and (slot-boundp application 'agent) (application-agent application)))
         (controller (application-input-controller application)))
     (if (and (typep agent 'agent)
              controller
@@ -110,11 +110,11 @@ snapshot cannot change the meaning of an already finalized transcript entry."
   "Return an admitted batch deadline, or NIL when automatic work must wait."
   (when (application-job-completions--controller-admissible-p controller)
     (let* ((application (application-input-controller-application controller))
-           (agent (application-agent application))
-           (notices (remove-if-not
-                     (lambda (notice)
-                       (application-job-completions--notice-admissible-p application notice))
-                     (task-completion-pending agent :continuation-only-p t))))
+           (agent       (application-agent application))
+           (notices     (remove-if-not
+                         (lambda (notice)
+                           (application-job-completions--notice-admissible-p application notice))
+                         (task-completion-pending agent :continuation-only-p t))))
       (when notices
         (reduce #'min notices :key (lambda (notice) (getf notice :ready-at)))))))
 
@@ -124,7 +124,7 @@ snapshot cannot change the meaning of an already finalized transcript entry."
   "Drain notification pressure without granting an inference or consuming admitted results."
   (when (application-job-completions--controller-admissible-p controller)
     (let* ((application (application-input-controller-application controller))
-           (agent (application-agent application)))
+           (agent       (application-agent application)))
       (when (task-completion-maintenance-needed-p agent)
         (let ((notices (remove-if
                         (lambda (notice)
@@ -133,14 +133,14 @@ snapshot cannot change the meaning of an already finalized transcript entry."
           (when notices
             (list ':job-completion-maintenance
                   (list :conversation (conversation-identifier (application-conversation application))
-                        :events (mapcar (lambda (notice) (getf notice :id))
-                                        (subseq notices 0 (min (length notices) *task-completion-batch-limit*)))))))))))
+                        :events       (mapcar (lambda (notice) (getf notice :id))
+                                              (subseq notices 0 (min (length notices) *task-completion-batch-limit*)))))))))))
 
 (-> application-job-completions-maintain (application-input-controller list) null)
 (defun application-job-completions-maintain (controller ticket)
   "Recheck a bounded maintenance ticket and free receipt-backed capacity without a provider turn."
   (let* ((application (application-input-controller-application controller))
-         (agent (application-agent application))
+         (agent       (application-agent application))
          (admitted-p
            (with-lock-held ((application-input-controller-lock controller))
              (and (application-job-completions--controller-admissible-p controller)
@@ -163,21 +163,21 @@ snapshot cannot change the meaning of an already finalized transcript entry."
   (let ((deadline (application-job-completions--next-time controller)))
     (when (and deadline (<= deadline (get-universal-time)))
       (let* ((application (application-input-controller-application controller))
-             (notices (remove-if-not
-                       (lambda (notice)
-                         (application-job-completions--notice-admissible-p application notice))
-                       (task-completion-pending (application-agent application)
-                                                :continuation-only-p t))))
+             (notices     (remove-if-not
+                           (lambda (notice)
+                             (application-job-completions--notice-admissible-p application notice))
+                           (task-completion-pending (application-agent application)
+                                                    :continuation-only-p t))))
         (when notices
           (list ':job-completion
                 (list :conversation (conversation-identifier (application-conversation application))
-                      :events (mapcar (lambda (notice) (getf notice :id)) notices))))))))
+                      :events       (mapcar (lambda (notice) (getf notice :id)) notices))))))))
 
 (-> application-job-completions-run (application-input-controller list) null)
 (defun application-job-completions-run (controller ticket)
   "Recheck TICKET, deliver its batch durably, then run one ordinary automatic turn."
   (let* ((application (application-input-controller-application controller))
-         (agent (application-agent application))
+         (agent       (application-agent application))
          (admitted-p
            (with-lock-held ((application-input-controller-lock controller))
              (and (application-job-completions--controller-admissible-p controller)
@@ -209,13 +209,13 @@ snapshot cannot change the meaning of an already finalized transcript entry."
              (application--run-turn
               application
               *application-job-completion-continuation-prompt*
-              :continuation-p t
-              :steering-function take
+              :continuation-p              t
+              :steering-function           take
               :steering-persisted-function acknowledge
               :pending-operations-function #'pending-operations)
              (application--run-goal-continuations
               application
-              :steering-function take
+              :steering-function           take
               :steering-persisted-function acknowledge
               :pending-operations-function #'pending-operations)))))))
   nil)
@@ -223,7 +223,7 @@ snapshot cannot change the meaning of an already finalized transcript entry."
 (-> application-job-completions-connect (application) null)
 (defun application-job-completions-connect (application)
   "Restore completion continuity and connect only this primary controller's wakeup."
-  (let ((agent (and (slot-boundp application 'agent) (application-agent application)))
+  (let ((agent      (and (slot-boundp application 'agent) (application-agent application)))
         (controller (application-input-controller application)))
     (when (and agent controller)
       (task-completion-restore agent)
