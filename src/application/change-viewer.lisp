@@ -74,13 +74,13 @@ never read. SYNTAX-LANGUAGE overrides path inference, while
 SYNTAX-HIGHLIGHT-P can explicitly disable highlighting. Exact line coordinates
 remain optional rather than being fabricated."
   (render-diff
-   :removed-content removed-content
-   :added-content added-content
-   :removed-start-line removed-start-line
-   :added-start-line added-start-line
-   :source-path source-path
-   :syntax-language syntax-language
-   :syntax-highlight-p syntax-highlight-p
-   :line-limit line-limit
+   :removed-content        removed-content
+   :added-content          added-content
+   :removed-start-line     removed-start-line
+   :added-start-line       added-start-line
+   :source-path            source-path
+   :syntax-language        syntax-language
+   :syntax-highlight-p     syntax-highlight-p
+   :line-limit             line-limit
    :sanitize-line-function #'application--sanitize-change-line
-   :span-function #'syntax--terminal-span))
+   :span-function          #'syntax--terminal-span))
