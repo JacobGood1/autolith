@@ -56,7 +56,9 @@
                  (when body
                    (list :upload (config :telemetry-endpoint (telemetry-controller-owner controller))
                          body)))))))
-    (when request (ignore-errors (telemetry--process context request))))
+    (when request
+      ; mallet:suppress no-ignore-errors -- a failed upload is discarded without retrying it
+      (ignore-errors (telemetry--process context request))))
   nil)
 
 (-> telemetry--upload-loop (telemetry-run (option function)) null)
@@ -66,6 +68,7 @@
         (*telemetry-process-function* transport)
         (*telemetry-run*              nil))
     (unwind-protect
+         ; mallet:suppress no-ignore-errors -- an uploader failure must never reach the agent; the queue is retained
          (ignore-errors
            (loop
              (bt:with-lock-held ((telemetry-controller-lock controller))
@@ -134,7 +137,9 @@
   (let ((threads (bt:with-lock-held ((telemetry-controller-lock controller))
                    (copy-list (telemetry-controller-retired-upload-threads controller)))))
     (dolist (thread threads)
-      (unless (eq thread (bt:current-thread)) (ignore-errors (bt:join-thread thread))))
+      (unless (eq thread (bt:current-thread))
+        ; mallet:suppress no-ignore-errors -- joining a retired uploader is best-effort cleanup
+        (ignore-errors (bt:join-thread thread))))
     (bt:with-lock-held ((telemetry-controller-lock controller))
       (setf (telemetry-controller-retired-upload-threads controller)
             (set-difference (telemetry-controller-retired-upload-threads controller) threads :test #'eq))))
