@@ -49,6 +49,20 @@
   (declare (ignore provider))
   "max_completion_tokens")
 
+(defgeneric openai-compatible-provider-cache-breakpoint-fields (provider configuration)
+  (:documentation
+   "Return the wire fields marking PROVIDER's cache breakpoints for CONFIGURATION's model, or NIL.
+
+The fields go on the system message and on the final durable history message,
+before the temporary context, so each request caches a prefix the next one
+repeats. NIL leaves caching to the provider's own placement."))
+
+(defmethod openai-compatible-provider-cache-breakpoint-fields
+    ((provider openai-compatible-provider) (configuration configuration))
+  "Mark no breakpoints; most Chat Completions services place them implicitly."
+  (declare (ignore provider configuration))
+  nil)
+
 (defmethod provider-account-label ((provider openai-compatible-provider))
   "Return the configured OpenAI-compatible provider name."
   (openai-compatible-provider-display-name provider))
@@ -384,7 +398,10 @@ ask for a final usage chunk."
                                     *provider-maximum-output-tokens*)
                                :output-ceiling-field
                                (openai-compatible-provider-output-ceiling-field
-                                provider)))))
+                                provider)
+                               :cache-breakpoint-fields
+                               (openai-compatible-provider-cache-breakpoint-fields
+                                provider configuration)))))
     (values (provider-request-object provider projection effective-tools) delivery)))
 
 

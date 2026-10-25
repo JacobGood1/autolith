@@ -780,6 +780,7 @@
   test-openrouter-provider
   test-openrouter-routing-validation
   test-openrouter-provider-routing
+  test-openrouter-cache-breakpoints
   test-openrouter-routing-environment)
 
 (define-test-suite mistral-provider

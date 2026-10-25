@@ -308,6 +308,40 @@
                          "the wire request preserves the selected object, including booleans and nested fields"))))))
   nil)
 
+(-> test-openrouter-cache-breakpoints () null)
+(defun test-openrouter-cache-breakpoints ()
+  "Mark Claude cache breakpoints before temporary context, and no others."
+  (with-test-environment (("AUTOLITH_OPENROUTER_PROVIDER_ROUTING" nil))
+    (with-test-configuration (configuration)
+      (setf (configuration-validation-deferred-p configuration) t)
+      (let ((conversation (conversation-create configuration)))
+        (conversation-append-user-message conversation "Cache this history.")
+        (flet ((messages (model)
+                 "Return the encoded messages of a request to MODEL with goal context."
+                 (setf (config :model configuration) (openrouter--model-name model))
+                 (json-get (provider-request-object (openrouter-provider-create configuration)
+                                                    conversation (json-array)
+                                                    :goal-context "Temporary goal.")
+                           "messages"))
+
+               (marked-p (message)
+                 "Return true when MESSAGE's last content part requests caching."
+                 (let ((content (json-get message "content")))
+                   (when (and (vectorp content) (not (stringp content)))
+                     (let ((control (json-get (aref content (1- (length content)))
+                                              "cache_control")))
+                       (and control
+                            (equal (json-get control "type") "ephemeral")))))))
+          (let ((claude (messages "anthropic/claude-haiku-4.5")))
+            (test-assert (and (marked-p (aref claude 0))
+                              (marked-p (aref claude (- (length claude) 2))))
+                         "Claude caches the system prompt and the durable history")
+            (test-assert (not (marked-p (aref claude (1- (length claude)))))
+                         "the temporary context after the breakpoint stays uncached"))
+          (test-assert (notany #'marked-p (messages "meta-llama/llama-4-maverick"))
+                       "other models keep their provider's own caching")))))
+  nil)
+
 (-> test-openrouter-routing-environment () null)
 (defun test-openrouter-routing-environment ()
   "Load and validate routing supplied through the process environment."

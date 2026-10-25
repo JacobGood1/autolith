@@ -139,6 +139,21 @@
         (or (json-get routing wire-model)
             (json-get routing "*"))))))
 
+(defparameter *openrouter-cache-breakpoint-prefixes* '("anthropic/" "~anthropic/" "openai/")
+  "OpenRouter model prefixes whose caching needs, or honors, explicit breakpoints.
+
+Claude caches nothing without them. OpenRouter turns the same breakpoint into
+OpenAI's explicit cache boundary, which otherwise lands on the trailing context.")
+
+(defmethod openai-compatible-provider-cache-breakpoint-fields
+    ((provider openrouter-chat-completions-provider) (configuration configuration))
+  "Request ephemeral cache breakpoints for models that need explicit ones."
+  (declare (ignore provider))
+  (let ((wire-model (openrouter--wire-model-name (config :model configuration))))
+    (when (some (lambda (prefix) (uiop:string-prefix-p prefix wire-model))
+                *openrouter-cache-breakpoint-prefixes*)
+      (list "cache_control" (json-object "type" "ephemeral")))))
+
 (defmethod provider-request-object :around
     ((provider openrouter-chat-completions-provider)
      (conversation conversation)
