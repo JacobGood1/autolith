@@ -20,7 +20,7 @@
 (-> lisp-apropos--tracked-path (symbol list configuration) (option string))
 (defun lisp-apropos--tracked-path (symbol kinds configuration)
   "Return SYMBOL's defining file relative to the tracked source root, if it lies there."
-  (let ((pathname (symbol-definition-pathname symbol kinds))
+  (let ((pathname    (symbol-definition-pathname symbol kinds))
         (source-root (config :source-root configuration)))
     (when (and pathname (uiop:subpathp pathname source-root))
       (enough-namestring pathname source-root))))
@@ -46,8 +46,8 @@
                         (symbol-label symbol package)
                         kinds
                         (lisp-apropos--tracked-path symbol kinds configuration))
-                (let ((lambda-list (and (intersection kinds '(:function :macro :generic-function))
-                                        (symbol-lambda-list symbol)))
+                (let ((lambda-list   (and (intersection kinds '(:function :macro :generic-function))
+                                          (symbol-lambda-list symbol)))
                       (documentation (symbol-documentation-line
                                       symbol kinds
                                       :limit *lisp-apropos-documentation-characters*)))
@@ -64,12 +64,12 @@
     ((null value)
      nil)
     ((and (stringp value)
-          (find (string-upcase value) *definition-kinds* :key #'symbol-name
+          (find (string-upcase value) *definition-kinds* :key  #'symbol-name
                                                          :test #'string=)))
     (t
      (error 'tool-error
-            :message (format nil "Unknown definition kind ~S. Choose one of ~{~(~A~)~^, ~}."
-                             value *definition-kinds*)
+            :message   (format nil "Unknown definition kind ~S. Choose one of ~{~(~A~)~^, ~}."
+                               value *definition-kinds*)
             :tool-name "lisp.apropos"))))
 
 (-> lisp-apropos--limit-argument (hash-table) (integer 1))
@@ -86,23 +86,23 @@
   (declare (ignore tool))
   (when (resource-context-child-agent-p context)
     (error 'tool-authority-denied
-           :message "Task child agents cannot inspect the active image."
-           :code ':authority
+           :message   "Task child agents cannot inspect the active image."
+           :code      ':authority
            :tool-name "lisp.apropos"))
   (let ((query (tool-argument arguments "query" :required t)))
     (unless (non-empty-string-p query)
       (error 'tool-error
-             :message "lisp.apropos requires a non-empty query string."
+             :message   "lisp.apropos requires a non-empty query string."
              :tool-name "lisp.apropos"))
     (let* ((package (self-resolve-package (tool-argument arguments "package")))
-           (kind (lisp-apropos--kind-argument (tool-argument arguments "kind")))
-           (limit (lisp-apropos--limit-argument arguments))
+           (kind    (lisp-apropos--kind-argument (tool-argument arguments "kind")))
+           (limit   (lisp-apropos--limit-argument arguments))
            (matches (package-apropos query :package package :kind kind)))
       (tool-success
        (lisp-apropos-render matches
-                            :query query
-                            :package package
-                            :limit limit
+                            :query         query
+                            :package       package
+                            :limit         limit
                             :configuration (tool-context-configuration context))))))
 
 
@@ -112,8 +112,8 @@
 (defun self-symbol-suggestion-text (name &key (package (find-package '#:autolith)))
   "Return a sentence naming the closest defined names to NAME, or an empty string."
   (let ((suggestions (package-symbol-suggestions
-                      name :package package
-                           :limit *lisp-apropos-suggestion-limit*
+                      name :package       package
+                           :limit         *lisp-apropos-suggestion-limit*
                            :token-minimum *lisp-apropos-token-minimum*)))
     (if suggestions
         (format nil " Closest defined names: ~{~A~^, ~}."
