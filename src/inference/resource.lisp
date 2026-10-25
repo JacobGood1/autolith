@@ -97,9 +97,9 @@
           (write-string (uiop:read-file-string segment) stream))))))
 
 (-> rlm--window-argument
-    (hash-table string (integer 1) (integer 1))
+    (hash-table string &key (:fallback (integer 1)) (:maximum (integer 1)))
     (integer 1))
-(defun rlm--window-argument (arguments name fallback maximum)
+(defun rlm--window-argument (arguments name &key fallback maximum)
   "Return the validated window integer NAME from ARGUMENTS."
   (let ((value (gethash name arguments)))
     (cond
@@ -138,12 +138,13 @@ count, so a follow-up read can target any region, including the tail."
   (let* ((lines (text--split-lines content))
          (total (length lines))
          (start (min (rlm--window-argument
-                      arguments "start-line" 1 most-positive-fixnum)
+                      arguments "start-line" :fallback 1
+                                             :maximum  most-positive-fixnum)
                      (max 1 total)))
          (count (rlm--window-argument
                  arguments "line-count"
-                 *rlm-resource-default-line-count*
-                 *rlm-resource-maximum-line-count*))
+                 :fallback *rlm-resource-default-line-count*
+                 :maximum  *rlm-resource-maximum-line-count*))
          (end   (min total (1- (+ start count)))))
     (rlm--window-render
      (loop for line-number from start to end
@@ -217,10 +218,12 @@ bounded window lines, the total line count, and the bounded newest line."
 Streams the segments line by line, so memory stays proportional to the
 requested window rather than the complete trace."
   (let ((requested-start
-          (rlm--window-argument arguments "start-line" 1 most-positive-fixnum))
+          (rlm--window-argument arguments "start-line"
+                                :fallback 1
+                                :maximum  most-positive-fixnum))
         (count (rlm--window-argument arguments "line-count"
-                                     *rlm-resource-default-line-count*
-                                     *rlm-resource-maximum-line-count*)))
+                                     :fallback *rlm-resource-default-line-count*
+                                     :maximum  *rlm-resource-maximum-line-count*)))
     (multiple-value-bind (lines total newest)
         (rlm--segment-window-lines segments requested-start count)
       (let* ((start (min requested-start (max 1 total)))
