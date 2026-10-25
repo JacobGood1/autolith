@@ -23,8 +23,8 @@
 (defun acp-completion--prepare-turn (session)
   "Recheck goal authority and durably deliver a batch after primary admission."
   (let* ((application (acp-session-application session))
-         (agent (application-agent application))
-         (notices (acp-completion--admitted-notices session)))
+         (agent       (application-agent application))
+         (notices     (acp-completion--admitted-notices session)))
     (when notices
       (when (mission-goal-p (application-goal application))
         (let ((context (mission-context-find (application-conversation application))))
@@ -65,10 +65,10 @@
 (defun acp-completion--run-idle-compaction (session)
   "Consume one idle opportunity under the ACP primary lease and input admission lock."
   (let* ((application (acp-session-application session))
-         (agent (application-agent application))
-         (controller (acp-input-controller session))
-         (episode (application-idle-compaction-episode application))
-         (claimed-p nil))
+         (agent       (application-agent application))
+         (controller  (acp-input-controller session))
+         (episode     (application-idle-compaction-episode application))
+         (claimed-p   nil))
     (when (and episode controller)
       (acp-service--call-with-operation
        (acp-session-service session) session
@@ -93,7 +93,7 @@
                             claimed-p t))))
                 (when claimed-p
                   (let ((*active-application* application)
-                        (*configuration* (application-configuration application))
+                        (*configuration*      (application-configuration application))
                         (*default-pathname-defaults*
                           (config :working-directory (application-configuration application))))
                     (agent-compact-conversation agent (acp-observer-create session)))))
@@ -118,20 +118,20 @@
               (acp-session-closing-p session)
               (acp-session-closed-p session)))
     (return-from acp-completion--cycle nil))
-  (let* ((application (acp-session-application session))
-         (agent (application-agent application))
-         (notices (acp-completion--admitted-notices session))
+  (let* ((application  (acp-session-application session))
+         (agent        (application-agent application))
+         (notices      (acp-completion--admitted-notices session))
          (notice-delay (and notices
                             (max 0 (- (reduce #'min notices :key (lambda (notice) (getf notice :ready-at)))
                                       (get-universal-time)))))
-         (idle-delay (acp-completion--idle-delay session)))
+         (idle-delay   (acp-completion--idle-delay session)))
     (cond
       ((acp-input--pending-commands-p session)
        (acp-input--run-pending-commands session)
        0)
       ((acp-input--pending-p session)
        (acp-session-run-turn session "" :queued-p t
-                             :prepare (lambda () (acp-input--prepare-queued-turn session)))
+                             :prepare             (lambda () (acp-input--prepare-queued-turn session)))
        0)
       ((and notice-delay (zerop notice-delay))
        (acp-session-run-turn
@@ -159,12 +159,12 @@
 (defun acp-completion--run (session)
   "Own the session's wakeup loop, pausing on failure rather than retrying inference."
   (let* ((*standard-output* *error-output*)
-         (*trace-output* *error-output*)
-         (*standard-input* (make-string-input-stream ""))
-         (*terminal-io* (make-two-way-stream *standard-input* *error-output*))
-         (*query-io* *terminal-io*)
-         (*debug-io* *terminal-io*)
-         (delay nil))
+         (*trace-output*    *error-output*)
+         (*standard-input*  (make-string-input-stream ""))
+         (*terminal-io*     (make-two-way-stream *standard-input* *error-output*))
+         (*query-io*        *terminal-io*)
+         (*debug-io*        *terminal-io*)
+         (delay             nil))
     (loop
       (with-lock-held ((acp-session-lock session))
         (unless (or (acp-session-completion-wakeup-p session)
@@ -221,7 +221,7 @@
   "Detach wakeups and join the controller after closing and cancellation are published."
   (task-completion-disconnect (application-agent (acp-session-application session)))
   (acp-completion-wake session)
-  (let ((thread (acp-session-completion-thread session))
+  (let ((thread   (acp-session-completion-thread session))
         (deadline (+ (get-internal-real-time)
                      (* *acp-session-close-seconds* internal-time-units-per-second))))
     (when thread
