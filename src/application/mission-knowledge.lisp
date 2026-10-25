@@ -19,16 +19,16 @@
 (-> mission-knowledge--record (mission-context string list string) null)
 (defun mission-knowledge--record (context predicate arguments detail)
   "Record that CONTEXT's mission reported PREDICATE of ARGUMENTS, described by DETAIL."
-  (let* ((application (mission-context-application context))
+  (let* ((application   (mission-context-application context))
          (configuration (application-configuration application)))
     (when (knowledge-capture-p configuration)
       (handler-case
           (let* ((identity (mission-knowledge--identity context))
-                 (schema (knowledge-base-schema (knowledge-base-read configuration) predicate)))
+                 (schema   (knowledge-base-schema (knowledge-base-read configuration) predicate)))
             (knowledge-replace-observation
              configuration
              (knowledge-make-proposition schema (cons identity arguments))
-             (knowledge-observe :source (list :mission :id identity :detail detail)
+             (knowledge-observe :source  (list :mission :id identity :detail detail)
                                 :adapter "mission/1")
              :source-conversation (conversation-identifier
                                    (application-conversation application))))
