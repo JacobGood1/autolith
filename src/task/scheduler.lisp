@@ -145,9 +145,9 @@
         :detached            (task-job-detached-p job)))
 
 (-> task-job--terminal-record
-    (task-job keyword t (option string))
+    (task-job &key (:state keyword) (:result t) (:report (option string)))
     (values list (option string) keyword))
-(defun task-job--terminal-record (job state result report)
+(defun task-job--terminal-record (job &key state result report)
   "Publish JOB's result and finish its owned run on every publication exit."
   (let ((terminal nil))
     (unwind-protect
@@ -711,7 +711,11 @@ guarantee."
                          (and (typep parent-agent 'task-child-agent)
                               (not (getf entry :detached)))))
                  (list :function                  #'mission-task-job-run
-                        :terminal-result-function #'task-job--terminal-record
+                        :terminal-result-function (lambda (job state result report)
+                                                    (task-job--terminal-record
+                                                     job :state  state
+                                                         :result result
+                                                         :report report))
                         :name                     (task-orchestrator--child-name
                                                    orchestrator (getf item :name))
                         ;; A child a child agent waits for runs on the waiting

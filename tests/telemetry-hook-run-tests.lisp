@@ -251,9 +251,11 @@
                           (catch 'leave
                             (handler-case
                                 (let ((result (task-job--run job)))
-                                  (task-job--terminal-record job ':completed result nil))
+                                  (task-job--terminal-record job :state  ':completed
+                                                                 :result result))
                               (error (condition)
-                                (task-job--terminal-record job ':failed nil (princ-to-string condition)))))))
+                                (task-job--terminal-record job :state  ':failed
+                                                               :report (princ-to-string condition)))))))
                        (when borrow-p
                          (test-assert (and (telemetry-run-active borrowed) (null bodies))
                                       "The scheduler never exports a borrowed root on any exit.")

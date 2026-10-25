@@ -1836,14 +1836,14 @@
                 (multiple-value-bind (final-result final-report final-state)
                     (task-job--terminal-record
                      job
-                     ':failed
-                     (list :id         (job-identifier job)
-                           :name       (task-job-display-name job)
-                           :agent      (task-job-agent-name job)
-                           :assignment "Exercise terminal retention."
-                           :status     ':failed
-                           :error      "stopped")
-                     nil)
+                     :state  ':failed
+                     :result (list :id         (job-identifier job)
+                                   :name       (task-job-display-name job)
+                                   :agent      (task-job-agent-name job)
+                                   :assignment "Exercise terminal retention."
+                                   :status     ':failed
+                                   :error      "stopped")
+                     :report nil)
                   (declare (ignore final-report))
                   (let ((artifact
                           (task-tests--read-exact-native-value

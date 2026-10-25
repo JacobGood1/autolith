@@ -547,7 +547,11 @@
         :owner-identifiers              owners
         :root-identifier                root
         :body-function                  #'task-job--run
-        :terminal-result-function       #'task-job--terminal-record
+        :terminal-result-function       (lambda (job state result report)
+                                          (task-job--terminal-record
+                                           job :state  state
+                                               :result result
+                                               :report report))
         :maximum-runtime-milliseconds   0
         :orchestrator                   orchestrator
         :execution-identifier           (make-identifier)
@@ -615,7 +619,11 @@ the tests that require a single-threaded image do."
                                           (conversation-identifier
                                            (agent-conversation parent-agent))))
    :body-function                #'task-job--run
-   :terminal-result-function     #'task-job--terminal-record
+   :terminal-result-function     (lambda (job state result report)
+                                   (task-job--terminal-record
+                                    job :state  state
+                                        :result result
+                                        :report report))
    :maximum-runtime-milliseconds 0
    :orchestrator                 orchestrator
    :execution-identifier         (make-identifier)
