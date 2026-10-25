@@ -246,7 +246,10 @@ Conflicts and incomplete rollbacks become typed transfer failures."
     (let ((path (data-transfer--directory-pathname (pathname directory))))
       (unless (uiop:absolute-pathname-p path)
         (setf path (merge-pathnames path *default-pathname-defaults*)))
-      (namestring (or (ignore-errors (platform-truename *platform* path)) path)))))
+      (namestring (or (handler-case (platform-truename *platform* path)
+                        (platform-error ()
+                          nil))
+                      path)))))
 
 (-> data-transfer--workspace-identifier (string) string)
 (defun data-transfer--workspace-identifier (directory)
