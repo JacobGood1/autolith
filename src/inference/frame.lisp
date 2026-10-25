@@ -419,12 +419,14 @@ returns the billable tokens settled so far."
        tokens-spent))))
 
 (-> rlm--run-framed-inference
-    (string string t rlm-budget model-provider configuration conversation
-     tool-registry &key (:activity-callback (option function)))
+    (string &key (:request string) (:contract t) (:budget rlm-budget)
+     (:provider model-provider) (:configuration configuration)
+     (:conversation conversation) (:source-registry tool-registry)
+     (:activity-callback (option function)))
     (values t string (integer 0)))
 (defun rlm--run-framed-inference
-    (task request contract budget provider configuration conversation
-     source-registry &key activity-callback)
+    (task &key request contract budget provider configuration conversation
+            source-registry activity-callback)
   "Run a read-capability frame as restricted agent turns over CONVERSATION."
   (multiple-value-bind (status-callback flush-tranche tokens-spent)
       (rlm--frame-budget-callback budget task
@@ -516,8 +518,14 @@ with bounded public outputs and a durable trace, never an unvalidated answer."
       (handler-case
           (if (eq capabilities ':read)
               (rlm--run-framed-inference
-               task request contract budget provider configuration conversation
-               (or source-registry (rlm--environment-registry))
+               task
+               :request           request
+               :contract          contract
+               :budget            budget
+               :provider          provider
+               :configuration     configuration
+               :conversation      conversation
+               :source-registry   (or source-registry (rlm--environment-registry))
                :activity-callback activity-callback)
               (rlm--run-direct-inference
                task
