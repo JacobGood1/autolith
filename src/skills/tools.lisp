@@ -4,22 +4,22 @@
 
 (defclass skill-load-result (tool-result)
   ((name
-    :initarg :name
-    :reader skill-load-result-name
-    :type string
+    :initarg       :name
+    :reader        skill-load-result-name
+    :type          string
     :documentation "The exact selected Skill name shown to the user.")
    (newly-selected-p
-    :initarg :newly-selected-p
-    :reader skill-load-result-newly-selected-p
-    :type boolean
+    :initarg       :newly-selected-p
+    :reader        skill-load-result-newly-selected-p
+    :type          boolean
     :documentation "True when this call selected the Skill for the first time."))
   (:documentation
    "A request-local Skill selection result with presentation metadata."))
 
 (defmethod tool-result-details ((result skill-load-result))
   "Return bounded metadata for presenting one Skill selection."
-  (list :kind ':skill-load
-        :name (skill-load-result-name result)
+  (list :kind             ':skill-load
+        :name             (skill-load-result-name result)
         :newly-selected-p (skill-load-result-newly-selected-p result)))
 
 (defclass skill-load-tool (tool)
@@ -48,7 +48,7 @@
   (let ((name (tool-argument arguments "name" :required t)))
     (unless (and (stringp name) (plusp (length name)))
       (error 'tool-error
-             :message "skill.load name must be a non-empty string."
+             :message   "skill.load name must be a non-empty string."
              :tool-name "skill.load"))
     name))
 
@@ -64,7 +64,7 @@
       (declare (ignore metadata))
       (make-instance
        'skill-load-result
-       :name name
+       :name             name
        :newly-selected-p newly-selected-p
        :content
        (bounded-string
@@ -75,7 +75,7 @@
             (format nil
                     "Skill ~A is already selected for this logical turn. Its current :instructions string remains available ephemerally."
                     name)))
-       :success-p t))))
+       :success-p        t))))
 
 (-> skill-augment-tool-registry (tool-registry) tool-registry)
 (defun skill-augment-tool-registry (registry)
@@ -89,7 +89,7 @@
      (make-instance
       'skill-load-tool
       :namespace "skill"
-      :name "load"
+      :name      "load"
       :description
       "Select one discovered Autolith skill by exact name. Use this when a request names a skill or matches catalog metadata instead of reading SKILL.sexp; Autolith injects only the complete current :instructions string ephemerally into subsequent provider requests in the logical turn."
       :parameters
@@ -113,36 +113,35 @@
 (defmethod tool-execute ((tool skill-edit-tool) (context tool-context) (arguments hash-table))
   "Validate then atomically replace one global SKILL.md source file."
   (declare (ignore tool))
-  (let* ((name (tool-argument arguments "name" :required t))
-         (content (tool-argument arguments "content" :required t))
+  (let* ((name          (tool-argument arguments "name" :required t))
+         (content       (tool-argument arguments "content" :required t))
          (configuration (tool-context-configuration context))
-         (root (skill-global-root configuration)))
+         (root          (skill-global-root configuration)))
     (unless (cl-skills:skill-name-valid-p name)
       (error 'tool-error
              :tool-name "skill.edit"
-             :message "skill.edit name must be 1-64 lowercase letters, digits, or single internal hyphens."))
+             :message   "skill.edit name must be 1-64 lowercase letters, digits, or single internal hyphens."))
     (unless (and (stringp content)
                  (<= (length content) *skill-edit-maximum-content-characters*))
       (error 'tool-error
              :tool-name "skill.edit"
-             :message "skill.edit content must be a string no larger than 262144 characters."))
+             :message   "skill.edit content must be a string no larger than 262144 characters."))
     (let* ((pathname (merge-pathnames (format nil "~A/SKILL.md" name) root))
-           (native (make-pathname :type "sexp" :defaults pathname)))
+           (native   (make-pathname :type "sexp" :defaults pathname)))
       (handler-case
           (cl-skills:skill-source-validate content pathname)
         (cl-skills:skill-validation-error (condition)
           (error 'tool-error :tool-name "skill.edit"
-                 :message (format nil "Skill validation failed: ~A" condition))))
+                 :message               (format nil "Skill validation failed: ~A" condition))))
       (when (probe-file native)
         (error 'tool-error :tool-name "skill.edit"
-               :message (format nil "Edit the native skill at ~A instead; it takes precedence over SKILL.md."
-                                native)))
+               :message               (format nil "Edit the native skill at ~A instead; it takes precedence over SKILL.md."
+                                              native)))
       (publish-file pathname content)
       (make-instance 'tool-result
                      :success-p t
-                     :content (format nil "Validated and wrote global skill ~A at ~A."
-                                      name (namestring pathname))))))
-
+                     :content   (format nil "Validated and wrote global skill ~A at ~A."
+                                        name (namestring pathname))))))
 
 (-> skill-edit-augment-tool-registry (tool-registry) tool-registry)
 (defun skill-edit-augment-tool-registry (registry)
@@ -154,8 +153,8 @@
      registry
      (make-instance
       'skill-edit-tool
-      :namespace "skill"
-      :name "edit"
+      :namespace   "skill"
+      :name        "edit"
       :description "Create or replace a global SKILL.md after runtime-equivalent validation."
       :parameters
       (tool-object-schema
