@@ -34,15 +34,15 @@ Reply exactly in the requested shape with no preamble and no meta commentary."
 (define-condition rlm-inference-error
     (error)
   ((task
-    :initarg :task
-    :initform nil
-    :reader rlm-inference-error-task
-    :type (option string)
+    :initarg       :task
+    :initform      nil
+    :reader        rlm-inference-error-task
+    :type          (option string)
     :documentation "The inference task involved in the failure, when known.")
    (message
-    :initarg :message
-    :reader rlm-inference-error-message
-    :type string
+    :initarg       :message
+    :reader        rlm-inference-error-message
+    :type          string
     :documentation "The concise inference failure."))
   (:documentation "An inference frame could not be created or run.")
   (:report
@@ -53,9 +53,9 @@ Reply exactly in the requested shape with no preamble and no meta commentary."
 
 (define-condition rlm-partial-result (rlm-budget-exhausted)
   ((observation
-    :initarg :observation
-    :reader rlm-partial-result-observation
-    :type list
+    :initarg       :observation
+    :reader        rlm-partial-result-observation
+    :type          list
     :documentation "The explicitly incomplete result and durable evidence references."))
   (:documentation "A budget ended with recoverable evidence, not a validated answer.")
   (:report
@@ -88,13 +88,14 @@ Reply exactly in the requested shape with no preamble and no meta commentary."
                                      for text = (and (json-object-p block)
                                                      (json-get block "text"))
                                      when (stringp text) collect text)))))
-                (t nil))))
+                (t
+                 nil))))
         (when (non-empty-string-p text)
-          (push (list :kind (if (equal (json-get item "role") "assistant")
-                               ':assistant
-                               ':tool)
-                      :call-id (json-get item "call_id")
-                      :text (bounded-string text :limit *rlm-partial-text-limit*)
+          (push (list :kind        (if (equal (json-get item "role") "assistant")
+                                      ':assistant
+                                      ':tool)
+                      :call-id     (json-get item "call_id")
+                      :text        (bounded-string text :limit *rlm-partial-text-limit*)
                       :truncated-p (> (length text) *rlm-partial-text-limit*))
                 outputs))))
     (nreverse (subseq outputs 0 (min (length outputs) *rlm-partial-item-limit*)))))
@@ -107,15 +108,15 @@ Reply exactly in the requested shape with no preamble and no meta commentary."
   "Signal recoverable budget exhaustion without returning an unvalidated value."
   (error 'rlm-partial-result
          :dimension (rlm-budget-exhausted-dimension condition)
-         :task (rlm-budget-exhausted-task condition)
+         :task      (rlm-budget-exhausted-task condition)
          :observation
          (append
-          (list :status ':incomplete
-                :validated-p nil
-                :dimension (rlm-budget-exhausted-dimension condition)
-                :trace (conversation-identifier conversation)
-                :partial-items (rlm--partial-items conversation)
-                :calls-remaining (rlm-budget-remaining-calls budget)
+          (list :status           ':incomplete
+                :validated-p      nil
+                :dimension        (rlm-budget-exhausted-dimension condition)
+                :trace            (conversation-identifier conversation)
+                :partial-items    (rlm--partial-items conversation)
+                :calls-remaining  (rlm-budget-remaining-calls budget)
                 :tokens-remaining (rlm-budget-remaining-tokens budget))
           (when context
             (list :context context :environment environment))
@@ -158,7 +159,7 @@ Reply exactly in the requested shape with no preamble and no meta commentary."
           (values provider configuration)
           (rlm--environment))
     (let* ((mission-parent-configuration (or configuration environment-configuration))
-           (mission-context (mission-context-find mission-parent-configuration))
+           (mission-context              (mission-context-find mission-parent-configuration))
            (configuration
              (if (and mission-context
                       (eq mission-parent-configuration
@@ -248,9 +249,12 @@ A bare designator is wrapped: strings, pathnames, views, and plists
 whose head is a keyword each denote one view, so environment code may
 pass (context-slice ...) directly instead of wrapping it in a list."
   (cond
-    ((null context) nil)
-    ((and (listp context) (not (keywordp (first context)))) context)
-    (t (list context))))
+    ((null context)
+     nil)
+    ((and (listp context) (not (keywordp (first context))))
+     context)
+    (t
+     (list context))))
 
 (-> rlm--repair-request ((option string)) string)
 (defun rlm--repair-request (problem)
@@ -278,9 +282,9 @@ pass (context-slice ...) directly instead of wrapping it in a list."
 With no activity CALLBACK, return a no-op provider callback."
   (if (null callback)
       (constantly nil)
-      (let ((clock *rlm-activity-clock-function*)
+      (let ((clock       *rlm-activity-clock-function*)
             (reported-at nil)
-            (lock (make-lock "RLM stream progress")))
+            (lock        (make-lock "RLM stream progress")))
         (lambda (&optional event)
           (declare (ignore event))
           (let ((report-p
@@ -304,7 +308,7 @@ With no activity CALLBACK, return a no-op provider callback."
   (loop with request-count = 0
         with tokens-spent = 0
         do
-           (let ((tranche (rlm-budget-acquire-request budget :task task))
+           (let ((tranche   (rlm-budget-acquire-request budget :task task))
                  (settled-p nil))
              (rlm--note-activity
               activity-callback
@@ -372,9 +376,9 @@ concurrent frames can never overspend the pool. The callback returns the
 reserved tranche to the agent as the next request's output ceiling. The second
 value flushes an unsettled tranche after an aborted turn, and the third
 returns the billable tokens settled so far."
-  (let ((tranche nil)
-        (request-count 0)
-        (tokens-spent 0)
+  (let ((tranche         nil)
+        (request-count   0)
+        (tokens-spent    0)
         (stream-progress nil))
     (values
      (lambda (status details)
@@ -427,12 +431,12 @@ returns the billable tokens settled so far."
     (let ((agent
             (make-instance 'rlm-frame-agent
                            :configuration configuration
-                           :provider provider
-                           :conversation conversation
+                           :provider      provider
+                           :conversation  conversation
                            :tool-registry (rlm--frame-registry source-registry
                                                                provider
                                                                budget)
-                           :worker nil))
+                           :worker        nil))
           (observer
             (make-instance 'callback-agent-observer
                            :status-callback status-callback))
@@ -445,8 +449,8 @@ returns the billable tokens settled so far."
                                   (1- (rlm-budget-remaining-calls budget))))))
                   (unwind-protect
                        (agent-run-user-turn agent request
-                                            :observer observer
-                                            :tool-allowlist allowlist
+                                            :observer           observer
+                                            :tool-allowlist     allowlist
                                             :tool-restriction-p t)
                     (funcall flush-tranche)))))
          (multiple-value-bind (value valid-p problem)
@@ -492,19 +496,19 @@ with bounded public outputs and a durable trace, never an unvalidated answer."
            :message "An inference frame requires a non-empty task."))
   (unless (member capabilities '(nil :read))
     (error 'rlm-inference-error
-           :task task
+           :task    task
            :message "Frame capabilities are NIL or :READ."))
   (multiple-value-bind (provider configuration)
       (rlm--resolve-environment :model model :effort effort
-                                :provider provider
+                                :provider      provider
                                 :configuration configuration)
-    (let* ((views (rlm-views-materialize
-                   (rlm--context-designators context)))
-           (contract (rlm-contract-normalize contract))
-           (budget (or budget (rlm-budget-create)))
-           (conversation (rlm--frame-conversation configuration))
-           (request (rlm--frame-request
-                     task views (rlm--contract-instructions contract)))
+    (let* ((views                    (rlm-views-materialize
+                                      (rlm--context-designators context)))
+           (contract                 (rlm-contract-normalize contract))
+           (budget                   (or budget (rlm-budget-create)))
+           (conversation             (rlm--frame-conversation configuration))
+           (request                  (rlm--frame-request
+                                      task views (rlm--contract-instructions contract)))
            (*system-prompt-override* (rlm--frame-prompt capabilities))
            (*telemetry-request-role* (if (eq *telemetry-request-role* ':permission-classifier)
                                          ':permission-classifier ':inference)))
