@@ -49,7 +49,9 @@ contract requirements do not hold signal KNOWLEDGE-ERROR before any call. Otherw
                                                          tool-name
                                                          (autolith-error-message condition)))
                                    (loop-finish))))
-                    (result    (procedure--call context tool-name arguments index)))
+                    (result    (procedure--call context tool-name
+                                                    :arguments arguments
+                                                    :index     index)))
                (push (list :tool      tool-name
                            :arguments arguments
                            :success-p (tool-result-success-p result)
@@ -335,8 +337,10 @@ are checked again against actual results by the ordinary call dispatch."
                    (setf produced (nconc next-productions produced)))))))
   nil)
 
-(-> procedure--call (tool-context string json-object integer) tool-result)
-(defun procedure--call (context tool-name arguments index)
+(-> procedure--call
+    (tool-context string &key (:arguments json-object) (:index integer))
+    tool-result)
+(defun procedure--call (context tool-name &key arguments index)
   "Make call number INDEX of a run: TOOL-NAME with ARGUMENTS through CONTEXT's registry."
   (let ((tool (find tool-name (tool-registry-tools (tool-context-registry context))
                     :key #'tool-canonical-name :test #'string=)))
