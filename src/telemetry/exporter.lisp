@@ -51,9 +51,12 @@
   "Encode one allowlisted scalar OTLP attribute."
   (let ((value (telemetry--wire-value (first pair) (rest pair))))
     (json-object "key" (car pair) "value"
-                 (cond ((stringp value) (json-object "stringValue" value))
-                       ((integerp value) (json-object "intValue" (write-to-string value :base 10 :radix nil)))
-                       (t (json-object "boolValue" value))))))
+                 (cond ((stringp value)
+                        (json-object "stringValue" value))
+                       ((integerp value)
+                        (json-object "intValue" (write-to-string value :base 10 :radix nil)))
+                       (t
+                        (json-object "boolValue" value))))))
 
 (defun telemetry--diagnostic-attributes (safe)
   "Attach text only after successful native redaction."
@@ -64,24 +67,24 @@
 
 (defun telemetry--enqueue (run kind attributes duration-ms)
   "Queue and return a projected span under the consent lock, discarding oldest on overflow."
-  (let* ((kind (telemetry--wire-value "autolith.event.kind"
-                                     (telemetry--enum kind *telemetry-event-kinds*)))
+  (let* ((kind       (telemetry--wire-value "autolith.event.kind"
+                                           (telemetry--enum kind *telemetry-event-kinds*)))
          (controller (telemetry-run-controller run))
-         (end (telemetry--now))
-         (duration (if (typep duration-ms '(integer 0 86400000)) duration-ms 0))
-         (root-p (string= kind "run"))
-         (span (json-object
-                "traceId" (telemetry-run-trace-id run)
-                "spanId" (if root-p (telemetry-run-span-id run) (telemetry--id 8))
-                "name" (concatenate 'string "autolith." kind) "kind" 1
-                "startTimeUnixNano" (write-to-string (if root-p (telemetry-run-start run)
-                                                        (- end (* duration 1000000))) :base 10 :radix nil)
-                "endTimeUnixNano" (write-to-string (max end (telemetry-run-start run)) :base 10 :radix nil)
-                "attributes"
-                (coerce (mapcar #'telemetry--attribute
-                                (append (list (cons "autolith.event.kind" kind)
-                                              (cons "autolith.run.span_id" (telemetry-run-span-id run)))
-                                        (remove-if (lambda (pair) (null (rest pair))) attributes))) 'vector))))
+         (end        (telemetry--now))
+         (duration   (if (typep duration-ms '(integer 0 86400000)) duration-ms 0))
+         (root-p     (string= kind "run"))
+         (span       (json-object
+                      "traceId" (telemetry-run-trace-id run)
+                      "spanId" (if root-p (telemetry-run-span-id run) (telemetry--id 8))
+                      "name" (concatenate 'string "autolith." kind) "kind" 1
+                      "startTimeUnixNano" (write-to-string (if root-p (telemetry-run-start run)
+                                                              (- end (* duration 1000000))) :base 10 :radix nil)
+                      "endTimeUnixNano" (write-to-string (max end (telemetry-run-start run)) :base 10 :radix nil)
+                      "attributes"
+                      (coerce (mapcar #'telemetry--attribute
+                                      (append (list (cons "autolith.event.kind" kind)
+                                                    (cons "autolith.run.span_id" (telemetry-run-span-id run)))
+                                              (remove-if (lambda (pair) (null (rest pair))) attributes))) 'vector))))
     (unless root-p (setf (gethash "parentSpanId" span) (telemetry-run-span-id run)))
     (unless (telemetry-controller-closing controller)
       (let* ((queue (telemetry-controller-queue controller))
@@ -221,6 +224,7 @@
      (json-array (json-object "scope" (json-object "name" "seismograph.autolith" "version" "0.1.0")
                               "spans" (coerce spans 'vector)))))))
 
+
 ;;;; -- Supervised Isolated Work --
 
 (defun telemetry--process (run request)
@@ -230,14 +234,14 @@
     (return-from telemetry--process nil))
   (if *telemetry-process-function*
       (funcall *telemetry-process-function* run request)
-      (let* ((controller (telemetry-run-controller run))
+      (let* ((controller    (telemetry-run-controller run))
              (configuration (telemetry-controller-owner controller))
-             (record (telemetry--make-process)))
+             (record        (telemetry--make-process)))
         (supervised-process-request
          record request
-         :seconds (if (eq (first request) ':catalog)
-                      *model-catalog-request-seconds*
-                      (/ (config :telemetry-timeout-ms configuration) 1000))
+         :seconds  (if (eq (first request) ':catalog)
+                       *model-catalog-request-seconds*
+                       (/ (config :telemetry-timeout-ms configuration) 1000))
          :start
          (lambda (install)
            ;; Admission, registration, and I/O thread installation share the
@@ -259,10 +263,10 @@
          :active-p (lambda ()
                      (bt:with-lock-held ((telemetry-controller-lock controller))
                        (telemetry--live-p run)))
-         :accept (lambda (response)
-                   (bt:with-lock-held ((telemetry-controller-lock controller))
-                     (when (telemetry--live-p run) (funcall response))))
-         :stop #'telemetry--stop-process-once
+         :accept   (lambda (response)
+                     (bt:with-lock-held ((telemetry-controller-lock controller))
+                       (when (telemetry--live-p run) (funcall response))))
+         :stop     #'telemetry--stop-process-once
          :complete (lambda (record) (telemetry--complete-process controller record))))))
 
 (defun telemetry--pre-redact (text)
@@ -291,7 +295,7 @@ The native API truncates at 1,024 characters. Reject saturated output or any
 failed piece rather than exporting a partial explanation. One session handles
 all pieces within the caller's existing deadline."
   (block redact
-    (let ((start 0)
+    (let ((start  0)
           (length (length text)))
       (with-output-to-string (stream)
         (loop while (< start length)
@@ -320,7 +324,7 @@ all pieces within the caller's existing deadline."
       (return-from telemetry--worker-redact nil))
     (unless (and (stringp library) (uiop:absolute-pathname-p library))
       (return-from telemetry--worker-redact nil))
-    (let* ((path (platform-truename *platform* (pathname library)))
+    (let* ((path   (platform-truename *platform* (pathname library)))
            (status (platform-path-status *platform* path)))
       (unless (and status (eq (platform-file-status-kind status) ':file))
         (return-from telemetry--worker-redact nil))
@@ -351,17 +355,21 @@ all pieces within the caller's existing deadline."
   "One-shot subprocess entry. All failures return NIL without printing conditions or text."
   (let ((input *standard-input*) (output *standard-output*))
     (let ((*standard-output* (make-broadcast-stream))
-          (*error-output* (make-broadcast-stream))
-          (*trace-output* (make-broadcast-stream))
-          (*debug-io* (make-two-way-stream (make-string-input-stream "") (make-broadcast-stream))))
+          (*error-output*    (make-broadcast-stream))
+          (*trace-output*    (make-broadcast-stream))
+          (*debug-io*        (make-two-way-stream (make-string-input-stream "") (make-broadcast-stream))))
       (let ((result
               (handler-case
                   (let* ((*read-eval* nil) (request (read input nil nil)))
                     (case (first request)
-                      (:ping ':ready)
-                      (:redact (telemetry--worker-redact request))
-                      (:upload (telemetry--worker-upload request))
-                      (:catalog (model-catalog--http-fetch))))
+                      (:ping
+                       ':ready)
+                      (:redact
+                       (telemetry--worker-redact request))
+                      (:upload
+                       (telemetry--worker-upload request))
+                      (:catalog
+                       (model-catalog--http-fetch))))
                 (error () nil))))
         (let ((*print-readably* t) (*print-pretty* nil))
           (write result :stream output) (terpri output) (finish-output output)))))
