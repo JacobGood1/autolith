@@ -138,8 +138,10 @@
                           (cons "originator" *openai-oauth-originator*))
    :request-wrapper #'chatgpt-oauth--request-wrapper))
 
-(-> chatgpt-oauth--token-document (function string list keyword) json-object)
-(defun chatgpt-oauth--token-document (request-function endpoint parameters stage)
+(-> chatgpt-oauth--token-document
+    (function string &key (:parameters list) (:stage keyword))
+    json-object)
+(defun chatgpt-oauth--token-document (request-function endpoint &key parameters stage)
   "Request a token document through the shared redaction and validation policy."
   (cl-rfc8252:browser-authentication-token-document
    (chatgpt-oauth--rfc8252-client :request-function request-function :token-endpoint endpoint)

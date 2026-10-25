@@ -174,8 +174,8 @@
             400
             nil))
          "https://issuer.test/oauth/token"
-         (list (cons "code_verifier" secret))
-         ':exchange)
+         :parameters (list (cons "code_verifier" secret))
+         :stage      ':exchange)
       (chatgpt-oauth-error (caught)
         (setf condition caught)))
     (test-assert
