@@ -537,7 +537,7 @@ printf '%s\\n' \"${LIBRARY_PATH:-}\" > \"${AUTOLITH_TEST_EVENT_LOG:?}\"
 
 (-> release-script-tests--qlot-metadata-exclusions (pathname pathname) null)
 (defun release-script-tests--qlot-metadata-exclusions (source-root root)
-  "Exercise the Windows Qlot metadata exclusions at the install boundary."
+  "Exercise Windows Qlot metadata exclusions and temporary cleanup wiring."
   (let* ((home   (merge-pathnames "qlot-metadata-home/" root))
          (setup  (merge-pathnames "quicklisp/setup.lisp" home))
          (script (merge-pathnames "script/qlot-install.lisp" source-root)))
@@ -560,6 +560,18 @@ printf '%s\\n' \"${LIBRARY_PATH:-}\" > \"${AUTOLITH_TEST_EVENT_LOG:?}\"
 (defpackage #:qlot/utils/asdf (:use #:cl))
 (in-package #:qlot/utils/asdf)
 (defvar *exclude-directories* '(\"existing-exclusion\"))
+(defpackage #:qlot/utils/tmp (:use #:cl) (:export #:delete-tmp-directory))
+(in-package #:qlot/utils/tmp)
+(defun delete-tmp-directory (directory)
+  (declare (ignore directory))
+  (error \"The Windows cleanup adapter was not installed.\"))
+(defvar *cleanup-command* nil)
+(let ((original (fdefinition 'uiop:run-program)))
+  (setf (fdefinition 'uiop:run-program)
+        (lambda (&rest arguments)
+          (if (equal (first (first arguments)) \"powershell.exe\")
+              (setf *cleanup-command* (first arguments))
+              (apply original arguments)))))
 (defpackage #:qlot
   (:use #:cl)
   (:export #:install))
@@ -572,6 +584,13 @@ printf '%s\\n' \"${LIBRARY_PATH:-}\" > \"${AUTOLITH_TEST_EVENT_LOG:?}\"
     (assert (member \"existing-exclusion\" exclusions :test #'equal))
     (assert (eql (not (null (member \"test-fixtures\" exclusions :test #'equal)))
                  (uiop:os-windows-p))))
+  (when (uiop:os-windows-p)
+    (qlot/utils/tmp:delete-tmp-directory #P\"qlot temporary/\")
+    (let* ((command qlot/utils/tmp::*cleanup-command*)
+           (script (second (member \"-File\" command :test #'equal))))
+      (assert (probe-file script))
+      (assert (equal (second (member \"-Path\" command :test #'equal))
+                     (uiop:native-namestring #P\"qlot temporary/\")))))
   (format t \"metadata-install-ok~%\"))
 ")
     (dolist (windows-p '(nil t))
@@ -587,7 +606,7 @@ printf '%s\\n' \"${LIBRARY_PATH:-}\" > \"${AUTOLITH_TEST_EVENT_LOG:?}\"
            :ignore-error-status t)
         (test-assert
          (and (zerop status) (search "metadata-install-ok" output))
-         (format nil "Qlot metadata exclusions reach installation (Windows ~S):~%~A~%~A"
+         (format nil "Qlot metadata and cleanup adapters reach installation (Windows ~S):~%~A~%~A"
                  windows-p output error-output)))))
   nil)
 

@@ -398,6 +398,13 @@ powershell -NoProfile -File script/check-windows-openssl.ps1
 pwsh -NoProfile -File script/check-windows-openssl.ps1
 ```
 
+Run the Qlot temporary-checkout cleanup fixtures in either PowerShell:
+
+```powershell
+powershell -NoProfile -File script/check-windows-qlot-cleanup.ps1
+pwsh -NoProfile -File script/check-windows-qlot-cleanup.ps1
+```
+
 Rebuild only the installed pristine recovery image with:
 
 ```sh

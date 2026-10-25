@@ -38,6 +38,20 @@ loaded by Autolith."
                     (qlot-install--skip-tar-entry size stream))
                   (funcall original file size stream)))))))
 
+(defun qlot-install--use-windows-directory-cleanup (script-directory)
+  "Remove Qlot temporary checkouts without following Windows directory links."
+  (let ((cleanup (find-symbol "DELETE-TMP-DIRECTORY" "QLOT/UTILS/TMP"))
+        (script  (merge-pathnames "qlot-delete-directory.ps1" script-directory)))
+    (unless (and cleanup (fboundp cleanup))
+      (error "The loaded Qlot does not expose temporary directory cleanup."))
+    (setf (fdefinition cleanup)
+          (lambda (directory)
+            (uiop:run-program
+             (list "powershell.exe" "-NoProfile" "-NonInteractive"
+                   "-ExecutionPolicy" "Bypass" "-File" (uiop:native-namestring script)
+                   "-Path" (uiop:native-namestring directory))
+             :output *standard-output* :error-output *error-output*)))))
+
 (let* ((script-path      (truename *load-truename*))
        (script-directory (uiop:pathname-directory-pathname script-path))
        (source-root      (uiop:pathname-parent-directory-pathname script-directory))
@@ -58,6 +72,7 @@ loaded by Autolith."
   (uiop:symbol-call '#:ql '#:quickload :qlot :silent t)
   (when (uiop:os-windows-p)
     (qlot-install--tolerate-windows-unsafe-tar-entries)
+    (qlot-install--use-windows-directory-cleanup script-directory)
     ;; trivial-glob's fixtures contain a circular directory link. Qlot's
     ;; metadata walkers follow it on Windows, where enumeration fails.
     (let ((exclusions (find-symbol "*EXCLUDE-DIRECTORIES*" "QLOT/UTILS/ASDF")))
