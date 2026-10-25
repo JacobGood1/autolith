@@ -59,6 +59,8 @@
                  (let ((code (char-code character)))
                    (or (<= 32 code 126) (>= code 160)))))))
 
+(-> application-async-lisp-output-stream--pending
+    (application-async-lisp-output-stream character) null)
 (defun application-async-lisp-output-stream--pending (stream character)
   "Append CHARACTER to STREAM's pending deque, counting what it evicts; caller holds its lock."
   (let ((evicted (nth-value 1 (deque-push-back
@@ -68,8 +70,11 @@
       (setf (application-async-lisp-output-stream-pending-omitted stream)
             (min most-positive-fixnum
                  (+ (application-async-lisp-output-stream-pending-omitted stream)
-                    (length evicted)))))))
+                    (length evicted))))))
+  nil)
 
+(-> application-async-lisp-output-stream--accept
+    (application-async-lisp-output-stream character) null)
 (defun application-async-lisp-output-stream--accept (stream character)
   "Consume CHARACTER without retaining terminal escape sequences; caller holds the lock."
   (case (application-async-lisp-output-stream-escape-state stream)
@@ -96,8 +101,11 @@
         (setf (application-async-lisp-output-stream-escape-state stream) ':escape))
        ((application-async-lisp-output-stream--safe-character-p character)
         (bounded-output-stream--capture stream character)
-        (application-async-lisp-output-stream--pending stream character))))))
+        (application-async-lisp-output-stream--pending stream character)))))
+  nil)
 
+(-> application-async-lisp-output-stream--pending-text
+    (application-async-lisp-output-stream) string)
 (defun application-async-lisp-output-stream--pending-text (stream)
   "Copy STREAM's bounded pending tail and omission count; caller holds its lock."
   (let ((omitted (application-async-lisp-output-stream-pending-omitted stream)))
@@ -106,6 +114,8 @@
                  (coerce (deque->vector (application-async-lisp-output-stream-pending stream))
                          'string))))
 
+(-> application-async-lisp-output-stream--take-pending
+    (application-async-lisp-output-stream boolean) (option string))
 (defun application-async-lisp-output-stream--take-pending (stream force-p)
   "Drain pending output when due or FORCE-P; caller holds the capture lock."
   (let ((now (/ (get-internal-real-time) (float internal-time-units-per-second 1.0d0))))
@@ -117,6 +127,8 @@
         (setf (application-async-lisp-output-stream-pending-omitted stream) 0
               (application-async-lisp-output-stream-last-display-time stream) now)))))
 
+(-> application-async-lisp-output-stream--display
+    (application-async-lisp-output-stream boolean) null)
 (defun application-async-lisp-output-stream--display (stream force-p)
   "Deliver an ordered chunk outside the capture lock when due or FORCE-P."
   (with-lock-held ((application-async-lisp-output-stream-display-lock stream))
@@ -127,7 +139,8 @@
         (handler-case
             (funcall (application-async-lisp-output-stream-output-function stream) text)
           (error (condition)
-            (application-async-lisp-output-note-error stream condition)))))))
+            (application-async-lisp-output-note-error stream condition))))))
+  nil)
 
 (-> application-async-lisp-output-note-error
     (application-async-lisp-output-stream condition) null)
@@ -189,6 +202,7 @@
                    (subseq text 0 (min (length text) (- capacity (length marker))))
                    marker))))
 
+(-> application-async-lisp-output-flush (application-async-lisp-output-stream) null)
 (defun application-async-lisp-output-flush (stream)
   "Flush STREAM's pending display tail immediately."
   (application-async-lisp-output-stream--display stream t)
