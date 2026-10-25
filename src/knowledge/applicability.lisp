@@ -120,9 +120,10 @@ never mistaken for the content that was read."
                               (list text failure status)))))))
     (values (first entry) (second entry))))
 
-(-> evidence-check--file-source (evidence-check list (option string) (option string))
+(-> evidence-check--file-source
+    (evidence-check list &key (:workspace (option string)) (:digest (option string)))
     (values keyword (option keyword)))
-(defun evidence-check--file-source (check source workspace digest)
+(defun evidence-check--file-source (check source &key workspace digest)
   "Return whether file SOURCE still has the observed DIGEST and quoted passage."
   (let ((pathname (memory-source-file-pathname source workspace)))
     (multiple-value-bind (text failure) (evidence-check--file check pathname)
@@ -158,8 +159,8 @@ the read failure of an unverified file."
                  (values ':expired nil))
                 ((eq (first source) :file)
                  (evidence-check--file-source check source
-                                              (getf evidence :workspace)
-                                              (getf evidence :digest)))
+                                              :workspace (getf evidence :workspace)
+                                              :digest    (getf evidence :digest)))
                 ((eq (first source) :memory)
                  (let ((memory (gethash (getf (rest source) :id)
                                         (evidence-check-memories check))))
