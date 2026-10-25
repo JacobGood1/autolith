@@ -52,6 +52,7 @@
   "Return CONFIGURATION's private localgroup endpoint directory."
   (merge-pathnames "localgroup/" (config :state-root configuration)))
 
+(-> localgroup-registry-pathname (configuration string) pathname)
 (defun localgroup-registry-pathname (configuration session-id)
   "Return the discovery pathname for SESSION-ID under CONFIGURATION."
   (image-daemon:daemon-registry-pathname
@@ -65,11 +66,13 @@
             (list :checkpoint-reconnect-id
                   (localgroup-session-checkpoint-reconnect-id session)))))
 
+(-> localgroup--publish-registry (localgroup-session) null)
 (defun localgroup--publish-registry (session)
   "Publish SESSION's authenticated discovery record."
   (image-daemon:daemon-registry-publish
    (image-daemon:daemon-runtime-registry-pathname session)
-   (localgroup--registry-record session)))
+   (localgroup--registry-record session))
+  nil)
 
 (-> localgroup--delete-owned-registry (localgroup-session) null)
 (defun localgroup--delete-owned-registry (session)
@@ -116,13 +119,15 @@ conversation transaction can roll back before releasing either lease."
   (application-mission-schedules-notify application)
   nil)
 
+(-> localgroup-endpoint-records (configuration) list)
 (defun localgroup-endpoint-records (configuration)
   "Return CONFIGURATION's discovery records ordered by newest publication."
   (image-daemon:daemon-registry-discover
    (localgroup-registry-directory configuration)))
 
+(-> localgroup-reconcile-endpoint-records (configuration) (integer 0))
 (defun localgroup-reconcile-endpoint-records (configuration)
-  "Remove definitely dead endpoint records beneath CONFIGURATION."
+  "Remove definitely dead endpoint records beneath CONFIGURATION and return their count."
   (image-daemon:daemon-registry-reconcile
    (localgroup-registry-directory configuration)))
 
@@ -507,9 +512,12 @@ already disconnected costs nothing."
   "Return KEY from REQUEST's property list."
   (getf (rest request) key))
 
+(-> localgroup--valid-request-p (t localgroup-session) boolean)
 (defun localgroup--valid-request-p (request session)
   "Validate REQUEST against SESSION's image-daemon capability."
-  (image-daemon:daemon-request-valid-p request (image-daemon:daemon-runtime-token session)))
+  (and (image-daemon:daemon-request-valid-p
+        request (image-daemon:daemon-runtime-token session))
+       t))
 
 (-> localgroup--tell (localgroup-session list) list)
 (defun localgroup--tell (session arguments)
@@ -561,6 +569,11 @@ already disconnected costs nothing."
        (list :error :message
              (format nil "Unknown localgroup operation ~S." operation))))))
 
+(-> localgroup-start
+    (application
+     &key (:token (option string)) (:created-at (option integer))
+       (:detached-explicitly-p t) (:checkpoint-reconnect-id (option string)))
+    localgroup-session)
 (defun localgroup-start
     (application &key token created-at detached-explicitly-p checkpoint-reconnect-id)
   "Publish APPLICATION's active conversation with its product startup choreography."
@@ -612,6 +625,9 @@ already disconnected costs nothing."
         (setf (application-localgroup-session application) nil)
         (when session (image-daemon:daemon-runtime-stop session))))))
 
+(-> localgroup--handle-request
+    (localgroup-session list &key (:socket t) (:stream t))
+    null)
 (defun localgroup--handle-request (session request &key socket stream)
   "Dispatch authenticated requests according to Autolith's command and attachment policy."
   (case (localgroup--request-field request :operation)
@@ -638,8 +654,10 @@ already disconnected costs nothing."
                   (localgroup-session-application session))))
            (when controller
              (application-input-controller--request-exit
-              controller ':localgroup-kill))))))))
+              controller ':localgroup-kill)))))))
+  nil)
 
+(-> localgroup-stop (application) null)
 (defun localgroup-stop (application)
   "Stop APPLICATION's watchdog and its owned image-daemon endpoint."
   (let ((session (application-localgroup-session application)))
