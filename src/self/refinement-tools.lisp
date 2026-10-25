@@ -52,42 +52,44 @@
   "Dispatch lifecycle decisions; never accept a model-provided efficacy verdict."
   (declare (ignore tool))
   (handler-case
-      (let* ((action (refinement--choice (tool-argument arguments "action" :required t)
-                                         '(:status :propose :experiment :evaluate :promote :recover)))
+      (let* ((action        (refinement--choice (tool-argument arguments "action" :required t)
+                                                '(:status :propose :experiment :evaluate :promote :recover)))
              (configuration (tool-context-configuration context))
-             (identifier (tool-argument arguments "id")))
+             (identifier    (tool-argument arguments "id")))
         (when (resource-context-child-agent-p context)
           (refinement--reject ':authority "Refinement belongs to the primary agent."))
         (tool-success
          (let ((*print-readably* nil))
            (prin1-to-string
             (case action
-              (:status (if identifier (refinement-find configuration identifier)
-                           (refinement-list configuration)))
+              (:status
+               (if identifier (refinement-find configuration identifier)
+                   (refinement-list configuration)))
               (:propose
                (refinement-propose
                 configuration :owner (conversation-identifier (tool-context-conversation context))
-                :target (refinement--choice (tool-argument arguments "target" :required t)
-                                            '(:none :memory :repository-fact :context :skill :role :rlm-policy :live-change))
-                :evidence (coerce (tool-argument arguments "evidence" :required t) 'list)
-                :reason (tool-argument arguments "reason" :required t)
-                :benefit (tool-argument arguments "benefit")
-                :criterion (tool-argument arguments "criterion")))
+                :target              (refinement--choice (tool-argument arguments "target" :required t)
+                                                         '(:none :memory :repository-fact :context :skill :role :rlm-policy :live-change))
+                :evidence            (coerce (tool-argument arguments "evidence" :required t) 'list)
+                :reason              (tool-argument arguments "reason" :required t)
+                :benefit             (tool-argument arguments "benefit")
+                :criterion           (tool-argument arguments "criterion")))
               (:recover
                (refinement-recover context :identifier (tool-argument arguments "id" :required t)
-                                   :revision (tool-argument arguments "revision" :required t)
-                                   :evidence (tool-argument arguments "recovery-evidence" :required t)))
+                                   :revision           (tool-argument arguments "revision" :required t)
+                                   :evidence           (tool-argument arguments "recovery-evidence" :required t)))
               (otherwise
                (refinement-run
                 context :identifier (tool-argument arguments "id" :required t)
-                :revision (tool-argument arguments "revision" :required t)
-                :operation (tool-argument arguments "operation" :required t)
+                :revision           (tool-argument arguments "revision" :required t)
+                :operation          (tool-argument arguments "operation" :required t)
                 :guard (tool-argument arguments "guard") :phase action
-                :scope (and (tool-argument arguments "scope")
-                            (refinement--choice (tool-argument arguments "scope") '(:project :global))))))))))
+                :scope              (and (tool-argument arguments "scope")
+                                         (refinement--choice (tool-argument arguments "scope") '(:project :global))))))))))
     (refinement-error (condition)
       (tool-failure (princ-to-string condition)
                     :code (refinement-error-code condition)))))
+
 
 ;;;; -- Local Task Assessment --
 
@@ -132,14 +134,14 @@
   nil)
 
 (define-application-command application--builtin-refine-command
-    (:name "/refine"
-     :argument "[(:assess ID REVISION VERDICT EVIDENCE)]"
-     :description "inspect refinement proposals or assess task efficacy"
-     :tip "records a local task-level assessment before scoped promotion."
-     :busy-behavior :hold
+    (:name              "/refine"
+     :argument          "[(:assess ID REVISION VERDICT EVIDENCE)]"
+     :description       "inspect refinement proposals or assess task efficacy"
+     :tip               "records a local task-level assessment before scoped promotion."
+     :busy-behavior     :hold
      :terminal-behavior :shared
-     :slash-parser application-refinement-slash-arguments
-     :callable t)
+     :slash-parser      application-refinement-slash-arguments
+     :callable          t)
     (application &optional action identifier &rest options
                  &key revision verdict evidence &allow-other-keys)
   (declare (ignore revision verdict evidence))
