@@ -1066,9 +1066,10 @@ lineage instead of loading it again."
                                restored-history-floor-sequence)
                             (application--normalize-recovery-cursors
                              conversation
+                             :recovering-p
                              (not (null recovering-conversation-p))
-                             recovery-rendered-sequence
-                             recovery-history-floor-sequence)
+                             :rendered-sequence      recovery-rendered-sequence
+                             :history-floor-sequence recovery-history-floor-sequence)
                           (setf
                            (application-rendered-sequence application)
                            restored-rendered-sequence
@@ -1097,10 +1098,12 @@ lineage instead of loading it again."
             (conversation-lease-release conversation-lease)))))))
 
 (-> application--normalize-recovery-cursors
-    (conversation boolean (option integer) (option integer))
+    (conversation &key (:recovering-p boolean)
+                       (:rendered-sequence (option integer))
+                       (:history-floor-sequence (option integer)))
     (values (integer 0) (option (integer 1))))
 (defun application--normalize-recovery-cursors
-    (conversation recovering-p rendered-sequence history-floor-sequence)
+    (conversation &key recovering-p rendered-sequence history-floor-sequence)
   "Clamp recovered transcript cursors to CONVERSATION's durable sequence range."
   (let* ((latest-sequence
            (max 0 (1- (conversation-next-sequence conversation))))
@@ -1275,9 +1278,10 @@ lineage instead of loading it again."
                                restored-history-floor-sequence)
                             (application--normalize-recovery-cursors
                              conversation
+                             :recovering-p
                              (not (null recovering-conversation-p))
-                             recovery-rendered-sequence
-                             recovery-history-floor-sequence)
+                             :rendered-sequence      recovery-rendered-sequence
+                             :history-floor-sequence recovery-history-floor-sequence)
                           (setf
                            (application-rendered-sequence new-application)
                            restored-rendered-sequence

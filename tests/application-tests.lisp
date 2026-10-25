@@ -3129,19 +3129,25 @@
               (format nil "message-~D" index)))
            (multiple-value-bind (rendered floor)
                (application--normalize-recovery-cursors
-                conversation t 999 999)
+                conversation :recovering-p           t
+                             :rendered-sequence      999
+                             :history-floor-sequence 999)
              (test-assert
               (and (= rendered 3) (null floor))
               "oversized recovered cursors clamp or reset at the durable tail"))
            (multiple-value-bind (rendered floor)
                (application--normalize-recovery-cursors
-                conversation t 2 3)
+                conversation :recovering-p           t
+                             :rendered-sequence      2
+                             :history-floor-sequence 3)
              (test-assert
               (and (= rendered 2) (= floor 3))
               "a valid recovered history boundary remains intact"))
            (multiple-value-bind (rendered floor)
                (application--normalize-recovery-cursors
-                conversation nil 2 1)
+                conversation :recovering-p           nil
+                             :rendered-sequence      2
+                             :history-floor-sequence 1)
              (test-assert
               (and (zerop rendered) (null floor))
               "cursor metadata is ignored outside its recovered conversation")))
