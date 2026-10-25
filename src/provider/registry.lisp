@@ -120,8 +120,8 @@ registrations use models.dev when mapped. Failures retain the last successful li
                             (list (or (provider-registration-find provider-name)
                                       (error 'configuration-error :message "Unknown provider.")))
                             (provider-registrations)))
-         (catalog (provider-catalog-load configuration))
-         (failures nil))
+         (catalog       (provider-catalog-load configuration))
+         (failures      nil))
     (when (some #'provider-catalog--source registrations)
       (provider-catalog-refresh catalog))
     (dolist (registration registrations)
@@ -129,9 +129,9 @@ registrations use models.dev when mapped. Failures retain the last successful li
           (handler-case (provider-catalog--install catalog registration)
             (error (cause)
               (push (make-condition 'provider-model-discovery-error
-                                    :message "Could not load provider models from models.dev."
+                                    :message       "Could not load provider models from models.dev."
                                     :provider-name (provider-registration-name registration)
-                                    :cause cause)
+                                    :cause         cause)
                     failures)))
           (setf failures
                 (append
@@ -143,7 +143,7 @@ registrations use models.dev when mapped. Failures retain the last successful li
                       :message (cl-llm-provider-api:provider-api-error-message failure)
                       :provider-name
                       (cl-llm-provider-api:provider-model-discovery-error-provider-name failure)
-                      :cause (cl-llm-provider-api:provider-model-discovery-error-cause failure)))
+                      :cause   (cl-llm-provider-api:provider-model-discovery-error-cause failure)))
                    (provider-registry-refresh-models
                     *provider-registry* configuration
                     :provider-name (provider-registration-name registration))))
@@ -214,17 +214,17 @@ Bare IDs retain registry precedence. A registered provider prefix selects that
 provider; arbitrary slashes in exact catalog IDs are preserved. PROVIDER selects
 an exact model in that provider first, so a slash ID cannot be misrouted."
   (let* ((requested (and provider (provider--canonical-name provider)))
-         (selected (and requested (provider-registration-find requested)))
-         (slash (position #\/ model))
-         (prefix (and slash (subseq model 0 slash)))
-         (prefixed (and prefix (provider-registration-find prefix)))
-         (suffix (and slash (subseq model (1+ slash))))
-         (exact (provider-registry-for-model *provider-registry* model)))
+         (selected  (and requested (provider-registration-find requested)))
+         (slash     (position #\/ model))
+         (prefix    (and slash (subseq model 0 slash)))
+         (prefixed  (and prefix (provider-registration-find prefix)))
+         (suffix    (and slash (subseq model (1+ slash))))
+         (exact     (provider-registry-for-model *provider-registry* model)))
     (when (and requested (null selected))
       (provider--selection-error
        model provider :reason ':unknown-provider
-       :message (format nil "Unknown provider ~S. Registered providers: ~{~A~^, ~}."
-                        provider (mapcar #'provider-registration-name (provider-registrations)))))
+       :message               (format nil "Unknown provider ~S. Registered providers: ~{~A~^, ~}."
+                                      provider (mapcar #'provider-registration-name (provider-registrations)))))
     (when selected
       (cond
         ((provider--registration-model selected model)
@@ -232,21 +232,21 @@ an exact model in that provider first, so a slash ID cannot be misrouted."
         ((and prefixed (not (eq selected prefixed)))
          (provider--selection-error
           model provider :reason ':provider-mismatch
-          :message (format nil "Model ~S names provider ~A, not ~A. Select its exact model ID with :provider ~S."
-                           model (provider-registration-name prefixed) requested requested)))
+          :message               (format nil "Model ~S names provider ~A, not ~A. Select its exact model ID with :provider ~S."
+                                         model (provider-registration-name prefixed) requested requested)))
         ((and prefixed (provider--registration-model selected suffix))
          (return-from provider-resolve-model (values suffix selected)))
         (t
          (provider--selection-error
           model provider :reason ':unsupported-model
-          :message (format nil "Provider ~A does not serve model ~S. Use (models :provider ~S) to list its models."
-                           requested model requested)))))
+          :message               (format nil "Provider ~A does not serve model ~S. Use (models :provider ~S) to list its models."
+                                         requested model requested)))))
     (let ((qualified (and prefixed (provider--registration-model prefixed suffix))))
       (when (and exact qualified (not (eq exact prefixed)))
         (provider--selection-error
          model nil :reason ':ambiguous-model
-         :message (format nil "Model ~S is both a catalog ID and a provider-qualified ID. Select explicitly with :provider."
-                          model)))
+         :message          (format nil "Model ~S is both a catalog ID and a provider-qualified ID. Select explicitly with :provider."
+                                   model)))
       (cond
         (qualified
          (values suffix prefixed))
@@ -255,7 +255,7 @@ an exact model in that provider first, so a slash ID cannot be misrouted."
         (prefixed
          (provider--selection-error
           model prefix :reason ':unsupported-model
-          :message (format nil "Provider ~A does not serve model ~S." prefix suffix)))
+          :message             (format nil "Provider ~A does not serve model ~S." prefix suffix)))
         (t
          (values model nil))))))
 
@@ -272,7 +272,7 @@ an exact model in that provider first, so a slash ID cannot be misrouted."
 (defun configuration-model-selection-id (configuration)
   "Return CONFIGURATION's provider-qualified display ID."
   (let ((registration (configuration-model-registration configuration))
-        (model (config :model configuration)))
+        (model        (config :model configuration)))
     (if registration (provider-model-selection-id model registration) model)))
 
 (-> configuration-model-registration (configuration) (option provider-registration))
@@ -297,7 +297,7 @@ an exact model in that provider first, so a slash ID cannot be misrouted."
               (list (or (provider-registration-find (provider--canonical-name provider))
                         (provider--selection-error
                          "" provider :reason ':unknown-provider
-                         :message (format nil "Unknown provider ~S." provider))))
+                         :message            (format nil "Unknown provider ~S." provider))))
               (provider-registrations))))
     (loop for registration in registrations
           append (loop for metadata in (provider-registration-models registration)
@@ -324,8 +324,8 @@ contradictory provider prefixes still signal their selection errors."
       (unless (member (model-selection-error-reason condition)
                       '(:unsupported-model :unknown-provider))
         (error condition))
-      (let* ((slash (position #\/ model))
-             (name (or provider (and slash (subseq model 0 slash))))
+      (let* ((slash        (position #\/ model))
+             (name         (or provider (and slash (subseq model 0 slash))))
              (registration (and name
                                 (provider-registration-find
                                  (provider--canonical-name name)))))
