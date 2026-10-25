@@ -168,7 +168,7 @@ Global memories apply in every workspace, so their file sources are absolute."
        (every #'memory-premise-record-p premises)
        (= (length premises)
           (length (remove-duplicates premises
-                                     :key (lambda (premise) (getf premise :id))
+                                     :key  (lambda (premise) (getf premise :id))
                                      :test #'string=)))
        t))
 
@@ -189,8 +189,8 @@ A relative path needs the WORKSPACE it was recorded against."
                               (uiop:ensure-directory-pathname workspace)))
       (t
        (error 'memory-error
-              :message (format nil "Relative cited path ~A has no workspace." path)
-              :pathname (uiop:parse-unix-namestring path)
+              :message    (format nil "Relative cited path ~A has no workspace." path)
+              :pathname   (uiop:parse-unix-namestring path)
               :identifier nil)))))
 
 (-> memory-source-file-display (list) string)
@@ -254,8 +254,8 @@ workspace. Signal MEMORY-ERROR with a corrective message when the file cannot
 support the memory."
   (flet ((fail (control &rest arguments)
            (error 'memory-error
-                  :message (apply #'format nil control arguments)
-                  :pathname pathname
+                  :message    (apply #'format nil control arguments)
+                  :pathname   pathname
                   :identifier nil)))
     (when (and quote (not (memory-source-quote-p quote)))
       (fail "A quoted source passage needs ~D to ~D characters."
@@ -264,17 +264,21 @@ support the memory."
         (memory-source-read-file pathname)
       (unless text
         (fail (ecase failure
-                (:missing "Cited file ~A does not exist.")
-                (:too-large "Cited file ~A is larger than the checked limit.")
-                (:not-text "Cited file ~A is not UTF-8 text.")
-                (:unreadable "Cited file ~A cannot be read."))
+                (:missing
+                 "Cited file ~A does not exist.")
+                (:too-large
+                 "Cited file ~A is larger than the checked limit.")
+                (:not-text
+                 "Cited file ~A is not UTF-8 text.")
+                (:unreadable
+                 "Cited file ~A cannot be read."))
               (uiop:native-namestring pathname)))
       (when (and quote (not (memory-source-quote-found-p quote text)))
         (fail "The quoted passage does not occur in ~A. Quote the file's current text exactly."
               (uiop:native-namestring pathname)))
       (list :file
             :path (uiop:native-namestring pathname)
-            :relative nil
-            :quote quote
-            :digest (memory-source-text-digest text)
+            :relative    nil
+            :quote       quote
+            :digest      (memory-source-text-digest text)
             :observed-at time))))
