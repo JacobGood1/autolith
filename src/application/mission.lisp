@@ -42,7 +42,7 @@
       ':authority
       (call-next-method)))
 
-(-> mission--reject (keyword string) null)
+(-> mission--reject (keyword string) nil)
 (defun mission--reject (reason message)
   "Signal a typed mission policy failure with REASON and MESSAGE."
   (error 'mission-error :reason reason :message message))
