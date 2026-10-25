@@ -7,7 +7,7 @@
                 :documentation "Primary application owning this scheduler.")
    (conversation :initarg :conversation :reader mission-schedule-conversation
                  :documentation "Root conversation captured when the store was selected.")
-   (scheduler :accessor mission-schedule-scheduler
+   (scheduler :accessor      mission-schedule-scheduler
               :documentation "Library scheduler with durable claim history.")
    (retired-p :initform nil :accessor mission-schedule-retired-p
               :documentation "Withdrawn service identity after atomic reconstruction or rekeying.")
@@ -25,6 +25,7 @@
 
 (defvar *mission-schedule-services* (make-hash-table :test #'eq :weakness ':key)
   "Schedulers keyed by their primary application identity.")
+
 (defvar *mission-schedule-services-lock* (make-lock "Mission schedule services")
   "Protects creation and lookup of application schedulers.")
 
@@ -36,7 +37,7 @@
   "Read a bounded portable snapshot, refusing incomplete records."
   (when (probe-file path)
     (multiple-value-bind (record complete-p)
-        (snapshot-read path :grammar (task--result-grammar)
+        (snapshot-read path :grammar        (task--result-grammar)
                             :maximum-octets *mission-schedule-snapshot-byte-limit*)
       (unless complete-p (mission--reject ':schedule-storage "Incomplete schedule snapshot."))
       record)))
@@ -63,8 +64,8 @@
   "Run CONTENT as a mission continuation, preserving ordinary mission budget checks."
   (flet ((run (take acknowledge)
            (application--run-turn application content :continuation-p t
-                                  :steering-function take
-                                  :steering-persisted-function acknowledge)))
+                                  :steering-function                  take
+                                  :steering-persisted-function        acknowledge)))
     (let ((controller (application-input-controller application)))
       (if controller
           (application-input-controller-call-with-primary-steering controller #'run)
@@ -79,15 +80,15 @@
     (application &key path (clock #'get-universal-time) notify
                  (enqueue #'mission-schedule--queue) (run #'mission-schedule--run))
   "Restore APPLICATION's scheduler; interrupted claims become explicit UNKNOWN outcomes."
-  (let* ((path (or path (make-pathname :type "mission-schedules.sexp"
-                                     :defaults (conversation-pathname (application-conversation application)))))
+  (let* ((path    (or path (make-pathname :type   "mission-schedules.sexp"
+                                        :defaults (conversation-pathname (application-conversation application)))))
          (service (make-instance 'mission-schedule-service :application application
-                                 :conversation (conversation-identifier (application-conversation application))
+                                 :conversation                          (conversation-identifier (application-conversation application))
                                  :notify notify :enqueue enqueue :run run)))
     (setf (mission-schedule-scheduler service)
           (cl-jobpond:make-scheduler :clock clock :snapshot (mission-schedule--read path)
                                     :capacity 1024
-                                    :store (lambda (record) (mission-schedule--write path record))))
+                                    :store    (lambda (record) (mission-schedule--write path record))))
     service))
 
 (-> application-mission-schedules (application) mission-schedule-service)
@@ -142,7 +143,6 @@
             (restore)))))
   nil)
 
-
 (-> application-mission-schedules-notify (application) null)
 (defun application-mission-schedules-notify (application)
   "Nudge a hosted scheduler after reconstruction, outside enclosing application/render locks."
@@ -160,7 +160,7 @@
 (-> mission-schedule--identity (application) list)
 (defun mission-schedule--identity (application)
   "Install durable identity/version fields on the exact current mission when needed."
-  (let ((goal (application-goal application))
+  (let ((goal    (application-goal application))
         (context (mission-context-find (application-conversation application))))
     (unless (and context (eq goal (mission-context-goal context))
                  (mission-goal-p goal) (eq (getf goal :status) ':active))
@@ -195,7 +195,7 @@
         (with-recursive-lock-held ((mission-schedule-lock service))
           (mission-schedule--require-active service)
           (let* ((identity (mission-schedule--identity application))
-                 (payload (append identity (list :content content))))
+                 (payload  (append identity (list :content content))))
             (cl-jobpond:scheduler-add (mission-schedule-scheduler service)
                                       :id id :version (getf identity :version) :payload payload
                                       :at at :interval interval :event event :missed-policy missed-policy)))
@@ -216,7 +216,7 @@
     (dolist (pending (getf (cl-jobpond:scheduler-snapshot scheduler) :wakeups))
       (when (eq (getf pending :state) ':pending)
         (let ((wakeup (cl-jobpond:scheduler-claim scheduler :id (getf pending :id)
-                                                :version (getf pending :version))))
+                                                :version        (getf pending :version))))
           (cond
             ((not (mission-schedule--current-p service (getf wakeup :payload)))
              (cl-jobpond:scheduler-cancel scheduler :id (getf wakeup :schedule) :version (getf wakeup :version))
@@ -277,9 +277,9 @@
 (-> application-mission-schedule-execute (application list) t)
 (defun application-mission-schedule-execute (application ticket)
   "Execute an admitted ticket only once and recheck mission version at consumption."
-  (let* ((service (application-mission-schedules application))
+  (let* ((service   (application-mission-schedules application))
          (scheduler (mission-schedule-scheduler service))
-         (wakeup nil))
+         (wakeup    nil))
     (with-recursive-lock-held ((mission-schedule-lock service))
       (mission-schedule--require-active service)
       (setf wakeup (find (getf ticket :id) (getf (cl-jobpond:scheduler-snapshot scheduler) :wakeups)
@@ -320,7 +320,8 @@
             (:retry
              (cl-jobpond:scheduler-resolve (mission-schedule-scheduler service)
                                           :id id :token token :action ':retry))
-            (otherwise (mission--reject ':schedule-resolution "Expected completed, failed or retry."))))
+            (otherwise
+             (mission--reject ':schedule-resolution "Expected completed, failed or retry."))))
       (mission-schedule--notify service))))
 
 (-> application-mission-wakeup-slash-arguments (string) list)
@@ -344,14 +345,14 @@
   nil)
 
 (define-application-command application--builtin-mission-wakeup-command
-    (:name "/mission-wakeup"
-     :argument "TICKET"
-     :description "consume an admitted durable mission wakeup"
-     :tip "rechecks the current mission version and records uncertain execution before effects."
-     :busy-behavior :hold
+    (:name              "/mission-wakeup"
+     :argument          "TICKET"
+     :description       "consume an admitted durable mission wakeup"
+     :tip               "rechecks the current mission version and records uncertain execution before effects."
+     :busy-behavior     :hold
      :terminal-behavior :shared
-     :slash-parser application-mission-wakeup-slash-arguments
-     :callable t)
+     :slash-parser      application-mission-wakeup-slash-arguments
+     :callable          t)
     (application &optional ticket &rest extra)
   (apply #'application-mission-wakeup-command application ticket extra)
   ':continue)
