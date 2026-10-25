@@ -31,18 +31,23 @@
   (cond
     ((and (non-empty-string-p shared) (non-empty-string-p item))
      (format nil "~A~2%~A" shared item))
-    ((non-empty-string-p shared) shared) ((non-empty-string-p item) item)
-    (t nil)))
+    ((non-empty-string-p shared)
+     shared) ((non-empty-string-p item)
+              item)
+    (t
+     nil)))
 
 (-> task--json-boolean (t string) boolean)
 (defun task--json-boolean (value field)
   "Return JSON boolean VALUE or reject FIELD's non-boolean value."
   (cond
-    ((eq value t) t)
-    ((json-false-p value) nil)
+    ((eq value t)
+     t)
+    ((json-false-p value)
+     nil)
     (t
      (error 'task-error
-            :message (format nil "Task field ~S must be a boolean." field)
+            :message   (format nil "Task field ~S must be a boolean." field)
             :tool-name "task.run"))))
 
 (-> task--blocking-policy (json-object (option boolean) string) boolean)
@@ -85,14 +90,14 @@ The primary blocking field and legacy inverse async field are mutually exclusive
   "Validate and normalize one flat task OBJECT."
   (unless (json-object-p object)
     (error 'task-error :message "Every tasks item must be a JSON object."
-           :tool-name "task.run"))
+           :tool-name           "task.run"))
   (task--validate-json-fields
    object '("name" "agent" "task" "context" "blocking" "async" "isolation"
             "completion-policy")
    "a task item")
-  (let ((task (task--repair-prose (json-get object "task")))
-        (name (json-get object "name"))
-        (agent (or (json-get object "agent") "task"))
+  (let ((task    (task--repair-prose (json-get object "task")))
+        (name    (json-get object "name"))
+        (agent   (or (json-get object "agent") "task"))
         (context (task--repair-prose (json-get object "context")))
         (blocking-p
           (task--blocking-policy object top-blocking-p "a task item")))
@@ -113,22 +118,22 @@ The primary blocking field and legacy inverse async field are mutually exclusive
              :tool-name "task.run"))
     (unless (non-empty-string-p agent)
       (error 'task-error :message "A task agent must be a non-empty string."
-             :tool-name "task.run"))
+             :tool-name           "task.run"))
     (when (and (nth-value 1 (gethash "context" object))
                (not (stringp context)))
       (error 'task-error :message
              "A supplied task context must be a string."
              :tool-name "task.run"))
-    (list :name name
-          :agent (string-downcase agent)
-          :task task
-          :context (task--combine-context shared-context context)
+    (list :name      name
+          :agent     (string-downcase agent)
+          :task      task
+          :context   (task--combine-context shared-context context)
           :isolation (task-worktree-normalize-options (json-get object "isolation"))
-          :blocking blocking-p
+          :blocking  blocking-p
           :completion-policy
           (tool-completion-policy-argument
            object :tool-name "task.run" :default top-completion-policy)
-          :async (not blocking-p))))
+          :async     (not blocking-p))))
 
 (defun task-normalize-arguments (arguments)
   "Validate TASK.RUN ARGUMENTS and return ordinary normalized item plists."
@@ -136,16 +141,16 @@ The primary blocking field and legacy inverse async field are mutually exclusive
    arguments '("name" "agent" "task" "context" "blocking" "async" "tasks" "isolation"
                "completion-policy")
    "the top-level call")
-  (let* ((tasks nil)
-         (tasks-present-p nil)
-         (flat-task nil)
+  (let* ((tasks               nil)
+         (tasks-present-p     nil)
+         (flat-task           nil)
          (flat-task-present-p nil)
-         (shared-context (task--repair-prose (json-get arguments "context")))
+         (shared-context      (task--repair-prose (json-get arguments "context")))
          (top-blocking-p
            (task--blocking-policy arguments nil "the top-level call"))
          (top-completion-policy
            (tool-completion-policy-argument arguments :tool-name "task.run"))
-         (items nil))
+         (items               nil))
     (multiple-value-setq (tasks tasks-present-p)
       (gethash "tasks" arguments))
     (multiple-value-setq (flat-task flat-task-present-p)
@@ -182,13 +187,13 @@ The primary blocking field and legacy inverse async field are mutually exclusive
                       :tool-name "task.run"))
              (loop for item across tasks
                    collect (task--normalize-item
-                            item :shared-context shared-context
-                            :top-blocking-p top-blocking-p
+                            item :shared-context   shared-context
+                            :top-blocking-p        top-blocking-p
                             :top-completion-policy top-completion-policy)))
             (t
              (list (task--normalize-item
                     arguments :top-blocking-p top-blocking-p
-                    :top-completion-policy top-completion-policy)))))
+                    :top-completion-policy    top-completion-policy)))))
     (when (> (length items) *task-maximum-batch-size*)
       (error 'task-error
              :message
@@ -235,8 +240,8 @@ The primary blocking field and legacy inverse async field are mutually exclusive
        (let ((name (getf item :agent)))
          (unless (task-parent-can-spawn-p parent name orchestrator)
            (error 'task-error
-                  :message "The current agent may not spawn the requested role."
-                  :code ':authority
+                  :message   "The current agent may not spawn the requested role."
+                  :code      ':authority
                   :tool-name "task.run"))
          (let ((definition
                  (task-find-agent-definition selectable-definitions name)))
@@ -266,22 +271,22 @@ The primary blocking field and legacy inverse async field are mutually exclusive
   (unless (and (stringp content)
                (<= (length content) *task-tool-content-limit*))
     (error 'task-error
-           :message "A task tool produced an oversized native result."
+           :message   "A task tool produced an oversized native result."
            :tool-name "task.run"))
   (make-instance 'task-tool-result
-                 :content content
-                 :success-p (and success-p t)
-                 :category (if success-p ':success ':failure)
+                 :content    content
+                 :success-p  (and success-p t)
+                 :category   (if success-p ':success ':failure)
                  :error-code code
-                 :denied-p denied-p
-                 :details details))
+                 :denied-p   denied-p
+                 :details    details))
 
 (-> task--validate-tool-arguments (t list string) null)
 (defun task--validate-tool-arguments (arguments allowed-fields tool-name)
   "Require an object with only ALLOWED-FIELDS for TOOL-NAME."
   (unless (json-object-p arguments)
     (error 'task-error
-           :message (format nil "~A arguments must be a JSON object." tool-name)
+           :message   (format nil "~A arguments must be a JSON object." tool-name)
            :tool-name tool-name))
   (loop for field being the hash-keys of arguments
         unless (member field allowed-fields :test #'string=)
@@ -335,7 +340,7 @@ The primary blocking field and legacy inverse async field are mutually exclusive
     ((and (eq field :progress-output) (stringp value)
           (> (length value) preview-limit))
      (let ((start (- (length value) preview-limit)))
-       (list :tail (subseq value start)
+       (list :tail    (subseq value start)
              :omitted (list :field field :characters start))))
     ((stringp value)
      (if (<= (length value) preview-limit)
@@ -360,21 +365,33 @@ The primary blocking field and legacy inverse async field are mutually exclusive
   "Return RESULT FIELD, respecting terminal compaction metadata."
   (let* ((storage-field
             (ecase field
-              (:output ':output-storage)
-              (:error ':error-storage)
-              (:worktree-error ':worktree-error-storage)
-              (:label ':label-storage)
-              (:structured-output ':structured-output-storage)
-              (:usage ':usage-storage)))
-          (characters-field
-            (ecase field
-              (:output ':output-characters)
-              (:error ':error-characters)
-              (:worktree-error ':worktree-error-characters)
-              (:label ':label-characters)
-              (:structured-output ':structured-output-characters)
-              (:usage ':usage-characters)))
-         (storage (getf result storage-field))
+              (:output
+               ':output-storage)
+              (:error
+               ':error-storage)
+              (:worktree-error
+               ':worktree-error-storage)
+              (:label
+               ':label-storage)
+              (:structured-output
+               ':structured-output-storage)
+              (:usage
+               ':usage-storage)))
+         (characters-field
+           (ecase field
+             (:output
+              ':output-characters)
+             (:error
+              ':error-characters)
+             (:worktree-error
+              ':worktree-error-characters)
+             (:label
+              ':label-characters)
+             (:structured-output
+              ':structured-output-characters)
+             (:usage
+              ':usage-characters)))
+         (storage    (getf result storage-field))
          (characters (getf result characters-field)))
     (cond
       ((member storage '(:artifact :omitted) :test #'eq)
@@ -394,7 +411,7 @@ The primary blocking field and legacy inverse async field are mutually exclusive
       (t
        (task--artifact-field (getf result field)
                              field
-                             :preview-limit preview-limit
+                             :preview-limit        preview-limit
                              :artifact-available-p artifact-available-p)))))
 
 (-> task--job-native-record
@@ -405,20 +422,20 @@ The primary blocking field and legacy inverse async field are mutually exclusive
 (defun task--job-native-record
     (snapshot &key artifact-path (preview-limit 0) include-progress-p)
   "Return one bounded native job record from SNAPSHOT."
-  (let* ((state (getf snapshot :state))
+  (let* ((state      (getf snapshot :state))
          (terminal-p (task--terminal-state-p state))
-         (result (getf snapshot :result))
-         (progress (getf snapshot :progress))
+         (result     (getf snapshot :result))
+         (progress   (getf snapshot :progress))
          (artifact-available-p
            (and terminal-p result (getf result :output-path) t))
          (artifact
-           (list :path artifact-path
-                 :format :sexp
+           (list :path        artifact-path
+                 :format      :sexp
                  :available-p (and artifact-available-p t)))
          (result-record
            (and result
                 (list
-                 :status (getf result :status)
+                 :status                 (getf result :status)
                  :error
                  (task--retained-result-field
                   result :error
@@ -442,43 +459,43 @@ The primary blocking field and legacy inverse async field are mutually exclusive
                        result :structured-output
                        :preview-limit preview-limit
                        :artifact-available-p artifact-available-p))
-                  :usage
-                  (task--retained-result-field
-                   result :usage
-                   :preview-limit preview-limit
-                   :artifact-available-p artifact-available-p)
-                 :duration-ms (getf result :duration-ms)
-                 :model (getf result :model)
+                 :usage
+                 (task--retained-result-field
+                  result :usage
+                  :preview-limit preview-limit
+                  :artifact-available-p artifact-available-p)
+                 :duration-ms            (getf result :duration-ms)
+                 :model                  (getf result :model)
                  :agent-definition
                  (task--artifact-field
                   (getf result :agent-definition)
                   :agent-definition
                   :preview-limit preview-limit
                   :artifact-available-p artifact-available-p)
-                 :worktree (getf result :worktree)
+                 :worktree               (getf result :worktree)
                  :worktree-artifact-path (getf result :worktree-artifact-path)
                  :worktree-error
                  (task--retained-result-field result :worktree-error
                                               :preview-limit preview-limit
                                               :artifact-available-p artifact-available-p)
-                 :artifact artifact))))
+                 :artifact               artifact))))
     (append
-     (list :id (getf snapshot :job-id)
-           :execution-id (getf snapshot :execution-id)
-           :type :task
-           :agent (getf snapshot :agent)
-           :state state
-           :detached (and (getf snapshot :detached) t)
-           :owner (getf snapshot :owner)
-           :completion-policy (getf snapshot :completion-policy)
-           :result result-record
+     (list :id                  (getf snapshot :job-id)
+           :execution-id        (getf snapshot :execution-id)
+           :type                :task
+           :agent               (getf snapshot :agent)
+           :state               state
+           :detached            (and (getf snapshot :detached) t)
+           :owner               (getf snapshot :owner)
+           :completion-policy   (getf snapshot :completion-policy)
+           :result              result-record
            :cancellation-reason (getf snapshot :cancellation-reason))
      (when include-progress-p
        (list
         :progress
-        (list :status (getf progress :status)
-              :current-tool (getf progress :current-tool)
-              :recent-tools (getf progress :recent-tools)
+        (list :status        (getf progress :status)
+              :current-tool  (getf progress :current-tool)
+              :recent-tools  (getf progress :recent-tools)
               :recent-output
               (task--artifact-field
                (getf progress :recent-output)
@@ -492,8 +509,8 @@ The primary blocking field and legacy inverse async field are mutually exclusive
                 :usage
                 :preview-limit preview-limit
                 :artifact-available-p nil)
-              :duration-ms (getf progress :duration-ms)
-              :model (getf progress :model)))))))
+              :duration-ms   (getf progress :duration-ms)
+              :model         (getf progress :model)))))))
 
 (-> session-job-native-record
     (session-job list agent
@@ -519,8 +536,8 @@ The primary blocking field and legacy inverse async field are mutually exclusive
              root))))
     (task--job-native-record
      snapshot
-     :artifact-path artifact-path
-     :preview-limit preview-limit
+     :artifact-path      artifact-path
+     :preview-limit      preview-limit
      :include-progress-p include-progress-p)))
 
 (defmethod session-job-native-record
@@ -529,29 +546,29 @@ The primary blocking field and legacy inverse async field are mutually exclusive
   "Return tool execution JOB's bounded native inspection record."
   (declare (ignore preview-limit))
   (let ((progress (getf snapshot :progress))
-        (result (getf snapshot :result)))
+        (result   (getf snapshot :result)))
     (append
-     (list :id (getf snapshot :job-id)
-           :execution-id (getf snapshot :execution-id)
-           :type :tool
-           :tool (tool-execution-job-tool-name job)
-            :description (getf snapshot :description)
-           :summary (getf snapshot :summary)
-           :state (getf snapshot :state)
-           :detached (and (getf snapshot :detached) t)
-           :owner (getf snapshot :owner)
-           :completion-policy (getf snapshot :completion-policy)
+     (list :id                  (getf snapshot :job-id)
+           :execution-id        (getf snapshot :execution-id)
+           :type                :tool
+           :tool                (tool-execution-job-tool-name job)
+            :description        (getf snapshot :description)
+           :summary             (getf snapshot :summary)
+           :state               (getf snapshot :state)
+           :detached            (and (getf snapshot :detached) t)
+           :owner               (getf snapshot :owner)
+           :completion-policy   (getf snapshot :completion-policy)
            :shell-logs
            (getf (shell-log-job-metadata (agent-configuration viewer) job) :shell-logs)
            :result
            (and result
-                (list :status (getf result :status)
-                      :content (getf result :content)
-                      :details (getf result :details)
-                      :shell-logs (getf result :shell-logs)
+                (list :status      (getf result :status)
+                      :content     (getf result :content)
+                      :details     (getf result :details)
+                      :shell-logs  (getf result :shell-logs)
                       :duration-ms (getf result :duration-ms)))
            :cancellation-reason (getf snapshot :cancellation-reason)
-           :condition-report (getf snapshot :condition-report))
+           :condition-report    (getf snapshot :condition-report))
      (when include-progress-p
        (list :progress
              (list :duration-ms (getf progress :duration-ms)))))))
@@ -579,8 +596,8 @@ The primary blocking field and legacy inverse async field are mutually exclusive
           (list :task-run
                 :succeeded-p (and success-p t)
                 :total-duration-ms duration-milliseconds
-                :artifact-root artifact-root
-                :results records)
+                :artifact-root     artifact-root
+                :results           records)
         for content = (task--write-readable-sexp form :pretty-p t)
         when (<= (length content) *task-tool-content-limit*)
           return (values form content)
@@ -593,7 +610,7 @@ The primary blocking field and legacy inverse async field are mutually exclusive
 
 (-> task--job-native-form
     (session-job list agent &key (:preview-limit integer)
-                                  (:wrapper (option function)))
+                                 (:wrapper (option function)))
     (values list string))
 (defun task--job-native-form
     (job snapshot viewer &key (preview-limit 6000) wrapper)
@@ -602,7 +619,7 @@ The primary blocking field and legacy inverse async field are mutually exclusive
         for record =
           (session-job-native-record
            job snapshot viewer
-           :preview-limit limit
+           :preview-limit      limit
            :include-progress-p t)
         for form = (if wrapper
                        (funcall wrapper record)
@@ -643,11 +660,11 @@ Only the current primary conversation's artifact root is searched."
         (error condition))
       (error (condition)
         (error 'task-error
-               :message (format nil
-                                "Could not read durable job result ~A: ~A"
-                                identifier condition)
+               :message   (format nil
+                                  "Could not read durable job result ~A: ~A"
+                                  identifier condition)
                :tool-name tool-name
-               :task-id identifier)))))
+               :task-id   identifier)))))
 
 (-> task--durable-job-native-form
     (list pathname string)
@@ -655,16 +672,19 @@ Only the current primary conversation's artifact root is searched."
 (defun task--durable-job-native-form (result path execution-identifier)
   "Fit one durable RESULT artifact into a bounded job.get response."
   (let ((snapshot
-          (list :job-id (or (getf result :id) execution-identifier)
+          (list :job-id       (or (getf result :id) execution-identifier)
                 :execution-id execution-identifier
-                :agent (getf result :agent)
-                :state (case (getf result :status)
-                         (:success ':completed)
-                         (:aborted ':aborted)
-                         (otherwise ':failed))
-                :detached (and (getf result :detached) t)
-                :result (append (copy-list result)
-                                (list :output-path (namestring path))))))
+                :agent        (getf result :agent)
+                :state        (case (getf result :status)
+                                (:success
+                                 ':completed)
+                                (:aborted
+                                 ':aborted)
+                                (otherwise
+                                 ':failed))
+                :detached     (and (getf result :detached) t)
+                :result       (append (copy-list result)
+                                      (list :output-path (namestring path))))))
     (loop for limit = *task-result-preview-limit* then (floor limit 2)
           for record =
             (task--job-native-record
@@ -699,7 +719,7 @@ poll a job whose completion will wake it."
            (list :tool-execution
                  :handed-off-p t
                  :handoff-reason reason
-                 :job record)))
+                 :job            record)))
       (task-tool-result
        (format nil "~A~%~A" (task--handoff-guidance job viewer) content)
        form))))
@@ -726,22 +746,22 @@ poll a job whose completion will wake it."
   "Run one operation exactly once, returning quickly or handing off its same job."
   (unless (typep parent 'agent)
     (error 'tool-error
-           :message "Inspectable execution requires an executing agent context."
+           :message   "Inspectable execution requires an executing agent context."
            :tool-name tool-name))
   (let* ((overflow-function *tool-result-overflow-function*)
          (job
            (task-orchestrator-start-execution-job
             runtime parent
-            :tool-name tool-name
-            :description description
-            :summary summary
+            :tool-name         tool-name
+            :description       description
+            :summary           summary
             :operation-function
             (lambda ()
               (let ((*tool-result-overflow-function* overflow-function))
                 (funcall operation-function)))
-            :detached-p async-p
+            :detached-p        async-p
             :completion-policy completion-policy
-            :parent-call-id parent-call-id)))
+            :parent-call-id    parent-call-id)))
     (if async-p
         (task--tool-execution-handoff-result job parent ':requested)
         (multiple-value-bind (snapshot terminal-p)
@@ -760,12 +780,12 @@ poll a job whose completion will wake it."
 (-> task--agent-native-record (task-agent-definition) list)
 (defun task--agent-native-record (definition)
   "Return model-visible native metadata for one child role."
-  (list :kind ':agent
-        :name (task-agent-definition-name definition)
+  (list :kind       ':agent
+        :name       (task-agent-definition-name definition)
         :description
         (task--retained-prefix
          (task-agent-definition-description definition) 1000)
-        :source (task-agent-definition-source definition)
+        :source     (task-agent-definition-source definition)
         :pathname
         (let ((pathname (task-agent-definition-pathname definition)))
           (and pathname (namestring pathname)))
@@ -788,13 +808,13 @@ poll a job whose completion will wake it."
 (defun task--agent-diagnostic-native-record (diagnostic)
   "Return bounded typed native metadata for one rejected role."
   (let ((pathname (task-agent-definition-error-pathname diagnostic)))
-    (list :kind ':diagnostic
-          :type :task-agent-definition-error
-          :name (task-agent-definition-error-definition-name diagnostic)
-          :source (task-agent-definition-error-source diagnostic)
+    (list :kind     ':diagnostic
+          :type     :task-agent-definition-error
+          :name     (task-agent-definition-error-definition-name diagnostic)
+          :source   (task-agent-definition-error-source diagnostic)
           :pathname (and pathname (namestring pathname))
-          :line (task-agent-definition-error-line diagnostic)
-          :field (task-agent-definition-error-field diagnostic)
+          :line     (task-agent-definition-error-line diagnostic)
+          :field    (task-agent-definition-error-field diagnostic)
           :cause
           (task--retained-prefix
            (princ-to-string (task-agent-definition-error-cause diagnostic))
@@ -811,20 +831,20 @@ poll a job whose completion will wake it."
 (-> task--agents-page (list integer integer) (values list string))
 (defun task--agents-page (entries offset limit)
   "Return a bounded native page of ENTRIES starting at OFFSET."
-  (let* ((total (length entries))
-         (end (min total (+ offset limit)))
+  (let* ((total      (length entries))
+         (end        (min total (+ offset limit)))
          (candidates (subseq entries (min offset total) end))
-         (selected nil))
+         (selected   nil))
     (dolist (entry candidates)
-      (let* ((trial (nconc (copy-list selected) (list entry)))
-             (next (+ offset (length trial)))
+      (let* ((trial   (nconc (copy-list selected) (list entry)))
+             (next    (+ offset (length trial)))
              (form
                (list :task-agents
                      :offset offset
-                     :count (length trial)
-                     :total total
+                     :count       (length trial)
+                     :total       total
                      :next-offset (and (< next total) next)
-                     :entries trial))
+                     :entries     trial))
              (content (task--write-readable-sexp form :pretty-p t)))
         (if (<= (length content) *task-tool-content-limit*)
             (setf selected trial)
@@ -838,57 +858,57 @@ poll a job whose completion will wake it."
            (form
              (list :task-agents
                    :offset offset
-                   :count (length selected)
-                   :total total
+                   :count       (length selected)
+                   :total       total
                    :next-offset (and (< next total) next)
-                   :entries selected)))
+                   :entries     selected)))
       (values form (task--write-readable-sexp form :pretty-p t)))))
 
 (-> task--job-list-page (list integer integer) (values list string))
 (defun task--job-list-page (snapshots offset limit)
   "Return a content-aware native page of compact job summaries."
-  (let* ((total (length snapshots))
-         (end (min total (+ offset limit)))
+  (let* ((total      (length snapshots))
+         (end        (min total (+ offset limit)))
          (candidates (subseq snapshots (min offset total) end))
-         (selected nil))
+         (selected   nil))
     (dolist (snapshot candidates)
       (let* ((summary
                (append
-                (list :id (getf snapshot :job-id)
+                (list :id   (getf snapshot :job-id)
                       :type (getf snapshot :type))
                 (when (getf snapshot :agent)
                   (list :agent (getf snapshot :agent)))
                 (when (getf snapshot :tool)
-                  (list :tool (getf snapshot :tool)
+                  (list :tool    (getf snapshot :tool)
                         :summary (getf snapshot :summary)))
-                (list :state (getf snapshot :state)
+                (list :state    (getf snapshot :state)
                       :detached (and (getf snapshot :detached) t)
-                      :status (getf (getf snapshot :result) :status))))
-             (trial (nconc (copy-list selected) (list summary)))
-             (next (+ offset (length trial)))
+                      :status   (getf (getf snapshot :result) :status))))
+             (trial   (nconc (copy-list selected) (list summary)))
+             (next    (+ offset (length trial)))
              (form
                (list :job-list
                      :offset offset
-                     :count (length trial)
-                     :total total
+                     :count       (length trial)
+                     :total       total
                      :next-offset (and (< next total) next)
-                     :jobs trial))
+                     :jobs        trial))
              (content (task--write-readable-sexp form :pretty-p t)))
         (if (<= (length content) *task-tool-content-limit*)
             (setf selected trial)
             (return))))
     (when (and candidates (null selected))
       (error 'task-error
-             :message "One job summary exceeds the native result bound."
+             :message   "One job summary exceeds the native result bound."
              :tool-name "job.list"))
     (let* ((next (+ offset (length selected)))
            (form
              (list :job-list
                    :offset offset
-                   :count (length selected)
-                   :total total
+                   :count       (length selected)
+                   :total       total
                    :next-offset (and (< next total) next)
-                   :jobs selected)))
+                   :jobs        selected)))
       (values form (task--write-readable-sexp form :pretty-p t)))))
 
 (-> task-run--cancel-synchronous-jobs (list) null)
@@ -910,16 +930,16 @@ poll a job whose completion will wake it."
         (task-discover-agents (agent-configuration parent))
       (let* ((orchestrator
               (task-orchestrator-refresh (task-run-tool-orchestrator tool)))
-             (items (task-normalize-arguments arguments))
+             (items       (task-normalize-arguments arguments))
              (resolved
               (task--resolve-items
                parent orchestrator definitions
-               :items items
+               :items       items
                :diagnostics diagnostics
-               :registry (agent-tool-registry parent)))
-             (jobs nil)
+               :registry    (agent-tool-registry parent)))
+             (jobs        nil)
              (synchronous nil)
-             (detached nil)
+             (detached    nil)
              (completed-p nil))
         (unwind-protect
            (progn
@@ -966,8 +986,8 @@ poll a job whose completion will wake it."
                    (task--task-run-native-form
                     jobs snapshots
                     :duration-milliseconds duration
-                    :artifact-root artifact-root
-                    :success-p success-p)
+                    :artifact-root         artifact-root
+                    :success-p             success-p)
                  (setf completed-p t)
                  (task-tool-result content form success-p))))
            (unless completed-p
@@ -976,20 +996,20 @@ poll a job whose completion will wake it."
 (defmethod tool-execute
     ((tool task-agents-tool) (context tool-context) arguments)
   "Return the effective policy-filtered child roles as native data."
-  (let* ((parent (tool-context-agent context))
+  (let* ((parent       (tool-context-agent context))
          (orchestrator (task-agents-tool-orchestrator tool)))
     (unless (typep parent 'agent)
       (error 'task-error
-             :message "task.agents requires an executing parent agent context."
+             :message   "task.agents requires an executing parent agent context."
              :tool-name "task.agents"))
     (task--validate-tool-arguments arguments '("offset" "limit")
                                    "task.agents")
     (let ((offset (or (tool-argument arguments "offset") 0))
-          (limit (or (tool-argument arguments "limit")
-                     *task-agent-page-default*)))
+          (limit  (or (tool-argument arguments "limit")
+                      *task-agent-page-default*)))
       (unless (and (integerp offset) (<= 0 offset 1000000))
         (error 'task-error
-               :message "task.agents offset must be an integer from 0 to 1000000."
+               :message   "task.agents offset must be an integer from 0 to 1000000."
                :tool-name "task.agents"))
       (unless (and (integerp limit)
                    (<= 1 limit *task-agent-page-maximum*))
@@ -1000,9 +1020,9 @@ poll a job whose completion will wake it."
                :tool-name "task.agents"))
       (multiple-value-bind (definitions diagnostics)
           (task-discover-agents (agent-configuration parent))
-        (let ((agent-records nil)
+        (let ((agent-records      nil)
               (diagnostic-records nil)
-              (registry (agent-tool-registry parent)))
+              (registry           (agent-tool-registry parent)))
           (dolist (definition definitions)
             (when (task-parent-can-spawn-p
                    parent
@@ -1032,23 +1052,23 @@ poll a job whose completion will wake it."
 
 (defmethod tool-execute ((tool task-job-tool) (context tool-context) arguments)
   "Execute the job operation named by TOOL."
-  (let* ((viewer (tool-context-agent context))
+  (let* ((viewer       (tool-context-agent context))
          (orchestrator (task-job-tool-orchestrator tool))
-         (operation (tool-name tool)))
+         (operation    (tool-name tool)))
     (unless (typep viewer 'agent)
       (error 'task-error
-             :message "Job tools require an executing agent context."
+             :message   "Job tools require an executing agent context."
              :tool-name (tool-canonical-name tool)))
     (cond
       ((string= operation "list")
        (task--validate-tool-arguments arguments '("offset" "limit")
                                       "job.list")
        (let ((offset (or (tool-argument arguments "offset") 0))
-             (limit (or (tool-argument arguments "limit")
-                        *task-job-page-default*)))
+             (limit  (or (tool-argument arguments "limit")
+                         *task-job-page-default*)))
          (unless (and (integerp offset) (<= 0 offset 1000000))
            (error 'task-error
-                  :message "job.list offset must be an integer from 0 to 1000000."
+                  :message   "job.list offset must be an integer from 0 to 1000000."
                   :tool-name "job.list"))
          (unless (and (integerp limit)
                       (<= 1 limit *task-job-page-maximum*))
@@ -1072,7 +1092,7 @@ poll a job whose completion will wake it."
               (job
                 (find identifier
                       (task-orchestrator-list-visible-jobs orchestrator viewer)
-                      :key #'session-job-identifier
+                      :key  #'session-job-identifier
                       :test #'string=)))
          (if job
              (let ((snapshot (session-job-snapshot job)))
@@ -1087,10 +1107,10 @@ poll a job whose completion will wake it."
                  (task--durable-job-result viewer identifier "job.get")
                (unless result
                  (error 'task-error
-                        :message (format nil "No visible job named ~A exists."
-                                         identifier)
+                        :message   (format nil "No visible job named ~A exists."
+                                           identifier)
                         :tool-name "job.get"
-                        :task-id identifier))
+                        :task-id   identifier))
                (multiple-value-bind (form content)
                    (task--durable-job-native-form result path identifier)
                  (task-tool-result content form))))))
@@ -1101,18 +1121,18 @@ poll a job whose completion will wake it."
                  (tool-argument arguments "id" :required t)
                  "job.send"))
               (message (tool-argument arguments "message" :required t))
-              (job (task-orchestrator-find-visible-job
-                    orchestrator identifier viewer "job.send")))
+              (job     (task-orchestrator-find-visible-job
+                        orchestrator identifier viewer "job.send")))
          (unless (and (stringp message) (non-empty-string-p message))
            (error 'task-error
-                  :message "job.send requires non-empty message text."
+                  :message   "job.send requires non-empty message text."
                   :tool-name "job.send"
-                  :task-id identifier))
+                  :task-id   identifier))
          (unless (typep job 'task-job)
            (error 'task-error
-                  :message "Only child-agent jobs accept steering messages."
+                  :message   "Only child-agent jobs accept steering messages."
                   :tool-name "job.send"
-                  :task-id identifier))
+                  :task-id   identifier))
          (multiple-value-bind (entry reason)
              (task-job-enqueue-steering job (task--parent-steering-message message))
            (if entry
@@ -1149,10 +1169,10 @@ poll a job whose completion will wake it."
                       (lambda (record)
                         (list :job-cancel
                               :id identifier
-                              :accepted-p (and accepted-p t)
-                              :reason ':user
+                              :accepted-p            (and accepted-p t)
+                              :reason                ':user
                               :cancelled-descendants cancelled-descendants
-                              :job record)))
+                              :job                   record)))
                    (task-tool-result content form))))
              (let ((timeout (or (tool-argument arguments "timeout-seconds")
                                 0)))
@@ -1183,7 +1203,7 @@ poll a job whose completion will wake it."
                         (list :job-wait
                               :timeout-seconds timeout
                               :terminal-p terminal-p
-                              :job record)))
+                              :job        record)))
                    (task-tool-result content form)))))))
       (t
        (error 'task-error :message
@@ -1293,11 +1313,11 @@ poll a job whose completion will wake it."
                             (make-instance
                              'task-agents-tool
                              :orchestrator orchestrator
-                             :namespace "task"
-                             :name "agents"
+                             :namespace    "task"
+                             :name         "agents"
                              :description
                              "List child-agent roles allowed by the current depth and spawn policy, plus typed diagnostics for unavailable definitions."
-                             :parameters (task-agents-parameters-schema)))
+                             :parameters   (task-agents-parameters-schema)))
     (tool-registry-register registry
                             (make-instance 'task-job-tool :orchestrator
                                            orchestrator :namespace "job" :name
@@ -1349,8 +1369,8 @@ poll a job whose completion will wake it."
      registry
      (make-instance 'task-continuity-tool :orchestrator orchestrator
                     :namespace "job" :name "continuity"
-                    :description "Classify owned durable jobs and explicitly reattach, reconstruct, safely restart, or abandon unfinished work. Recovery requires primary-owner authorization and a durable replay claim."
-                    :parameters (task-continuity-parameters)))
+                    :description                        "Classify owned durable jobs and explicitly reattach, reconstruct, safely restart, or abandon unfinished work. Recovery requires primary-owner authorization and a durable replay claim."
+                    :parameters                         (task-continuity-parameters)))
     (task-worktree-register-tool registry orchestrator)
     (peer-message-register-tools registry :orchestrator orchestrator)
     registry))
