@@ -41,9 +41,6 @@
   ()
   (:documentation "Resolve workspace: URIs against the configured working directory."))
 
-(-> workspace-file-resource-access-roots
-    (workspace-file-resource tool-context)
-    list)
 (defgeneric workspace-file-resource-access-roots (resource context)
   (:documentation
    "Return roots RESOURCE may access without command authorization under CONTEXT."))
@@ -78,7 +75,6 @@
     :documentation "Whether the exact observed snapshot ended in a line ending."))
   (:documentation "A complete transient UTF-8 workspace-file snapshot."))
 
-(-> workspace-file-observation-lines (workspace-file-observation) vector)
 (defgeneric workspace-file-observation-lines (observation)
   (:documentation "Return OBSERVATION's logical lines for the current operation."))
 
@@ -554,8 +550,10 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
              (setf created-p t)
              (write-sequence octets stream)
              (finish-output stream))
-           (ignore-errors
-             (platform-copy-file-permissions *platform* target temporary))
+           (handler-case
+               (platform-copy-file-permissions *platform* target temporary)
+             (platform-error ()
+               nil))
            (setf complete-p t))
       (when (and created-p (not complete-p) (probe-file temporary))
         (delete-file temporary))))
