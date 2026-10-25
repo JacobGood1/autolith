@@ -106,6 +106,7 @@ sequence, so it lands in the normal screen where it stays readable."
              (terminal-ui-fullscreen-invalidate ui)
              (setf completed-p t))
         (unless completed-p
+          ; mallet:suppress no-ignore-errors -- best-effort restoration must not mask the entry failure
           (ignore-errors (terminal-ui-fullscreen-leave ui))))))
   nil)
 
