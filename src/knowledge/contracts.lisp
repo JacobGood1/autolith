@@ -410,7 +410,9 @@ claim identities. Incomplete searches and ambiguous environments refuse the call
 
 Requirement claim identities are retained in the evidence source. Mapping errors
 never change the external action's outcome and never disappear silently."
-  (let* ((decoded   (ignore-errors (json-decode (tool-result-content result))))
+  (let* ((decoded   (handler-case (json-decode (tool-result-content result))
+                      (json-error ()
+                        nil)))
          (base      (knowledge-base-read configuration))
          (workspace (knowledge--workspace configuration))
          (claims    nil)
