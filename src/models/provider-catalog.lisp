@@ -60,9 +60,9 @@ Account-specific Copilot routing and providers absent from models.dev retain dis
   (destructuring-bind (name key prefix) source
     (declare (ignore name))
     (let* ((providers (model-catalog-providers catalog))
-           (provider (and providers (gethash key providers)))
-           (models (and provider (json-get provider "models")))
-           (result nil))
+           (provider  (and providers (gethash key providers)))
+           (models    (and provider (json-get provider "models")))
+           (result    nil))
       (unless (hash-table-p models) (model-catalog--reject "provider absent"))
       (maphash
        (lambda (identifier record)
@@ -77,7 +77,7 @@ Account-specific Copilot routing and providers absent from models.dev retain dis
              (let ((description (or (json-get record "description") (json-get record "name"))))
                (unless (or (null description) (stringp description))
                  (model-catalog--reject "invalid model description"))
-               (push (list :name (concatenate 'string prefix identifier)
+               (push (list :name              (concatenate 'string prefix identifier)
                            :description description :context-window window
                            :reasoning-efforts (provider-catalog--efforts record))
                      result)))))
@@ -92,23 +92,23 @@ Account-specific Copilot routing and providers absent from models.dev retain dis
     (when source
       (register-provider
        (provider-registration-name registration)
-       :description (provider-registration-description registration)
-       :family (provider-registration-family registration)
-       :models (provider-catalog--models
-                catalog source
-                :allowed-models
-                (when (member (provider-registration-name registration)
-                              '("chatgpt" "gemini" "grok") :test #'string=)
-                  (mapcar #'provider-model-name (provider-registration-models registration))))
-       :factory (provider-registration-factory registration)
-       :authenticator (provider-registration-authenticator registration)
-       :protocol (provider-registration-protocol registration)
-       :endpoint (provider-registration-endpoint registration)
-       :model-discovery (provider-registration-model-discovery registration)
+       :description              (provider-registration-description registration)
+       :family                   (provider-registration-family registration)
+       :models                   (provider-catalog--models
+                                  catalog source
+                                  :allowed-models
+                                  (when (member (provider-registration-name registration)
+                                                '("chatgpt" "gemini" "grok") :test #'string=)
+                                    (mapcar #'provider-model-name (provider-registration-models registration))))
+       :factory                  (provider-registration-factory registration)
+       :authenticator            (provider-registration-authenticator registration)
+       :protocol                 (provider-registration-protocol registration)
+       :endpoint                 (provider-registration-endpoint registration)
+       :model-discovery          (provider-registration-model-discovery registration)
        :model-discovery-endpoint (provider-registration-model-discovery-endpoint registration)
        :model-discovery-endpoint-resolver
        (provider-registration-model-discovery-endpoint-resolver registration)
-       :source ':builtin)))
+       :source                   ':builtin)))
   nil)
 
 (-> provider-catalog-load (configuration) model-catalog)
