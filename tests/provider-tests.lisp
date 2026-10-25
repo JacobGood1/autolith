@@ -2275,8 +2275,9 @@
                openai (json-object) :credentials credentials :conversation conversation)
               (provider-open-response-stream
                anthropic (json-object) :credentials credentials :conversation conversation)
-              (gemini-code-assist--post-once
-               gemini credentials "loadCodeAssist" (json-object))
+              (gemini-code-assist--post-once gemini credentials
+                                             :method  "loadCodeAssist"
+                                             :request (json-object))
               (gemini-code-assist--get-once gemini credentials "operations/deadline")
               (provider-open-response-stream
                gemini (json-object) :credentials credentials :conversation conversation)))

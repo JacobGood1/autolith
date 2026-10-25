@@ -232,9 +232,10 @@ catalog follows the exact model identifiers consumed by streamGenerateContent."
     value))
 
 (-> gemini-code-assist--post-once
-    (gemini-code-assist-provider oauth-credentials non-empty-string json-object)
+    (gemini-code-assist-provider oauth-credentials
+     &key (:method non-empty-string) (:request json-object))
     (values string integer t))
-(defun gemini-code-assist--post-once (provider credentials method request)
+(defun gemini-code-assist--post-once (provider credentials &key method request)
   "Perform one non-streaming Code Assist METHOD request."
   (handler-case
       (provider-call-with-response-deadline
@@ -317,7 +318,9 @@ propagates."
    provider credentials
    :stage            stage
    :request-function (lambda ()
-                       (gemini-code-assist--post-once provider credentials method request))))
+                       (gemini-code-assist--post-once provider credentials
+                                                      :method  method
+                                                      :request request))))
 
 (-> gemini-code-assist--operation
     (gemini-code-assist-provider oauth-credentials non-empty-string)

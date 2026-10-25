@@ -285,7 +285,7 @@
      (list
       (list
        'gemini-code-assist--post-once
-       (lambda (actual-provider credentials method request)
+       (lambda (actual-provider credentials &key method request)
          (declare (ignore credentials method request))
          (incf attempts)
          (if (= attempts 1)
