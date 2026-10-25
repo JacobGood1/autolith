@@ -20,9 +20,9 @@
 
 (defclass search-tool (workspace-tool)
   ((engine
-    :initarg :engine
-    :reader search-tool-engine
-    :type worker
+    :initarg       :engine
+    :reader        search-tool-engine
+    :type          worker
     :documentation "The isolated clifff worker shared by one tool registry."))
   (:documentation "A workspace search operation backed by an isolated fff index."))
 
@@ -37,7 +37,6 @@
 (defclass search-content-tool (search-tool)
   ()
   (:documentation "Search indexed workspace file contents."))
-
 
 (defmethod tool-child-safe-p ((tool search-tool))
   "Permit isolated indexed workspace searches inside child agents."
@@ -62,13 +61,13 @@ AUTOLITH_FFF_LIBRARY names a library to use instead, as the Nix package does."
                                             (pathname override))))
       (clifff-error (condition)
         (error 'search-error
-               :message (format nil "~A Run ~A."
-                                condition
-                                (merge-pathnames "script/bootstrap"
-                                                 (config :source-root configuration)))
+               :message   (format nil "~A Run ~A."
+                                  condition
+                                  (merge-pathnames "script/bootstrap"
+                                                   (config :source-root configuration)))
                :operation ':load
-               :pathname (clifff-error-pathname condition)
-               :cause nil)))))
+               :pathname  (clifff-error-pathname condition)
+               :cause     nil)))))
 
 
 ;;;; -- Tool Arguments --
@@ -87,9 +86,9 @@ AUTOLITH_FFF_LIBRARY names a library to use instead, as the Nix package does."
        value)
       (t
        (error 'tool-error
-              :message (format nil "~A requires string argument ~S."
-                               (tool-canonical-name tool)
-                               name)
+              :message   (format nil "~A requires string argument ~S."
+                                 (tool-canonical-name tool)
+                                 name)
               :tool-name (tool-canonical-name tool))))))
 
 (-> search-tool--query-with-constraints (string string) string)
@@ -131,9 +130,9 @@ fff reads a token after a backslash as literal text and drops the backslash."
           do (let* ((token-start (or (position-if-not #'search-tool--blank-p query
                                                       :start start)
                                      length))
-                    (token-end (or (position-if #'search-tool--blank-p query
-                                                :start token-start)
-                                   length)))
+                    (token-end   (or (position-if #'search-tool--blank-p query
+                                                  :start token-start)
+                                     length)))
                (write-string query stream :start start :end token-start)
                (when (search-tool--earmuffed-name-p (subseq query token-start token-end))
                  (write-char #\\ stream))
@@ -144,7 +143,7 @@ fff reads a token after a backslash as literal text and drops the backslash."
 (defun search-tool--constraint-tokens (constraints)
   "Return the whitespace-separated filter tokens of CONSTRAINTS."
   (let ((tokens nil)
-        (start nil))
+        (start  nil))
     (loop for index from 0 to (length constraints)
           for blank-p = (or (= index (length constraints))
                             (member (char constraints index)
@@ -177,8 +176,8 @@ fff reads a token after a backslash as literal text and drops the backslash."
 This follows fff's rule: no wildcard, no trailing slash or negation, and a final
 component whose extension starts with a letter and has at most ten letters or
 digits."
-  (let* ((name (subseq token (1+ (or (position #\/ token :from-end t) -1))))
-         (dot (position #\. name :from-end t))
+  (let* ((name      (subseq token (1+ (or (position #\/ token :from-end t) -1))))
+         (dot       (position #\. name :from-end t))
          (extension (and dot (subseq name (1+ dot)))))
     (and (plusp (length token))
          (char/= (char token 0) #\!)
@@ -211,7 +210,7 @@ Commas, closing braces and backslashes are escaped for fff's brace expansion."
 fff requires every filter to hold, so src/ and docs/ together would select no
 file. Several locations become one brace glob that any of them satisfies, while
 the other filters still apply to it."
-  (let* ((tokens (search-tool--constraint-tokens constraints))
+  (let* ((tokens    (search-tool--constraint-tokens constraints))
          (locations (remove-if-not (lambda (token)
                                      (or (search-tool--directory-constraint-p token)
                                          (search-tool--file-path-constraint-p token)))
@@ -264,19 +263,19 @@ contribute nothing. Both read as successful searches, so they fail here."
          arguments
          "max-results"
          :fallback *search-default-result-limit*
-         :minimum 1
-         :maximum *search-maximum-result-limit*)
+         :minimum  1
+         :maximum  *search-maximum-result-limit*)
         :maximum-matches-per-file
         (search-tool--bounded-integer arguments "max-matches-per-file"
                                       :fallback 20
-                                      :minimum 1
-                                      :maximum 100)
+                                      :minimum  1
+                                      :maximum  100)
         :time-budget-milliseconds
         (search-tool--bounded-integer
          arguments
          "time-budget-ms"
          :fallback *search-default-time-budget-milliseconds*
-         :minimum 1
-         :maximum *search-maximum-time-budget-milliseconds*)
+         :minimum  1
+         :maximum  *search-maximum-time-budget-milliseconds*)
         :context-lines
         (search-tool--bounded-integer arguments "context" :maximum 10)))
