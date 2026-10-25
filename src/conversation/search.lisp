@@ -210,8 +210,8 @@ each block, so a fragment spanning two blocks is still found."
       (loop with kept = 0
             for end = (read-sequence buffer stream :start kept)
             while (> end kept)
-            do (when (conversation-search--octets-position fragment shift
-                                                           buffer end)
+            do (when (conversation-search--octets-position fragment shift buffer
+                                                           :end end)
                  (return t))
                (setf kept (min (1- length) end))
                (replace buffer buffer :start2 (- end kept) :end2 end)
@@ -232,9 +232,9 @@ each block, so a fragment spanning two blocks is still found."
     ((simple-array (unsigned-byte 8) (*))
      (simple-array fixnum (256))
      (simple-array (unsigned-byte 8) (*))
-     (integer 0))
+     &key (:end (integer 0)))
     (option (integer 0)))
-(defun conversation-search--octets-position (fragment shift buffer end)
+(defun conversation-search--octets-position (fragment shift buffer &key end)
   "Return where folded FRAGMENT first occurs in BUFFER below END, or NIL."
   (declare (type (simple-array (unsigned-byte 8) (*)) fragment buffer)
            (type (simple-array fixnum (256)) shift)
