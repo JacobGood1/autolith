@@ -24,14 +24,14 @@
 
 Recognize emphasis at Org word boundaries. Preserve literal punctuation and
 newlines; decode links within strong text without treating code as markup."
-  (let ((cursor 0)
+  (let ((cursor      0)
         (plain-start 0)
-        (fragments nil)
-        (length (length text)))
+        (fragments   nil)
+        (length      (length text)))
     (labels ((at-p (prefix)
                (and (<= (+ cursor (length prefix)) length)
                     (string= prefix text :start2 cursor
-                                         :end2 (+ cursor (length prefix)))))
+                                         :end2   (+ cursor (length prefix)))))
 
              (flush-plain ()
                (when (< plain-start cursor)
@@ -71,8 +71,8 @@ newlines; decode links within strong text without treating code as markup."
             do (cond
                  ((at-p "[[")
                   (let* ((label (close-at "][" (+ cursor 2)))
-                         (end (close-at "]]" (+ label 2)))
-                         (url (subseq text (+ cursor 2) label))
+                         (end   (close-at "]]" (+ label 2)))
+                         (url   (subseq text (+ cursor 2) label))
                          (parts (onboarding-source--inline
                                  (subseq text (+ label 2) end))))
                     (flush-plain)
@@ -87,24 +87,24 @@ newlines; decode links within strong text without treating code as markup."
                  ((at-p "@@")
                   (let* ((colon (or (position #\: text :start (+ cursor 2))
                                     (onboarding-source--fail "Semantic span needs a style.")))
-                         (name (subseq text (+ cursor 2) colon))
+                         (name  (subseq text (+ cursor 2) colon))
                          (style (cdr (assoc name '(("brand" . :brand) ("dim" . :dim)
-                                                  ("lisp-prompt" . :lisp-prompt)
-                                                  ("code" . :code) ("success" . :success)
-                                                  ("lambda-logo-1" . :lambda-logo-1)
-                                                  ("lambda-logo-2" . :lambda-logo-2)
-                                                  ("lambda-logo-3" . :lambda-logo-3)
-                                                  ("lambda-logo-4" . :lambda-logo-4)
-                                                  ("lambda-logo-5" . :lambda-logo-5)
-                                                  ("lambda-logo-6" . :lambda-logo-6))
+                                                   ("lisp-prompt" . :lisp-prompt)
+                                                   ("code" . :code) ("success" . :success)
+                                                   ("lambda-logo-1" . :lambda-logo-1)
+                                                   ("lambda-logo-2" . :lambda-logo-2)
+                                                   ("lambda-logo-3" . :lambda-logo-3)
+                                                   ("lambda-logo-4" . :lambda-logo-4)
+                                                   ("lambda-logo-5" . :lambda-logo-5)
+                                                   ("lambda-logo-6" . :lambda-logo-6))
                                             :test #'string=)))
-                         (end (close-at "@@" (1+ colon))))
+                         (end   (close-at "@@" (1+ colon))))
                     (unless style
                       (onboarding-source--fail (format nil "Unknown style ~S" name)))
                     (emit (list style (subseq text (1+ colon) end)) (+ end 2))))
                  ((and (or (at-p "=") (at-p "*")) (markup-start-p))
-                  (let* ((code-p (at-p "="))
-                         (end (markup-end (char text cursor)))
+                  (let* ((code-p   (at-p "="))
+                         (end      (markup-end (char text cursor)))
                          (contents (subseq text (1+ cursor) end)))
                     (if code-p
                         (emit (list ':code contents) (1+ end))
@@ -122,17 +122,17 @@ newlines; decode links within strong text without treating code as markup."
                                  (:lines list) (:variables hash-table)) list)
 (defun onboarding-source--page (&key title properties lines variables)
   "Validate lesson metadata and render its authored lines with VARIABLES."
-  (let* ((id (cdr (assoc "ID" properties :test #'string=)))
-         (version-text (cdr (assoc "VERSION" properties :test #'string=)))
-         (version (and version-text
-                       (ignore-errors (parse-integer version-text))))
+  (let* ((id            (cdr (assoc "ID" properties :test #'string=)))
+         (version-text  (cdr (assoc "VERSION" properties :test #'string=)))
+         (version       (and version-text
+                             (ignore-errors (parse-integer version-text))))
          (exercise-text (cdr (assoc "EXERCISE" properties :test #'string=)))
-         (exercise (cdr (assoc exercise-text
-                               '(("continue" . :continue) ("help" . :help)
-                                 ("async" . :async) ("settings" . :settings)
-                                 ("authentication" . :authentication))
-                               :test #'equal)))
-         (body (format nil "~{~A~^~%~}" (reverse lines))))
+         (exercise      (cdr (assoc exercise-text
+                                    '(("continue" . :continue) ("help" . :help)
+                                      ("async" . :async) ("settings" . :settings)
+                                      ("authentication" . :authentication))
+                                    :test #'equal)))
+         (body          (format nil "~{~A~^~%~}" (reverse lines))))
     (unless (and (non-empty-string-p title) (non-empty-string-p id)
                  (every (lambda (character)
                           (or (find character "abcdefghijklmnopqrstuvwxyz0123456789")
@@ -142,7 +142,7 @@ newlines; decode links within strong text without treating code as markup."
                  (or (null exercise-text) exercise))
       (onboarding-source--fail (format nil "Invalid metadata for ~S" title)))
     (list :id id :version version
-          :title (org-templater:render :template title :config variables)
+          :title    (org-templater:render :template title :config variables)
           :exercise exercise
           :body
           (mapcar (lambda (fragment)
@@ -166,13 +166,13 @@ newlines; decode links within strong text without treating code as markup."
 Only the introductory comment, title directive, property drawers and lesson
 text are structural. Keep body newlines verbatim apart from the one blank
 line separating lessons. Reject duplicate IDs and malformed metadata."
-  (let ((pages nil)
-        (title nil)
-        (properties nil)
-        (lines nil)
-        (drawer-p nil)
+  (let ((pages         nil)
+        (title         nil)
+        (properties    nil)
+        (lines         nil)
+        (drawer-p      nil)
         (drawer-seen-p nil)
-        (comment-p nil))
+        (comment-p     nil))
     (labels ((finish-page ()
                (when title
                  (when (or drawer-p (not drawer-seen-p))
@@ -245,9 +245,9 @@ line separating lessons. Reject duplicate IDs and malformed metadata."
 Place #+name: NAME immediately above #+begin_onboarding_text inside the
 introductory comment. End with #+end_onboarding_text. Lesson parsing ignores
 these UI templates; their placeholders are expanded only by this function."
-  (let ((named-p nil)
+  (let ((named-p   nil)
         (collect-p nil)
-        (lines nil))
+        (lines     nil))
     (with-input-from-string (input (onboarding-source--read))
       (loop for line = (read-line input nil nil)
             while line
@@ -255,7 +255,7 @@ these UI templates; their placeholders are expanded only by this function."
                  ((and collect-p (string-equal line "#+end_onboarding_text"))
                   (return-from onboarding-source-text
                     (org-templater:render :template (format nil "~{~A~^~%~}" (nreverse lines))
-                                         :config variables)))
+                                         :config    variables)))
                  (collect-p
                   (push line lines))
                  ((and named-p (string-equal line "#+begin_onboarding_text"))
