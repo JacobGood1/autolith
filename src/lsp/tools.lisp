@@ -221,7 +221,6 @@ clip JSON. Truncated documents retain a bounded result plus an explicit note."
       (lsp-manager-configure manager (tool-context-configuration context))))
   (tool-success "Language servers stopped and configuration reloaded. Next file request starts matching servers."))
 
-(-> lsp-register-semantic-tools (tool-registry lsp-manager) tool-registry)
 (-> lsp-register-tools (tool-registry) tool-registry)
 (defun lsp-register-tools (registry)
   "Register one lazy LSP manager and its observation and semantic tool surface."
