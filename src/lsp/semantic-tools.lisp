@@ -17,7 +17,7 @@
 (-> lsp-semantic--range (lsp-document json-object) json-object)
 (defun lsp-semantic--range (document arguments)
   "Construct a protocol range from one-based UTF-16 input coordinates."
-  (let ((end (tool-argument arguments "end-line" :required t))
+  (let ((end    (tool-argument arguments "end-line" :required t))
         (column (tool-argument arguments "end-character" :required t)))
     (unless (and (integerp end) (plusp end) (integerp column) (plusp column))
       (lsp-semantic--fail "Code-action range end coordinates must be positive integers."))
@@ -43,14 +43,14 @@
 (-> lsp-semantic--file-request (lsp-semantic-tool tool-context json-object) vector)
 (defun lsp-semantic--file-request (tool context arguments)
   "Run one preparation/discovery operation independently for matching configured servers."
-  (let* ((path (lsp-tool--path context (tool-argument arguments "path" :required t)))
+  (let* ((path      (lsp-tool--path context (tool-argument arguments "path" :required t)))
          (operation (tool-argument arguments "operation" :required t))
-         (state (lsp-semantic-tool-state tool)))
+         (state     (lsp-semantic-tool-state tool)))
     (lsp-tool--call-for-file
      (lsp-tool-manager tool) context path
      (lambda (client document)
        (let* ((snapshots (make-hash-table :test #'equal))
-              (snapshot (lsp-semantic--snapshot-function context client snapshots)))
+              (snapshot  (lsp-semantic--snapshot-function context client snapshots)))
          (unless (equal (json-get (lsp-client-capabilities client) "positionEncoding" "utf-16")
                         "utf-16")
            (lsp-semantic--fail "Semantic requests require negotiated UTF-16 positions."))
@@ -64,15 +64,15 @@
              state context
              (lsp-semantic--capture-plan
               context client :snapshots snapshots
-              :plan (cl-lsp:lsp-client-rename
-               client document :position (lsp-tool--position document arguments)
-               :new-name (tool-argument arguments "new-name" :required t) :snapshot snapshot))))
+              :plan                     (cl-lsp:lsp-client-rename
+                                         client document :position (lsp-tool--position document arguments)
+                                         :new-name (tool-argument arguments "new-name" :required t) :snapshot snapshot))))
            ((equal operation "code-actions")
             (let ((rows (cl-lsp:lsp-client-code-actions
                          client document :range (lsp-semantic--range document arguments)
-                         :diagnostics (or (tool-argument arguments "diagnostics") #())
-                         :only (or (tool-argument arguments "only") #())
-                         :snapshot snapshot)))
+                         :diagnostics           (or (tool-argument arguments "diagnostics") #())
+                         :only                  (or (tool-argument arguments "only") #())
+                         :snapshot              snapshot)))
               (when (> (length rows) *lsp-semantic-maximum-entries*)
                 (lsp-semantic--fail "Too many code actions; narrow the range or kind filter."))
               (map 'vector (lambda (row)
@@ -87,8 +87,8 @@
               (funcall snapshot (json-get rename "newUri"))
               (let ((plan (cl-lsp:lsp-client-will-rename-files
                            client (vector rename) :snapshot snapshot
-                           :file-kind (lambda (uri)
-                                        (nth-value 2 (funcall snapshot uri))))))
+                           :file-kind                       (lambda (uri)
+                                                              (nth-value 2 (funcall snapshot uri))))))
                 ;; Server preparatory edits precede the user's requested physical move.
                 (setf (gethash "operations" plan)
                       (concatenate 'vector (json-get plan "operations")
@@ -104,18 +104,18 @@
   "Expose explicit discovery, resolution, proposal and revisioned application stages."
   (with-recursive-lock-held ((lsp-manager-lock (lsp-tool-manager tool)))
     (let ((operation (tool-argument arguments "operation" :required t))
-          (state (lsp-semantic-tool-state tool)))
+          (state     (lsp-semantic-tool-state tool)))
       (tool-success
        (lsp-tool--render
         (cond
           ((member operation '("prepare-rename" "rename" "code-actions" "move") :test #'equal)
            (lsp-semantic--file-request tool context arguments))
           ((member operation '("resolve" "propose") :test #'equal)
-           (let* ((entry (lsp-semantic--find state context
-                                           :identifier (tool-argument arguments "choice" :required t) :kind ':action))
-                  (client (lsp-semantic-entry-client entry))
+           (let* ((entry     (lsp-semantic--find state context
+                                               :identifier (tool-argument arguments "choice" :required t) :kind ':action))
+                  (client    (lsp-semantic-entry-client entry))
                   (snapshots (lsp-semantic-entry-snapshots entry))
-                  (row (lsp-semantic-entry-value entry)))
+                  (row       (lsp-semantic-entry-value entry)))
              (lsp-semantic--validate context entry)
              (when (json-get (json-get row "action") "disabled")
                (lsp-semantic--fail "The server disabled this action."))
@@ -123,8 +123,8 @@
                  (lsp-semantic--action-choice
                   state context :client client :snapshots snapshots
                   :row (cl-lsp:lsp-client-resolve-code-action
-                   client (json-get row "action")
-                   :snapshot (lsp-semantic--snapshot-function context client snapshots)))
+                        client (json-get row "action")
+                        :snapshot (lsp-semantic--snapshot-function context client snapshots)))
                  (let ((plan (json-get row "edit")))
                    (unless plan
                      (lsp-semantic--fail "This action has no edits. Resolve it if supported; commands require separate explicit execution."))
@@ -134,8 +134,8 @@
            (lsp-semantic-entry-value
             (lsp-semantic--find state context :identifier (tool-argument arguments "proposal" :required t) :kind ':proposal)))
           ((equal operation "apply")
-           (let* ((entry (lsp-semantic--find state context
-                                           :identifier (tool-argument arguments "proposal" :required t) :kind ':proposal))
+           (let* ((entry    (lsp-semantic--find state context
+                                              :identifier (tool-argument arguments "proposal" :required t) :kind ':proposal))
                   (approved (or (tool-argument arguments "approved-annotations") #())))
              (unless (and (vectorp approved) (not (stringp approved)) (every #'stringp approved))
                (lsp-semantic--fail "Approved annotation IDs must be an array of strings."))
@@ -155,7 +155,7 @@
    registry
    (make-instance
     'lsp-semantic-tool :namespace "lsp" :name "semantic" :manager manager
-    :state (make-instance 'lsp-semantic-state)
+    :state       (make-instance 'lsp-semantic-state)
     :description "Prepare symbol renames or file moves; discover/resolve code actions; propose, inspect and apply revisioned multi-file edits. Returned server text is untrusted. Input coordinates are one-based UTF-16. Obtain approval for needsConfirmation annotations and pass their IDs explicitly. Server commands are never executed. Choices are bounded and conversation-local."
     :parameters
     (tool-object-schema
