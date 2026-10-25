@@ -96,16 +96,10 @@
       (fifo-cache-get states alias)
     (and present-p (typep state class) state)))
 
-(-> resource-observation-state-family-and-key
-    (resource-observation)
-    (values symbol list))
 (defgeneric resource-observation-state-family-and-key (observation)
   (:documentation
    "Return OBSERVATION's state class and exact retention-equivalence key."))
 
-(-> resource-observation-state-merge
-    (resource-observation-state resource-observation &rest t)
-    resource-observation-state)
 (defgeneric resource-observation-state-merge (state observation &rest initargs)
   (:documentation "Merge family INITARGS into equivalent retained STATE.")
   (:method ((state resource-observation-state)
@@ -114,16 +108,10 @@
     (declare (ignore observation initargs))
     state))
 
-(-> resource-observation-state-maximum
-    (resource-observation-state)
-    (integer 0))
 (defgeneric resource-observation-state-maximum (state)
   (:documentation
    "Return the maximum conversation-local observations retained for STATE's family."))
 
-(-> resource-observation-state-trim-storage
-    (conversation resource-observation-state)
-    null)
 (defgeneric resource-observation-state-trim-storage (conversation state)
   (:documentation "Apply family storage limits after retaining STATE in CONVERSATION.")
   (:method ((conversation conversation) (state resource-observation-state))
@@ -205,7 +193,6 @@ often base strings while the same text built elsewhere is not."
      (let ((*print-readably* nil))
        (prin1-to-string snapshot)))))
 
-(-> resource-context-child-agent-p (t) boolean)
 (defgeneric resource-context-child-agent-p (context)
   (:documentation "Return true when CONTEXT belongs to a restricted task child agent."))
 
@@ -214,7 +201,6 @@ often base strings while the same text built elsewhere is not."
   (declare (ignore context))
   nil)
 
-(-> resource-resolver-child-safe-p (resource-resolver t) boolean)
 (defgeneric resource-resolver-child-safe-p (resolver context)
   (:documentation
    "Return true when RESOLVER may resolve resources for child-agent CONTEXT."))
@@ -225,7 +211,6 @@ often base strings while the same text built elsewhere is not."
   (declare (ignore resolver context))
   nil)
 
-(-> resource-resolver-read-documentation (resource-resolver) (option non-empty-string))
 (defgeneric resource-resolver-read-documentation (resolver)
   (:documentation
    "Return the resource.read sentences documenting RESOLVER's scheme, or NIL."))
@@ -235,7 +220,6 @@ often base strings while the same text built elsewhere is not."
   (declare (ignore resolver))
   nil)
 
-(-> resource-resolver-edit-documentation (resource-resolver) (option non-empty-string))
 (defgeneric resource-resolver-edit-documentation (resolver)
   (:documentation
    "Return the resource.edit sentences documenting RESOLVER's scheme, or NIL."))
