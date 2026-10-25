@@ -8,19 +8,19 @@ A present NIL entry records ambiguous provenance.")
 
 (defclass application-operation ()
   ((name
-    :initarg :name
-    :reader application-operation-name
-    :type non-empty-string
+    :initarg       :name
+    :reader        application-operation-name
+    :type          non-empty-string
     :documentation "The canonical lowercase Lisp function name.")
    (description
-    :initarg :description
-    :reader application-operation-description
-    :type non-empty-string
+    :initarg       :description
+    :reader        application-operation-description
+    :type          non-empty-string
     :documentation "The concise user-facing operation description.")
    (backend
-    :initarg :backend
-    :reader application-operation-backend
-    :type t
+    :initarg       :backend
+    :reader        application-operation-backend
+    :type          t
     :documentation "The exact registered operation backend."))
   (:documentation "One immutable user-facing registered operation."))
 
@@ -81,9 +81,9 @@ A present NIL entry records ambiguous provenance.")
 
 (define-condition application-operation-loop-action (error)
   ((action
-    :initarg :action
-    :reader application-operation-loop-action-action
-    :type (member :quit)
+    :initarg       :action
+    :reader        application-operation-loop-action-action
+    :type          (member :quit)
     :documentation "The application loop action requested by the operation."))
   (:report
    (lambda (condition stream)
@@ -103,15 +103,15 @@ A present NIL entry records ambiguous provenance.")
 
 (define-condition prompt-error (autolith-error)
   ((reason
-    :initarg :reason
-    :reader prompt-error-reason
-    :type keyword
+    :initarg       :reason
+    :reader        prompt-error-reason
+    :type          keyword
     :documentation "The stable reason prompt admission failed.")
    (target
-    :initarg :target
-    :initform nil
-    :reader prompt-error-target
-    :type t
+    :initarg       :target
+    :initform      nil
+    :reader        prompt-error-target
+    :type          t
     :documentation "The requested primary or child target, when available."))
   (:documentation "A local PROMPT form could not be validated or admitted."))
 
@@ -194,12 +194,13 @@ A present NIL entry records ambiguous provenance.")
           (format nil "PROMPT content exceeds the ~D-character limit."
                   *prompt-maximum-characters*)))
        (user-message-input-create
-        :text (copy-seq text)
+        :text            (copy-seq text)
         :image-pathnames image-pathnames)))
     ((stringp content)
      (let* ((image-pathnames (prompt--image-pathnames images))
             (labels
               (format nil "~{[Image #~D]~^ ~}"
+
                       (loop for number from 1 to (length image-pathnames)
                             collect number)))
             (text
@@ -219,7 +220,7 @@ A present NIL entry records ambiguous provenance.")
                   *prompt-maximum-characters*)))
        (if image-pathnames
            (user-message-input-create
-            :text text
+            :text            text
             :image-pathnames image-pathnames)
            (copy-seq text))))
     (t
@@ -239,12 +240,12 @@ A present NIL entry records ambiguous provenance.")
 (-> read-file ((or string pathname)) string)
 (defun read-file (path)
   "Read UTF-8 text from PATH without exceeding the local prompt content bound."
-  (let ((pathname (pathname path))
-        (buffer (make-string 4096))
-        (output (make-string-output-stream))
+  (let ((pathname   (pathname path))
+        (buffer     (make-string 4096))
+        (output     (make-string-output-stream))
         (characters 0))
     (with-open-file (stream pathname
-                            :direction ':input
+                            :direction       ':input
                             :external-format ':utf-8)
       (loop for count = (read-sequence buffer stream)
             while (plusp count)
@@ -269,11 +270,11 @@ A present NIL entry records ambiguous provenance.")
     (prompt--error
      ':malformed-arguments
      "Use (prompt [:to TARGET] [:images IMAGES] CONTENT)."))
-  (let ((target 'autolith)
-        (images nil)
+  (let ((target            'autolith)
+        (images            nil)
         (target-supplied-p nil)
         (images-supplied-p nil)
-        (content (first (last arguments))))
+        (content           (first (last arguments))))
     (loop for (key value) on (butlast arguments) by #'cddr
           do (case key
                (:to
@@ -305,7 +306,6 @@ A present NIL entry records ambiguous provenance.")
      (prompt--input content images)
      :prefer-steering-p t)))
 
-
 (defmacro eval-now (&body body)
   "Evaluate BODY as explicit local input even while an agent turn is active.
 
@@ -322,21 +322,21 @@ local-user override."
 (defparameter *application-local-operations*
   (list
    (make-instance 'application-local-operation
-                  :name "prompt"
+                  :name        "prompt"
                   :description "Prompt primary Autolith or steer a named running child."
-                  :backend 'prompt)
+                  :backend     'prompt)
    (make-instance 'application-local-operation
-                  :name "read-file"
+                  :name        "read-file"
                   :description "Read bounded UTF-8 text for a computed local prompt."
-                  :backend 'read-file)
+                  :backend     'read-file)
    (make-instance 'application-local-operation
-                  :name "eval-now"
+                  :name        "eval-now"
                   :description "Force explicit local Lisp to run during an active turn."
-                  :backend 'eval-now)
+                  :backend     'eval-now)
    (make-instance 'application-local-operation
-                  :name "vault-contents"
+                  :name        "vault-contents"
                   :description "Read or edit the queued input vault."
-                  :backend 'vault-contents))
+                  :backend     'vault-contents))
   "The built-in local forms advertised beside registered commands and tools.")
 
 (-> tool-user-callable-p (tool) boolean)
@@ -401,17 +401,17 @@ local-user override."
 (defun application-operation--from-command (command &key name)
   "Project registered COMMAND into its canonical or alias operation NAME."
   (make-instance 'application-command-operation
-                 :name (or name (application-operation--command-name command))
+                 :name        (or name (application-operation--command-name command))
                  :description (application-command-description command)
-                 :backend command))
+                 :backend     command))
 
 (-> application-operation--from-tool (tool) application-tool-operation)
 (defun application-operation--from-tool (tool)
   "Project registered TOOL into one user-facing operation."
   (make-instance 'application-tool-operation
-                 :name (tool-canonical-name tool)
+                 :name        (tool-canonical-name tool)
                  :description (tool-description tool)
-                 :backend tool))
+                 :backend     tool))
 
 (-> application-operation--tools (application) list)
 (defun application-operation--tools (application)
@@ -462,8 +462,8 @@ local-user override."
     (find name
           (application-operation-list application :include-aliases-p t)
           :test #'string=
-          :key (lambda (operation)
-                 (string-downcase (application-operation-name operation))))))
+          :key  (lambda (operation)
+                  (string-downcase (application-operation-name operation))))))
 
 
 ;;;; -- Completion and Slash Compatibility --
@@ -474,18 +474,21 @@ local-user override."
 (-> application-operation--tool-property-names (tool) (values list list))
 (defun application-operation--tool-property-names (tool)
   "Return TOOL's displayable required and optional properties in stable order."
-  (let* ((parameters (tool-parameters tool))
-         (properties (and (json-object-p parameters)
-                          (json-get parameters "properties")))
+  (let* ((parameters     (tool-parameters tool))
+         (properties     (and (json-object-p parameters)
+                              (json-get parameters "properties")))
          (required-value (and (json-object-p parameters)
                               (json-get parameters "required")))
          (required-order
            (remove-if-not
             #'stringp
             (typecase required-value
-              (list required-value)
-              (vector (coerce required-value 'list))
-              (t nil))))
+              (list
+               required-value)
+              (vector
+               (coerce required-value 'list))
+              (t
+               nil))))
          (names
            (and (json-object-p properties)
                 (sort
@@ -557,13 +560,13 @@ local-user override."
 (-> application-operation-completion-entry (application-operation) list)
 (defun application-operation-completion-entry (operation)
   "Return OPERATION's parenthesized completion, grouping aliases with their command."
-  (let* ((name (application-operation-name operation))
+  (let* ((name     (application-operation-name operation))
          (argument (application-operation-completion-argument operation))
-         (entry (list :name (if argument
-                               (format nil "(~A" name)
-                               (format nil "(~A)" name))
-                      :argument argument
-                      :description (copy-seq (application-operation-description operation)))))
+         (entry    (list :name        (if argument
+                                         (format nil "(~A" name)
+                                         (format nil "(~A)" name))
+                         :argument    argument
+                         :description (copy-seq (application-operation-description operation)))))
     (when (typep operation 'application-command-operation)
       (let ((canonical (application-operation--command-name (application-operation-backend operation))))
         (unless (equal name canonical)
@@ -584,10 +587,10 @@ local-user override."
           append
           (loop for option in (application-command-static-options command)
                 collect
-                (list :name (format nil "(~A ~S)" name option)
-                      :argument nil
+                (list :name        (format nil "(~A ~S)" name option)
+                      :argument    nil
                       :description (copy-seq (application-command-description command))
-                      :primary primary)))))
+                      :primary     primary)))))
 
 (-> application-operation-completion-entries (application) list)
 (defun application-operation-completion-entries (application)
@@ -627,7 +630,7 @@ local-user override."
 fff's own fuzzy matcher is a loose subsequence. Keep its ranking, then drop
 paths that do not contain QUERY as a contiguous substring."
   (let* ((registry (application-tool-registry application))
-         (tool (and registry (tool-registry-find registry "search" "files"))))
+         (tool     (and registry (tool-registry-find registry "search" "files"))))
     (unless (typep tool 'search-tool)
       (return-from application-path-search-files '()))
     (handler-case
@@ -641,8 +644,8 @@ paths that do not contain QUERY as a contiguous substring."
                    (application-configuration application)
                    :operation ':files
                    :arguments (list query
-                                    :glob-p nil
-                                    :page 0
+                                    :glob-p    nil
+                                    :page      0
                                     :page-size *search-maximum-result-limit*))))))
           (subseq paths 0 (min limit (length paths))))
       (error ()
@@ -675,8 +678,8 @@ paths that do not contain QUERY as a contiguous substring."
 (-> application-operation-command-hint-form (application-command-invocation) string)
 (defun application-operation-command-hint-form (invocation)
   "Return INVOCATION's preferred canonical Lisp spelling."
-  (let* ((command (application-command-invocation-command invocation))
-         (name (application-operation--command-name command))
+  (let* ((command   (application-command-invocation-command invocation))
+         (name      (application-operation--command-name command))
          (arguments (application-command-invocation-arguments invocation))
          (remainder (application-command-invocation-remainder invocation)))
     (if (application-command-callable-p command)
@@ -714,8 +717,10 @@ paths that do not contain QUERY as a contiguous substring."
   "Return KEY as one lowercase JSON object member name."
   (let ((name
           (etypecase key
-            (string key)
-            (symbol (symbol-name key)))))
+            (string
+             key)
+            (symbol
+             (symbol-name key)))))
     (unless (non-empty-string-p name)
       (error 'configuration-error
              :message "A local tool argument key must not be empty."))
@@ -806,14 +811,14 @@ argument objects to construct a label; only the outer argument list is copied."
     (list
      (let ((name (application-command-name command)))
        (make-instance 'application-command-invocation
-                      :input (format nil "(~A)" (application-operation--command-name command))
-                      :syntax ':lisp
-                      :name name
-                      :remainder ""
-                      :argument nil
-                      :arguments (copy-list arguments)
+                      :input                   (format nil "(~A)" (application-operation--command-name command))
+                      :syntax                  ':lisp
+                      :name                    name
+                      :remainder               ""
+                      :argument                nil
+                      :arguments               (copy-list arguments)
                       :supplied-argument-count (length arguments)
-                      :command command)))))
+                      :command                 command)))))
 
 
 ;;;; -- Active-Turn Admission --
@@ -832,7 +837,7 @@ argument objects to construct a label; only the outer argument list is copied."
   (let* ((command (application-operation-backend operation))
          (invocation
            (application-operation--command-invocation command argument-forms))
-         (action (application-command-busy-action command invocation)))
+         (action  (application-command-busy-action command invocation)))
     (if (and (eq action ':execute)
              (application-command-terminal-owner-p command invocation))
         ':hold
@@ -873,7 +878,7 @@ argument forms may run immediately. Arbitrary Lisp and computed operation argume
 wait for the serialized application boundary."
   (handler-case
       (let* ((*package* (find-package '#:autolith))
-             (form (self-read-form source :read-eval nil)))
+             (form      (self-read-form source :read-eval nil)))
         (cond
           ((application-operation--immediate-vault-form-p form)
            ':execute)
@@ -917,12 +922,12 @@ wait for the serialized application boundary."
   (make-instance
    'tool-context
    :configuration (application-configuration application)
-   :worker (and (slot-boundp application 'worker)
-                (application-worker application))
-   :conversation (application-conversation application)
-   :registry (application-tool-registry application)
-   :agent (and (slot-boundp application 'agent)
-               (application-agent application))
+   :worker        (and (slot-boundp application 'worker)
+                       (application-worker application))
+   :conversation  (application-conversation application)
+   :registry      (application-tool-registry application)
+   :agent         (and (slot-boundp application 'agent)
+                       (application-agent application))
    :observer
    (callback-agent-observer-create
     :status-callback
@@ -942,12 +947,12 @@ wait for the serialized application boundary."
     ((operation application-command-operation) application arguments &key context)
   "Invoke a command through its existing handler without duplicating Lisp source."
   (declare (ignore context))
-  (let* ((command (application-operation-backend operation))
+  (let* ((command                                       (application-operation-backend operation))
          (invocation
            (application-operation--command-invocation command arguments))
          (*application-command-presentation-invocation* invocation)
-         (*application-command-presentation-pending-p* nil)
-         (action (application-command-execute command application invocation)))
+         (*application-command-presentation-pending-p*  nil)
+         (action                                        (application-command-execute command application invocation)))
     (case action
       (:continue
        nil)
@@ -988,7 +993,7 @@ No live result, tool, or native data object escapes in the snapshot."
               (when present-p
                 (multiple-value-bind (text printed-p)
                     (application-lisp--render-value
-                     value :columns (application-lisp--value-columns application)
+                     value :columns        (application-lisp--value-columns application)
                            :initial-column 2)
                   (when printed-p
                     (list text content ':lisp)))))
@@ -998,7 +1003,7 @@ No live result, tool, or native data object escapes in the snapshot."
 (defmethod application-operation-invoke
     ((operation application-tool-operation) application arguments &key context)
   "Invoke a tool through its decoder, execution method, and caller's explicit capabilities."
-  (let* ((tool (application-operation-backend operation))
+  (let* ((tool           (application-operation-backend operation))
          (canonical-name (tool-canonical-name tool))
          (json-arguments (if (hash-table-p arguments)
                              arguments
@@ -1010,8 +1015,8 @@ No live result, tool, or native data object escapes in the snapshot."
              :message
              (format nil "Arguments for ~A are not a JSON object." canonical-name)
              :tool-name canonical-name))
-    (let* ((ui (and (slot-boundp application 'ui)
-                    (application-ui application)))
+    (let* ((ui                (and (slot-boundp application 'ui)
+                                   (application-ui application)))
            (previous-activity (and ui (terminal-ui-local-activity ui)))
            (result
              (unwind-protect
@@ -1027,7 +1032,7 @@ No live result, tool, or native data object escapes in the snapshot."
                  (application-set-local-activity application previous-activity)))))
       (unless (tool-result-success-p result)
         (error 'tool-error
-               :message (tool-result-content result)
+               :message   (tool-result-content result)
                :tool-name canonical-name))
       (when *application-lisp-tool-results*
         (let ((content (tool-result-content result)))
@@ -1067,9 +1072,9 @@ No live result, tool, or native data object escapes in the snapshot."
 (defmethod application-command-validate-registration ((command application-command))
   "Reject COMMAND when its canonical name or an alias would shadow a function."
   (dolist (name (cons (application-command-name command) (application-command-aliases command)))
-    (let* ((symbol (application-operation--function-symbol (subseq name 1)))
+    (let* ((symbol    (application-operation--function-symbol (subseq name 1)))
            (installed (gethash symbol *application-operation-bindings*))
-           (existing (and (fboundp symbol) (fdefinition symbol))))
+           (existing  (and (fboundp symbol) (fdefinition symbol))))
       (when (and existing
                  (not (and installed (eq existing installed))))
         (error 'configuration-error
@@ -1095,10 +1100,10 @@ No live result, tool, or native data object escapes in the snapshot."
     (option symbol))
 (defun application-operation--install-binding (operation)
   "Install OPERATION's canonical function, or return NIL for a conflicting binding."
-  (let* ((name (application-operation-name operation))
-         (symbol (application-operation--function-symbol name))
+  (let* ((name      (application-operation-name operation))
+         (symbol    (application-operation--function-symbol name))
          (installed (gethash symbol *application-operation-bindings*))
-         (existing (and (fboundp symbol) (fdefinition symbol))))
+         (existing  (and (fboundp symbol) (fdefinition symbol))))
     (cond
       ((and installed (eq existing installed))
        symbol)
