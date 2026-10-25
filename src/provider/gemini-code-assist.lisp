@@ -19,29 +19,29 @@
   "Stable user-facing aliases for Code Assist model identifiers.")
 
 (defparameter *gemini-code-assist-models*
-  '((:name "gemini-3.1-flash-lite"
-     :description "Gemini 3.1 Flash Lite through a Google Code Assist subscription."
+  '((:name           "gemini-3.1-flash-lite"
+     :description    "Gemini 3.1 Flash Lite through a Google Code Assist subscription."
      :context-window 1048576)
-    (:name "gemini-3.1-pro-preview"
-     :description "Gemini 3.1 Pro Preview through a Google Code Assist subscription."
+    (:name           "gemini-3.1-pro-preview"
+     :description    "Gemini 3.1 Pro Preview through a Google Code Assist subscription."
      :context-window 1048576)
-    (:name "gemini-3-pro-preview"
-     :description "Gemini 3 Pro Preview through a Google Code Assist subscription."
+    (:name           "gemini-3-pro-preview"
+     :description    "Gemini 3 Pro Preview through a Google Code Assist subscription."
      :context-window 1048576)
-    (:name "gemini-3-flash-preview"
-     :description "Gemini 3 Flash Preview through a Google Code Assist subscription."
+    (:name           "gemini-3-flash-preview"
+     :description    "Gemini 3 Flash Preview through a Google Code Assist subscription."
      :context-window 1048576)
-    (:name "gemini-3.5-flash"
-     :description "Gemini 3.5 Flash through a Google Code Assist subscription."
+    (:name           "gemini-3.5-flash"
+     :description    "Gemini 3.5 Flash through a Google Code Assist subscription."
      :context-window 1048576)
-    (:name "gemini-2.5-pro"
-     :description "Gemini 2.5 Pro through a Google Code Assist subscription."
+    (:name           "gemini-2.5-pro"
+     :description    "Gemini 2.5 Pro through a Google Code Assist subscription."
      :context-window 1048576)
-    (:name "gemini-2.5-flash"
-     :description "Gemini 2.5 Flash through a Google Code Assist subscription."
+    (:name           "gemini-2.5-flash"
+     :description    "Gemini 2.5 Flash through a Google Code Assist subscription."
      :context-window 1048576)
-    (:name "gemini-2.5-flash-lite"
-     :description "Gemini 2.5 Flash Lite through a Google Code Assist subscription."
+    (:name           "gemini-2.5-flash-lite"
+     :description    "Gemini 2.5 Flash Lite through a Google Code Assist subscription."
      :context-window 1048576))
   "Known Code Assist models exposed when no model-list RPC exists.")
 
@@ -57,9 +57,9 @@
 
 (define-condition gemini-code-assist-setup-error (gemini-code-assist-error)
   ((stage
-    :initarg :stage
-    :reader gemini-code-assist-setup-error-stage
-    :type keyword
+    :initarg       :stage
+    :reader        gemini-code-assist-setup-error-stage
+    :type          keyword
     :documentation "The load, tier selection, onboarding, or operation stage."))
   (:documentation "Gemini Code Assist account setup could not complete."))
 
@@ -71,9 +71,9 @@
 (define-condition gemini-code-assist-invalid-project
     (gemini-code-assist-setup-error)
   ((project
-    :initarg :project
-    :reader gemini-code-assist-invalid-project-project
-    :type non-empty-string
+    :initarg       :project
+    :reader        gemini-code-assist-invalid-project-project
+    :type          non-empty-string
     :documentation "The invalid numeric Google Cloud project identifier."))
   (:documentation "A numeric project number was supplied where a project ID is required."))
 
@@ -81,28 +81,28 @@
     (session-preserving-provider-mixin subscription-provider
      gemini-generate-content-provider)
   ((endpoint
-    :initarg :endpoint
-    :initform *gemini-code-assist-endpoint*
-    :reader gemini-code-assist-provider-endpoint
-    :type non-empty-string
+    :initarg       :endpoint
+    :initform      *gemini-code-assist-endpoint*
+    :reader        gemini-code-assist-provider-endpoint
+    :type          non-empty-string
     :documentation "The v1internal Code Assist endpoint.")
    (project
-    :initarg :project
-    :initform nil
-    :accessor gemini-code-assist-provider-project
-    :type (option string)
+    :initarg       :project
+    :initform      nil
+    :accessor      gemini-code-assist-provider-project
+    :type          (option string)
     :documentation "The effective Code Assist companion project.")
    (tier
-    :initarg :tier
-    :initform nil
-    :accessor gemini-code-assist-provider-tier
-    :type (option string)
+    :initarg       :tier
+    :initform      nil
+    :accessor      gemini-code-assist-provider-tier
+    :type          (option string)
     :documentation "The effective Code Assist subscription tier identifier.")
    (setup-complete-p
-    :initarg :setup-complete-p
-    :initform nil
-    :accessor gemini-code-assist-provider-setup-complete-p
-    :type boolean
+    :initarg       :setup-complete-p
+    :initform      nil
+    :accessor      gemini-code-assist-provider-setup-complete-p
+    :type          boolean
     :documentation "Whether loadCodeAssist and any onboarding have completed."))
   (:documentation "A direct Gemini CLI subscription provider for Code Assist."))
 
@@ -126,12 +126,12 @@
   "Create a Code Assist provider."
   (make-instance
    'gemini-code-assist-provider
-   :configuration configuration
+   :configuration      configuration
    :credential-manager (or credential-manager
                            (gemini-code-assist-credential-manager-create
                             configuration))
-   :session-id (make-identifier)
-   :endpoint endpoint))
+   :session-id         (make-identifier)
+   :endpoint           endpoint))
 
 (defmethod provider-account-label ((provider gemini-code-assist-provider))
   "Name the Google Code Assist account service."
@@ -147,8 +147,8 @@
     ((provider gemini-code-assist-provider))
   "Preserve Code Assist setup state and endpoint across reconfiguration."
   (list :endpoint (gemini-code-assist-provider-endpoint provider)
-        :project (gemini-code-assist-provider-project provider)
-        :tier (gemini-code-assist-provider-tier provider)
+        :project  (gemini-code-assist-provider-project provider)
+        :tier     (gemini-code-assist-provider-tier provider)
         :setup-complete-p
         (gemini-code-assist-provider-setup-complete-p provider)))
 
@@ -212,9 +212,9 @@ catalog follows the exact model identifiers consumed by streamGenerateContent."
               (json-decode body)
             (error ()
               (error 'gemini-code-assist-setup-error
-                     :message "Gemini Code Assist returned invalid JSON."
-                     :stage stage
-                     :status nil
+                     :message    "Gemini Code Assist returned invalid JSON."
+                     :stage      stage
+                     :status     nil
                      :request-id nil
                      :response
                      (bounded-string
@@ -222,9 +222,9 @@ catalog follows the exact model identifiers consumed by streamGenerateContent."
                       :limit 2000))))))
     (unless (json-object-p value)
       (error 'gemini-code-assist-setup-error
-             :message "Gemini Code Assist returned a non-object JSON response."
-             :stage stage
-             :status nil
+             :message    "Gemini Code Assist returned a non-object JSON response."
+             :stage      stage
+             :status     nil
              :request-id nil
              :response
              (bounded-string
@@ -243,12 +243,12 @@ catalog follows the exact model identifiers consumed by streamGenerateContent."
        (lambda ()
          (dexador:post
           (gemini-code-assist--method-url provider method)
-          :headers (gemini-code-assist--headers credentials "application/json")
-          :content (json-encode-utf8 request)
-          :force-string t
-          :keep-alive nil
+          :headers         (gemini-code-assist--headers credentials "application/json")
+          :content         (json-encode-utf8 request)
+          :force-string    t
+          :keep-alive      nil
           :connect-timeout 30
-          :read-timeout 300)))
+          :read-timeout    300)))
     (sb-sys:deadline-timeout (condition)
       (provider--signal-transport-failure
        (provider--transport-failure-message
@@ -269,11 +269,11 @@ catalog follows the exact model identifiers consumed by streamGenerateContent."
        (lambda ()
          (dexador:get
           (gemini-code-assist--operation-url provider operation)
-          :headers (gemini-code-assist--headers credentials "application/json")
-          :force-string t
-          :keep-alive nil
+          :headers         (gemini-code-assist--headers credentials "application/json")
+          :force-string    t
+          :keep-alive      nil
           :connect-timeout 30
-          :read-timeout 300)))
+          :read-timeout    300)))
     (sb-sys:deadline-timeout (condition)
       (provider--signal-transport-failure
        (provider--transport-failure-message
@@ -304,9 +304,9 @@ propagates."
             provider status :headers headers :raw-body body))))
    (lambda (event) (declare (ignore event)) nil)
    :maximum-retries (1- *gemini-code-assist-nonstream-maximum-attempts*)
-   :delay-function (lambda (retry-number condition)
-                     (declare (ignore retry-number condition))
-                     *gemini-code-assist-nonstream-retry-delay*)))
+   :delay-function  (lambda (retry-number condition)
+                      (declare (ignore retry-number condition))
+                      *gemini-code-assist-nonstream-retry-delay*)))
 
 (-> gemini-code-assist--post
     (gemini-code-assist-provider oauth-credentials non-empty-string keyword json-object)
@@ -358,7 +358,7 @@ propagates."
 (-> gemini-code-assist--tier-id (json-object) (option string))
 (defun gemini-code-assist--tier-id (response)
   "Return the paid or current tier ID from a load response."
-  (let ((paid (json-get response "paidTier"))
+  (let ((paid    (json-get response "paidTier"))
         (current (json-get response "currentTier")))
     (or (and (json-object-p paid) (json-get paid "id"))
         (and (json-object-p current) (json-get current "id"))
@@ -381,19 +381,19 @@ propagates."
     (json-object keyword) null)
 (defun gemini-code-assist--project-required (load-response stage)
   "Signal a structured missing-project or ineligibility failure."
-  (let* ((tiers (json-get load-response "ineligibleTiers"))
+  (let* ((tiers      (json-get load-response "ineligibleTiers"))
          (first-tier (and (vectorp tiers) (plusp (length tiers)) (aref tiers 0)))
-         (reason (and (json-object-p first-tier)
-                      (json-get first-tier "reasonMessage"))))
+         (reason     (and (json-object-p first-tier)
+                          (json-get first-tier "reasonMessage"))))
     (error 'gemini-code-assist-project-required
            :message
            (or (and (non-empty-string-p reason)
                     (gemini-code-assist--condition-string reason))
                "This Google account requires GOOGLE_CLOUD_PROJECT to be set.")
-           :stage stage
-           :status nil
+           :stage      stage
+           :status     nil
            :request-id nil
-           :response nil)))
+           :response   nil)))
 
 (-> gemini-code-assist-ensure-setup
     (gemini-code-assist-provider oauth-credentials)
@@ -405,20 +405,20 @@ propagates."
                        (gemini-code-assist--environment-project))))
       (when (and project (gemini-code-assist--numeric-string-p project))
         (error 'gemini-code-assist-invalid-project
-               :message (format nil
-                                "Google Cloud project ~A is numeric; Code Assist requires a project ID."
-                                project)
-               :project project
-               :stage ':load
-               :status nil
+               :message    (format nil
+                                   "Google Cloud project ~A is numeric; Code Assist requires a project ID."
+                                   project)
+               :project    project
+               :stage      ':load
+               :status     nil
                :request-id nil
-               :response nil))
+               :response   nil))
       (let* ((load
                (gemini-code-assist--post
                 provider credentials "loadCodeAssist" ':load
                 (json-object "cloudaicompanionProject" project
                              "metadata" (gemini-code-assist--metadata project))))
-             (current (json-get load "currentTier"))
+             (current        (json-get load "currentTier"))
              (loaded-project (json-get load "cloudaicompanionProject")))
         (if (json-object-p current)
             (progn
@@ -428,9 +428,9 @@ propagates."
                     (or loaded-project project)
                     (gemini-code-assist-provider-tier provider)
                     (gemini-code-assist--tier-id load)))
-            (let* ((tier (gemini-code-assist--default-tier load))
+            (let* ((tier    (gemini-code-assist--default-tier load))
                    (tier-id (or (json-get tier "id") "standard-tier"))
-                   (free-p (string= tier-id "free-tier"))
+                   (free-p  (string= tier-id "free-tier"))
                    (onboard
                      (gemini-code-assist--post
                       provider credentials "onboardUser" ':onboard
@@ -445,7 +445,7 @@ propagates."
                        (setf onboard
                              (gemini-code-assist--operation
                               provider credentials (json-get onboard "name"))))
-              (let* ((response (json-get onboard "response"))
+              (let* ((response  (json-get onboard "response"))
                      (companion (and (json-object-p response)
                                      (json-get response
                                                "cloudaicompanionProject")))
@@ -484,21 +484,21 @@ and adds the session to it. Return the request and its context delivery."
          (projection
            (make-instance
             'cl-llm-provider-api:wire-request
-            :model (gemini-code-assist-model-name (config :model configuration))
-            :items (conversation-input-items-for-family
-                    conversation (provider-family provider)
-                    :include-ephemeral-p (not compaction-p))
-            :prefix (list (system-prompt configuration)
-                          (and compaction-p *compaction-instructions*))
-            :suffix (unless compaction-p
-                      (list goal-context
-                            (and delivery (context-delivery-rendered delivery))))
+            :model   (gemini-code-assist-model-name (config :model configuration))
+            :items   (conversation-input-items-for-family
+                      conversation (provider-family provider)
+                      :include-ephemeral-p (not compaction-p))
+            :prefix  (list (system-prompt configuration)
+                           (and compaction-p *compaction-instructions*))
+            :suffix  (unless compaction-p
+                       (list goal-context
+                             (and delivery (context-delivery-rendered delivery))))
             :options (list :maximum-output-tokens *provider-maximum-output-tokens*
                            :include-thoughts-p
                            (not (string= (config :reasoning-effort configuration)
                                          "none")))))
-         (inner (provider-request-object provider projection
-                                         (provider-wire-tools provider effective-tools))))
+         (inner         (provider-request-object provider projection
+                                                 (provider-wire-tools provider effective-tools))))
     (setf (gethash "session_id" inner) (provider-session-id provider))
     (values
      (json-object
