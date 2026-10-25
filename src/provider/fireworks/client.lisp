@@ -95,7 +95,8 @@ request builder to omit the reasoning object entirely."
      &key credentials conversation)
   "Open a direct authenticated SSE request to the Fireworks Responses API."
   (declare (type oauth-credentials credentials)
-           (type conversation conversation))
+           (type conversation conversation)
+           (ignorable conversation))
   (provider-post-event-stream
    (config :provider-endpoint (provider-configuration provider))
    (json-encode-utf8 request)
