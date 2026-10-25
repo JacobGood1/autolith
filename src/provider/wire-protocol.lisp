@@ -1,6 +1,5 @@
 (in-package #:autolith)
 
-
 ;;;; -- Request Tool Filtering --
 
 (-> provider-hosted-web-search-tool-p (t) boolean)
@@ -31,9 +30,9 @@ provider search and stay advertised."
       (let ((tools
               (remove "run"
                       (coerce (json-get entry "tools") 'list)
-                      :key (lambda (tool)
-                             (and (json-object-p tool)
-                                  (json-get tool "name")))
+                      :key  (lambda (tool)
+                              (and (json-object-p tool)
+                                   (json-get tool "name")))
                       :test #'json-string=)))
         (and tools
              (json-object
@@ -86,33 +85,33 @@ Codex model catalog at https://github.com/openai/codex commit
 entry with supports_search_tool."
   (handler-case
       (let* ((major-start 4)
-             (major-end (and (uiop:string-prefix-p "gpt-" model)
-                             (or (position-if-not #'digit-char-p model
-                                                  :start major-start)
-                                 (length model))))
-             (major (and major-end
-                         (> major-end major-start)
-                         (parse-integer model
-                                        :start major-start
-                                        :end major-end)))
+             (major-end   (and (uiop:string-prefix-p "gpt-" model)
+                               (or (position-if-not #'digit-char-p model
+                                                    :start major-start)
+                                   (length model))))
+             (major       (and major-end
+                               (> major-end major-start)
+                               (parse-integer model
+                                              :start major-start
+                                              :end   major-end)))
              (minor-start (and major
                                (< major-end (length model))
                                (char= (char model major-end) #\.)
                                (1+ major-end)))
-             (minor-end (and minor-start
-                             (position-if-not #'digit-char-p model
-                                              :start minor-start)))
-             (minor (cond
-                      ((null major)
-                       nil)
-                      ((null minor-start)
-                       0)
-                      ((> (or minor-end (length model)) minor-start)
-                       (parse-integer model
-                                      :start minor-start
-                                      :end minor-end))
-                      (t
-                       nil))))
+             (minor-end   (and minor-start
+                               (position-if-not #'digit-char-p model
+                                                :start minor-start)))
+             (minor       (cond
+                            ((null major)
+                             nil)
+                            ((null minor-start)
+                             0)
+                            ((> (or minor-end (length model)) minor-start)
+                             (parse-integer model
+                                            :start minor-start
+                                            :end   minor-end))
+                            (t
+                             nil))))
         (and major minor
              (or (> major 5)
                  (and (= major 5) (>= minor 4)))
@@ -251,7 +250,6 @@ tools only when trimming history for compaction, which
   (provider--codex-responses-request-fields
    provider conversation :compaction-p compaction-p))
 
-
 (defmethod provider-request-object
     ((provider responses-api-provider) (conversation conversation)
      (tool-namespaces vector)
@@ -260,7 +258,7 @@ tools only when trimming history for compaction, which
 
 Return the request, its context delivery, and the actual suffix texts from this
 assembly. The third value is private evidence for Codex placement validation."
-  (let* ((configuration (provider-configuration provider))
+  (let* ((configuration       (provider-configuration provider))
          (hosted-tools
            (and (not compaction-p)
                 (provider-responses-hosted-tools provider configuration)))
@@ -291,8 +289,8 @@ assembly. The third value is private evidence for Codex placement validation."
              (projection
               (make-instance
                'cl-llm-provider-api:wire-request
-               :model (config :model configuration)
-               :items items
+               :model  (config :model configuration)
+               :items  items
                :prefix (list
                         (let ((*system-prompt-hosted-web-search-p*
                                 hosted-web-search-p))
@@ -345,13 +343,13 @@ higher-priority messages. Old context is never copied from STATE."
   (assert (<= suffix-count (length items)))
   (when (zerop suffix-count)
     (return-from provider--codex-anchor-context (values items nil)))
-  (let* ((history-count (- (length items) suffix-count))
-         (history (subseq items 0 history-count))
-         (history-digest (provider--codex-context-digest history))
+  (let* ((history-count   (- (length items) suffix-count))
+         (history         (subseq items 0 history-count))
+         (history-digest  (provider--codex-context-digest history))
          (context-digest
            (provider--codex-context-digest (subseq items history-count)))
          (previous-anchor (getf state :anchor))
-         (previous-count (getf state :history-count))
+         (previous-count  (getf state :history-count))
          (reuse-p
            (and (typep previous-anchor '(integer 0))
                 (typep previous-count '(integer 0))
@@ -366,8 +364,8 @@ higher-priority messages. Old context is never copied from STATE."
                       never (member (json-get (aref items index) "role")
                                     '("user" "developer" "system")
                                     :test #'equal))))
-         (anchor (if reuse-p previous-anchor history-count))
-         (result items))
+         (anchor          (if reuse-p previous-anchor history-count))
+         (result          items))
     (when (< anchor history-count)
       (setf result (make-array (length items)))
       (replace result items :end2 anchor)
@@ -396,10 +394,10 @@ changed or omitted context is never recovered from placement state."
           ;; Detached compaction views have their own key; the original
           ;; conversation resets when its compacted history fails validation.
           (remhash conversation *codex-context-anchor-states*)
-          (let* ((texts (remove-if-not #'non-empty-string-p suffix))
+          (let* ((texts    (remove-if-not #'non-empty-string-p suffix))
                  (expected (map 'vector #'responses-developer-message texts))
-                 (input (json-get request "input"))
-                 (count (length expected)))
+                 (input    (json-get request "input"))
+                 (count    (length expected)))
             ;; Use the exported wire helper, also imported by this package, so
             ;; a changed serializer fails closed instead of moving unknown input.
             (if (and (vectorp input) (not (stringp input))
