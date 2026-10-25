@@ -2,7 +2,6 @@
 
 ;;;; -- Conversation Object --
 
-(-> resource-observation-state-weight (t t) (integer 0))
 (defgeneric resource-observation-state-weight (alias state)
   (:documentation "Return STATE's retained byte weight under opaque ALIAS."))
 
@@ -399,6 +398,7 @@ not yet been told that work from the previous process is gone.")
   (with-recursive-lock-held ((conversation-append-lock conversation))
     (clinker-transcript:projection-items (conversation-projection conversation))))
 
+(-> (setf conversation-input-items) (list conversation) list)
 (defun (setf conversation-input-items) (items conversation)
   "Replace CONVERSATION's provider projection and prune discarded metadata."
   (with-recursive-lock-held ((conversation-append-lock conversation))
@@ -641,6 +641,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
            (conversation-lease--guard-pathname lease)
            (lambda ()
              (lease-release lock-lease)
+             ; mallet:suppress no-ignore-errors -- best-effort removal of the empty lock file after the lease is released
              (ignore-errors
                (let ((pathname (conversation-lease--lock-pathname lease)))
                  (when (probe-file pathname)
@@ -972,6 +973,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
 (-> conversation-picker-metadata-publish (conversation) null)
 (defun conversation-picker-metadata-publish (conversation)
   "Best-effort publish CONVERSATION's compact picker cache after a durable append."
+  ; mallet:suppress no-ignore-errors -- the picker cache is best-effort and must never fail a durable append
   (ignore-errors
     (multiple-value-bind (segment size write-date)
         (conversation--file-identity (conversation-pathname conversation))
@@ -1171,7 +1173,6 @@ a crash may leave one that a later lease acquisition can reuse safely."
              :sequence (conversation-next-sequence conversation))))
   nil)
 
-(-> conversation-append-record (conversation list) list)
 (defgeneric conversation-append-record (conversation record)
   (:documentation "Append portable RECORD to CONVERSATION and return the sequenced form."))
 
@@ -1225,6 +1226,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
             (when (and (not (conversation-persisted-p conversation))
                        (not (conversation-storage-occupied-p
                              (conversation-pathname conversation))))
+              ; mallet:suppress no-ignore-errors -- best-effort sidecar cleanup must not mask the append failure
               (ignore-errors
                 (conversation-picker-sidecars-delete
                  (conversation-pathname conversation))))
@@ -1415,6 +1417,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
                       (setf (conversation-next-sequence conversation) (1+ sequence)
                             (conversation-incomplete-tail-p conversation) nil)
                       (conversation--note-activity conversation published-record)
+                      ; mallet:suppress no-ignore-errors -- the picker cache refresh is best-effort once the title is durable
                       (ignore-errors
                         (call-with-file-lock
                          (conversation-picker-source-lock-pathname
@@ -1674,6 +1677,7 @@ copied."
               (conversation-ephemeral-input-entries conversation) nil))
       (dolist (entry entries)
         (dolist (attachment (getf entry :attachments))
+          ; mallet:suppress no-ignore-errors -- best-effort removal of discarded ephemeral image artifacts
           (ignore-errors
             (when (probe-file (image-attachment-pathname attachment))
               (delete-file (image-attachment-pathname attachment))))))))
@@ -2304,7 +2308,9 @@ translating a condition signaled by the record visitor."
   (let ((working-seconds      0)
         (user-turn-count      0)
         (title
-          (let* ((header    (ignore-errors (conversation-peek-header pathname)))
+          (let* ((header
+                   ; mallet:suppress no-ignore-errors -- picker metadata treats an unreadable header as untitled
+                   (ignore-errors (conversation-peek-header pathname)))
                  (candidate (and header (getf (rest header) :title))))
             (and (conversation-title-valid-p candidate) candidate)))
         (search-message-count 0)
@@ -2385,6 +2391,7 @@ translating a condition signaled by the record visitor."
   "Return PATHNAME's picker cache, rebuilding under the source writer lock."
   (or (conversation-picker-metadata-read pathname)
       (let ((metadata nil))
+        ; mallet:suppress no-ignore-errors -- a failed cache publication still returns the scanned metadata
         (ignore-errors
           (sexp-store:sidecar-rebuild
            (conversation-picker-metadata-pathname pathname)
@@ -2445,6 +2452,7 @@ translating a condition signaled by the record visitor."
       (when (conversation-picker-metadata-find pathname)
         (or (conversation-picker-search-read pathname)
             (progn
+              ; mallet:suppress no-ignore-errors -- a failed index rebuild falls back to rereading the sidecar
               (ignore-errors
                 (sexp-store:sidecar-rebuild
                  (conversation-picker-search-pathname pathname)
@@ -2463,6 +2471,7 @@ Appends only advance the search revision and leave the sidecar stale by
 design; searches rebuild it on demand. Closing pre-warms the sidecar so
 later picker searches read it without scanning the log."
   (when (conversation-persisted-p conversation)
+    ; mallet:suppress no-ignore-errors -- pre-warming the optional search cache must never fail the release
     (ignore-errors
       (conversation-picker-search-find (conversation-pathname conversation))))
   nil)
@@ -2534,7 +2543,7 @@ later picker searches read it without scanning the log."
 (-> conversation--property-present-p (list keyword) boolean)
 (defun conversation--property-present-p (properties indicator)
   "Return true when property list PROPERTIES contains INDICATOR."
-  (loop for tail on properties by #'cddr
+  (loop for tail on properties by (partial #'nthcdr 2)
         thereis (eq (first tail) indicator)))
 
 (-> conversation--record-images (conversation list) list)
@@ -2548,7 +2557,6 @@ later picker searches read it without scanning the log."
        descriptor (conversation-image-artifact-root conversation)))
     descriptors)))
 
-(-> conversation--project-record (keyword conversation list) t)
 (defgeneric conversation--project-record (kind conversation properties)
   (:documentation "Project KIND-specific record PROPERTIES into CONVERSATION.")
   (:method ((kind t) conversation properties)
@@ -2556,6 +2564,7 @@ later picker searches read it without scanning the log."
 
 (defmethod conversation--project-record
     ((kind (eql :message)) conversation properties)
+  "Derive the initial title from the first user message and project its image attachments."
   (let ((content (getf properties :content))
         (images  (getf properties :images)))
     (when (and (null (conversation-title conversation))
@@ -2578,6 +2587,7 @@ later picker searches read it without scanning the log."
 
 (defmethod conversation--project-record
     ((kind (eql :title)) conversation properties)
+  "Validate and apply one durable title transition."
   (let* ((title  (getf properties :value))
          (normalized-title
            (and (stringp title)
@@ -2594,6 +2604,7 @@ later picker searches read it without scanning the log."
 
 (defmethod conversation--project-record
     ((kind (eql :tool-result)) conversation properties)
+  "Project a multimodal or image tool result into a provider function-call output item."
   (cond
     ((conversation--property-present-p properties :content-blocks)
      (let ((call-id     (getf properties :call-id))
@@ -2638,6 +2649,7 @@ later picker searches read it without scanning the log."
 
 (defmethod conversation--project-record
     ((kind (eql :inherited-reference)) conversation properties)
+  "Validate and project inherited reference messages followed by their boundary item."
   (let ((wire-json (getf properties :wire-json)))
     (unless (and (non-empty-string-p
                   (getf properties :source-conversation-id))
@@ -2677,6 +2689,7 @@ later picker searches read it without scanning the log."
 
 (defmethod conversation--project-record
     ((kind (eql :provider)) conversation properties)
+  "Remember the latest provider usage total for context accounting."
   (let ((total (conversation--usage-total
                 (getf (getf properties :metadata) :usage))))
     (when total
@@ -2684,6 +2697,7 @@ later picker searches read it without scanning the log."
 
 (defmethod conversation--project-record
     ((kind (eql :configuration)) conversation properties)
+  "Validate and apply one durable model selection."
   (let ((model            (getf properties :model))
         (provider         (getf properties :model-provider))
         (reasoning-effort (getf properties :reasoning-effort)))
