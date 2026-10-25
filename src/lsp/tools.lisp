@@ -80,7 +80,7 @@ an authorized file elsewhere, as an editor opening that file would search."
     (values t boolean))
 (defun lsp-tool--bounded-value (value &key string-limit item-limit node-limit)
   "Copy VALUE within finite traversal bounds and report any omitted data."
-  (let ((remaining node-limit)
+  (let ((remaining   node-limit)
         (truncated-p nil))
     (labels ((project (item depth)
                (cond
@@ -94,20 +94,20 @@ an authorized file elsewhere, as an editor opening that file would search."
                         (concatenate 'string (subseq item 0 string-limit) "… [truncated]"))
                       item))
                  ((json-object-p item)
-                  (let ((copy (make-hash-table :test #'equal))
+                  (let ((copy  (make-hash-table :test #'equal))
                         (count 0))
-                  (block fields
-                    (maphash (lambda (key child)
-                               (unless (and (< count item-limit) (plusp remaining))
-                                 (setf truncated-p t)
-                                 (return-from fields nil))
-                               (incf count)
-                               (when (> (length key) string-limit)
-                                 (setf truncated-p t))
-                               (setf (gethash (subseq key 0 (min (length key) string-limit)) copy)
-                                     (project child (1- depth))))
-                             item))
-                    copy))
+                   (block fields
+                     (maphash (lambda (key child)
+                                (unless (and (< count item-limit) (plusp remaining))
+                                  (setf truncated-p t)
+                                  (return-from fields nil))
+                                (incf count)
+                                (when (> (length key) string-limit)
+                                  (setf truncated-p t))
+                                (setf (gethash (subseq key 0 (min (length key) string-limit)) copy)
+                                      (project child (1- depth))))
+                              item))
+                   copy))
                  ((and (vectorp item) (not (stringp item)))
                   (let ((items nil)
                         (count (min (length item) item-limit (max 0 remaining))))
@@ -133,8 +133,8 @@ clip JSON. Truncated documents retain a bounded result plus an explicit note."
     (loop for size = 8000 then (floor size 2)
           do (multiple-value-bind (copy truncated-p)
                  (lsp-tool--bounded-value value :string-limit size
-                                         :item-limit (max 1 size)
-                                         :node-limit (max 1 size))
+                                         :item-limit          (max 1 size)
+                                         :node-limit          (max 1 size))
                (let ((text (json-encode
                             (if truncated-p
                                 (json-object "result" copy "truncated"
@@ -148,7 +148,7 @@ clip JSON. Truncated documents retain a bounded result plus an explicit note."
 (-> lsp-tool--position (lsp-document json-object) json-object)
 (defun lsp-tool--position (document arguments)
   "Validate one-based UTF-16 coordinates and return the protocol position."
-  (let ((line (tool-argument arguments "line" :required t))
+  (let ((line      (tool-argument arguments "line" :required t))
         (character (tool-argument arguments "character" :required t)))
     (unless (and (integerp line) (plusp line) (integerp character) (plusp character))
       (error 'lsp-error :message "LSP line and character must be positive integers."))
@@ -163,8 +163,8 @@ clip JSON. Truncated documents retain a bounded result plus an explicit note."
                                      (not (member operation '("document-symbols" "workspace-symbols")
                                                   :test #'equal))
                                      (lsp-tool--position document arguments))
-                      :query (and (equal operation "workspace-symbols")
-                                  (tool-argument arguments "query" :required t)))))
+                      :query    (and (equal operation "workspace-symbols")
+                                     (tool-argument arguments "query" :required t)))))
 
 (defmethod tool-execute ((tool lsp-query-tool) (context tool-context) (arguments hash-table))
   "Synchronize the current disk snapshots before a read-only code query."
@@ -196,8 +196,8 @@ clip JSON. Truncated documents retain a bounded result plus an explicit note."
                    (push (json-object "server" (lsp-server-configuration-name (lsp-client-configuration client))
                                       "root" (namestring (lsp-client-root client))
                                       "state" (if (and (lsp-client-transport client)
-                                                        (lsp-transport-live-p (lsp-client-transport client)))
-                                                   "running" "stopped"))
+                                                       (lsp-transport-live-p (lsp-client-transport client)))
+                                                  "running" "stopped"))
                          clients))
                  (lsp-manager-clients manager))
         (tool-success
@@ -225,10 +225,10 @@ clip JSON. Truncated documents retain a bounded result plus an explicit note."
 (-> lsp-register-tools (tool-registry) tool-registry)
 (defun lsp-register-tools (registry)
   "Register one lazy LSP manager and its observation and semantic tool surface."
-  (let* ((manager (make-instance 'lsp-manager :client-name "Autolith"
-                                             :client-version *autolith-version*))
-         (path (tool-string-property "Existing workspace source file; also selects the project for workspace-symbols."))
-         (file-schema (tool-object-schema (json-object "path" path) '("path")))
+  (let* ((manager      (make-instance 'lsp-manager :client-name   "Autolith"
+                                                  :client-version *autolith-version*))
+         (path         (tool-string-property "Existing workspace source file; also selects the project for workspace-symbols."))
+         (file-schema  (tool-object-schema (json-object "path" path) '("path")))
          (empty-schema (tool-object-schema (json-object) nil)))
     (dolist (specification
              (list
@@ -251,6 +251,7 @@ clip JSON. Truncated documents retain a bounded result plus an explicit note."
     (lsp-register-semantic-tools registry manager))
   registry)
 
+
 ;;;; -- Saved File Diagnostics --
 
 (defparameter *lsp-edit-diagnostics-timeout-seconds* 1
@@ -259,16 +260,16 @@ Explicit LSP tools use the configured server timeout; failed startup also reaps 
 
 (defmethod tool-execute :around ((tool resource-edit-tool) (context tool-context) (arguments hash-table))
   "Append bounded LSP diagnostics after successful workspace edits when configured."
-  (let* ((result (call-next-method))
-         (uri (tool-argument arguments "uri"))
-         (registry (tool-context-registry context))
+  (let* ((result           (call-next-method))
+         (uri              (tool-argument arguments "uri"))
+         (registry         (tool-context-registry context))
          (diagnostics-tool (and registry (tool-registry-find registry "lsp" "diagnostics"))))
     (if (and (tool-result-success-p result) diagnostics-tool
              (stringp uri) (uiop:string-prefix-p "workspace:" uri))
         (handler-case
             (sb-sys:with-deadline (:seconds *lsp-edit-diagnostics-timeout-seconds*)
               (let* ((manager (lsp-tool-manager diagnostics-tool))
-                     (path (lsp-tool--path context (workspace-file--decode-identifier "workspace" (subseq uri 10)))))
+                     (path    (lsp-tool--path context (workspace-file--decode-identifier "workspace" (subseq uri 10)))))
                 (with-recursive-lock-held ((lsp-manager-lock manager))
                   (if (lsp-configurations-for-path
                        (lsp-manager-configure manager (tool-context-configuration context))
@@ -313,17 +314,17 @@ Explicit LSP tools use the configured server timeout; failed startup also reaps 
   "Name enabled language servers while lsp.sexp configures them."
   (unless (request-context-compaction-p context)
     (let* ((configuration (request-context-configuration context))
-           (servers (handler-case (lsp-load-configurations configuration)
-                      (lsp-configuration-error () nil)))
-           (enabled (remove-if #'lsp-server-configuration-disabled-p servers)))
+           (servers       (handler-case (lsp-load-configurations configuration)
+                            (lsp-configuration-error () nil)))
+           (enabled       (remove-if #'lsp-server-configuration-disabled-p servers)))
       (when enabled
         (make-context-contribution
-         :identifier "lsp-servers"
+         :identifier        "lsp-servers"
          :instruction
          (format nil "Language servers configured in lsp.sexp: ~A. The lsp tools provide definitions, references, hover, symbols, and diagnostics for matching workspace files."
                  (lsp-context--server-summary enabled))
-         :priority 20
-         :lifetime ':while-relevant
+         :priority          20
+         :lifetime          ':while-relevant
          :deduplication-key "lsp-servers")))))
 
 (eval-when (:load-toplevel :execute)
