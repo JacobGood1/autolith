@@ -118,7 +118,9 @@
   (with-lock-held ((application-debugger-lock session))
     (when (and (application-debugger-diagnosis-thread session)
                (thread-alive-p (application-debugger-diagnosis-thread session)))
-      (error "Debugger diagnosis is already running."))
+      (error 'application-debugger-busy-error
+             :session session
+             :message "Debugger diagnosis is already running."))
     (setf (application-debugger-diagnosis-state session) :running
           (application-debugger-cancelled-p session) nil
           (application-debugger-failure session) nil
@@ -193,6 +195,7 @@
                                   (application-debugger-diagnosis-state session)
                                   :failed)))))
                  (when registry
+                   ; mallet:suppress no-ignore-errors -- best-effort cleanup of a finished diagnosis
                    (ignore-errors
                      (tool-registry-close-runtime-state registry)))
                  (with-lock-held ((application-debugger-lock session))
@@ -218,6 +221,7 @@
             thread (application-debugger-diagnosis-thread session))
       (condition-notify (application-debugger-condition-variable session)))
     (when (and thread (thread-alive-p thread))
+      ; mallet:suppress no-ignore-errors -- the thread may exit before the interrupt arrives
       (ignore-errors
         (interrupt-thread thread
                           (lambda ()
@@ -226,6 +230,7 @@
             while (thread-alive-p thread)
             do (sleep 0.01))
       (unless (thread-alive-p thread)
+        ; mallet:suppress no-ignore-errors -- a cancelled thread ends abnormally; joining only reaps it
         (ignore-errors
           (join-thread thread))))
     session))
@@ -240,3 +245,14 @@
                             (princ-to-string (application-debugger-failure session)))
           :proposals   (copy-list (application-debugger-proposals session))
           :cancelled-p (application-debugger-cancelled-p session))))
+
+
+;;;; -- Conditions --
+
+(define-condition application-debugger-busy-error (autolith-error)
+  ((session
+    :initarg       :session
+    :reader        application-debugger-busy-error-session
+    :type          application-debugger-session
+    :documentation "The debugger session whose diagnosis thread is still running."))
+  (:documentation "Diagnosis was requested while the session's previous diagnosis still runs."))
