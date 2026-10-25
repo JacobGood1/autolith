@@ -109,7 +109,8 @@ Return the encoded request and its unconsumed context delivery."
      &key credentials conversation)
   "Open a direct authenticated SSE request to the Anthropic Messages API."
   (declare (type oauth-credentials credentials)
-           (type conversation conversation))
+           (type conversation conversation)
+           (ignorable conversation))
   (provider-post-event-stream
    (config :provider-endpoint (provider-configuration provider))
    (json-encode-utf8 request)
