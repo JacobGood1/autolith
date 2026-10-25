@@ -18,7 +18,7 @@
    (update-buffer :reader acp-observer-update-buffer :type agentcomms:acp-update-buffer
                   :documentation "The ordered buffer coalescing visible thought fragments.")
    (thought-state :initform nil :accessor acp-observer-thought-state
-                  :type (member nil :streaming :boundary)
+                  :type          (member nil :streaming :boundary)
                   :documentation "Whether contiguous thoughts continue or cross a provider response boundary.")
    (lock :initform (make-lock "Autolith ACP updates") :reader acp-observer-lock
          :documentation "The lock serializing short presentation updates, never permission waits."))
@@ -35,8 +35,8 @@
 (defun acp-observer-create (session)
   "Create a fresh presentation sink for SESSION's next user turn."
   (make-instance 'acp-observer :session session
-                 :turn-sequence (conversation-next-sequence
-                                 (application-conversation (acp-session-application session)))))
+                 :turn-sequence         (conversation-next-sequence
+                                         (application-conversation (acp-session-application session)))))
 
 (-> acp-observer--send (acp-observer hash-table) null)
 (defun acp-observer--send (observer update)
@@ -64,13 +64,20 @@
 (defun acp-tool-kind (name)
   "Map a native tool's operation to an ACP presentation category."
   (cond
-    ((string= name "resource.read") ':read)
-    ((string= name "resource.edit") ':edit)
-    ((string= name "shell.run") ':execute)
-    ((uiop:string-prefix-p "search." name) ':search)
-    ((string= name "web.run") ':search)
-    ((string= name "web_extra.gist") ':fetch)
-    ((string= name "plan.update") ':think)
+    ((string= name "resource.read")
+     ':read)
+    ((string= name "resource.edit")
+     ':edit)
+    ((string= name "shell.run")
+     ':execute)
+    ((uiop:string-prefix-p "search." name)
+     ':search)
+    ((string= name "web.run")
+     ':search)
+    ((string= name "web_extra.gist")
+     ':fetch)
+    ((string= name "plan.update")
+     ':think)
     (t
      ':other)))
 
@@ -78,9 +85,9 @@
 (defun acp-observer--arguments (observer identifier)
   "Return the persisted provider arguments of IDENTIFIER as a JSON object."
   (let* ((application (acp-session-application (acp-observer-session observer)))
-         (call (find identifier (reverse (conversation-input-items
-                                          (application-conversation application)))
-                     :key (lambda (item) (json-get item "call_id")) :test #'equal)))
+         (call        (find identifier (reverse (conversation-input-items
+                                                 (application-conversation application)))
+                            :key (lambda (item) (json-get item "call_id")) :test #'equal)))
     (handler-case (json-decode (or (and call (json-get call "arguments")) "{}"))
       (error ()
         (json-object)))))
@@ -111,13 +118,13 @@
 (-> acp-tool-title (string t) string)
 (defun acp-tool-title (name arguments)
   "Return NAME with a bounded, single-line preview of its principal argument."
-  (let* ((key (when (json-object-p arguments)
-                (or (find-if (lambda (key) (nth-value 1 (gethash key arguments)))
-                             '("forms" "form" "command" "uri" "query" "patterns" "path"
-                               "url" "system" "name" "task" "text"))
-                    (first (sort (loop for key being the hash-keys of arguments
-                                      collect key)
-                                 #'string<)))))
+  (let* ((key     (when (json-object-p arguments)
+                    (or (find-if (lambda (key) (nth-value 1 (gethash key arguments)))
+                                 '("forms" "form" "command" "uri" "query" "patterns" "path"
+                                   "url" "system" "name" "task" "text"))
+                        (first (sort (loop for key being the hash-keys of arguments
+                                          collect key)
+                                     #'string<)))))
          (preview (when key
                     (acp-tool--argument-preview (gethash key arguments)))))
     (if (non-empty-string-p preview)
@@ -167,7 +174,7 @@ fragments that providers interleave with empty content deltas."
 (defun acp-observer--plan (observer)
   "Project the durable workspace plan after its native publication."
   (let* ((session (acp-observer-session observer))
-         (plan (plan-load (application-configuration (acp-session-application session)))))
+         (plan    (plan-load (application-configuration (acp-session-application session)))))
     (acp-observer--send
      observer
      (agentcomms:acp-update-plan
@@ -176,9 +183,12 @@ fragments that providers interleave with empty content deltas."
                   (agentcomms:acp-plan-entry
                    (plan-step-text step)
                    :status (ecase (plan-step-status step)
-                             (:pending ':pending)
-                             (:doing ':in-progress)
-                             (:done ':completed))))
+                             (:pending
+                              ':pending)
+                             (:doing
+                              ':in-progress)
+                             (:done
+                              ':completed))))
                 (workspace-plan-steps plan))))))
   nil)
 
@@ -217,20 +227,20 @@ fragments that providers interleave with empty content deltas."
         (agentcomms:acp-update-tool-call
          (acp-observer--tool-report
           observer :identifier (getf details :call-id) :title (getf details :tool)
-          :status ':in-progress
+          :status    ':in-progress
           :arguments (acp-observer--arguments observer (getf details :call-id))))))
       (:tool-call-completed
        (let ((identifier (acp-tool-identifier (acp-observer-turn-sequence observer)
                                               (getf details :call-id)))
-             (output (getf details :output)))
+             (output     (getf details :output)))
          (acp-observer--send
           observer
           (agentcomms:acp-update-tool-call-progress
            (agentcomms:acp-tool-call-update
             identifier :status (if (getf details :success-p) ':completed ':failed)
-            :raw-output output
-            :content (list (agentcomms:acp-tool-call-content
-                            (agentcomms:acp-text-content output))))))
+            :raw-output        output
+            :content           (list (agentcomms:acp-tool-call-content
+                                      (agentcomms:acp-text-content output))))))
          (when (string= (getf details :tool) "plan.update")
            (acp-observer--plan observer))))))
   nil)
@@ -249,7 +259,7 @@ fragments that providers interleave with empty content deltas."
                     report options :timeout *acp-permission-timeout-seconds*)
                  (when (and (eq outcome ':selected)
                             (find identifier options :test #'equal
-                                  :key (lambda (option) (agentcomms:json-get option "optionId"))))
+                                  :key                     (lambda (option) (agentcomms:json-get option "optionId"))))
                    identifier))
              (agentcomms:acp-error ()
                nil))))
@@ -260,8 +270,8 @@ fragments that providers interleave with empty content deltas."
 (defun acp-observer--approval (observer title arguments key)
   "Ask for exact operation approval, retaining allow-always only for this session."
   (let* ((session (acp-observer-session observer))
-         (saved (with-lock-held ((acp-session-lock session))
-                  (gethash key (acp-session-permissions session)))))
+         (saved   (with-lock-held ((acp-session-lock session))
+                    (gethash key (acp-session-permissions session)))))
     (acp-session-check-cancelled session)
     (or saved
         (let ((choice
@@ -280,7 +290,7 @@ fragments that providers interleave with empty content deltas."
 
 (defmethod agent-observer-authorize-command ((observer acp-observer) command directory)
   "Apply native process policy with editor approval in ask mode."
-  (let* ((session (acp-observer-session observer))
+  (let* ((session     (acp-observer-session observer))
          (application (acp-session-application session)))
     (acp-session-check-cancelled session)
     (case (acp-session-mode session)
@@ -293,8 +303,8 @@ fragments that providers interleave with empty content deltas."
         (nth-value 0
                    (permissions-model-classify-command
                     command directory :provider (application-provider application)
-                    :configuration (application-configuration application)
-                    :sandbox-available-p (application--command-sandbox-available-p)))))
+                    :configuration              (application-configuration application)
+                    :sandbox-available-p        (application--command-sandbox-available-p)))))
       (otherwise
        (if (acp-observer--approval observer "shell.run"
                                    (json-object "command" command "directory" (namestring directory))
@@ -304,7 +314,7 @@ fragments that providers interleave with empty content deltas."
 
 (defmethod agent-observer-authorize-tool ((observer acp-observer) tool arguments)
   "Apply the editor session's policy without granting local sandboxing to MCP."
-  (let* ((session (acp-observer-session observer))
+  (let* ((session     (acp-observer-session observer))
          (application (acp-session-application session)))
     (acp-session-check-cancelled session)
     (case (acp-session-mode session)
