@@ -303,7 +303,6 @@ structured type and message survive the round trip."
 (defvar *checkpoint-thread-quiescer* nil
   "A dynamic callback running checkpoint work without ephemeral application threads.")
 
-(-> checkpoint-detach-state (t) t)
 (defgeneric checkpoint-detach-state (state)
   (:documentation "Detach ephemeral resources from globally rooted checkpoint STATE."))
 
@@ -329,6 +328,7 @@ structured type and message survive the round trip."
              *platform* "AUTOLITH_SESSION_STYLE" previous)))
         (main arguments))))
 
+(-> checkpoint--source-snapshot (configuration) string)
 (defun checkpoint--source-snapshot (configuration)
   "Return the clean checked revision from CONFIGURATION's source tree."
   (let* ((source         (make-source-provenance (config :source-root configuration)))
