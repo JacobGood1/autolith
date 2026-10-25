@@ -18,10 +18,10 @@ NAME is accepted as written or upcased, so lowercase names resolve too."
                      (find-package '#:autolith))))
     (unless package
       (error 'source-mutation-error
-             :message (format nil "No active Common Lisp package is named ~S."
-                              name)
+             :message   (format nil "No active Common Lisp package is named ~S."
+                                name)
              :tool-name "self.redefine"
-             :pathname nil))
+             :pathname  nil))
     package))
 
 (-> self-read-form
@@ -86,9 +86,9 @@ symbol itself."
   "Inspect one required symbol in CONTEXT's active image."
   (declare (ignore context))
   (let* ((package (self-resolve-package (tool-argument arguments "package")))
-         (symbol (self-resolve-symbol
-                  (tool-argument arguments "designator" :required t)
-                  :package package)))
+         (symbol  (self-resolve-symbol
+                   (tool-argument arguments "designator" :required t)
+                   :package package)))
     (unless (or (symbol-defined-p symbol)
                 (keywordp symbol))
       (error 'tool-error
@@ -123,6 +123,7 @@ symbol itself."
   `(with-recursive-lock-held (*live-mutation-lock*)
      ,@body))
 
+
 ;;;; -- Repair Context --
 
 (defvar *self-repair-context* nil
@@ -140,32 +141,32 @@ symbol itself."
             return (copy-list (getf properties :repair-context)))))
 
 (defmethod tool-execute :around ((tool mutable-self-tool)
-                                (context tool-context)
-                                (arguments hash-table))
+                                 (context tool-context)
+                                 (arguments hash-table))
   "Validate explicit incident links before any mutable self operation."
   (let* ((configuration (tool-context-configuration context))
-         (incident (tool-argument arguments "incident"))
-         (kind (tool-argument arguments "repair-kind"))
-         (scope (tool-argument arguments "verification-scope"))
-         (diagnostic (telemetry-diagnostic-text (tool-argument arguments "diagnostic")))
-         (inherited (self-repair--journal-context
-                     configuration (tool-argument arguments "mutation")))
-         (linked (when incident (papercut-repair-context configuration incident))))
+         (incident      (tool-argument arguments "incident"))
+         (kind          (tool-argument arguments "repair-kind"))
+         (scope         (tool-argument arguments "verification-scope"))
+         (diagnostic    (telemetry-diagnostic-text (tool-argument arguments "diagnostic")))
+         (inherited     (self-repair--journal-context
+                         configuration (tool-argument arguments "mutation")))
+         (linked        (when incident (papercut-repair-context configuration incident))))
     (when (and linked inherited
                (not (equal (getf linked :incident-id) (getf inherited :incident-id))))
       (error 'source-mutation-error
-             :message "The explicit incident does not match the selected mutation."
+             :message   "The explicit incident does not match the selected mutation."
              :tool-name (tool-canonical-name tool)
-             :pathname (configuration-journal-path configuration)))
+             :pathname  (configuration-journal-path configuration)))
     (when (and kind (not (member kind '("redefine_function" "change_setting" "change_tool_strategy" "other")
                                  :test #'equal)))
-      (error 'source-mutation-error :message "Unknown public repair kind."
+      (error 'source-mutation-error :message  "Unknown public repair kind."
                                    :tool-name (tool-canonical-name tool)
-                                   :pathname (configuration-journal-path configuration)))
+                                   :pathname  (configuration-journal-path configuration)))
     (when (and scope (not (member scope '("focused" "full") :test #'equal)))
-      (error 'source-mutation-error :message "Unknown verification scope."
+      (error 'source-mutation-error :message  "Unknown verification scope."
                                    :tool-name (tool-canonical-name tool)
-                                   :pathname (configuration-journal-path configuration)))
+                                   :pathname  (configuration-journal-path configuration)))
     (let ((*self-repair-context*
             (append (list :diagnostic diagnostic)
                     (when kind (list :repair-kind kind))
@@ -177,17 +178,17 @@ symbol itself."
 (defun self-repair--record-context (configuration record)
   "Annotate a journal event with durable random attempt and incident metadata."
   (let* ((properties (rest record))
-         (kind (getf properties :kind))
+         (kind       (getf properties :kind))
          (identifier (or (getf properties :mutation) (getf properties :id)))
-         (inherited (self-repair--journal-context configuration identifier))
-         (metadata (or inherited (copy-list *self-repair-context*))))
+         (inherited  (self-repair--journal-context configuration identifier))
+         (metadata   (or inherited (copy-list *self-repair-context*))))
     (when (and inherited (getf *self-repair-context* :incident-id)
                (not (equal (getf inherited :incident-id)
                            (getf *self-repair-context* :incident-id))))
       (error 'source-mutation-error
-             :message "The incident does not match the mutation's repair context."
+             :message   "The incident does not match the mutation's repair context."
              :tool-name (or *telemetry-tool-name* "self.exercise")
-             :pathname (configuration-journal-path configuration)))
+             :pathname  (configuration-journal-path configuration)))
     (unless (getf metadata :attempt-id)
       (let ((identifier (telemetry-new-report-id)))
         (unless identifier
@@ -196,13 +197,19 @@ symbol itself."
     (unless (getf metadata :repair-kind)
       (setf (getf metadata :repair-kind)
             (case kind
-              ((:definition :durable-definition) "redefine_function")
-              (:set "change_setting")
-              (otherwise "other"))))
+              ((:definition :durable-definition)
+               "redefine_function")
+              (:set
+               "change_setting")
+              (otherwise
+               "other"))))
     (let ((scope (case kind
-                   (:exercise (or (getf *self-repair-context* :verification-scope) "focused"))
-                   (:verification (or (getf properties :verification-scope) "focused"))
-                   (otherwise "none"))))
+                   (:exercise
+                    (or (getf *self-repair-context* :verification-scope) "focused"))
+                   (:verification
+                    (or (getf properties :verification-scope) "focused"))
+                   (otherwise
+                    "none"))))
       (setf (getf metadata :diagnostic) (getf *self-repair-context* :diagnostic)
             (getf metadata :operation) *telemetry-tool-name*
             (getf metadata :verification-scope) scope)
@@ -213,19 +220,19 @@ symbol itself."
               (loop for mutation in (getf properties :mutations)
                     for context = (self-repair--journal-context configuration mutation)
                     when context
-                      collect (list* :diagnostic (getf *self-repair-context* :diagnostic)
-                                     :operation *telemetry-tool-name*
+                      collect (list* :diagnostic         (getf *self-repair-context* :diagnostic)
+                                     :operation          *telemetry-tool-name*
                                      :verification-scope scope context))))
         (list* (first record) :repair-context metadata :repair-contexts contexts (rest record))))))
 
 (-> mutation-journal-append (configuration list) list)
 (defun mutation-journal-append (configuration record)
   "Append a portable journal event and its durable structured repair context."
-  (let* ((pathname (configuration-journal-path configuration))
+  (let* ((pathname  (configuration-journal-path configuration))
          (annotated (if (eq (first record) ':mutation)
                         (self-repair--record-context configuration record)
                         record))
-         (entry (list* (first annotated) :time (get-universal-time) (rest annotated))))
+         (entry     (list* (first annotated) :time (get-universal-time) (rest annotated))))
     (ensure-directories-exist pathname)
     (log-append pathname entry)
     (telemetry-note-mutation-journal entry)
@@ -241,9 +248,9 @@ symbol itself."
     (let ((output
             (with-output-to-string (stream)
               (let ((*standard-output* stream)
-                    (*error-output* stream)
-                    (*trace-output* stream)
-                    (*package* (find-package '#:autolith)))
+                    (*error-output*    stream)
+                    (*trace-output*    stream)
+                    (*package*         (find-package '#:autolith)))
                 (setf result-values
                       (multiple-value-list (funcall function)))))))
       (values (mapcar #'sbcl-worker-render-value result-values) output))))
@@ -319,12 +326,12 @@ before that form is read."
   "Evaluate exploratory forms in order in CONTEXT's active image and journal them."
   (declare (ignore tool))
   (with-live-mutation
-    (let* ((sources (tool-forms-argument arguments "self.eval"))
-           (source (format nil "~{~A~^~%~}" sources))
-           (restart-name (tool-argument arguments "restart"))
+    (let* ((sources              (tool-forms-argument arguments "self.eval"))
+           (source               (format nil "~{~A~^~%~}" sources))
+           (restart-name         (tool-argument arguments "restart"))
            (restart-value-source (tool-argument arguments "restart-value"))
-           (configuration (tool-context-configuration context))
-           (position 0))
+           (configuration        (tool-context-configuration context))
+           (position             0))
       (mutation-journal-append
        configuration
        (list :mutation :kind :eval :proposed source :result ':pending))
@@ -336,7 +343,7 @@ before that form is read."
                   (lambda ()
                     (self-evaluate-forms sources
                                          (lambda (index) (setf position index))))
-                  :restart-name restart-name
+                  :restart-name         restart-name
                   :restart-value-source restart-value-source)))
             (mutation-journal-append
              configuration
@@ -348,7 +355,7 @@ before that form is read."
            (list :mutation
                  :kind :eval
                  :proposed source
-                 :result ':failed
+                 :result    ':failed
                  :condition (princ-to-string condition)))
           (error (self--positioned-failure condition position (length sources))))))))
 
@@ -388,40 +395,40 @@ still applies; any other failure becomes a TOOL-ERROR keeping its failure code."
 
 (defclass image-replay-skip ()
   ((definition
-    :initarg :definition
-    :reader image-replay-skip-definition
-    :type list
+    :initarg       :definition
+    :reader        image-replay-skip-definition
+    :type          list
     :documentation "The parsed persisted definition that was not installed.")
    (key
-    :initarg :key
-    :reader image-replay-skip-key
-    :type string
+    :initarg       :key
+    :reader        image-replay-skip-key
+    :type          string
     :documentation "The definition key computed in the replay's reader package.")
    (source
-    :initarg :source
-    :reader image-replay-skip-source
-    :type string
+    :initarg       :source
+    :reader        image-replay-skip-source
+    :type          string
     :documentation "The complete persisted source of the skipped definition.")
    (tracked
-    :initarg :tracked
-    :reader image-replay-skip-tracked
-    :type (option string)
+    :initarg       :tracked
+    :reader        image-replay-skip-tracked
+    :type          (option string)
     :documentation "The tracked source recorded at publication, when the entry recorded one.")
    (tracked-recorded-p
-    :initarg :tracked-recorded-p
-    :reader image-replay-skip-tracked-recorded-p
-    :type boolean
+    :initarg       :tracked-recorded-p
+    :reader        image-replay-skip-tracked-recorded-p
+    :type          boolean
     :documentation "Whether the replay entry recorded its tracked base at all.")
    (reason
-    :initarg :reason
-    :reader image-replay-skip-reason
-    :type (member :owner-moved :uninterned-target :tracked-changed
-                  :tracked-removed :tracked-appeared :revision-moved)
+    :initarg       :reason
+    :reader        image-replay-skip-reason
+    :type          (member :owner-moved :uninterned-target :tracked-changed
+                           :tracked-removed :tracked-appeared :revision-moved)
     :documentation "Why the definition was skipped.")
    (message
-    :initarg :message
-    :reader image-replay-skip-message
-    :type string
+    :initarg       :message
+    :reader        image-replay-skip-message
+    :type          string
     :documentation "The complete sentence explaining the skip."))
   (:documentation "One stale persisted definition a private replay left uninstalled."))
 
@@ -519,7 +526,7 @@ generic function and are not skipped merely because its ownership changed."
       (error 'active-image-corruption
              :message
              "A failed definition mutation could not restore the active image."
-             :original-condition original-condition
+             :original-condition    original-condition
              :restoration-condition restoration-condition)))
   nil)
 
@@ -531,26 +538,26 @@ generic function and are not skipped merely because its ownership changed."
    definition package
    (lambda ()
      (let* ((*package* package)
-            (result (eval definition)))
+            (result    (eval definition)))
        (setf (gethash (definition-key definition) *exploratory-definitions*)
              source)
        result))))
 
 (defclass image-replay-context ()
   ((configuration
-    :initarg :configuration
-    :reader image-replay-context-configuration
-    :type configuration
+    :initarg       :configuration
+    :reader        image-replay-context-configuration
+    :type          configuration
     :documentation "The configuration whose tracked source root the replay checks against.")
    (lineage-source-commit
-    :initarg :lineage-source-commit
-    :reader image-replay-context-lineage-source-commit
-    :type (option string)
+    :initarg       :lineage-source-commit
+    :reader        image-replay-context-lineage-source-commit
+    :type          (option string)
     :documentation "The tracked revision the replayed commit lineage was published against.")
    (image-source-commit
-    :initarg :image-source-commit
-    :reader image-replay-context-image-source-commit
-    :type (option string)
+    :initarg       :image-source-commit
+    :reader        image-replay-context-image-source-commit
+    :type          (option string)
     :documentation "The tracked revision the running image was built from."))
   (:documentation
    "The tracked-source facts one private replay checks its definitions against."))
@@ -615,7 +622,7 @@ source cannot be read, nothing can be checked and the definition replays."
                    (values ':tracked-changed
                            "its tracked definition changed since the private commit was published. Reapply the definition against the current source."))))
               (let ((lineage (image-replay-context-lineage-source-commit context))
-                    (image (image-replay-context-image-source-commit context)))
+                    (image   (image-replay-context-image-source-commit context)))
                 (when (and lineage image current (string/= lineage image))
                   (values ':revision-moved
                           (format nil
@@ -642,9 +649,9 @@ authoritative; entries without the record are judged by source revision."
            (self-read-form source :read-eval nil :package package)))
     (unless (definition-form-p definition)
       (error 'source-mutation-error
-             :message "A private image commit contains an invalid definition."
+             :message   "A private image commit contains an invalid definition."
              :tool-name "self.commit"
-             :pathname nil))
+             :pathname  nil))
     (multiple-value-bind (reason explanation)
         (if (definition-foreign-home-p definition package
                                        :home-package home-package)
@@ -662,13 +669,13 @@ authoritative; entries without the record are judged by source revision."
           (progn
             (push (make-instance
                    'image-replay-skip
-                   :definition definition
-                   :key (let ((*package* package))
-                          (definition-key definition))
-                   :source source
-                   :tracked tracked
+                   :definition         definition
+                   :key                (let ((*package* package))
+                                         (definition-key definition))
+                   :source             source
+                   :tracked            tracked
                    :tracked-recorded-p tracked-p
-                   :reason reason
+                   :reason             reason
                    :message
                    (format nil
                            "The persisted ~(~A~) of ~(~A~) was skipped: ~A"
@@ -692,7 +699,7 @@ authoritative; entries without the record are judged by source revision."
           (funcall installer
                    (self-read-form previous-source
                                    :read-eval nil
-                                   :package package)
+                                   :package   package)
                    previous-source
                    :package package)
           (funcall installer
@@ -702,7 +709,7 @@ authoritative; entries without the record are judged by source revision."
       (error 'active-image-corruption
              :message
              "A failed definition mutation could not restore the active image."
-             :original-condition original-condition
+             :original-condition    original-condition
              :restoration-condition restoration-condition))))
 
 (-> self-install-definition
@@ -712,22 +719,22 @@ authoritative; entries without the record are judged by source revision."
     (configuration source &key (package (find-package '#:autolith)))
   "Compile and install one exploratory SOURCE definition in PACKAGE."
   (with-live-mutation
-    (let ((definition (self-read-form source
-                                      :read-eval nil
-                                      :package package))
+    (let ((definition   (self-read-form source
+                                        :read-eval nil
+                                        :package   package))
           (package-name (package-name package)))
       (unless (definition-form-p definition)
         (error 'source-mutation-error
-               :message "self.redefine accepts one complete supported definition."
+               :message   "self.redefine accepts one complete supported definition."
                :tool-name "self.redefine"
-               :pathname nil))
+               :pathname  nil))
       (tuning-experiment-assert-mutation-installable configuration
                                                        "self.redefine")
-      (let ((identifier (make-identifier))
+      (let ((identifier   (make-identifier))
             (home-package (definition-home-package-name definition))
-            (key (definition-key definition))
-            (previous (self-previous-definition configuration definition))
-            (undo-action nil))
+            (key          (definition-key definition))
+            (previous     (self-previous-definition configuration definition))
+            (undo-action  nil))
         (setf undo-action
               (self--definition-state-undo-action
                definition
@@ -738,13 +745,13 @@ authoritative; entries without the record are judged by source revision."
          (list :mutation
                :kind :definition
                :id identifier
-               :lineage *active-image-lineage-identifier*
-               :target key
-               :package package-name
+               :lineage      *active-image-lineage-identifier*
+               :target       key
+               :package      package-name
                :home-package home-package
-               :previous previous
-               :proposed source
-               :result ':pending))
+               :previous     previous
+               :proposed     source
+               :result       ':pending))
         (handler-case
             (let ((result (self--install-definition definition
                                                     source
@@ -754,13 +761,13 @@ authoritative; entries without the record are judged by source revision."
                (list :mutation
                      :kind :definition
                      :id identifier
-                     :lineage *active-image-lineage-identifier*
-                     :target key
-                     :package package-name
+                     :lineage      *active-image-lineage-identifier*
+                     :target       key
+                     :package      package-name
                      :home-package home-package
-                     :previous previous
-                     :proposed source
-                     :result ':installed))
+                     :previous     previous
+                     :proposed     source
+                     :result       ':installed))
               (setf (gethash identifier *exploratory-undo-actions*)
                     undo-action)
               result)
@@ -777,14 +784,14 @@ authoritative; entries without the record are judged by source revision."
                (list :mutation
                      :kind :definition
                      :id identifier
-                     :lineage *active-image-lineage-identifier*
-                     :target key
-                     :package package-name
+                     :lineage      *active-image-lineage-identifier*
+                     :target       key
+                     :package      package-name
                      :home-package home-package
-                     :previous previous
-                     :proposed source
-                     :result ':failed
-                     :condition (princ-to-string reported-condition)))
+                     :previous     previous
+                     :proposed     source
+                     :result       ':failed
+                     :condition    (princ-to-string reported-condition)))
               (error reported-condition))))))))
 
 (defmethod tool-execute ((tool self-redefine-tool)
@@ -800,7 +807,7 @@ authoritative; entries without the record are judged by source revision."
        (self-install-definition (tool-context-configuration context)
                                 source
                                 :package package))
-     :restart-name (tool-argument arguments "restart")
+     :restart-name         (tool-argument arguments "restart")
      :restart-value-source (tool-argument arguments "restart-value"))
     (tool-success
      (format nil "The definition was compiled and installed in package ~A."
@@ -812,33 +819,33 @@ authoritative; entries without the record are judged by source revision."
   "Set one active global binding after journaling its previous value."
   (declare (ignore tool))
   (with-live-mutation
-    (let* ((identifier (make-identifier))
-           (symbol (self-resolve-symbol
-                    (tool-argument arguments "symbol" :required t)))
-           (value-source (tool-argument arguments "value" :required t))
-           (configuration (tool-context-configuration context))
-           (previous (and (boundp symbol)
-                          (sbcl-worker-render-value (symbol-value symbol))))
+    (let* ((identifier       (make-identifier))
+           (symbol           (self-resolve-symbol
+                              (tool-argument arguments "symbol" :required t)))
+           (value-source     (tool-argument arguments "value" :required t))
+           (configuration    (tool-context-configuration context))
+           (previous         (and (boundp symbol)
+                                  (sbcl-worker-render-value (symbol-value symbol))))
            (previous-bound-p (boundp symbol))
-           (previous-value (and (boundp symbol) (symbol-value symbol))))
+           (previous-value   (and (boundp symbol) (symbol-value symbol))))
        (tuning-experiment-assert-mutation-installable configuration "self.set")
       (mutation-journal-append
        configuration
        (list :mutation
              :kind :set
              :id identifier
-             :lineage *active-image-lineage-identifier*
-             :target (write-to-string symbol)
+             :lineage  *active-image-lineage-identifier*
+             :target   (write-to-string symbol)
              :previous previous
              :proposed value-source
-             :result ':pending))
+             :result   ':pending))
       (handler-case
           (let ((value (self-call-with-restarts
                         (lambda ()
                           (let ((evaluated (eval (self-read-form value-source))))
                             (setf (symbol-value symbol) evaluated)
                             evaluated))
-                        :restart-name (tool-argument arguments "restart")
+                        :restart-name         (tool-argument arguments "restart")
                         :restart-value-source (tool-argument arguments
                                                              "restart-value"))))
             (mutation-journal-append
@@ -846,11 +853,11 @@ authoritative; entries without the record are judged by source revision."
              (list :mutation
                    :kind :set
                    :id identifier
-                   :lineage *active-image-lineage-identifier*
-                   :target (write-to-string symbol)
+                   :lineage  *active-image-lineage-identifier*
+                   :target   (write-to-string symbol)
                    :previous previous
                    :proposed value-source
-                   :result ':installed))
+                   :result   ':installed))
             (setf (gethash identifier *exploratory-undo-actions*)
                   (lambda ()
                     (value-binding-restore symbol
@@ -865,11 +872,11 @@ authoritative; entries without the record are judged by source revision."
            (list :mutation
                  :kind :set
                  :id identifier
-                 :lineage *active-image-lineage-identifier*
-                 :target (write-to-string symbol)
-                 :previous previous
-                 :proposed value-source
-                 :result ':failed
+                 :lineage   *active-image-lineage-identifier*
+                 :target    (write-to-string symbol)
+                 :previous  previous
+                 :proposed  value-source
+                 :result    ':failed
                  :condition (bounded-string condition :limit 2000)))
           (error condition))))))
 
@@ -878,37 +885,37 @@ authoritative; entries without the record are judged by source revision."
 
 (defclass tracked-definition ()
   ((relative-pathname
-    :initarg :relative-pathname
-    :reader tracked-definition-relative-pathname
-    :type non-empty-string
+    :initarg       :relative-pathname
+    :reader        tracked-definition-relative-pathname
+    :type          non-empty-string
     :documentation "The definition file relative to Autolith's source root.")
    (source-form
-    :initarg :source-form
-    :reader tracked-definition-source-form
-    :type source-form
+    :initarg       :source-form
+    :reader        tracked-definition-source-form
+    :type          source-form
     :documentation "The parsed definition form and its exact source span.")
    (source
-    :initarg :source
-    :reader tracked-definition-source
-    :type string
+    :initarg       :source
+    :reader        tracked-definition-source
+    :type          string
     :documentation "The complete tracked source text of the definition."))
   (:documentation "One tracked top-level definition exposed for safe self inspection."))
 
 (defclass tracked-definition-snapshot ()
   ((source-root
-    :initarg :source-root
-    :reader tracked-definition-snapshot-source-root
-    :type pathname
+    :initarg       :source-root
+    :reader        tracked-definition-snapshot-source-root
+    :type          pathname
     :documentation "The source root whose tracked definitions the snapshot holds.")
    (table
-    :initform nil
-    :accessor tracked-definition-snapshot--table
-    :type (option hash-table)
+    :initform      nil
+    :accessor      tracked-definition-snapshot--table
+    :type          (option hash-table)
     :documentation "Tracked definitions by name, read on first use.")
    (failure
-    :initform nil
-    :accessor tracked-definition-snapshot--failure
-    :type (option condition)
+    :initform      nil
+    :accessor      tracked-definition-snapshot--failure
+    :type          (option condition)
     :documentation "The error that prevented reading the tracked source, if any."))
   (:documentation
    "Tracked definitions read once for a batch of lookups that leaves source unchanged."))
@@ -928,7 +935,7 @@ see the source as it was when first read."
 (defun call-with-tracked-definition-snapshot (configuration function)
   "Call FUNCTION with one tracked definition snapshot of CONFIGURATION's source root."
   (let ((source-root (config :source-root configuration))
-        (snapshot *tracked-definition-snapshot*))
+        (snapshot    *tracked-definition-snapshot*))
     (if (and snapshot
              (uiop:pathname-equal (tracked-definition-snapshot-source-root snapshot)
                                   source-root))
@@ -948,9 +955,9 @@ see the source as it was when first read."
                  :relative-pathname
                  (format nil "~A~A" path-prefix (enough-namestring pathname root))
                  :source-form source-form
-                 :source (subseq source
-                                 (source-form-start source-form)
-                                 (source-form-end source-form))))
+                 :source      (subseq source
+                                      (source-form-start source-form)
+                                      (source-form-end source-form))))
 
 (-> self-source--definitions
     (list &key (:root pathname)
@@ -1075,13 +1082,13 @@ dependency), which counts only when its feature expression holds."
                  (format nil "~S is not a direct Autolith ASDF dependency."
                          requested-name)
                  :tool-name "lisp.source"
-                 :pathname nil))
+                 :pathname  nil))
         (return nil))
       (or (asdf:find-system name nil)
           (error 'source-mutation-error
-                 :message (format nil "ASDF cannot locate dependency ~S." name)
+                 :message   (format nil "ASDF cannot locate dependency ~S." name)
                  :tool-name "lisp.source"
-                 :pathname nil)))))
+                 :pathname  nil)))))
 
 (-> self-dependency-definitions
     (symbol package &key (:system-name (option string)))
@@ -1093,9 +1100,9 @@ dependency), which counts only when its feature expression holds."
       (let ((root (asdf:system-source-directory system)))
         (self-source--definitions
          (self-source--component-pathnames system)
-         :root root
-         :package package
-         :symbol symbol
+         :root        root
+         :package     package
+         :symbol      symbol
          :path-prefix (format nil "~A:" (asdf:component-name system)))))))
 
 (-> self-source--withheld-files (&key (:root pathname)) list)
@@ -1106,11 +1113,11 @@ dependency), which counts only when its feature expression holds."
 Feature-withheld components and unloaded optional Autolith systems may refer to
 packages absent from this image. Do not read those files during source lookup.
 Files shared with a loaded system are available through that system."
-  (let* ((loaded (asdf:already-loaded-systems))
-         (systems (loop for name in (asdf:registered-systems)
-                        when (or (string= name "autolith")
-                                 (uiop:string-prefix-p "autolith/" name))
-                          collect (asdf:find-system name)))
+  (let* ((loaded    (asdf:already-loaded-systems))
+         (systems   (loop for name in (asdf:registered-systems)
+                          when (or (string= name "autolith")
+                                   (uiop:string-prefix-p "autolith/" name))
+                            collect (asdf:find-system name)))
          (available (mapcan #'self-source--component-pathnames
                             (remove-if-not
                              (lambda (component)
@@ -1119,7 +1126,7 @@ Files shared with a loaded system are available through that system."
                              systems))))
     (labels ((collect (component withheld-p)
                "Return withheld files below COMPONENT, respecting loaded owners."
-               (let* ((feature (asdf/component:component-if-feature component))
+               (let* ((feature    (asdf/component:component-if-feature component))
                       (withheld-p (or withheld-p
                                       (and feature (not (uiop:featurep feature))))))
                  (cond
@@ -1163,7 +1170,7 @@ Inside WITH-TRACKED-DEFINITION-SNAPSHOT the source is read once for all lookups.
 
 Files belonging only to unloaded optional systems or withheld features are left out."
   (let* ((source-root (config :source-root configuration))
-         (withheld (self-source--withheld-files :root source-root)))
+         (withheld    (self-source--withheld-files :root source-root)))
     (remove-if (lambda (pathname)
                  (member (enough-namestring pathname source-root) withheld
                          :test #'string=))
@@ -1191,9 +1198,9 @@ Files belonging only to unloaded optional systems or withheld features are left 
   "Render complete DEFINITIONS for model inspection of SYMBOL."
   (unless definitions
     (error 'source-mutation-error
-           :message (format nil "No tracked top-level definition names ~S." symbol)
+           :message   (format nil "No tracked top-level definition names ~S." symbol)
            :tool-name "lisp.source"
-           :pathname nil))
+           :pathname  nil))
   (with-output-to-string (stream)
     (loop for definition in definitions
           for first-p = t then nil
@@ -1247,9 +1254,9 @@ Files belonging only to unloaded optional systems or withheld features are left 
                               (tool-argument arguments "kind"))
              (worker-error (condition)
                (error 'tool-error
-                      :message (format nil "~S: ~A"
-                                       symbol
-                                       (autolith-error-message condition))
+                      :message   (format nil "~S: ~A"
+                                         symbol
+                                         (autolith-error-message condition))
                       :tool-name "lisp.source")))
          (declare (ignore values))
          (tool-success output))))))
