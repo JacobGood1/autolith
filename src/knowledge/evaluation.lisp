@@ -494,8 +494,8 @@ are independent support paths even when their propositions agree."
                           (or (null test) (funcall test node))))
                    (gethash (first atom) (knowledge-view-negated view)))))
 
-(-> knowledge--record-error (knowledge-view list integer string) null)
-(defun knowledge--record-error (view rule version message)
+(-> knowledge--record-error (knowledge-view list &key (:version integer) (:message string)) null)
+(defun knowledge--record-error (view rule &key version message)
   "Retain one refused derivation of RULE VERSION with MESSAGE."
   (when (< (length (knowledge-view-errors view)) *knowledge-error-limit*)
     (pushnew (list :rule (getf (rest rule) :id) :version version :message message)
@@ -561,7 +561,9 @@ are independent support paths even when their propositions agree."
                     (knowledge--add-basis-set node set))
                   (knowledge--index-supported view node))))))
       (knowledge-error (condition)
-        (knowledge--record-error view rule version (autolith-error-message condition)))))
+        (knowledge--record-error view rule
+                                 :version version
+                                 :message (autolith-error-message condition)))))
   nil)
 
 (-> knowledge--run-rule (knowledge-view list) null)
