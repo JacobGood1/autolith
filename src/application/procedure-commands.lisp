@@ -121,7 +121,7 @@
   (unless (evenp (length arguments))
     (knowledge--fail ':invalid-parameters arguments
                      "Give parameters as names and values, such as (run-procedure \"ID\" :quarter \"q3\")."))
-  (loop for (name value) on arguments by #'cddr
+  (loop for (name value) on arguments by (partial #'nthcdr 2)
         collect (cons (string-downcase (string name)) value)))
 
 (-> application-procedure-transition-entry (application string keyword) (or string list))
