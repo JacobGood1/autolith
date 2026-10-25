@@ -9,21 +9,21 @@
    "A device authentication failure joined to Autolith's condition hierarchy."))
 
 
-
 ;;;; -- ChatGPT Device Authentication State --
 
 (defclass device-authorization-code ()
   ((authorization-code
-    :initarg :authorization-code
-    :reader device-authorization-code-value
-    :type non-empty-string
+    :initarg       :authorization-code
+    :reader        device-authorization-code-value
+    :type          non-empty-string
     :documentation "The short-lived OAuth authorization code.")
    (code-verifier
-    :initarg :code-verifier
-    :reader device-authorization-code-verifier
-    :type non-empty-string
+    :initarg       :code-verifier
+    :reader        device-authorization-code-verifier
+    :type          non-empty-string
     :documentation "The PKCE verifier returned by the device service."))
   (:documentation "The short-lived result of an approved device authorization."))
+
 
 ;;;; -- ChatGPT Device Authentication Methods --
 
@@ -39,16 +39,16 @@
    (lambda ()
      (let* ((document
               (device-authentication-json-request
-               :client client
-               :url (device-authentication-issuer-url
-                     client
-                     "/api/accounts/deviceauth/usercode")
+               :client       client
+               :url          (device-authentication-issuer-url
+                              client
+                              "/api/accounts/deviceauth/usercode")
                :content-type "application/json"
-               :content (json-encode
-                         (json-object
-                          "client_id"
-                          (device-authentication-client-id client)))
-               :stage ':request-code))
+               :content      (json-encode
+                              (json-object
+                               "client_id"
+                               (device-authentication-client-id client)))
+               :stage        ':request-code))
             (device-authorization-id
               (json-get document "device_auth_id"))
             (user-code
@@ -60,14 +60,14 @@
        (unless (and (non-empty-string-p device-authorization-id)
                     (non-empty-string-p user-code))
          (device-authentication-fail
-          :stage ':request-code
+          :stage   ':request-code
           :message "The device authorization response omitted required fields."))
        (make-instance 'device-authorization
                       :verification-url
                       (device-authentication-issuer-url client "/codex/device")
-                      :user-code user-code
+                      :user-code               user-code
                       :device-authorization-id device-authorization-id
-                      :poll-interval poll-interval)))))
+                      :poll-interval           poll-interval)))))
 
 (defmethod device-authentication-complete
     ((client openai-device-authentication-client)
@@ -84,17 +84,18 @@
             (primary-source (credential-manager-primary-source manager)))
        (unless (typep authorization-code 'device-authorization-code)
          (device-authentication-fail
-          :stage ':poll
+          :stage   ':poll
           :message "The device authorization poll returned an invalid result."))
        (let ((credentials
                (device-authentication--exchange-code
-                :client client
+                :client             client
                 :authorization-code authorization-code
-                :source-path (credential-source-pathname primary-source))))
+                :source-path        (credential-source-pathname primary-source))))
          (credential-manager-accept-account
           manager credentials :allow-change t)
          (credential-source-save primary-source credentials))
        t))))
+
 
 ;;;; -- ChatGPT Device Authentication Construction and Presentation --
 
@@ -124,19 +125,19 @@
                (non-empty-string-p client-id)
                (plusp poll-timeout))
     (device-authentication-fail
-     :stage ':configuration
+     :stage   ':configuration
      :message "Device authentication configuration is invalid."))
   (make-instance 'openai-device-authentication-client
-                 :issuer (string-right-trim '(#\/) issuer)
-                 :client-id client-id
+                 :issuer           (string-right-trim '(#\/) issuer)
+                 :client-id        client-id
                  :request-function
                  (or request-function #'device-authentication-request)
                  :poll-function
                  (or poll-function #'device-authentication--poll-for-code)
-                 :sleep-function sleep-function
-                 :clock-function clock-function
+                 :sleep-function   sleep-function
+                 :clock-function   clock-function
                  :browser-function browser-function
-                 :poll-timeout poll-timeout))
+                 :poll-timeout     poll-timeout))
 
 (defmethod device-authentication-display-code
     ((client openai-device-authentication-client)
@@ -151,6 +152,7 @@
   (finish-output stream)
   nil)
 
+
 ;;;; -- Private ChatGPT Device Flow --
 
 (-> device-authentication--poll-for-code
@@ -158,13 +160,13 @@
     device-authorization-code)
 (defun device-authentication--poll-for-code (client authorization)
   "Poll CLIENT until AUTHORIZATION succeeds, fails, or reaches its deadline."
-  (let* ((clock (device-authentication-client-clock-function client))
+  (let* ((clock      (device-authentication-client-clock-function client))
          (started-at (funcall clock))
-         (deadline (+ started-at
-                      (device-authentication-client-poll-timeout client)))
-         (url (device-authentication-issuer-url
-               client
-               "/api/accounts/deviceauth/token"))
+         (deadline   (+ started-at
+                        (device-authentication-client-poll-timeout client)))
+         (url        (device-authentication-issuer-url
+                      client
+                      "/api/accounts/deviceauth/token"))
          (content
            (json-encode
             (json-object
@@ -173,14 +175,14 @@
     (loop
       (multiple-value-bind (body status response-headers)
           (device-authentication-invoke-request
-           :client client
-           :url url
+           :client  client
+           :url     url
            :headers (list (cons "Content-Type" "application/json")
                           (cons "Accept" "application/json")
                           (cons "User-Agent"
                                 (provider-user-agent)))
            :content content
-           :stage ':poll)
+           :stage   ':poll)
         (declare (ignore response-headers))
         (cond
           ((device-authentication-success-status-p status)
@@ -189,7 +191,7 @@
                         (json-decode body)
                       (error ()
                         (device-authentication-fail
-                         :stage ':poll
+                         :stage   ':poll
                          :message "The approved device response contained invalid JSON."))))
                   (authorization-code
                     (and (json-object-p document)
@@ -200,17 +202,17 @@
              (unless (and (non-empty-string-p authorization-code)
                           (non-empty-string-p code-verifier))
                (device-authentication-fail
-                :stage ':poll
+                :stage   ':poll
                 :message "The approved device response omitted required fields."))
              (return
                (make-instance 'device-authorization-code
                               :authorization-code authorization-code
-                              :code-verifier code-verifier))))
+                              :code-verifier      code-verifier))))
           ((member status '(403 404))
            (let ((now (funcall clock)))
              (when (>= now deadline)
                (device-authentication-fail
-                :stage ':poll
+                :stage   ':poll
                 :message "Device authentication timed out after 15 minutes."))
              (funcall (device-authentication-client-sleep-function client)
                       (min (device-authorization-poll-interval authorization)
@@ -224,11 +226,11 @@
                      (device-authorization-user-code authorization)
                      content))))
              (device-authentication-fail
-              :stage ':poll
+              :stage   ':poll
               :message (format nil "Device authorization was not completed~@[ (~A)~]."
                                code)
-              :status status
-              :code code))))))))
+              :status  status
+              :code    code))))))))
 
 (-> device-authentication--exchange-code
     (&key
@@ -253,18 +255,18 @@
                    (device-authorization-code-verifier authorization-code)))))
          (document
            (device-authentication-json-request
-            :client client
-            :url (device-authentication-issuer-url client "/oauth/token")
+            :client       client
+            :url          (device-authentication-issuer-url client "/oauth/token")
             :content-type "application/x-www-form-urlencoded"
-            :content content
-            :stage ':exchange
+            :content      content
+            :stage        ':exchange
             :secret-values
             (list
              (device-authorization-code-value authorization-code)
              (device-authorization-code-verifier authorization-code)
              content)))
-         (id-token (json-get document "id_token"))
-         (access-token (json-get document "access_token"))
+         (id-token      (json-get document "id_token"))
+         (access-token  (json-get document "access_token"))
          (refresh-token (json-get document "refresh_token"))
          (account-id
            (or (and (stringp id-token)
@@ -276,16 +278,16 @@
                  (non-empty-string-p refresh-token)
                  (non-empty-string-p account-id))
       (device-authentication-fail
-       :stage ':credentials
+       :stage   ':credentials
        :message "The OAuth exchange omitted required credential fields."))
     (make-instance 'oauth-credentials
-                   :access-token access-token
+                   :access-token  access-token
                    :refresh-token refresh-token
-                   :id-token id-token
-                   :account-id account-id
-                   :expires-at (or (jwt-expiration access-token)
-                                   (jwt-expiration id-token))
-                   :source-path source-path)))
+                   :id-token      id-token
+                   :account-id    account-id
+                   :expires-at    (or (jwt-expiration access-token)
+                                      (jwt-expiration id-token))
+                   :source-path   source-path)))
 
 (-> device-authentication--jwt-account-id (string) (option string))
 (defun device-authentication--jwt-account-id (token)
