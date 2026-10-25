@@ -5,11 +5,11 @@
 (-> mission-gate-normalize (list) list)
 (defun mission-gate-normalize (specification)
   "Validate one gate and initialize its durable evidence and retry state."
-  (let* ((kind (getf specification :kind))
-         (inputs (getf specification :inputs))
+  (let* ((kind            (getf specification :kind))
+         (inputs          (getf specification :inputs))
          (deterministic-p (getf specification :deterministic-p))
-         (attempt-limit (or (getf specification :attempt-limit) 3))
-         (timeout (or (getf specification :timeout-seconds) 60)))
+         (attempt-limit   (or (getf specification :attempt-limit) 3))
+         (timeout         (or (getf specification :timeout-seconds) 60)))
     (unless (and (non-empty-string-p (getf specification :id))
                  (member kind '(:command :artifact :lisp :fact))
                  (typep attempt-limit '(integer 1 64))
@@ -17,16 +17,20 @@
                  (listp inputs) (every #'non-empty-string-p inputs)
                  (or (null deterministic-p) (and (eq deterministic-p t) inputs))
                  (case kind
-                   (:command (non-empty-string-p (getf specification :command)))
-                   (:artifact (non-empty-string-p (getf specification :path)))
-                   (:lisp (non-empty-string-p (getf specification :predicate)))
-                   (:fact (and (proper-list-p (getf specification :pattern))
-                               (or (stringp (first (getf specification :pattern)))
-                                   (eq (first (getf specification :pattern)) :not))
-                               (proper-list-p (getf specification :accepted))
-                               (subsetp (getf specification :accepted)
-                                        '(:observation :user-assertion :assumption
-                                          :model-proposal))))))
+                   (:command
+                    (non-empty-string-p (getf specification :command)))
+                   (:artifact
+                    (non-empty-string-p (getf specification :path)))
+                   (:lisp
+                    (non-empty-string-p (getf specification :predicate)))
+                   (:fact
+                    (and (proper-list-p (getf specification :pattern))
+                         (or (stringp (first (getf specification :pattern)))
+                             (eq (first (getf specification :pattern)) :not))
+                         (proper-list-p (getf specification :accepted))
+                         (subsetp (getf specification :accepted)
+                                  '(:observation :user-assertion :assumption
+                                    :model-proposal))))))
       (mission--reject ':invalid "Gates require ID, command/artifact/Lisp/fact policy, positive retry and timeout limits; deterministic gates require explicit file inputs."))
     (when (and (getf specification :sha256)
                (not (and (stringp (getf specification :sha256))
@@ -35,23 +39,24 @@
                                 (getf specification :sha256)))))
       (mission--reject ':invalid "Artifact SHA-256 must contain 64 hexadecimal digits."))
     (list :id (getf specification :id) :kind kind
-          :command (getf specification :command)
+          :command   (getf specification :command)
           :directory (getf specification :directory)
           :path (getf specification :path) :sha256 (getf specification :sha256)
           :predicate (getf specification :predicate)
-          :pattern (copy-tree (getf specification :pattern))
-          :accepted (copy-list (or (getf specification :accepted)
-                                   '(:observation :user-assertion)))
+          :pattern   (copy-tree (getf specification :pattern))
+          :accepted  (copy-list (or (getf specification :accepted)
+                                    '(:observation :user-assertion)))
           :inputs (copy-list inputs) :deterministic-p (and deterministic-p t)
           :attempt-limit attempt-limit :timeout-seconds timeout
           :attempts 0 :status ':pending :fingerprint nil :invalidation 0
-          :evidence nil)))
+          :evidence  nil)))
 
 (-> mission--file-digest (pathname) string)
 (defun mission--file-digest (pathname)
   "Return the SHA-256 of one file, or a stable missing-state marker."
   (cond
-    ((not (probe-file pathname)) "missing")
+    ((not (probe-file pathname))
+     "missing")
     ((uiop:directory-exists-p pathname)
      (mission--reject ':invalid "Deterministic gate inputs must name files, not directories."))
     (t
@@ -82,19 +87,19 @@ Facts resting only on bases the gate does not accept, such as a model's
 predicted effects, and conflicted facts never satisfy it. A negated pattern is
 satisfied by an accepted explicit negation."
   (let* ((configuration (tool-context-configuration context))
-         (base (knowledge-base-read configuration))
-         (pattern (knowledge--pattern-from-input
-                   (getf gate :pattern)
-                   (lambda (predicate)
-                     (knowledge-base-schema base predicate
-                                            :workspace (knowledge--workspace configuration)))
-                   :negatable t)))
+         (base          (knowledge-base-read configuration))
+         (pattern       (knowledge--pattern-from-input
+                         (getf gate :pattern)
+                         (lambda (predicate)
+                           (knowledge-base-schema base predicate
+                                                  :workspace (knowledge--workspace configuration)))
+                         :negatable t)))
     (let ((view (knowledge-view-current configuration)))
       (rest (first (knowledge-view-solve view (list pattern)
                                          :limit 1
-                                         :test (lambda (node)
-                                                 (knowledge-node-admissible-p
-                                                  view node :accepted (getf gate :accepted)))))))))
+                                         :test  (lambda (node)
+                                                  (knowledge-node-admissible-p
+                                                   view node :accepted (getf gate :accepted)))))))))
 
 (-> mission-gate-fingerprint (list tool-context) list)
 (defun mission-gate-fingerprint (gate context)
@@ -125,14 +130,14 @@ satisfied by an accepted explicit negation."
               (directory (getf gate :directory)))
          (when directory (setf (gethash "directory" arguments) directory))
          (let* ((result (mission--gate-tool-result context "shell" "run" arguments))
-                (text (tool-result-content result)))
+                (text   (tool-result-content result)))
            (values (and (tool-result-success-p result)
                         (uiop:string-prefix-p (format nil "exit 0~%") text))
                    (mission--bounded-text text)
                    (conversation--bounded-tool-details (tool-result-details result))))))
       (:artifact
-       (let* ((path (workspace-tool-path context (getf gate :path)))
-              (digest (mission--file-digest path))
+       (let* ((path     (workspace-tool-path context (getf gate :path)))
+              (digest   (mission--file-digest path))
               (expected (getf gate :sha256))
               (passed-p (and (not (string= digest "missing"))
                              (or (null expected) (string-equal expected digest)))))
@@ -150,7 +155,7 @@ satisfied by an accepted explicit negation."
                              (getf gate :accepted) (knowledge-pattern-text (getf gate :pattern))))
                  nil)))
       (:lisp
-       (let* ((code (format nil "(assert (progn ~A))" (getf gate :predicate)))
+       (let* ((code   (format nil "(assert (progn ~A))" (getf gate :predicate)))
               (result (mission--gate-tool-result
                        context "lisp" "eval"
                        (json-object "forms" (vector code) "timeout-seconds" timeout))))
@@ -170,7 +175,7 @@ satisfied by an accepted explicit negation."
       (with-recursive-lock-held ((mission-context-lock context))
         (let* ((goal (mission-context-goal context))
                (gate (find identifier (getf goal :gates)
-                           :key (lambda (candidate) (getf candidate :id))
+                           :key  (lambda (candidate) (getf candidate :id))
                            :test #'equal)))
           (unless gate
             (mission--reject ':missing "No such mission gate."))
@@ -180,12 +185,12 @@ satisfied by an accepted explicit negation."
           (setf (getf gate :status) ':pending (getf gate :fingerprint) nil)
           (mission--evidence context ':invalidation (list identifier evidence))
           (mission--record context))))
-  nil))
+   nil))
 
 (-> application-mission-accept (application string string) null)
 (defun application-mission-accept (application identifier evidence)
   "Record explicit user acceptance of a criterion without executable gates."
-  (let* ((context (mission-context-find (application-conversation application)))
+  (let* ((context   (mission-context-find (application-conversation application)))
          (criterion (find identifier (getf (application-goal application) :criteria)
                           :key (lambda (criterion) (getf criterion :id)) :test #'equal)))
     (unless (and context criterion (null (getf criterion :gates))
@@ -223,7 +228,8 @@ satisfied by an accepted explicit negation."
         (when (and (getf gate :deterministic-p)
                    (equal fingerprint (getf gate :fingerprint)))
           (case (getf gate :status)
-            (:passed (return-from mission--check-gate t))
+            (:passed
+             (return-from mission--check-gate t))
             (:failed
              (mission--evidence context ':unchanged-failure (getf gate :id))
              (mission--record context)
@@ -280,7 +286,7 @@ satisfied by an accepted explicit negation."
 (defun application-mission-verify (application)
   "Run ordered gates and prove every configured criterion, separately from completion."
   (let* ((context (mission-context-find (application-conversation application)))
-         (goal (application-goal application)))
+         (goal    (application-goal application)))
     (unless (and context (mission-goal-p goal))
       (mission--reject ':missing "No mission is set."))
     ;; A reviewer uses a delegated worker; do not await it under the request lock.
@@ -297,12 +303,12 @@ satisfied by an accepted explicit negation."
         (mission--evidence context ':model-complete "Harness verification requested.")
         (mission--record context))
       (let* ((tool-context (application-tool-context application))
-             (runtime (tool-context-execution-runtime tool-context))
-             (live-jobs (and (typep runtime 'task-orchestrator)
-                             (remove-if-not
-                              (lambda (job)
-                                (and (eq context (mission-context-find job)) (not (job-terminal-p job))))
-                              (task-orchestrator-list-visible-jobs runtime (application-agent application))))))
+             (runtime      (tool-context-execution-runtime tool-context))
+             (live-jobs    (and (typep runtime 'task-orchestrator)
+                                (remove-if-not
+                                 (lambda (job)
+                                   (and (eq context (mission-context-find job)) (not (job-terminal-p job))))
+                                 (task-orchestrator-list-visible-jobs runtime (application-agent application))))))
         (when (or live-jobs (mission-context-jobs context))
           (mission--evidence context ':pending-work "Delegated work is still live; collect its terminal result before verification.")
           (mission--record context)
@@ -331,4 +337,4 @@ satisfied by an accepted explicit negation."
             (if (mission--criteria-proven-p goal)
                 (mission--transition context ':verified "Every explicit acceptance criterion has configured evidence.")
                 (mission--transition context ':blocked "Gates passed; acceptance criteria still require user evidence.")))))
-  nil)))
+     nil)))
