@@ -53,20 +53,20 @@ after later responses and compaction, so it must outlive the next response."
 A report that repeats an active papercut of this workspace returns that
 existing report instead of recording another."
   (declare (ignore tool))
-  (let ((title (tool-argument arguments "title" :required t))
+  (let ((title   (tool-argument arguments "title" :required t))
         (content (tool-argument arguments "content" :required t)))
     (unless (and (stringp title) (stringp content))
       (error 'tool-error
-             :message "papercut.report requires string title and content."
+             :message   "papercut.report requires string title and content."
              :tool-name "papercut.report"))
     (multiple-value-bind (papercut duplicate-p)
         (papercut-report
          (tool-context-configuration context)
-         :title title
-         :content content
+         :title      title
+         :content    content
          :diagnostic (tool-argument arguments "diagnostic")
          :issue-kind (or (tool-argument arguments "issue-kind") "other")
-         :tool (tool-argument arguments "tool")
+         :tool       (tool-argument arguments "tool")
          :source-conversation
          (conversation-identifier (tool-context-conversation context)))
       (tool-success (papercut-tool--result papercut duplicate-p)))))
