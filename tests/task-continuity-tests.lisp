@@ -165,7 +165,7 @@
          (test-assert
           (task-continuity-tests--refused-p
            (lambda () (task-continuity-dispatch context "resource" "read"
-                                                (json-object "uri" "workspace:file"))) :code ':authority)
+                                                :arguments (json-object "uri" "workspace:file"))) :code ':authority)
           "A withheld recovery capability is an authority refusal"))
        (with-lock-held ((cl-jobpond::job-pool--lock (task-orchestrator-pool orchestrator)))
          (setf (gethash (job-identifier job)
@@ -224,7 +224,7 @@
          (loop
            (let* ((response    (task-continuity-dispatch
                                 context "job" "continuity"
-                                (json-object "action" "list" "offset" offset "limit" 100)))
+                                :arguments (json-object "action" "list" "offset" offset "limit" 100)))
                   (content     (tool-result-content response))
                   (page        (tool-result-details response))
                   (*read-eval* nil))

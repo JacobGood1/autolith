@@ -255,15 +255,15 @@ clamped at EOF. Live children use their deterministic conversation identity."
      (let ((arguments (json-object "id" id)))
        (when (equal action "send")
          (setf (gethash "message" arguments) message))
-       (let ((result (task-continuity-dispatch context "job" action arguments)))
+       (let ((result (task-continuity-dispatch context "job" action :arguments arguments)))
          (if application
              (task-inspector--result-entry application context :operation action :result result)
              (tool-result-content result)))))
     ((member action '("revive" "abandon") :test #'equal)
      (let ((result (task-continuity-dispatch
                     context "job" "continuity"
-                    (json-object "action" action "id" id
-                                 "authorize" (if authorized-p t (json-false))))))
+                    :arguments (json-object "action" action "id" id
+                                            "authorize" (if authorized-p t (json-false))))))
        (if application
            (task-inspector--result-entry application context :operation "continuity" :result result)
            (tool-result-content result))))

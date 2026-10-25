@@ -223,7 +223,7 @@
                   (declare (ignore command directory))
                   (setf called-p t)
                   ':deny))))
-         (task-continuity-dispatch authorized-context "test" "authorize" (json-object)))
+         (task-continuity-dispatch authorized-context "test" "authorize" :arguments (json-object)))
        (test-assert (and called-p (eq :deny *task-test-command-decision*))
                     "Ordinary action dispatch retains the originating authorization callback"))))
   nil)
@@ -279,7 +279,7 @@
              (task-continuity-inventory parent orchestrator)
              (tool-result-success-p
               (task-continuity-dispatch context "job" "get"
-                                        (json-object "id" (job-identifier job)))))
+                                        :arguments (json-object "id" (job-identifier job)))))
         "Inspector, continuity and job.get accept restored oversized progress")
        (task-tests--publish-terminal job ':failed (task--failed-result job ':failed "Provider failed"))
        ;; Restore the old result shape without asking the new publisher to create it.

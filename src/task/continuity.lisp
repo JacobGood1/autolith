@@ -347,8 +347,10 @@ repeating the task's external effects is safe; it is an assertion, not a test."
     (task-continuity-classify (list :record record :path (namestring path))
                               viewer orchestrator)))
 
-(-> task-continuity-dispatch (tool-context string string json-object) (values tool-result string))
-(defun task-continuity-dispatch (context namespace name arguments)
+(-> task-continuity-dispatch
+    (tool-context string string &key (:arguments json-object))
+    (values tool-result string))
+(defun task-continuity-dispatch (context namespace name &key arguments)
   "Dispatch a normal registered operation with correlated durable action records."
   (let* ((registry     (tool-context-registry context))
          (tool         (tool-registry-find registry namespace name))
@@ -416,7 +418,7 @@ require a new human decision rather than an automatic second attempt."
              :root-conversation (getf record :root-conversation)))
       (return-from task-continuity-revive
         (task-continuity-dispatch context "job" "get"
-                                 (json-object "id" (getf record :job-id)))))
+                                  :arguments (json-object "id" (getf record :job-id)))))
     (unless (member classification '(:safe-restartable-specification
                                      :reconstructible-checkpoint))
       (task-continuity--fail "This job has no unconsumed safe recovery pathway."))
@@ -434,13 +436,13 @@ require a new human decision rather than an automatic second attempt."
           (if (eq classification :reconstructible-checkpoint)
               (task-continuity-dispatch
                context "lisp" "start"
-               (json-object "image" (getf checkpoint :image) "repl" (getf checkpoint :repl)))
+               :arguments (json-object "image" (getf checkpoint :image) "repl" (getf checkpoint :repl)))
               (task-continuity-dispatch
                context "task" "run"
-               (let ((arguments (json-object "agent" (getf spec :agent) "task" (getf spec :task))))
-                 (when (getf spec :context)
-                   (setf (gethash "context" arguments) (getf spec :context)))
-                 arguments)))
+               :arguments (let ((arguments (json-object "agent" (getf spec :agent) "task" (getf spec :task))))
+                            (when (getf spec :context)
+                              (setf (gethash "context" arguments) (getf spec :context)))
+                            arguments)))
         (task-continuity--write
          (merge-pathnames "revive-result.sexp" directory)
          (list :success-p         (tool-result-success-p result)
