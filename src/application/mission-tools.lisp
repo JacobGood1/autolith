@@ -117,7 +117,7 @@
   "Check finite native specification shapes before the existing policy validator."
   (labels ((plist-p (value)
              (and (proper-list-p value) (evenp (length value))
-                  (let ((keys (loop for (key item) on value by #'cddr collect key)))
+                  (let ((keys (plist-keys value)))
                     (and (every #'keywordp keys)
                          (= (length keys) (length (remove-duplicates keys))))))))
     (and (plist-p specification)
