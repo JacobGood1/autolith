@@ -458,7 +458,7 @@ stable launcher
   core and a separate active image, and boot-probes both
 - Updates validate provenance and refresh a readable availability cache.
   Startup reads cached state only. An accepted packaged update runs the
-  bundled installer and restarts. 
+  bundled installer and restarts.
 - Recovery reports sanitized crash context. Automatic failure recovery boots
   current committed source without private mutations or user init. Explicit
   generation selection and rollback retain their saved-state path
