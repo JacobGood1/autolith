@@ -9,8 +9,8 @@
          (record
            (if identifier
                (find identifier effective
-                     :key (lambda (candidate)
-                            (getf (rest candidate) :id))
+                     :key  (lambda (candidate)
+                             (getf (rest candidate) :id))
                      :test #'string=)
                (first (last effective)))))
     (unless record
@@ -21,7 +21,7 @@
                          identifier)
                  "The active image has no effective pending mutation to discard.")
              :tool-name "self.discard"
-             :pathname (configuration-journal-path configuration)))
+             :pathname  (configuration-journal-path configuration)))
     record))
 
 (-> self-discard--reapply (list) t)
@@ -46,7 +46,7 @@
 (defun self-discard--synchronize-definition-source (configuration record)
   "Synchronize the exploratory source cache after discarding RECORD."
   (let* ((properties (rest record))
-         (target (getf properties :target))
+         (target     (getf properties :target))
          (preceding
            (find-if
             (lambda (candidate)
@@ -64,8 +64,8 @@
 (defun self-discard-mutation (configuration identifier)
   "Restore and journal the effective mutation selected by IDENTIFIER."
   (with-live-mutation
-    (let* ((record (self-discard--record configuration identifier))
-           (properties (rest record))
+    (let* ((record              (self-discard--record configuration identifier))
+           (properties          (rest record))
            (mutation-identifier (getf properties :id))
            (undo-action
              (gethash mutation-identifier *exploratory-undo-actions*)))
@@ -74,15 +74,15 @@
                :message
                "The exact undo state for this mutation is unavailable in the running image."
                :tool-name "self.discard"
-               :pathname (configuration-journal-path configuration)))
+               :pathname  (configuration-journal-path configuration)))
       (mutation-journal-append
        configuration
        (list :mutation
              :kind :discard
              :id mutation-identifier
              :lineage *active-image-lineage-identifier*
-             :target (getf properties :target)
-             :result ':pending))
+             :target  (getf properties :target)
+             :result  ':pending))
       (funcall undo-action)
       (handler-case
           (progn
@@ -92,8 +92,8 @@
                    :kind :discard
                    :id mutation-identifier
                    :lineage *active-image-lineage-identifier*
-                   :target (getf properties :target)
-                   :result ':discarded))
+                   :target  (getf properties :target)
+                   :result  ':discarded))
             (when (eq (getf properties :kind) :definition)
               (self-discard--synchronize-definition-source
                configuration
@@ -107,7 +107,7 @@
               (error 'active-image-corruption
                      :message
                      "A discard journal failure could not restore the proposed live state."
-                     :original-condition condition
+                     :original-condition    condition
                      :restoration-condition restoration-condition)))
           (error condition))))))
 
