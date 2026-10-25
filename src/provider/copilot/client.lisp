@@ -104,7 +104,6 @@
     :documentation "The credential-free URL of the failed inference request."))
   (:documentation "A terminal Copilot failure with its resolved wire route."))
 
-(-> copilot-provider-protocol (copilot-provider-mixin) keyword)
 (defgeneric copilot-provider-protocol (provider)
   (:documentation "Return the wire protocol used by PROVIDER's account adapter."))
 
