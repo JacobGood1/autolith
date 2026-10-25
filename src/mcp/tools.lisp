@@ -106,19 +106,18 @@
     (t
      value)))
 
-(-> mcp-transport-configuration--credential-bindings
-    (mcp-transport-configuration)
-    list)
 (defgeneric mcp-transport-configuration--credential-bindings (transport)
   (:documentation
    "Return TRANSPORT's environment-backed credential bindings."))
 
 (defmethod mcp-transport-configuration--credential-bindings
     ((transport mcp-stdio-transport-configuration))
+  "Return the stdio TRANSPORT's environment-backed credential bindings."
   (mcp-stdio-configuration-environment-bindings transport))
 
 (defmethod mcp-transport-configuration--credential-bindings
     ((transport mcp-http-transport-configuration))
+  "Return the HTTP TRANSPORT's header-backed credential bindings."
   (mcp-http-configuration-header-bindings transport))
 
 (-> mcp-tools--credential-bindings (mcp-server-configuration) list)
@@ -462,11 +461,6 @@
        (format nil "MCP stdio directory ~A does not exist." candidate)))
     (uiop:ensure-directory-pathname (platform-truename *platform* candidate))))
 
-(-> mcp-transport-configuration--materialize
-    (mcp-transport-configuration mcp-server-configuration configuration
-     &key (:notification-handler (option function))
-       (:exchange-scope-function (option function)))
-    mcp-transport)
 (defgeneric mcp-transport-configuration--materialize
     (transport server-configuration configuration
      &key notification-handler exchange-scope-function)
@@ -478,6 +472,7 @@
      (server-configuration mcp-server-configuration)
      (configuration configuration)
      &key notification-handler exchange-scope-function)
+  "Materialize a stdio transport that resolves its directory and environment per launch."
   (declare (ignore exchange-scope-function))
   (make-mcp-stdio-transport
    (mcp-stdio-configuration-command transport)
@@ -499,6 +494,7 @@
      (server-configuration mcp-server-configuration)
      (configuration configuration)
      &key notification-handler exchange-scope-function)
+  "Materialize a streamable HTTP transport that resolves its headers per exchange."
   (declare (ignore configuration))
   (make-mcp-streamable-http-transport
    (mcp-http-configuration-url transport)
@@ -1771,19 +1767,18 @@ retained value is credential-redacted or projected."
 
 ;;;; -- Registry Construction and Status --
 
-(-> mcp-transport-configuration--kind
-    (mcp-transport-configuration)
-    keyword)
 (defgeneric mcp-transport-configuration--kind (transport)
   (:documentation "Return TRANSPORT's concise status kind."))
 
 (defmethod mcp-transport-configuration--kind
     ((transport mcp-stdio-transport-configuration))
+  "Report a stdio transport as :STDIO."
   (declare (ignore transport))
   ':stdio)
 
 (defmethod mcp-transport-configuration--kind
     ((transport mcp-http-transport-configuration))
+  "Report a streamable HTTP transport as :HTTP."
   (declare (ignore transport))
   ':http)
 
