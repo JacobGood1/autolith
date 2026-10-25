@@ -261,7 +261,7 @@ secondary, and quiet text the soft blue."
             (:constructor make-terminal-theme
                 (&key name style-table foreground background))
             (:copier nil))
-  "A named presentation: semantic styles plus optional terminal default colors.
+  "A named presentation of semantic styles plus optional terminal default colors.
 
 FOREGROUND and BACKGROUND are 24-bit colors imposed on the terminal while the
 fullscreen viewport is active, or NIL to leave the terminal's own defaults."
@@ -289,8 +289,10 @@ fullscreen viewport is active, or NIL to leave the terminal's own defaults."
 (defun terminal-theme-find (name)
   "Return the theme called NAME."
   (or (find name *terminal-themes* :key #'terminal-theme-name)
-      (error "~S is not a terminal theme; choose one of ~{~S~^, ~}."
-             name (mapcar #'terminal-theme-name *terminal-themes*))))
+      (error 'terminal-theme-error
+             :name    name
+             :message (format nil "~S is not a terminal theme; choose one of ~{~S~^, ~}."
+                              name (mapcar #'terminal-theme-name *terminal-themes*)))))
 
 (-> terminal-theme-install (keyword) terminal-theme)
 (defun terminal-theme-install (name)
@@ -464,3 +466,14 @@ changing their text, hierarchy markers, wrapping, inline code, or emphasis."
                                         (terminal-span-style span)))
                                      (terminal-span-text span))))
         rows)))
+
+
+;;;; -- Conditions --
+
+(define-condition terminal-theme-error (autolith-error)
+  ((name
+    :initarg       :name
+    :reader        terminal-theme-error-name
+    :type          keyword
+    :documentation "The requested theme name that names no installed theme."))
+  (:documentation "A requested terminal presentation theme does not exist."))
