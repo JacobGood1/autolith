@@ -1,4 +1,5 @@
 (defpackage #:autolith
+  (:documentation "Autolith, a small, live, self-modifying Common Lisp agent.")
   (:use #:cl)
   (:shadow #:trace)
   (:import-from #:cl-resources
