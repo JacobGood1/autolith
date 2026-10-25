@@ -83,12 +83,12 @@ does not change machine serialization or worker output."
 
 Bound the scan so circular, dotted, and long lists use the standard printer."
   (and (consp value)
-       (loop for tail = value then (cddr tail)
+       (loop for tail = value then (nthcdr 2 tail)
              repeat 100
              do (unless (and (consp tail) (keywordp (first tail))
                              (consp (rest tail)))
                   (return nil))
-             when (null (cddr tail))
+             when (null (nthcdr 2 tail))
                return t
              finally (return nil))))
 
@@ -96,7 +96,7 @@ Bound the scan so circular, dotted, and long lists use the standard printer."
 (defun application-lisp-value--pprint-plist (stream value)
   "Print VALUE with aligned keyword/value rows when it does not fit one line."
   (let ((width
-          (loop for (key) on value by #'cddr
+          (loop for (key) on value by (partial #'nthcdr 2)
                 maximize (min 24 (length (write-to-string key :pretty nil))))))
     (pprint-logical-block (stream value :prefix "(" :suffix ")")
       (loop
