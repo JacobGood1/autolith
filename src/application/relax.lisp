@@ -28,14 +28,14 @@
   nil)
 
 (define-application-command application--builtin-relax-command
-  (:name "/relax"
-   :description "warn against shrinking scope or rushing work"
-   :tip "Use `(relax t)` to add a warning to provider prompts, or `(relax nil)` to remove it."
-   :busy-behavior :apply
+  (:name              "/relax"
+   :description       "warn against shrinking scope or rushing work"
+   :tip               "Use `(relax t)` to add a warning to provider prompts, or `(relax nil)` to remove it."
+   :busy-behavior     :apply
    :terminal-behavior :shared
-   :callable t
-   :slash-parser application--parse-boolean-control
-   :static-options (:on :off))
+   :callable          t
+   :slash-parser      application--parse-boolean-control
+   :static-options    (:on :off))
   (application &optional (mode ':status))
   (application-relax-command application mode)
   ':continue)
