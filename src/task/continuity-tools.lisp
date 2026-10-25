@@ -33,15 +33,15 @@ Offsets refer to execution-ID order in the current inventory, not a snapshot."
   (unless (and (integerp offset) (<= 0 offset)
                (integerp limit) (<= 1 limit 100))
     (task-continuity--fail "Continuity offset or limit is outside its bounds."))
-  (let* ((rows (stable-sort (task-continuity-inventory viewer orchestrator)
-                            #'string< :key (lambda (row) (or (getf row :execution-id) ""))))
-         (total (length rows))
-         (start (min offset total))
+  (let* ((rows     (stable-sort (task-continuity-inventory viewer orchestrator)
+                                #'string< :key (lambda (row) (or (getf row :execution-id) ""))))
+         (total    (length rows))
+         (start    (min offset total))
          (selected nil))
     (labels ((page (entries)
                (let ((next (+ start (length entries))))
-               (list :continuity-list t :offset start :next-offset next
-                       :total total :more-p (< next total) :entries entries))))
+                (list :continuity-list t :offset start :next-offset next
+                        :total total :more-p (< next total) :entries entries))))
       (loop for row in (nthcdr start rows)
             repeat limit
             for trial = (append selected (list row))
@@ -56,10 +56,10 @@ Offsets refer to execution-ID order in the current inventory, not a snapshot."
 
 (defmethod tool-execute ((tool task-continuity-tool) (context tool-context) arguments)
   "Classify or decide recovery through the same owned job boundary."
-  (let* ((viewer (tool-context-agent context))
+  (let* ((viewer       (tool-context-agent context))
          (orchestrator (task-job-tool-orchestrator tool))
-         (action (tool-argument arguments "action" :required t))
-         (identifier (tool-argument arguments "id")))
+         (action       (tool-argument arguments "action" :required t))
+         (identifier   (tool-argument arguments "id")))
     (unless (typep viewer 'agent)
       (task-continuity--fail "Continuity requires an executing conversation owner."))
     (unless (or (equal action "list") (non-empty-string-p identifier))
@@ -74,7 +74,7 @@ Offsets refer to execution-ID order in the current inventory, not a snapshot."
               ((equal action "list")
                (task-continuity-page viewer orchestrator
                                      :offset (or (tool-argument arguments "offset") 0)
-                                     :limit (or (tool-argument arguments "limit") 20)))
+                                     :limit  (or (tool-argument arguments "limit") 20)))
               ((equal action "get")
                (task-continuity-classify
                 (task-continuity--find viewer identifier) viewer orchestrator))
@@ -90,7 +90,7 @@ Offsets refer to execution-ID order in the current inventory, not a snapshot."
                (task-continuity-declare
                 viewer orchestrator identifier
                 :image (tool-argument arguments "image" :required t)
-                :repl (tool-argument arguments "repl" :required t)))
+                :repl  (tool-argument arguments "repl" :required t)))
               ((equal action "abandon")
                (unless (eq t (tool-argument arguments "authorize"))
                  (task-continuity--fail "Abandonment requires explicit authority." :code ':authority))
