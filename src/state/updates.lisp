@@ -42,7 +42,7 @@
         (right-version (release-tag->version right)))
     (unless (and left-version right-version)
       (error 'type-error
-             :datum (list left right)
+             :datum         (list left right)
              :expected-type '(cons string (cons string null))))
     (version< (subseq left 1) (subseq right 1))))
 
@@ -51,21 +51,21 @@
 
 (defclass installation-provenance ()
   ((method
-    :initarg :method
-    :reader installation-provenance-method
-    :type (member :source :nix :release)
+    :initarg       :method
+    :reader        installation-provenance-method
+    :type          (member :source :nix :release)
     :documentation "The structurally validated source, Nix, or release method.")
    (current-tag
-    :initarg :current-tag
-    :initform nil
-    :reader installation-provenance-current-tag
-    :type (option non-empty-string)
+    :initarg       :current-tag
+    :initform      nil
+    :reader        installation-provenance-current-tag
+    :type          (option non-empty-string)
     :documentation "The currently running release tag, when versioned.")
    (release-root
-    :initarg :release-root
-    :initform nil
-    :reader installation-provenance-release-root
-    :type (option pathname)
+    :initarg       :release-root
+    :initform      nil
+    :reader        installation-provenance-release-root
+    :type          (option pathname)
     :documentation "The validated selected packaged release root, when present."))
   (:documentation
    "A startup installation identity derived from environment and immutable layout."))
@@ -186,10 +186,10 @@ that carries a platform accepts only that platform's qualified name."
               (config :source-root configuration)))
            (record-path (and release-root
                              (merge-pathnames "RELEASE" release-root)))
-           (fields (and record-path
-                        (probe-file record-path)
-                        (installation--release-fields record-path)))
-           (tag (and fields (rest (assoc "tag" fields :test #'string=))))
+           (fields      (and record-path
+                             (probe-file record-path)
+                             (installation--release-fields record-path)))
+           (tag         (and fields (rest (assoc "tag" fields :test #'string=))))
            (version
              (and fields (rest (assoc "version" fields :test #'string=))))
            (platform
@@ -202,7 +202,7 @@ that carries a platform accepts only that platform's qualified name."
            (install-root
              (and releases-root
                   (uiop:pathname-parent-directory-pathname releases-root)))
-           (current (and install-root (merge-pathnames "current/" install-root))))
+           (current     (and install-root (merge-pathnames "current/" install-root))))
       (when (and release-root
                  source-root
                  tag
@@ -215,8 +215,8 @@ that carries a platform accepts only that platform's qualified name."
                   (merge-pathnames "libexec/autolith/" release-root))
                  (installation--same-directory-p current release-root))
         (make-instance 'installation-provenance
-                       :method ':release
-                       :current-tag tag
+                       :method       ':release
+                       :current-tag  tag
                        :release-root release-root)))))
 
 (-> installation--nix-store-directory-p (pathname) boolean)
@@ -244,7 +244,7 @@ that carries a platform accepts only that platform's qualified name."
                (installation--nix-store-directory-p source-root)
                (equal source-root nix-source-root))
       (make-instance 'installation-provenance
-                     :method ':nix
+                     :method      ':nix
                      :current-tag (format nil "v~A" *autolith-version*)))))
 
 (-> installation-provenance-detect
@@ -267,28 +267,28 @@ that carries a platform accepts only that platform's qualified name."
 
 (defclass update-state ()
   ((last-attempt-at
-    :initarg :last-attempt-at
-    :initform nil
-    :reader update-state-last-attempt-at
-    :type (option (integer 0))
+    :initarg       :last-attempt-at
+    :initform      nil
+    :reader        update-state-last-attempt-at
+    :type          (option (integer 0))
     :documentation "The universal time of the newest bounded network attempt.")
    (last-success-at
-    :initarg :last-success-at
-    :initform nil
-    :reader update-state-last-success-at
-    :type (option (integer 0))
+    :initarg       :last-success-at
+    :initform      nil
+    :reader        update-state-last-success-at
+    :type          (option (integer 0))
     :documentation "The universal time of the newest valid response.")
    (latest-tag
-    :initarg :latest-tag
-    :initform nil
-    :reader update-state-latest-tag
-    :type (option non-empty-string)
+    :initarg       :latest-tag
+    :initform      nil
+    :reader        update-state-latest-tag
+    :type          (option non-empty-string)
     :documentation "The newest strictly validated release tag, if known.")
    (dismissed-tag
-    :initarg :dismissed-tag
-    :initform nil
-    :reader update-state-dismissed-tag
-    :type (option non-empty-string)
+    :initarg       :dismissed-tag
+    :initform      nil
+    :reader        update-state-dismissed-tag
+    :type          (option non-empty-string)
     :documentation "The exact release tag the user chose to skip."))
   (:documentation "Validated cached release availability and dismissal state."))
 
@@ -316,8 +316,8 @@ that carries a platform accepts only that platform's qualified name."
     (make-instance 'update-state
                    :last-attempt-at (getf properties :last-attempt-at)
                    :last-success-at (getf properties :last-success-at)
-                   :latest-tag (getf properties :latest-tag)
-                   :dismissed-tag (getf properties :dismissed-tag))))
+                   :latest-tag      (getf properties :latest-tag)
+                   :dismissed-tag   (getf properties :dismissed-tag))))
 
 (-> update-state--state->form (update-state) list)
 (defun update-state--state->form (state)
@@ -326,8 +326,8 @@ that carries a platform accepts only that platform's qualified name."
         :version *update-state-version*
         :last-attempt-at (update-state-last-attempt-at state)
         :last-success-at (update-state-last-success-at state)
-        :latest-tag (update-state-latest-tag state)
-        :dismissed-tag (update-state-dismissed-tag state)))
+        :latest-tag      (update-state-latest-tag state)
+        :dismissed-tag   (update-state-dismissed-tag state)))
 
 (-> update-state-load (configuration) update-state)
 (defun update-state-load (configuration)
@@ -336,20 +336,20 @@ that carries a platform accepts only that platform's qualified name."
       (update-state--form->state
        (snapshot-read-record
         (configuration-update-state-path configuration)
-        :tag ':update-state
-        :versions (list *update-state-version*)
-        :fields (list (list :indicator ':last-attempt-at
-                            :validate #'update-state--optional-time-p
-                            :required t)
-                      (list :indicator ':last-success-at
-                            :validate #'update-state--optional-time-p
-                            :required t)
-                      (list :indicator ':latest-tag
-                            :validate #'update-state--optional-tag-p
-                            :required t)
-                      (list :indicator ':dismissed-tag
-                            :validate #'update-state--optional-tag-p
-                            :required t))
+        :tag              ':update-state
+        :versions         (list *update-state-version*)
+        :fields           (list (list :indicator ':last-attempt-at
+                                      :validate  #'update-state--optional-time-p
+                                      :required  t)
+                                (list :indicator ':last-success-at
+                                      :validate  #'update-state--optional-time-p
+                                      :required  t)
+                                (list :indicator ':latest-tag
+                                      :validate  #'update-state--optional-tag-p
+                                      :required  t)
+                                (list :indicator ':dismissed-tag
+                                      :validate  #'update-state--optional-tag-p
+                                      :required  t))
         :allow-other-keys nil))
     (error ()
       (make-instance 'update-state))))
@@ -383,8 +383,8 @@ that carries a platform accepts only that platform's qualified name."
        (make-instance 'update-state
                       :last-attempt-at now
                       :last-success-at (update-state-last-success-at state)
-                      :latest-tag (update-state-latest-tag state)
-                      :dismissed-tag (update-state-dismissed-tag state)))))
+                      :latest-tag      (update-state-latest-tag state)
+                      :dismissed-tag   (update-state-dismissed-tag state)))))
   nil)
 
 (-> update-state--record-success (configuration integer string) null)
@@ -401,8 +401,8 @@ that carries a platform accepts only that platform's qualified name."
        (make-instance 'update-state
                       :last-attempt-at now
                       :last-success-at now
-                      :latest-tag latest-tag
-                      :dismissed-tag (update-state-dismissed-tag state)))))
+                      :latest-tag      latest-tag
+                      :dismissed-tag   (update-state-dismissed-tag state)))))
   nil)
 
 (-> update-state-dismiss (configuration string) null)
@@ -418,8 +418,8 @@ that carries a platform accepts only that platform's qualified name."
        (make-instance 'update-state
                       :last-attempt-at (update-state-last-attempt-at state)
                       :last-success-at (update-state-last-success-at state)
-                      :latest-tag (update-state-latest-tag state)
-                      :dismissed-tag tag))))
+                      :latest-tag      (update-state-latest-tag state)
+                      :dismissed-tag   tag))))
   nil)
 
 
@@ -427,14 +427,14 @@ that carries a platform accepts only that platform's qualified name."
 
 (defclass update-availability ()
   ((tag
-    :initarg :tag
-    :reader update-availability-tag
-    :type non-empty-string
+    :initarg       :tag
+    :reader        update-availability-tag
+    :type          non-empty-string
     :documentation "The newer cached release tag.")
    (method
-    :initarg :method
-    :reader update-availability-method
-    :type (member :nix :release)
+    :initarg       :method
+    :reader        update-availability-method
+    :type          (member :nix :release)
     :documentation "The validated installation method governing update UX."))
   (:documentation "A newer cached release relevant to one installation."))
 
@@ -443,10 +443,10 @@ that carries a platform accepts only that platform's qualified name."
     (option update-availability))
 (defun update-availability-current (configuration provenance)
   "Return a newer nondismissed cached release for PROVENANCE, or NIL."
-  (let* ((method (installation-provenance-method provenance))
+  (let* ((method      (installation-provenance-method provenance))
          (current-tag (installation-provenance-current-tag provenance))
-         (state (update-state-load configuration))
-         (latest-tag (update-state-latest-tag state)))
+         (state       (update-state-load configuration))
+         (latest-tag  (update-state-latest-tag state)))
     (when (and (not (string= (or (uiop:getenv
                                   "AUTOLITH_SUPPRESS_UPDATE_OFFER") "")
                              "1"))
@@ -457,17 +457,17 @@ that carries a platform accepts only that platform's qualified name."
                (not (string= latest-tag
                              (or (update-state-dismissed-tag state) ""))))
       (make-instance 'update-availability
-                     :tag latest-tag
+                     :tag    latest-tag
                      :method method))))
 
 (-> update-check--tag-from-uri (t) (option string))
 (defun update-check--tag-from-uri (uri)
   "Return a strict release tag from final response URI, or NIL."
   (handler-case
-      (let* ((path (uri-path uri))
-             (trimmed (string-right-trim "/" path))
+      (let* ((path      (uri-path uri))
+             (trimmed   (string-right-trim "/" path))
              (separator (position #\/ trimmed :from-end t))
-             (tag (subseq trimmed (if separator (1+ separator) 0))))
+             (tag       (subseq trimmed (if separator (1+ separator) 0))))
         (and (release-tag-valid-p tag) tag))
     (error ()
       nil)))
@@ -479,9 +479,9 @@ that carries a platform accepts only that platform's qualified name."
       (dexador:get (or (uiop:getenv "AUTOLITH_RELEASE_LATEST_URL")
                        *update-latest-url*)
                    :connect-timeout 3
-                   :read-timeout 5
-                   :max-redirects 5
-                   :force-string t)
+                   :read-timeout    5
+                   :max-redirects   5
+                   :force-string    t)
     (declare (ignore body headers))
     (let ((tag (and (= status 200)
                     (update-check--tag-from-uri final-uri))))
