@@ -127,8 +127,10 @@
              (sexp-store:log-append
               (configuration-papercut-path configuration)
               (papercut--assessed-record
-               (papercut-identifier report) ':worse "It regressed."
-               (get-universal-time)))
+               (papercut-identifier report)
+               :verdict     ':worse
+               :note        "It regressed."
+               :assessed-at (get-universal-time)))
              (sexp-store:log-append
               (configuration-papercut-path configuration)
               (papercut--closed-record

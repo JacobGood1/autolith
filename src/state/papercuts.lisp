@@ -196,10 +196,10 @@ so its repeats share fewer words than reports from different sessions do.")
         :diagnostic diagnostic))
 
 (-> papercut--assessed-record
-    (string (member :improved :worse :unchanged :too-early) string timestamp
-     &key (:diagnostic (option string)))
+    (string &key (:verdict (member :improved :worse :unchanged :too-early)) (:note string)
+                 (:assessed-at timestamp) (:diagnostic (option string)))
     list)
-(defun papercut--assessed-record (identifier verdict note assessed-at &key diagnostic)
+(defun papercut--assessed-record (identifier &key verdict note assessed-at diagnostic)
   "Return one portable effectiveness assessment record for IDENTIFIER."
   (list :papercut-assessed
         :version *papercut-format-version*
@@ -675,7 +675,11 @@ its first consented telemetry identity without recording another report."
           (papercut-assessed-at papercut) assessed-at)
     (values
      (append (papercut--telemetry-record papercut)
-             (list (papercut--assessed-record identifier verdict note assessed-at :diagnostic diagnostic)))
+             (list (papercut--assessed-record identifier
+                                              :verdict     verdict
+                                              :note        note
+                                              :assessed-at assessed-at
+                                              :diagnostic  diagnostic)))
      papercut t)))
 
 (-> papercut-assess
