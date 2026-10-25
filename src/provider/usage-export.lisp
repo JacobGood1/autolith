@@ -46,9 +46,9 @@
 (defun llm-usage--export (conversation result &key wall-seconds destination)
   "Append a UTF-8 event under a shared file lock, ignoring export errors."
   (handler-case
-      (let* ((path (pathname destination))
+      (let* ((path      (pathname destination))
              (lock-path (pathname (concatenate 'string (namestring path) ".lock")))
-             (line (json-encode (llm-usage--event conversation result wall-seconds))))
+             (line      (json-encode (llm-usage--event conversation result wall-seconds))))
         (ensure-directories-exist path)
         (call-with-file-lock
          lock-path
@@ -69,7 +69,7 @@
                (results (multiple-value-list (call-next-method))))
           (llm-usage--export
            conversation (first results) :destination destination
-           :wall-seconds (max 0 (/ (- (get-internal-real-time) started)
-                                  (float internal-time-units-per-second 1d0))))
+           :wall-seconds                             (max 0 (/ (- (get-internal-real-time) started)
+                                                              (float internal-time-units-per-second 1d0))))
           (values-list results))
         (call-next-method))))
