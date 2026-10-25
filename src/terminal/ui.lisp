@@ -2199,9 +2199,9 @@ removes it."
       nil))
 
 (-> terminal-ui--defer-live-append
-    (terminal-ui string string &optional list)
+    (terminal-ui string string &key (:regions list))
     null)
-(defun terminal-ui--defer-live-append (ui text display &optional regions)
+(defun terminal-ui--defer-live-append (ui text display &key regions)
   "Retain appended plain TEXT, styled DISPLAY, and REGIONS until live output resumes."
   (when (plusp (length text))
     (setf (terminal-ui-deferred-live-appended-regions ui)
@@ -2248,7 +2248,7 @@ Native scrollback has no mouse reporting, so APPENDED-REGIONS are kept only
 while output is deferred and otherwise dropped."
   (if (terminal-ui-live-output-suspended-p ui)
       (terminal-ui--defer-live-append ui appended-text appended-display
-                                      appended-regions)
+                                      :regions appended-regions)
       (let* ((appended-text
                (concatenate 'string
                             (terminal-ui-deferred-live-appended-text ui)

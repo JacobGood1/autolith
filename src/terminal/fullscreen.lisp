@@ -408,7 +408,8 @@ lock, because copying and browser launches present notices of their own."
                                  appended-regions)
   "Append, paint and commit atomically; a failed paint can be retried without duplication."
   (if (terminal-ui-live-output-suspended-p ui)
-      (terminal-ui--defer-live-append ui appended-text appended-display appended-regions)
+      (terminal-ui--defer-live-append ui appended-text appended-display
+                                      :regions appended-regions)
       (let* ((terminal      (terminal-ui-terminal ui))
              (deferred-text (terminal-ui-deferred-live-appended-text ui))
              (text          (concatenate 'string deferred-text appended-text))
