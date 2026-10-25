@@ -40,12 +40,12 @@
 
 NIL means the calls cannot be described by one procedure: their arguments
 differ in shape or type."
-  (let* ((input (mapcar #'action-trace-input traces))
-         (outputs (mapcar (lambda (trace)
-                            (mapcar (lambda (call) (procedure--decode-output (getf call :output)))
-                                    (action-trace-calls trace)))
-                          traces))
-         (parameters nil)
+  (let* ((input           (mapcar #'action-trace-input traces))
+         (outputs         (mapcar (lambda (trace)
+                                    (mapcar (lambda (call) (procedure--decode-output (getf call :output)))
+                                            (action-trace-calls trace)))
+                                  traces))
+         (parameters      nil)
          (hole-parameters nil))
     (multiple-value-bind (pattern holes) (procedure--input-pattern input)
       (labels ((parameter-name (key)
@@ -53,7 +53,7 @@ differ in shape or type."
                    (loop for index from 1
                          for name = (if (= index 1) base (format nil "~A-~D" base index))
                          unless (find name parameters
-                                      :key (lambda (parameter) (getf parameter :name))
+                                      :key  (lambda (parameter) (getf parameter :name))
                                       :test #'string=)
                            return name)))
 
@@ -138,24 +138,28 @@ differ in shape or type."
                                                               values)
                                                       key step))))
                      ((procedure--values-type values)
-                      (let ((from (procedure--output-reference values outputs step))
+                      (let ((from      (procedure--output-reference values outputs step))
                             (parameter (parameter-with-values values))
-                            (hole (hole-with-values values)))
+                            (hole      (hole-with-values values)))
                         (cond
-                          (from from)
-                          (parameter (list :param (getf parameter :name)))
-                          (hole (list :param (hole-parameter hole key (procedure--hole-values
-                                                                      (nth hole holes)
-                                                                      values))))
+                          (from
+                           from)
+                          (parameter
+                           (list :param (getf parameter :name)))
+                          (hole
+                           (list :param (hole-parameter hole key (procedure--hole-values
+                                                                  (nth hole holes)
+                                                                  values))))
                           ((and (every #'stringp values) (wrapped values key)))
-                          (t (list :param (add-parameter key values))))))
+                          (t
+                           (list :param (add-parameter key values))))))
                      (t
                       (list :param (add-parameter key values)))))))
         (let* ((steps
                  (loop for index from 0
                        for step-calls in (apply #'mapcar #'list
                                                 (mapcar #'action-trace-calls traces))
-                       collect (list :tool (getf (first step-calls) :tool)
+                       collect (list :tool      (getf (first step-calls) :tool)
                                      :arguments (generalize-object
                                                  (mapcar (lambda (call) (getf call :arguments))
                                                          step-calls)
@@ -169,17 +173,17 @@ differ in shape or type."
                                                (remf copy :values)
                                                copy))
                                            parameters)
-                       :input (and pattern
-                                   (mapcar (lambda (element)
-                                             (if (stringp element)
-                                                 element
-                                                 (destructuring-bind (index prefix suffix) element
-                                                   (let ((name (rest (assoc index hole-parameters))))
-                                                     (if name
-                                                         (list :param name prefix suffix)
-                                                         (list :any prefix suffix))))))
-                                           pattern))
-                       :steps steps)))
+                       :input      (and pattern
+                                        (mapcar (lambda (element)
+                                                  (if (stringp element)
+                                                      element
+                                                      (destructuring-bind (index prefix suffix) element
+                                                        (let ((name (rest (assoc index hole-parameters))))
+                                                          (if name
+                                                              (list :param name prefix suffix)
+                                                              (list :any prefix suffix))))))
+                                                pattern))
+                       :steps      steps)))
           (and (<= (length parameters) *procedure-parameter-limit*)
                (procedure-p procedure)
                procedure))))))
@@ -191,10 +195,10 @@ differ in shape or type."
 The request pattern, when there is one, must match TRACE's request and agree
 with the arguments; every parameter must be bound and suit its type."
   (let* ((properties (rest procedure))
-         (steps (getf properties :steps))
-         (calls (action-trace-calls trace))
-         (bindings nil)
-         (outputs nil))
+         (steps      (getf properties :steps))
+         (calls      (action-trace-calls trace))
+         (bindings   nil)
+         (outputs    nil))
     (block explain
       (unless (equal (mapcar (lambda (step) (getf step :tool)) steps)
                      (action-trace-skeleton trace))
@@ -260,8 +264,8 @@ EVALUATION records the turns checked and those counterexamples."
                         (setf procedure (copy-list procedure)
                               (getf (rest procedure) :input) nil))
                       (list procedure examples
-                            (list :method ':leave-one-out
-                                  :examples (length examples)
+                            (list :method          ':leave-one-out
+                                  :examples        (length examples)
                                   :counterexamples counterexamples))))))
 
 (-> procedure-learn (configuration) list)
@@ -274,8 +278,8 @@ recorded version. Nothing is learned when knowledge is off."
   (if (not (knowledge-capture-p configuration))
       nil
       (let* ((workspace (knowledge--workspace configuration))
-             (entries (knowledge-base-procedures (knowledge-base-read configuration) workspace))
-             (learned nil))
+             (entries   (knowledge-base-procedures (knowledge-base-read configuration) workspace))
+             (learned   nil))
         (loop for (procedure examples evaluation) in (procedure-learn-candidates
                                                        (action-traces configuration))
               for skeleton = (mapcar (lambda (step) (getf step :tool))
@@ -290,11 +294,11 @@ recorded version. Nothing is learned when knowledge is off."
                      (multiple-value-bind (name version added-p)
                          (procedure-define
                           configuration procedure
-                          :examples (mapcar (lambda (trace)
-                                              (list :conversation (action-trace-conversation trace)
-                                                    :sequence (action-trace-sequence trace)))
-                                            examples)
-                          :baseline (procedure--baseline examples)
+                          :examples   (mapcar (lambda (trace)
+                                                (list :conversation (action-trace-conversation trace)
+                                                      :sequence     (action-trace-sequence trace)))
+                                              examples)
+                          :baseline   (procedure--baseline examples)
                           :evaluation evaluation)
                        (when added-p
                          (push (list name version (length examples)) learned)))))
@@ -339,7 +343,7 @@ recorded version. Nothing is learned when knowledge is off."
   "Return the average model requests and tokens of the turns EXAMPLES."
   (let ((count (length examples)))
     (list :requests (round (reduce #'+ examples :key #'action-trace-requests) count)
-          :tokens (round (reduce #'+ examples :key #'action-trace-tokens) count))))
+          :tokens   (round (reduce #'+ examples :key #'action-trace-tokens) count))))
 
 (-> procedure--decode-output (t) t)
 (defun procedure--decode-output (output)
@@ -358,7 +362,7 @@ recorded version. Nothing is learned when knowledge is off."
 (defun procedure--output-leaves (value)
   "Return (PATH . LEAF) for the text and number fields of decoded JSON VALUE, outermost first."
   (let ((leaves nil)
-        (count 0))
+        (count  0))
     (labels ((walk (value path depth)
                (cond
                  ((>= count *procedure-output-leaf-limit*))
@@ -402,17 +406,22 @@ OUTPUTS holds each example's decoded results; only steps before STEP count."
 (defun procedure--values-type (values)
   "Return the parameter type all VALUES share, or NIL when they share none."
   (cond
-    ((every #'non-empty-string-p values) ':string)
-    ((every #'integerp values) ':integer)
-    ((every #'realp values) ':number)
-    ((every (lambda (value) (or (eq value t) (eq value :json-false))) values) ':boolean)
-    (t nil)))
+    ((every #'non-empty-string-p values)
+     ':string)
+    ((every #'integerp values)
+     ':integer)
+    ((every #'realp values)
+     ':number)
+    ((every (lambda (value) (or (eq value t) (eq value :json-false))) values)
+     ':boolean)
+    (t
+     nil)))
 
 (-> procedure--common-extension (list) (option string))
 (defun procedure--common-extension (values)
   "Return the file extension, such as \".csv\", every string in VALUES ends with, or NIL."
   (let* ((first-value (first values))
-         (dot (position #\. first-value :from-end t)))
+         (dot         (position #\. first-value :from-end t)))
     (and dot
          (< 1 (- (length first-value) dot) 10)
          (every #'alphanumericp (subseq first-value (1+ dot)))
@@ -437,7 +446,7 @@ PARTS are strings; PREFIX and SUFFIX are the same for every value and not both e
           do (unless position
                (return-from procedure--common-wrap nil))
              (let ((before (subseq value 0 position))
-                   (after (subseq value (+ position (length part)))))
+                   (after  (subseq value (+ position (length part)))))
                (if prefix
                    (unless (and (string= before prefix) (string= after suffix))
                      (return-from procedure--common-wrap nil))
@@ -459,7 +468,7 @@ counts share no pattern."
                       word-lists))
         (values nil nil)
         (let ((pattern nil)
-              (holes nil))
+              (holes   nil))
           (loop for column in (apply #'mapcar #'list word-lists)
                 do (if (every (lambda (word) (string= word (first column))) column)
                        (push (first column) pattern)
@@ -512,18 +521,18 @@ counts share no pattern."
 (-> procedure--parameter-base-name (string) string)
 (defun procedure--parameter-base-name (key)
   "Return a lowercase hyphenated parameter name made from argument KEY."
-  (let* ((words (with-output-to-string (stream)
-                  (loop for character across key
-                        for previous = nil then current
-                        for current = character
-                        do (cond
-                             ((and (upper-case-p character) previous (lower-case-p previous))
-                              (write-char #\- stream)
-                              (write-char (char-downcase character) stream))
-                             ((alphanumericp character)
-                              (write-char (char-downcase character) stream))
-                             (t
-                              (write-char #\- stream))))))
+  (let* ((words   (with-output-to-string (stream)
+                    (loop for character across key
+                          for previous = nil then current
+                          for current = character
+                          do (cond
+                               ((and (upper-case-p character) previous (lower-case-p previous))
+                                (write-char #\- stream)
+                                (write-char (char-downcase character) stream))
+                               ((alphanumericp character)
+                                (write-char (char-downcase character) stream))
+                               (t
+                                (write-char #\- stream))))))
          (trimmed (string-trim "-" (procedure--collapse-hyphens words))))
     (if (and (plusp (length trimmed)) (alpha-char-p (char trimmed 0)))
         trimmed
@@ -554,5 +563,5 @@ counts share no pattern."
                                 (string-downcase (remove-if-not #'alphanumericp
                                                                 (if dot (subseq tool (1+ dot)) tool)))))
                             (subseq tools 0 (min 3 (length tools))))))
-         (name (procedure--parameter-base-name (format nil "~{~A~^-~}" words))))
+         (name  (procedure--parameter-base-name (format nil "~{~A~^-~}" words))))
     (subseq name 0 (min 60 (length name)))))
