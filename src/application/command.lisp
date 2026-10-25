@@ -20,6 +20,14 @@
     '(:shared :exclusive :exclusive-without-arguments)
     "The supported command policies for terminal reader ownership.")
 
+  (-> application-command--definition-error (t string &rest t) nil)
+  (defun application-command--definition-error (command control &rest arguments)
+    "Signal an invalid definition of COMMAND, described by CONTROL and ARGUMENTS."
+    (error 'application-command-definition-error
+           :command command
+           :message (apply #'format nil control arguments)))
+
+  (-> application-command--identifier-p (t) boolean)
   (defun application-command--identifier-p (value)
     "Return true when VALUE is one normalized slash-command identifier."
     (and (non-empty-string-p value)
@@ -32,11 +40,13 @@
              (find character '(#\Space #\Tab #\Newline #\Return #\Page)))
            value))))
 
+  (-> application-command--metadata-key-count (list symbol) (integer 0))
   (defun application-command--metadata-key-count (metadata key)
     "Return the number of KEY occurrences in literal METADATA."
-    (loop for tail on metadata by #'cddr
+    (loop for tail on metadata by (partial #'nthcdr 2)
           count (eq (first tail) key)))
 
+  (-> application-command--option-text ((or boolean string keyword)) string)
   (defun application-command--option-text (option)
     "Return the slash spelling of a native string, keyword, or boolean OPTION."
     (etypecase option
@@ -47,6 +57,7 @@
       (keyword
        (string-downcase (symbol-name option)))))
 
+  (-> application-command--static-options-p (t) boolean)
   (defun application-command--static-options-p (value)
     "Return true for unique printable string, keyword, or boolean choices."
     (and (proper-list-p value)
@@ -62,6 +73,8 @@
             (length (remove-duplicates value :test #'string=
                                              :key  #'application-command--option-text)))))
 
+  (-> application-command--lambda-list-arity (list)
+      (values (integer 0) (option (integer 0))))
   (defun application-command--lambda-list-arity (lambda-list)
     "Return minimum and maximum counts, or NIL for an open keyword/rest tail."
     (let ((minimum 0)
@@ -82,18 +95,20 @@
                      rest-p t))
               (&allow-other-keys
                (unless (eq state ':key)
-                 (error "&ALLOW-OTHER-KEYS requires &KEY.")))
+                 (application-command--definition-error nil "&ALLOW-OTHER-KEYS requires &KEY.")))
               (&aux
                (setf state ':aux))
               ((&whole &environment)
-               (error "Callable application commands require ordinary lambda lists."))
+               (application-command--definition-error
+                nil "Callable application commands require ordinary lambda lists."))
               (otherwise
-               (error "Unsupported application command lambda-list keyword ~S."
-                      entry)))
+               (application-command--definition-error
+                nil "Unsupported application command lambda-list keyword ~S." entry)))
             (case state
               (:required
                (unless (symbolp entry)
-                 (error "Required application command parameters must be symbols."))
+                 (application-command--definition-error
+                  nil "Required application command parameters must be symbols."))
                (incf minimum)
                (incf maximum))
               (:optional
@@ -101,11 +116,13 @@
                            (and (proper-list-p entry)
                                 (<= 1 (length entry) 3)
                                 (symbolp (first entry))))
-                 (error "Invalid optional application command parameter ~S." entry))
+                 (application-command--definition-error
+                  nil "Invalid optional application command parameter ~S." entry))
                (incf maximum))
               (:rest
                (unless (symbolp entry)
-                 (error "An application command rest parameter must be a symbol."))
+                 (application-command--definition-error
+                  nil "An application command rest parameter must be a symbol."))
                (setf state ':after-rest))
               (:key
                (unless (or (symbolp entry)
@@ -115,15 +132,20 @@
                                     (and (proper-list-p (first entry))
                                          (= 2 (length (first entry)))
                                          (every #'symbolp (first entry))))))
-                 (error "Invalid keyword application command parameter ~S." entry)))
+                 (application-command--definition-error
+                  nil "Invalid keyword application command parameter ~S." entry)))
               (:after-rest
-               (error "Unexpected parameter after an application command rest parameter."))
+               (application-command--definition-error
+                nil "Unexpected parameter after an application command rest parameter."))
               (:aux
                nil))))
       (when (eq state ':rest)
-        (error "An application command rest marker requires a parameter."))
+        (application-command--definition-error
+         nil "An application command rest marker requires a parameter."))
       (values minimum (and (not rest-p) maximum))))
 
+  (-> application-command--static-option-hint
+      (list boolean &key (:native-p boolean)) string)
   (defun application-command--static-option-hint (options optional-p &key native-p)
     "Return the finite OPTIONS hint in native Lisp or slash syntax."
     (let* ((*print-case* ':downcase)
@@ -135,45 +157,52 @@
                                          options))))
       (if optional-p (format nil "[~A]" choices) choices)))
 
+  (-> application-command--validate-metadata (t t t t t t t t) boolean)
   (defun application-command--validate-metadata
       (name aliases argument description tip busy-behavior terminal-behavior
        static-options)
     "Validate command metadata values and return true."
     (unless (application-command--identifier-p name)
-      (error "Application command name ~S is not a lowercase slash identifier."
-             name))
+      (application-command--definition-error
+       name "Application command name ~S is not a lowercase slash identifier." name))
     (unless (proper-list-p aliases)
-      (error "Application command ~A aliases are not a proper literal list."
-             name))
+      (application-command--definition-error
+       name "Application command ~A aliases are not a proper literal list." name))
     (unless (every #'application-command--identifier-p aliases)
-      (error "Application command ~A has an invalid alias." name))
+      (application-command--definition-error
+       name "Application command ~A has an invalid alias." name))
     (when (member name aliases :test #'string=)
-      (error "Application command ~A repeats its canonical name as an alias."
-             name))
+      (application-command--definition-error
+       name "Application command ~A repeats its canonical name as an alias." name))
     (unless (= (length aliases)
                (length (remove-duplicates aliases :test #'string=)))
-      (error "Application command ~A repeats an alias." name))
+      (application-command--definition-error name "Application command ~A repeats an alias." name))
     (unless (or (null argument) (non-empty-string-p argument))
-      (error "Application command ~A has an invalid argument hint." name))
+      (application-command--definition-error
+       name "Application command ~A has an invalid argument hint." name))
     (unless (or (null static-options)
                 (application-command--static-options-p static-options))
-      (error "Application command ~A has invalid static options." name))
+      (application-command--definition-error
+       name "Application command ~A has invalid static options." name))
     (unless (non-empty-string-p description)
-      (error "Application command ~A requires a non-empty description." name))
+      (application-command--definition-error
+       name "Application command ~A requires a non-empty description." name))
     (unless (non-empty-string-p tip)
-      (error "Application command ~A requires a non-empty tip." name))
+      (application-command--definition-error
+       name "Application command ~A requires a non-empty tip." name))
     (unless (member busy-behavior
                     *application-command-busy-behaviors*
                     :test #'eq)
-      (error "Application command ~A has invalid busy behavior ~S."
-             name busy-behavior))
+      (application-command--definition-error
+       name "Application command ~A has invalid busy behavior ~S." name busy-behavior))
     (unless (member terminal-behavior
                     *application-command-terminal-behaviors*
                     :test #'eq)
-      (error "Application command ~A has invalid terminal behavior ~S."
-             name terminal-behavior))
+      (application-command--definition-error
+       name "Application command ~A has invalid terminal behavior ~S." name terminal-behavior))
     t)
 
+  (-> application-command--validate-defining-form (t t t) boolean)
   (defun application-command--validate-defining-form
       (definition-name metadata lambda-list)
     "Validate one literal DEFINE-APPLICATION-COMMAND header."
@@ -181,24 +210,33 @@
                  definition-name
                  (not (keywordp definition-name))
                  (symbol-package definition-name))
-      (error
+      (application-command--definition-error
+       definition-name
        "An application command definition name must be an interned non-keyword symbol."))
     (unless (and (proper-list-p metadata)
                  (evenp (length metadata)))
-      (error "Application command ~S metadata is not a literal property list."
-             definition-name))
-    (loop for key in metadata by #'cddr
+      (application-command--definition-error
+       definition-name
+       "Application command ~S metadata is not a literal property list."
+       definition-name))
+    (loop for key in metadata by (partial #'nthcdr 2)
           unless (member key *application-command-metadata-keys* :test #'eq)
-            do (error "Application command ~S has unknown metadata key ~S."
-                      definition-name key))
+            do (application-command--definition-error
+                definition-name
+                "Application command ~S has unknown metadata key ~S."
+                definition-name
+                key))
     (dolist (key *application-command-metadata-keys*)
       (when (> (application-command--metadata-key-count metadata key) 1)
-        (error "Application command ~S repeats metadata key ~S."
-               definition-name key)))
+        (application-command--definition-error
+         definition-name "Application command ~S repeats metadata key ~S." definition-name key)))
     (dolist (key *application-command-required-metadata-keys*)
       (unless (= (application-command--metadata-key-count metadata key) 1)
-        (error "Application command ~S requires literal metadata key ~S."
-               definition-name key)))
+        (application-command--definition-error
+         definition-name
+         "Application command ~S requires literal metadata key ~S."
+         definition-name
+         key)))
     (let* ((callable-p     (eq (getf metadata :callable) t))
            (static-options (getf metadata :static-options))
            (argument-count
@@ -206,42 +244,55 @@
       (when (and (plusp (application-command--metadata-key-count
                          metadata :callable))
                  (not callable-p))
-        (error "Application command ~S :CALLABLE must be literal T."
-               definition-name))
+        (application-command--definition-error
+         definition-name "Application command ~S :CALLABLE must be literal T." definition-name))
       (when (plusp (application-command--metadata-key-count metadata :slash-parser))
         (let ((parser (getf metadata :slash-parser)))
           (unless (and callable-p parser (symbolp parser)
                        (not (keywordp parser)) (not (eq parser t))
                        (symbol-package parser))
-            (error "Application command ~S :SLASH-PARSER requires a literal function name and :CALLABLE T."
-                   definition-name))))
+            (application-command--definition-error
+             definition-name
+             "Application command ~S :SLASH-PARSER requires a literal function name and :CALLABLE T."
+             definition-name))))
       (when (and static-options (not callable-p))
-        (error "Application command ~S :STATIC-OPTIONS require :CALLABLE T."
-               definition-name))
+        (application-command--definition-error
+         definition-name
+         "Application command ~S :STATIC-OPTIONS require :CALLABLE T."
+         definition-name))
       (unless (or (= argument-count 1) static-options)
-        (error "Application command ~S requires :ARGUMENT or :STATIC-OPTIONS."
-               definition-name))
+        (application-command--definition-error
+         definition-name
+         "Application command ~S requires :ARGUMENT or :STATIC-OPTIONS."
+         definition-name))
       (when (and (= argument-count 1) static-options)
-        (error "Application command ~S cannot duplicate static options in :ARGUMENT."
-               definition-name))
+        (application-command--definition-error
+         definition-name
+         "Application command ~S cannot duplicate static options in :ARGUMENT."
+         definition-name))
       (unless (and (proper-list-p lambda-list)
                    (plusp (length lambda-list))
                    (symbolp (first lambda-list))
                    (first lambda-list)
                    (not (keywordp (first lambda-list))))
-        (error "Application command ~S needs a required APPLICATION parameter."
-               definition-name))
+        (application-command--definition-error
+         definition-name
+         "Application command ~S needs a required APPLICATION parameter."
+         definition-name))
       (if callable-p
           (multiple-value-bind (minimum maximum)
               (application-command--lambda-list-arity (rest lambda-list))
             (when static-options
               (unless (application-command--static-options-p static-options)
-                (error "Application command ~S has invalid static options."
-                       definition-name))
+                (application-command--definition-error
+                 definition-name
+                 "Application command ~S has invalid static options."
+                 definition-name))
               (unless (and (<= minimum 1)
                            maximum
                            (= maximum 1))
-                (error
+                (application-command--definition-error
+                 definition-name
                  "Application command ~S static options require exactly one positional parameter."
                  definition-name))))
           (unless (and (= (length lambda-list) 2)
@@ -249,7 +300,8 @@
                        (second lambda-list)
                        (not (keywordp (second lambda-list)))
                        (not (eq (first lambda-list) (second lambda-list))))
-            (error
+            (application-command--definition-error
+             definition-name
              "Legacy application command ~S needs two distinct required handler parameters."
              definition-name)))
       (application-command--validate-metadata
@@ -464,7 +516,8 @@
               (unless (and (<= minimum 1)
                            maximum
                            (= maximum 1))
-                (error
+                (application-command--definition-error
+                 (application-command-name command)
                  "Static command options require exactly one positional parameter."))))
         (error (condition)
           (error 'configuration-error :message (princ-to-string condition))))
@@ -533,9 +586,6 @@
     :slash-parser      slash-parser
     :handler           handler)))
 
-(-> application-command-validate-registration
-    (application-command)
-    application-command)
 (defgeneric application-command-validate-registration (command)
   (:documentation
    "Validate COMMAND against loaded operation surfaces and return COMMAND."))
@@ -1173,3 +1223,15 @@ registration. Every handler returns :CONTINUE or :QUIT."
                                  `#',(getf metadata :slash-parser))
            :handler           #',definition-name)))
        ',definition-name)))
+
+
+;;;; -- Conditions --
+
+(define-condition application-command-definition-error (configuration-error)
+  ((command
+    :initarg       :command
+    :initform      nil
+    :reader        application-command-definition-error-command
+    :type          t
+    :documentation "The command name or definition symbol at fault, or NIL for a lambda-list failure."))
+  (:documentation "An application command definition has invalid metadata or an unsupported lambda list."))
