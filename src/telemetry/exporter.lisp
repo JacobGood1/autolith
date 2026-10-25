@@ -68,8 +68,8 @@
           (cons "autolith.redaction.engine" "rampart")
           (cons "autolith.redaction.revision" "b1993e4e68b082835b80ffc65acc03325ea2e501"))))
 
-(-> telemetry--enqueue (telemetry-run keyword list t) hash-table)
-(defun telemetry--enqueue (run kind attributes duration-ms)
+(-> telemetry--enqueue (telemetry-run keyword &key (:attributes list) (:duration-ms t)) hash-table)
+(defun telemetry--enqueue (run kind &key attributes duration-ms)
   "Queue and return a projected span under the consent lock, discarding oldest on overflow."
   (let* ((kind       (telemetry--wire-value "autolith.event.kind"
                                            (telemetry--enum kind *telemetry-event-kinds*)))
@@ -113,32 +113,33 @@
   "Export one projected attempt, preserving zero counters and omitting unreported ones."
   (telemetry--enqueue
    run ':model
-   (append (list (cons "autolith.usage.cache_write_tokens"
-                       (telemetry-model-cache-write-tokens model))
-                 (cons "autolith.usage.cache_read_tokens"
-                       (telemetry-model-cache-read-tokens model))
-                 (cons "gen_ai.usage.output_tokens" (telemetry-model-output-tokens model))
-                 (cons "gen_ai.usage.input_tokens" (telemetry-model-input-tokens model)))
-           (telemetry--model-attributes model)
-           (list (cons "autolith.request.role" (telemetry-model-role model))
-                 (cons "autolith.model.outcome" (telemetry-model-outcome model))
-                 (cons "gen_ai.response.finish_reason" (telemetry-model-finish-reason model))
-                 (cons "error.type" (telemetry-model-error-type model))))
-   duration-ms))
+   :attributes  (append (list (cons "autolith.usage.cache_write_tokens"
+                                    (telemetry-model-cache-write-tokens model))
+                              (cons "autolith.usage.cache_read_tokens"
+                                    (telemetry-model-cache-read-tokens model))
+                              (cons "gen_ai.usage.output_tokens" (telemetry-model-output-tokens model))
+                              (cons "gen_ai.usage.input_tokens" (telemetry-model-input-tokens model)))
+                        (telemetry--model-attributes model)
+                        (list (cons "autolith.request.role" (telemetry-model-role model))
+                              (cons "autolith.model.outcome" (telemetry-model-outcome model))
+                              (cons "gen_ai.response.finish_reason" (telemetry-model-finish-reason model))
+                              (cons "error.type" (telemetry-model-error-type model))))
+   :duration-ms duration-ms))
 
 (-> telemetry--export-run (telemetry-run (option keyword) (option keyword)) hash-table)
 (defun telemetry--export-run (run outcome error-type)
   "Export the aggregate identity and terminal run counters."
   (telemetry--enqueue
    run ':run
-   (append (telemetry--model-attributes (telemetry-run-model-identity run))
-           (list (cons "autolith.run.outcome" outcome)
-                 (cons "autolith.run.attempt" (telemetry-run-attempt run))
-                 (cons "autolith.run.recovered" (json-boolean (telemetry-run-recovered run)))
-                 (cons "autolith.run.error_code" (telemetry-run-error-code run))
-                 (cons "error.type" error-type)
-                 (cons "autolith.run.tool_calls" (telemetry-run-tools run))
-                 (cons "autolith.run.model_calls" (telemetry-run-models run)))) 0))
+   :attributes  (append (telemetry--model-attributes (telemetry-run-model-identity run))
+                        (list (cons "autolith.run.outcome" outcome)
+                              (cons "autolith.run.attempt" (telemetry-run-attempt run))
+                              (cons "autolith.run.recovered" (json-boolean (telemetry-run-recovered run)))
+                              (cons "autolith.run.error_code" (telemetry-run-error-code run))
+                              (cons "error.type" error-type)
+                              (cons "autolith.run.tool_calls" (telemetry-run-tools run))
+                              (cons "autolith.run.model_calls" (telemetry-run-models run))))
+   :duration-ms 0))
 
 (-> telemetry--export-tool
     (telemetry-run &key (:tool (option string)) (:outcome (option keyword))
@@ -150,15 +151,15 @@
   "Export a projected tool completion and return its queued span for issue linkage."
   (telemetry--enqueue
    run ':tool
-   (list (cons "autolith.tool.error_code" error-code)
-         (cons "autolith.tool.exit_code" exit-code)
-         (cons "error.type" error-type)
-         (cons "gen_ai.tool.name" tool)
-         (cons "autolith.tool.sequence" (telemetry-run-tools run))
-         (cons "autolith.tool.outcome" outcome)
-         (cons "autolith.tool.same_as_previous" (json-boolean same-p))
-         (cons "autolith.tool.corrects_previous" (json-boolean corrects-previous-p)))
-   duration-ms))
+   :attributes  (list (cons "autolith.tool.error_code" error-code)
+                      (cons "autolith.tool.exit_code" exit-code)
+                      (cons "error.type" error-type)
+                      (cons "gen_ai.tool.name" tool)
+                      (cons "autolith.tool.sequence" (telemetry-run-tools run))
+                      (cons "autolith.tool.outcome" outcome)
+                      (cons "autolith.tool.same_as_previous" (json-boolean same-p))
+                      (cons "autolith.tool.corrects_previous" (json-boolean corrects-previous-p)))
+   :duration-ms duration-ms))
 
 (-> telemetry--export-report
     (telemetry-run &key (:identifier string) (:tool (option string))
@@ -168,12 +169,13 @@
   "Export an admitted incident and its optional failed-tool link and scrubbed summary."
   (telemetry--enqueue
    run ':report
-   (append (list (cons "autolith.report.id" identifier)
-                 (cons "autolith.incident.id" identifier)
-                 (cons "gen_ai.tool.name" tool)
-                 (cons "autolith.issue.kind" issue-kind)
-                 (cons "autolith.tool.span_id" tool-span-id))
-           (telemetry--diagnostic-attributes safe)) 0))
+   :attributes  (append (list (cons "autolith.report.id" identifier)
+                              (cons "autolith.incident.id" identifier)
+                              (cons "gen_ai.tool.name" tool)
+                              (cons "autolith.issue.kind" issue-kind)
+                              (cons "autolith.tool.span_id" tool-span-id))
+                        (telemetry--diagnostic-attributes safe))
+   :duration-ms 0))
 
 (-> telemetry--export-report-link (hash-table string) vector)
 (defun telemetry--export-report-link (span report-id)
@@ -195,18 +197,19 @@
   "Export a projected repair lifecycle event and its validated issue identities."
   (telemetry--enqueue
    run event-kind
-   (append (list (cons "autolith.report.id" report-id)
-                 (cons "gen_ai.tool.name" target)
-                 (cons "autolith.issue.kind" issue-kind)
-                 (cons "autolith.repair.target" target)
-                 (cons "autolith.repair.operation" operation)
-                 (cons "autolith.repair.kind" repair-kind)
-                 (cons "autolith.repair.outcome" outcome)
-                 (cons "autolith.verification.scope" scope)
-                 (cons "autolith.repair.verified" (json-boolean verified-p))
-                 (cons "autolith.incident.id" incident-id)
-                 (cons "autolith.repair.attempt.id" attempt-id))
-           (telemetry--diagnostic-attributes safe)) 0))
+   :attributes  (append (list (cons "autolith.report.id" report-id)
+                              (cons "gen_ai.tool.name" target)
+                              (cons "autolith.issue.kind" issue-kind)
+                              (cons "autolith.repair.target" target)
+                              (cons "autolith.repair.operation" operation)
+                              (cons "autolith.repair.kind" repair-kind)
+                              (cons "autolith.repair.outcome" outcome)
+                              (cons "autolith.verification.scope" scope)
+                              (cons "autolith.repair.verified" (json-boolean verified-p))
+                              (cons "autolith.incident.id" incident-id)
+                              (cons "autolith.repair.attempt.id" attempt-id))
+                        (telemetry--diagnostic-attributes safe))
+   :duration-ms 0))
 
 (-> telemetry--envelope (telemetry-controller list) hash-table)
 (defun telemetry--envelope (controller spans)
