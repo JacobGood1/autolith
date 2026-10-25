@@ -9,10 +9,10 @@
 
 (defclass nous-credential-manager (oauth-credential-manager)
   ((refresh-request-function
-    :initarg :refresh-request-function
-    :initform nil
-    :reader nous-credential-manager-refresh-request-function
-    :type (option function)
+    :initarg       :refresh-request-function
+    :initform      nil
+    :reader        nous-credential-manager-refresh-request-function
+    :type          (option function)
     :documentation "An injected HTTP request function replacing the refresh transport, if any."))
   (:documentation "The OAuth credential manager for Nous Research inference."))
 
@@ -187,21 +187,21 @@
     ((manager nous-credential-manager) (document hash-table) (credentials oauth-credentials))
   "Require a rotated single-use refresh token and a scoped access JWT naming its subject."
   (declare (ignore manager))
-  (let ((access-token (json-get document "access_token"))
+  (let ((access-token  (json-get document "access_token"))
         (refresh-token (json-get document "refresh_token")))
     (unless (and (non-empty-string-p refresh-token)
                  (not (string= refresh-token (oauth-credentials-refresh-token credentials))))
       (error 'token-refresh-failed
-             :message "The Nous OAuth refresh response omitted rotated credentials."
-             :status nil
+             :message  "The Nous OAuth refresh response omitted rotated credentials."
+             :status   nil
              :response nil))
     (unless (nous-authentication--access-token-scope-p access-token *nous-oauth-scope*)
       (error 'token-refresh-failed
-             :message "The refreshed Nous access token lacks the inference:invoke scope."
-             :status nil
+             :message  "The refreshed Nous access token lacks the inference:invoke scope."
+             :status   nil
              :response nil))
     (unless (non-empty-string-p (nous-authentication--access-token-account-id access-token))
       (error 'token-refresh-failed
-             :message "The refreshed Nous access token omitted its subject."
-             :status nil
+             :message  "The refreshed Nous access token omitted its subject."
+             :status   nil
              :response nil))))
