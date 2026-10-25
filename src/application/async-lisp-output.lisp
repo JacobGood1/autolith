@@ -22,12 +22,12 @@
     :initform (make-lock "async-lisp-output") :reader application-async-lisp-output-stream-lock
     :documentation "Protects captured characters and terminal sequence state.")
    (display-lock
-    :initform (make-lock "async-lisp-output-display")
-    :reader application-async-lisp-output-stream-display-lock
+    :initform      (make-lock "async-lisp-output-display")
+    :reader        application-async-lisp-output-stream-display-lock
     :documentation "Serializes callbacks without holding the capture lock.")
    (pending
-    :initarg :pending
-    :reader application-async-lisp-output-stream-pending
+    :initarg       :pending
+    :reader        application-async-lisp-output-stream-pending
     :documentation "Bounded deque of pending display characters, evicting the oldest.")
    (pending-omitted
     :initform 0 :accessor application-async-lisp-output-stream-pending-omitted
@@ -48,9 +48,9 @@
   (check-type *application-async-lisp-output-pending-limit* (integer 1))
   (make-instance 'application-async-lisp-output-stream
                  :output-function output-function
-                 :builder (bounded-output-stream--make-builder
-                           *application-async-lisp-output-capture-limit*)
-                 :pending (make-deque :maximum-count *application-async-lisp-output-pending-limit*)))
+                 :builder         (bounded-output-stream--make-builder
+                                   *application-async-lisp-output-capture-limit*)
+                 :pending         (make-deque :maximum-count *application-async-lisp-output-pending-limit*)))
 
 (-> application-async-lisp-output-stream--safe-character-p (character) boolean)
 (defun application-async-lisp-output-stream--safe-character-p (character)
@@ -75,7 +75,9 @@
   (case (application-async-lisp-output-stream-escape-state stream)
     (:escape
      (setf (application-async-lisp-output-stream-escape-state stream)
-           (case character (#\[ ':csi) (#\] ':osc))))
+           (case character (#\[
+                            ':csi) (#\]
+                                    ':osc))))
     (:csi
      (when (<= 64 (char-code character) 126)
        (setf (application-async-lisp-output-stream-escape-state stream) nil)))
@@ -182,7 +184,7 @@
                           "")
                       (application-async-lisp-output-stream-display-error stream))
               :limit capacity))
-           (text (bounded-output-stream-text stream)))
+           (text     (bounded-output-stream-text stream)))
       (concatenate 'string
                    (subseq text 0 (min (length text) (- capacity (length marker))))
                    marker))))
