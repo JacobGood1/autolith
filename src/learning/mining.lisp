@@ -354,7 +354,9 @@ recorded version. Nothing is learned when knowledge is off."
                                                                       #\Return)))
                                                   output)))
                       (and start (find (char output start) "{[")))
-                    (ignore-errors (json-decode output)))))
+                    (handler-case (json-decode output)
+                      (json-error ()
+                        nil)))))
     (and (or (json-object-p value) (and (vectorp value) (not (stringp value))))
          value)))
 
