@@ -101,9 +101,9 @@ same boundary, independently of adapter startup approval."
     (when (debug-session-manager-closed-p manager)
       (debug--fail ':closed "Debug runtime is closed."))
     (let* ((entries (debug-session-manager-entries manager))
-           (owner (tool-context-conversation context))
-           (owned (loop for entry being the hash-values of entries
-                        count (eq owner (debug-session-entry-owner entry)))))
+           (owner   (tool-context-conversation context))
+           (owned   (loop for entry being the hash-values of entries
+                          count (eq owner (debug-session-entry-owner entry)))))
       (unless owner
         (debug--fail ':scope "Debug sessions require an owning conversation."))
       (when (or (>= (hash-table-count entries) *debug-session-limit*)
@@ -159,13 +159,21 @@ same boundary, independently of adapter startup approval."
 (defun debug--translate (condition)
   "Translate typed library failures to stable product codes."
   (debug--fail (typecase condition
-                 (daphne:dap-cancelled ':cancelled)
-                 (daphne:dap-timeout ':timeout)
-                 (daphne:dap-transport-error ':adapter-died)
-                 (daphne:dap-protocol-error ':protocol)
-                 (daphne:dap-state-error ':session-state)
-                 (daphne:dap-request-error ':adapter-rejected)
-                 (daphne:dap-limit-error ':limit)
-                 (t ':adapter-error))
+                 (daphne:dap-cancelled
+                  ':cancelled)
+                 (daphne:dap-timeout
+                  ':timeout)
+                 (daphne:dap-transport-error
+                  ':adapter-died)
+                 (daphne:dap-protocol-error
+                  ':protocol)
+                 (daphne:dap-state-error
+                  ':session-state)
+                 (daphne:dap-request-error
+                  ':adapter-rejected)
+                 (daphne:dap-limit-error
+                  ':limit)
+                 (t
+                  ':adapter-error))
                (let ((message (daphne:dap-error-message condition)))
                  (subseq message 0 (min (length message) 2048)))))
