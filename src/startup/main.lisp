@@ -73,8 +73,8 @@
          (mode
            (and (config :immutable-p configuration)
                 (application--banner-metadata-field "mode" "immutable")))
-         (detail-rows (append (list title model workspace)
-                              (when mode (list mode))))
+         (detail-rows   (append (list title model workspace)
+                                (when mode (list mode))))
          (divider-width
            (min maximum-width
                 (loop for row in detail-rows
@@ -96,7 +96,7 @@
 (-> application--banner-side-by-side-spans (list integer) list)
 (defun application--banner-side-by-side-spans (metadata-rows columns)
   "Return the startup mark with METADATA-ROWS aligned beside it within COLUMNS."
-  (let* ((logo-width (application--banner-logo-width))
+  (let* ((logo-width     (application--banner-logo-width))
          (metadata-width (- columns
                             logo-width
                             (text-cell-width *application-banner-gap*))))
@@ -177,8 +177,8 @@ the terminal wraps the semantic spans for both inline and fullscreen tips."
 (defun application--startup-tip-spans ()
   "Choose command or general advice without consuming the saved image's random state."
   (let* ((commands (application-command-list))
-         (index (random (+ (length commands) (length *application-startup-tips*))
-                        (make-random-state t))))
+         (index    (random (+ (length commands) (length *application-startup-tips*))
+                           (make-random-state t))))
     (if (< index (length commands))
         (application--command-tip-spans (nth index commands))
         (cons (terminal-span ':dim "Tip: ")
@@ -222,7 +222,7 @@ the terminal wraps the semantic spans for both inline and fullscreen tips."
   (let ((availability (application-update-availability application)))
     (when availability
       (let ((current-version *autolith-version*)
-            (latest-version (subseq (update-availability-tag availability) 1)))
+            (latest-version  (subseq (update-availability-tag availability) 1)))
         (list
          (terminal-span
           ':notice
@@ -254,14 +254,14 @@ the terminal wraps the semantic spans for both inline and fullscreen tips."
              (choice
                (terminal-ui-select
                 (application-ui application)
-                :title (format nil "Autolith ~A is available" (subseq tag 1))
-                :items (application--update-choice-items)
+                :title           (format nil "Autolith ~A is available" (subseq tag 1))
+                :items           (application--update-choice-items)
                 :resize-callback #'application-pending-terminal-size)))
         (cond
           ((string= (or choice "") "Update now")
            (error 'update-requested
                   :message (format nil "Update to Autolith ~A." (subseq tag 1))
-                  :tag tag))
+                  :tag     tag))
           ((string= (or choice "") "Skip this version")
            (update-state-dismiss (application-configuration application) tag)
            (setf (application-update-availability application) nil)
@@ -278,12 +278,12 @@ the terminal wraps the semantic spans for both inline and fullscreen tips."
   "Return the transcript entry describing expected CONDITION."
   (application--transcript-entry
    application
-   :style ':failure
+   :style  ':failure
    :header "✗ error"
-   :body (if (typep condition 'credentials-unavailable)
-             (format nil "~A~%Use (auth) to authenticate Autolith directly."
-                     condition)
-             (format nil "~A" condition))))
+   :body   (if (typep condition 'credentials-unavailable)
+               (format nil "~A~%Use (auth) to authenticate Autolith directly."
+                       condition)
+               (format nil "~A" condition))))
 
 (-> application-handle-expected-error
     (application (or autolith-error cl-llm-provider-api:provider-api-error))
@@ -358,13 +358,13 @@ closes. Both carry the same styling, rendered for the terminal that shows it."
     (application &key initial-command initial-input recovery-diagnosis
                       resume-offer-p)
   "Run APPLICATION with responsive input, always restoring terminal and workers."
-  (let* ((ui (application-ui application))
-         (worker (application-worker application))
-         (input-controller nil)
-         (resize-watch nil)
+  (let* ((ui                     (application-ui application))
+         (worker                 (application-worker application))
+         (input-controller       nil)
+         (resize-watch           nil)
          (tool-runtimes-closed-p nil)
-         (worker-stopped-p nil)
-         (recovery-startup-p (application-recovery-startup-p application))
+         (worker-stopped-p       nil)
+         (recovery-startup-p     (application-recovery-startup-p application))
          (recovery-input-storage-ready-p
            (or (not recovery-startup-p)
                (application-recovery-input-vault-import application))))
@@ -440,11 +440,11 @@ closes. Both carry the same styling, rendered for the terminal that shows it."
                        application
                        (application--transcript-entry
                         application
-                        :style ':failure
+                        :style  ':failure
                         :header "✗ mutation replay skipped"
-                        :body (format nil "~A~%~A"
-                                      (namestring (first failure))
-                                      (rest failure)))))
+                        :body   (format nil "~A~%~A"
+                                        (namestring (first failure))
+                                        (rest failure)))))
                     (let ((skips (application-replay-skips-entry application)))
                       (when skips
                         (application-present application skips)))
@@ -543,6 +543,7 @@ closes. Both carry the same styling, rendered for the terminal that shows it."
         (platform-unwatch-terminal-resize *platform* resize-watch)
         (finish-shutdown))))
   nil)
+
 
 ;;;; -- Command-Line Entry --
 
@@ -701,9 +702,9 @@ dependencies."
             (with-terminal-ui
                 (ui (terminal-ui-create
                      :fullscreen-p t
-                     :terminal (stream-terminal-create
-                                :rows rows :columns columns
-                                :input-file-descriptor (terminal-standard-input-file-descriptor))))
+                     :terminal     (stream-terminal-create
+                                    :rows rows :columns columns
+                                    :input-file-descriptor (terminal-standard-input-file-descriptor))))
               (application-call-with-authentication-ui ui t #'authenticate)))
           (authenticate))))
   nil)
@@ -727,9 +728,9 @@ dependencies."
   (let ((pathnames (main--image-pathnames image-values)))
     (when pathnames
       (user-message-input-create
-       :text (format nil "~{~A~^ ~}"
-                     (loop for number from 1 to (length pathnames)
-                           collect (terminal-ui--image-label number)))
+       :text            (format nil "~{~A~^ ~}"
+                                (loop for number from 1 to (length pathnames)
+                                      collect (terminal-ui--image-label number)))
        :image-pathnames pathnames))))
 
 (-> main--connect-application
@@ -754,7 +755,7 @@ state, including an empty list after successful or pristine startup."
            (typep *active-application* 'application))
       (application-reconnect *active-application*
                              :conversation-id conversation-id
-                             :immutable-p immutable-p
+                             :immutable-p     immutable-p
                              :permission-mode permission-mode)
       (apply #'application-create configuration
              :conversation-id conversation-id
@@ -783,14 +784,14 @@ state, including an empty list after successful or pristine startup."
                   authentication-selection authentication-method)
   "Start one interactive Autolith session from COMMAND's parsed options."
   (main--register-local-source-trees)
-  (let* ((pristine-p (not (null (getopt* command ':pristine))))
-         (immutable-p (or pristine-p
-                          (not (null (getopt* command ':immutable)))))
+  (let* ((pristine-p               (not (null (getopt* command ':pristine))))
+         (immutable-p              (or pristine-p
+                                       (not (null (getopt* command ':immutable)))))
          (explicit-permission-mode (getopt* command ':permissions))
-         (image-values (getopt* command ':images))
+         (image-values             (getopt* command ':images))
          (configuration
             (let ((base (apply #'configuration-create
-                               :immutable-p immutable-p
+                               :immutable-p                 immutable-p
                                :defer-provider-validation-p t
                                (main--site-root-arguments command))))
               ;; The command line beats the saved preference; provider
@@ -822,17 +823,17 @@ state, including an empty list after successful or pristine startup."
            (if handoff-record
                (getf (rest handoff-record) :conversation-id)
                resume-id))
-          (recovery-state
-            (if handoff-record
-                (list nil nil)
-                (multiple-value-list
-                 (application-recovery-state configuration))))
-          (recovery-conversation-id (first recovery-state))
-          (recovery-diagnosis
-            (if handoff-record
-                (getf (rest handoff-record) :recovery-diagnosis)
-                (and (null effective-resume-id)
-                     (application-recovery-diagnosis-prompt configuration))))
+         (recovery-state
+           (if handoff-record
+               (list nil nil)
+               (multiple-value-list
+                (application-recovery-state configuration))))
+         (recovery-conversation-id (first recovery-state))
+         (recovery-diagnosis
+           (if handoff-record
+               (getf (rest handoff-record) :recovery-diagnosis)
+               (and (null effective-resume-id)
+                    (application-recovery-diagnosis-prompt configuration))))
          (resume-command-p
            (or (and handoff-record
                     (getf (rest handoff-record) :resume-command-p))
@@ -862,19 +863,19 @@ state, including an empty list after successful or pristine startup."
               (application--command-sandbox-unavailable-message))
       (force-output *error-output*))
     (when (main--client-session-p
-           :handoff-record handoff-record
-           :authenticate-p authenticate-p
-           :resume-requested-p effective-resume-requested-p
-           :resume-id effective-resume-id
+           :handoff-record           handoff-record
+           :authenticate-p           authenticate-p
+           :resume-requested-p       effective-resume-requested-p
+           :resume-id                effective-resume-id
            :recovery-conversation-id recovery-conversation-id
-           :recovery-diagnosis recovery-diagnosis
-           :image-values image-values
-           :pristine-p pristine-p
-           :simulate-crash-p (not (null (getopt* command ':simulate-crash))))
+           :recovery-diagnosis       recovery-diagnosis
+           :image-values             image-values
+           :pristine-p               pristine-p
+           :simulate-crash-p         (not (null (getopt* command ':simulate-crash))))
       (let ((session-id (main--spawn-client-session
                          configuration
-                         :permission-mode permission-mode
-                         :immutable-p immutable-p
+                         :permission-mode     permission-mode
+                         :immutable-p         immutable-p
                           :conversation-id
                           (or effective-resume-id recovery-conversation-id)
                           :resume-command-p
@@ -897,11 +898,11 @@ state, including an empty list after successful or pristine startup."
     (let ((*localgroup-startup-record* handoff-record))
       (setf *active-application*
             (apply #'main--connect-application
-                   :configuration configuration
-                   :conversation-id effective-resume-id
-                   :immutable-p immutable-p
-                   :pristine-p pristine-p
-                   :permission-mode permission-mode
+                   :configuration        configuration
+                   :conversation-id      effective-resume-id
+                   :immutable-p          immutable-p
+                   :pristine-p           pristine-p
+                   :permission-mode      permission-mode
                    :fresh-conversation-p (not (null fresh-handoff-p))
                    (when image-state-loaded-p
                      (list :image-replay-failures image-replay-failures))))
@@ -912,7 +913,7 @@ state, including an empty list after successful or pristine startup."
                 (application-write-crash-capsule
                  *active-application*
                  (make-condition 'simple-error
-                                 :format-control "Intentional recovery test."
+                                 :format-control   "Intentional recovery test."
                                  :format-arguments nil))))
           (format *error-output* "Intentional crash capsule: ~A~%" capsule)
           (uiop:quit *main-fatal-recovery-status*)))
@@ -928,15 +929,15 @@ state, including an empty list after successful or pristine startup."
                                                               :message message)))))
             (application-run
              *active-application*
-             :initial-command (and resume-command-p
-                                   (null effective-resume-id)
-                                   "(resume)")
+             :initial-command    (and resume-command-p
+                                      (null effective-resume-id)
+                                      "(resume)")
              :initial-input
              (if handoff-record
                  (localgroup-handoff-initial-input handoff-record)
                  (main--initial-image-input image-values))
              :recovery-diagnosis recovery-diagnosis
-             :resume-offer-p resume-command-p))
+             :resume-offer-p     resume-command-p))
         (main-launcher-exit-condition (condition)
           (multiple-value-bind (status message) (main--launcher-exit-text condition)
             (format *error-output* "~A~%" message)
@@ -989,10 +990,10 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
   "Spawn the detached session for a client-first start, or NIL to run direct."
   (handler-case
       (localgroup-handoff-spawn-fresh configuration
-                                      :permission-mode permission-mode
-                                      :immutable-p immutable-p
-                                      :conversation-id conversation-id
-                                      :resume-command-p resume-command-p
+                                      :permission-mode    permission-mode
+                                      :immutable-p        immutable-p
+                                      :conversation-id    conversation-id
+                                      :resume-command-p   resume-command-p
                                       :recovery-diagnosis recovery-diagnosis)
     (error (condition)
       (format *error-output*
@@ -1005,60 +1006,60 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
   "Return the persistent session options shared with every sub-command."
   (list
    (make-option ':flag
-                :long-name "fullscreen"
-                :key ':fullscreen
-                :persistent t
+                :long-name   "fullscreen"
+                :key         ':fullscreen
+                :persistent  t
                 :description "use a scrollable alternate-screen UI with a pinned composer")
    (make-option ':flag
-                :long-name "almighty"
-                :key ':almighty
-                :persistent t
+                :long-name   "almighty"
+                :key         ':almighty
+                :persistent  t
                 :description "force fullscreen with the Almighty Lisp yellow-on-blue theme")
    (make-option ':flag
-                :long-name "immutable"
-                :key ':immutable
-                :persistent t
+                :long-name   "immutable"
+                :key         ':immutable
+                :persistent  t
                 :description "disable source and configuration mutation")
    (make-option ':flag
-                :long-name "pristine"
-                :key ':pristine
-                :persistent t
+                :long-name   "pristine"
+                :key         ':pristine
+                :persistent  t
                 :description "boot tracked source without private mutations or user init")
    (make-option ':string
-                :long-name "site-config-root"
-                :key ':site-config-root
-                :parameter "DIRECTORY"
-                :persistent t
+                :long-name   "site-config-root"
+                :key         ':site-config-root
+                :parameter   "DIRECTORY"
+                :persistent  t
                 :description "load site configuration before user configuration")
    (make-option ':enum
-                :long-name "permissions"
-                :key ':permissions
-                :parameter "MODE"
-                :persistent t
-                :items '(("ask" . :ask)
-                         ("auto" . :auto)
-                         ("sandbox" . :sandboxed)
-                         ("full" . :full-access))
+                :long-name   "permissions"
+                :key         ':permissions
+                :parameter   "MODE"
+                :persistent  t
+                :items       '(("ask" . :ask)
+                               ("auto" . :auto)
+                               ("sandbox" . :sandboxed)
+                               ("full" . :full-access))
                 :description "initial command authorization mode")
    (make-option ':list
-                :short-name #\i
-                :long-name "image"
-                :key ':images
-                :parameter "FILE"
-                :persistent t
+                :short-name  #\i
+                :long-name   "image"
+                :key         ':images
+                :parameter   "FILE"
+                :persistent  t
                 :description "preload a local image into the composer; repeatable and comma-separable")
    (make-option ':string
-                :long-name "localgroup-handoff"
-                :key ':localgroup-handoff
-                :parameter "FILE"
-                :persistent t
-                :hidden t
+                :long-name   "localgroup-handoff"
+                :key         ':localgroup-handoff
+                :parameter   "FILE"
+                :persistent  t
+                :hidden      t
                 :description "claim an internal localgroup handoff record")
    (make-option ':flag
-                :long-name "simulate-crash"
-                :key ':simulate-crash
-                :persistent t
-                :hidden t
+                :long-name   "simulate-crash"
+                :key         ':simulate-crash
+                :persistent  t
+                :hidden      t
                 :description "write a crash capsule and exit into recovery")))
 
 (-> main--single-selection (clingon:command string) (option string))
@@ -1078,24 +1079,24 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
 (defun main--resume-command ()
   "Return the resume sub-command definition."
   (make-command
-   :name "resume"
+   :name        "resume"
    :description "resume a saved conversation, or pick one interactively"
-   :usage "[ID]"
+   :usage       "[ID]"
    :handler
    (lambda (command)
      (main--start-session
       command
       :resume-requested-p t
-      :resume-id (main--single-selection command
-                                         "conversation identifier")))))
+      :resume-id          (main--single-selection command
+                                                  "conversation identifier")))))
 
 (-> main--replay-command () clingon:command)
 (defun main--replay-command ()
   "Return the read-only conversation replay sub-command definition."
   (make-command
-   :name "replay"
+   :name        "replay"
    :description "inspect a saved conversation as a read-only event stream"
-   :usage "ID [turn N | date YYYY-MM-DD | time TIME | sequence N]"
+   :usage       "ID [turn N | date YYYY-MM-DD | time TIME | sequence N]"
    :handler
    (lambda (command)
      (let ((arguments (command-arguments command)))
@@ -1106,7 +1107,7 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
          (error 'configuration-error
                 :message "Replay accepts an ID and at most one selector."))
        (conversation-replay-run
-        (configuration-create :immutable-p t
+        (configuration-create :immutable-p                 t
                               :defer-provider-validation-p t)
         (first arguments)
         (rest arguments))))))
@@ -1115,15 +1116,15 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
 (defun main--fork-command ()
   "Return the durable conversation fork sub-command definition."
   (make-command
-   :name "fork"
+   :name        "fork"
    :description "fork a saved conversation at a durable historical point"
-   :usage "SOURCE [turn N | date YYYY-MM-DD | time TIME | sequence N]"
+   :usage       "SOURCE [turn N | date YYYY-MM-DD | time TIME | sequence N]"
    :options
    (list
     (make-option ':string
-                 :long-name "id"
-                 :key ':fork-id
-                 :parameter "ID"
+                 :long-name   "id"
+                 :key         ':fork-id
+                 :parameter   "ID"
                  :description "explicit identifier for the new conversation"))
    :handler
    (lambda (command)
@@ -1140,20 +1141,20 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
                 (conversation-fork
                  configuration
                  (first arguments)
-                 :selection (rest arguments)
+                 :selection  (rest arguments)
                  :identifier (getopt* command ':fork-id))))
          (main--start-session
           command
           :resume-requested-p t
-          :resume-id (conversation-identifier fork)))))))
+          :resume-id          (conversation-identifier fork)))))))
 
 (-> main--auth-command () clingon:command)
 (defun main--auth-command ()
   "Return the auth sub-command definition."
   (make-command
-   :name "auth"
+   :name        "auth"
    :description "authenticate a provider, then start a session"
-   :usage "[PROVIDER] [METHOD]"
+   :usage       "[PROVIDER] [METHOD]"
    :handler
    (lambda (command)
      (let ((arguments (command-arguments command)))
@@ -1162,7 +1163,7 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
                 :message "Auth accepts a provider and optional method."))
        (main--start-session
         command
-        :authenticate-p t
+        :authenticate-p           t
         :authentication-selection (first arguments)
         :authentication-method
         (provider--parse-authentication-method (second arguments)))))))
@@ -1171,7 +1172,7 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
 (defun main--run-job-command ()
   "Return the non-interactive single-job command definition."
   (make-command
-   :name "run-job"
+   :name        "run-job"
    :description "run one contracted child-agent job without a terminal"
    :options
    (list
@@ -1186,7 +1187,7 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
      (when (command-arguments command)
        (error 'configuration-error
               :message "run-job accepts only --input, --output and --events options."))
-     (let ((input (getopt* command ':input))
+     (let ((input  (getopt* command ':input))
            (output (getopt* command ':output))
            (events (getopt* command ':events)))
        (unless (or (null events) (equal events "sexp"))
@@ -1197,7 +1198,7 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
          (error 'configuration-error :message "run-job requires --output FILE."))
        (let* ((configuration
                 (apply #'configuration-create
-                       :immutable-p (not (null (getopt* command ':immutable)))
+                       :immutable-p                 (not (null (getopt* command ':immutable)))
                        :defer-provider-validation-p t
                        (main--site-root-arguments command)))
               (permission-mode
@@ -1226,14 +1227,14 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
 (defun main--models-command ()
   "Return the non-interactive model catalog sub-command definition."
   (make-command
-   :name "models"
+   :name        "models"
    :description "list known model identifiers and exit"
    :handler
    (lambda (command)
      (let* ((pristine-p (not (null (getopt* command ':pristine))))
             (configuration
               (apply #'configuration-create
-                     :immutable-p t
+                     :immutable-p                 t
                      :defer-provider-validation-p t
                      (main--site-root-arguments command)))
             (replay-failures
@@ -1252,7 +1253,7 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
 (defun main--update-command ()
   "Describe the launcher-owned update operation without starting a session."
   (make-command
-   :name "update"
+   :name        "update"
    :description "install the latest packaged release and exit"
    :long-description
    "autolith --update is an equivalent update-and-exit alias.
@@ -1267,17 +1268,17 @@ update through their flake or Nix profile."
 (defun main--uninstall-command ()
   "Describe the launcher-owned uninstall operation without starting a session."
   (make-command
-   :name "uninstall"
+   :name        "uninstall"
    :description "remove the installation and keep user data"
    :long-description
    "Removes the packaged installation, managed runtimes, built images, and
 caches. Conversations, memories, agendas, image commits, settings, credentials,
 and configuration stay. The stable launcher performs the removal before any
 Lisp starts; on Windows it prints the folders to delete."
-   :options (list (make-option ':flag
-                               :long-name "yes"
-                               :key ':yes
-                               :description "skip the confirmation prompt"))
+   :options     (list (make-option ':flag
+                                   :long-name   "yes"
+                                   :key         ':yes
+                                   :description "skip the confirmation prompt"))
    :handler
    (lambda (command)
      (declare (ignore command))
@@ -1301,43 +1302,43 @@ Lisp starts; on Windows it prints the folders to delete."
 (defun main--acp-command ()
   "Return the Agent Client Protocol server sub-command definition."
   (make-command
-   :name "acp"
+   :name        "acp"
    :description "serve the Agent Client Protocol on standard input and output"
    :handler
    (lambda (command)
      (when (command-arguments command)
        (error 'configuration-error
               :message "ACP accepts no positional arguments."))
-     (let* ((pristine-p (not (null (getopt* command ':pristine))))
+     (let* ((pristine-p      (not (null (getopt* command ':pristine))))
             (configuration
               (configuration-create
-               :immutable-p pristine-p
+               :immutable-p                 pristine-p
                :defer-provider-validation-p t))
             (permission-mode (or (getopt* command ':permissions) ':ask)))
        (acp-run configuration
                 :permission-mode permission-mode
-                :pristine-p pristine-p)))))
+                :pristine-p      pristine-p)))))
 
 (-> main--top-level-command () clingon:command)
 (defun main--top-level-command ()
   "Return Autolith's top-level command-line definition."
   (make-command
-   :name "autolith"
-   :description "a small, live, self-modifying Common Lisp agent"
+   :name         "autolith"
+   :description  "a small, live, self-modifying Common Lisp agent"
    :long-description
    "The stable launcher also accepts --recovery and --from-source, which
 select how Autolith starts before this command line is parsed.
 Use -- to end option parsing. autolith --update is an alias for autolith update;
 both update the packaged installation and exit without starting a session.
 autolith uninstall removes the installation and keeps user data."
-   :version *autolith-version*
-   :options (main--session-options)
+   :version      *autolith-version*
+   :options      (main--session-options)
    :sub-commands (list (main--resume-command)
                        (main--replay-command)
                        (main--fork-command)
                        (main--acp-command)
                        (main--auth-command)
-                         (main--models-command)
+                       (main--models-command)
                        (main--update-command)
                        (main--uninstall-command)
                        (main--data-command)
