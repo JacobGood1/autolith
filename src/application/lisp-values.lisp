@@ -4,12 +4,12 @@
 
 (defclass application-lisp-value-stream (bounded-output-stream)
   ((count
-    :initform 0
-    :accessor application-lisp-value-stream--count
+    :initform      0
+    :accessor      application-lisp-value-stream--count
     :documentation "The number of emitted characters.")
    (overflow-tag
-    :initarg :overflow-tag
-    :reader application-lisp-value-stream--overflow-tag
+    :initarg       :overflow-tag
+    :reader        application-lisp-value-stream--overflow-tag
     :documentation "The catch tag used to stop rendering when the buffer fills."))
   (:documentation "A bounded value stream that stops a printer at its output limit."))
 
@@ -41,25 +41,25 @@ limit output to 200 lines and 16000 characters. An output-limit notice marks
 an incomplete prefix. Printer failures produce a safe unreadable marker.
 Return the printed text and whether printing succeeded. This display policy
 does not change machine serialization or worker output."
-  (let* ((tag (gensym "VALUE-OUTPUT-LIMIT"))
-         (stream (make-instance 'application-lisp-value-stream
-                                :builder (bounded-output-stream--make-builder 16000)
-                                :overflow-tag tag))
+  (let* ((tag                     (gensym "VALUE-OUTPUT-LIMIT"))
+         (stream                  (make-instance 'application-lisp-value-stream
+                                                 :builder      (bounded-output-stream--make-builder 16000)
+                                                 :overflow-tag tag))
          (*print-pprint-dispatch* (copy-pprint-dispatch nil))
-         (*print-pretty* t)
-         (*print-circle* t)
-         (*print-escape* t)
-         (*print-gensym* t)
-         (*print-array* t)
-         (*print-readably* nil)
-         (*print-case* ':upcase)
-         (*print-base* 10)
-         (*print-radix* nil)
-         (*print-level* 10)
-         (*print-length* 100)
-         (*print-lines* 200)
-         (*print-right-margin* (+ columns initial-column))
-         (*print-miser-width* nil))
+         (*print-pretty*          t)
+         (*print-circle*          t)
+         (*print-escape*          t)
+         (*print-gensym*          t)
+         (*print-array*           t)
+         (*print-readably*        nil)
+         (*print-case*            ':upcase)
+         (*print-base*            10)
+         (*print-radix*           nil)
+         (*print-level*           10)
+         (*print-length*          100)
+         (*print-lines*           200)
+         (*print-right-margin*    (+ columns initial-column))
+         (*print-miser-width*     nil))
     (setf (bounded-output-stream--column stream) initial-column)
     (set-pprint-dispatch '(satisfies application-lisp-value--plist-p)
                          #'application-lisp-value--pprint-plist
