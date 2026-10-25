@@ -14,15 +14,6 @@
   "Return true while startup is reconstructing a detached localgroup process."
   (not (null *localgroup-startup-record*)))
 
-;; These runtime functions load after the responsive input implementation.
-(-> application-localgroup-paused-p (t) boolean)
-(-> application-localgroup-resume (t) boolean)
-(-> application-localgroup-request-handoff (t keyword) list)
-(-> application-localgroup-handoff-pending-p (t) boolean)
-(-> application-localgroup-take-ready-handoff (t) (option keyword))
-(-> application-localgroup-run-handoff (t keyword t) null)
-(-> localgroup-handoff-assert-startup-active () null)
-(-> localgroup-handoff-finish-startup (t) null)
 (define-condition localgroup-error (image-daemon:daemon-error autolith-error)
   ()
   (:documentation
