@@ -7,6 +7,7 @@
   (:default-initargs :type 'string)
   (:documentation "A credential-free OTLP HTTPS or loopback HTTP endpoint."))
 
+(-> telemetry--endpoint-p (t) boolean)
 (defun telemetry--endpoint-p (value)
   "Accept only credential-free HTTPS or exact loopback HTTP trace URLs."
   (handler-case
@@ -25,12 +26,14 @@
     (error () nil)))
 
 (defmethod setting-validate ((setting telemetry-endpoint-setting) value configuration)
+  "Return VALUE when it is an acceptable telemetry endpoint, else reject it."
   (declare (ignore configuration))
   (unless (telemetry--endpoint-p value)
     (setting-reject setting "[invalid endpoint]"
                     "Use HTTPS or loopback HTTP /v1/traces without credentials, query or fragment."))
   value)
 
+(-> telemetry--alias-p (t) boolean)
 (defun telemetry--alias-p (value)
   "Recognize an explicitly configured public model identifier."
   (and (stringp value) (<= 1 (length value) 96)
