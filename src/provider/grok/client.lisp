@@ -61,10 +61,10 @@
 (defun grok-provider-create (configuration)
   "Create the direct Grok subscription provider for CONFIGURATION."
   (make-instance 'grok-subscription-provider
-                 :configuration configuration
+                 :configuration      configuration
                  :credential-manager (grok-credential-manager-create
                                       configuration)
-                 :session-id (make-identifier)))
+                 :session-id         (make-identifier)))
 
 
 ;;;; -- Grok Protocol Specializations --
@@ -119,7 +119,7 @@ backend search, and the conversation identifier doubles as the prompt cache
 key, both matching Grok Build reference commit 5163763e."
   (declare (ignore compaction-p))
   (let ((configuration (provider-configuration provider))
-        (cache-key (conversation-prompt-cache-key conversation)))
+        (cache-key     (conversation-prompt-cache-key conversation)))
     (append
      (list "include"
            (if (string= (config :web-search-mode configuration)
@@ -158,10 +158,10 @@ Trigger labels follow the grammar tail_repetition:{threshold}@{channel} or
 low_logprob@{channel}. Only thinking-channel tail repetition at or below the
 confidence threshold is worth acting on; loops in visible output are the
 user's to judge."
-  (let* ((at (position #\@ trigger))
-         (head (if at (subseq trigger 0 at) trigger))
+  (let* ((at      (position #\@ trigger))
+         (head    (if at (subseq trigger 0 at) trigger))
          (channel (if at (subseq trigger (1+ at)) ""))
-         (colon (position #\: head)))
+         (colon   (position #\: head)))
     (not
      (null
       (and (string= channel "thinking")
@@ -175,7 +175,7 @@ user's to judge."
 (-> grok--doom-loop-confident-triggers (json-object) list)
 (defun grok--doom-loop-confident-triggers (event)
   "Return EVENT's confident trigger labels from its cumulative report."
-  (let* ((check (json-get event "doom_loop_check"))
+  (let* ((check    (json-get event "doom_loop_check"))
          (triggers (and (json-object-p check)
                         (json-get check "triggers"))))
     (when (vectorp triggers)
@@ -188,21 +188,21 @@ user's to judge."
     ((provider grok-subscription-provider) (event hash-table))
   "Abandon a confidently looping stream while resample budget remains."
   (declare (ignore provider))
-  (let ((triggers (grok--doom-loop-confident-triggers event))
+  (let ((triggers  (grok--doom-loop-confident-triggers event))
         (remaining *grok-doom-loop-resamples-remaining*))
     (when (and triggers
                (integerp remaining)
                (plusp remaining))
       (setf *grok-doom-loop-resamples-remaining* (1- remaining))
       (error 'provider-resample-requested
-             :message (format nil
-                              "Grok reported a reasoning loop (~{~A~^, ~}); resampling."
-                              triggers)
-             :status nil
-             :request-id nil
-             :response nil
-             :triggers triggers
-             :attempt (1+ (- *grok-doom-loop-resample-limit* remaining))
+             :message          (format nil
+                                       "Grok reported a reasoning loop (~{~A~^, ~}); resampling."
+                                       triggers)
+             :status           nil
+             :request-id       nil
+             :response         nil
+             :triggers         triggers
+             :attempt          (1+ (- *grok-doom-loop-resample-limit* remaining))
              :maximum-attempts *grok-doom-loop-resample-limit*)))
   nil)
 
@@ -238,12 +238,12 @@ instead of an empty assistant turn. Validation runs inside attempt outcome wrapp
     (when (and (not compaction-p)
                (grok--empty-response-p result))
       (error 'provider-result-rejected
-             :result result
-             :message "Grok completed a response with no message or tool call."
-             :status nil
-             :request-id nil
+             :result      result
+             :message     "Grok completed a response with no message or tool call."
+             :status      nil
+             :request-id  nil
              :response-id (provider-result-response-id result)
-             :response nil))
+             :response    nil))
     result))
 
 
