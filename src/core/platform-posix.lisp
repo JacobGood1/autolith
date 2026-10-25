@@ -322,6 +322,7 @@
           (sb-bsd-sockets:socket-listen listener backlog)
           listener)
       (error (condition)
+        ; mallet:suppress no-ignore-errors -- closing the failed socket must not mask the original failure
         (ignore-errors (sb-bsd-sockets:socket-close listener))
         (error condition)))))
 
@@ -333,6 +334,7 @@
           (sb-bsd-sockets:socket-connect socket (posix--namestring pathname))
           socket)
       (sb-bsd-sockets:connection-refused-error (condition)
+        ; mallet:suppress no-ignore-errors -- closing the failed socket must not mask the original failure
         (ignore-errors (sb-bsd-sockets:socket-close socket))
         (error 'platform-error
                :message   (princ-to-string condition)
@@ -340,6 +342,7 @@
                :pathname  pathname
                :reason    ':refused))
       (sb-bsd-sockets:socket-error (condition)
+        ; mallet:suppress no-ignore-errors -- closing the failed socket must not mask the original failure
         (ignore-errors (sb-bsd-sockets:socket-close socket))
         (error 'platform-error
                :message   (princ-to-string condition)
