@@ -831,6 +831,7 @@
 
 (define-test-suite prompt
   test-system-prompt
+  test-system-prompt-session-date
   test-request-context-agenda-selection)
 
 (define-test-suite self-tool

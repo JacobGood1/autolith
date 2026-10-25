@@ -27,7 +27,7 @@ This is the Autolith system prompt.
 | =:immutable-p=                | boolean     | =configuration-immutable-p=                                    |
 | =:source-root=                | JSON string | =configuration-source-root=                                    |
 | =:workspace=                  | JSON string | =configuration-working-directory=                              |
-| =:current-date=               | date        | local ISO-8601 day                                           |
+| =:session-date=               | date        | local ISO-8601 day this process started serving requests     |
 | =:workspace-instructions=     | text or nil | bounded AGENTS.md concatenation                              |
 
 Hosted web search takes precedence over web.run, matching the =cond=
@@ -687,7 +687,8 @@ or standing repository instructions require it.
 
 * Date
 
-The current date is {{{:current-date}}}.
+This session started on {{{:session-date}}}. When the date has changed since,
+temporary context states the current date.
 
 * Workspace instructions
 :PROPERTIES:

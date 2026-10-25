@@ -41,8 +41,8 @@
                                      "a mutable session uses the live-image section")
              (prompt-tests--contains prompt "Use web.run"
                                      "cached web search advertises web.run")
-             (prompt-tests--contains prompt (system-prompt--current-date)
-                                     "the prompt embeds today's date")
+             (prompt-tests--contains prompt (system-prompt-session-date)
+                                     "the prompt embeds the session date")
              (prompt-tests--contains prompt "Workspace instructions from"
                                      "workspace AGENTS.md is included")
              (dolist (rendered (list prompt context))
@@ -96,6 +96,36 @@
       (platform-delete-directory-tree *platform* (test-configuration-root configuration)
                                       :validate          t
                                       :if-does-not-exist ':ignore)))
+  nil)
+
+(-> test-system-prompt-session-date () null)
+(defun test-system-prompt-session-date ()
+  "Keep the prompt's date for the process and report a later date as separate context."
+  (with-test-configuration (configuration)
+    (let* ((today        (system-prompt--current-date))
+           (conversation (conversation-create configuration))
+           (request      (make-instance 'request-context
+                                        :configuration   configuration
+                                        :conversation    conversation
+                                        :tool-namespaces #())))
+      (let ((*system-prompt-session-date* (cons (current-process-id) "2000-01-01")))
+        (test-assert (search "2000-01-01" (system-prompt configuration))
+                     "the prompt keeps the session date after midnight")
+        (test-assert (not (search today (system-prompt configuration)))
+                     "the prompt does not change with the current date")
+        (test-assert (equal (system-prompt-date-update) today)
+                     "a moved date is reported")
+        (let ((contribution (context--date-change request)))
+          (test-assert (and contribution
+                            (search today (context-contribution-instruction contribution))
+                            (search "2000-01-01" (context-contribution-instruction contribution)))
+                       "the date change arrives as its own context contribution")))
+      (let ((*system-prompt-session-date* (cons (1+ (current-process-id)) "2000-01-01")))
+        (test-assert (equal (system-prompt-session-date) today)
+                     "another process takes the date of its own start")
+        (test-assert (and (null (system-prompt-date-update))
+                          (null (context--date-change request)))
+                     "an unchanged date adds no context"))))
   nil)
 
 (-> test-request-context-agenda-selection () null)

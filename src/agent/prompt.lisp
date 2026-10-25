@@ -8,6 +8,14 @@
 (defvar *system-prompt-hosted-web-search-p* nil
   "Whether the current provider request offers web search.")
 
+(defvar *system-prompt-session-date* nil
+  "The process identifier and local date the system prompt reports, as (PROCESS-ID . DATE).
+
+The date is fixed for the life of the process so the system prompt stays a
+stable cached prefix across midnight; the date-change context contribution
+reports the current date once it differs. Keying it by process makes a
+restored image take the date of its own start.")
+
 (defvar *system-prompt-override* nil
   "A complete replacement system prompt for the current provider request.
 
@@ -98,6 +106,22 @@ prompt instead of the full Autolith persona.")
       (decode-universal-time (get-universal-time))
     (declare (ignore second minute hour))
     (format nil "~4,'0D-~2,'0D-~2,'0D" year month date)))
+
+(-> system-prompt-session-date () string)
+(defun system-prompt-session-date ()
+  "Return the local date the system prompt reports for this process, fixing it on first use."
+  (let ((process-id (current-process-id)))
+    (unless (eql (first *system-prompt-session-date*) process-id)
+      (setf *system-prompt-session-date*
+            (cons process-id (system-prompt--current-date))))
+    (rest *system-prompt-session-date*)))
+
+(-> system-prompt-date-update () (option string))
+(defun system-prompt-date-update ()
+  "Return today's local date when it differs from the system prompt's session date, or NIL."
+  (let ((today (system-prompt--current-date)))
+    (and (string/= today (system-prompt-session-date))
+         today)))
 
 (-> system-prompt--context-value ((option string)) string)
 (defun system-prompt--context-value (value)
@@ -205,7 +229,7 @@ prompt instead of the full Autolith persona.")
                               (namestring (config :source-root configuration)))
         :workspace           (system-prompt--context-value
                               (namestring (config :working-directory configuration)))
-        :current-date        (system-prompt--current-date)
+        :session-date        (system-prompt-session-date)
         :workspace-instructions
         (system-prompt--workspace-instructions configuration)))
 
@@ -263,7 +287,7 @@ prompt instead of the full Autolith persona.")
 
 (-> system-prompt (configuration) string)
 (defun system-prompt (configuration)
-  "Return the system prompt specialized for CONFIGURATION and today.
+  "Return the system prompt specialized for CONFIGURATION and this process's session date.
 
 Rebuild the prompt for each provider request, including after compaction.
 Append the enabled relax warning to ordinary and overridden system prompts."

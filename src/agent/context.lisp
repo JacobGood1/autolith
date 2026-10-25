@@ -348,6 +348,26 @@ have the same evaluation behavior as DEFUN."
   (register-context-contributor
    "session-state" 'context--session-state :source ':built-in))
 
+(-> context--date-change (request-context) (option context-contribution))
+(defun context--date-change (request)
+  "Return the current date once it has moved past the system prompt's session date.
+
+The system prompt keeps its date for the whole process, so the prefix it starts
+stays cached across midnight; this separate block carries the change instead."
+  (declare (ignore request))
+  (let ((today (system-prompt-date-update)))
+    (when (and today (not *system-prompt-override*))
+      (make-context-contribution
+       :identifier  "date-change"
+       :instruction (format nil "The current date is now ~A; the session started on ~A."
+                            today (system-prompt-session-date))
+       :priority    -900
+       :class       ':mandatory))))
+
+(eval-when (:load-toplevel :execute)
+  (register-context-contributor
+   "date-change" 'context--date-change :source ':built-in))
+
 (-> context-contributor-registrations () list)
 (defun context-contributor-registrations ()
   "Return a detached, ordered description of registered contributors."
