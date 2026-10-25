@@ -10,10 +10,10 @@
 (defun application-diagnoses-entry (application)
   "Return the saved diagnoses and recent diagnosis cases of APPLICATION's workspace."
   (let* ((configuration (application-configuration application))
-         (base (knowledge-base-read configuration))
-         (workspace (knowledge--workspace configuration))
-         (saved (knowledge-base-diagnoses base :workspace workspace))
-         (cases (knowledge-base-diagnosis-cases base workspace)))
+         (base          (knowledge-base-read configuration))
+         (workspace     (knowledge--workspace configuration))
+         (saved         (knowledge-base-diagnoses base :workspace workspace))
+         (cases         (knowledge-base-diagnosis-cases base workspace)))
     (if (and (null saved) (null cases))
         (list (terminal-span ':hint (format nil "No diagnoses yet.~:[ Enable Diagnostic probes in (settings) to let the model test hypotheses with probes.~;~]"
                                             (config :diagnosis-p configuration))))
@@ -46,17 +46,17 @@
 (defun application-diagnoses--case-lines (case)
   "Return the terminal lines describing one recorded diagnosis CASE."
   (let* ((remaining (getf case :remaining))
-         (style (cond
-                  ((null remaining)
-                   ':failure)
-                  ((rest remaining)
-                   ':notice)
-                  (t
-                   ':success)))
-         (label (application-diagnoses--text
-                 (format nil "~A~{ ~A=~A~}" (getf case :diagnosis)
-                         (loop for (variable value) in (getf case :bindings)
-                               append (list (string-left-trim "?" variable) value))))))
+         (style     (cond
+                      ((null remaining)
+                       ':failure)
+                      ((rest remaining)
+                       ':notice)
+                      (t
+                       ':success)))
+         (label     (application-diagnoses--text
+                     (format nil "~A~{ ~A=~A~}" (getf case :diagnosis)
+                             (loop for (variable value) in (getf case :bindings)
+                                   append (list (string-left-trim "?" variable) value))))))
     (append
      (list (terminal-span style (cond
                                   ((null remaining)
@@ -90,13 +90,13 @@
 ;;;; -- Command Definitions --
 
 (define-application-command application--builtin-diagnoses-command
-    (:name "/diagnoses"
-     :argument nil
-     :description "list diagnoses and what decided their cases"
-     :tip "shows saved diagnoses and recent cases: the cause found, its repair, and the facts that ruled out the rest."
-     :busy-behavior :inspect
+    (:name              "/diagnoses"
+     :argument          nil
+     :description       "list diagnoses and what decided their cases"
+     :tip               "shows saved diagnoses and recent cases: the cause found, its repair, and the facts that ruled out the rest."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-present application (application-diagnoses-entry application))
   ':continue)
