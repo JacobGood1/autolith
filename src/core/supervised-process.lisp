@@ -73,8 +73,8 @@ admission check. ACTIVE-P checks continuing authority. ACCEPT, when supplied,
 receives a response thunk to call under the owner's authorization lock. STOP kills
 and reaps the child. The owner joins I/O before closing streams; COMPLETE then
 releases owner records."
-  (let ((deadline (+ (get-internal-real-time)
-                     (ceiling (* seconds internal-time-units-per-second))))
+  (let ((deadline    (+ (get-internal-real-time)
+                        (ceiling (* seconds internal-time-units-per-second))))
         (result nil) (done nil)
         (result-lock (bt:make-lock "supervised process response")))
     (unwind-protect
