@@ -19,24 +19,29 @@
     ((consp value)
      (cons (procedure--preflight-resolve (first value) environment)
            (procedure--preflight-resolve (rest value) environment)))
-    (t value)))
+    (t
+     value)))
 
 (-> procedure--preflight-unify (t t list) (values list boolean))
 (defun procedure--preflight-unify (left right environment)
   "Unify two symbolic terms without replacing future values by concrete guesses."
-  (let ((left (procedure--preflight-resolve left environment))
+  (let ((left  (procedure--preflight-resolve left environment))
         (right (procedure--preflight-resolve right environment)))
     (cond
-      ((equal left right) (values environment t))
-      ((knowledge-variable-p left) (values (acons left right environment) t))
-      ((knowledge-variable-p right) (values (acons right left environment) t))
+      ((equal left right)
+       (values environment t))
+      ((knowledge-variable-p left)
+       (values (acons left right environment) t))
+      ((knowledge-variable-p right)
+       (values (acons right left environment) t))
       ((and (consp left) (consp right))
        (multiple-value-bind (next matched-p)
            (procedure--preflight-unify (first left) (first right) environment)
          (if matched-p
              (procedure--preflight-unify (rest left) (rest right) next)
              (values nil nil))))
-      (t (values nil nil)))))
+      (t
+       (values nil nil)))))
 
 (-> procedure--preflight-solutions
     (&key (:view knowledge-view) (:patterns list) (:produced list)
@@ -48,10 +53,10 @@ Future observations are variables, never stored facts. Resolve explicit negation
 argument equality, accepted bases, and admitted derivations before deferring a
 requirement. Guards and computed values still depending on future observations
 are conditional until the ordinary per-call check. Bound the entire proof search."
-  (let ((steps 0)
+  (let ((steps       0)
         (oppositions (make-hash-table :test #'equal))
-        (rules (knowledge-base-active-rules (knowledge-view-base view)
-                                           :workspace (knowledge-view-workspace view))))
+        (rules       (knowledge-base-active-rules (knowledge-view-base view)
+                                                 :workspace (knowledge-view-workspace view))))
     (labels ((spend ()
                (when (> (incf steps) *knowledge-step-limit*)
                  (knowledge--fail ':procedure-preflight-unknown patterns
@@ -59,8 +64,10 @@ are conditional until the ordinary per-call check. Bound the entire proof search
 
              (variables (value)
                (cond
-                 ((knowledge-variable-p value) (list value))
-                 ((consp value) (append (variables (first value)) (variables (rest value))))))
+                 ((knowledge-variable-p value)
+                  (list value))
+                 ((consp value)
+                  (append (variables (first value)) (variables (rest value))))))
 
              (fresh-rule (rule)
                (procedure--preflight-resolve
@@ -77,7 +84,7 @@ are conditional until the ordinary per-call check. Bound the entire proof search
                                              (knowledge-view-base view)
                                              (knowledge-proposition-predicate left)
                                              :workspace (knowledge-view-workspace view)))
-                                    (key (and schema (knowledge-proposition-key left schema))))
+                                    (key    (and schema (knowledge-proposition-key left schema))))
                                (and key (equal key (knowledge-proposition-key right schema))
                                     (some (lambda (left-term right-term)
                                             (and (null (variables left-term))
@@ -122,9 +129,9 @@ are conditional until the ordinary per-call check. Bound the entire proof search
                ;; Opposition counts every supported basis, including disputed facts.
                ;; Do not recursively require opponents to be undisputed themselves.
                (spend)
-               (let* ((pattern (procedure--preflight-resolve pattern bindings))
+               (let* ((pattern   (procedure--preflight-resolve pattern bindings))
                       (predicate (knowledge-proposition-predicate pattern))
-                      (answers nil))
+                      (answers   nil))
                  (dolist (candidate
                           (append (mapcar #'knowledge-node-proposition
                                           (append (gethash predicate (knowledge-view-supported view))
@@ -134,7 +141,7 @@ are conditional until the ordinary per-call check. Bound the entire proof search
                        (procedure--preflight-unify pattern candidate bindings)
                      (when matched-p (push next answers))))
                  (dolist (item rules)
-                   (let* ((rule (fresh-rule (third item)))
+                   (let* ((rule       (fresh-rule (third item)))
                           (conclusion (getf (rest rule) :conclusion)))
                      (when (and (eq (knowledge-negation-p pattern) (knowledge-negation-p conclusion))
                                 (equal predicate (knowledge-proposition-predicate conclusion)))
@@ -156,22 +163,22 @@ are conditional until the ordinary per-call check. Bound the entire proof search
                (let* ((future-state (mapcar (lambda (variable)
                                              (procedure--preflight-resolve variable bindings))
                                            (remove-duplicates (variables produced) :test #'equal)))
-                      (cache-key (list predicate future-state)))
+                      (cache-key    (list predicate future-state)))
                  (multiple-value-bind (cached present-p) (gethash cache-key oppositions)
                    (if present-p
                        cached
-                       (let* ((schema (knowledge-base-schema
-                                       (knowledge-view-base view) predicate
-                                       :workspace (knowledge-view-workspace view)))
-                              (atom (cons predicate
-                                          (mapcar (lambda (argument)
-                                                    (declare (ignore argument))
-                                                    (procedure--preflight-variable))
-                                                  (knowledge-schema-arguments schema))))
+                       (let* ((schema          (knowledge-base-schema
+                                                (knowledge-view-base view) predicate
+                                                :workspace (knowledge-view-workspace view)))
+                              (atom            (cons predicate
+                                                     (mapcar (lambda (argument)
+                                                               (declare (ignore argument))
+                                                               (procedure--preflight-variable))
+                                                             (knowledge-schema-arguments schema))))
                               (unbound-futures (remove-duplicates
                                                 (remove-if-not #'knowledge-variable-p future-state)
                                                 :test #'equal))
-                              (candidates nil))
+                              (candidates      nil))
                          (dolist (pattern (list atom (list :not atom)))
                            (dolist (solution (raw-prove pattern bindings))
                              (let ((roots (mapcar (lambda (variable)
@@ -234,7 +241,7 @@ are conditional until the ordinary per-call check. Bound the entire proof search
                        (when (and matched-p (not (opposed-p pattern next)))
                          (push (list next (list pattern) nil) answers)))))
                  (dolist (item rules)
-                   (let* ((rule (fresh-rule (third item)))
+                   (let* ((rule       (fresh-rule (third item)))
                           (conclusion (getf (rest rule) :conclusion)))
                      (when (and (eq (knowledge-negation-p pattern) (knowledge-negation-p conclusion))
                                 (equal (knowledge-proposition-predicate pattern)
@@ -272,8 +279,8 @@ are conditional until the ordinary per-call check. Bound the entire proof search
             (knowledge--fail ':procedure-preflight-unknown patterns
                              "Procedure preflight could not complete the current requirement search."))))
       (let* ((solutions (mapcar #'first (solve patterns environment)))
-             (names (remove-duplicates (append (variables patterns) (mapcar #'first environment))
-                                       :test #'equal))
+             (names     (remove-duplicates (append (variables patterns) (mapcar #'first environment))
+                                           :test #'equal))
              (resolved
                (remove-duplicates
                 (mapcar (lambda (solution)
@@ -292,7 +299,7 @@ are conditional until the ordinary per-call check. Bound the entire proof search
           (:view knowledge-view) (:result-variable function)) list)
 (defun procedure--preflight-productions (&key contract environment arguments view result-variable)
   "Return symbolic predictions and observations of one applicable earlier call."
-  (let ((unknowns (make-hash-table :test #'equal))
+  (let ((unknowns    (make-hash-table :test #'equal))
         (productions nil))
     (labels ((resolve (value)
                (let ((value (procedure--preflight-resolve value environment)))
@@ -309,9 +316,9 @@ are conditional until the ordinary per-call check. Bound the entire proof search
               productions))
       (dolist (observation (getf (rest contract) :observes))
         (let* ((predicate (getf observation :predicate))
-               (schema (knowledge-base-schema (knowledge-view-base view) predicate
-                                              :workspace (knowledge-view-workspace view)))
-               (valid-p t)
+               (schema    (knowledge-base-schema (knowledge-view-base view) predicate
+                                                 :workspace (knowledge-view-workspace view)))
+               (valid-p   t)
                (values
                  (loop for argument in (getf observation :arguments)
                        for specification in (knowledge-schema-arguments schema)
@@ -331,17 +338,19 @@ are conditional until the ordinary per-call check. Bound the entire proof search
                                  (if (knowledge-variable-p value)
                                      value
                                      (knowledge-term-from-input value (getf specification :type))))))
-                         ((knowledge-variable-p argument) (resolve argument))
-                         (t (knowledge-term-from-input argument (getf specification :type)))))))
+                         ((knowledge-variable-p argument)
+                          (resolve argument))
+                         (t
+                          (knowledge-term-from-input argument (getf specification :type)))))))
           (when valid-p (push (list (cons predicate values) :observation) productions)))))
     productions))
-
 
 (-> procedure--preflight-arguments (list list function) t)
 (defun procedure--preflight-arguments (template bindings result-variable)
   "Instantiate known argument fields, retaining result references as symbolic variables."
   (case (first template)
-    (:from (funcall result-variable (second template) (third template)))
+    (:from
+     (funcall result-variable (second template) (third template)))
     (:object
      (let ((arguments (json-object)))
        (dolist (entry (rest template) arguments)
@@ -351,12 +360,13 @@ are conditional until the ordinary per-call check. Bound the entire proof search
      (coerce (mapcar (lambda (item)
                        (procedure--preflight-arguments item bindings result-variable))
                      (rest template)) 'vector))
-    (otherwise (procedure-template-instantiate template bindings nil))))
+    (otherwise
+     (procedure-template-instantiate template bindings nil))))
 
 (-> procedure--preflight-matches (knowledge-view string hash-table) list)
 (defun procedure--preflight-matches (view tool arguments)
   "Match applicable contracts while retaining unknown scalar arguments symbolically."
-  (let ((base (knowledge-view-base view))
+  (let ((base      (knowledge-view-base view))
         (workspace (knowledge-view-workspace view)))
     (loop for contract in (knowledge-base-contracts base tool :workspace workspace)
           for (environment matched-p) = (multiple-value-list
