@@ -187,12 +187,13 @@
                     (credential-manager-primary-source manager)))))
 
 (-> gemini-oauth-exchange-code
-    (credential-manager string string string
-     &key (:request-function function) (:client-id string)
+    (credential-manager
+     &key (:code string) (:verifier string) (:redirect-uri string)
+          (:request-function function) (:client-id string)
           (:client-secret (option string)) (:token-endpoint string))
     oauth-credentials)
 (defun gemini-oauth-exchange-code
-    (manager code verifier redirect-uri &key
+    (manager &key code verifier redirect-uri
              (request-function #'gemini-oauth--request)
              (client-id (gemini-oauth-client-id))
              (client-secret (gemini-oauth-client-secret))

@@ -44,8 +44,10 @@
          (request-content nil)
          (credentials
            (gemini-oauth-exchange-code
-            manager "code-secret" "verifier-secret"
-            "http://127.0.0.1:1234/oauth2callback"
+            manager
+            :code           "code-secret"
+            :verifier       "verifier-secret"
+            :redirect-uri   "http://127.0.0.1:1234/oauth2callback"
             :client-id      "public-client"
             :client-secret  nil
             :token-endpoint "https://oauth.test/token"
@@ -70,8 +72,10 @@
                  "Gemini exchange records expires_in as universal time"))
   (let ((request-content nil))
     (gemini-oauth-exchange-code
-     (gemini-test--manager) "code-secret" "verifier-secret"
-     "http://127.0.0.1:1234/oauth2callback"
+     (gemini-test--manager)
+     :code           "code-secret"
+     :verifier       "verifier-secret"
+     :redirect-uri   "http://127.0.0.1:1234/oauth2callback"
      :client-id      "confidential-client"
      :client-secret  "client-secret"
      :token-endpoint "https://oauth.test/token"
