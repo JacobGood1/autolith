@@ -157,10 +157,13 @@
                                          options))))
       (if optional-p (format nil "[~A]" choices) choices)))
 
-  (-> application-command--validate-metadata (t t t t t t t t) boolean)
+  (-> application-command--validate-metadata
+      (t &key (:aliases t) (:argument t) (:description t) (:tip t) (:busy-behavior t)
+         (:terminal-behavior t) (:static-options t))
+      boolean)
   (defun application-command--validate-metadata
-      (name aliases argument description tip busy-behavior terminal-behavior
-       static-options)
+      (name &key aliases argument description tip busy-behavior terminal-behavior
+                 static-options)
     "Validate command metadata values and return true."
     (unless (application-command--identifier-p name)
       (application-command--definition-error
@@ -306,19 +309,19 @@
              definition-name)))
       (application-command--validate-metadata
        (getf metadata :name)
-       (getf metadata :aliases)
-       (if static-options
-           (multiple-value-bind (minimum maximum)
-               (application-command--lambda-list-arity (rest lambda-list))
-             (declare (ignore maximum))
-             (application-command--static-option-hint static-options
-                                                      (zerop minimum)))
-           (getf metadata :argument))
-       (getf metadata :description)
-       (getf metadata :tip)
-       (getf metadata :busy-behavior)
-       (getf metadata :terminal-behavior)
-       static-options))))
+       :aliases           (getf metadata :aliases)
+       :argument          (if static-options
+                              (multiple-value-bind (minimum maximum)
+                                  (application-command--lambda-list-arity (rest lambda-list))
+                                (declare (ignore maximum))
+                                (application-command--static-option-hint static-options
+                                                                         (zerop minimum)))
+                              (getf metadata :argument))
+       :description       (getf metadata :description)
+       :tip               (getf metadata :tip)
+       :busy-behavior     (getf metadata :busy-behavior)
+       :terminal-behavior (getf metadata :terminal-behavior)
+       :static-options    static-options))))
 
 (defclass application-command ()
   ((definition-name
@@ -485,13 +488,13 @@
   (handler-case
       (application-command--validate-metadata
        (application-command-name command)
-       (application-command-aliases command)
-       (application-command-argument command)
-       (application-command-description command)
-       (application-command-tip command)
-       (application-command-busy-behavior command)
-       (application-command-terminal-behavior command)
-       (application-command-static-options command))
+       :aliases           (application-command-aliases command)
+       :argument          (application-command-argument command)
+       :description       (application-command-description command)
+       :tip               (application-command-tip command)
+       :busy-behavior     (application-command-busy-behavior command)
+       :terminal-behavior (application-command-terminal-behavior command)
+       :static-options    (application-command-static-options command))
     (error (condition)
       (error 'configuration-error
              :message (princ-to-string condition))))
@@ -558,9 +561,14 @@
                   (application-command--static-option-hint
                    static-options
                    (zerop minimum)))))
-        (application-command--validate-metadata
-         name aliases argument description tip busy-behavior terminal-behavior
-         static-options))
+        (application-command--validate-metadata name
+                                                :aliases           aliases
+                                                :argument          argument
+                                                :description       description
+                                                :tip               tip
+                                                :busy-behavior     busy-behavior
+                                                :terminal-behavior terminal-behavior
+                                                :static-options    static-options))
     (error (condition)
       (error 'configuration-error :message (princ-to-string condition))))
   (unless (functionp handler)
