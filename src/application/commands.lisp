@@ -24,9 +24,10 @@ Measure sanitized labels in terminal cells. Values wrap through the ordinary
 transcript renderer, including in fullscreen."
   (let* ((labels (mapcar (lambda (field)
                           (sanitize-text (first field) :single-line-p t))
+
                         fields))
-         (width (loop for label in labels maximize (text-cell-width label) into size
-                      finally (return (or size 0)))))
+         (width  (loop for label in labels maximize (text-cell-width label) into size
+                       finally (return (or size 0)))))
     (loop for field in fields
           for safe-label in labels
           append (list (terminal-span ':dim
@@ -65,19 +66,24 @@ transcript renderer, including in fullscreen."
 (defun application--agenda-status-style (status)
   "Return the terminal style associated with agenda STATUS."
   (case status
-    (:done ':success)
-    (:blocked ':failure)
-    (:doing ':brand)
-    (:note ':dim)
-    (otherwise ':hint)))
+    (:done
+     ':success)
+    (:blocked
+     ':failure)
+    (:doing
+     ':brand)
+    (:note
+     ':dim)
+    (otherwise
+     ':hint)))
 
 (-> application-agenda-entry (application) (or string list))
 (defun application-agenda-entry (application)
   "Return the current workspace agenda as a readable transcript entry."
   (with-recursive-lock-held (*agenda-lock*)
     (let* ((configuration (application-configuration application))
-           (record (agenda-current configuration (agenda-load configuration)))
-           (items (and record (workspace-agenda-items record))))
+           (record        (agenda-current configuration (agenda-load configuration)))
+           (items         (and record (workspace-agenda-items record))))
       (if (null items)
           "The current workspace agenda is empty."
           (append
@@ -123,7 +129,7 @@ transcript renderer, including in fullscreen."
 (defun application-papercuts-entry (application)
   "Return the current workspace's papercuts as a compact transcript entry."
   (let* ((configuration (application-configuration application))
-         (papercuts (papercut-list configuration)))
+         (papercuts     (papercut-list configuration)))
     (if (null papercuts)
         (list (terminal-span ':hint
                              "No papercuts recorded for this workspace."))
@@ -213,12 +219,12 @@ transcript renderer, including in fullscreen."
 (-> application--conversation-usage (application) list)
 (defun application--conversation-usage (application)
   "Return summed token and prompt-cache usage for the active conversation."
-  (let ((input 0)
-        (output 0)
-        (total 0)
-        (cached 0)
+  (let ((input         0)
+        (output        0)
+        (total         0)
+        (cached        0)
         (cache-created 0)
-        (cache-seen-p nil))
+        (cache-seen-p  nil))
     (labels ((usage-count (usage key)
                "Return the integer usage value stored under KEY and whether it exists."
                (let* ((entry (assoc key usage :test #'string=))
@@ -242,12 +248,12 @@ transcript renderer, including in fullscreen."
                    (usage-count usage "cache_creation_input_tokens")
                  (incf cache-created count)
                  (setf cache-seen-p (or cache-seen-p present-p)))))))))
-    (list :input input
-          :output output
-          :total total
-          :cached cached
+    (list :input         input
+          :output        output
+          :total         total
+          :cached        cached
           :cache-created cache-created
-          :cache-seen-p cache-seen-p)))
+          :cache-seen-p  cache-seen-p)))
 
 (-> application--token-count-description (integer) string)
 (defun application--token-count-description (count)
@@ -263,11 +269,11 @@ transcript renderer, including in fullscreen."
 (-> application--prompt-cache-description (list) string)
 (defun application--prompt-cache-description (usage)
   "Return a compact prompt-cache summary for aggregate USAGE."
-  (let* ((input (getf usage :input))
-         (cached (getf usage :cached))
+  (let* ((input   (getf usage :input))
+         (cached  (getf usage :cached))
          (created (getf usage :cache-created))
-         (rate (and (plusp input)
-                    (min 100 (round (* 100 cached) input)))))
+         (rate    (and (plusp input)
+                       (min 100 (round (* 100 cached) input)))))
     (format nil "~A read~A, ~A written"
             (application--token-count-description cached)
             (if rate (format nil " (~D% of input)" rate) "")
@@ -290,11 +296,16 @@ transcript renderer, including in fullscreen."
         (terminal-span ':dim " input tokens uncached")
         (terminal-span ':dim
                        (case (getf miss :cause)
-                         (:model-changed " · model changed")
-                         (:idle " · idle interval exceeded local heuristic")
-                         (:prompt-shrank " · prompt size decreased")
-                         (:resumed " · resumed session")
-                         (otherwise "")))
+                         (:model-changed
+                          " · model changed")
+                         (:idle
+                          " · idle interval exceeded local heuristic")
+                         (:prompt-shrank
+                          " · prompt size decreased")
+                         (:resumed
+                          " · resumed session")
+                         (otherwise
+                          "")))
         (terminal-span ':dim
                        (if (getf miss :stalled-p)
                            " · cached-token count stagnant"
@@ -325,18 +336,18 @@ Persisted usage describes an earlier session, not a cache expectation for this o
 The completed request's usage becomes the next baseline whether or not the
 notice preference is on, so enabling it mid-session takes effect immediately."
   (application-idle-compaction-note-completed application (getf details :usage))
-  (let* ((usage (getf details :usage))
-         (model (application-prompt-cache-request-model application))
-         (miss (prompt-cache-miss-detect
-                (application-prompt-cache-baseline application)
-                usage
-                :started-at
-                (application-prompt-cache-request-started-at application)
-                :model model))
+  (let* ((usage    (getf details :usage))
+         (model    (application-prompt-cache-request-model application))
+         (miss     (prompt-cache-miss-detect
+                    (application-prompt-cache-baseline application)
+                    usage
+                    :started-at
+                    (application-prompt-cache-request-started-at application)
+                    :model model))
          (baseline (prompt-cache-baseline-create
                     usage
                     :completed-at (get-universal-time)
-                    :model model)))
+                    :model        model)))
     (when baseline
       (setf (application-prompt-cache-baseline application) baseline))
     (when (and miss (application-cache-miss-notices-p application))
@@ -351,13 +362,20 @@ notice preference is on, so enabling it mid-session takes effect immediately."
              (and minutes
                   (<= (* expected 95/100) minutes (* expected 105/100)))))
     (cond
-      ((approximately-p 300) "5h")
-      ((approximately-p 1440) "daily")
-      ((approximately-p 10080) "weekly")
-      ((approximately-p 43200) "monthly")
-      ((null minutes) fallback)
-      ((>= minutes 60) (format nil "~Dh" (round minutes 60)))
-      (t (format nil "~Dm" minutes)))))
+      ((approximately-p 300)
+       "5h")
+      ((approximately-p 1440)
+       "daily")
+      ((approximately-p 10080)
+       "weekly")
+      ((approximately-p 43200)
+       "monthly")
+      ((null minutes)
+       fallback)
+      ((>= minutes 60)
+       (format nil "~Dh" (round minutes 60)))
+      (t
+       (format nil "~Dm" minutes)))))
 
 (-> application--reset-description ((option integer)) (option string))
 (defun application--reset-description (resets-at)
@@ -381,13 +399,13 @@ notice preference is on, so enabling it mid-session takes effect immediately."
 (-> application--limit-spans (string list (integer 0)) list)
 (defun application--limit-spans (label window width)
   "Return rate limit WINDOW as a usage bar row with LABEL padded to WIDTH."
-  (let* ((used (min 100 (max 0 (getf window :used-percent))))
-         (left (- 100 used))
-         (cells 20)
+  (let* ((used   (min 100 (max 0 (getf window :used-percent))))
+         (left   (- 100 used))
+         (cells  20)
          (filled (round (* cells left) 100))
-         (bar (concatenate 'string
-                           (make-string filled :initial-element #\█)
-                           (make-string (- cells filled) :initial-element #\░))))
+         (bar    (concatenate 'string
+                              (make-string filled :initial-element #\█)
+                              (make-string (- cells filled) :initial-element #\░))))
     (list (terminal-span :dim (format nil "  ~vA " width label))
           (terminal-span :plain (format nil "[~A] ~D% left" bar (round left)))
           (terminal-span :dim
@@ -447,14 +465,14 @@ notice preference is on, so enabling it mid-session takes effect immediately."
 (-> application-status-entry (application) list)
 (defun application-status-entry (application)
   "Return the styled /status summary of APPLICATION's session and rate limits."
-  (let* ((configuration (application-configuration application))
-         (provider (application-provider application))
-         (snapshot (and provider (provider-rate-limits provider)))
-         (usage (application--conversation-usage application))
-         (primary (getf snapshot :primary))
-         (secondary (getf snapshot :secondary))
-         (primary-label (and primary
-                             (application--limit-label "primary" primary)))
+  (let* ((configuration   (application-configuration application))
+         (provider        (application-provider application))
+         (snapshot        (and provider (provider-rate-limits provider)))
+         (usage           (application--conversation-usage application))
+         (primary         (getf snapshot :primary))
+         (secondary       (getf snapshot :secondary))
+         (primary-label   (and primary
+                               (application--limit-label "primary" primary)))
          (secondary-label (and secondary
                                (application--limit-label "weekly" secondary)))
          (fields
@@ -630,20 +648,20 @@ notice preference is on, so enabling it mid-session takes effect immediately."
                    (application--abbreviated-directory
                     (namestring current-directory))))
          (current-items nil)
-         (other-items nil))
+         (other-items   nil))
     (dolist (pathname (conversation-list configuration))
       (let* ((identifier (pathname-name pathname))
              (identifier-display
                (conversation-identifier-display identifier))
-             (header (conversation-peek-header pathname))
-             (directory (getf (rest header) :directory))
+             (header     (conversation-peek-header pathname))
+             (directory  (getf (rest header) :directory))
              (current-directory-p
                (application--conversation-current-directory-p
                 directory
                 current-directory))
-             (metadata (conversation-picker-metadata-find pathname))
-             (title (and metadata
-                         (conversation-picker-metadata-title metadata)))
+             (metadata   (conversation-picker-metadata-find pathname))
+             (title      (and metadata
+                              (conversation-picker-metadata-title metadata)))
              (preview
                (and metadata
                     (application--conversation-preview-from-metadata metadata))))
@@ -653,7 +671,7 @@ notice preference is on, so enabling it mid-session takes effect immediately."
              :directory (and (not current-directory-p)
                              (application--abbreviated-directory directory))
              :current-p (string= identifier current-identifier)
-             :preview preview)
+             :preview   preview)
           (let* ((titled-p (and title
                                 (not (string= title identifier-display))))
                  (item-description
@@ -668,16 +686,16 @@ notice preference is on, so enabling it mid-session takes effect immediately."
                         description-spans)
                        description-spans))
                  (item
-                   (list :name (or title identifier-display)
-                         :value identifier
-                         :argument nil
-                         :group (if current-directory-p
-                                    current-group
-                                    "other sessions")
-                         :tally (if metadata
-                                    (application--conversation-metadata-tally metadata)
-                                    "0 turns")
-                         :description item-description
+                   (list :name              (or title identifier-display)
+                         :value             identifier
+                         :argument          nil
+                         :group             (if current-directory-p
+                                                current-group
+                                                "other sessions")
+                         :tally             (if metadata
+                                                (application--conversation-metadata-tally metadata)
+                                                "0 turns")
+                         :description       item-description
                          :description-spans item-description-spans)))
             (if current-directory-p
                 (push item current-items)
@@ -688,12 +706,12 @@ notice preference is on, so enabling it mid-session takes effect immediately."
 (defun application--effort-items (application)
   "Return picker items for the active model's supported reasoning efforts."
   (let* ((configuration (application-configuration application))
-         (current (config :reasoning-effort configuration)))
+         (current       (config :reasoning-effort configuration)))
     (loop for effort in
           (configuration--reasoning-efforts-for
            (config :model configuration) (config :model-provider configuration))
-          collect (list :name effort
-                        :argument nil
+          collect (list :name        effort
+                        :argument    nil
                         :description (if (string= effort current)
                                          "current"
                                          "")))))
@@ -755,8 +773,10 @@ the effort with the same model even when the model was never chosen."
 (defun application--boolean-control (value)
   "Return the explicit boolean or status action represented by VALUE."
   (cond
-    ((eq value t) ':on)
-    ((null value) ':off)
+    ((eq value t)
+     ':on)
+    ((null value)
+     ':off)
     (t
      (application--control-choice value '(:on :off :status)))))
 
@@ -798,8 +818,8 @@ the effort with the same model even when the model was never chosen."
 (defun application-codex-fast-mode-command (application &optional (argument ':status))
   "Set or report APPLICATION's persisted Codex Fast mode."
   (let* ((configuration (application-configuration application))
-         (mode (application--boolean-control argument))
-         (enabled-p (config :codex-fast-mode-p configuration))
+         (mode          (application--boolean-control argument))
+         (enabled-p     (config :codex-fast-mode-p configuration))
          (available-p
            (configuration-codex-fast-mode-available-p configuration)))
     (cond
@@ -947,7 +967,7 @@ the effort with the same model even when the model was never chosen."
 (defun application-simple-technical-english-command (application &optional (argument ':status))
   "Show or change APPLICATION's Simple Technical English response style."
   (let* ((configuration (application-configuration application))
-         (mode (application--boolean-control argument)))
+         (mode          (application--boolean-control argument)))
     (cond
       ((eq mode ':status)
        (application-present
@@ -975,7 +995,7 @@ the effort with the same model even when the model was never chosen."
 (defun application-session-titles-command (application &optional (argument ':status))
   "Show or change automatic provider-generated session-title refreshes."
   (let* ((configuration (application-configuration application))
-         (mode (application--boolean-control argument)))
+         (mode          (application--boolean-control argument)))
     (cond
       ((eq mode ':status)
        (application-present
@@ -1053,10 +1073,10 @@ the effort with the same model even when the model was never chosen."
 (defun application--model-items (application &key provider)
   "Return distinct model/provider picker items, optionally filtered by PROVIDER."
   (when provider (provider-model-selections :provider provider))
-  (let* ((configuration (application-configuration application))
-         (current (configuration-model-registration configuration))
+  (let* ((configuration    (application-configuration application))
+         (current          (configuration-model-registration configuration))
          (current-provider (and current (provider-registration-name current)))
-         (credentialed (application--credentialed-provider-names application)))
+         (credentialed     (application--credentialed-provider-names application)))
     (loop for registration in (provider-registrations)
           for name = (provider-registration-name registration)
           when (if provider
@@ -1065,7 +1085,7 @@ the effort with the same model even when the model was never chosen."
             append
             (loop for metadata in (provider-registration-models registration)
                   for model = (provider-model-name metadata)
-                  collect (list :name (provider-model-selection-id model registration)
+                  collect (list :name      (provider-model-selection-id model registration)
                                 :model model :provider name
                                 :current-p (and (eq current registration)
                                                 (string= model (config :model configuration)))
@@ -1121,16 +1141,17 @@ the effort with the same model even when the model was never chosen."
     (unless registration
       (provider--selection-error
        model provider :reason ':unsupported-model
-       :message (format nil "Unknown model ~S. Use (models) to list available models." model)))
+       :message               (format nil "Unknown model ~S. Use (models) to list available models." model)))
     (let ((configuration
             (configuration-copy
              (application-configuration application)
-             :model identifier
+             :model          identifier
              :model-provider (provider-registration-name registration))))
       (application--install-configuration application configuration)
       (configuration-persist configuration :model-provider)
       (configuration-persist configuration :model)
       (application--persist-model-selection application configuration))))
+
 
 ;;;; -- Private Replay Skips --
 
@@ -1236,7 +1257,7 @@ skipped definition grouped by reason."
   (when *image-replay-skips*
     (application--replay-skips-entry
      *image-replay-skips*
-     :commit-identifier *active-image-commit-identifier*
+     :commit-identifier   *active-image-commit-identifier*
      :lineage-source-commit
      (application--replay-lineage-source-commit application)
      :image-source-commit (image-commit--base-source-commit nil))))
@@ -1354,13 +1375,13 @@ it was published, and the tracked definition CONFIGURATION's source holds now."
                   controller
                   (application--skipped-definitions-prompt
                    skips
-                   :configuration (application-configuration application)
+                   :configuration     (application-configuration application)
                    :commit-identifier *active-image-commit-identifier*
                    :lineage-source-commit
                    (application--replay-lineage-source-commit application)
                    :image-source-commit
                    (image-commit--base-source-commit nil)
-                   :comment comment)
+                   :comment           comment)
                   (list :operation "fix-skipped-definitions"
                         :summary
                         (format nil "Rebuild or drop the ~D private definition~:P skipped at startup."
@@ -1388,7 +1409,7 @@ it was published, and the tracked definition CONFIGURATION's source holds now."
 (-> application-compact (application) null)
 (defun application-compact (application)
   "Compact the active conversation, or report an empty conversation without a request."
-  (let ((agent (application-agent application))
+  (let ((agent        (application-agent application))
         (conversation (application-conversation application)))
     (cond
       ((null (conversation-input-items conversation))
@@ -1500,13 +1521,13 @@ work must steer the running turn, not queue as follow-up work."
       (flet ((work (steering-function steering-persisted-function)
                (application--run-turn application
                                       *application-goal-continuation-prompt*
-                                      :continuation-p t
+                                      :continuation-p    t
                                       :steering-function steering-function
                                       :steering-persisted-function
                                       steering-persisted-function)
                (application--run-goal-continuations
                 application
-                :steering-function steering-function
+                :steering-function           steering-function
                 :steering-persisted-function steering-persisted-function)))
         (let ((controller (application-input-controller application)))
           (if controller
@@ -1517,14 +1538,14 @@ work must steer the running turn, not queue as follow-up work."
 
 (define-condition application-goal-error (autolith-error)
   ((reason
-    :initarg :reason
-    :reader application-goal-error-reason
-    :type keyword
+    :initarg       :reason
+    :reader        application-goal-error-reason
+    :type          keyword
     :documentation "The stable reason the goal request was rejected.")
    (request
-    :initarg :request
-    :reader application-goal-error-request
-    :type t
+    :initarg       :request
+    :reader        application-goal-error-request
+    :type          t
     :documentation "The objective or action supplied by the caller."))
   (:documentation "A public goal request has an invalid action or arguments."))
 
@@ -1588,10 +1609,10 @@ NIL and :STATUS show the goal. :UPDATE takes one string objective; :PAUSE,
       (t
        (mission-detach application)
        (setf (application-goal application)
-             (list :objective (copy-seq request)
-                   :status ':active
+             (list :objective     (copy-seq request)
+                   :status        ':active
                    :continuations 0
-                   :created-at (get-universal-time)))
+                   :created-at    (get-universal-time)))
        (application--record-goal application)
        (application-present
         application
@@ -1606,8 +1627,8 @@ NIL and :STATUS show the goal. :UPDATE takes one string objective; :PAUSE,
 (defun application-goal--slash-arguments (text)
   "Parse goal controls and objective text only at the slash-command boundary."
   (let* ((remainder (string-trim *application-command-whitespace* text))
-         (word (string-downcase remainder))
-         (update (application--goal-update-argument remainder))
+         (word      (string-downcase remainder))
+         (update    (application--goal-update-argument remainder))
          (objective (or update remainder)))
     (when (uiop:string-prefix-p "/" objective)
       (error 'application-goal-error
@@ -1638,7 +1659,7 @@ NIL and :STATUS show the goal. :UPDATE takes one string objective; :PAUSE,
   "Return picker items for retained generations, newest first."
   (loop for generation in (generation-list
                            (application-configuration application))
-        collect (list :name (generation-identifier generation)
+        collect (list :name     (generation-identifier generation)
                       :argument nil
                       :description
                       (format nil "~A~:[, incompatible~;~]"
@@ -1677,36 +1698,36 @@ are forwarded to TERMINAL-UI-SELECT."
         (return nil))
       (terminal-ui-select
        ui
-       :title title
-       :items items
-       :hint hint
-       :visible-count visible-count
-       :initial-name initial-name
-       :initial-value initial-value
-       :search-p search-p
-       :search-key search-key
-       :on-event on-event
+       :title           title
+       :items           items
+       :hint            hint
+       :visible-count   visible-count
+       :initial-name    initial-name
+       :initial-value   initial-value
+       :search-p        search-p
+       :search-key      search-key
+       :on-event        on-event
        :resize-callback #'application-pending-terminal-size))))
 
 (-> application--conversation-delete-confirm-items (list) list)
 (defun application--conversation-delete-confirm-items (item)
   "Return the delete/keep confirmation items for ITEM."
   (list
-   (list :name "delete"
-         :argument nil
+   (list :name        "delete"
+         :argument    nil
          :description (format nil "permanently delete ~A" (getf item :name)))
-   (list :name "keep"
-         :argument nil
+   (list :name        "keep"
+         :argument    nil
          :description "return to the conversation list")))
 
 (-> application--pick-conversation (application) (option string))
 (defun application--pick-conversation (application)
   "Pick a saved conversation, with d-delete and a confirmation step."
   (let* ((browse-title "resume conversation")
-         (browse-hint "enter selects, d deletes, esc cancels")
+         (browse-hint  "enter selects, d deletes, esc cancels")
          (confirm-hint "enter confirms, esc returns")
-         (mode ':browse)
-         (pending nil)
+         (mode         ':browse)
+         (pending      nil)
          (browse-items (application--conversation-items application))
          (current-identifier
            (conversation-identifier
@@ -1719,7 +1740,7 @@ are forwarded to TERMINAL-UI-SELECT."
              (selected-item (selector)
                "Return SELECTOR's currently highlighted item, or NIL."
                (let ((selection (selector-selection selector))
-                     (items (selector-items selector)))
+                     (items     (selector-items selector)))
                  (and selection
                       items
                       (<= 0 selection (1- (length items)))
@@ -1776,7 +1797,7 @@ are forwarded to TERMINAL-UI-SELECT."
                              :test #'eq)
                      (list ':cancel))
                     ((eq event ':submit)
-                     (let ((choice (selected-item selector))
+                     (let ((choice         (selected-item selector))
                            (selected-value (and pending (getf pending :value))))
                        (cond
                          ((and choice
@@ -1813,20 +1834,20 @@ are forwarded to TERMINAL-UI-SELECT."
                      nil))))))
       (application--pick-identifier
        application
-       :title browse-title
-       :items browse-items
-       :hint browse-hint
+       :title         browse-title
+       :items         browse-items
+       :hint          browse-hint
        :initial-value current-identifier
-       :on-event #'on-event
-       :usage "Usage: (resume \"ID\")"
-       :empty-notice "No saved conversations exist."))))
+       :on-event      #'on-event
+       :usage         "Usage: (resume \"ID\")"
+       :empty-notice  "No saved conversations exist."))))
 
 (-> application--pick-model (application &key (:provider (option string))) (values (option string) (option string)))
 (defun application--pick-model (application &key provider)
   "Return the picked exact model and provider as two values, or two NILs."
   (let* ((configuration (application-configuration application))
-         (registration (configuration-model-registration configuration))
-         (items (application--model-items application :provider provider))
+         (registration  (configuration-model-registration configuration))
+         (items         (application--model-items application :provider provider))
          (selection
            (application--pick-identifier
             application :title "pick the model" :items items :visible-count 15
@@ -1834,7 +1855,7 @@ are forwarded to TERMINAL-UI-SELECT."
                                (provider-model-selection-id (config :model configuration) registration))
             :search-p t :usage "Usage: (model \"MODEL\" :provider \"PROVIDER\")"
             :empty-notice "No registered provider models exist."))
-         (item (find selection items :key (lambda (item) (getf item :name)) :test #'equal)))
+         (item          (find selection items :key (lambda (item) (getf item :name)) :test #'equal)))
     (values (getf item :model) (getf item :provider))))
 
 (-> application--pick-reasoning-effort (application) (option string))
@@ -1843,32 +1864,32 @@ are forwarded to TERMINAL-UI-SELECT."
   (let ((configuration (application-configuration application)))
     (application--pick-identifier
      application
-     :title "pick the reasoning effort"
-     :items (application--effort-items application)
+     :title        "pick the reasoning effort"
+     :items        (application--effort-items application)
      :initial-name (config :reasoning-effort configuration)
-     :search-p t
-     :usage "Usage: (effort \"LEVEL\")"
+     :search-p     t
+     :usage        "Usage: (effort \"LEVEL\")"
      :empty-notice "No supported reasoning efforts exist.")))
 
 (-> application--project-adaptation-offer-items () list)
 (defun application--project-adaptation-offer-items ()
   "Return the AUTOLITH.org creation choices for an eligible resumed project."
   (list
-   (list :name "create"
-         :argument nil
+   (list :name        "create"
+         :argument    nil
          :description "create a documented project adaptation ledger")
-   (list :name "not-now"
-         :argument nil
+   (list :name        "not-now"
+         :argument    nil
          :description "ask again after five days")
-   (list :name "never"
-         :argument nil
+   (list :name        "never"
+         :argument    nil
          :description "never ask again for this repository or path")))
 
 (-> application-maybe-offer-project-adaptation (application) null)
 (defun application-maybe-offer-project-adaptation (application)
   "Offer voluntary AUTOLITH.org creation after a qualifying command-line resume."
   (let* ((configuration (application-configuration application))
-         (ui (application-ui application))
+         (ui            (application-ui application))
          (project-root
            (workspace-project-root
             (config :working-directory configuration))))
@@ -1888,9 +1909,9 @@ are forwarded to TERMINAL-UI-SELECT."
             (let ((choice
                     (application--pick-identifier
                      application
-                     :title "create AUTOLITH.org?"
-                     :items (application--project-adaptation-offer-items)
-                     :usage "Choose create, not-now, or never."
+                     :title        "create AUTOLITH.org?"
+                     :items        (application--project-adaptation-offer-items)
+                     :usage        "Choose create, not-now, or never."
                      :empty-notice "")))
               (cond
                 ((and choice (string= choice "create"))
@@ -1948,7 +1969,7 @@ are forwarded to TERMINAL-UI-SELECT."
                            (application-configuration application))))
     (loop for registration in (provider-registrations)
           for name = (provider-registration-name registration)
-          collect (list :name name
+          collect (list :name     name
                         :argument nil
                         :description
                         (let ((description
@@ -1971,11 +1992,11 @@ are forwarded to TERMINAL-UI-SELECT."
   "Prompt for one registered provider to authenticate."
   (application--pick-identifier
    application :title "pick the provider to authenticate"
-   :items (application--authentication-provider-items application)
-   :visible-count (application--authentication-provider-visible-count application)
-   :initial-name (configuration-model-provider-name (application-configuration application))
+   :items             (application--authentication-provider-items application)
+   :visible-count     (application--authentication-provider-visible-count application)
+   :initial-name      (configuration-model-provider-name (application-configuration application))
    :search-p t :usage "Usage: (auth \"PROVIDER\")"
-   :empty-notice "No registered providers exist."))
+   :empty-notice      "No registered providers exist."))
 
 (-> application--authentication-provider (application string) model-provider)
 (defun application--authentication-provider (application provider-name)
@@ -1988,9 +2009,9 @@ are forwarded to TERMINAL-UI-SELECT."
 (defclass application-authentication-output-stream
     (trivial-gray-streams:fundamental-character-output-stream)
   ((terminal
-    :initarg :terminal
-    :reader application-authentication-output-stream-terminal
-    :type terminal
+    :initarg       :terminal
+    :reader        application-authentication-output-stream-terminal
+    :type          terminal
     :documentation "The terminal receiving authentication output."))
   (:documentation "A character stream routing authentication output through a terminal."))
 
@@ -2026,19 +2047,19 @@ are forwarded to TERMINAL-UI-SELECT."
 (defclass application-authentication-input-stream
     (trivial-gray-streams:fundamental-character-input-stream)
   ((terminal
-    :initarg :terminal
-    :reader application-authentication-input-stream-terminal
-    :type localgroup-terminal
+    :initarg       :terminal
+    :reader        application-authentication-input-stream-terminal
+    :type          localgroup-terminal
     :documentation "The attached terminal supplying hidden authentication input.")
    (pending
-    :initform ""
-    :accessor application-authentication-input-stream-pending
-    :type string
+    :initform      ""
+    :accessor      application-authentication-input-stream-pending
+    :type          string
     :documentation "The completed input line still being consumed.")
    (position
-    :initform 0
-    :accessor application-authentication-input-stream-position
-    :type (integer 0)
+    :initform      0
+    :accessor      application-authentication-input-stream-position
+    :type          (integer 0)
     :documentation "The next character index in PENDING."))
   (:documentation "A hidden line stream consuming one localgroup controller's events."))
 
@@ -2056,10 +2077,10 @@ are forwarded to TERMINAL-UI-SELECT."
     boolean)
 (defun application-authentication-input-stream--fill (stream)
   "Read one hidden localgroup line into STREAM and report success."
-  (let ((terminal (application-authentication-input-stream-terminal stream))
+  (let ((terminal   (application-authentication-input-stream-terminal stream))
         (characters (make-array 64
                                 :element-type 'character
-                                :adjustable t
+                                :adjustable   t
                                 :fill-pointer 0)))
     (loop
       (let ((event (terminal-read-event terminal)))
@@ -2074,8 +2095,8 @@ are forwarded to TERMINAL-UI-SELECT."
                  (coerce characters 'string)
                  (application-authentication-input-stream-position stream) 0)
            (return t))
-           ((characterp event)
-            (vector-push-extend event characters))
+          ((characterp event)
+           (vector-push-extend event characters))
           ((and (consp event)
                 (member (first event) '(:insert :paste) :test #'eq)
                 (stringp (second event)))
@@ -2141,8 +2162,8 @@ are forwarded to TERMINAL-UI-SELECT."
   "Call FUNCTION with provider-owned I/O, restoring the console on every exit."
   (if (and (terminal-ui-fullscreen-p ui)
            (fullscreen-terminal-ui-active-p ui))
-      (let ((terminal (terminal-ui-terminal ui))
-            (output-mode nil)
+      (let ((terminal            (terminal-ui-terminal ui))
+            (output-mode         nil)
             (transport-stopped-p nil))
         (unwind-protect
              (progn
@@ -2234,8 +2255,8 @@ are forwarded to TERMINAL-UI-SELECT."
          (application-call-with-authentication-ui
           ui stop-ui-p
           (lambda ()
-            (let ((*standard-input* input)
-                  (*standard-output* output)
+            (let ((*standard-input*                input)
+                  (*standard-output*               output)
                   (*api-key-input-echo-disabled-p* input-echo-disabled-p)
                   (*api-key-input-file-descriptor* input-file-descriptor)
                   (*api-key-output-styled-p*
@@ -2267,7 +2288,7 @@ are forwarded to TERMINAL-UI-SELECT."
                 (checkpoint-backend-create
                  configuration (application-worker application)
                  :tool-registry (application-tool-registry application)))
-              (generation (checkpoint-create backend)))
+              (generation    (checkpoint-create backend)))
          (if (platform-supports-p *platform* ':restartable-image-saver)
              (progn
                (setf (application-checkpoint-restart-request application)
@@ -2291,10 +2312,14 @@ are forwarded to TERMINAL-UI-SELECT."
 (defun application--permission-mode-name (mode)
   "Return a user-facing description of command permission MODE."
   (ecase mode
-    (:ask "ask before unrecognized commands")
-    (:auto "classify automatically without prompting")
-    (:sandboxed "allow commands inside the workspace sandbox")
-    (:full-access "let commands run with full user privileges")))
+    (:ask
+     "ask before unrecognized commands")
+    (:auto
+     "classify automatically without prompting")
+    (:sandboxed
+     "allow commands inside the workspace sandbox")
+    (:full-access
+     "let commands run with full user privileges")))
 
 (-> application--permission-mode-items (application) list)
 (defun application--permission-mode-items (application)
@@ -2303,26 +2328,26 @@ are forwarded to TERMINAL-UI-SELECT."
         (sandbox-available-p (application--command-sandbox-available-p)))
     (append
      (list
-      (list :name "ask"
-            :argument nil
+      (list :name        "ask"
+            :argument    nil
             :description (if (eq current ':ask)
                              "current; prompt unless this exact command was saved"
                              "prompt unless this exact command was saved"))
-      (list :name "auto"
-            :argument nil
+      (list :name        "auto"
+            :argument    nil
             :description (if (eq current ':auto)
                              "current; classify commands automatically without prompting"
                              "classify commands automatically without prompting")))
      (when sandbox-available-p
        (list
-        (list :name "sandbox"
-              :argument nil
+        (list :name        "sandbox"
+              :argument    nil
               :description (if (eq current ':sandboxed)
                                "current; allow commands inside the workspace sandbox"
                                "allow commands inside the workspace sandbox"))))
      (list
-      (list :name "full"
-            :argument nil
+      (list :name        "full"
+            :argument    nil
             :description (if (eq current ':full-access)
                              "current; let it ride with full user privileges"
                              "let it ride with full user privileges"))))))
@@ -2466,6 +2491,7 @@ are forwarded to TERMINAL-UI-SELECT."
               :message "Usage: (hurry-up t) or (hurry-up nil)."))))
   nil)
 
+
 ;;;; -- Settings Page --
 
 (-> application--setting-name (t) keyword)
@@ -2489,11 +2515,16 @@ are forwarded to TERMINAL-UI-SELECT."
      "derived")
     (t
      (case (configuration-setting-source configuration (setting-name setting))
-       (:environment "environment")
-       (:override "explicit")
-       (:durable "saved")
-       (:session "this session")
-       (t "default")))))
+       (:environment
+        "environment")
+       (:override
+        "explicit")
+       (:durable
+        "saved")
+       (:session
+        "this session")
+       (t
+        "default")))))
 
 (-> application-apply-setting (application keyword t) null)
 (defun application-apply-setting (application name value)
@@ -2505,19 +2536,25 @@ the settings page and the slash commands behave identically."
   (let* ((configuration (if (member name '(:telemetry-enabled-p :telemetry-diagnostics-p))
                             (telemetry-consent-configuration (application-configuration application))
                             (application-configuration application)))
-         (setting (configuration-setting configuration name)))
+         (setting       (configuration-setting configuration name)))
     (setting-validate setting value configuration)
     (unless (application--setting-adjustable-p setting)
       (error 'configuration-error
              :message (format nil "~A is set at startup by the command line, the environment, or a default and cannot change in a running session."
                               (setting-label setting))))
     (case name
-      (:model (application-set-model application value))
-      (:reasoning-effort (application-set-reasoning-effort application value))
-      (:codex-fast-mode-p (application-set-codex-fast-mode application value))
-      (:reasoning-traces-p (application-set-reasoning-traces application value))
-      (:turn-timestamps-p (application-set-turn-timestamps application value))
-      (:cache-miss-notices-p (application-set-cache-miss-notices application value))
+      (:model
+       (application-set-model application value))
+      (:reasoning-effort
+       (application-set-reasoning-effort application value))
+      (:codex-fast-mode-p
+       (application-set-codex-fast-mode application value))
+      (:reasoning-traces-p
+       (application-set-reasoning-traces application value))
+      (:turn-timestamps-p
+       (application-set-turn-timestamps application value))
+      (:cache-miss-notices-p
+       (application-set-cache-miss-notices application value))
       ((:idle-compaction-p :prompt-cache-retention-seconds)
        (setf (config name configuration) value)
        (application-idle-compaction-wake application))
@@ -2531,7 +2568,8 @@ the settings page and the slash commands behave identically."
        ;; The model's resource operations and documentation depend on the
        ;; mode, so the session's tools are rebuilt for the next request.
        (application-reload-mcp application))
-      (:hurry-up-p (application-set-hurry-up application value))
+      (:hurry-up-p
+       (application-set-hurry-up application value))
       (:relax-p
        (application-set-relax application value))
       (:permission-mode
@@ -2550,7 +2588,7 @@ Groups keep the order of their first definition and settings their definition
 order within a group, so every group heading appears once."
   (let ((visible (remove-if-not #'setting-visible-p
                                 (configuration-setting-list configuration)))
-        (groups nil))
+        (groups  nil))
     (dolist (setting visible)
       (pushnew (setting-group setting) groups))
     (loop for group in (reverse groups)
@@ -2565,13 +2603,13 @@ order within a group, so every group heading appears once."
 The current value and its source sit in aligned columns of their own."
   (let ((configuration (application-configuration application)))
     (loop for setting in (application--grouped-settings configuration)
-          collect (list :name (setting-label setting)
-                        :value (string-downcase (symbol-name (setting-name setting)))
+          collect (list :name     (setting-label setting)
+                        :value    (string-downcase (symbol-name (setting-name setting)))
                         :argument nil
-                        :group (string-downcase (symbol-name (setting-group setting)))
-                        :detail (setting-render-value
-                                 setting
-                                 (configuration-setting-value configuration setting))
+                        :group    (string-downcase (symbol-name (setting-group setting)))
+                        :detail   (setting-render-value
+                                   setting
+                                   (configuration-setting-value configuration setting))
                         :description
                         (format nil "~A~:[ · read-only~;~]"
                                 (application--setting-source-text configuration setting)
@@ -2581,18 +2619,18 @@ The current value and its source sit in aligned columns of their own."
 (defun application--setting-option-items (application setting)
   "Return picker items for SETTING's options, marking the current value."
   (let* ((configuration (application-configuration application))
-         (current (configuration-setting-value configuration setting)))
+         (current       (configuration-setting-value configuration setting)))
     (loop for option in (setting-options setting configuration)
           for text = (setting-render-value setting option)
-          collect (list :name text
-                        :argument nil
+          collect (list :name        text
+                        :argument    nil
                         :description (if (equal option current) "current" "")))))
 
 (-> application-settings-listing (application) string)
 (defun application-settings-listing (application)
   "Return every visible setting with its value, source, and meaning as text."
   (let ((configuration (application-configuration application))
-        (group nil))
+        (group         nil))
     (with-output-to-string (out)
       (dolist (setting (application--grouped-settings configuration))
         (unless (eq group (setting-group setting))
@@ -2611,15 +2649,15 @@ The current value and its source sit in aligned columns of their own."
   (loop
     (let ((chosen (application--pick-identifier
                    application
-                   :title "settings"
-                   :items (application--setting-items application)
+                   :title         "settings"
+                   :items         (application--setting-items application)
                    :visible-count 15
-                   :search-p t
-                   :usage "Usage: (settings), (settings :NAME), or (settings :NAME VALUE)"
-                   :empty-notice "No settings are registered.")))
+                   :search-p      t
+                   :usage         "Usage: (settings), (settings :NAME), or (settings :NAME VALUE)"
+                   :empty-notice  "No settings are registered.")))
       (unless chosen
         (return))
-      (let* ((name (application--setting-name chosen))
+      (let* ((name    (application--setting-name chosen))
              (setting (configuration-setting (application-configuration application) name)))
         (cond
           ((not (application--setting-adjustable-p setting))
@@ -2634,13 +2672,13 @@ The current value and its source sit in aligned columns of their own."
           ((setting-options setting (application-configuration application))
            (let ((option (application--pick-identifier
                           application
-                          :title (format nil "~A" (setting-label setting))
-                          :items (application--setting-option-items application setting)
+                          :title        (format nil "~A" (setting-label setting))
+                          :items        (application--setting-option-items application setting)
                           :initial-name (setting-render-value
                                          setting
                                          (config name (application-configuration application)))
-                          :search-p t
-                          :usage "Usage: (settings :NAME VALUE)"
+                          :search-p     t
+                          :usage        "Usage: (settings :NAME VALUE)"
                           :empty-notice "This setting offers no choices.")))
              (when option
                (application-apply-setting
@@ -2674,8 +2712,8 @@ The current value and its source sit in aligned columns of their own."
     (destructuring-bind (&optional name (value nil value-supplied-p)) arguments
       (if value-supplied-p
           (let* ((configuration (application-configuration application))
-                 (setting (configuration-setting
-                           configuration (application--setting-name name))))
+                 (setting       (configuration-setting
+                                 configuration (application--setting-name name))))
             (application-settings-command
              application name (setting-parse setting value configuration)))
           (application-settings-command application name))))
@@ -2693,8 +2731,8 @@ The current value and its source sit in aligned columns of their own."
      (application-present application (application-settings-listing application)))
     ((not value-supplied-p)
      (let* ((configuration (application-configuration application))
-            (key (application--setting-name name))
-            (setting (configuration-setting configuration key)))
+            (key           (application--setting-name name))
+            (setting       (configuration-setting configuration key)))
        (application-present
         application
         (format nil "~A is ~A (~A). ~A"
@@ -2703,7 +2741,7 @@ The current value and its source sit in aligned columns of their own."
                 (application--setting-source-text configuration setting)
                 (setting-documentation setting)))))
     (t
-     (let* ((key (application--setting-name name))
+     (let* ((key     (application--setting-name name))
             (setting (configuration-setting (application-configuration application) key)))
        (application-apply-setting application key value)
        (application-present
@@ -2715,14 +2753,14 @@ The current value and its source sit in aligned columns of their own."
   nil)
 
 (define-application-command application--builtin-settings-command
-    (:name "/settings"
-     :argument "[NAME [VALUE]]"
-     :description "browse and change settings"
-     :tip "Change native values with `(settings :onboarding-p nil)` or `(settings :boot-screen-seconds 2)`; inspect one setting with `(settings :terminal-theme)`."
-     :busy-behavior :apply
+    (:name              "/settings"
+     :argument          "[NAME [VALUE]]"
+     :description       "browse and change settings"
+     :tip               "Change native values with `(settings :onboarding-p nil)` or `(settings :boot-screen-seconds 2)`; inspect one setting with `(settings :terminal-theme)`."
+     :busy-behavior     :apply
      :terminal-behavior :exclusive-without-arguments
-     :callable t
-     :slash-parser application--parse-settings-control)
+     :callable          t
+     :slash-parser      application--parse-settings-control)
     (application &optional name (value nil value-supplied-p))
   (let ((invocation *application-command-presentation-invocation*))
     (cond
@@ -2761,17 +2799,18 @@ The current value and its source sit in aligned columns of their own."
   nil)
 
 (define-application-command application--builtin-slynk-command
-    (:name "/slynk"
-     :description "serve this image to sly"
-     :tip "Use `(slynk)` to start Slynk and show its port for M-x sly-connect, or `(slynk :stop)` to close it."
-     :busy-behavior :apply
+    (:name              "/slynk"
+     :description       "serve this image to sly"
+     :tip               "Use `(slynk)` to start Slynk and show its port for M-x sly-connect, or `(slynk :stop)` to close it."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t
-     :slash-parser application--parse-slynk-control
-     :static-options (:start :stop :status))
+     :callable          t
+     :slash-parser      application--parse-slynk-control
+     :static-options    (:start :stop :status))
     (application &optional (action ':start))
   (application-slynk-command application action)
   ':continue)
+
 
 ;;;; -- Installed Release Update --
 
@@ -2782,7 +2821,7 @@ The current value and its source sit in aligned columns of their own."
          (provenance
            (or (application-installation-provenance application)
                (installation-provenance-detect configuration)))
-         (method (installation-provenance-method provenance)))
+         (method        (installation-provenance-method provenance)))
     (ecase method
       (:source
        (application-present
@@ -2794,7 +2833,7 @@ The current value and its source sit in aligned columns of their own."
         "Autolith is installed through Nix. Update the flake or profile that provides it."))
       (:release
        (if (update-state-refresh configuration :force-p t)
-           (let* ((state (update-state-load configuration))
+           (let* ((state      (update-state-load configuration))
                   (latest-tag (update-state-latest-tag state))
                   (current-tag
                     (installation-provenance-current-tag provenance)))
@@ -2822,13 +2861,13 @@ The current value and its source sit in aligned columns of their own."
 ;;;; -- Built-in Interactive Commands --
 
 (define-application-command application--builtin-help-command
-    (:name "/help"
-     :argument "[TOPIC]"
-     :description "browse help or look up a command"
-     :tip "Use `(help :workspace)` for a section or `(help 'resume)` for a command."
-     :busy-behavior :execute
+    (:name              "/help"
+     :argument          "[TOPIC]"
+     :description       "browse help or look up a command"
+     :tip               "Use `(help :workspace)` for a section or `(help 'resume)` for a command."
+     :busy-behavior     :execute
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application &optional topic)
   (application-present
    application
@@ -2836,13 +2875,13 @@ The current value and its source sit in aligned columns of their own."
   ':continue)
 
 (define-application-command application--builtin-new-command
-    (:name "/new"
-     :argument nil
-     :description "start a new conversation"
-     :tip "starts fresh without deleting the current conversation."
-     :busy-behavior :hold
+    (:name              "/new"
+     :argument          nil
+     :description       "start a new conversation"
+     :tip               "starts fresh without deleting the current conversation."
+     :busy-behavior     :hold
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-install-conversation
    application
@@ -2859,13 +2898,13 @@ The current value and its source sit in aligned columns of their own."
   ':continue)
 
 (define-application-command application--builtin-resume-command
-    (:name "/resume"
-     :argument "[ID]"
-     :description "pick a saved conversation to resume"
-     :tip "returns to a saved conversation from this workspace or another one."
-     :busy-behavior :hold
+    (:name              "/resume"
+     :argument          "[ID]"
+     :description       "pick a saved conversation to resume"
+     :tip               "returns to a saved conversation from this workspace or another one."
+     :busy-behavior     :hold
      :terminal-behavior :exclusive-without-arguments
-     :callable t)
+     :callable          t)
     (application &optional (identifier nil identifier-supplied-p))
   (let* ((picker-p
            (and *application-command-interactive-p*
@@ -2886,38 +2925,38 @@ The current value and its source sit in aligned columns of their own."
   ':continue)
 
 (define-application-command application--builtin-conversations-command
-    (:name "/conversations"
-     :argument nil
-     :description "list saved conversations"
-     :tip "lists saved conversations from newest to oldest."
-     :busy-behavior :inspect
+    (:name              "/conversations"
+     :argument          nil
+     :description       "list saved conversations"
+     :tip               "lists saved conversations from newest to oldest."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-present application
                        (application-conversations-entry application))
   ':continue)
 
 (define-application-command application--builtin-history-command
-    (:name "/history"
-     :argument nil
-     :description "load earlier transcript history"
-     :tip "loads one configured page of earlier transcript entries."
-     :busy-behavior :hold
+    (:name              "/history"
+     :argument          nil
+     :description       "load earlier transcript history"
+     :tip               "loads one configured page of earlier transcript entries."
+     :busy-behavior     :hold
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-render-history application)
   ':continue)
 
 (define-application-command application--builtin-working-directory-command
-    (:name "/cwd"
-     :argument "[PATH]"
-     :description "show or change the active workspace"
-     :tip "Use `(cwd pathname)` to change the active workspace, or `(cwd)` to inspect it."
-     :busy-behavior :inspect
+    (:name              "/cwd"
+     :argument          "[PATH]"
+     :description       "show or change the active workspace"
+     :tip               "Use `(cwd pathname)` to change the active workspace, or `(cwd)` to inspect it."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application &optional pathname)
   (application-working-directory-command application pathname)
   ':continue)
@@ -2935,14 +2974,14 @@ The current value and its source sit in aligned columns of their own."
         arguments)))
 
 (define-application-command application--builtin-authentication-command
-    (:name "/auth"
-     :argument "[PROVIDER] [METHOD]"
-     :description "pick and authenticate a registered provider"
-     :tip "Use `(auth \"chatgpt\" :device-code)` for device authentication, or `:browser`."
-     :slash-parser application-authentication--slash-arguments
-     :busy-behavior :hold
+    (:name              "/auth"
+     :argument          "[PROVIDER] [METHOD]"
+     :description       "pick and authenticate a registered provider"
+     :tip               "Use `(auth \"chatgpt\" :device-code)` for device authentication, or `:browser`."
+     :slash-parser      application-authentication--slash-arguments
+     :busy-behavior     :hold
      :terminal-behavior :exclusive
-     :callable t)
+     :callable          t)
     (application &optional (provider-name nil provider-name-supplied-p) method)
   (let ((provider-name
           (if provider-name-supplied-p
@@ -2954,13 +2993,13 @@ The current value and its source sit in aligned columns of their own."
   ':continue)
 
 (define-application-command application--builtin-model-command
-    (:name "/model"
-     :argument "[MODEL] [:provider PROVIDER]"
-     :description "pick a registered provider model and reasoning effort"
-     :tip "Select a provider/model ID, or use (model \"ID\" :provider \"NAME\"). The choice is saved for future sessions."
-     :busy-behavior :apply
+    (:name              "/model"
+     :argument          "[MODEL] [:provider PROVIDER]"
+     :description       "pick a registered provider model and reasoning effort"
+     :tip               "Select a provider/model ID, or use (model \"ID\" :provider \"NAME\"). The choice is saved for future sessions."
+     :busy-behavior     :apply
      :terminal-behavior :exclusive
-     :callable t)
+     :callable          t)
     (application &optional (model nil model-supplied-p) &key provider)
   (multiple-value-bind (selected selected-provider)
       (cond
@@ -2983,25 +3022,25 @@ The current value and its source sit in aligned columns of their own."
   ':continue)
 
 (define-application-command application--builtin-models-command
-    (:name "/models"
-     :argument "[:provider PROVIDER]"
-     :description "list registered providers and models"
-     :tip "Use (models :provider \"NAME\") to list one provider's models."
-     :busy-behavior :inspect
+    (:name              "/models"
+     :argument          "[:provider PROVIDER]"
+     :description       "list registered providers and models"
+     :tip               "Use (models :provider \"NAME\") to list one provider's models."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application &key provider)
   (application-models-command application :provider provider)
   ':continue)
 
 (define-application-command application--builtin-effort-command
-    (:name "/effort"
-     :argument "[LEVEL]"
-     :description "pick the reasoning effort"
-     :tip "sets the model's reasoning budget without changing models. Higher levels allow more reasoning and can take longer; available levels depend on the model."
-     :busy-behavior :apply
+    (:name              "/effort"
+     :argument          "[LEVEL]"
+     :description       "pick the reasoning effort"
+     :tip               "sets the model's reasoning budget without changing models. Higher levels allow more reasoning and can take longer; available levels depend on the model."
+     :busy-behavior     :apply
      :terminal-behavior :exclusive-without-arguments
-     :callable t)
+     :callable          t)
     (application &optional (effort nil effort-supplied-p))
   (let ((effort
           (if effort-supplied-p
@@ -3018,105 +3057,105 @@ The current value and its source sit in aligned columns of their own."
   ':continue)
 
 (define-application-command application--builtin-fast-command
-    (:name "/fast"
-     :description "show or change Codex Fast mode"
-     :tip "Use `(fast t)` to request priority service, which counts more heavily against plan usage; use `(fast nil)` for normal service."
-     :busy-behavior :apply
+    (:name              "/fast"
+     :description       "show or change Codex Fast mode"
+     :tip               "Use `(fast t)` to request priority service, which counts more heavily against plan usage; use `(fast nil)` for normal service."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t
-     :slash-parser application--parse-boolean-control
-     :static-options (t nil :status))
+     :callable          t
+     :slash-parser      application--parse-boolean-control
+     :static-options    (t nil :status))
     (application &optional (mode ':status))
   (application-codex-fast-mode-command application mode)
   ':continue)
 
 (define-application-command application--builtin-trace-command
-    (:name "/trace"
-     :description "show visible reasoning summaries"
-     :tip "Use `(trace t)` to show reasoning summaries or `(trace nil)` to hide them. Change the reasoning budget with `(effort)`."
-     :busy-behavior :apply
+    (:name              "/trace"
+     :description       "show visible reasoning summaries"
+     :tip               "Use `(trace t)` to show reasoning summaries or `(trace nil)` to hide them. Change the reasoning budget with `(effort)`."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t
-     :slash-parser application--parse-boolean-control
-     :static-options (t nil))
+     :callable          t
+     :slash-parser      application--parse-boolean-control
+     :static-options    (t nil))
     (application &optional (mode ':status))
   (application-trace-command application mode)
   ':continue)
 
 (define-application-command application--builtin-turn-timestamps-command
-    (:name "/timestamps"
-     :description "show local timestamps beside user and assistant turns"
-     :tip "Use `(timestamps t)` to show local-time labels beside user and assistant turns, or `(timestamps nil)` to hide them."
-     :busy-behavior :apply
+    (:name              "/timestamps"
+     :description       "show local timestamps beside user and assistant turns"
+     :tip               "Use `(timestamps t)` to show local-time labels beside user and assistant turns, or `(timestamps nil)` to hide them."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t
-     :slash-parser application--parse-boolean-control
-     :static-options (t nil))
+     :callable          t
+     :slash-parser      application--parse-boolean-control
+     :static-options    (t nil))
     (application &optional (mode ':status))
   (application-turn-timestamps-command application mode)
   ':continue)
 
 (define-application-command application--builtin-simple-technical-english-command
-    (:name "/ste"
-     :description "use Simple Technical English for replies"
-     :tip "Use `(ste t)` to request short, direct Simple Technical English, or `(ste nil)` to remove that style instruction."
-     :busy-behavior :apply
+    (:name              "/ste"
+     :description       "use Simple Technical English for replies"
+     :tip               "Use `(ste t)` to request short, direct Simple Technical English, or `(ste nil)` to remove that style instruction."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t
-     :slash-parser application--parse-boolean-control
-     :static-options (t nil))
+     :callable          t
+     :slash-parser      application--parse-boolean-control
+     :static-options    (t nil))
     (application &optional (mode ':status))
   (application-simple-technical-english-command application mode)
   ':continue)
 
 (define-application-command application--builtin-session-titles-command
-    (:name "/titles"
-     :description "allow provider-generated session-title refreshes"
-     :tip "Use `(titles t)` to allow provider-generated title refreshes, or `(titles nil)` for locally derived titles."
-     :busy-behavior :apply
+    (:name              "/titles"
+     :description       "allow provider-generated session-title refreshes"
+     :tip               "Use `(titles t)` to allow provider-generated title refreshes, or `(titles nil)` for locally derived titles."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t
-     :slash-parser application--parse-boolean-control
-     :static-options (t nil))
+     :callable          t
+     :slash-parser      application--parse-boolean-control
+     :static-options    (t nil))
     (application &optional (mode ':status))
   (application-session-titles-command application mode)
   ':continue)
 
 (define-application-command application--builtin-cache-misses-command
-    (:name "/cache-misses"
-     :description "notify when a request re-reads uncached context"
-     :tip "Use `(cache-misses t)` to report uncached context and likely causes, or `(cache-misses nil)` to hide these notices."
-     :busy-behavior :apply
+    (:name              "/cache-misses"
+     :description       "notify when a request re-reads uncached context"
+     :tip               "Use `(cache-misses t)` to report uncached context and likely causes, or `(cache-misses nil)` to hide these notices."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t
-     :slash-parser application--parse-boolean-control
-     :static-options (t nil))
+     :callable          t
+     :slash-parser      application--parse-boolean-control
+     :static-options    (t nil))
     (application &optional (mode ':status))
   (application-cache-miss-notices-command application mode)
   ':continue)
 
 (define-application-command application--builtin-hurry-up-command
-    (:name "/hurry-up"
-     :description "show or change hurry-up mode"
-     :tip "Use `(hurry-up t)` to favor direct work with at most two child agents, or `(hurry-up nil)` for normal delegation limits."
-     :busy-behavior :apply
+    (:name              "/hurry-up"
+     :description       "show or change hurry-up mode"
+     :tip               "Use `(hurry-up t)` to favor direct work with at most two child agents, or `(hurry-up nil)` for normal delegation limits."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t
-     :slash-parser application--parse-boolean-control
-     :static-options (t nil))
+     :callable          t
+     :slash-parser      application--parse-boolean-control
+     :static-options    (t nil))
     (application &optional (mode ':status))
   (application-hurry-up-command application mode)
   ':continue)
 
 (define-application-command application--builtin-permissions-command
-    (:name "/permissions"
-     :description "choose command access for this session"
-     :tip "Use `(permissions :ask)` for approval prompts, `:auto` for automatic authorization, `:sandbox` for workspace confinement, or `:full` for session-wide host access."
-     :busy-behavior :apply
+    (:name              "/permissions"
+     :description       "choose command access for this session"
+     :tip               "Use `(permissions :ask)` for approval prompts, `:auto` for automatic authorization, `:sandbox` for workspace confinement, or `:full` for session-wide host access."
+     :busy-behavior     :apply
      :terminal-behavior :exclusive-without-arguments
-     :callable t
-     :slash-parser application--parse-permissions-control
-     :static-options (:ask :auto :sandbox :full :list :clear))
+     :callable          t
+     :slash-parser      application--parse-permissions-control
+     :static-options    (:ask :auto :sandbox :full :list :clear))
     (application &optional (choice nil choice-supplied-p))
   (when choice-supplied-p
     (application--control-choice choice '(:ask :auto :sandbox :full :list :clear)))
@@ -3126,9 +3165,9 @@ The current value and its source sit in aligned columns of their own."
               (and *application-command-interactive-p*
                    (application--pick-identifier
                     application
-                    :title "command permissions"
-                    :items (application--permission-mode-items application)
-                    :usage "Usage: (permissions), or (permissions :MODE) with :ask, :auto, :sandbox, :full, :list, or :clear"
+                    :title        "command permissions"
+                    :items        (application--permission-mode-items application)
+                    :usage        "Usage: (permissions), or (permissions :MODE) with :ask, :auto, :sandbox, :full, :list, or :clear"
                     :empty-notice "No command permission modes exist.")))))
     (application-permissions-command
      application
@@ -3138,63 +3177,63 @@ The current value and its source sit in aligned columns of their own."
   ':continue)
 
 (define-application-command application--builtin-tasks-command
-    (:name "/tasks"
-     :argument "[list|get|transcript|send|cancel|revive|abandon] [ID] [ARGUMENTS]"
-     :description "inspect task lineage, artifacts and explicit recovery"
-     :tip "shows compact activity and routes steering through ordinary job authority."
-     :busy-behavior :inspect
+    (:name              "/tasks"
+     :argument          "[list|get|transcript|send|cancel|revive|abandon] [ID] [ARGUMENTS]"
+     :description       "inspect task lineage, artifacts and explicit recovery"
+     :tip               "shows compact activity and routes steering through ordinary job authority."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :slash-parser application-task-inspector-slash-arguments
-     :callable t)
+     :slash-parser      application-task-inspector-slash-arguments
+     :callable          t)
     (application &optional (action ':list) id &rest options)
   (application-present application (apply #'application-task-inspector application action id options))
   ':continue)
 
 (define-application-command application--builtin-goal-command
-    (:name "/goal"
-     :argument "[OBJECTIVE]"
-     :description "set or view the session goal"
-     :tip "Set a string objective; use `(goal :pause)`, `(goal :resume)`, or `(goal :clear)` for control."
-     :busy-behavior :inspect
+    (:name              "/goal"
+     :argument          "[OBJECTIVE]"
+     :description       "set or view the session goal"
+     :tip               "Set a string objective; use `(goal :pause)`, `(goal :resume)`, or `(goal :clear)` for control."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t
-     :slash-parser application-goal--slash-arguments)
+     :callable          t
+     :slash-parser      application-goal--slash-arguments)
     (application &optional request &rest arguments)
   (application-goal-request application request arguments)
   ':continue)
 
 (define-application-command application--builtin-agenda-command
-    (:name "/agenda"
-     :argument nil
-     :description "show workspace agenda entries"
-     :tip "shows durable commitments and notes for the current workspace."
-     :busy-behavior :apply
+    (:name              "/agenda"
+     :argument          nil
+     :description       "show workspace agenda entries"
+     :tip               "shows durable commitments and notes for the current workspace."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-present application (application-agenda-entry application))
   ':continue)
 
 (define-application-command application--builtin-papercuts-command
-    (:name "/papercuts"
-     :argument nil
-     :description "show workspace papercut reports"
-     :tip "shows problems Autolith recorded when something was not working."
-     :busy-behavior :inspect
+    (:name              "/papercuts"
+     :argument          nil
+     :description       "show workspace papercut reports"
+     :tip               "shows problems Autolith recorded when something was not working."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-present application (application-papercuts-entry application))
   ':continue)
 
 (define-application-command application--builtin-papercut-command
-    (:name "/papercut"
-     :argument "[ID]"
-     :description "show one complete papercut report"
-     :tip "opens the full report named by `(papercuts)`."
-     :busy-behavior :inspect
+    (:name              "/papercut"
+     :argument          "[ID]"
+     :description       "show one complete papercut report"
+     :tip               "opens the full report named by `(papercuts)`."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application &optional identifier)
   (if identifier
       (application-present
@@ -3206,13 +3245,13 @@ The current value and its source sit in aligned columns of their own."
   ':continue)
 
 (define-application-command application--builtin-papercut-close-command
-    (:name "/papercut-close"
-     :argument "[ID]"
-     :description "close one resolved papercut report"
-     :tip "removes a fixed or obsolete report from `(papercuts)`."
-     :busy-behavior :apply
+    (:name              "/papercut-close"
+     :argument          "[ID]"
+     :description       "close one resolved papercut report"
+     :tip               "removes a fixed or obsolete report from `(papercuts)`."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application &optional identifier)
   (if identifier
       (application-present
@@ -3224,13 +3263,13 @@ The current value and its source sit in aligned columns of their own."
   ':continue)
 
 (define-application-command application--builtin-skills-command
-    (:name "/skills"
-     :argument nil
-     :description "show available skills"
-     :tip "shows request-local skills and any discovery problems."
-     :busy-behavior :inspect
+    (:name              "/skills"
+     :argument          nil
+     :description       "show available skills"
+     :tip               "shows request-local skills and any discovery problems."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-present
    application
@@ -3312,17 +3351,17 @@ The current value and its source sit in aligned columns of their own."
                             (if replay (namestring replay) "unavailable for legacy generation")))))))))
 
 (define-application-command application--builtin-mcp-command
-    (:name "/mcp"
-     :description "show or refresh configured MCP servers"
-     :tip "Inspect connections with `(mcp)`, rediscover tools with `(mcp :refresh)`, or reread configuration with `(mcp :reload)`."
-     :busy-behavior :apply
+    (:name              "/mcp"
+     :description       "show or refresh configured MCP servers"
+     :tip               "Inspect connections with `(mcp)`, rediscover tools with `(mcp :refresh)`, or reread configuration with `(mcp :reload)`."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t
-     :slash-parser application--parse-mcp-control
-     :static-options (:refresh :reload))
+     :callable          t
+     :slash-parser      application--parse-mcp-control
+     :static-options    (:refresh :reload))
     (application &optional (mode ':status))
-  (let ((mode (application--control-choice mode '(:status :refresh :reload)))
-        (added-tools nil)
+  (let ((mode          (application--control-choice mode '(:status :refresh :reload)))
+        (added-tools   nil)
         (removed-tools nil))
     (cond
       ((eq mode ':status)
@@ -3352,25 +3391,25 @@ The current value and its source sit in aligned columns of their own."
   ':continue)
 
 (define-application-command application--builtin-checkpoint-command
-    (:name "/checkpoint"
-     :argument nil
-     :description "save a retained live generation"
-     :tip "saves the current live state as a retained generation."
-     :busy-behavior :hold
+    (:name              "/checkpoint"
+     :argument          nil
+     :description       "save a retained live generation"
+     :tip               "saves the current live state as a retained generation."
+     :busy-behavior     :hold
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-checkpoint application)
   ':continue)
 
 (define-application-command application--builtin-generations-command
-    (:name "/generations"
-     :argument nil
-     :description "list retained generations"
-     :tip "shows live generations available for recovery."
-     :busy-behavior :inspect
+    (:name              "/generations"
+     :argument          nil
+     :description       "list retained generations"
+     :tip               "shows live generations available for recovery."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-present
    application
@@ -3378,13 +3417,13 @@ The current value and its source sit in aligned columns of their own."
   ':continue)
 
 (define-application-command application--builtin-rollback-command
-    (:name "/rollback"
-     :argument "[ID]"
-     :description "pick a generation for recovery"
-     :tip "selects a retained generation for the next recovery start."
-     :busy-behavior :hold
+    (:name              "/rollback"
+     :argument          "[ID]"
+     :description       "pick a generation for recovery"
+     :tip               "selects a retained generation for the next recovery start."
+     :busy-behavior     :hold
      :terminal-behavior :exclusive-without-arguments
-     :callable t)
+     :callable          t)
     (application &optional (identifier nil identifier-supplied-p))
   (let ((identifier
           (if identifier-supplied-p
@@ -3392,9 +3431,9 @@ The current value and its source sit in aligned columns of their own."
               (and *application-command-interactive-p*
                    (application--pick-identifier
                     application
-                    :title "select a generation for recovery"
-                    :items (application--generation-items application)
-                    :usage "Usage: (rollback \"ID\")"
+                    :title        "select a generation for recovery"
+                    :items        (application--generation-items application)
+                    :usage        "Usage: (rollback \"ID\")"
                     :empty-notice "No retained generations exist.")))))
     (when identifier
       (generation-request-rollback
@@ -3402,50 +3441,50 @@ The current value and its source sit in aligned columns of their own."
   ':continue)
 
 (define-application-command application--builtin-info-command
-    (:name "/info"
-     :argument nil
-     :description "show current model and runtime settings"
-     :tip "prints the current settings without changing them."
-     :busy-behavior :inspect
+    (:name              "/info"
+     :argument          nil
+     :description       "show current model and runtime settings"
+     :tip               "prints the current settings without changing them."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-present application (application-info-entry application))
   ':continue)
 
 (define-application-command application--builtin-status-command
-    (:name "/status"
-     :aliases ("/usage")
-     :argument nil
-     :description "show usage and rate limits"
-     :tip "shows the model, context usage, and subscription rate limits."
-     :busy-behavior :inspect
+    (:name              "/status"
+     :aliases           ("/usage")
+     :argument          nil
+     :description       "show usage and rate limits"
+     :tip               "shows the model, context usage, and subscription rate limits."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-present application (application-status-entry application))
   ':continue)
 
 (define-application-command application--builtin-update-command
-    (:name "/update"
-     :argument nil
-     :description "check and install a newer packaged release"
-     :tip "updates curl-installed Autolith and explains source or Nix updates."
-     :busy-behavior :hold
+    (:name              "/update"
+     :argument          nil
+     :description       "check and install a newer packaged release"
+     :tip               "updates curl-installed Autolith and explains source or Nix updates."
+     :busy-behavior     :hold
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-update application)
   ':continue)
 
 (define-application-command application--builtin-context-command
-    (:name "/context"
-     :argument nil
-     :description "inspect request-local context"
-     :tip "reveals the ephemeral context prepared for provider requests."
-     :busy-behavior :inspect
+    (:name              "/context"
+     :argument          nil
+     :description       "inspect request-local context"
+     :tip               "reveals the ephemeral context prepared for provider requests."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-present
    application
@@ -3453,58 +3492,58 @@ The current value and its source sit in aligned columns of their own."
   ':continue)
 
 (define-application-command application--builtin-compact-command
-    (:name "/compact"
-     :argument nil
-     :description "compact conversation context now"
-     :tip "compacts the conversation context immediately, replacing older turns with a summary."
-     :busy-behavior :hold
+    (:name              "/compact"
+     :argument          nil
+     :description       "compact conversation context now"
+     :tip               "compacts the conversation context immediately, replacing older turns with a summary."
+     :busy-behavior     :hold
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-compact application)
   ':continue)
 
 (define-application-command application--builtin-fix-skipped-definitions-command
-    (:name "/fix-skipped-definitions"
-     :argument "[comment]"
-     :description "ask the model to rebuild or drop skipped private definitions"
-     :tip "Use `(fix-skipped-definitions \"Drop temporary development overrides.\")` to direct which skipped definitions to rebuild or drop before committing."
-     :busy-behavior :hold
+    (:name              "/fix-skipped-definitions"
+     :argument          "[comment]"
+     :description       "ask the model to rebuild or drop skipped private definitions"
+     :tip               "Use `(fix-skipped-definitions \"Drop temporary development overrides.\")` to direct which skipped definitions to rebuild or drop before committing."
+     :busy-behavior     :hold
      :terminal-behavior :shared
-     :callable t
-     :slash-parser application--skipped-definitions-slash-arguments)
+     :callable          t
+     :slash-parser      application--skipped-definitions-slash-arguments)
     (application &optional (comment ""))
   (application-fix-skipped-definitions application comment)
   ':continue)
 
 (define-application-command application--builtin-compact-tool-command
-    (:name "/compact-tool"
-     :description "collapse or expand tool call detail in the transcript"
-     :tip "Use `(compact-tool t)` to collapse tool details or `(compact-tool nil)` to expand them."
-     :busy-behavior :hold
+    (:name              "/compact-tool"
+     :description       "collapse or expand tool call detail in the transcript"
+     :tip               "Use `(compact-tool t)` to collapse tool details or `(compact-tool nil)` to expand them."
+     :busy-behavior     :hold
      :terminal-behavior :shared
-     :callable t
-     :slash-parser application--parse-boolean-control
-     :static-options (t nil))
+     :callable          t
+     :slash-parser      application--parse-boolean-control
+     :static-options    (t nil))
     (application &optional (mode ':status))
   (application-compact-tool-command application mode)
   ':continue)
 
 (define-application-command application--builtin-detach-command
-    (:name "/detach"
-     :argument nil
-     :description "detach Autolith from the current terminal"
-     :tip "keeps the session running and returns the foreground shell."
+    (:name              "/detach"
+     :argument          nil
+     :description       "detach Autolith from the current terminal"
+     :tip               "keeps the session running and returns the foreground shell."
      ;; Detaching exists precisely to leave while work is running; the
      ;; handoff path schedules foreground release safely mid-turn.
-     :busy-behavior :execute
+     :busy-behavior     :execute
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (let ((session (application-localgroup-session application)))
     (unless session
       (error 'localgroup-error
-             :message "The localgroup session is not ready to detach."
+             :message   "The localgroup session is not ready to detach."
              :operation ':detach))
     (let ((result (localgroup--detach-terminal session)))
       (when (getf (rest result) :scheduled-p)
@@ -3516,14 +3555,14 @@ The current value and its source sit in aligned columns of their own."
   ':continue)
 
 (define-application-command application--builtin-quit-command
-    (:name "/quit"
-     :aliases ("/exit")
-     :argument nil
-     :description "leave Autolith"
-     :tip "exits cleanly; Ctrl-C also prints the exact resume command."
-     :busy-behavior :cancel
+    (:name              "/quit"
+     :aliases           ("/exit")
+     :argument          nil
+     :description       "leave Autolith"
+     :tip               "exits cleanly; Ctrl-C also prints the exact resume command."
+     :busy-behavior     :cancel
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (declare (ignore application))
   ':quit)
@@ -3537,8 +3576,8 @@ The current value and its source sit in aligned columns of their own."
 (defun application-command (application input &key (interactive-p t))
   "Execute slash command INPUT for APPLICATION and return its loop action."
   (let* ((*application-command-interactive-p* interactive-p)
-         (invocation (application-command-invocation-parse input))
-         (command (application-command-invocation-command invocation)))
+         (invocation                          (application-command-invocation-parse input))
+         (command                             (application-command-invocation-command invocation)))
     (application-command--call-with-presentation
      invocation
      (lambda ()
