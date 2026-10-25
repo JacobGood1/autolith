@@ -152,7 +152,7 @@
              (eq (first record) :crash)
              (loop for key in keys
                    always
-                   (= (loop for candidate in properties by #'cddr
+                   (= (loop for candidate in properties by (partial #'nthcdr 2)
                             count (eq candidate key))
                       1))
              (= (getf properties :version) 1)
@@ -282,21 +282,21 @@
                      (history-floor-sequence
                        (getf properties :history-floor-sequence))
                      (history-floor-present-p
-                       (loop for key in properties by #'cddr
+                       (loop for key in properties by (partial #'nthcdr 2)
                              thereis (eq key :history-floor-sequence))))
                 (unless
                     (and (member (length record) '(7 9) :test #'=)
                          (eq (first record) :recovery-session)
-                         (= (loop for key in properties by #'cddr
+                         (= (loop for key in properties by (partial #'nthcdr 2)
                                   count (eq key :version))
                             1)
-                         (= (loop for key in properties by #'cddr
+                         (= (loop for key in properties by (partial #'nthcdr 2)
                                   count (eq key :conversation-id))
                             1)
-                         (= (loop for key in properties by #'cddr
+                         (= (loop for key in properties by (partial #'nthcdr 2)
                                   count (eq key :rendered-sequence))
                             1)
-                         (<= (loop for key in properties by #'cddr
+                         (<= (loop for key in properties by (partial #'nthcdr 2)
                                    count (eq key :history-floor-sequence))
                              1)
                          (= (getf properties :version) 1)
@@ -306,7 +306,7 @@
                          (or (not history-floor-present-p)
                              (null history-floor-sequence)
                              (typep history-floor-sequence '(integer 1)))
-                         (loop for key in properties by #'cddr
+                         (loop for key in properties by (partial #'nthcdr 2)
                                always
                                (member key
                                        '(:version :conversation-id
