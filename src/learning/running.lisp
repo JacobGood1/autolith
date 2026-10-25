@@ -18,9 +18,11 @@
 
 ;;;; -- Tool Calls --
 
+;; TOOL-RESULT is defined later. Require its value explicitly so SBCL does not
+;; infer an optional value while the result type is unknown.
 (-> procedure--call
     (tool-context string &key (:arguments (satisfies argo:json-object-p)) (:index integer))
-    tool-result)
+    (values tool-result &rest t))
 (defun procedure--call (context tool-name &key arguments index)
   "Make call number INDEX of a run: TOOL-NAME with ARGUMENTS through CONTEXT's registry."
   (let ((tool (find tool-name (tool-registry-tools (tool-context-registry context))
