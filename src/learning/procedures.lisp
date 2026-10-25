@@ -233,8 +233,8 @@ KNOWLEDGE-ERROR with code :MISSING-OUTPUT."
                      (rest template))
              'vector))))
 
-(-> procedure-template-match (list t list list) (values list boolean))
-(defun procedure-template-match (template value bindings outputs)
+(-> procedure-template-match (list t &key (:bindings list) (:outputs list)) (values list boolean))
+(defun procedure-template-match (template value &key bindings outputs)
   "Match decoded JSON VALUE against TEMPLATE, extending parameter BINDINGS.
 
 Return the extended bindings and whether VALUE fits. OUTPUTS are the earlier
@@ -265,7 +265,7 @@ steps' decoded results that :FROM templates must agree with."
                   (unless present-p
                     (return-from match (values bindings nil)))
                   (multiple-value-bind (next matched-p)
-                      (procedure-template-match item found bindings outputs)
+                      (procedure-template-match item found :bindings bindings :outputs outputs)
                     (unless matched-p
                       (return-from match (values bindings nil)))
                     (setf bindings next))))
@@ -277,7 +277,7 @@ steps' decoded results that :FROM templates must agree with."
        (loop for item in (rest template)
              for found across value
              do (multiple-value-bind (next matched-p)
-                    (procedure-template-match item found bindings outputs)
+                    (procedure-template-match item found :bindings bindings :outputs outputs)
                   (unless matched-p
                     (return-from match (values bindings nil)))
                   (setf bindings next)))

@@ -213,7 +213,8 @@ with the arguments; every parameter must be bound and suit its type."
             for call in calls
             do (multiple-value-bind (next matched-p)
                    (procedure-template-match (getf step :arguments) (getf call :arguments)
-                                             bindings outputs)
+                                             :bindings bindings
+                                             :outputs  outputs)
                  (unless matched-p
                    (return-from explain nil))
                  (setf bindings next
