@@ -585,9 +585,10 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
                                  (resource-observation-revision actual))))
 
 (-> workspace-file--publish
-    (workspace-file-resource tool-context workspace-file-observation string)
+    (workspace-file-resource tool-context
+     &key (:base-observation workspace-file-observation) (:content string))
     workspace-file-observation)
-(defun workspace-file--publish (resource context base-observation content)
+(defun workspace-file--publish (resource context &key base-observation content)
   "Stage and publish CONTENT after an immediate exact BASE-OBSERVATION check."
   (let ((path   (workspace-file-resource-pathname resource))
         (octets (workspace-file--replacement-octets content)))
@@ -705,7 +706,9 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
                    :visible-lines         (workspace-file-observation-state-visible-ranges state)
                    :split-lines           #'text--split-lines
                    :anchor-maximum-offset *workspace-file-resource-anchor-maximum-offset*)
-                (values (workspace-file--publish resource context base content)
+                (values (workspace-file--publish resource context
+                                                 :base-observation base
+                                                 :content          content)
                         normalized))
             (cl-hashline:hashline-error (condition)
               (error 'tool-error :message   (princ-to-string condition)

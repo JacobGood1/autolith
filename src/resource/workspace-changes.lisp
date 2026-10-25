@@ -228,7 +228,9 @@
         (setf (workspace-prepared-change-attempted-p change) t
               (workspace-prepared-change-published change)
               (if content
-                  (workspace-file--publish resource context base content)
+                  (workspace-file--publish resource context
+                                           :base-observation base
+                                           :content          content)
                   (progn
                     (platform-delete-file *platform* (workspace-file-resource-pathname resource))
                     (workspace-file--observe-path resource context))))))))
