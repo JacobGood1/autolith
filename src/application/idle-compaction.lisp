@@ -43,9 +43,9 @@ The public OpenAI API retention contract does not establish this route's TTL."
           (when agent
             (make-instance 'prompt-cache-episode
                            :conversation (application-conversation application)
-                           :provider (agent-provider agent)
-                           :model (copy-seq (config :model (application-configuration application)))
-                           :started-at now))))
+                           :provider     (agent-provider agent)
+                           :model        (copy-seq (config :model (application-configuration application)))
+                           :started-at   now))))
   nil)
 
 (-> application-idle-compaction--history-characters (t) (integer 0))
@@ -94,8 +94,8 @@ size heuristic, not a token or pricing estimate."
 
 Require a completed local request, unchanged conversation and provider, and
 substantial summarizable history. Skip missed expiry windows and resumed history."
-  (let* ((episode (application-idle-compaction-episode application))
-         (agent (and (slot-boundp application 'agent) (application-agent application)))
+  (let* ((episode       (application-idle-compaction-episode application))
+         (agent         (and (slot-boundp application 'agent) (application-agent application)))
          (configuration (and episode agent (application-configuration application))))
     (when (and configuration
                (config :idle-compaction-p configuration)
@@ -111,11 +111,11 @@ substantial summarizable history. Skip missed expiry windows and resumed history
                    *idle-compaction-minimum-tokens*)
                (>= (prompt-cache-episode-history-characters episode)
                    *idle-compaction-minimum-history-characters*))
-      (let* ((override (config :prompt-cache-retention-seconds configuration))
+      (let* ((override  (config :prompt-cache-retention-seconds configuration))
              (retention (if (plusp override)
                             override
                             (provider-prompt-cache-retention-estimate (agent-provider agent))))
-             (age (- now (prompt-cache-episode-started-at episode))))
+             (age       (- now (prompt-cache-episode-started-at episode))))
         (when (and retention (> retention *idle-compaction-lead-seconds*)
                    (<= 0 age) (< age retention))
           (max 0 (- retention *idle-compaction-lead-seconds* age)))))))
@@ -139,7 +139,7 @@ Neither successful nor failed compaction can rearm this opportunity."
 (defun application-input-controller--idle-compaction-ready-p (controller &key claimed-p)
   "Check idle ownership with CONTROLLER's lock held; drafts are rechecked after reader pause."
   (let* ((application (application-input-controller-application controller))
-         (ui (application-ui application)))
+         (ui          (application-ui application)))
     (and (not (application-input-controller-stopping-p controller))
          (not (application-input-controller-failure controller))
          (if claimed-p
