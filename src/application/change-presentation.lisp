@@ -133,7 +133,6 @@
           :added-start-line   new-start-line))))
 
 
-
 ;;; Memory changes
 
 (-> application--memory-document
