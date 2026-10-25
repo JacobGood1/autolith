@@ -557,9 +557,9 @@ HEADER-P renders field labels rather than status values."
       (mode-tracking-output-stream-restore output))))
 
 (-> localgroup--wait-for-handoff-entry
-    (configuration string string integer)
+    (configuration string &key (:token string) (:old-pid integer))
     cons)
-(defun localgroup--wait-for-handoff-entry (configuration session-id token old-pid)
+(defun localgroup--wait-for-handoff-entry (configuration session-id &key token old-pid)
   "Wait for SESSION-ID's authenticated replacement endpoint after OLD-PID."
   (let ((deadline
          (+ (get-internal-real-time)
@@ -676,7 +676,9 @@ Return an application exit plist, or NIL after a detach or connection loss."
                (return-from localgroup--attach-record-once
                  (localgroup-attach-record configuration
                                            (localgroup--wait-for-handoff-entry
-                                            configuration session-id token old-pid)
+                                            configuration session-id
+                                            :token   token
+                                            :old-pid old-pid)
                                            ':control))))
             ((and response (eq (first response) ':attached))
              (let ((history (getf (rest response) :history)))
