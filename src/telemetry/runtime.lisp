@@ -51,10 +51,12 @@
 (defvar *telemetry-process-function* nil
   "Test-only scoped replacement of the supervised subprocess transport.")
 
+(-> telemetry--id ((integer 1)) string)
 (defun telemetry--id (bytes)
   "Return a fresh cryptographically random lowercase hexadecimal identifier."
   (string-downcase (format nil "~{~2,'0X~}" (coerce (ironclad:random-data bytes) 'list))))
 
+(-> telemetry--now () (integer 0))
 (defun telemetry--now ()
   "Return decimal Unix nanoseconds with wall-clock microsecond precision."
   (multiple-value-bind (seconds microseconds) (sb-ext:get-time-of-day)
@@ -83,6 +85,7 @@
         (or (gethash identifier (telemetry-run-repair-ids *telemetry-run*))
             (setf (gethash identifier (telemetry-run-repair-ids *telemetry-run*)) (telemetry--id 16)))))))
 
+(-> telemetry--live-p ((option telemetry-run)) boolean)
 (defun telemetry--live-p (run)
   "Check RUN's generation while holding its controller lock."
   (and run (telemetry-run-active run)
@@ -102,6 +105,7 @@
   "Fetch the public catalog in telemetry's consent-supervised disposable process."
   (telemetry--process context '(:catalog)))
 
+(-> telemetry--ensure-model-catalog (telemetry-controller) null)
 (defun telemetry--ensure-model-catalog (controller)
   "Supply the neutral catalog module with the current telemetry consent epoch."
   (let ((context (bt:with-lock-held ((telemetry-controller-lock controller))
@@ -109,6 +113,7 @@
                                         :epoch (telemetry-controller-epoch controller) :active t))))
     (model-catalog-ensure controller context)))
 
+(-> telemetry--stop-process (t) null)
 (defun telemetry--stop-process (process)
   "Kill and reap a supervised child without exposing its diagnostics."
   (supervised-process-terminate process))
@@ -137,6 +142,7 @@
         do (sleep 0.005))
   nil)
 
+(-> telemetry--purge (telemetry-controller) list)
 (defun telemetry--purge (controller)
   "Revoke runs under the controller lock and return all outstanding operations.
 Keep records registered until teardown completes, including across concurrent purges."
@@ -152,6 +158,7 @@ Keep records registered until teardown completes, including across concurrent pu
         (telemetry-controller-runs controller) nil)
   (copy-list (telemetry-controller-processes controller)))
 
+(-> telemetry--settings-changed (configuration setting t t) null)
 (defun telemetry--settings-changed (configuration setting old new)
   "Adopt owner consent changes; attached secondary roots may revoke, never enable."
   (declare (ignore old))
@@ -183,6 +190,7 @@ Keep records registered until teardown completes, including across concurrent pu
         (telemetry--retire-process record))
       ;; Process consent is already revoked before synchronizing the durable owner.
       (when mirror
+        ; mallet:suppress no-ignore-errors -- consent is already revoked in this process; persisting it is best effort
         (ignore-errors (setf (config mirror (telemetry-controller-owner controller)) nil)))
       (model-catalog-join controller)
       (telemetry--join-uploader controller)
@@ -198,6 +206,7 @@ Unregistered child copies retain their own local settings and cannot acquire own
         (telemetry-controller-owner controller)
         configuration)))
 
+(-> telemetry-attach (configuration) null)
 (defun telemetry-attach (configuration)
   "Attach the owner once, then register secondary roots for revocation only.
 Attaching a disabled root does not change existing process consent."
@@ -223,7 +232,9 @@ Attaching a disabled root does not change existing process consent."
 Revocation and checkpoint quiescence always cancel immediately instead of draining."
   (let ((controller *telemetry-controller*))
     (when controller
-      (when drain-p (ignore-errors (telemetry--drain-uploads controller)))
+      (when drain-p
+        ; mallet:suppress no-ignore-errors -- draining final uploads must never block shutdown
+        (ignore-errors (telemetry--drain-uploads controller)))
       (let (processes)
         (bt:with-lock-held ((telemetry-controller-lock controller))
           (setf (telemetry-controller-stopped controller) t
@@ -238,6 +249,7 @@ Revocation and checkpoint quiescence always cancel immediately instead of draini
       (setf *telemetry-controller* nil)))
   nil)
 
+(-> telemetry-quiesce () null)
 (defun telemetry-quiesce ()
   "Discard pending telemetry and synchronously stop children before a checkpoint."
   (let ((controller *telemetry-controller*))
@@ -252,6 +264,7 @@ Revocation and checkpoint quiescence always cancel immediately instead of draini
       (telemetry--join-uploader controller)))
   nil)
 
+(-> telemetry-detach () null)
 (defun telemetry-detach ()
   "Remove inherited process state in a checkpoint child, without killing parent children."
   (let ((controller *telemetry-controller*))
@@ -261,6 +274,7 @@ Revocation and checkpoint quiescence always cancel immediately instead of draini
   (setf *telemetry-controller* nil *telemetry-run* nil)
   nil)
 
+(-> telemetry-call-with-quiescence (function) t)
 (defun telemetry-call-with-quiescence (function)
   "Exclude diagnostic text and worker launch throughout FUNCTION's checkpoint fork.
 The caller invokes TELEMETRY-DETACH in the fork child before saving its core.
@@ -279,6 +293,7 @@ Pending runs and spans are discarded; the parent accepts fresh runs afterwards."
 (-> telemetry--log (keyword string) null)
 (defun telemetry--log (level message)
   "Write a bounded local lifecycle diagnostic without external context values."
+  ; mallet:suppress no-ignore-errors -- a local diagnostic must never fail its caller
   (ignore-errors (format *error-output* "[telemetry ~A] ~A~%" level message))
   nil)
 
@@ -309,6 +324,7 @@ Pending runs and spans are discarded; the parent accepts fresh runs afterwards."
          (telemetry--log ':warning "Invalid AUTOLITH_RUN_ATTEMPT; using attempt 1.")
          1)))
 
+(-> telemetry--consume-launch-context () list)
 (defun telemetry--consume-launch-context ()
   "Consume launcher-only environment before any agent work can spawn children."
   (let ((context (uiop:getenv "AUTOLITH_TRACEPARENT"))
@@ -329,6 +345,7 @@ Pending runs and spans are discarded; the parent accepts fresh runs afterwards."
 (defvar *telemetry-launch-claimed-p* nil
   "True after this process's top-level headless run claims its launcher context.")
 
+(-> telemetry--initialize-process-context () null)
 (defun telemetry--initialize-process-context ()
   "Replace saved-image context with this process's launcher environment at startup."
   (bt:with-lock-held (*telemetry-launch-lock*)
@@ -346,6 +363,9 @@ Pending runs and spans are discarded; the parent accepts fresh runs afterwards."
       (setf *telemetry-launch-claimed-p* t)
       *telemetry-launch-context*)))
 
+(-> telemetry--begin-run
+    ((option configuration) &key (:launcher-p boolean))
+    (values (option telemetry-run) list))
 (defun telemetry--begin-run (configuration &key launcher-p)
   "Create a consented root and return RUN and its opaque finish token as two values.
 Only the first top-level launcher scope can adopt the process trace context."
@@ -371,12 +391,14 @@ Only the first top-level launcher scope can adopt the process trace context."
             (push run (telemetry-controller-runs controller))
             (values run token)))))))
 
+(-> telemetry-call-with-run ((option configuration) function) t)
 (defun telemetry-call-with-run (configuration function)
   "Call FUNCTION with an ambient root or a fresh independent root, preserving all exits.
 Run-end upload is asynchronous and failure-isolated. Unreported exits are internal errors."
   (if *telemetry-run*
       (funcall function)
       (multiple-value-bind (run token)
+          ; mallet:suppress no-ignore-errors -- telemetry failures must never prevent the run itself
           (ignore-errors (telemetry--begin-run configuration))
         (let ((*telemetry-run*  run)
               (failure-terminal nil)
@@ -389,6 +411,7 @@ Run-end upload is asynchronous and failure-isolated. Unreported exits are intern
                                              :error-type (telemetry--condition-error-type condition))))))
                  (multiple-value-prog1 (funcall function)
                    (setf returned-p t)))
+            ; mallet:suppress no-ignore-errors -- telemetry failures must never replace the run's own exit
             (ignore-errors
               (telemetry-finish-run run token
                                     (if returned-p
@@ -478,6 +501,7 @@ Catalog rows contain a keyword, accepted spelling and optional exporter wire spe
         ((stringp value)
          (first (find value catalog :key #'second :test #'string=)))))
 
+(-> telemetry--count (t) (option (integer 0 1000000000)))
 (defun telemetry--count (value)
   "Accept bounded nonnegative integer metadata."
   (and (typep value '(integer 0 1000000000)) value))
@@ -502,6 +526,9 @@ Catalog rows contain a keyword, accepted spelling and optional exporter wire spe
         (t
          (values nil nil))))
 
+(-> telemetry--model-identity
+    (telemetry-controller &key (:provider t) (:request-model t) (:response-model t))
+    telemetry-model)
 (defun telemetry--model-identity (controller &key provider request-model response-model)
   "Project both identities and independent known flags before retaining run metadata."
   (multiple-value-bind (request request-known) (telemetry--model controller request-model)
@@ -510,6 +537,7 @@ Catalog rows contain a keyword, accepted spelling and optional exporter wire spe
                             :request-model request :response-model response
                             :request-known-p request-known :response-known-p response-known))))
 
+(-> telemetry--usage-field (t string) (option (integer 0 1000000000)))
 (defun telemetry--usage-field (usage name)
   "Read a normalized hash table or portable plist counter, never arbitrary usage fields."
   (telemetry--count
@@ -519,6 +547,7 @@ Catalog rows contain a keyword, accepted spelling and optional exporter wire spe
           (or (getf usage (intern (string-upcase (substitute #\- #\_ name)) :keyword))
               (getf usage (intern (string-upcase name) :keyword)))))))
 
+(-> telemetry--run-model-identity (telemetry-run telemetry-model keyword) null)
 (defun telemetry--run-model-identity (run identity role)
   "Aggregate primary agent identities, using helper requests only in helper-only runs.
 Different primary identities become mixed; missing response names never inherit requests."
@@ -544,6 +573,10 @@ Different primary identities become mixed; missing response names never inherit 
                       (not (eq (telemetry-model-response-model aggregate) ':mixed)))))))
   nil)
 
+(-> telemetry-note-model
+    (&key (:run (option telemetry-run)) (:provider t) (:request-model t) (:response-model t)
+          (:outcome t) (:finish-reason t) (:error-type t) (:role t) (:usage t) (:duration-ms t))
+    null)
 (defun telemetry-note-model (&key (run *telemetry-run*) provider request-model response-model
                                  outcome finish-reason error-type role usage duration-ms)
   "Record one actual provider attempt, projecting only aliases and token counters."
@@ -573,6 +606,7 @@ Different primary identities become mixed; missing response names never inherit 
             (telemetry--export-model run identity duration-ms))))))
   nil)
 
+(-> telemetry--argument-digest (t t string) (option (vector (unsigned-byte 8))))
 (defun telemetry--argument-digest (arguments tool trace-id)
   "Hash bounded canonical JSON with fresh run salt; retain only the local digest."
   (handler-case
@@ -665,6 +699,10 @@ Different primary identities become mixed; missing response names never inherit 
               ((eq outcome ':error)
                ':tool)))))
 
+(-> telemetry-note-tool
+    (&key (:run (option telemetry-run)) (:tool t) (:arguments t) (:outcome t) (:error-code t)
+          (:exit-code t) (:error-type t) (:duration-ms t) (:corrects-previous t))
+    null)
 (defun telemetry-note-tool (&key (run *telemetry-run*) tool arguments outcome error-code exit-code error-type
                                 duration-ms corrects-previous)
   "Record a completed tool attempt. Equality is local; export only its boolean."
@@ -696,6 +734,7 @@ Different primary identities become mixed; missing response names never inherit 
                         (cons (json-get span "spanId") nil))))))))))
   nil)
 
+(-> telemetry--diagnostic (telemetry-run t t) (option string))
 (defun telemetry--diagnostic (run summary-function language)
   "Gate before reading the summary thunk, redact in a deadline-supervised child, then recheck."
   (let ((controller (telemetry-run-controller run)))
@@ -724,6 +763,10 @@ Different primary identities become mixed; missing response names never inherit 
                       (when (<= (length masked) *telemetry-diagnostic-limit*) masked))))))
           (error () nil))))))
 
+(-> telemetry-note-report
+    (&key (:run (option telemetry-run)) (:report-id t) (:tool t) (:issue-kind t) (:duplicate-p t)
+          (:summary-function t) (:language t))
+    null)
 (defun telemetry-note-report (&key (run *telemetry-run*) report-id tool issue-kind duplicate-p
                                   summary-function (language "en"))
   "Record an incident or a duplicate's new link to an already exported tool span."
@@ -770,6 +813,11 @@ Retain one identity per catalog tool until run end. Never replace another report
                         (setf exported-link-p t))))))))))
     (values identifier exported-link-p)))
 
+(-> telemetry-note-repair
+    (&key (:run (option telemetry-run)) (:report-id t) (:incident-id t) (:attempt-id t) (:target t)
+          (:issue-kind t) (:repair-kind t) (:outcome t) (:verified t) (:operation t) (:event-kind t)
+          (:verification-scope t) (:summary-function t) (:language t))
+    null)
 (defun telemetry-note-repair (&key (run *telemetry-run*) report-id incident-id attempt-id
                                   target issue-kind repair-kind outcome verified operation
                                   (event-kind ':repair) verification-scope
@@ -866,6 +914,7 @@ Reports after finish are ignored with a local debug diagnostic."
     (telemetry--end-run run terminal))
   nil)
 
+(-> telemetry--end-run (telemetry-run list) null)
 (defun telemetry--end-run (run terminal)
   "Queue final root counters and wake the uploader without waiting for network work."
   (let ((controller (telemetry-run-controller run))
