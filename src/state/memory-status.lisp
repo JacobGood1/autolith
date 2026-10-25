@@ -16,57 +16,57 @@
 
 (defclass memory-assessment ()
   ((memory
-    :initarg :memory
-    :reader memory-assessment-memory
-    :type memory
+    :initarg       :memory
+    :reader        memory-assessment-memory
+    :type          memory
     :documentation "The assessed memory.")
    (status
-    :initarg :status
-    :reader memory-assessment-status
-    :type memory-status
+    :initarg       :status
+    :reader        memory-assessment-status
+    :type          memory-status
     :documentation "Whether the memory's evidence still supports it.")
    (reasons
-    :initarg :reasons
-    :reader memory-assessment-reasons
-    :type list
+    :initarg       :reasons
+    :reader        memory-assessment-reasons
+    :type          list
     :documentation "Reason plists explaining a stale or unverified status.")
    (source-outcomes
-    :initarg :source-outcomes
-    :reader memory-assessment-source-outcomes
-    :type list
+    :initarg       :source-outcomes
+    :reader        memory-assessment-source-outcomes
+    :type          list
     :documentation "One (:source :outcome :reason) plist per cited source.")
    (premise-outcomes
-    :initarg :premise-outcomes
-    :reader memory-assessment-premise-outcomes
-    :type list
+    :initarg       :premise-outcomes
+    :reader        memory-assessment-premise-outcomes
+    :type          list
     :documentation "One (:id :memory :outcome :assessment) plist per premise."))
   (:documentation "The derived evidence status of one memory and its explanation."))
 
 (defclass memory-assessor ()
   ((memories
-    :initarg :memories
-    :reader memory-assessor-memories
-    :type hash-table
+    :initarg       :memories
+    :reader        memory-assessor-memories
+    :type          hash-table
     :documentation "Every active memory by identifier, for premise lookup.")
    (files
-    :initform (make-hash-table :test #'equal)
-    :reader memory-assessor-files
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        memory-assessor-files
+    :type          hash-table
     :documentation "Each cited file's (TEXT . FAILURE), read at most once per pass.")
    (assessments
-    :initform (make-hash-table :test #'equal)
-    :reader memory-assessor-assessments
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        memory-assessor-assessments
+    :type          hash-table
     :documentation "Completed assessments by memory identifier.")
    (pending
-    :initform (make-hash-table :test #'equal)
-    :reader memory-assessor-pending
-    :type hash-table
+    :initform      (make-hash-table :test #'equal)
+    :reader        memory-assessor-pending
+    :type          hash-table
     :documentation "Memories whose assessment is in progress, to stop cycles.")
    (view
-    :initarg :view
-    :reader memory-assessor-view
-    :type knowledge-view
+    :initarg       :view
+    :reader        memory-assessor-view
+    :type          knowledge-view
     :documentation "Structured knowledge evaluated at the same time, for claim premises."))
   (:documentation "One consistent pass assessing memories against the filesystem."))
 
@@ -80,8 +80,8 @@
 The pass evaluates CONFIGURATION's structured knowledge from its workspace at
 the same time, so memories derived from claims follow those claims."
   (let* ((memories (make-hash-table :test #'equal))
-         (all (memory-list configuration :visibility ':all))
-         (view (knowledge-view-current configuration)))
+         (all      (memory-list configuration :visibility ':all))
+         (view     (knowledge-view-current configuration)))
     (dolist (memory all)
       (setf (gethash (memory-identifier memory) memories) memory))
     (make-instance 'memory-assessor :memories memories :view view)))
@@ -96,7 +96,7 @@ the same time, so memories derived from claims follow those claims."
   "Return active memories derived directly from memory IDENTIFIER, newest first."
   (sort (loop for memory being the hash-values of (memory-assessor-memories assessor)
               when (find identifier (memory-premises memory)
-                         :key (lambda (premise) (getf premise :id))
+                         :key  (lambda (premise) (getf premise :id))
                          :test #'string=)
                 collect memory)
         #'> :key #'memory-updated-at))
@@ -104,7 +104,7 @@ the same time, so memories derived from claims follow those claims."
 (-> memory-assessor--file (memory-assessor pathname) (values (option string) (option keyword)))
 (defun memory-assessor--file (assessor pathname)
   "Return PATHNAME's text and read failure, reading it at most once per pass."
-  (let* ((key (namestring pathname))
+  (let* ((key   (namestring pathname))
          (entry (or (gethash key (memory-assessor-files assessor))
                     (setf (gethash key (memory-assessor-files assessor))
                           (multiple-value-call #'cons
@@ -122,17 +122,17 @@ the same time, so memories derived from claims follow those claims."
               (memory-assessor--file
                assessor
                (memory-source-file-pathname source (memory-workspace memory))))
-          (list :source source
+          (list :source  source
                 :outcome outcome
-                :reason (case why
-                          ((nil)
-                           nil)
-                          (:changed
-                           (list :kind ':file-changed :path path))
-                          (:missing
-                           (list :kind ':file-missing :path path))
-                          (otherwise
-                           (list :kind ':file-unchecked :path path :why why))))))
+                :reason  (case why
+                           ((nil)
+                            nil)
+                           (:changed
+                            (list :kind ':file-changed :path path))
+                           (:missing
+                            (list :kind ':file-missing :path path))
+                           (otherwise
+                            (list :kind ':file-unchecked :path path :why why))))))
       ;; Statements and web pages are records of what was seen; they are
       ;; never refetched, so they continue to hold.
       (list :source source :outcome ':holds :reason nil)))
@@ -141,22 +141,22 @@ the same time, so memories derived from claims follow those claims."
 (defun memory-assessor--premise-outcome (assessor premise depth)
   "Return the (:id :memory :outcome :assessment :reason) plist for PREMISE."
   (let* ((identifier (getf premise :id))
-         (memory (memory-assessor-find assessor identifier))
-         (claim (and (eq (getf premise :kind) ':claim)
-                     (knowledge-view-node (memory-assessor-view assessor) identifier))))
+         (memory     (memory-assessor-find assessor identifier))
+         (claim      (and (eq (getf premise :kind) ':claim)
+                          (knowledge-view-node (memory-assessor-view assessor) identifier))))
     (flet ((outcome (outcome reason &optional assessment)
-             (list :id identifier
-                   :memory memory
-                   :claim claim
-                   :outcome outcome
+             (list :id         identifier
+                   :memory     memory
+                   :claim      claim
+                   :outcome    outcome
                    :assessment assessment
-                   :reason reason)))
+                   :reason     reason)))
       (cond
         ((eq (getf premise :kind) ':claim)
          (cond
            ((null claim)
             (outcome ':failed (list :kind ':premise-claim :id identifier
-                                    :title (or (getf premise :text) identifier)
+                                    :title         (or (getf premise :text) identifier)
                                     :applicability ':unknown)))
            ((knowledge-node-supported-p claim)
             (outcome ':holds nil))
@@ -164,7 +164,7 @@ the same time, so memories derived from claims follow those claims."
             (let ((applicability (knowledge-node-applicability claim)))
               (outcome (if (eq applicability ':unverified) ':unverified ':failed)
                        (list :kind ':premise-claim :id identifier
-                             :title (knowledge-node-text claim)
+                             :title         (knowledge-node-text claim)
                              :applicability applicability))))))
         ((null memory)
          (outcome ':failed (list :kind ':premise-forgotten :id identifier)))
@@ -197,7 +197,7 @@ the same time, so memories derived from claims follow those claims."
 (-> memory-assessor--assess (memory-assessor memory integer) memory-assessment)
 (defun memory-assessor--assess (assessor memory depth)
   "Assess MEMORY at premise DEPTH, memoizing the result for this pass."
-  (let ((identifier (memory-identifier memory))
+  (let ((identifier  (memory-identifier memory))
         (assessments (memory-assessor-assessments assessor)))
     (or (gethash identifier assessments)
         (progn
@@ -261,10 +261,10 @@ the same time, so memories derived from claims follow those claims."
                                                    unverified-premises)))))))
                  (setf (gethash identifier assessments)
                        (make-instance 'memory-assessment
-                                      :memory memory
-                                      :status status
-                                      :reasons reasons
-                                      :source-outcomes sources
+                                      :memory           memory
+                                      :status           status
+                                      :reasons          reasons
+                                      :source-outcomes  sources
                                       :premise-outcomes premises)))
             (remhash identifier (memory-assessor-pending assessor)))))))
 
@@ -279,8 +279,8 @@ the same time, so memories derived from claims follow those claims."
 (-> memory-status-reason-text (list) string)
 (defun memory-status-reason-text (reason)
   "Return one short sentence fragment explaining REASON."
-  (let ((path (getf reason :path))
-        (title (getf reason :title))
+  (let ((path       (getf reason :path))
+        (title      (getf reason :title))
         (identifier (getf reason :id)))
     (ecase (getf reason :kind)
       (:file-changed
@@ -291,9 +291,12 @@ the same time, so memories derived from claims follow those claims."
        (format nil "~A could not be checked (~A)"
                path
                (case (getf reason :why)
-                 (:too-large "too large")
-                 (:not-text "not text")
-                 (otherwise "unreadable"))))
+                 (:too-large
+                  "too large")
+                 (:not-text
+                  "not text")
+                 (otherwise
+                  "unreadable"))))
       (:premise-changed
        (format nil "\"~A\" changed" title))
       (:premise-forgotten
