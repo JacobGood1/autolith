@@ -23,10 +23,10 @@
   "Return a concise summary of live mutation and retained recovery state."
   (multiple-value-bind (selected-identifier selected-history-commit)
       (image-commit--pointer-state configuration)
-    (let* ((pending (image-commit-pending-records configuration))
-           (effective (image-commit-effective-diff-records configuration))
-           (generations (generation-list configuration))
-           (newest-generation (first generations))
+    (let* ((pending             (image-commit-pending-records configuration))
+           (effective           (image-commit-effective-diff-records configuration))
+           (generations         (generation-list configuration))
+           (newest-generation   (first generations))
            (selected-generation (generation-selected configuration))
            (selection-current-p
              (and (equal *active-image-commit-identifier* selected-identifier)
@@ -46,9 +46,9 @@
             (format stream "  ~A  ~A~%"
                     (getf properties :kind)
                     (getf properties :target))))
-         (let ((experiment (tuning-experiment-render-open configuration)))
-           (when experiment
-             (format stream "~A~%" experiment)))
+        (let ((experiment (tuning-experiment-render-open configuration)))
+          (when experiment
+            (format stream "~A~%" experiment)))
         (format stream "checkpoint~%  publishing  ~:[no~;yes~]~%"
                 *checkpoint-in-progress-p*)
         (format stream "generations~%  retained  ~D~%  newest    ~A~%  selected  ~A"
