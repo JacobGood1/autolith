@@ -77,9 +77,9 @@ exit 64
      :current-pathname (merge-pathnames "current-generation.sexp" state-root))))
 
 (-> recovery-tests--generation
-    (pathname string string integer)
+    (pathname string &key (:commit string) (:created-at integer))
     recovery-generation)
-(defun recovery-tests--generation (root identifier commit created-at)
+(defun recovery-tests--generation (root identifier &key commit created-at)
   "Return a synthetic retained generation below ROOT."
   (let ((directory
           (merge-pathnames (format nil "~A/" identifier) root)))
@@ -619,11 +619,11 @@ exit 64
          (current-commit "1111111111111111111111111111111111111111")
          (stale-commit   "2222222222222222222222222222222222222222")
          (stale
-           (recovery-tests--generation root "stale" stale-commit 30))
+           (recovery-tests--generation root "stale" :commit stale-commit :created-at 30))
          (current-a
-           (recovery-tests--generation root "current-a" current-commit 20))
+           (recovery-tests--generation root "current-a" :commit current-commit :created-at 20))
          (current-b
-           (recovery-tests--generation root "current-b" current-commit 10))
+           (recovery-tests--generation root "current-b" :commit current-commit :created-at 10))
          (selected       stale)
          (generations    (list stale current-a current-b)))
     (unwind-protect

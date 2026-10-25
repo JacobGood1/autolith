@@ -24,10 +24,16 @@
          (workspace-resource-tests--write-text nested "private nested content")
          (workspace-resource-tests--write-text editable "original")
          (let* ((read-result      (workspace-resource-tests--call
-                                   registry context "resource" "read" "uri" "workspace:read-only/file.txt"))
+                                   registry context
+                                   :namespace "resource"
+                                   :name      "read"
+                                   :arguments (list "uri" "workspace:read-only/file.txt")))
                 (revision         (workspace-resource-tests--field (tool-result-content read-result) "Revision: "))
                 (missing-result   (workspace-resource-tests--call
-                                   registry context "resource" "read" "uri" "workspace:read-only/new/file.txt"))
+                                   registry context
+                                   :namespace "resource"
+                                   :name      "read"
+                                   :arguments (list "uri" "workspace:read-only/new/file.txt")))
                 (missing-revision (workspace-resource-tests--field (tool-result-content missing-result) "Revision: ")))
            (test-assert (tool-result-success-p read-result) "The edit target is readable before staging.")
            (test-assert (eq (tool-result-error-code missing-result) ':not-found) "The absent parent is observed before editing.")

@@ -45,17 +45,17 @@
                                   :predicate "report.authorized"
                                   :arguments '((:name "owner" :type :string))))
         (when (member case '(:producer-joint-blocker :ambiguous-requirement))
-          (knowledge-tests--said configuration "report.owner" '("q1" "alice") "Alice owns q1"))
+          (knowledge-tests--said configuration "report.owner" '("q1" "alice") :quote "Alice owns q1"))
         (when (eq case ':ambiguous-requirement)
-          (knowledge-tests--said configuration "report.owner" '("q1" "bob") "Bob also owns q1"))
+          (knowledge-tests--said configuration "report.owner" '("q1" "bob") :quote "Bob also owns q1"))
         (when (member case '(:combined-ambiguity :planned-key-conflict))
-          (knowledge-tests--said configuration "report.owner" '("q1" "bob") "Bob owns q1"))
+          (knowledge-tests--said configuration "report.owner" '("q1" "bob") :quote "Bob owns q1"))
         (when (eq case ':planned-opposite)
-          (knowledge-tests--said configuration "report.built" '("q1") "q1 is already built"))
+          (knowledge-tests--said configuration "report.built" '("q1") :quote "q1 is already built"))
         (when (member case '(:shared-binding-match :shared-binding-mismatch :producer-joint-blocker))
           (knowledge-tests--said configuration "report.authorized"
                                  (list (if (eq case ':shared-binding-match) "alice" "bob"))
-                                 "The named owner is authorized"))
+                                 :quote "The named owner is authorized"))
         (when derived-p
           (knowledge-propose-rule
            configuration :id "built-ready"
@@ -65,7 +65,7 @@
            :conclusion       '("report.ready" "?file"))
           (knowledge-admit-rule configuration "built-ready"))
         (when (eq case ':derived-negation)
-          (knowledge-tests--said configuration "report.blocked" '("q1") "q1 is not blocked" :negated t))
+          (knowledge-tests--said configuration "report.blocked" '("q1") :quote "q1 is not blocked" :negated t))
         (knowledge-define-contract
          configuration :id "build-produces" :tool "report.build"
          :when     (json-object "file" "?file" "mode" (if (eq case ':unmatched-producer) "other" "build"))
@@ -261,12 +261,12 @@
                                      (:name "token" :type :string))))
         (cond
           (owner-p
-           (knowledge-tests--said configuration "report.owner" '("q1" "bob" "old") "Bob owns q1"))
+           (knowledge-tests--said configuration "report.owner" '("q1" "bob" "old") :quote "Bob owns q1"))
           ((eq case ':computed-opposition)
            (knowledge-tests--said configuration "report.capacity" '("q1" 5)
-                                  "q1 does not have capacity five" :negated t))
+                                  :quote "q1 does not have capacity five" :negated t))
           (t
-           (knowledge-tests--said configuration "report.built" '("q1") "q1 is already built")))
+           (knowledge-tests--said configuration "report.built" '("q1") :quote "q1 is already built")))
         (unless owner-p
           (knowledge-propose-rule
            configuration :id "measure-consequence"
@@ -343,7 +343,7 @@
                         :predicate "report.measure"
                         :arguments '((:name "file" :type :string) (:name "amount" :type :number))))
         (when (eq case ':nested-alias)
-          (knowledge-tests--said configuration "report.ready" '("a") "a is ready")
+          (knowledge-tests--said configuration "report.ready" '("a") :quote "a is ready")
           (knowledge-propose-rule configuration :id "seed-copy"
                                  :premises          '(("report.seed" "?file"))
                                  :conclusion        '("report.copy" "?file"))
@@ -434,9 +434,9 @@
                           :predicate predicate
                           :arguments '((:name "file" :type :string) (:name "amount" :type :number)))))
         (when (member case '(:current-derived-premise :clean-alternative))
-          (knowledge-tests--said configuration "report.seed" '("a") "a is seeded"))
+          (knowledge-tests--said configuration "report.seed" '("a") :quote "a is seeded"))
         (when (eq case ':clean-alternative)
-          (knowledge-tests--said configuration "report.ready" '("a") "a is independently ready"))
+          (knowledge-tests--said configuration "report.ready" '("a") :quote "a is independently ready"))
         (knowledge-propose-rule
          configuration :id "derive-requirement"
          :premises         (if numeric-p '(("report.measure" "?file" "?count")) '(("report.seed" "?file")))

@@ -349,7 +349,10 @@
       (setf (gethash uri (cl-lsp:lsp-client-documents client)) document)
       (lsp-register-tools registry)
       (labels ((call (&rest arguments)
-                 (apply #'workspace-resource-tests--call registry context "lsp" "semantic" arguments))
+                 (workspace-resource-tests--call registry context
+                                                 :namespace "lsp"
+                                                 :name      "semantic"
+                                                 :arguments arguments))
 
                (value (&rest arguments)
                  (let ((result (apply #'call arguments)))

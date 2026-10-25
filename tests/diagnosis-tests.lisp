@@ -172,9 +172,9 @@
    "predictions"
    (lambda (configuration)
      (knowledge-tests--said configuration "service.reachable" '("billing" :true)
-                            "billing answers")
+                            :quote "billing answers")
      (knowledge-tests--said configuration "auth.accepted" '("billing" :false)
-                            "billing never rejects us" :negated t)
+                            :quote "billing never rejects us" :negated t)
      (knowledge-assert configuration '("endpoint.current" "billing" :true)
                        :basis ':model-proposal)
      (let ((view (knowledge-view-current configuration)))

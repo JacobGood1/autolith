@@ -88,13 +88,19 @@
       (labels ((propose (operation)
                  "Edit memory:facts using OPERATION."
                  (memory-resource-tests--call
-                  registry context "resource" "edit" "uri" "memory:facts"
-                  "base-revision" (memory-resource-tests--field
-                                   (tool-result-content
-                                    (memory-resource-tests--call registry context "resource"
-                                                                 "read" "uri" "memory:facts"))
-                                   "Revision: ")
-                  "operations" (vector operation)))
+                  registry context
+                  :namespace "resource"
+                  :name      "edit"
+                  :arguments (list "uri" "memory:facts"
+                                   "base-revision" (memory-resource-tests--field
+                                                    (tool-result-content
+                                                     (memory-resource-tests--call
+                                                      registry context
+                                                      :namespace "resource"
+                                                      :name      "read"
+                                                      :arguments (list "uri" "memory:facts")))
+                                                    "Revision: ")
+                                   "operations" (vector operation))))
 
                (matches ()
                  "Return runtime contracts for the read."

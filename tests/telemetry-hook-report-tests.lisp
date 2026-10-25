@@ -260,20 +260,29 @@
                     (test-assert
                      (tool-result-success-p
                       (papercut-resource-tests--call
-                       registry context "papercut" "report"
-                       "title" "Shell permission denial" "content" "Fixture command authorization fails."
-                       "issue-kind" "authorization" "tool" "shell.run"))
+                       registry context
+                       :namespace "papercut"
+                       :name      "report"
+                       :arguments (list "title" "Shell permission denial"
+                                        "content" "Fixture command authorization fails."
+                                        "issue-kind" "authorization" "tool" "shell.run")))
                      "The direct report tool accepts explicit metadata.")
-                    (let* ((read     (papercut-resource-tests--call registry context "resource" "read"
-                                                                  "uri" "papercut:current"))
+                    (let* ((read     (papercut-resource-tests--call registry context
+                                                                  :namespace "resource"
+                                                                  :name      "read"
+                                                                  :arguments (list "uri" "papercut:current")))
                            (revision (papercut-resource-tests--field (tool-result-content read) "Revision: "))
                            (report   (papercut-resource-tests--call
-                                      registry context "resource" "edit" "uri" "papercut:current"
-                                      "base-revision" revision "operations"
-                                      (vector (json-object "op" "papercut-report"
-                                                           "title" "Image renderer returns blank pixels"
-                                                           "content" "Fixture raster decoding loses every pixel."
-                                                           "issue-kind" "broken_tool" "tool" "fs.view-image")))))
+                                      registry context
+                                      :namespace "resource"
+                                      :name      "edit"
+                                      :arguments
+                                      (list "uri" "papercut:current"
+                                            "base-revision" revision "operations"
+                                            (vector (json-object "op" "papercut-report"
+                                                                 "title" "Image renderer returns blank pixels"
+                                                                 "content" "Fixture raster decoding loses every pixel."
+                                                                 "issue-kind" "broken_tool" "tool" "fs.view-image"))))))
                       (test-assert (tool-result-success-p report) "Resource reporting accepts metadata.")
                       (let ((papercut (find "fs.view-image" (papercut-list configuration)
                                             :key #'papercut-tool :test #'equal)))

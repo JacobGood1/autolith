@@ -204,15 +204,20 @@
                              (lambda (&rest arguments)
                                (declare (ignore arguments))
                                (sleep 10))))))
-              (let* ((read-result (workspace-resource-tests--call registry context "resource" "read"
-                                                                 "uri" "workspace:deadline.txt"))
+              (let* ((read-result (workspace-resource-tests--call registry context
+                                                                 :namespace "resource"
+                                                                 :name      "read"
+                                                                 :arguments (list "uri" "workspace:deadline.txt")))
                      (revision    (workspace-resource-tests--field (tool-result-content read-result) "Revision: "))
                      (start       (get-internal-real-time))
                      (result      (workspace-resource-tests--call
-                                   registry context "resource" "edit"
-                                   "uri" "workspace:deadline.txt" "base-revision" revision
-                                   "operations" (vector (json-object "op" "replace-lines" "start-line" 1
-                                                                     "end-line" 1 "content" "after")))))
+                                   registry context
+                                   :namespace "resource"
+                                   :name      "edit"
+                                   :arguments
+                                   (list "uri" "workspace:deadline.txt" "base-revision" revision
+                                         "operations" (vector (json-object "op" "replace-lines" "start-line" 1
+                                                                           "end-line" 1 "content" "after"))))))
                 (test-assert (tool-result-success-p result) "diagnostic timeout does not undo a saved edit")
                 (test-assert (search "after" (uiop:read-file-string path)) "the edit is durable")
                 (test-assert (< (/ (- (get-internal-real-time) start)

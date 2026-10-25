@@ -283,7 +283,7 @@
           (test-assert (= (knowledge-base-revision base) (1+ revision))
                        "unknown record kinds and an interrupted final record are tolerated"))
         (knowledge-tests--said configuration "event.start" '("standup" "2026-10-22T09:00:00Z")
-                               "standup is at nine sharp")
+                               :quote "standup is at nine sharp")
         (test-assert (and (null (nth-value 1 (sexp-store:log-read pathname)))
                           (knowledge-view-holds (knowledge-tests--view configuration)
                                                 '("event.start" "standup" "?t")))
@@ -626,9 +626,10 @@
    inputs
    :negated negated))
 
-(-> knowledge-tests--said (configuration string list string &key (:negated boolean))
+(-> knowledge-tests--said
+    (configuration string list &key (:quote string) (:negated boolean))
     (values string string))
-(defun knowledge-tests--said (configuration predicate inputs quote &key negated)
+(defun knowledge-tests--said (configuration predicate inputs &key quote negated)
   "Assert PREDICATE of INPUTS as something the user said in QUOTE."
   (knowledge-assert configuration
                     (knowledge-tests--claim configuration predicate inputs :negated negated)
@@ -669,9 +670,9 @@
                                                             :workspace (namestring workspace))
                           :basis    ':observation)
         (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
-                               "it takes half an hour to get there")
+                               :quote "it takes half an hour to get there")
         (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                               "be there ten minutes early")
+                               :quote "be there ten minutes early")
         (let* ((view          (knowledge-tests--view configuration))
                (node          (first (knowledge-view-holds view '("event.departure" "review" "?t"))))
                (justification (first (knowledge-node-justifications node))))
@@ -713,9 +714,9 @@
                      "recording the new start recomputes the departure without a model")
         (multiple-value-bind (old-buffer)
             (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                                   "be there ten minutes early")
+                                   :quote "be there ten minutes early")
           (knowledge-tests--said configuration "event.buffer" '("review" "PT20M")
-                                 "make it twenty minutes early")
+                                 :quote "make it twenty minutes early")
           (let ((view (knowledge-tests--view configuration)))
             (test-assert (and (= 2 (length (knowledge-view-holds
                                             view '("event.buffer" "review" "?b"))))
@@ -748,15 +749,15 @@
 (defun knowledge-tests--review (configuration &key (travel-basis ':user-assertion))
   "Assert the review's start, buffer, and travel, the travel with TRAVEL-BASIS."
   (knowledge-tests--said configuration "event.start" '("review" "2026-10-22T13:00:00Z")
-                         "the review starts at one")
+                         :quote "the review starts at one")
   (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                         "be there ten minutes early")
+                         :quote "be there ten minutes early")
   (if (eq travel-basis ':assumption)
       (knowledge-assert configuration
                         (knowledge-tests--claim configuration "event.travel" '("review" "PT30M"))
                         :basis ':assumption)
       (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
-                             "half an hour to get there"))
+                             :quote "half an hour to get there"))
   nil)
 
 (-> test-knowledge-justifications-and-conflicts () null)
@@ -769,13 +770,13 @@
     (test-assert (null (knowledge-tests--departures (knowledge-tests--view configuration)))
                  "a missing cancellation claim does not satisfy a negated premise")
     (knowledge-tests--said configuration "event.cancelled" '("review")
-                           "the review is definitely still on" :negated t)
+                           :quote "the review is definitely still on" :negated t)
     (test-assert (equal (knowledge-tests--departures (knowledge-tests--view configuration))
                         '("2026-10-22T12:20:00Z"))
                  "an explicit not-cancelled claim satisfies it")
     (multiple-value-bind (stated)
         (knowledge-tests--said configuration "event.departure" '("review" "2026-10-22T12:20:00Z")
-                               "I will leave at twenty past twelve")
+                               :quote "I will leave at twenty past twelve")
       (let ((node (knowledge-view-node (knowledge-tests--view configuration) stated)))
         (test-assert (and (knowledge-node-derived-p node)
                           (find ':current (knowledge-node-supports node)
@@ -787,7 +788,7 @@
                    "retracting the statement leaves the derivation supporting it"))
     (multiple-value-bind (cancelled)
         (knowledge-tests--said configuration "event.cancelled" '("review")
-                               "the review got cancelled after all")
+                               :quote "the review got cancelled after all")
       (let ((view (knowledge-tests--view configuration)))
         (test-assert (eq (knowledge-node-status view (knowledge-view-node view cancelled))
                          ':conflicted)
@@ -796,7 +797,7 @@
                      "conflicting evidence is shown, not resolved by picking a winner"))
       (knowledge-retract configuration cancelled))
     (knowledge-tests--said configuration "event.departure" '("review" "2026-10-22T12:00:00Z")
-                           "I am leaving at noon")
+                           :quote "I am leaving at noon")
     (let* ((view       (knowledge-tests--view configuration))
            (departures (knowledge-view-holds view '("event.departure" "review" "?t"))))
       (test-assert (and (= 2 (length departures))
@@ -824,9 +825,9 @@
       (knowledge-tests--define-appointments configuration)
       (knowledge-tests--admit-departure configuration)
       (knowledge-tests--said configuration "event.start" '("review" "2026-10-22T13:00:00Z")
-                             "the review starts at one")
+                             :quote "the review starts at one")
       (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                             "be there ten minutes early")
+                             :quote "be there ten minutes early")
       (knowledge-assert configuration
                         (knowledge-tests--claim configuration "event.travel" '("review" "PT30M"))
                         :evidence (knowledge-observe
@@ -857,11 +858,11 @@
                                                  '("event.start" "?e" "?t")))
                      "another workspace sees none of this workspace's claims"))
       (knowledge-tests--said configuration "event.start" '("standup" "2026-10-22T09:00:00Z")
-                             "standup is at nine")
+                             :quote "standup is at nine")
       (knowledge-tests--said configuration "event.buffer" '("standup" "PT0S")
-                             "no need to be early for standup")
+                             :quote "no need to be early for standup")
       (knowledge-tests--said configuration "event.travel" '("standup" "PT5M")
-                             "standup is five minutes away")
+                             :quote "standup is five minutes away")
       (let ((*knowledge-match-limit* 1))
         (let ((view (knowledge-tests--view configuration :now 2000)))
           (test-assert (and (= 1 (length (knowledge-tests--departures view)))
@@ -920,9 +921,9 @@
       (knowledge-tests--admit-departure configuration)
       (knowledge-tests--schedule-review configuration workspace "13:00")
       (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                             "be there ten minutes early")
+                             :quote "be there ten minutes early")
       (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
-                             "half an hour to get there")
+                             :quote "half an hour to get there")
       (let* ((view          (knowledge-tests--view configuration))
              (departure     (knowledge-node-identifier
                              (first (knowledge-view-holds view '("event.departure" "?e" "?t")))))
@@ -962,10 +963,10 @@
       (knowledge-tests--admit-departure configuration)
       (knowledge-tests--schedule-review configuration workspace "13:00")
       (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                             "be there ten minutes early")
+                             :quote "be there ten minutes early")
       (multiple-value-bind (travel)
           (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
-                                 "half an hour to get there")
+                                 :quote "half an hour to get there")
         (let ((snapshot (knowledge-view-snapshot (knowledge-tests--view configuration))))
           (test-assert (null (knowledge-view-changes snapshot (knowledge-tests--view configuration)))
                        "an unchanged view reports no changes")
@@ -1003,9 +1004,9 @@
       (knowledge-tests--admit-departure configuration)
       (knowledge-tests--schedule-review configuration workspace "13:00")
       (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                             "be there ten minutes early")
+                             :quote "be there ten minutes early")
       (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
-                             "half an hour to get there")
+                             :quote "half an hour to get there")
       (let* ((departure (knowledge-node-identifier
                          (first (knowledge-view-holds (knowledge-tests--view configuration)
                                                       '("event.departure" "?e" "?t")))))
@@ -1062,9 +1063,9 @@
       (knowledge-tests--admit-departure configuration)
       (knowledge-tests--schedule-review configuration workspace "13:00")
       (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                             "be there ten minutes early")
+                             :quote "be there ten minutes early")
       (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
-                             "half an hour to get there")
+                             :quote "half an hour to get there")
       (let ((conversation (conversation-create configuration)))
         (conversation-append-user-message conversation "When should I leave for the review?")
         (let* ((contributions (knowledge-tests--recall configuration conversation))
@@ -1127,10 +1128,10 @@
           (knowledge-tests--admit-departure configuration)
           (knowledge-tests--schedule-review configuration workspace "13:00")
           (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                                 "be there ten minutes early")
+                                 :quote "be there ten minutes early")
           (multiple-value-bind (travel)
               (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
-                                     "half an hour to get there")
+                                     :quote "half an hour to get there")
             (test-assert (search "facts  4" (text (application-memories-entry application)))
                          "(memories) lists facts even without prose memories")
             (test-assert (search "4 facts hold now"
@@ -1201,9 +1202,9 @@
         (knowledge-tests--admit-departure configuration)
         (knowledge-tests--schedule-review configuration workspace "13:00")
         (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                               "be there ten minutes early")
+                               :quote "be there ten minutes early")
         (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
-                               "half an hour to get there")
+                               :quote "half an hour to get there")
         (let ((active-surface (knowledge-tests--tool-surface configuration))
               (off-surface    (knowledge-tests--tool-surface off)))
           (test-assert (and (search "fact-assert" active-surface)
@@ -1279,10 +1280,10 @@
         (knowledge-tests--admit-departure source)
         (knowledge-tests--schedule-review source workspace "13:00")
         (knowledge-tests--said source "event.buffer" '("review" "PT10M")
-                               "be there ten minutes early")
+                               :quote "be there ten minutes early")
         (multiple-value-bind (travel)
             (knowledge-tests--said source "event.travel" '("review" "PT30M")
-                                   "half an hour to get there")
+                                   :quote "half an hour to get there")
           (memory-remember source :title "Travel note" :content "Half an hour by tram."
                                   :premises (list travel)))
         (test-assert (plusp (getf (data-export path
@@ -1320,7 +1321,7 @@
   (with-test-configuration (configuration)
     (knowledge-tests--define-appointments configuration)
     (knowledge-tests--said configuration "event.start" '("review" "2026-10-22T13:00:00Z")
-                           "the review starts at one")
+                           :quote "the review starts at one")
     (let* ((conversation (conversation-create configuration))
            (provider
              (make-instance
@@ -1394,7 +1395,7 @@
                                                      '("event.travel" "?e" "?d")))
                          "passing an expiry boundary evaluates again"))
           (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                                 "be there ten minutes early")
+                                 :quote "be there ten minutes early")
           (test-assert (knowledge-view-holds (knowledge-view-current configuration)
                                              '("event.buffer" "?e" "?d"))
                        "a new assertion evaluates again")))))
@@ -1416,9 +1417,9 @@
       (knowledge-tests--admit-departure configuration)
       (knowledge-tests--schedule-review configuration workspace "13:00")
       (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                             "be there ten minutes early")
+                             :quote "be there ten minutes early")
       (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
-                             "half an hour to get there")
+                             :quote "half an hour to get there")
       (let* ((registry (make-default-tool-registry :configuration configuration))
              (context  (make-instance 'tool-context
                                       :configuration configuration
@@ -1426,12 +1427,16 @@
                                       :conversation  (conversation-create configuration))))
         (flet ((update (&rest steps)
                  (tool-result-content
-                  (memory-resource-tests--call registry context "plan" "update"
-                                               "steps" (coerce steps 'vector))))
+                  (memory-resource-tests--call registry context
+                                               :namespace "plan"
+                                               :name      "update"
+                                               :arguments (list "steps" (coerce steps 'vector)))))
 
                (listing ()
                  (tool-result-content
-                  (memory-resource-tests--call registry context "plan" "list")))
+                  (memory-resource-tests--call registry context
+                                               :namespace "plan"
+                                               :name      "list")))
 
                (leave (status)
                  (json-object "step" "Leave at {?leave}" "status" status "id" "leave"
@@ -1459,9 +1464,11 @@
           (test-assert (search "(done; it relied on" (listing))
                        "restating a done step keeps its receipt")
           (let ((failed (memory-resource-tests--call
-                         registry context "plan" "update"
-                         "steps" (vector (json-object "step" "Pack" "status" "pending"
-                                                      "requires" #(#("trip.bag" "?b")))))))
+                         registry context
+                         :namespace "plan"
+                         :name      "update"
+                         :arguments (list "steps" (vector (json-object "step" "Pack" "status" "pending"
+                                                                       "requires" #(#("trip.bag" "?b"))))))))
             (test-assert (and (not (tool-result-success-p failed))
                               (search "Define predicate trip.bag" (tool-result-content failed)))
                          "an undefined predicate in a step is refused correctively"))))))
@@ -1489,18 +1496,20 @@
       (knowledge-tests--admit-departure configuration)
       (knowledge-tests--schedule-review configuration workspace "13:00")
       (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                             "be there ten minutes early")
+                             :quote "be there ten minutes early")
       (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
-                             "half an hour to get there")
+                             :quote "half an hour to get there")
       (let* ((conversation (conversation-create configuration))
              (registry     (make-default-tool-registry :configuration configuration))
              (context      (make-instance 'tool-context :configuration configuration :worker nil
                                                         :conversation conversation)))
         (conversation-append-user-message conversation "Plan my afternoon.")
         (memory-resource-tests--call
-         registry context "plan" "update"
-         "steps" (vector (json-object "step" "Leave at {?leave}" "status" "pending" "id" "leave"
-                                      "requires" #(#("event.departure" "review" "?leave")))))
+         registry context
+         :namespace "plan"
+         :name      "update"
+         :arguments (list "steps" (vector (json-object "step" "Leave at {?leave}" "status" "pending" "id" "leave"
+                                                       "requires" #(#("event.departure" "review" "?leave"))))))
         (conversation-append-user-message conversation "Anything to adjust?")
         (test-assert (null (knowledge-tests--plan-advice configuration conversation))
                      "a plan the model just saw needs no advice")
@@ -1526,29 +1535,36 @@
       (knowledge-tests--admit-departure configuration)
       (knowledge-tests--schedule-review configuration workspace "13:00")
       (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                             "be there ten minutes early")
+                             :quote "be there ten minutes early")
       (let* ((registry (make-default-tool-registry :configuration configuration))
              (context  (make-instance 'tool-context :configuration configuration :worker nil
                                                     :conversation (conversation-create configuration)))
              (travel   (nth-value 0 (knowledge-tests--said configuration "event.travel"
                                                            '("review" "PT30M")
-                                                           "half an hour to get there"))))
+                                                           :quote "half an hour to get there"))))
         (flet ((define (&rest operations)
                  (tool-result-content
                   (memory-resource-tests--call
-                   registry context "resource" "edit"
-                   "uri" "memory:facts"
-                   "base-revision" (memory-resource-tests--field
-                                    (tool-result-content
-                                     (memory-resource-tests--call registry context "resource" "read"
-                                                                  "uri" "memory:facts"))
-                                    "Revision: ")
-                   "operations" (coerce operations 'vector))))
+                   registry context
+                   :namespace "resource"
+                   :name      "edit"
+                   :arguments (list "uri" "memory:facts"
+                                    "base-revision" (memory-resource-tests--field
+                                                     (tool-result-content
+                                                      (memory-resource-tests--call
+                                                       registry context
+                                                       :namespace "resource"
+                                                       :name      "read"
+                                                       :arguments (list "uri" "memory:facts")))
+                                                     "Revision: ")
+                                    "operations" (coerce operations 'vector)))))
 
                (expand (&rest task)
                  (tool-result-content
-                  (memory-resource-tests--call registry context "plan" "expand"
-                                               "task" (coerce task 'vector)))))
+                  (memory-resource-tests--call registry context
+                                               :namespace "plan"
+                                               :name      "expand"
+                                               :arguments (list "task" (coerce task 'vector))))))
           (test-assert
            (search "Defined method prepare-appointment."
                    (define (json-object "op" "method-define" "id" "prepare-appointment"
@@ -1592,8 +1608,11 @@
                        "a subtask passing an unbound variable is refused")
           (test-assert (search "prepare-appointment workspace: prepare(?event) when event.start(?event, ?start)"
                                (tool-result-content
-                                (memory-resource-tests--call registry context "resource" "read"
-                                                             "uri" "memory:methods")))
+                                (memory-resource-tests--call
+                                 registry context
+                                 :namespace "resource"
+                                 :name      "read"
+                                 :arguments (list "uri" "memory:methods"))))
                        "memory:methods lists the methods")))))
   nil)
 
@@ -1703,7 +1722,7 @@
                                 :premises         '(("report.ready" "?r"))
                                 :conclusion       '("report.eligible" "?r"))
         (knowledge-admit-rule configuration "eligible")
-        (knowledge-tests--said configuration "report.known" '("q3") "q3 is known")
+        (knowledge-tests--said configuration "report.known" '("q3") :quote "q3 is known")
         (knowledge-propose-rule configuration :id "blocked"
                                 :premises         '(("report.known" "?r") (:not ("report.ready" "?r")))
                                 :conclusion       '("report.blocked" "?r"))
@@ -1736,8 +1755,10 @@
           (knowledge-define-contract configuration :id "send-report" :tool "mail.send"
                                      :requires (list pattern))
           (test-assert (and (not (tool-result-success-p
-                                  (memory-resource-tests--call registry context "mail" "send"
-                                                               "report" "q3")))
+                                  (memory-resource-tests--call registry context
+                                                               :namespace "mail"
+                                                               :name      "send"
+                                                               :arguments (list "report" "q3"))))
                             (zerop (knowledge-tests--mail-tool-calls mail)))
                        "a contract refuses the disputed requirement before the action"))
         (test-assert (mission--fact-gate-support
@@ -1772,17 +1793,17 @@
                               :premises   '(("item.exists" "?x") (:not ("item.blocked" "?x")))
                               :conclusion '("item.ready" "?x"))
       (knowledge-admit-rule configuration "readiness")
-      (knowledge-tests--said configuration "item.exists" '("a") "a exists")
+      (knowledge-tests--said configuration "item.exists" '("a") :quote "a exists")
       (knowledge-assert configuration
                         (knowledge-tests--claim configuration "item.blocked" '("a") :negated t)
                         :basis ':assumption)
-      (knowledge-tests--said configuration "item.exists" '("b") "b exists")
-      (knowledge-tests--said configuration "item.blocked" '("b") "b is not blocked" :negated t)
-      (knowledge-tests--said configuration "item.paid" '("c") "c is paid")
-      (knowledge-tests--said configuration "item.paid" '("c") "c is not paid" :negated t)
-      (knowledge-tests--said configuration "item.exists" '("d") "d exists")
-      (knowledge-tests--said configuration "item.blocked" '("d") "d is not blocked" :negated t)
-      (knowledge-tests--said configuration "item.blocked" '("d") "d is blocked")
+      (knowledge-tests--said configuration "item.exists" '("b") :quote "b exists")
+      (knowledge-tests--said configuration "item.blocked" '("b") :quote "b is not blocked" :negated t)
+      (knowledge-tests--said configuration "item.paid" '("c") :quote "c is paid")
+      (knowledge-tests--said configuration "item.paid" '("c") :quote "c is not paid" :negated t)
+      (knowledge-tests--said configuration "item.exists" '("d") :quote "d exists")
+      (knowledge-tests--said configuration "item.blocked" '("d") :quote "d is not blocked" :negated t)
+      (knowledge-tests--said configuration "item.blocked" '("d") :quote "d is blocked")
       (let* ((view    (knowledge-view-current configuration))
              (ready-a (first (knowledge-view-holds view '("item.ready" "a")))))
         (test-assert (and ready-a
@@ -1822,9 +1843,9 @@
                               :premises         '(("item.ready" "?x"))
                               :conclusion       '("item.sent" "?x"))
       (knowledge-admit-rule configuration "send")
-      (knowledge-tests--said configuration "item.exists" '("a") "a exists")
-      (knowledge-tests--said configuration "item.exists" '("a") "a does not exist" :negated t)
-      (knowledge-tests--said configuration "item.exists" '("b") "b exists")
+      (knowledge-tests--said configuration "item.exists" '("a") :quote "a exists")
+      (knowledge-tests--said configuration "item.exists" '("a") :quote "a does not exist" :negated t)
+      (knowledge-tests--said configuration "item.exists" '("b") :quote "b exists")
       (knowledge-assert configuration '("item.exists" "b") :basis ':assumption)
       (let* ((view (knowledge-view-current configuration))
              (node (first (knowledge-view-holds view '("item.sent" "b")))))
@@ -1850,7 +1871,7 @@
                        "a conclusion from a conflicted premise fails the gate")
           (test-assert (not (passes "item.sent"))
                        "conflict in an indirect premise also fails the gate"))
-        (knowledge-tests--said configuration "item.ready" '("a") "a is independently ready")
+        (knowledge-tests--said configuration "item.ready" '("a") :quote "a is independently ready")
         (test-assert (passes "item.sent")
                      "an independent clean support path can justify the conclusion"))))
   (dolist (bases '((:assumption :user-assertion) (:user-assertion :assumption)))
@@ -1860,13 +1881,13 @@
         (knowledge-tests--define-appointments configuration)
         (knowledge-tests--admit-departure configuration)
         (knowledge-tests--said configuration "event.start" '("review" "2026-10-22T13:00:00Z")
-                               "the review starts at one")
+                               :quote "the review starts at one")
         (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
-                               "be there ten minutes early")
+                               :quote "be there ten minutes early")
         (dolist (basis bases)
           (if (eq basis ':user-assertion)
               (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
-                                     "half an hour to get there")
+                                     :quote "half an hour to get there")
               (knowledge-assert configuration
                                 (knowledge-tests--claim configuration "event.travel"
                                                         '("review" "PT30M"))
@@ -1904,7 +1925,7 @@
                               :bindings         '(("?unused" ("/" 1 0)))
                               :conclusion       '(:not ("item.ready" "?x")))
       (knowledge-admit-rule configuration "failed-contradiction")
-      (knowledge-tests--said configuration "item.exists" '("a") "a exists")
+      (knowledge-tests--said configuration "item.exists" '("a") :quote "a exists")
       (let ((source (memory-source-tests--write (merge-pathnames "ready.txt" root) "a is ready")))
         (knowledge-assert configuration '("item.ready" "a") :basis ':observation
                           :evidence                                (knowledge-observe-file source :quote "a is ready"
@@ -1929,7 +1950,7 @@
                               :premises         '(("item.exists" "?x") (:not ("item.blocked" "?x")))
                               :conclusion       '("item.ready" "?x"))
       (knowledge-admit-rule configuration "negative-alternatives")
-      (knowledge-tests--said configuration "item.exists" '("a") "a exists")
+      (knowledge-tests--said configuration "item.exists" '("a") :quote "a exists")
       ;; Distinct visible scopes provide independent proofs of the same negation.
       (dolist (reverse-p '(nil t))
         (let* ((view (knowledge-tests--view configuration))
@@ -2017,7 +2038,10 @@
          :observes (vector (json-object "predicate" "mail.message"
                                         "arguments" #("$arg.report" "$result.id"))))
         (flet ((send ()
-                 (memory-resource-tests--call registry context "mail" "send" "report" "q3"))
+                 (memory-resource-tests--call registry context
+                                              :namespace "mail"
+                                              :name      "send"
+                                              :arguments (list "report" "q3")))
 
                (holding (pattern)
                  (knowledge-view-holds (knowledge-view-current configuration) pattern)))
@@ -2046,13 +2070,13 @@
                                   :premises         '(("report.drafted" "?report"))
                                   :conclusion       '("report.ready" "?report"))
           (knowledge-admit-rule configuration "draft-ready")
-          (knowledge-tests--said configuration "report.drafted" '("q3") "q3 is drafted")
-          (knowledge-tests--said configuration "report.drafted" '("q3") "q3 is not drafted" :negated t)
+          (knowledge-tests--said configuration "report.drafted" '("q3") :quote "q3 is drafted")
+          (knowledge-tests--said configuration "report.drafted" '("q3") :quote "q3 is not drafted" :negated t)
           (when (string= mode "active")
             (test-assert (and (not (tool-result-success-p (send)))
                               (zerop (knowledge-tests--mail-tool-calls mail)))
                          "a conflicted premise cannot satisfy the contract through a derivation"))
-          (knowledge-tests--said configuration "report.ready" '("q3") "the q3 report is ready")
+          (knowledge-tests--said configuration "report.ready" '("q3") :quote "the q3 report is ready")
           (when (string= mode "active")
             (test-assert (tool-result-success-p (send))
                          "the call runs once its requirement holds on the user's statement"))
@@ -2065,8 +2089,10 @@
                               (knowledge-node-observed-p message))
                          "the result's id is observed through the contract")))
         (when (string= mode "active")
-          (let ((listing (memory-resource-tests--call registry context "resource" "read"
-                                                     "uri" "memory:contracts")))
+          (let ((listing (memory-resource-tests--call registry context
+                                                      :namespace "resource"
+                                                      :name      "read"
+                                                      :arguments (list "uri" "memory:contracts"))))
             (test-assert (and (tool-result-success-p listing)
                               (search "send-report" (tool-result-content listing)))
                          "memory:contracts lists the contract"))))))

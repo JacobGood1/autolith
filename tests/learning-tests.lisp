@@ -543,9 +543,12 @@
                                             decision))))
       (procedure-define configuration (learning-tests--procedure))
       (flet ((run (&rest parameters)
-               (memory-resource-tests--call registry context "procedure" "run"
-                                            "id" "make-sales-report"
-                                            "parameters" (apply #'json-object parameters)))
+               (memory-resource-tests--call
+                registry context
+                :namespace "procedure"
+                :name      "run"
+                :arguments (list "id" "make-sales-report"
+                                 "parameters" (apply #'json-object parameters))))
 
              (entry ()
                (knowledge-base-procedure (knowledge-base-read configuration)
@@ -587,10 +590,10 @@
                                     (tool-result-content refused))
                             (= calls (length (learning-tests--scripted-tool-calls load))))
                        "a run whose contract requirements do not hold makes no call"))
-        (knowledge-tests--said configuration "sales.data-ready" '("data/q5.csv") "q5 data is ready")
-        (knowledge-tests--said configuration "sales.data-ready" '("data/q6.csv") "q6 data is ready")
-        (knowledge-tests--said configuration "sales.data-ready" '("data/q7.csv") "q7 data is ready")
-        (knowledge-tests--said configuration "sales.data-ready" '("data/q9.csv") "q9 data is ready")
+        (knowledge-tests--said configuration "sales.data-ready" '("data/q5.csv") :quote "q5 data is ready")
+        (knowledge-tests--said configuration "sales.data-ready" '("data/q6.csv") :quote "q6 data is ready")
+        (knowledge-tests--said configuration "sales.data-ready" '("data/q7.csv") :quote "q7 data is ready")
+        (knowledge-tests--said configuration "sales.data-ready" '("data/q9.csv") :quote "q9 data is ready")
         (loop for (parameters expected) in '((() "needs parameter quarter")
                                              (("quarter" "q5" "region" "eu") "region is not one of them")
                                              (("quarter" 5) "must be a non-empty string"))
@@ -630,8 +633,10 @@
                             (= 1 (getf (entry) :user-runs)))
                        "the user's own run is recorded as such"))
         (let ((listing (tool-result-content
-                        (memory-resource-tests--call registry context "resource" "read"
-                                                     "uri" "memory:procedures"))))
+                        (memory-resource-tests--call registry context
+                                                     :namespace "resource"
+                                                     :name      "read"
+                                                     :arguments (list "uri" "memory:procedures")))))
           (test-assert (and (search "make-sales-report v1 admitted · 4 runs, 2 failed" listing)
                             (search "parameters: quarter (string)" listing)
                             (search "request: Make the sales report for {quarter}." listing)

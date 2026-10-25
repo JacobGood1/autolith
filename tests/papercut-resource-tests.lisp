@@ -3,11 +3,12 @@
 ;;;; -- Papercut Resource Test Support --
 
 (-> papercut-resource-tests--call
-    (tool-registry tool-context string string &rest t)
+    (tool-registry tool-context
+     &key (:namespace string) (:name string) (:arguments list))
     tool-result)
 (defun papercut-resource-tests--call
-    (registry context namespace name &rest arguments)
-  "Execute NAMESPACE.NAME with ARGUMENTS through REGISTRY and CONTEXT."
+    (registry context &key namespace name arguments)
+  "Execute NAMESPACE.NAME with the ARGUMENTS plist through REGISTRY and CONTEXT."
   (tool-registry-execute-call
    registry
    (json-object "namespace" namespace
@@ -33,9 +34,10 @@
   (apply #'json-object "op" name fields))
 
 (-> papercut-resource-tests--persist
-    (configuration non-empty-string non-empty-string non-empty-string)
+    (configuration non-empty-string
+     &key (:title non-empty-string) (:content non-empty-string))
     papercut)
-(defun papercut-resource-tests--persist (configuration identifier title content)
+(defun papercut-resource-tests--persist (configuration identifier &key title content)
   "Persist one active report with exact IDENTIFIER for URI encoding tests."
   (let ((papercut
           (make-instance 'papercut
@@ -105,8 +107,10 @@
                                                  (find-class 'task-child-agent)))))
            (labels ((call (context namespace name &rest arguments)
                       "Execute one papercut resource fixture call."
-                      (apply #'papercut-resource-tests--call
-                             registry context namespace name arguments))
+                      (papercut-resource-tests--call
+                       registry context :namespace namespace
+                                        :name      name
+                                        :arguments arguments))
 
                     (read-resource (context uri &rest arguments)
                       "Read URI for CONTEXT with optional ARGUMENTS."
@@ -369,7 +373,8 @@
               (let* ((identifier "custom/id å")
                      (fixture
                        (papercut-resource-tests--persist
-                        configuration identifier "Encoded identifier" "Encoded body."))
+                        configuration identifier :title   "Encoded identifier"
+                                                 :content "Encoded body."))
                      (uri        (resource-item-uri "papercut" identifier))
                      (read       (read-resource first-context uri)))
                 (test-assert

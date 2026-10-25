@@ -711,25 +711,30 @@
                   "lisp.run-tests replaces stale registration from a canonical ASD file")))
              (let* ((read-result
                       (workspace-resource-tests--call
-                       registry context "resource" "read"
-                       "uri" "scratchpad:async-program.lisp"))
+                       registry context
+                       :namespace "resource"
+                       :name      "read"
+                       :arguments (list "uri" "scratchpad:async-program.lisp")))
                     (revision
                       (workspace-resource-tests--field
                        (tool-result-content read-result) "Revision: "))
                     (write-result
                       (workspace-resource-tests--call
-                       registry context "resource" "edit"
-                       "uri" "scratchpad:async-program.lisp"
-                       "base-revision" revision
-                       "operations"
-                       (vector
-                        (workspace-resource-tests--operation
-                         "replace-empty"
-                         "content"
-                         (format nil
-                                 "(defparameter *async-scratchpad-value* 41)~%~
-                                   (sleep 1)~%~
-                                   (incf *async-scratchpad-value*)~%")))))
+                       registry context
+                       :namespace "resource"
+                       :name      "edit"
+                       :arguments
+                       (list "uri" "scratchpad:async-program.lisp"
+                             "base-revision" revision
+                             "operations"
+                             (vector
+                              (workspace-resource-tests--operation
+                               "replace-empty"
+                               "content"
+                               (format nil
+                                       "(defparameter *async-scratchpad-value* 41)~%~
+                                         (sleep 1)~%~
+                                         (incf *async-scratchpad-value*)~%"))))))
                     (run-result
                       (run-lisp "scratchpad-run"
                                 "path" "async-program.lisp"
@@ -931,8 +936,10 @@
                                        :conversation  other)))
     (labels ((call-resource (authority name &rest arguments)
                "Execute resource.NAME with ARGUMENTS under AUTHORITY."
-               (apply #'workspace-resource-tests--call
-                      registry authority "resource" name arguments))
+               (workspace-resource-tests--call
+                registry authority :namespace "resource"
+                                   :name      name
+                                   :arguments arguments))
 
              (read-resource (authority uri)
                "Read URI under AUTHORITY."

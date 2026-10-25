@@ -26,8 +26,8 @@
                      (declare (ignore command directory))
                      authorization))))
 
-(-> emacs-test-invoke (tool-context string string hash-table) tool-result)
-(defun emacs-test-invoke (context namespace name arguments)
+(-> emacs-test-invoke (tool-context string string &key (:arguments hash-table)) tool-result)
+(defun emacs-test-invoke (context namespace name &key arguments)
   "Invoke NAMESPACE.NAME through ordinary lookup, validation and error projection."
   (tool-registry-execute-call (tool-context-registry context)
                               (json-object "namespace" namespace "name" name
@@ -37,7 +37,7 @@
 (-> emacs-test-call (tool-context string hash-table) json-object)
 (defun emacs-test-call (context name arguments)
   "Invoke emacs.NAME, assert success and decode its JSON result."
-  (let ((result (emacs-test-invoke context "emacs" name arguments)))
+  (let ((result (emacs-test-invoke context "emacs" name :arguments arguments)))
     (test-assert (tool-result-success-p result)
                  (format nil "emacs.~A succeeds: ~A" name (tool-result-content result)))
     (json-decode (tool-result-content result))))
@@ -45,7 +45,7 @@
 (-> emacs-test-read (tool-context string) string)
 (defun emacs-test-read (context uri)
   "Read URI with resource.read, assert success and return the result text."
-  (let ((result (emacs-test-invoke context "resource" "read" (json-object "uri" uri))))
+  (let ((result (emacs-test-invoke context "resource" "read" :arguments (json-object "uri" uri))))
     (test-assert (tool-result-success-p result)
                  (format nil "resource.read ~A succeeds: ~A" uri (tool-result-content result)))
     (tool-result-content result)))
@@ -57,16 +57,18 @@
          (end   (position #\Newline text :start start)))
     (subseq text start end)))
 
-(-> emacs-test-replace-line (tool-context string string (integer 1) string) tool-result)
-(defun emacs-test-replace-line (context uri revision line content)
+(-> emacs-test-replace-line
+    (tool-context string &key (:revision string) (:line (integer 1)) (:content string))
+    tool-result)
+(defun emacs-test-replace-line (context uri &key revision line content)
   "Replace LINE of URI observed at REVISION with CONTENT through resource.edit."
   (emacs-test-invoke context "resource" "edit"
-                     (json-object "uri" uri
-                                  "base-revision" revision
-                                  "operations" (vector (json-object "op" "replace-lines"
-                                                                    "start-line" line
-                                                                    "end-line" line
-                                                                    "content" content)))))
+                     :arguments (json-object "uri" uri
+                                             "base-revision" revision
+                                             "operations" (vector (json-object "op" "replace-lines"
+                                                                               "start-line" line
+                                                                               "end-line" line
+                                                                               "content" content)))))
 
 (-> emacs-test-serve-once (pathname function) t)
 (defun emacs-test-serve-once (socket function)
@@ -283,7 +285,8 @@
       (test-assert (not (search (uiop:native-namestring outside) text)) "Outside paths are filtered.")
       (test-assert (not (search "OUTSIDE-REGION-SECRET" text)) "An unauthorized selected region is filtered."))
     (test-assert (not (tool-result-success-p
-                       (emacs-test-invoke sandbox "resource" "read" (json-object "uri" outside-uri))))
+                       (emacs-test-invoke sandbox "resource" "read"
+                                          :arguments (json-object "uri" outside-uri))))
                  "Outside buffer reads require full access.")
     (test-assert (equal "0" (emacs-server-evaluate socket "autolith-secret-reads"))
                  "Denied region and buffer reads never retrieve outside text.")
@@ -297,7 +300,7 @@
       (test-assert (not (search "scratch" text)) "Non-file selected regions require full access."))
     (test-assert (not (tool-result-success-p
                        (emacs-test-invoke sandbox "resource" "read"
-                                          (json-object "uri" (emacs-buffer-uri "*autolith notes*")))))
+                                          :arguments (json-object "uri" (emacs-buffer-uri "*autolith notes*")))))
                  "Non-file buffer reads require full access.")
     (test-assert (search "scratch" (emacs-test-read full "emacs:current"))
                  "Full access includes non-file selected regions.")
@@ -310,8 +313,10 @@
       (emacs-server-evaluate
        socket (format nil "(with-current-buffer \"notes.lisp\" (setq buffer-file-name ~S))"
                       (uiop:native-namestring outside)))
-      (let ((result (emacs-test-replace-line sandbox "emacs:buffer/notes.lisp" revision
-                                             1 "unauthorized edit")))
+      (let ((result (emacs-test-replace-line sandbox "emacs:buffer/notes.lisp"
+                                             :revision revision
+                                             :line     1
+                                             :content  "unauthorized edit")))
         (test-assert (not (tool-result-success-p result)) "Retargeting a buffer invalidates its edit authority.")
         (test-assert (not (search "unauthorized edit"
                                   (emacs-server-evaluate socket "(with-current-buffer \"notes.lisp\" (buffer-string))")))
@@ -365,8 +370,10 @@
                                     "A buffer read reports the unsaved state.")
                        (test-assert (search "Visible lines: 1-3 of 3" text)
                                     "A buffer read counts the live lines.")
-                       (let* ((edited (emacs-test-replace-line context uri (emacs-test-revision text)
-                                                               1 "(defun greet (name)"))
+                       (let* ((edited (emacs-test-replace-line context uri
+                                                               :revision (emacs-test-revision text)
+                                                               :line     1
+                                                               :content  "(defun greet (name)"))
                               (buffer (emacs-server-evaluate
                                        socket "(with-current-buffer \"notes.lisp\" (buffer-string))")))
                          (test-assert (tool-result-success-p edited)
@@ -380,8 +387,10 @@
                          (emacs-server-evaluate
                           socket "(with-current-buffer \"notes.lisp\" (goto-char (point-max)) (insert \";; typed\\n\"))")
                          (let ((stale (emacs-test-replace-line
-                                       context uri (emacs-test-revision (tool-result-content edited))
-                                       1 "(defun greet ()")))
+                                       context uri
+                                       :revision (emacs-test-revision (tool-result-content edited))
+                                       :line     1
+                                       :content  "(defun greet ()")))
                            (test-assert (and (not (tool-result-success-p stale))
                                              (search "stale" (tool-result-content stale)))
                                         "An edit after the person typed is stale.")
@@ -394,7 +403,7 @@
                                   "Buffers without files resolve by their encoded name.")
                      (test-assert (not (tool-result-success-p
                                         (emacs-test-invoke context "resource" "read"
-                                                           (json-object "uri" "emacs:buffer/absent"))))
+                                                           :arguments (json-object "uri" "emacs:buffer/absent"))))
                                   "A missing buffer fails to read.")
                      (test-assert (equal (json-get (emacs-test-call context "visit"
                                                                     (json-object "path" "notes.lisp"
@@ -410,11 +419,11 @@
                    (let ((denied (emacs-test-context configuration :authorization ':sandboxed)))
                      (test-assert (not (tool-result-success-p
                                         (emacs-test-invoke denied "resource" "read"
-                                                           (json-object "uri" "emacs:buffer/outside.txt"))))
+                                                           :arguments (json-object "uri" "emacs:buffer/outside.txt"))))
                                   "A buffer visiting a file outside the roots needs full access.")
                      (test-assert (not (tool-result-success-p
                                         (emacs-test-invoke denied "emacs" "eval"
-                                                           (json-object "form" "(setq autolith-test-ran t)"))))
+                                                           :arguments (json-object "form" "(setq autolith-test-ran t)"))))
                                   "emacs.eval without full access fails.")
                      (let ((ran (emacs-server-evaluate socket "(boundp 'autolith-test-ran)")))
                        (test-assert (equal ran "nil")

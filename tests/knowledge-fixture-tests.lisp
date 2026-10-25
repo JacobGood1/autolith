@@ -93,20 +93,24 @@
 (defun knowledge-fixture--read (fixture uri &rest arguments)
   "Read URI through FIXTURE's tools and return the result text."
   (tool-result-content
-   (apply #'memory-resource-tests--call (knowledge-fixture-registry fixture)
-          (knowledge-fixture-context fixture) "resource" "read" "uri" uri arguments)))
+   (memory-resource-tests--call (knowledge-fixture-registry fixture)
+                                (knowledge-fixture-context fixture)
+                                :namespace "resource"
+                                :name      "read"
+                                :arguments (list* "uri" uri arguments))))
 
 (-> knowledge-fixture--edit (knowledge-fixture &rest t) string)
 (defun knowledge-fixture--edit (fixture &rest operations)
   "Apply OPERATIONS to memory:facts through FIXTURE's tools, asserting they succeed."
   (let ((result (memory-resource-tests--call
                  (knowledge-fixture-registry fixture) (knowledge-fixture-context fixture)
-                 "resource" "edit"
-                 "uri" "memory:facts"
-                 "base-revision" (memory-resource-tests--field
-                                  (knowledge-fixture--read fixture "memory:facts" "max-results" 1)
-                                  "Revision: ")
-                 "operations" (coerce operations 'vector))))
+                 :namespace "resource"
+                 :name      "edit"
+                 :arguments (list "uri" "memory:facts"
+                                  "base-revision" (memory-resource-tests--field
+                                                   (knowledge-fixture--read fixture "memory:facts" "max-results" 1)
+                                                   "Revision: ")
+                                  "operations" (coerce operations 'vector)))))
     (unless (tool-result-success-p result)
       (error "Fixture ~A edit failed: ~A" (knowledge-fixture-label fixture)
              (tool-result-content result)))
@@ -668,7 +672,7 @@ bytes, heap bytes, and the machine measured on."
                  (assert     (seconds (lambda ()
                                         (knowledge-tests--said configuration "event.buffer"
                                                                '("event-1" "PT20M")
-                                                               "a later buffer statement"))))
+                                                               :quote "a later buffer statement"))))
                  (reevaluate (seconds (lambda () (setf view (knowledge-view-current configuration))))))
             (sb-ext:gc :full t)
             (setf result
@@ -709,7 +713,7 @@ bytes, heap bytes, and the machine measured on."
              (before   (platform-path-status *platform* pathname :follow-links-p t))
              (revision (knowledge-base-revision (knowledge-base-read configuration))))
         (knowledge-tests--said configuration "event.buffer" '("event-1" "PT20M")
-                               "a later buffer statement")
+                               :quote "a later buffer statement")
         (test-assert (and (platform-file-status-same-object-p
                            before (platform-path-status *platform* pathname :follow-links-p t))
                           (= (knowledge-base-revision (knowledge-base-read configuration))

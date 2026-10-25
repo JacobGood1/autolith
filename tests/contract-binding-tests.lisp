@@ -21,7 +21,7 @@
                         :predicate predicate
                         :arguments '((:name "report" :type :entity)
                                      (:name "owner" :type :entity)))))
-      (knowledge-tests--said configuration "report.owner" '("q3" "alice") "Alice owns q3")
+      (knowledge-tests--said configuration "report.owner" '("q3" "alice") :quote "Alice owns q3")
       (knowledge-define-schema
        configuration (knowledge-make-schema
                       :predicate "report.owner"
@@ -41,7 +41,10 @@
                                                "arguments" (vector "?report" reference)))))
 
              (send ()
-               (memory-resource-tests--call registry context "mail" "send" "report" "q3")))
+               (memory-resource-tests--call registry context
+                                            :namespace "mail"
+                                            :name      "send"
+                                            :arguments (list "report" "q3"))))
         (define-mapping "?owner")
         (test-assert (tool-result-success-p (send)) "the requirement-bound observation dispatch succeeds")
         (let ((*knowledge-base-cache* (make-hash-table :test #'equal :synchronized t)))
@@ -74,7 +77,7 @@
               (test-assert (and (eq (getf (rest record) :status) ':ok)
                                 (search "contractErrors" (getf (rest record) :output)))
                            "durable mapping diagnostics preserve the successful external outcome"))))
-        (knowledge-tests--said configuration "report.owner" '("q3" "bob") "Bob also owns q3")
+        (knowledge-tests--said configuration "report.owner" '("q3" "bob") :quote "Bob also owns q3")
         (let ((before (knowledge-tests--mail-tool-calls mail))
               (result (send)))
           (test-assert (and (not (tool-result-success-p result))
@@ -115,7 +118,9 @@
       (knowledge-define-contract
        configuration :id "receipt-identifier" :tool "receipt.fetch"
        :observes (vector (json-object "predicate" "receipt.identifier" "arguments" #("$result.id"))))
-      (let* ((result     (memory-resource-tests--call registry context "receipt" "fetch"))
+      (let* ((result     (memory-resource-tests--call registry context
+                                                      :namespace "receipt"
+                                                      :name      "fetch"))
              (diagnostic (json-decode (tool-result-content result))))
         (test-assert (and (tool-result-success-p result)
                           (<= (length (tool-result-content result)) 8000)
@@ -127,7 +132,9 @@
       (let ((original (change-class (tool-success (make-string 8000 :initial-element #\a))
                                     'mcp-content-result :sections '((:text 0 8000)))))
         (setf (contract-binding-tests--result tool) original)
-        (let* ((result    (memory-resource-tests--call registry context "receipt" "fetch"))
+        (let* ((result    (memory-resource-tests--call registry context
+                                                       :namespace "receipt"
+                                                       :name      "fetch"))
                (content   (tool-result-content result))
                (details   (tool-result-details result))
                (separator (position #\Newline content :from-end t)))
@@ -145,7 +152,9 @@
                                       :content-blocks (list "before image" image "after image"))
                         'mcp-content-result :sections '((:text 0 12) (:text 12 23)))))
         (setf (contract-binding-tests--result tool) original)
-        (let* ((result  (memory-resource-tests--call registry context "receipt" "fetch"))
+        (let* ((result  (memory-resource-tests--call registry context
+                                                     :namespace "receipt"
+                                                     :name      "fetch"))
                (details (tool-result-details result)))
           (test-assert (and (tool-result-success-p result)
                             (equal (tool-result-content original) (tool-result-content result))

@@ -29,9 +29,9 @@
   nil)
 
 (-> release-server-tests--write-artifact
-    (pathname string string string)
+    (pathname string string &key (:content string))
     (values pathname pathname))
-(defun release-server-tests--write-artifact (directory tag platform content)
+(defun release-server-tests--write-artifact (directory tag platform &key content)
   "Write TAG's PLATFORM archive and GNU checksum below DIRECTORY."
   (let* ((archive-name (release-server--archive-name tag platform))
          (archive      (merge-pathnames archive-name directory))
@@ -186,7 +186,7 @@
     (let* ((directory (test-configuration-root configuration))
            (tag       "v0.32.2"))
       (multiple-value-bind (archive checksum)
-          (release-server-tests--write-artifact directory tag "x86_64-linux" "archive")
+          (release-server-tests--write-artifact directory tag "x86_64-linux" :content "archive")
         (let* ((name   (file-namestring archive))
                (digest (release-archive--sha256-digest archive))
                (valid  (format nil "~A  ~A~%" digest name)))
@@ -660,7 +660,7 @@
            (uiop:ensure-all-directories-exist
             (list source-root public-root state-root staging))
            (release-server-tests--write-artifact
-            staging tag "x86_64-linux" "linux-archive")
+            staging tag "x86_64-linux" :content "linux-archive")
            (let ((published (release-builder-publish builder staging tag)))
              (test-assert
               (and (uiop:file-exists-p
@@ -673,7 +673,7 @@
                           published))))
               "first publication requires the Linux archive and can omit later platforms"))
            (release-server-tests--write-artifact
-            staging tag "arm64-darwin" "darwin-archive")
+            staging tag "arm64-darwin" :content "darwin-archive")
            (let ((published (release-builder-publish builder staging tag)))
              (test-assert
               (and (uiop:file-exists-p
@@ -741,7 +741,7 @@
                         (release-server-tests--write-artifact
                          (uiop:pathname-directory-pathname output)
                          fetch-tag platform
-                         (format nil "fetched-~A" platform))))))
+                         :content (format nil "fetched-~A" platform))))))
              (let ((directory
                      (release-builder--fetch-github-assets builder fetch-source)))
                (test-assert

@@ -3,11 +3,11 @@
 ;;;; -- Memory Resource Test Support --
 
 (-> memory-resource-tests--call
-    (tool-registry tool-context string string &rest t)
+    (tool-registry tool-context &key (:namespace string) (:name string) (:arguments list))
     tool-result)
 (defun memory-resource-tests--call
-    (registry context namespace name &rest arguments)
-  "Execute NAMESPACE.NAME with ARGUMENTS through REGISTRY and CONTEXT."
+    (registry context &key namespace name arguments)
+  "Execute NAMESPACE.NAME with the ARGUMENTS plist through REGISTRY and CONTEXT."
   (tool-registry-execute-call
    registry
    (json-object "namespace" namespace
@@ -16,15 +16,17 @@
    context))
 
 (-> memory-resource-tests--edit
-    (tool-registry tool-context string string json-object)
+    (tool-registry tool-context &key (:uri string) (:revision string) (:operation json-object))
     tool-result)
-(defun memory-resource-tests--edit (registry context uri revision operation)
+(defun memory-resource-tests--edit (registry context &key uri revision operation)
   "Apply one revision-gated memory resource OPERATION."
   (memory-resource-tests--call
-   registry context "resource" "edit"
-   "uri" uri
-   "base-revision" revision
-   "operations" (vector operation)))
+   registry context
+   :namespace "resource"
+   :name      "edit"
+   :arguments (list "uri" uri
+                    "base-revision" revision
+                    "operations" (vector operation))))
 
 (-> memory-resource-tests--field (string string) string)
 (defun memory-resource-tests--field (content label)
@@ -61,10 +63,10 @@
     (resource-item-decode-identifier "memory" "memory" (subseq uri (length prefix)))))
 
 (-> memory-resource-tests--persist-identifier
-    (configuration non-empty-string non-empty-string non-empty-string)
+    (configuration non-empty-string &key (:title non-empty-string) (:content non-empty-string))
     memory)
 (defun memory-resource-tests--persist-identifier
-    (configuration identifier title content)
+    (configuration identifier &key title content)
   "Persist and return one fixture with exact stable IDENTIFIER."
   (let* ((now (get-universal-time))
          (memory
@@ -176,18 +178,20 @@
                         (memory-resource-tests--persist-identifier
                          configuration
                          identifier
-                         (format nil "Reserved identifier ~A" identifier)
-                         "This exact memory must not be shadowed by a collection URI.")))
+                         :title   (format nil "Reserved identifier ~A" identifier)
+                         :content "This exact memory must not be shadowed by a collection URI.")))
                 (encoded-memory
                   (memory-resource-tests--persist-identifier
                    configuration
                    "stable/id % žluť"
-                   "Percent-encoded identifier"
-                   "Canonical exact URIs support every persisted string identifier.")))
+                   :title   "Percent-encoded identifier"
+                   :content "Canonical exact URIs support every persisted string identifier.")))
            (labels ((call (context namespace name &rest arguments)
                       "Execute one memory resource fixture call."
-                      (apply #'memory-resource-tests--call
-                             registry context namespace name arguments))
+                      (memory-resource-tests--call registry context
+                                                   :namespace namespace
+                                                   :name      name
+                                                   :arguments arguments))
 
                     (read-resource (context uri &rest arguments)
                       "Read URI under CONTEXT with optional ARGUMENTS."
@@ -606,7 +610,10 @@
            (labels ((read-resource (selected-context uri)
                       "Read one complete memory resource."
                       (memory-resource-tests--call
-                       registry selected-context "resource" "read" "uri" uri))
+                       registry selected-context
+                       :namespace "resource"
+                       :name      "read"
+                       :arguments (list "uri" uri)))
 
                     (revision (result)
                       "Return RESULT's transient revision alias."
@@ -620,8 +627,10 @@
 
                     (edit-resource (selected-context uri alias operation)
                       "Apply one guarded memory resource OPERATION."
-                      (memory-resource-tests--edit
-                       registry selected-context uri alias operation))
+                      (memory-resource-tests--edit registry selected-context
+                                                   :uri       uri
+                                                   :revision  alias
+                                                   :operation operation))
 
                     (form-count ()
                       "Return the number of complete forms in the memory log."
@@ -669,8 +678,8 @@
                       (memory-resource-tests--persist-identifier
                        configuration
                        "relevant"
-                       "Reserved mutation fixture"
-                       "Canonical exact item operations must reach this memory."))
+                       :title   "Reserved mutation fixture"
+                       :content "Canonical exact item operations must reach this memory."))
                     (uri      (resource-item-uri
                                "memory"
                                (memory-identifier fixture)))
@@ -1008,30 +1017,38 @@
                    :content "This memory must still affect the collection revision."))
                 (read-result
                   (memory-resource-tests--call
-                   registry context "resource" "read"
-                   "uri" "memory:workspace"
-                   "query" "needle"
-                   "max-results" 10))
+                   registry context
+                   :namespace "resource"
+                   :name      "read"
+                   :arguments (list "uri" "memory:workspace"
+                                    "query" "needle"
+                                    "max-results" 10)))
                 (revision
                   (memory-resource-tests--field
                    (tool-result-content read-result) "Revision: "))
                 (unfiltered-result
                   (memory-resource-tests--call
-                   registry context "resource" "read"
-                   "uri" "memory:workspace"))
+                   registry context
+                   :namespace "resource"
+                   :name      "read"
+                   :arguments (list "uri" "memory:workspace")))
                 (filtered-again-result
                   (memory-resource-tests--call
-                   registry context "resource" "read"
-                   "uri" "memory:workspace"
-                   "query" "needle"
-                   "max-results" 10))
+                   registry context
+                   :namespace "resource"
+                   :name      "read"
+                   :arguments (list "uri" "memory:workspace"
+                                    "query" "needle"
+                                    "max-results" 10)))
                 (write-result
                   (memory-resource-tests--edit
-                   registry context "memory:workspace" revision
-                   (json-object
-                    "op" "memory-remember"
-                    "title" "Filtered revision probe"
-                    "content" "A filtered collection observation permits a guarded write."))))
+                   registry context
+                   :uri       "memory:workspace"
+                   :revision  revision
+                   :operation (json-object
+                               "op" "memory-remember"
+                               "title" "Filtered revision probe"
+                               "content" "A filtered collection observation permits a guarded write."))))
            (test-assert
             (and (tool-result-success-p read-result)
                  (search (memory-identifier matching-memory)
@@ -1081,7 +1098,10 @@
       (labels ((read-resource (uri)
                  "Read one complete memory resource."
                  (memory-resource-tests--call
-                  registry context "resource" "read" "uri" uri))
+                  registry context
+                  :namespace "resource"
+                  :name      "read"
+                  :arguments (list "uri" uri)))
 
                (revision (result)
                  "Return RESULT's transient revision alias."
@@ -1090,8 +1110,10 @@
 
                (edit (uri operation)
                  "Apply OPERATION to a fresh observation of URI."
-                 (memory-resource-tests--edit
-                  registry context uri (revision (read-resource uri)) operation))
+                 (memory-resource-tests--edit registry context
+                                              :uri       uri
+                                              :revision  (revision (read-resource uri))
+                                              :operation operation))
 
                (remember (title content &rest fields)
                  "Create a workspace memory with optional evidence FIELDS."
@@ -1220,8 +1242,10 @@
       (conversation-append-user-message conversation "It takes half an hour to get there.")
       (labels ((read-resource (uri &rest arguments)
                  "Read URI with optional ARGUMENTS and return the result."
-                 (apply #'memory-resource-tests--call registry context "resource" "read"
-                        "uri" uri arguments))
+                 (memory-resource-tests--call registry context
+                                              :namespace "resource"
+                                              :name      "read"
+                                              :arguments (list* "uri" uri arguments)))
 
                (content (result)
                  "Return RESULT's text."
@@ -1230,11 +1254,13 @@
                (edit (&rest operations)
                  "Apply OPERATIONS to memory:facts against a fresh revision."
                  (memory-resource-tests--call
-                  registry context "resource" "edit"
-                  "uri" "memory:facts"
-                  "base-revision" (memory-resource-tests--field
-                                   (content (read-resource "memory:facts")) "Revision: ")
-                  "operations" (coerce operations 'vector)))
+                  registry context
+                  :namespace "resource"
+                  :name      "edit"
+                  :arguments (list "uri" "memory:facts"
+                                   "base-revision" (memory-resource-tests--field
+                                                    (content (read-resource "memory:facts")) "Revision: ")
+                                   "operations" (coerce operations 'vector))))
 
                (define (predicate arguments &optional key template)
                  "Return a predicate-define operation."
@@ -1375,8 +1401,10 @@
                                                  :configuration configuration :worker nil
                                                  :conversation conversation :call-id "fetch-1"))
                     (result        (memory-resource-tests--call
-                                    registry fetch-context "web_extra" "gist"
-                                    "url" "https://example.com/agenda")))
+                                    registry fetch-context
+                                    :namespace "web_extra"
+                                    :name      "gist"
+                                    :arguments (list "url" "https://example.com/agenda"))))
                (conversation-append-tool-result conversation "fetch-1"
                                                 :tool-name "web_extra.gist"
                                                 :output    (tool-result-content result)
@@ -1404,13 +1432,15 @@
                                             (json-object "op" "nonsense"))))
                      "a failure names the operations already applied")
         (let ((unobserved (memory-resource-tests--call
-                           registry context "resource" "edit"
-                           "uri" "memory:facts"
-                           "base-revision" (memory-resource-tests--field
-                                            (content (read-resource "memory:workspace"))
-                                            "Revision: ")
-                           "operations" (vector (json-object "op" "fact-retract"
-                                                             "id" "c0")))))
+                           registry context
+                           :namespace "resource"
+                           :name      "edit"
+                           :arguments (list "uri" "memory:facts"
+                                            "base-revision" (memory-resource-tests--field
+                                                             (content (read-resource "memory:workspace"))
+                                                             "Revision: ")
+                                            "operations" (vector (json-object "op" "fact-retract"
+                                                                              "id" "c0"))))))
           (test-assert (and (not (tool-result-success-p unobserved))
                             (search "Read memory:facts" (content unobserved)))
                        "an edit needs a memory:facts revision from this conversation")))))
@@ -1445,18 +1475,23 @@
                                                       :arguments '((:name "site" :type :entity))))
       (labels ((assert-fact (&optional quote (page "page"))
                  "Assert from URL through a fresh resource revision and return its evaluated node."
-                 (let* ((read   (memory-resource-tests--call registry context "resource" "read"
-                                                            "uri" "memory:facts"))
+                 (let* ((read   (memory-resource-tests--call registry context
+                                                             :namespace "resource"
+                                                             :name      "read"
+                                                             :arguments (list "uri" "memory:facts")))
                         (source (if quote (json-object "url" url "quote" quote)
                                     (json-object "url" url)))
                         (result (memory-resource-tests--call
-                                 registry context "resource" "edit" "uri" "memory:facts"
-                                 "base-revision" (memory-resource-tests--field
-                                                  (tool-result-content read) "Revision: ")
-                                 "operations" (vector (json-object
-                                                       "op" "fact-assert" "predicate" "site.ready"
-                                                       "arguments" (vector page)
-                                                       "sources" (vector source))))))
+                                 registry context
+                                 :namespace "resource"
+                                 :name      "edit"
+                                 :arguments (list "uri" "memory:facts"
+                                                  "base-revision" (memory-resource-tests--field
+                                                                   (tool-result-content read) "Revision: ")
+                                                  "operations" (vector (json-object
+                                                                        "op" "fact-assert" "predicate" "site.ready"
+                                                                        "arguments" (vector page)
+                                                                        "sources" (vector source)))))))
                    (test-assert (tool-result-success-p result) "the sourced assertion is recorded")
                    (knowledge-view-node
                     (knowledge-view-current configuration)
@@ -1483,7 +1518,9 @@
                                                         :configuration configuration :worker nil
                                                         :conversation conversation :call-id call-id))
                            (result        (memory-resource-tests--call registry fetch-context
-                                                                       "web_extra" "gist" "url" url)))
+                                                                       :namespace "web_extra"
+                                                                       :name      "gist"
+                                                                       :arguments (list "url" url))))
                       (conversation-append-tool-result
                        conversation call-id :tool-name "web_extra.gist"
                        :output                         (if corrupt-p "Different result, ready for publication." (tool-result-content result))
@@ -1572,20 +1609,25 @@
                                                (push command requests)
                                                decision))))
                  (memory-resource-tests--call
-                  registry context "resource" "edit"
-                  "uri" "memory:facts"
-                  "base-revision" (memory-resource-tests--field
-                                   (tool-result-content
-                                    (memory-resource-tests--call registry context "resource"
-                                                                 "read" "uri" "memory:facts"))
-                                   "Revision: ")
-                  "operations" (vector (json-object
-                                        "op" "rule-propose" "id" "departure"
-                                        "description" description
-                                        "premises" (vector (vector "event.start" "?e" "?s")
-                                                           (vector "event.travel" "?e" "?t"))
-                                        "bindings" (vector (vector "?l" (vector "-" "?s" "?t")))
-                                        "conclusion" (vector "event.departure" "?e" "?l")))))))
+                  registry context
+                  :namespace "resource"
+                  :name      "edit"
+                  :arguments (list "uri" "memory:facts"
+                                   "base-revision" (memory-resource-tests--field
+                                                    (tool-result-content
+                                                     (memory-resource-tests--call
+                                                      registry context
+                                                      :namespace "resource"
+                                                      :name      "read"
+                                                      :arguments (list "uri" "memory:facts")))
+                                                    "Revision: ")
+                                   "operations" (vector (json-object
+                                                         "op" "rule-propose" "id" "departure"
+                                                         "description" description
+                                                         "premises" (vector (vector "event.start" "?e" "?s")
+                                                                            (vector "event.travel" "?e" "?t"))
+                                                         "bindings" (vector (vector "?l" (vector "-" "?s" "?t")))
+                                                         "conclusion" (vector "event.departure" "?e" "?l"))))))))
         (test-assert (and (search "admission was declined" (tool-result-content
                                                             (propose ':deny "first")))
                           (null (knowledge-base-active-rules (knowledge-base-read configuration)

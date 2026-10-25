@@ -3,11 +3,11 @@
 ;;;; -- Agenda Resource Test Support --
 
 (-> agenda-resource-tests--call
-    (tool-registry tool-context string string &rest t)
+    (tool-registry tool-context &key (:namespace string) (:name string) (:arguments list))
     tool-result)
 (defun agenda-resource-tests--call
-    (registry context namespace name &rest arguments)
-  "Execute NAMESPACE.NAME with ARGUMENTS through REGISTRY and CONTEXT."
+    (registry context &key namespace name arguments)
+  "Execute NAMESPACE.NAME with the ARGUMENTS plist through REGISTRY and CONTEXT."
   (tool-registry-execute-call
    registry
    (json-object "namespace" namespace
@@ -92,8 +92,10 @@
                                                  (find-class 'task-child-agent)))))
            (labels ((call (context namespace name &rest arguments)
                       "Execute one agenda resource fixture call."
-                      (apply #'agenda-resource-tests--call
-                             registry context namespace name arguments))
+                      (agenda-resource-tests--call registry context
+                                                   :namespace namespace
+                                                   :name      name
+                                                   :arguments arguments))
 
                     (read-agenda (context)
                       "Read agenda:current for CONTEXT."

@@ -30,10 +30,11 @@
                       :reasoning-effort  *default-reasoning-effort*))
 
 (-> update-tests--qualified-release-provenance
-    (configuration pathname string string (option string))
+    (configuration pathname
+     &key (:release-tag string) (:directory-name string) (:record-platform (option string)))
     installation-provenance)
 (defun update-tests--qualified-release-provenance
-    (configuration install-root release-tag directory-name record-platform)
+    (configuration install-root &key release-tag directory-name record-platform)
   "Install RELEASE-TAG under DIRECTORY-NAME with RECORD-PLATFORM and detect it."
   (let* ((release-root    (merge-pathnames
                            (format nil "releases/~A/" directory-name)
@@ -118,9 +119,10 @@
                 "release provenance carries its validated current tag")
                (let ((qualified
                        (update-tests--qualified-release-provenance
-                        configuration install-root release-tag
-                        (format nil "~A-x86_64-netbsd" release-tag)
-                        "x86_64-netbsd")))
+                        configuration install-root
+                        :release-tag     release-tag
+                        :directory-name  (format nil "~A-x86_64-netbsd" release-tag)
+                        :record-platform "x86_64-netbsd")))
                  (test-assert
                   (and (eq (installation-provenance-method qualified) ':release)
                        (string= (installation-provenance-current-tag qualified)
@@ -129,17 +131,19 @@
                (test-assert
                 (eq (installation-provenance-method
                      (update-tests--qualified-release-provenance
-                      configuration install-root release-tag
-                      (format nil "~A-x86_64-netbsd" release-tag)
-                      "x86_64-linux"))
+                      configuration install-root
+                      :release-tag     release-tag
+                      :directory-name  (format nil "~A-x86_64-netbsd" release-tag)
+                      :record-platform "x86_64-linux"))
                     ':source)
                 "a release directory qualified by another platform remains source")
                (test-assert
                 (eq (installation-provenance-method
                      (update-tests--qualified-release-provenance
-                      configuration install-root release-tag
-                      (format nil "~A-x86_64-linux" release-tag)
-                      nil))
+                      configuration install-root
+                      :release-tag     release-tag
+                      :directory-name  (format nil "~A-x86_64-linux" release-tag)
+                      :record-platform nil))
                     ':release)
                 "a legacy record accepts its platform-qualified directory")
                (let ((current (uiop:native-namestring

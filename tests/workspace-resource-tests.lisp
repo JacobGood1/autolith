@@ -38,11 +38,12 @@
             (+ start (length prefix) 4))))
 
 (-> workspace-resource-tests--call
-    (tool-registry tool-context string string &rest t)
+    (tool-registry tool-context
+     &key (:namespace string) (:name string) (:arguments list))
     tool-result)
 (defun workspace-resource-tests--call
-    (registry context namespace name &rest arguments)
-  "Execute NAMESPACE.NAME with ARGUMENTS through REGISTRY and CONTEXT."
+    (registry context &key namespace name arguments)
+  "Execute NAMESPACE.NAME with the ARGUMENTS plist through REGISTRY and CONTEXT."
   (tool-registry-execute-call
    registry
    (json-object "namespace" namespace
@@ -179,8 +180,10 @@
                                  :conversation  heterogeneous-conversation)))
            (labels ((call (context namespace name &rest arguments)
                       "Execute one resource fixture call."
-                      (apply #'workspace-resource-tests--call
-                             registry context namespace name arguments))
+                      (workspace-resource-tests--call
+                       registry context :namespace namespace
+                                        :name      name
+                                        :arguments arguments))
 
                     (read-resource (context uri &key start-line line-count)
                       "Read URI and return result, canonical URI, and revision."
