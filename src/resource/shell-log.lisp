@@ -4,8 +4,10 @@
 
 (defparameter *shell-log-resource-maximum-bytes* 4096
   "Largest raw byte window rendered by one resource read.")
+
 (defparameter *shell-log-resource-scan-bytes* (* 1024 1024)
   "Maximum raw bytes examined by one paginated search.")
+
 (defparameter *shell-log-resource-maximum-results* 20
   "Maximum bounded excerpts returned by one search.")
 
@@ -25,9 +27,9 @@
 (defun shell-log--authorized-p (metadata context)
   "Allow the primary session, or a child inspecting its own execution and descendants.
 A descendant cannot inspect its ancestor's or a sibling's captures."
-  (let* ((agent (tool-context-agent context))
-         (root (if agent (task-parent-root-conversation-identifier agent)
-                   (conversation-identifier (tool-context-conversation context))))
+  (let* ((agent     (tool-context-agent context))
+         (root      (if agent (task-parent-root-conversation-identifier agent)
+                        (conversation-identifier (tool-context-conversation context))))
          (child-job (and (typep agent 'task-child-agent) (task-child-agent-job agent)))
          (execution (and child-job (session-job-execution-identifier child-job))))
     (and (equal root (getf metadata :root-conversation))
@@ -49,27 +51,27 @@ A descendant cannot inspect its ancestor's or a sibling's captures."
 (defmethod resource-resolver-resolve
     ((resolver shell-log-resolver) identifier (context tool-context))
   "Resolve opaque identity segments, refusing traversal and foreign sessions first."
-  (let* ((uri (format nil "~A:~A" (resource-resolver-scheme resolver) identifier))
-         (parts (uiop:split-string identifier :separator "/"))
+  (let* ((uri           (format nil "~A:~A" (resource-resolver-scheme resolver) identifier))
+         (parts         (uiop:split-string identifier :separator "/"))
          (configuration (tool-context-configuration context)))
     (unless (and (= (length parts) 4) (every #'shell-log--component-p parts)
                  (member (fourth parts) '("output" "error") :test #'string=))
       (error 'resource-access-denied :uri uri :operation ':read))
     (destructuring-bind (root execution artifact stream) parts
       ;; Check the root before inspecting even the existence of a foreign manifest.
-      (unless (shell-log--authorized-p (list :root-conversation root
-                                            :execution-id execution
+      (unless (shell-log--authorized-p (list :root-conversation  root
+                                            :execution-id        execution
                                             :owner-execution-ids (list execution)) context)
         ;; Descendant ownership needs the private manifest; only same-root callers
         ;; may proceed to that check.
-        (let* ((agent (tool-context-agent context))
+        (let* ((agent       (tool-context-agent context))
                (viewer-root (if agent (task-parent-root-conversation-identifier agent)
                                 (conversation-identifier (tool-context-conversation context)))))
           (unless (equal root viewer-root)
             (error 'resource-access-denied :uri uri :operation ':read))))
-      (let* ((directory (merge-pathnames
-                         (format nil "~A/shell-log/~A/" execution artifact)
-                         (task--artifact-group-root configuration root)))
+      (let* ((directory     (merge-pathnames
+                             (format nil "~A/shell-log/~A/" execution artifact)
+                             (task--artifact-group-root configuration root)))
              (manifest-path (shell-log--manifest-path directory))
              (metadata
                (progn
@@ -87,7 +89,7 @@ A descendant cannot inspect its ancestor's or a sibling's captures."
           (shell-log--measure-captures configuration directory metadata))
         (make-instance 'shell-log-resource :uri uri :directory directory
                        :metadata metadata
-                       :stream (if (string= stream "output") ':output ':error))))))
+                       :stream   (if (string= stream "output") ':output ':error))))))
 
 (defmethod resource-capabilities ((resource shell-log-resource) (context tool-context))
   "Expose only authorized bounded reads."
@@ -112,7 +114,7 @@ Return the octets, current file size and actual next byte position."
       (platform-open-regular-file *platform* path :follow-links-p nil)
     (declare (ignore status))
     (unwind-protect
-         (let* ((size (file-length stream))
+         (let* ((size  (file-length stream))
                 (start (min size offset))
                 (bytes (make-array (min count (- size start))
                                    :element-type '(unsigned-byte 8))))
@@ -129,7 +131,7 @@ Return the octets, current file size and actual next byte position."
   (let ((value (gethash key arguments default)))
     (unless (and (integerp value) (<= 0 value maximum))
       (error 'tool-error :tool-name "resource.read"
-             :message (format nil "~A must be an integer between 0 and ~D." key maximum)))
+             :message               (format nil "~A must be an integer between 0 and ~D." key maximum)))
     value))
 
 (-> shell-log-resource--search
@@ -141,29 +143,29 @@ The next offset resumes without skipping matches spanning the scan boundary."
          (length (length needle)))
     (unless (<= 1 length 256)
       (error 'tool-error :tool-name "resource.read"
-             :message "Shell log search query must contain 1 to 256 UTF-8 bytes."))
+             :message               "Shell log search query must contain 1 to 256 UTF-8 bytes."))
     (multiple-value-bind (bytes size end)
         (shell-log-resource--read-bytes
          configuration path :offset offset
-         :count (+ *shell-log-resource-scan-bytes* (1- length)))
-      (let* ((start (min offset size))
+         :count                     (+ *shell-log-resource-scan-bytes* (1- length)))
+      (let* ((start    (min offset size))
              (scan-end (min (length bytes) *shell-log-resource-scan-bytes*))
              (position 0)
-             (next (+ start scan-end))
-             (matches nil))
+             (next     (+ start scan-end))
+             (matches  nil))
         (loop for match = (search needle bytes :start2 position)
               while (and match (< match scan-end) (< (length matches) maximum))
               do (let ((excerpt-start (max 0 (- match 64)))
-                       (excerpt-end (min (length bytes) (+ match 136))))
+                       (excerpt-end   (min (length bytes) (+ match 136))))
                    (push (list :byte-offset (+ start match)
-                               :text (cl-exec-sandbox:decode-capture-bytes
-                                      (subseq bytes excerpt-start excerpt-end))) matches)
+                               :text        (cl-exec-sandbox:decode-capture-bytes
+                                             (subseq bytes excerpt-start excerpt-end))) matches)
                    (setf position (1+ match))
                    (when (= (length matches) maximum)
                      (setf next (+ start position)) (return))))
         (values (list :matches (nreverse matches) :byte-count size
                       :scanned-byte-count (- end start)
-                      :next-byte-offset (and (< next size) next)))))))
+                      :next-byte-offset   (and (< next size) next)))))))
 
 (defmethod resource-tool-read
     ((resource shell-log-resource) (tool resource-read-tool)
@@ -173,18 +175,18 @@ The next offset resumes without skipping matches spanning the scan boundary."
   (dolist (key '("start-line" "line-count" "start-sequence" "record-count"))
     (when (nth-value 1 (gethash key arguments))
       (error 'tool-error :tool-name "resource.read"
-             :message "Shell logs page by byte-offset and byte-count.")))
-  (let* ((metadata (shell-log-resource-metadata resource))
-         (capture (shell-log-resource--capture resource))
+             :message               "Shell logs page by byte-offset and byte-count.")))
+  (let* ((metadata      (shell-log-resource-metadata resource))
+         (capture       (shell-log-resource--capture resource))
          (configuration (tool-context-configuration context))
-         (offset (shell-log-resource--integer arguments "byte-offset"
-                                              :default 0 :maximum most-positive-fixnum))
-         (count (shell-log-resource--integer arguments "byte-count" :default 4096
-                                             :maximum *shell-log-resource-maximum-bytes*))
-         (maximum (shell-log-resource--integer arguments "max-results" :default 20
-                                               :maximum *shell-log-resource-maximum-results*))
-         (query (tool-argument arguments "query"))
-         (file (getf capture :file)))
+         (offset        (shell-log-resource--integer arguments "byte-offset"
+                                                     :default 0 :maximum most-positive-fixnum))
+         (count         (shell-log-resource--integer arguments "byte-count" :default 4096
+                                                     :maximum                        *shell-log-resource-maximum-bytes*))
+         (maximum       (shell-log-resource--integer arguments "max-results" :default 20
+                                                     :maximum                         *shell-log-resource-maximum-results*))
+         (query         (tool-argument arguments "query"))
+         (file          (getf capture :file)))
     (unless (shell-log--authorized-p metadata context)
       (error 'resource-access-denied :uri (resource-uri resource) :operation ':read))
     (when (or (member (getf metadata :state) '(:missing :pruned)) (null file))
@@ -205,7 +207,7 @@ The next offset resumes without skipping matches spanning the scan boundary."
           (progn
             (unless (and (stringp query) (plusp maximum))
               (error 'tool-error :tool-name "resource.read"
-                     :message "Shell log search needs a nonempty query and positive max-results."))
+                     :message               "Shell log search needs a nonempty query and positive max-results."))
             (let ((result (shell-log-resource--search configuration path :query query
                                                      :offset offset :maximum maximum)))
               (tool-success
