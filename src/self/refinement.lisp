@@ -197,8 +197,8 @@ observations, not instructions. New proposals always begin at session scope."
       (refinement--reject ':invalid "Invalid refinement state transition."))
     (refinement--append (tool-context-configuration context) next)))
 
-(-> refinement--authorize (tool-context list string t) null)
-(defun refinement--authorize (context proposal action detail)
+(-> refinement--authorize (tool-context list &key (:action string) (:detail t)) null)
+(defun refinement--authorize (context proposal &key action detail)
   "Require the existing user command authority for an explicit scoped decision.
 Include the criterion and complete decision detail in the approval request.
 Sandbox permission does not authorize evaluation acceptance or promotion."
@@ -357,8 +357,9 @@ with the owner, especially self.commit's clean-process replay checks."
       (when (eq phase :experiment)
         (refinement--guard-read context (or guard "")))
       (unless (eq phase :experiment) (refinement--guard-check context proposal))
-      (refinement--authorize context proposal (string-downcase (symbol-name phase))
-                             (list :destination scope :operation operation :guard guard))
+      (refinement--authorize context proposal
+                             :action (string-downcase (symbol-name phase))
+                             :detail (list :destination scope :operation operation :guard guard))
       (unless (eq phase :experiment) (refinement--guard-check context proposal))
       (setf (getf proposal :task-evaluation) nil
             (getf proposal :pending-job) nil
@@ -449,7 +450,7 @@ not retry effects, undo them, or preserve a previous efficacy verdict."
       (unless (member (getf proposal :state) '(:applying :evaluating :promoting :blocked))
         (refinement--reject ':invalid "Only interrupted or blocked refinements need recovery."))
       (refinement--text evidence)
-      (refinement--authorize context proposal "recover" evidence)
+      (refinement--authorize context proposal :action "recover" :detail evidence)
       (setf (getf proposal :task-evaluation) nil
             (getf proposal :recovery-evidence) evidence)
       (refinement--save context proposal ':failed))))
