@@ -81,8 +81,8 @@ the exact source and runtime comparison needs no extra boot of the image."
 The process boots the current active core when one matches the source, which
 takes a fraction of a second, and otherwise loads the system from source."
   (let* ((sbcl-command (active-image--sbcl-command))
-         (source-root (config :source-root configuration))
-         (core (active-image-current-core configuration)))
+         (source-root  (config :source-root configuration))
+         (core         (active-image-current-core configuration)))
     (if core
         (list* sbcl-command
                "--noinform"
@@ -110,8 +110,8 @@ takes a fraction of a second, and otherwise loads the system from source."
   (multiple-value-bind (form sole-form-p) (snapshot-read pathname)
     (unless sole-form-p
       (error 'active-image-build-error
-             :message "The active-image manifest does not hold exactly one form."
-             :stage ':manifest
+             :message  "The active-image manifest does not hold exactly one form."
+             :stage    ':manifest
              :pathname pathname))
     form))
 
@@ -126,8 +126,8 @@ takes a fraction of a second, and otherwise loads the system from source."
                               (uiop:ensure-directory-pathname (pathname (first arguments))))))
         (unless source-root
           (error 'active-image-build-error
-                 :message "The preloaded active image needs its source root."
-                 :stage ':entry
+                 :message  "The preloaded active image needs its source root."
+                 :stage    ':entry
                  :pathname nil))
         (platform-setenv "AUTOLITH_SOURCE_ROOT" (namestring source-root))
         (restart-case
