@@ -4,12 +4,12 @@
 
 (defclass acp-mcp-stdio-transport-configuration
     (mcp-stdio-transport-configuration)
-  ((environment-values :initarg :environment-values
+  ((environment-values :initarg  :environment-values
                        :accessor acp-mcp-environment-values)))
 
 (defclass acp-mcp-http-transport-configuration
     (mcp-http-transport-configuration)
-  ((header-values :initarg :header-values
+  ((header-values :initarg  :header-values
                   :accessor acp-mcp-header-values)))
 
 (defun acp-mcp--credential-scope (values function)
@@ -36,10 +36,10 @@
   (declare (ignore exchange-scope-function))
   (make-mcp-stdio-transport
    (mcp-stdio-configuration-command transport)
-   :arguments (mcp-stdio-configuration-arguments transport)
-   :directory (lambda ()
-                (mcp-tools--stdio-directory
-                 server-configuration configuration transport))
+   :arguments            (mcp-stdio-configuration-arguments transport)
+   :directory            (lambda ()
+                           (mcp-tools--stdio-directory
+                            server-configuration configuration transport))
    :environment-function
    (lambda ()
      (acp-mcp--credential-scope
@@ -96,7 +96,7 @@
           (unless (json-object-p entry)
             (agentcomms:acp-invalid-params
              "Each MCP ~A entry must be an object." label))
-          (let ((name (acp-mcp--field entry "name" :required t))
+          (let ((name  (acp-mcp--field entry "name" :required t))
                 (value (acp-mcp--field entry "value" :required t)))
             (unless (and (non-empty-string-p name) (stringp value))
               (agentcomms:acp-invalid-params
@@ -108,8 +108,8 @@
   "Validate a client declaration, then attach ephemeral literal bindings to native policy."
   (declare (ignore cwd))
   (agentcomms:acp-validate-mcp-servers (list server))
-  (let* ((name (acp-mcp--field server "name" :required t))
-         (type (or (json-get server "type") "stdio"))
+  (let* ((name    (acp-mcp--field server "name" :required t))
+         (type    (or (json-get server "type") "stdio"))
          (stdio-p (equal type "stdio"))
          (policy
           (cond
@@ -124,7 +124,7 @@
     (handler-case
         (let* ((configuration (mcp-server-configuration-create
                                :name name :transport policy :approval ':prompt :required-p t))
-               (transport (mcp-server-configuration-transport configuration)))
+               (transport     (mcp-server-configuration-transport configuration)))
           (if stdio-p
               (change-class transport 'acp-mcp-stdio-transport-configuration
                             :environment-values (acp-mcp--pairs (json-get server "env") "environment"))
@@ -169,11 +169,11 @@
 (-> acp-mcp-create-tool-registry (configuration list) tool-registry)
 (defun acp-mcp-create-tool-registry (configuration declarations)
   "Build the native registry with session-local client servers and no global mutation."
-  (let* ((servers (mapcar (lambda (declaration)
-                            (acp-mcp--server declaration (config :working-directory configuration)))
-                          (agentcomms:acp-validate-mcp-servers declarations)))
+  (let* ((servers                    (mapcar (lambda (declaration)
+                                               (acp-mcp--server declaration (config :working-directory configuration)))
+                                             (agentcomms:acp-validate-mcp-servers declarations)))
          (*mcp-server-registrations* (mcp-server-registrations))
-         (names (make-hash-table :test #'equal)))
+         (names                      (make-hash-table :test #'equal)))
     (dolist (registration *mcp-server-registrations*)
       (setf (gethash (mcp-server-configuration-name
                       (mcp-server-registration-configuration registration)) names) t))
@@ -184,7 +184,6 @@
         (setf (gethash name names) t)
         (register-mcp-server server :source ':runtime)))
     (application--create-tool-registry configuration)))
-
 
 (-> acp-mcp-release-credentials ((option mcp-manager)) null)
 (defun acp-mcp-release-credentials (manager)
