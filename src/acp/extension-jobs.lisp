@@ -27,7 +27,7 @@
         (multiple-value-bind (record path)
             (task--durable-job-result viewer identifier tool-name)
           (declare (ignore path))
-            (and record (list :durable record))))))
+          (and record (list :durable record))))))
 
 (-> acp-extension--find-job (acp-session string string) (or session-job list))
 (defun acp-extension--find-job (session identifier tool-name)
@@ -40,11 +40,16 @@
 (defun acp-extension--job-state (state)
   "Convert an internal job STATE to its stable wire spelling."
   (case state
-    (:queued "pending")
-    (:finalizing "running")
-    (:success "completed")
-    (:aborted "cancelled")
-    (otherwise (string-downcase (symbol-name (or state ':unknown))))))
+    (:queued
+     "pending")
+    (:finalizing
+     "running")
+    (:success
+     "completed")
+    (:aborted
+     "cancelled")
+    (otherwise
+     (string-downcase (symbol-name (or state ':unknown))))))
 
 (-> acp-extension--job-parent-id (session-job) (option string))
 (defun acp-extension--job-parent-id (job)
@@ -79,12 +84,12 @@
   "Project one owned live JOB into a bounded ACP row."
   (let* ((snapshot (session-job-snapshot job))
          (progress (getf snapshot :progress))
-         (result (getf snapshot :result)))
+         (result   (getf snapshot :result)))
     (agentcomms:json-object
      "id" (session-job-identifier job)
      "parentId" (or (acp-extension--job-parent-id job) ':null)
      "role" (or (and (typep job 'task-job) (task-job-agent-name job))
-                 (and (typep job 'tool-execution-job) (tool-execution-job-tool-name job)) ':null)
+                (and (typep job 'tool-execution-job) (tool-execution-job-tool-name job)) ':null)
      "state" (acp-extension--job-state (getf snapshot :state))
      "startedAt" (or (getf progress :started-at) ':null)
      "elapsedSeconds" (if (getf progress :duration-ms) (floor (getf progress :duration-ms) 1000) ':null)
@@ -115,14 +120,14 @@
                      (or (ignore-errors (parse-integer cursor :junk-allowed nil))
                          (agentcomms:acp-invalid-params "Invalid jobs cursor."))
                      0))
-         (limit (or (agentcomms:acp-field params "limit" :type ':integer) 100)))
+         (limit  (or (agentcomms:acp-field params "limit" :type ':integer) 100)))
     (unless (and (<= 0 offset) (<= 1 limit 200))
       (agentcomms:acp-invalid-params "Invalid jobs page bounds."))
-    (let* ((jobs (sort (copy-list (task-orchestrator-list-visible-jobs
-                                 (acp-extension--job-orchestrator session)
-                                 (acp-extension--job-viewer session))) #'< :key #'session-job-order))
+    (let* ((jobs  (sort (copy-list (task-orchestrator-list-visible-jobs
+                                    (acp-extension--job-orchestrator session)
+                                    (acp-extension--job-viewer session))) #'< :key #'session-job-order))
            (start (min offset (length jobs)))
-           (end (min (+ start limit) (length jobs))))
+           (end   (min (+ start limit) (length jobs))))
       (agentcomms:json-object
        "items" (map 'vector #'acp-extension--job-row (subseq jobs start end))
        "nextCursor" (if (< end (length jobs)) (princ-to-string end) ':null)))))
@@ -131,7 +136,7 @@
 (defun acp-extension-job (session params)
   "Return one owned job row selected by JOB-ID."
   (let* ((identifier (agentcomms:acp-field params "jobId" :type ':string :required-p t))
-         (found (acp-extension--find-job session identifier "_autolith/job")))
+         (found      (acp-extension--find-job session identifier "_autolith/job")))
     (if (and (consp found) (eq (first found) :durable))
         (acp-extension--durable-row identifier (second found))
         (acp-extension--job-row found))))
@@ -140,17 +145,18 @@
 (defun acp-extension--job-transcript-path (session job)
   "Return the owned child's durable transcript identity, including during execution."
   (let* ((record (if (consp job) (second job) (getf (session-job-snapshot job) :result)))
-         (path (or (getf record :conversation-file)
-                   (when (typep job 'task-job)
-                     (merge-pathnames
-                      (make-pathname :name (task-job-execution-identifier job) :type "sexp")
-                      (task--artifact-root
-                       (application-configuration (acp-session-application session)) job))))))
+         (path   (or (getf record :conversation-file)
+                     (when (typep job 'task-job)
+                       (merge-pathnames
+                        (make-pathname :name (task-job-execution-identifier job) :type "sexp")
+                        (task--artifact-root
+                         (application-configuration (acp-session-application session)) job))))))
     (when (and path (conversation-storage-occupied-p (pathname path)))
       (pathname path))))
 
 (defparameter *acp-extension-job-structured-limit* 200
   "Maximum ACP updates returned by one structured job transcript request.")
+
 (defparameter *acp-extension-job-structured-response-limit* 262144
   "Maximum UTF-8 bytes in a structured job transcript's typed response envelope.")
 
@@ -158,37 +164,38 @@
     (acp-session t &key (:offset integer) (:limit integer)) hash-table)
 (defun acp-extension--job-structured-window (session job &key offset limit)
   "Return a bounded page of standard ACP updates from JOB's durable transcript."
-  (let ((path (acp-extension--job-transcript-path session job))
+  (let ((path    (acp-extension--job-transcript-path session job))
         (updates nil))
     (when path
       (acp-replay-map-updates (conversation-load path)
                               (lambda (update) (push update updates))))
-    (let* ((ordered (nreverse updates))
-           (total (length ordered))
-           (start (min offset total))
-           (cursor start)
+    (let* ((ordered  (nreverse updates))
+           (total    (length ordered))
+           (start    (min offset total))
+           (cursor   start)
            (selected nil))
       (loop for index from start below (min (+ start limit) total)
             for update = (nth index ordered)
             do (let* ((candidate (append (reverse selected) (list update)))
-                      (probe (agentcomms:json-object
-                              "format" "acp-session-update"
-                              "updates" (coerce candidate 'vector)
-                              "offset" start
-                              "nextOffset" (if (= (1+ index) total) ':null (1+ index))
-                              "total" total
-                              "complete" (if (= (1+ index) total) t (argo:json-false))))
-                      (size (length (utf8-string-to-octets
-                                    (agentcomms:json-encode
-                                     (acp-extension-result ':ok :value probe))))))
+                      (probe     (agentcomms:json-object
+                                  "format" "acp-session-update"
+                                  "updates" (coerce candidate 'vector)
+                                  "offset" start
+                                  "nextOffset" (if (= (1+ index) total) ':null (1+ index))
+                                  "total" total
+                                  "complete" (if (= (1+ index) total) t (argo:json-false))))
+                      (size      (length (utf8-string-to-octets
+                                          (agentcomms:json-encode
+                                           (acp-extension-result ':ok :value probe))))))
                  (cond ((<= size *acp-extension-job-structured-response-limit*)
                         (push update selected)
                         (setf cursor (1+ index)))
                        ((null selected)
                         (agentcomms:acp-invalid-params
                          "A structured transcript update exceeds the response limit."))
-                       (t (return)))))
-      (let* ((page (nreverse selected))
+                       (t
+                        (return)))))
+      (let* ((page     (nreverse selected))
              (complete (= cursor total)))
         (agentcomms:json-object
          "format" "acp-session-update"
@@ -201,18 +208,19 @@
 (-> acp-extension--job-window (acp-session t &key (:offset integer) (:limit integer)) hash-table)
 (defun acp-extension--job-window (session job &key offset limit)
   "Render readable records while retaining only the requested character range."
-  (let ((path (acp-extension--job-transcript-path session job))
-        (total 0)
+  (let ((path   (acp-extension--job-transcript-path session job))
+        (total  0)
         (stream (make-string-output-stream)))
     (labels ((emit (text)
                "Count TEXT and retain its overlap with the requested range."
                (when (stringp text)
-                 (let* ((end (+ total (length text)))
+                 (let* ((end   (+ total (length text)))
                         (first (max total offset))
-                        (last (min end (+ offset limit))))
+                        (last  (min end (+ offset limit))))
                    (when (< first last)
                      (write-string text stream :start (- first total) :end (- last total)))
                    (setf total end))))
+
              (line (label text)
                "Emit one labeled transcript entry without concatenating its body."
                (when text
@@ -235,31 +243,35 @@
                         ((equal (json-get item "type") "function_call")
                          (line "Tool: " (function-call-canonical-name item))
                          (line "Arguments: " (json-get item "arguments"))))))
-               (:tool-result (line "Result: " (getf fields :output)))))))))
+               (:tool-result
+                (line "Result: " (getf fields :output)))))))))
     (let* ((content (get-output-stream-string stream))
-           (start (min offset total))
-           (next (+ start (length content))))
+           (start   (min offset total))
+           (next    (+ start (length content))))
       (agentcomms:json-object "content" content "offset" start "nextOffset" next
                               "total" total "complete" (if (= next total) t (argo:json-false))))))
 
 (-> acp-extension-job-transcript (acp-session hash-table) hash-table)
 (defun acp-extension-job-transcript (session params)
   "Return a bounded text or structured window from an owned child transcript."
-  (let* ((identifier (agentcomms:acp-field params "jobId" :type ':string :required-p t))
-         (output (or (agentcomms:acp-field params "output" :type ':string) "text"))
-         (job (acp-extension--find-job session identifier "_autolith/job-transcript"))
-         (structured-p (cond ((string= output "text") nil)
-                             ((string= output "structured") t)
-                             (t (agentcomms:acp-invalid-params
-                                 "Transcript output must be text or structured.")))))
+  (let* ((identifier   (agentcomms:acp-field params "jobId" :type ':string :required-p t))
+         (output       (or (agentcomms:acp-field params "output" :type ':string) "text"))
+         (job          (acp-extension--find-job session identifier "_autolith/job-transcript"))
+         (structured-p (cond ((string= output "text")
+                              nil)
+                             ((string= output "structured")
+                              t)
+                             (t
+                              (agentcomms:acp-invalid-params
+                               "Transcript output must be text or structured.")))))
     (if structured-p
         (let ((offset (or (agentcomms:acp-field params "offset" :type ':integer) 0))
-              (limit (or (agentcomms:acp-field params "limit" :type ':integer) 100)))
+              (limit  (or (agentcomms:acp-field params "limit" :type ':integer) 100)))
           (unless (and (<= 0 offset) (<= 1 limit *acp-extension-job-structured-limit*))
             (agentcomms:acp-invalid-params "Invalid structured transcript window."))
           (acp-extension--job-structured-window session job :offset offset :limit limit))
         (let ((offset (or (agentcomms:acp-field params "offset" :type ':integer) 0))
-              (limit (or (agentcomms:acp-field params "limit" :type ':integer) 4096)))
+              (limit  (or (agentcomms:acp-field params "limit" :type ':integer) 4096)))
           (unless (and (<= 0 offset) (<= 1 limit *acp-extension-job-transcript-limit*))
             (agentcomms:acp-invalid-params "Invalid transcript window."))
           (acp-extension--job-window session job :offset offset :limit limit)))))
@@ -268,8 +280,8 @@
 (defun acp-extension-job-send (session params)
   "Queue owned child steering text and return its admission status."
   (let* ((identifier (agentcomms:acp-field params "jobId" :type ':string :required-p t))
-         (text (agentcomms:acp-field params "text" :type ':string :required-p t))
-         (job (acp-extension--find-job session identifier "_autolith/job-send")))
+         (text       (agentcomms:acp-field params "text" :type ':string :required-p t))
+         (job        (acp-extension--find-job session identifier "_autolith/job-send")))
     (unless (typep job 'task-job)
       (error 'acp-extension-unavailable :reason "Only child jobs accept steering."))
     (multiple-value-bind (entry reason) (task-job-enqueue-steering job text)
@@ -280,7 +292,7 @@
 (defun acp-extension-job-cancel (session params)
   "Cancel an owned job and its retained descendants."
   (let* ((identifier (agentcomms:acp-field params "jobId" :type ':string :required-p t))
-         (job (acp-extension--find-job session identifier "_autolith/job-cancel")))
+         (job        (acp-extension--find-job session identifier "_autolith/job-cancel")))
     (unless (typep job 'session-job)
       (error 'acp-extension-unavailable :reason "Only live jobs can be cancelled."))
     (multiple-value-bind (accepted descendants) (session-job-cancel job ':user)
