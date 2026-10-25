@@ -210,9 +210,9 @@ sentence about memories whose evidence changed."
             (conversation-input-items conversation)))
 
 (-> memory-context--recall-changes
-    (configuration conversation knowledge-view list)
+    (configuration conversation &key (:view knowledge-view) (:offered list))
     (option context-contribution))
-(defun memory-context--recall-changes (configuration conversation view offered)
+(defun memory-context--recall-changes (configuration conversation &key view offered)
   "Report changes to facts this conversation was given, and remember OFFERED facts.
 
 Changes are computed once per turn and offered for the next request only, so
@@ -288,7 +288,9 @@ Changes to facts this conversation was given earlier are explained once."
              (facts         (and knowledge-p (memory-context--relevant-facts view query)))
              (changes       (and knowledge-p
                                  (memory-context--recall-changes
-                                  configuration (request-context-conversation request) view facts)))
+                                  configuration (request-context-conversation request)
+                                  :view    view
+                                  :offered facts)))
              (fact-lines    (mapcar (lambda (node) (json-encode (knowledge-node-json view node)))
                                     facts)))
         (when knowledge-p
