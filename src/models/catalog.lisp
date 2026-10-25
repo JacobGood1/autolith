@@ -9,11 +9,9 @@
   (wakeup (bt:make-condition-variable :name "model catalog timer"))
   retired-threads)
 
-(-> model-catalog-context-active-p (t) boolean)
 (defgeneric model-catalog-context-active-p (context)
   (:documentation "Check CONTEXT's authorization epoch while holding the catalog lock."))
 
-(-> model-catalog-context-fetch (t) (option string))
 (defgeneric model-catalog-context-fetch (context)
   (:documentation "Fetch public JSON through CONTEXT's authorized, bounded transport."))
 
@@ -38,6 +36,9 @@
 (defparameter *model-catalog-request-seconds* 10
   "Whole-request deadline across connection, headers and streaming body reads.")
 
+(-> model-catalog--timer
+    (model-catalog &key (:context t) (:fetch (option function)) (:interval real))
+    null)
 (defun model-catalog--timer (catalog &key context fetch interval)
   "Wake periodically while CONTEXT remains active; retirement interrupts the wait."
   (let ((*model-catalog-fetch-function* fetch))
@@ -64,10 +65,12 @@
   (and (stringp value) (<= 1 (length value) 256)
        (every (lambda (character) (<= 33 (char-code character) 126)) value) t))
 
+(-> model-catalog--reject (string) nil)
 (defun model-catalog--reject (reason)
   "Reject public data with a fixed diagnostic, without echoing arbitrary input."
   (error 'model-catalog-invalid :reason reason))
 
+(-> model-catalog--limits ((integer 0)) json-limits)
 (defun model-catalog--limits (maximum)
   "Bound JSON parsing and encoding, including ignored public metadata."
   (make-json-limits :maximum-characters maximum :maximum-depth 32
@@ -116,11 +119,13 @@ Optional canonical_model_id must be a valid ID. Other public metadata is ignored
       (model-catalog--reject "empty model catalog"))
     (values identifiers root)))
 
+(-> model-catalog--path (model-catalog) pathname)
 (defun model-catalog--path (controller)
   "Locate the shared last-good public catalog cache."
   (merge-pathnames "models/models-dev.json"
                    (model-catalog-cache-root controller)))
 
+(-> model-catalog--read-file (pathname (integer 0)) string)
 (defun model-catalog--read-file (path maximum)
   "Read UTF-8 only after checking the file byte bound."
   (with-open-file (stream path :element-type '(unsigned-byte 8))
@@ -131,14 +136,17 @@ Optional canonical_model_id must be a valid ID. Other public metadata is ignored
           (model-catalog--reject "incomplete cache"))
         (babel:octets-to-string bytes :encoding :utf-8)))))
 
+(-> model-catalog--cache-limit () (integer 0))
 (defun model-catalog--cache-limit ()
   "Allow JSON string escaping plus the fixed cache metadata envelope."
   (+ (* 2 *model-catalog-maximum-bytes*) 1024))
 
+(-> model-catalog--load (model-catalog) null)
 (defun model-catalog--load (controller)
   "Load and validate the cache once, only while holding consent and its lock."
   (unless (model-catalog-loaded controller)
     (setf (model-catalog-loaded controller) t)
+    ; mallet:suppress no-ignore-errors -- a missing, unreadable or damaged cache leaves the catalog cold
     (ignore-errors
       (let* ((maximum (model-catalog--cache-limit))
              (cache   (json-decode (model-catalog--read-file
@@ -155,8 +163,10 @@ Optional canonical_model_id must be a valid ID. Other public metadata is ignored
         (multiple-value-bind (identifiers providers) (model-catalog-parse body)
           (setf (model-catalog-identifiers controller) identifiers
                 (model-catalog-providers controller) providers
-                (model-catalog-fetched-at controller) time))))))
+                (model-catalog-fetched-at controller) time)))))
+  nil)
 
+(-> model-catalog--publish (model-catalog string (integer 0)) null)
 (defun model-catalog--publish (controller body time)
   "Atomically publish one validated last-good catalog with source and time metadata."
   (let* ((path      (model-catalog--path controller))
@@ -175,8 +185,10 @@ Optional canonical_model_id must be a valid ID. Other public metadata is ignored
                                              :external-format :utf-8)
              (write-string content stream) (finish-output stream))
            (uiop:rename-file-overwriting-target temporary path))
-      (when (probe-file temporary) (delete-file temporary)))))
+      (when (probe-file temporary) (delete-file temporary))))
+  nil)
 
+(-> model-catalog--http-fetch () (option string))
 (defun model-catalog--http-fetch ()
   "Read one anonymous, complete, byte-bounded response in the current process.
 Native transports without Lisp deadlines must run only in a supervised child."
@@ -197,6 +209,7 @@ Native transports without Lisp deadlines must run only in a supervised child."
             (when (streamp stream) (close stream)))))
     (sb-sys:deadline-timeout () nil)))
 
+(-> model-catalog--worker-fetch (&optional (option configuration)) (option string))
 (defun model-catalog--worker-fetch (&optional configuration)
   "Fetch within one whole-request deadline, supervising native blocking transports."
   (if (platform-http-supervision-required-p *platform*)
@@ -219,6 +232,7 @@ Native transports without Lisp deadlines must run only in a supervised child."
                                   :environment     (supervised-process-environment))))))))
       (model-catalog--http-fetch)))
 
+(-> model-catalog--worker-main () nil)
 (defun model-catalog--worker-main ()
   "Serve one private anonymous catalog request without loading user state."
   (let ((input *standard-input*) (output *standard-output*))
@@ -240,23 +254,32 @@ Native transports without Lisp deadlines must run only in a supervised child."
           (write result :stream output) (terpri output) (finish-output output)))))
   (uiop:quit 0))
 
+(-> model-catalog--refresh (model-catalog t (option function)) null)
 (defun model-catalog--refresh (controller context fetch)
   "Fetch outside the owner's lock; publish only while the original CONTEXT is active."
-  (let ((body (ignore-errors (if fetch (funcall fetch context)
-                               (model-catalog-context-fetch context)))))
+  (let ((body
+          ; mallet:suppress no-ignore-errors -- any transport failure keeps the last-good catalog
+          (ignore-errors (if fetch (funcall fetch context)
+                             (model-catalog-context-fetch context)))))
     (multiple-value-bind (identifiers providers)
-        (and (stringp body) (ignore-errors (model-catalog-parse body)))
+        (and (stringp body)
+             (handler-case (model-catalog-parse body)
+               ((or model-catalog-invalid json-error) ()
+                 nil)))
       (bt:with-lock-held ((model-catalog-lock controller))
         (when (model-catalog-context-active-p context)
           (let ((time (get-universal-time)))
             (setf (model-catalog-attempt-at controller) time)
             (when identifiers
               ;; Keep valid membership even when the last-good disk cache cannot be updated.
+              ; mallet:suppress no-ignore-errors -- the disk cache write is best effort
               (ignore-errors (model-catalog--publish controller body time))
               (setf (model-catalog-identifiers controller) identifiers
                     (model-catalog-providers controller) providers
-                    (model-catalog-fetched-at controller) time))))))))
+                    (model-catalog-fetched-at controller) time)))))))
+  nil)
 
+(-> model-catalog-ensure (model-catalog t) null)
 (defun model-catalog-ensure (controller context)
   "Load once and start one refresh; back off five minutes after a failed completion."
   (bt:with-lock-held ((model-catalog-lock controller))
@@ -283,6 +306,7 @@ Native transports without Lisp deadlines must run only in a supervised child."
                    :name "public model catalog")))))))
   nil)
 
+(-> model-catalog-retire (model-catalog) null)
 (defun model-catalog-retire (catalog)
   "Retire CATALOG's threads under its lock after revoking their context. Join outside it."
   (when (model-catalog-timer catalog)
@@ -294,11 +318,14 @@ Native transports without Lisp deadlines must run only in a supervised child."
     (setf (model-catalog-thread catalog) nil))
   nil)
 
+(-> model-catalog-join (model-catalog) null)
 (defun model-catalog-join (controller)
   "Join revoked catalog threads outside the consent lock before shutdown or saving."
   (let ((threads (bt:with-lock-held ((model-catalog-lock controller))
                    (copy-list (model-catalog-retired-threads controller)))))
-    (dolist (thread threads) (ignore-errors (bt:join-thread thread)))
+    (dolist (thread threads)
+      ; mallet:suppress no-ignore-errors -- joining a retired thread is best-effort shutdown cleanup
+      (ignore-errors (bt:join-thread thread)))
     (bt:with-lock-held ((model-catalog-lock controller))
       (setf (model-catalog-retired-threads controller)
             (set-difference (model-catalog-retired-threads controller)
