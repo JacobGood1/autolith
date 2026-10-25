@@ -44,11 +44,11 @@
   "Signal PLATFORM-ERROR for CONDITION raised by OPERATION on PATHNAME."
   (let ((errno (sb-posix:syscall-errno condition)))
     (error 'platform-error
-           :message (princ-to-string condition)
+           :message   (princ-to-string condition)
            :operation operation
-           :pathname pathname
-           :reason (posix--failure-reason errno)
-           :code errno)))
+           :pathname  pathname
+           :reason    (posix--failure-reason errno)
+           :code      errno)))
 
 (-> posix--call (keyword (option pathname) function) t)
 (defun posix--call (operation pathname function)
@@ -81,8 +81,8 @@
                                      #o666)))
        (unwind-protect
             (prog1 (sb-sys:make-fd-stream descriptor :output t
-                                        :element-type '(unsigned-byte 8)
-                                        :file (posix--namestring pathname)
+                                        :element-type        '(unsigned-byte 8)
+                                        :file                (posix--namestring pathname)
                                         :pathname pathname :auto-close t)
               (setf descriptor nil))
          (when descriptor
@@ -151,7 +151,7 @@
 (-> posix--environment-directory (string pathname) pathname)
 (defun posix--environment-directory (variable fallback)
   "Return absolute directory VARIABLE, or FALLBACK when it is unset or invalid."
-  (let* ((value (uiop:getenv variable))
+  (let* ((value    (uiop:getenv variable))
          (pathname (and (non-empty-string-p value)
                         (pathname value))))
     (uiop:ensure-directory-pathname
@@ -335,18 +335,17 @@
       (sb-bsd-sockets:connection-refused-error (condition)
         (ignore-errors (sb-bsd-sockets:socket-close socket))
         (error 'platform-error
-               :message (princ-to-string condition)
+               :message   (princ-to-string condition)
                :operation ':connect
-               :pathname pathname
-               :reason ':refused))
+               :pathname  pathname
+               :reason    ':refused))
       (sb-bsd-sockets:socket-error (condition)
         (ignore-errors (sb-bsd-sockets:socket-close socket))
         (error 'platform-error
-               :message (princ-to-string condition)
+               :message   (princ-to-string condition)
                :operation ':connect
-               :pathname pathname
-               :reason ':failed)))))
-
+               :pathname  pathname
+               :reason    ':failed)))))
 
 (defmethod platform-source-check-command ((platform posix-platform) source-root)
   "Run the executable repository check script on POSIX."
@@ -368,7 +367,7 @@
   (declare (ignore platform))
   (image-daemon:handoff-launch-supervised arguments ticket
                                           :directory directory
-                                          :output output))
+                                          :output    output))
 
 
 ;;;; -- Installation --
