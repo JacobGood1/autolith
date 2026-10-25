@@ -29,7 +29,7 @@
          :documentation "Atomic portable mailbox/grant snapshot.")
    (grants :initform nil :accessor peer-message-grants
            :documentation "Bounded durable explicit directional peer grants.")
-   (mailbox :accessor peer-message-mailbox
+   (mailbox :accessor      peer-message-mailbox
             :documentation "Library bounded acknowledged mailbox.")
    (lock :initform (make-recursive-lock "Peer authority") :reader peer-message-lock
          :documentation "Serializes authority checks with durable admission.")
@@ -41,6 +41,7 @@
 
 (defvar *peer-message-services* (make-hash-table :test #'equal)
   "Root conversation IDs associated with current in-process peer services.")
+
 (defvar *peer-message-services-lock* (make-lock "Peer services")
   "Protects registration and lookup by root conversation identity.")
 
@@ -82,16 +83,16 @@
 (defun peer-message--copy-endpoint (endpoint)
   "Detach endpoint strings as well as its property list from mutable caller data."
   (peer-message--endpoint endpoint)
-  (list :session (copy-seq (getf endpoint :session))
-        :job (when (getf endpoint :job) (copy-seq (getf endpoint :job)))
+  (list :session   (copy-seq (getf endpoint :session))
+        :job       (when (getf endpoint :job) (copy-seq (getf endpoint :job)))
         :execution (when (getf endpoint :execution) (copy-seq (getf endpoint :execution)))))
 
 (-> peer-message--endpoint-id (list) string)
 (defun peer-message--endpoint-id (endpoint)
   "Encode kind and length-delimited root/job/execution fields without collisions."
   (peer-message--endpoint endpoint)
-  (let ((session (getf endpoint :session))
-        (job (getf endpoint :job))
+  (let ((session   (getf endpoint :session))
+        (job       (getf endpoint :job))
         (execution (getf endpoint :execution)))
     (peer-message--identifier
      (if job
@@ -105,8 +106,8 @@
     (flet ((capture-field (value)
              (if (stringp value) (copy-seq value) value)))
       (setf (task-child-agent-peer-endpoint actor)
-            (list :session (capture-field (session-job-root-conversation-identifier job))
-                  :job (capture-field (session-job-identifier job))
+            (list :session   (capture-field (session-job-root-conversation-identifier job))
+                  :job       (capture-field (session-job-identifier job))
                   :execution (capture-field (session-job-execution-identifier job)))))))
 
 (-> peer-message--actor-session (agent) string)
@@ -121,7 +122,7 @@
   "Return the captured actor identity, refusing retained actors after job replacement."
   (if (typep actor 'task-child-agent)
       (let ((endpoint (task-child-agent-peer-endpoint actor))
-            (job (task-child-agent-job actor)))
+            (job      (task-child-agent-job actor)))
         (unless (and (equal (getf endpoint :session) (session-job-root-conversation-identifier job))
                      (equal (getf endpoint :job) (session-job-identifier job))
                      (equal (getf endpoint :execution) (session-job-execution-identifier job)))
@@ -201,11 +202,11 @@
   "Restore one primary-owned mailbox; interrupted deliveries become explicit UNKNOWN."
   (when (typep owner 'task-child-agent) (peer-message--reject ':primary-authority))
   (let* ((session (peer-message--actor-session owner))
-         (path (or path (make-pathname :type "peers.sexp" :defaults (conversation-pathname (agent-conversation owner)))))
-         (record (when (probe-file path)
-                   (snapshot-read-record path :grammar (task--result-grammar)
-                                          :maximum-octets *peer-message-snapshot-maximum-octets*
-                                          :properties-p t :keyword-keys-p t)))
+         (path    (or path (make-pathname :type "peers.sexp" :defaults (conversation-pathname (agent-conversation owner)))))
+         (record  (when (probe-file path)
+                    (snapshot-read-record path :grammar    (task--result-grammar)
+                                           :maximum-octets *peer-message-snapshot-maximum-octets*
+                                           :properties-p t :keyword-keys-p t)))
          (service (make-instance 'peer-message-service :session session :owner owner
                                  :orchestrator orchestrator :path path :remote-call remote-call)))
     (when record
@@ -223,8 +224,8 @@
     (setf (peer-message-mailbox service)
           (cl-jobpond:make-mailbox :capacity 64 :history-limit 1024 :clock clock
                                   :snapshot (getf record :mailbox)
-                                  :store (lambda (mailbox)
-                                           (peer-message--save service (peer-message-grants service) mailbox))))
+                                  :store    (lambda (mailbox)
+                                              (peer-message--save service (peer-message-grants service) mailbox))))
     service))
 
 (-> peer-message-service-register (peer-message-service) peer-message-service)
@@ -257,7 +258,7 @@
   (with-recursive-lock-held ((peer-message-lock service))
     (let* ((record (list :id id :sender (copy-tree sender) :receiver (copy-tree receiver)
                          :context-p context-p :active t))
-           (old (find id (peer-message-grants service) :key (lambda (grant) (getf grant :id)) :test #'equal)))
+           (old    (find id (peer-message-grants service) :key (lambda (grant) (getf grant :id)) :test #'equal)))
       (when old
         (unless (equal old record) (peer-message--reject ':grant-conflict))
         (return-from peer-message-grant (copy-tree old)))
@@ -273,7 +274,7 @@
   (peer-message--owner service owner)
   (with-recursive-lock-held ((peer-message-lock service))
     (let* ((grants (copy-tree (peer-message-grants service)))
-           (grant (find id grants :key (lambda (entry) (getf entry :id)) :test #'equal)))
+           (grant  (find id grants :key (lambda (entry) (getf entry :id)) :test #'equal)))
       (unless grant (peer-message--reject ':grant))
       (setf (getf grant :active) nil)
       (peer-message--save service grants (cl-jobpond:mailbox-snapshot (peer-message-mailbox service)))
@@ -385,13 +386,12 @@
 (defun peer-message--visible-message (service actor id)
   "Require exact sender or receiver identity and its active directional grant."
   (let* ((identity (peer-message--endpoint-id (peer-message--actor-endpoint actor)))
-         (message (cl-jobpond:mailbox-find (peer-message-mailbox service) id)))
+         (message  (cl-jobpond:mailbox-find (peer-message-mailbox service) id)))
     (unless (and (equal (peer-message--actor-session actor) (peer-message-session service))
                  (or (equal identity (getf message :sender)) (equal identity (getf message :receiver))))
       (peer-message--reject ':message-scope :denied-p t))
     (peer-message--grant service (getf message :sender) (getf message :receiver) :live-p nil)
     message))
-
 
 (-> peer-message-inspect
     (peer-message-service agent &key (:id (option string)) (:offset integer) (:limit integer)) list)
@@ -403,12 +403,12 @@
     (peer-message--reject ':session))
   (with-recursive-lock-held ((peer-message-lock service))
     (let* ((primary-p (eq actor (peer-message-owner service)))
-           (messages (getf (cl-jobpond:mailbox-snapshot (peer-message-mailbox service)) :messages))
-           (visible (if primary-p messages
-                        (remove-if-not
-                         (lambda (message)
-                           (handler-case (progn (peer-message--visible-message service actor (getf message :id)) t)
-                             (peer-message-error () nil))) messages))))
+           (messages  (getf (cl-jobpond:mailbox-snapshot (peer-message-mailbox service)) :messages))
+           (visible   (if primary-p messages
+                          (remove-if-not
+                           (lambda (message)
+                             (handler-case (progn (peer-message--visible-message service actor (getf message :id)) t)
+                               (peer-message-error () nil))) messages))))
       (when id
         (peer-message--identifier id)
         (let ((message (find id visible :key (lambda (entry) (getf entry :id)) :test #'equal)))
@@ -452,7 +452,7 @@
           (return-from peer-message-wait (list :state (getf remote :state) :message original)))))
     (multiple-value-bind (message state)
         (apply #'cl-jobpond:mailbox-wait (peer-message-mailbox service)
-               :timeout timeout
+               :timeout     timeout
                :cancelled-p (lambda ()
                               (or (and cancelled-p (funcall cancelled-p))
                                   (handler-case
@@ -474,14 +474,18 @@
   (with-recursive-lock-held ((peer-message-lock service))
     (let ((message (cl-jobpond:mailbox-find (peer-message-mailbox service) id)))
       (case action
-        (:acknowledge (cl-jobpond:mailbox-ack (peer-message-mailbox service)
-                                            :id id :receiver (getf message :receiver) :token token :result ':primary-resolution))
+        (:acknowledge
+         (cl-jobpond:mailbox-ack (peer-message-mailbox service)
+                               :id id :receiver (getf message :receiver) :token token :result ':primary-resolution))
         (:retry
          (peer-message--grant service (getf message :sender) (getf message :receiver))
          (cl-jobpond:mailbox-resolve (peer-message-mailbox service)
                                      :id id :receiver (getf message :receiver) :token token :action ':retry))
-        (:cancel (cl-jobpond:mailbox-cancel (peer-message-mailbox service) :id id :sender (getf message :sender)))
-        (otherwise (peer-message--reject ':resolution))))))
+        (:cancel
+         (cl-jobpond:mailbox-cancel (peer-message-mailbox service) :id id :sender (getf message :sender)))
+        (otherwise
+         (peer-message--reject ':resolution))))))
+
 
 ;;;; -- Safe-Boundary Context Delivery --
 
@@ -497,14 +501,14 @@
               (let ((grant (handler-case (peer-message--grant service (getf message :sender) receiver :live-p nil)
                              (peer-message-error () nil))))
                 (when (and grant (getf grant :context-p))
-                  (let* ((delivery (peer-message-receive service actor :id (getf message :id)))
+                  (let* ((delivery   (peer-message-receive service actor :id (getf message :id)))
                          (identifier (make-identifier)))
                     (setf (gethash identifier (peer-message-context-claims service))
                           (list :id (getf delivery :id) :token (getf delivery :token) :receiver receiver))
                     (push (agent-steering-input-create
                            :identifier identifier
-                           :content (format nil "Peer coordination data from ~A (message ~A):~%~A"
-                                            (getf message :sender) (getf message :id) (getf message :payload))) entries)))))))))
+                           :content    (format nil "Peer coordination data from ~A (message ~A):~%~A"
+                                               (getf message :sender) (getf message :id) (getf message :payload))) entries)))))))))
     (nreverse entries)))
 
 (-> peer-message-ack-context ((option agent) string) boolean)
@@ -528,6 +532,7 @@
     (cl-jobpond:mailbox-close (peer-message-mailbox service)))
   nil)
 
+
 ;;;; -- Authenticated Daemon Composition --
 
 (-> peer-message-dispatch (peer-message-service list &key (:cancelled-p (option function))) t)
@@ -546,13 +551,14 @@
          (return-from peer-message-dispatch
            (cl-jobpond:mailbox-send (peer-message-mailbox service) :id (getf envelope :id)
                                    :sender (getf envelope :sender) :receiver (getf envelope :receiver)
-                                   :payload (peer-message--text (getf envelope :payload)))))
+                                   :payload                            (peer-message--text (getf envelope :payload)))))
         ((:status :wait)
          (setf message (cl-jobpond:mailbox-find (peer-message-mailbox service) (getf envelope :id)))
          (unless (and (equal (getf message :sender) (getf envelope :sender))
                       (equal (getf message :receiver) (getf envelope :receiver)))
            (peer-message--reject ':message-scope :denied-p t)))
-        (otherwise (peer-message--reject ':remote-action))))
+        (otherwise
+         (peer-message--reject ':remote-action))))
     (when (eq action ':wait)
       (unless (and (realp (getf envelope :payload)) (<= 0 (getf envelope :payload) 1))
         (peer-message--reject ':wait-budget))
@@ -583,7 +589,7 @@
                      (stringp (getf envelope :payload)))
           (peer-message--reject ':event-scope))
         (application-mission-schedule-event application (getf envelope :payload) (getf envelope :id)))
-      (let* ((actor (application-peer-messages--actor application))
+      (let* ((actor   (application-peer-messages--actor application))
              (service (and actor (peer-message-service-find actor))))
         (unless service (peer-message--reject ':peer-scope))
         (peer-message-dispatch service envelope :cancelled-p cancelled-p))))
@@ -599,11 +605,10 @@
 (-> application-peer-messages-close (application) null)
 (defun application-peer-messages-close (application)
   "Close an existing session mailbox on final session finish, not transient daemon handoff."
-  (let* ((actor (application-peer-messages--actor application))
+  (let* ((actor   (application-peer-messages--actor application))
          (service (and actor (peer-message-service-find actor))))
     (when service (peer-message-service-close service)))
   nil)
-
 
 (-> application-peer-messages-recover (application) null)
 (defun application-peer-messages-recover (application)
@@ -622,20 +627,19 @@
                                                  :cancelled-p cancelled-p))))))
   nil)
 
-
 (-> application-peer-messages-ensure (application) null)
 (defun application-peer-messages-ensure (application)
   "Idempotently rebind live authority after registry/agent reconstruction, without replaying deliveries."
   (when (and (slot-boundp application 'agent) (slot-boundp application 'tool-registry)
              (slot-boundp application 'conversation) (slot-boundp application 'configuration))
-    (let* ((owner (application-agent application))
-           (registry (application-tool-registry application))
+    (let* ((owner        (application-agent application))
+           (registry     (application-tool-registry application))
            (orchestrator (and (typep registry 'tool-registry)
                               (tool-registry-runtime-binding registry 'task-orchestrator))))
       (when (and (typep owner 'agent) (not (typep owner 'task-child-agent))
                  (typep orchestrator 'task-orchestrator))
-        (let* ((session (peer-message--actor-session owner))
-               (path (make-pathname :type "peers.sexp" :defaults (conversation-pathname (agent-conversation owner))))
+        (let* ((session     (peer-message--actor-session owner))
+               (path        (make-pathname :type "peers.sexp" :defaults (conversation-pathname (agent-conversation owner))))
                (remote-call (lambda (target envelope &key cancelled-p)
                               (peer-message-daemon-call (application-configuration application) target envelope
                                                         :cancelled-p cancelled-p))))
