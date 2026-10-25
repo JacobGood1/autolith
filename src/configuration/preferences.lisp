@@ -17,9 +17,9 @@ name; unknown keys survive rewrites so releases can share one file.")
 (defun preferences--form-p (form)
   "Return true when FORM is one complete version 8 preferences record."
   (and (record-check form
-                     :tag ':preferences
-                     :versions (list *preferences-version*)
-                     :keyword-keys-p t
+                     :tag                  ':preferences
+                     :versions             (list *preferences-version*)
+                     :keyword-keys-p       t
                      :allow-duplicate-keys t)
        t))
 
@@ -41,15 +41,15 @@ name; unknown keys survive rewrites so releases can share one file.")
 (defun preferences--store (configuration &key recover-read-error)
   "Construct CONFIGURATION's validated transactional preferences store."
   (make-instance 'sexp-store:snapshot-store
-                 :pathname (configuration-preferences-path configuration)
-                 :lock-pathname (merge-pathnames
-                                  "preferences.lock"
-                                  (config :state-root configuration))
-                 :initial-state #'list
-                 :validator #'preferences--form-p
-                 :decoder #'preferences--form->plist
-                 :encoder #'preferences--plist->form
-                 :duplicate-keys ':first
+                 :pathname           (configuration-preferences-path configuration)
+                 :lock-pathname      (merge-pathnames
+                                       "preferences.lock"
+                                       (config :state-root configuration))
+                 :initial-state      #'list
+                 :validator          #'preferences--form-p
+                 :decoder            #'preferences--form->plist
+                 :encoder            #'preferences--plist->form
+                 :duplicate-keys     ':first
                  :recover-read-error recover-read-error))
 
 (-> preferences--read (configuration) list)
@@ -59,12 +59,12 @@ name; unknown keys survive rewrites so releases can share one file.")
       (sexp-store:store-read (preferences--store configuration))
     (sexp-store:store-error (cause)
       (error 'preferences-error
-             :message (format nil "Could not read preferences at ~A: ~A"
-                              (configuration-preferences-path configuration)
-                              cause)
-             :pathname (configuration-preferences-path configuration)
+             :message   (format nil "Could not read preferences at ~A: ~A"
+                                (configuration-preferences-path configuration)
+                                cause)
+             :pathname  (configuration-preferences-path configuration)
              :operation ':read
-             :cause cause))))
+             :cause     cause))))
 
 (defmethod store-read-values ((store preferences-store) configuration)
   "Read CONFIGURATION's durable values from its preferences file."
@@ -90,7 +90,7 @@ return NIL. Reading never repairs or rewrites a corrupt file."
     (preferences-error (condition)
       (warn 'preferences-load-warning
             :pathname (preferences-error-pathname condition)
-            :cause condition)
+            :cause    condition)
       nil)))
 
 (-> preferences-store (configuration keyword t) null)
@@ -110,11 +110,11 @@ return NIL. Reading never repairs or rewrites a corrupt file."
              (values replacement nil t))))
       (sexp-store:store-error (cause)
         (error 'preferences-error
-               :message (format nil "Could not persist preferences at ~A: ~A"
-                                pathname cause)
-               :pathname pathname
+               :message   (format nil "Could not persist preferences at ~A: ~A"
+                                  pathname cause)
+               :pathname  pathname
                :operation ':write
-               :cause cause))))
+               :cause     cause))))
   nil)
 
 (setf *configuration-store* *preferences-store*)
