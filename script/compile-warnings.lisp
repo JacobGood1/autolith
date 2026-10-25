@@ -21,9 +21,12 @@
   "Map supported systems' exact source and translated output paths to source names."
   (let ((paths (make-hash-table :test #+win32 'equalp #-win32 'equal)))
     (labels ((record (path relative)
-               (setf (gethash path paths) relative)
-               (when (probe-file path)
-                 (setf (gethash (probe-file path) paths) relative)))
+               ;; SBCL 2.6.6 EQUALP tables can compare distinct pathname keys by EQ.
+               ;; Namestrings also fold Windows case before the output files exist.
+               (setf (gethash (uiop:native-namestring path) paths) relative)
+               (let ((existing (probe-file path)))
+                 (when existing
+                   (setf (gethash (uiop:native-namestring existing) paths) relative))))
 
              (visit (component)
                (when (typep component 'asdf:cl-source-file)
@@ -45,7 +48,8 @@
   "Return the owned source name for the current compilation or load, or NIL."
   ;; A dependency compilation nested in a project load belongs to the compiled
   ;; file, not to the enclosing load. Output paths come from ASDF, not suffixes.
-  (gethash (or *compile-file-truename* *load-truename*) owned-paths))
+  (let ((path (or *compile-file-truename* *load-truename*)))
+    (and path (gethash (uiop:native-namestring path) owned-paths))))
 
 (defun compile-warnings--line (source-root path)
   "Return the source line of the form the compiler is processing in PATH, or NIL."

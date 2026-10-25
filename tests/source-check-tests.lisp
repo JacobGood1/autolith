@@ -411,14 +411,19 @@
      root "src/end.lisp"
      "(let ((*compile-file-truename* nil) (*load-truename* nil))
         (warn \"unattributed diagnostic marker\"))")
-    (let* ((findings (source-warning-run-finish
-                      (source-warning-run-start
-                       root :command   (list (lisp-worker-sbcl-command) "--script")
-                            :directory (merge-pathnames "run/" root))))
-           (project  (remove-if-not
-                      (lambda (finding)
-                        (equal (source-finding-path finding) "src/project.lisp"))
-                      findings)))
+    ;; On a case-insensitive filesystem, request an existing directory with a
+    ;; different spelling. Its new FASLs acquire the on-disk directory case.
+    (let* ((existing  (ensure-directories-exist (merge-pathnames "Run/" root)))
+           (requested (merge-pathnames "run/" root))
+           (directory (if (probe-file requested) requested existing))
+           (findings  (source-warning-run-finish
+                       (source-warning-run-start
+                        root :command   (list (lisp-worker-sbcl-command) "--script")
+                             :directory directory)))
+           (project   (remove-if-not
+                       (lambda (finding)
+                         (equal (source-finding-path finding) "src/project.lisp"))
+                       findings)))
       (dolist (marker '("project compile marker" "project load marker"))
         (test-assert (some (lambda (finding)
                              (search marker (source-finding-message finding)))
