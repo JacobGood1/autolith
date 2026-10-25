@@ -443,11 +443,9 @@ that worker, while cancellation after a completed request leaves the REPL intact
               :message   (format nil "~A target must be worker or self." tool-name)
               :tool-name tool-name)))))
 
-(-> lisp-describe-active-image (tool-context hash-table) tool-result)
 (defgeneric lisp-describe-active-image (context arguments)
   (:documentation "Describe one active-image symbol selected by ARGUMENTS."))
 
-(-> lisp-source-active-image (tool-context hash-table) tool-result)
 (defgeneric lisp-source-active-image (context arguments)
   (:documentation "Read active-image source selected by ARGUMENTS."))
 
