@@ -1,6 +1,5 @@
 (in-package #:autolith)
 
-
 (define-condition mcp-server-startup-error
     (mcparen:mcp-managed-server-error autolith-error)
     ((server-name :initarg :server-name :reader mcp-server-startup-error-server-name
@@ -14,32 +13,32 @@
 
 (define-condition mcp-environment-unavailable (mcp-server-startup-error)
   ((variable
-    :initarg :variable
-    :reader mcp-environment-unavailable-variable
-    :type string
+    :initarg       :variable
+    :reader        mcp-environment-unavailable-variable
+    :type          string
     :documentation "The missing parent environment variable name."))
   (:documentation "An environment-backed MCP value is unavailable."))
 
 (define-condition mcp-aggregate-budget-exceeded (mcp-server-startup-error)
   ((resource
-    :initarg :resource
-    :reader mcp-aggregate-budget-exceeded-resource
-    :type keyword
+    :initarg       :resource
+    :reader        mcp-aggregate-budget-exceeded-resource
+    :type          keyword
     :documentation "The aggregate resource that overflowed, currently input schema bytes.")
    (allocated
-    :initarg :allocated
-    :reader mcp-aggregate-budget-exceeded-allocated
-    :type (integer 0)
+    :initarg       :allocated
+    :reader        mcp-aggregate-budget-exceeded-allocated
+    :type          (integer 0)
     :documentation "The budget already allocated to higher-priority servers.")
    (requested
-    :initarg :requested
-    :reader mcp-aggregate-budget-exceeded-requested
-    :type (integer 0)
+    :initarg       :requested
+    :reader        mcp-aggregate-budget-exceeded-requested
+    :type          (integer 0)
     :documentation "The additional budget requested by the failing server.")
    (limit
-    :initarg :limit
-    :reader mcp-aggregate-budget-exceeded-limit
-    :type (integer 0)
+    :initarg       :limit
+    :reader        mcp-aggregate-budget-exceeded-limit
+    :type          (integer 0)
     :documentation "The configured aggregate budget limit."))
   (:documentation "An MCP server exceeded one manager-wide discovery budget."))
 
@@ -142,18 +141,18 @@
              (mcp-server-configuration-name configuration)
              source)
      :server-name (mcp-server-configuration-name configuration)
-     :required-p (mcp-server-configuration-required-p configuration)
-     :cause nil
-     :variable source)))
+     :required-p  (mcp-server-configuration-required-p configuration)
+     :cause       nil
+     :variable    source)))
 
 (-> mcp-tools--resolve-environment-snapshot
     (mcp-server-configuration)
     (values list (option mcp-environment-unavailable)))
 (defun mcp-tools--resolve-environment-snapshot (configuration)
   "Resolve CONFIGURATION bindings once and report the first missing value."
-  (let ((snapshot nil)
+  (let ((snapshot          nil)
         (missing-condition nil)
-        (source-values (make-hash-table :test #'equal)))
+        (source-values     (make-hash-table :test #'equal)))
     (dolist (binding (mcp-tools--credential-bindings configuration))
       (let* ((source (mcp-environment-binding-source binding))
              (value
@@ -258,10 +257,10 @@
            (let* ((credential-values
                     (mcp-tools--snapshot-credential-values snapshot))
                   (*mcp-active-environment-configuration* configuration)
-                  (*mcp-active-environment-snapshot* snapshot)
+                  (*mcp-active-environment-snapshot*      snapshot)
                   (*mcp-active-environment-missing-condition*
                     missing-condition)
-                  (*mcp-active-credential-values* credential-values)
+                  (*mcp-active-credential-values*         credential-values)
                   (*mcp-active-credential-redaction-marker*
                     (safe-redaction-marker
                      *mcp-credential-redaction-marker*
@@ -291,11 +290,10 @@
                        (mcp-server-configuration-name configuration)
                        cause)))))
     (error 'mcp-server-startup-error
-           :message sanitized-message
+           :message     sanitized-message
            :server-name (mcp-server-configuration-name configuration)
-           :required-p (mcp-server-configuration-required-p configuration)
-           :cause sanitized-cause)))
-
+           :required-p  (mcp-server-configuration-required-p configuration)
+           :cause       sanitized-cause)))
 
 ;;;; -- Transport Materialization --
 
@@ -358,7 +356,7 @@
           (copy-list
            (mcp-stdio-configuration-environment-bindings transport))))
     (lambda ()
-      (let ((environment (list "AUTOLITH_MCP=1"))
+      (let ((environment        (list "AUTOLITH_MCP=1"))
             (mapped-environment nil))
         (dolist (name *mcp-stdio-inherited-environment-names*)
           (let ((value (uiop:getenv name)))
@@ -371,7 +369,7 @@
                   (remove target
                           environment
                           :test #'string=
-                          :key #'mcp-tools--environment-entry-name))
+                          :key  #'mcp-tools--environment-entry-name))
             (let ((value
                     (mcp-tools--environment-value
                      configuration binding)))
@@ -400,7 +398,7 @@
      value)
     (:request
      (let ((identifier (json-get value "id" :absent))
-           (method (json-get value "method")))
+           (method     (json-get value "method")))
        (when (and (or (integerp identifier)
                       (stringp identifier))
                   (stringp method)
@@ -446,17 +444,17 @@
     (server-configuration configuration transport)
   "Resolve TRANSPORT's configured directory against CONFIGURATION."
   (let* ((configured (mcp-stdio-configuration-directory transport))
-         (workspace (config :working-directory configuration))
+         (workspace  (config :working-directory configuration))
          (candidate
            (if (eq configured :workspace)
                workspace
                (uiop:ensure-pathname
                 (uiop:ensure-directory-pathname (platform-pathname configured))
-                :defaults workspace
-                :ensure-absolute t
+                :defaults         workspace
+                :ensure-absolute  t
                 :ensure-directory t
-                :want-directory t
-                :want-existing t))))
+                :want-directory   t
+                :want-existing    t))))
     (unless (uiop:directory-exists-p candidate)
       (mcp-tools--server-error
        server-configuration
@@ -483,7 +481,7 @@
   (declare (ignore exchange-scope-function))
   (make-mcp-stdio-transport
    (mcp-stdio-configuration-command transport)
-   :arguments (mcp-stdio-configuration-arguments transport)
+   :arguments            (mcp-stdio-configuration-arguments transport)
    :directory
    (lambda ()
      (mcp-tools--stdio-directory
@@ -527,7 +525,7 @@
    (mcp-server-configuration-transport server-configuration)
    server-configuration
    configuration
-   :notification-handler notification-handler
+   :notification-handler    notification-handler
    :exchange-scope-function exchange-scope-function))
 
 (-> mcp-tools--client
@@ -542,9 +540,9 @@
   (make-mcp-client
    (mcp-tools--transport
     server-configuration configuration
-    :notification-handler notification-handler
+    :notification-handler    notification-handler
     :exchange-scope-function exchange-scope-function)
-   :name "autolith"
+   :name    "autolith"
    :version *autolith-version*
    :startup-timeout
    (mcp-server-configuration-startup-timeout-seconds server-configuration)
@@ -597,7 +595,6 @@
              :message (cl-llm-provider-api:provider-tool-identifier-error-reason
                        condition)))))
 
-
 (defclass mcp-server-runtime (mcparen:mcp-managed-server)
           ((configuration :initarg :configuration :reader
             mcp-server-runtime-configuration :type mcp-server-configuration
@@ -611,7 +608,6 @@
           (:documentation
            "Autolith configuration and provider namespace for a managed MCP server."))
 
-
 (defclass mcp-manager (mcparen:mcp-connection-manager)
           ((configuration :initarg :configuration :reader mcp-manager-configuration
             :type configuration :documentation "The active Autolith configuration."))
@@ -620,25 +616,24 @@
 
 (defclass mcp-registry-binding ()
   ((manager
-    :initarg :manager
-    :reader mcp-registry-binding-manager
-    :type mcp-manager
+    :initarg       :manager
+    :reader        mcp-registry-binding-manager
+    :type          mcp-manager
     :documentation "The shared MCP manager visible through this registry.")
    (reconciled-revisions
-    :initarg :reconciled-revisions
-    :initform nil
-    :accessor mcp-registry-binding-reconciled-revisions
-    :type list
+    :initarg       :reconciled-revisions
+    :initform      nil
+    :accessor      mcp-registry-binding-reconciled-revisions
+    :type          list
     :documentation "Runtime tool revisions already projected into the registry.")
    (provider-tool-predicate
     :initarg :provider-tool-predicate
-    :reader mcp-registry-binding-provider-tool-predicate
-    :type function
+    :reader  mcp-registry-binding-provider-tool-predicate
+    :type    function
     :documentation
     "The registry-specific capability predicate for discovered provider tools."))
   (:documentation
    "Per-registry MCP reconciliation state for one shared runtime manager."))
-
 
 (defmethod mcparen:mcp-server-runtime-name ((runtime mcp-server-runtime))
   "Return RUNTIME's raw configured server name."
@@ -647,8 +642,8 @@
 (-> mcp-tools--policy-annotations (mcp-tool) (option hash-table))
 (defun mcp-tools--policy-annotations (tool)
   "Retain only TOOL annotation booleans used by Autolith call policy."
-  (let ((source (mcp-tool-annotations tool))
-        (retained (json-object))
+  (let ((source    (mcp-tool-annotations tool))
+        (retained  (json-object))
         (present-p nil))
     (when (hash-table-p source)
       (dolist (key '("readOnlyHint" "destructiveHint"))
@@ -666,11 +661,11 @@
     mcp-tool)
 (defun mcp-tools--sanitize-tool (tool &key input-schema)
   "Return a minimal detached MCP TOOL containing only fields Autolith uses."
-  (let ((description (mcp-tool-description tool))
+  (let ((description  (mcp-tool-description tool))
         (task-support (mcp-tool-task-support tool)))
     (make-instance
      'mcp-tool
-     :name (mcp-tools--sanitize-string (mcp-tool-name tool))
+     :name  (mcp-tools--sanitize-string (mcp-tool-name tool))
      :title (mcp-tools--sanitize-value (mcp-tool-title tool))
      :description
      (if (stringp description)
@@ -711,7 +706,7 @@
 
 Server instructions are deliberately retained verbatim; every other
 retained value is credential-redacted or projected."
-  (let* ((client (mcp-server-runtime-client runtime))
+  (let* ((client    (mcp-server-runtime-client runtime))
          (transport (mcp-client-transport client)))
     (setf (mcp-client-server-capabilities client)
           (mcp-tools--project-capabilities
@@ -742,7 +737,7 @@ retained value is credential-redacted or projected."
 (-> mcp-tools--clear-client-server-state (mcp-server-runtime) null)
 (defun mcp-tools--clear-client-server-state (runtime)
   "Forget every server-controlled value retained by RUNTIME's client."
-  (let* ((client (mcp-server-runtime-client runtime))
+  (let* ((client    (mcp-server-runtime-client runtime))
          (transport (mcp-client-transport client)))
     (setf (mcp-client-instructions client) nil
           (mcp-client-server-capabilities client) nil
@@ -780,9 +775,9 @@ retained value is credential-redacted or projected."
   (mcp-tools--call-with-server-secret-use
    (mcp-server-runtime-configuration runtime)
    (lambda ()
-     (let ((*mcp-stdio-launch-environment-observed-p* nil)
+     (let ((*mcp-stdio-launch-environment-observed-p*  nil)
            (*mcp-stdio-launch-environment-fingerprint* nil)
-           (completed-p nil))
+           (completed-p                                nil))
        (unwind-protect
             (multiple-value-prog1
                 (handler-case
@@ -818,13 +813,13 @@ retained value is credential-redacted or projected."
 (defun mcp-tools--call-cleanup-with-snapshot
     (runtime function &key snapshot missing-condition)
   "Call cleanup FUNCTION with SNAPSHOT available only for exact redaction."
-  (let* ((configuration (mcp-server-runtime-configuration runtime))
+  (let* ((configuration                              (mcp-server-runtime-configuration runtime))
          (credential-values
            (mcp-tools--snapshot-credential-values snapshot))
-         (*mcp-active-environment-configuration* configuration)
-         (*mcp-active-environment-snapshot* snapshot)
+         (*mcp-active-environment-configuration*     configuration)
+         (*mcp-active-environment-snapshot*          snapshot)
          (*mcp-active-environment-missing-condition* missing-condition)
-         (*mcp-active-credential-values* credential-values)
+         (*mcp-active-credential-values*             credential-values)
          (*mcp-active-credential-redaction-marker*
            (safe-redaction-marker
             *mcp-credential-redaction-marker*
@@ -842,7 +837,7 @@ retained value is credential-redacted or projected."
     (if (eq configuration *mcp-active-environment-configuration*)
         (mcp-tools--call-cleanup-with-snapshot
          runtime function
-         :snapshot *mcp-active-environment-snapshot*
+         :snapshot          *mcp-active-environment-snapshot*
          :missing-condition *mcp-active-environment-missing-condition*)
         (call-with-secret-use
          (lambda ()
@@ -850,7 +845,7 @@ retained value is credential-redacted or projected."
                (mcp-tools--resolve-environment-snapshot configuration)
              (mcp-tools--call-cleanup-with-snapshot
               runtime function :snapshot snapshot
-              :missing-condition missing-condition)))))))
+              :missing-condition         missing-condition)))))))
 
 (-> mcp-tools--aggregate-budget-error
     (mcp-server-runtime
@@ -865,7 +860,8 @@ retained value is credential-redacted or projected."
   (let* ((configuration (mcp-server-runtime-configuration runtime))
          (label
            (ecase resource
-             (:input-schema-bytes "encoded input schema bytes")))
+             (:input-schema-bytes
+              "encoded input schema bytes")))
          (message
            (format nil
                    "MCP server ~A exceeds the manager-wide ~A limit of ~:D: ~:D already allocated, ~:D requested."
@@ -875,15 +871,15 @@ retained value is credential-redacted or projected."
                    allocated
                    requested)))
     (error 'mcp-aggregate-budget-exceeded
-           :message message
+           :message     message
            :server-name (mcp-server-runtime-name runtime)
            :required-p
            (mcp-server-configuration-required-p configuration)
-           :cause nil
-           :resource resource
-           :allocated allocated
-           :requested requested
-           :limit limit)))
+           :cause       nil
+           :resource    resource
+           :allocated   allocated
+           :requested   requested
+           :limit       limit)))
 
 (-> mcp-tools--provider-schema
     (mcp-server-runtime t)
@@ -893,11 +889,11 @@ retained value is credential-redacted or projected."
   (handler-case
       (mcparen:mcp-validate-input-schema
        schema
-       :maximum-bytes *mcp-maximum-tool-schema-bytes*
-       :maximum-depth *mcp-maximum-tool-schema-depth*
-       :maximum-nodes *mcp-maximum-tool-schema-nodes*
+       :maximum-bytes             *mcp-maximum-tool-schema-bytes*
+       :maximum-depth             *mcp-maximum-tool-schema-depth*
+       :maximum-nodes             *mcp-maximum-tool-schema-nodes*
        :maximum-string-characters *mcp-maximum-tool-schema-string-characters*
-       :maximum-key-characters 256)
+       :maximum-key-characters    256)
     (mcparen:mcp-input-schema-error (condition)
       (mcp-tools--server-error
        (mcp-server-runtime-configuration runtime)
@@ -915,8 +911,8 @@ retained value is credential-redacted or projected."
          (mcp-server-runtime-configuration runtime) tool
          (format nil "MCP server ~A advertised invalid tool metadata."
                  (mcp-server-runtime-name runtime))))
-      (let ((name (mcp-tool-name tool))
-            (title (mcp-tool-title tool))
+      (let ((name        (mcp-tool-name tool))
+            (title       (mcp-tool-title tool))
             (description (mcp-tool-description tool)))
         (unless (and (stringp name) (plusp (length name))
                      (<= (length name) *mcp-maximum-tool-name-characters*))
@@ -958,12 +954,10 @@ retained value is credential-redacted or projected."
   "Return server NAME from MANAGER or signal a tool error."
   (or (mcp-manager-runtime manager name)
       (error 'tool-error
-             :message (format nil "MCP server ~S is not configured." name)
+             :message   (format nil "MCP server ~S is not configured." name)
              :tool-name "mcp")))
 
 (-> mcp-manager-create (configuration) mcp-manager)
-
-
 (defun mcp-manager-create (configuration)
   "Materialize registered server policy and eagerly discover shared connections."
   (let* ((registrations (mcp-server-registrations))
@@ -980,11 +974,11 @@ retained value is credential-redacted or projected."
       (lambda (registration)
         (lambda ()
           (let* ((server (mcp-server-registration-configuration registration))
-                 (name (mcp-server-configuration-name server)))
+                 (name   (mcp-server-configuration-name server)))
             (make-instance 'mcp-server-runtime :configuration server
                            :registration-source
                            (mcp-server-registration-source registration)
-                           :provider-namespace (gethash name namespace-map)
+                           :provider-namespace                (gethash name namespace-map)
                            :client-factory
                            (lambda (runtime notification-handler)
                              (mcp-tools--client server configuration
@@ -1003,38 +997,38 @@ retained value is credential-redacted or projected."
 
 (defclass mcp-managed-tool ()
   ((manager
-    :initarg :manager
-    :reader mcp-managed-tool-manager
-    :type mcp-manager
+    :initarg       :manager
+    :reader        mcp-managed-tool-manager
+    :type          mcp-manager
     :documentation "The shared MCP lifecycle owner."))
   (:documentation "A tool whose ephemeral resources belong to an MCP manager."))
 
 (defclass mcp-provider-tool (mcp-managed-tool tool)
   ((runtime
-    :initarg :runtime
-    :reader mcp-provider-tool-runtime
-    :type mcp-server-runtime
+    :initarg       :runtime
+    :reader        mcp-provider-tool-runtime
+    :type          mcp-server-runtime
     :documentation "The server runtime dispatching this tool.")
    (raw-tool
-    :initarg :raw-tool
-    :reader mcp-provider-tool-raw-tool
-    :type mcp-tool
+    :initarg       :raw-tool
+    :reader        mcp-provider-tool-raw-tool
+    :type          mcp-tool
     :documentation "The exact server-advertised MCP tool metadata.")
    (approval-policy
-    :initarg :approval-policy
-    :reader mcp-provider-tool-approval-policy
-    :type keyword
+    :initarg       :approval-policy
+    :reader        mcp-provider-tool-approval-policy
+    :type          keyword
     :documentation "The configured external-action approval policy.")
    (trusted-read-only-p
     :initarg :trusted-read-only-p
-    :reader mcp-provider-tool-trusted-read-only-p
-    :type boolean
+    :reader  mcp-provider-tool-trusted-read-only-p
+    :type    boolean
     :documentation
     "Whether the user trusts this exact raw tool's read-only annotations.")
    (child-safe-p
-    :initarg :child-safe-p
-    :reader mcp-provider-tool-configured-child-safe-p
-    :type boolean
+    :initarg       :child-safe-p
+    :reader        mcp-provider-tool-configured-child-safe-p
+    :type          boolean
     :documentation "Whether this exact raw tool is explicitly granted to children."))
   (:documentation "An ordinary Autolith tool backed by one raw MCP tool."))
 
@@ -1181,16 +1175,15 @@ retained value is credential-redacted or projected."
 
 (defclass mcp-content-result (tool-result)
   ((sections
-    :initarg :sections
-    :reader mcp-content-result-sections
-    :type list
+    :initarg       :sections
+    :reader        mcp-content-result-sections
+    :type          list
     :documentation "Ordered content kinds and character ranges in the result text."))
   (:documentation "An MCP outcome retaining content boundaries for transcript replay."))
 
 (defmethod tool-result-details ((result mcp-content-result))
   "Persist content boundaries without duplicating result text or image data."
   (list :mcp-content :sections (mcp-content-result-sections result)))
-
 
 (defmethod tool-contract--prefix-details ((result mcp-content-result) length)
   "Keep MCP section ranges within the external prefix retained before a diagnostic."
@@ -1213,7 +1206,7 @@ retained value is credential-redacted or projected."
   "Return JSON array VALUE as a list without accepting Lisp list stand-ins."
   (unless (vectorp value)
     (error 'tool-error
-           :message "An MCP result contains a value where an array is required."
+           :message   "An MCP result contains a value where an array is required."
            :tool-name "mcp"))
   (coerce value 'list))
 
@@ -1265,7 +1258,7 @@ retained value is credential-redacted or projected."
                :name (format nil ".mcp-incoming-~A" identifier)
                :type extension)
               root))
-           (prepared nil)
+           (prepared   nil)
            (attachment nil))
       (ensure-directories-exist temporary)
       (platform-make-private *platform* root)
@@ -1274,10 +1267,10 @@ retained value is credential-redacted or projected."
                (let ((bytes (base64-string-to-usb8-array encoded)))
                  (with-open-file
                      (stream temporary
-                             :direction ':output
-                             :element-type '(unsigned-byte 8)
+                             :direction         ':output
+                             :element-type      '(unsigned-byte 8)
                              :if-does-not-exist ':create
-                             :if-exists ':error)
+                             :if-exists         ':error)
                    (write-sequence bytes stream)
                    (finish-output stream))
                  (setf prepared (image-input-prepare temporary root))
@@ -1285,12 +1278,12 @@ retained value is credential-redacted or projected."
                   attachment
                   (make-instance
                    'image-attachment
-                   :identifier (image-attachment-identifier prepared)
-                   :pathname (image-attachment-pathname prepared)
+                   :identifier  (image-attachment-identifier prepared)
+                   :pathname    (image-attachment-pathname prepared)
                    :source-name source-name
-                   :mime-type (image-attachment-mime-type prepared)
-                   :width (image-attachment-width prepared)
-                   :height (image-attachment-height prepared))))
+                   :mime-type   (image-attachment-mime-type prepared)
+                   :width       (image-attachment-width prepared)
+                   :height      (image-attachment-height prepared))))
              (tool-error (condition)
                (error condition))
              (error (cause)
@@ -1314,10 +1307,10 @@ retained value is credential-redacted or projected."
 (defun mcp-tools--resource-content
     (context resource &key source-name index include-images-p)
   "Render one embedded RESOURCE and optionally return its image attachment."
-  (let* ((uri (json-get resource "uri"))
+  (let* ((uri       (json-get resource "uri"))
          (mime-type (json-get resource "mimeType"))
-         (text (json-get resource "text"))
-         (blob (json-get resource "blob"))
+         (text      (json-get resource "text"))
+         (blob      (json-get resource "blob"))
          (heading
            (format nil "Resource ~A~@[ (~A)~]"
                    (or uri "without URI")
@@ -1333,9 +1326,9 @@ retained value is credential-redacted or projected."
         (format nil "~A~%[Image #~D]" heading index)
         (mcp-tools--image-attachment
          context blob
-         :mime-type mime-type
+         :mime-type   mime-type
          :source-name source-name
-         :index index)))
+         :index       index)))
       ((stringp blob)
        (values
         (format nil "~A~%[Binary payload: ~:D base64 characters]"
@@ -1364,8 +1357,8 @@ retained value is credential-redacted or projected."
        (mcp-tools--resource-content
         context
         (json-get block "resource")
-        :source-name source-name
-        :index index
+        :source-name      source-name
+        :index            index
         :include-images-p include-images-p))
       ((and (string= (or type "") "image")
             (stringp (json-get block "data"))
@@ -1377,9 +1370,9 @@ retained value is credential-redacted or projected."
                     (json-get block "mimeType"))
             (mcp-tools--image-attachment
              context (json-get block "data")
-             :mime-type (json-get block "mimeType")
+             :mime-type   (json-get block "mimeType")
              :source-name source-name
-             :index index))
+             :index       index))
            (values
             (format nil "[Image #~D omitted from an MCP error result: ~A]"
                     index
@@ -1398,7 +1391,7 @@ retained value is credential-redacted or projected."
 
 (-> mcp-tools--render-content
     (tool-context list string &key (:structured-content t)
-                                     (:include-images-p boolean))
+                                   (:include-images-p boolean))
     (values string list list list))
 (defun mcp-tools--render-content
     (context blocks source-name
@@ -1410,24 +1403,24 @@ retained value is credential-redacted or projected."
            (format nil "An MCP result exceeds the ~D content-block limit."
                    *mcp-maximum-content-blocks*)
            :tool-name "mcp"))
-  (let ((sections nil)
-        (attachments nil)
+  (let ((sections        nil)
+        (attachments     nil)
         (provider-blocks nil)
-        (index 0)
-        (complete-p nil))
+        (index           0)
+        (complete-p      nil))
     (unwind-protect
          (progn
            (dolist (block blocks)
              (unless (hash-table-p block)
                (error 'tool-error
-                      :message "An MCP content block is not an object."
+                      :message   "An MCP content block is not an object."
                       :tool-name "mcp"))
              (incf index)
              (multiple-value-bind (section attachment)
                  (mcp-tools--content-block
                   context block
-                  :source-name source-name
-                  :index index
+                  :source-name      source-name
+                  :index            index
                   :include-images-p include-images-p)
                (push section sections)
                (if attachment
@@ -1445,34 +1438,34 @@ retained value is credential-redacted or projected."
                              (json-encode structured-content))))
                (push section sections)
                (push section provider-blocks)))
-            (let* ((ordered-sections (nreverse sections))
-                   (rendered-text (format nil "~{~A~^~2%~}" ordered-sections))
-                   (rendered-bytes
-                     (length
-                      (utf8-string-to-octets
-                       rendered-text))))
-              (when (> rendered-bytes *mcp-maximum-result-text-bytes*)
-                (error 'tool-error
-                       :message
-                       (format nil
-                               "An MCP result exceeds the ~:D-byte text limit; request a narrower result."
-                               *mcp-maximum-result-text-bytes*)
-                       :tool-name "mcp"))
-              (setf complete-p t)
-              (values rendered-text
-                      (nreverse attachments)
-                      (nreverse provider-blocks)
-                      (loop for tail on ordered-sections
-                            for section = (first tail)
-                            for structured-p = (and structured-content
-                                                    (null (rest tail)))
-                            for start = 0 then (+ end 2)
-                            for end = (+ start (length section))
-                            collect (list (if structured-p ':structured ':text)
-                                          (if structured-p
-                                              (+ start (length "Structured content:") 1)
-                                              start)
-                                          end)))))
+           (let* ((ordered-sections (nreverse sections))
+                  (rendered-text    (format nil "~{~A~^~2%~}" ordered-sections))
+                  (rendered-bytes
+                    (length
+                     (utf8-string-to-octets
+                      rendered-text))))
+             (when (> rendered-bytes *mcp-maximum-result-text-bytes*)
+               (error 'tool-error
+                      :message
+                      (format nil
+                              "An MCP result exceeds the ~:D-byte text limit; request a narrower result."
+                              *mcp-maximum-result-text-bytes*)
+                      :tool-name "mcp"))
+             (setf complete-p t)
+             (values rendered-text
+                     (nreverse attachments)
+                     (nreverse provider-blocks)
+                     (loop for tail on ordered-sections
+                           for section = (first tail)
+                           for structured-p = (and structured-content
+                                                   (null (rest tail)))
+                           for start = 0 then (+ end 2)
+                           for end = (+ start (length section))
+                           collect (list (if structured-p ':structured ':text)
+                                         (if structured-p
+                                             (+ start (length "Structured content:") 1)
+                                             start)
+                                         end)))))
       (unless complete-p
         (conversation--delete-image-attachments attachments)))))
 
@@ -1541,8 +1534,6 @@ retained value is credential-redacted or projected."
           (:list-function function)
           (:item-label string))
     tool-result)
-
-
 (defun mcp-tools--server-list-result
        (manager &key server-name list-function item-label)
   "Render library discovery observations according to Autolith result policy."
@@ -1553,7 +1544,7 @@ retained value is credential-redacted or projected."
     (let* ((sections
             (mapcar
              (lambda (entry)
-               (let ((name (mcp-server-runtime-name (first entry)))
+               (let ((name  (mcp-server-runtime-name (first entry)))
                      (items (rest entry)))
                  (if items
                      (format nil "~A~%~{  ~A~^~%~}" name
@@ -1581,9 +1572,9 @@ retained value is credential-redacted or projected."
   (declare (ignore context))
   (mcp-tools--server-list-result
    (mcp-managed-tool-manager tool)
-   :server-name (tool-argument arguments "server")
+   :server-name   (tool-argument arguments "server")
    :list-function #'mcp-client-list-resources
-   :item-label "resources"))
+   :item-label    "resources"))
 
 (defmethod tool-execute
     ((tool mcp-resource-templates-tool)
@@ -1593,9 +1584,9 @@ retained value is credential-redacted or projected."
   (declare (ignore context))
   (mcp-tools--server-list-result
    (mcp-managed-tool-manager tool)
-   :server-name (tool-argument arguments "server")
+   :server-name   (tool-argument arguments "server")
    :list-function #'mcp-client-list-resource-templates
-   :item-label "resource templates"))
+   :item-label    "resource templates"))
 
 (defmethod tool-execute
     ((tool mcp-read-resource-tool)
@@ -1611,7 +1602,7 @@ retained value is credential-redacted or projected."
             server-name)))
     (unless (non-empty-string-p uri)
       (error 'tool-error
-             :message "MCP resource URI must be a non-empty string."
+             :message   "MCP resource URI must be a non-empty string."
              :tool-name "mcp.read-resource"))
     (handler-case
         (mcparen:mcp-server-runtime-call
@@ -1651,9 +1642,9 @@ retained value is credential-redacted or projected."
   (declare (ignore context))
   (mcp-tools--server-list-result
    (mcp-managed-tool-manager tool)
-   :server-name (tool-argument arguments "server")
+   :server-name   (tool-argument arguments "server")
    :list-function #'mcp-client-list-prompts
-   :item-label "prompts"))
+   :item-label    "prompts"))
 
 (-> mcp-tools--prompt-result
     (tool-context hash-table string)
@@ -1661,7 +1652,7 @@ retained value is credential-redacted or projected."
 (defun mcp-tools--prompt-result (context result source-name)
   "Project a resolved MCP prompt RESULT into ordered provider content."
   (let ((description (json-get result "description"))
-        (messages (json-get result "messages")))
+        (messages    (json-get result "messages")))
     (unless (and (or (null description) (stringp description))
                  (vectorp messages)
                  (<= (length messages) *mcp-maximum-content-blocks*))
@@ -1671,11 +1662,11 @@ retained value is credential-redacted or projected."
                      "An MCP prompt result has invalid description or more than ~D messages."
                      *mcp-maximum-content-blocks*)
              :tool-name "mcp.get-prompt"))
-    (let ((sections nil)
+    (let ((sections        nil)
           (provider-blocks nil)
-          (attachments nil)
-          (index 0)
-          (complete-p nil))
+          (attachments     nil)
+          (index           0)
+          (complete-p      nil))
       (unwind-protect
            (progn
              (when (non-empty-string-p description)
@@ -1689,7 +1680,7 @@ retained value is credential-redacted or projected."
                                :message
                                "An MCP prompt message is not an object."
                                :tool-name "mcp.get-prompt"))
-                      (let ((role (json-get message "role"))
+                      (let ((role    (json-get message "role"))
                             (content (json-get message "content")))
                         (unless (and (non-empty-string-p role)
                                      (hash-table-p content))
@@ -1702,8 +1693,8 @@ retained value is credential-redacted or projected."
                             (mcp-tools--content-block
                              context
                              content
-                             :source-name source-name
-                             :index index
+                             :source-name      source-name
+                             :index            index
                              :include-images-p t)
                           (let ((heading
                                   (format nil
@@ -1744,8 +1735,8 @@ retained value is credential-redacted or projected."
      (context tool-context)
      (arguments hash-table))
   "Resolve one exact MCP prompt and return its complete portable result."
-  (let* ((server-name (tool-argument arguments "server" :required t))
-         (name (tool-argument arguments "name" :required t))
+  (let* ((server-name      (tool-argument arguments "server" :required t))
+         (name             (tool-argument arguments "name" :required t))
          (prompt-arguments (tool-argument arguments "arguments"))
          (runtime
            (mcp-manager--runtime-required
@@ -1753,7 +1744,7 @@ retained value is credential-redacted or projected."
             server-name)))
     (unless (non-empty-string-p name)
       (error 'tool-error
-             :message "MCP prompt name must be a non-empty string."
+             :message   "MCP prompt name must be a non-empty string."
              :tool-name "mcp.get-prompt"))
     (when prompt-arguments
       (unless (and
@@ -1810,14 +1801,12 @@ retained value is credential-redacted or projected."
   (count-if #'mcp-tool-task-required-p tools))
 
 (-> mcp-manager-status-records (mcp-manager) list)
-
-
 (defun mcp-manager-status-records (manager)
   "Project detached discovery snapshots with Autolith configuration metadata."
   (mapcar
    (lambda (runtime snapshot)
-     (let* ((configuration (mcp-server-runtime-configuration runtime))
-            (tools (mcparen:mcp-discovery-snapshot-tools snapshot))
+     (let* ((configuration       (mcp-server-runtime-configuration runtime))
+            (tools               (mcparen:mcp-discovery-snapshot-tools snapshot))
             (task-required-count (mcp-tools--task-required-tool-count tools)))
        (list :name (mcparen:mcp-discovery-snapshot-name snapshot) :source
              (mcp-server-runtime-registration-source runtime) :transport
@@ -1867,7 +1856,7 @@ retained value is credential-redacted or projected."
 (-> mcp-tools--bounded-server-instructions (string) string)
 (defun mcp-tools--bounded-server-instructions (instructions)
   "Bound untrusted MCP server INSTRUCTIONS for request-local evidence."
-  (let* ((limit *context-contribution-evidence-limit*)
+  (let* ((limit  *context-contribution-evidence-limit*)
          (notice (format nil "~%... [MCP server instructions truncated]")))
     (if (<= (length instructions) limit)
         instructions
@@ -1881,7 +1870,7 @@ retained value is credential-redacted or projected."
 (-> mcp-tool-registry-context-contributions (tool-registry) list)
 (defun mcp-tool-registry-context-contributions (registry)
   "Return bounded untrusted MCP server instructions for one provider request."
-  (let ((manager (mcp-tool-registry-manager registry))
+  (let ((manager       (mcp-tool-registry-manager registry))
         (contributions nil))
     (when manager
       (dolist (runtime (mcp-manager-runtimes manager))
@@ -1925,7 +1914,7 @@ retained value is credential-redacted or projected."
   (let ((registry (tool-context-registry context)))
     (unless (typep registry 'tool-registry)
       (error 'tool-error
-             :message "mcp.refresh requires the active tool registry."
+             :message   "mcp.refresh requires the active tool registry."
              :tool-name "mcp.refresh"))
     (handler-case
         (progn
@@ -1947,7 +1936,7 @@ retained value is credential-redacted or projected."
    ':mcp
    (make-instance
     'mcp-registry-binding
-    :manager manager
+    :manager                 manager
     :provider-tool-predicate provider-tool-predicate)))
 
 (-> mcp-tool-registry-binding
@@ -1989,7 +1978,7 @@ retained value is credential-redacted or projected."
                      'mcp-provider-tool
                      :namespace
                      (mcp-server-runtime-provider-namespace runtime)
-                     :name (gethash raw-name name-map)
+                     :name     (gethash raw-name name-map)
                      :description
                      (if (non-empty-string-p
                           (mcp-tool-description raw-tool))
@@ -2001,8 +1990,8 @@ retained value is credential-redacted or projected."
                      (mcp-tools--provider-schema
                       runtime
                       (mcp-tool-input-schema raw-tool))
-                     :manager manager
-                     :runtime runtime
+                     :manager  manager
+                     :runtime  runtime
                      :raw-tool raw-tool
                      :approval-policy
                      (mcp-server-configuration-approval-policy
@@ -2045,11 +2034,11 @@ retained value is credential-redacted or projected."
            (if predicate
                (remove-if-not predicate replacements)
                nil))
-         (seen (make-hash-table :test #'equal)))
+         (seen    (make-hash-table :test #'equal)))
     (unless (and binding
                  (eq manager (mcp-registry-binding-manager binding)))
       (error 'tool-error
-             :message "The MCP registry has no matching runtime binding."
+             :message   "The MCP registry has no matching runtime binding."
              :tool-name "mcp.refresh"))
     (dolist (tool (tool-registry-tools registry))
       (unless (and (typep tool 'mcp-provider-tool)
@@ -2125,11 +2114,11 @@ retained value is credential-redacted or projected."
     (class &key name description parameters manager)
   "Create one read-only MCP resource helper tool."
   (make-instance class
-                 :namespace "mcp"
-                 :name name
+                 :namespace   "mcp"
+                 :name        name
                  :description description
-                 :parameters parameters
-                 :manager manager))
+                 :parameters  parameters
+                 :manager     manager))
 
 (-> mcp-tool-registry-register-manager
     (tool-registry mcp-manager)
@@ -2153,67 +2142,67 @@ retained value is credential-redacted or projected."
      registry
      (mcp-tools--make-helper
       'mcp-status-tool
-      :name "status"
+      :name       "status"
       :description
       "Show configured MCP servers, transports, connection states, and tool counts."
       :parameters (tool-object-schema (json-object) nil)
-      :manager manager))
+      :manager    manager))
     (tool-registry-register
      registry
      (mcp-tools--make-helper
       'mcp-refresh-tool
-      :name "refresh"
+      :name       "refresh"
       :description
       "Reconnect configured MCP servers and atomically refresh their provider tools."
       :parameters (tool-object-schema (json-object) nil)
-      :manager manager))
+      :manager    manager))
     (tool-registry-register
      registry
      (mcp-tools--make-helper
       'mcp-resources-tool
-      :name "resources"
+      :name       "resources"
       :description
       "List complete resource metadata from one or every configured MCP server."
       :parameters optional-server-schema
-      :manager manager))
+      :manager    manager))
     (tool-registry-register
      registry
      (mcp-tools--make-helper
       'mcp-resource-templates-tool
-      :name "resource-templates"
+      :name       "resource-templates"
       :description
       "List complete resource template metadata from one or every configured MCP server."
       :parameters optional-server-schema
-      :manager manager))
+      :manager    manager))
     (tool-registry-register
      registry
      (mcp-tools--make-helper
       'mcp-read-resource-tool
-      :name "read-resource"
+      :name        "read-resource"
       :description "Read one exact URI from one configured MCP server."
       :parameters
       (tool-object-schema
        (json-object
         "server"
         (tool-string-property "The exact configured MCP server name.")
-       "uri"
+        "uri"
         (tool-string-property "The exact resource URI advertised by the server."))
        '("server" "uri"))
-      :manager manager))
+      :manager     manager))
     (tool-registry-register
      registry
      (mcp-tools--make-helper
       'mcp-prompts-tool
-      :name "prompts"
+      :name       "prompts"
       :description
       "List complete prompt metadata from one or every configured MCP server."
       :parameters optional-server-schema
-      :manager manager))
+      :manager    manager))
     (tool-registry-register
      registry
      (mcp-tools--make-helper
       'mcp-get-prompt-tool
-      :name "get-prompt"
+      :name    "get-prompt"
       :description
       "Resolve one exact MCP prompt with optional string arguments."
       :parameters
@@ -2285,7 +2274,6 @@ retained value is credential-redacted or projected."
   "Clear Autolith's retained server-controlled transport metadata."
   (mcp-tools--clear-client-server-state runtime))
 
-
 (defmethod mcparen:mcp-managed-credential-key ((runtime mcp-server-runtime))
   "Expose only the non-secret identity of the exact active environment snapshot."
   (values
@@ -2295,7 +2283,6 @@ retained value is credential-redacted or projected."
 (defmethod mcparen:mcp-managed-credential-check-p ((runtime mcp-server-runtime))
   "Recognize configured persistent environment mappings."
   (mcp-server-runtime--persistent-launch-environment-p runtime))
-
 
 (defmethod mcparen:mcp-managed-prepare-tools
     ((runtime mcp-server-runtime) tools &key (allocated-schema-bytes 0))
@@ -2317,10 +2304,10 @@ retained value is credential-redacted or projected."
   "Reconstruct the product condition without retaining transient credentials."
   (make-condition 'mcp-server-startup-error
                   :server-name (mcp-server-runtime-name runtime)
-                  :required-p (mcparen:mcp-managed-required-p runtime)
-                  :cause nil
-                  :message (or (mcp-server-runtime-failure runtime)
-                               "MCP server unavailable.")))
+                  :required-p  (mcparen:mcp-managed-required-p runtime)
+                  :cause       nil
+                  :message     (or (mcp-server-runtime-failure runtime)
+                                   "MCP server unavailable.")))
 
 (defmethod mcparen:mcp-managed-budget-error
     ((runtime mcp-server-runtime) &key resource allocated requested limit)
