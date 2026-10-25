@@ -42,9 +42,12 @@
 (defun application-knowledge--rank (view node)
   "Order conflicted facts first, then facts that stopped holding, then current ones."
   (cond
-    ((eq (knowledge-node-status view node) ':conflicted) 0)
-    ((not (knowledge-node-supported-p node)) 1)
-    (t 2)))
+    ((eq (knowledge-node-status view node) ':conflicted)
+     0)
+    ((not (knowledge-node-supported-p node))
+     1)
+    (t
+     2)))
 
 (-> application-knowledge--provenance (knowledge-view knowledge-node) (option string))
 (defun application-knowledge--provenance (view node)
@@ -54,6 +57,7 @@
         (format nil "derived by ~A v~D" (getf justification :rule)
                 (getf justification :version))
         (let ((labels (remove-duplicates
+
                        (loop for support in (knowledge-node-supports node)
                              for evidence = (and (getf support :evidence)
                                                  (knowledge-base-evidence-record
@@ -62,15 +66,19 @@
                              collect (if evidence
                                          (let ((source (getf evidence :source)))
                                            (ecase (first source)
-                                             (:file (getf (rest source) :path))
-                                             (:url (or (ignore-errors
-                                                        (quri:uri-host
-                                                         (quri:uri (getf (rest source) :url))))
-                                                       "web"))
-                                             (:user "you said")
+                                             (:file
+                                              (getf (rest source) :path))
+                                             (:url
+                                              (or (ignore-errors
+                                                   (quri:uri-host
+                                                    (quri:uri (getf (rest source) :url))))
+                                                  "web"))
+                                             (:user
+                                              "you said")
                                              ((:tool :memory :mission :skill)
                                               (string-downcase (symbol-name (first source))))))
                                          (string-downcase (symbol-name (getf support :basis)))))
+
                        :test #'string= :from-end t)))
           (and labels (sanitize-text (format nil "~{~A~^, ~}" labels) :single-line-p t))))))
 
@@ -89,15 +97,19 @@
 (-> application-knowledge--fact-row (knowledge-view knowledge-node) list)
 (defun application-knowledge--fact-row (view node)
   "Return one compact listing row for fact NODE."
-  (let ((status (knowledge-node-status view node))
+  (let ((status        (knowledge-node-status view node))
         (applicability (knowledge-node-applicability node)))
     (append
      (list
       (cond
-        ((eq status ':conflicted) (terminal-span ':failure "  ! "))
-        ((eq applicability ':current) (terminal-span ':dim "  · "))
-        ((eq applicability ':unverified) (terminal-span ':notice "  ? "))
-        (t (terminal-span ':failure "  ! ")))
+        ((eq status ':conflicted)
+         (terminal-span ':failure "  ! "))
+        ((eq applicability ':current)
+         (terminal-span ':dim "  · "))
+        ((eq applicability ':unverified)
+         (terminal-span ':notice "  ? "))
+        (t
+         (terminal-span ':failure "  ! ")))
       (terminal-span ':strong (format nil "~A~%" (application-knowledge--text node))))
      (when (eq status ':conflicted)
        (list (terminal-span
@@ -158,11 +170,11 @@ MEMORIES-P separates it from a memory listing above it."
 (-> application-knowledge--support-row (knowledge-view list integer) list)
 (defun application-knowledge--support-row (view support indent)
   "Return the evidence line for one explained SUPPORT at INDENT."
-  (let* ((evidence (and (getf support :evidence)
-                        (knowledge-base-evidence-record (knowledge-view-base view)
-                                                        (getf support :evidence))))
+  (let* ((evidence  (and (getf support :evidence)
+                         (knowledge-base-evidence-record (knowledge-view-base view)
+                                                         (getf support :evidence))))
          (checked-p (and evidence (eq (first (getf evidence :source)) :file)))
-         (state (getf support :state)))
+         (state     (getf support :state)))
     (list
      (cond
        ((not (eq state ':current))
@@ -184,8 +196,8 @@ MEMORIES-P separates it from a memory listing above it."
     list)
 (defun application-knowledge--tree-rows (view tree &key (indent 4) (depth 1))
   "Return the lines explaining one premise TREE and, within the depth limit, its own support."
-  (let* ((identifier (getf tree :claim))
-         (node (knowledge-view-node view identifier))
+  (let* ((identifier  (getf tree :claim))
+         (node        (knowledge-view-node view identifier))
          (supported-p (and node (knowledge-node-supported-p node))))
     (append
      (list
@@ -223,21 +235,24 @@ MEMORIES-P separates it from a memory listing above it."
 (-> application-knowledge-fact-entry (application knowledge-view knowledge-node) list)
 (defun application-knowledge-fact-entry (application view node)
   "Return one fact with why it holds, what it conflicts with, and memories relying on it."
-  (let* ((status (knowledge-node-status view node))
+  (let* ((status        (knowledge-node-status view node))
          (applicability (knowledge-node-applicability node))
-         (tree (first (knowledge-explain view (knowledge-node-identifier node))))
-         (dependents (remove-if-not
-                      (lambda (memory)
-                        (find (knowledge-node-identifier node) (memory-premises memory)
-                              :key (lambda (premise) (getf premise :id)) :test #'string=))
-                      (memory-list (application-configuration application)))))
+         (tree          (first (knowledge-explain view (knowledge-node-identifier node))))
+         (dependents    (remove-if-not
+                         (lambda (memory)
+                           (find (knowledge-node-identifier node) (memory-premises memory)
+                                 :key (lambda (premise) (getf premise :id)) :test #'string=))
+                         (memory-list (application-configuration application)))))
     (append
      (list
       (terminal-span ':brand "fact  ")
       (terminal-span (case status
-                       (:supported ':success)
-                       (:conflicted ':failure)
-                       (otherwise (if (eq applicability ':unverified) ':notice ':failure)))
+                       (:supported
+                        ':success)
+                       (:conflicted
+                        ':failure)
+                       (otherwise
+                        (if (eq applicability ':unverified) ':notice ':failure)))
                      (format nil "~(~A~)~:[ · ~(~A~)~;~*~]~%"
                              status (eq applicability ':current) applicability))
       (terminal-span ':dim
@@ -269,8 +284,8 @@ MEMORIES-P separates it from a memory listing above it."
 
 The second value is :FOUND, :MISSING, or :AMBIGUOUS; the third lists the
 matches of an ambiguous prefix."
-  (let* ((text (string-downcase (string-trim '(#\Space #\Tab) identifier)))
-         (exact (and (plusp (length text)) (knowledge-view-node view text)))
+  (let* ((text    (string-downcase (string-trim '(#\Space #\Tab) identifier)))
+         (exact   (and (plusp (length text)) (knowledge-view-node view text)))
          (matches (and (plusp (length text))
                        (loop for node being the hash-values of (knowledge-view-nodes view)
                              when (and (application-knowledge--listed-p node)
@@ -278,10 +293,14 @@ matches of an ambiguous prefix."
                                                              (knowledge-node-identifier node)))
                                collect node))))
     (cond
-      (exact (values exact ':found nil))
-      ((null matches) (values nil ':missing nil))
-      ((null (rest matches)) (values (first matches) ':found nil))
-      (t (values nil ':ambiguous matches)))))
+      (exact
+       (values exact ':found nil))
+      ((null matches)
+       (values nil ':missing nil))
+      ((null (rest matches))
+       (values (first matches) ':found nil))
+      (t
+       (values nil ':ambiguous matches)))))
 
 
 ;;; (what-changed)
@@ -348,10 +367,10 @@ matches of an ambiguous prefix."
 (defun application-knowledge-rules-entry (application)
   "Return the rules visible in this workspace and whether each is active."
   (let* ((configuration (application-configuration application))
-         (entries (sort (knowledge-base-rule-entries (knowledge-base-read configuration)
-                                                     :workspace (knowledge--workspace
-                                                                 configuration))
-                        #'string< :key (lambda (entry) (getf entry :id)))))
+         (entries       (sort (knowledge-base-rule-entries (knowledge-base-read configuration)
+                                                           :workspace (knowledge--workspace
+                                                                       configuration))
+                              #'string< :key (lambda (entry) (getf entry :id)))))
     (if (null entries)
         (list (terminal-span ':hint "No rules are defined. Autolith proposes rules when a derivation recurs."))
         (append
@@ -384,8 +403,8 @@ matches of an ambiguous prefix."
 (defun application-knowledge-rule-transition-entry (application identifier kind)
   "Admit or retire rule IDENTIFIER, as KIND says, and confirm what changed."
   (let* ((configuration (application-configuration application))
-         (entry (knowledge-base-rule (knowledge-base-read configuration) identifier
-                                     :workspace (knowledge--workspace configuration))))
+         (entry         (knowledge-base-rule (knowledge-base-read configuration) identifier
+                                             :workspace (knowledge--workspace configuration))))
     (if (null entry)
         (format nil "No rule ~S exists. Run (rules) to list them." identifier)
         (handler-case
@@ -403,37 +422,37 @@ matches of an ambiguous prefix."
 ;;;; -- Command Definitions --
 
 (define-application-command application--builtin-what-changed-command
-    (:name "/what-changed"
-     :argument nil
-     :description "show how facts changed since you last asked"
-     :tip "reports facts that changed, appeared, or stopped holding, with the cause."
-     :busy-behavior :inspect
+    (:name              "/what-changed"
+     :argument          nil
+     :description       "show how facts changed since you last asked"
+     :tip               "reports facts that changed, appeared, or stopped holding, with the cause."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-present application (application-knowledge-changes-entry application))
   ':continue)
 
 (define-application-command application--builtin-rules-command
-    (:name "/rules"
-     :argument nil
-     :description "list the rules that derive facts"
-     :tip "shows each rule's latest version and whether it is admitted."
-     :busy-behavior :inspect
+    (:name              "/rules"
+     :argument          nil
+     :description       "list the rules that derive facts"
+     :tip               "shows each rule's latest version and whether it is admitted."
+     :busy-behavior     :inspect
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application)
   (application-present application (application-knowledge-rules-entry application))
   ':continue)
 
 (define-application-command application--builtin-admit-rule-command
-    (:name "/admit-rule"
-     :argument "[ID]"
-     :description "admit a proposed rule"
-     :tip "lets a proposed rule derive facts; its latest version replaces any earlier one."
-     :busy-behavior :apply
+    (:name              "/admit-rule"
+     :argument          "[ID]"
+     :description       "admit a proposed rule"
+     :tip               "lets a proposed rule derive facts; its latest version replaces any earlier one."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application &optional identifier)
   (application-present
    application
@@ -443,13 +462,13 @@ matches of an ambiguous prefix."
   ':continue)
 
 (define-application-command application--builtin-retire-rule-command
-    (:name "/retire-rule"
-     :argument "[ID]"
-     :description "stop a rule deriving facts"
-     :tip "retires a rule; facts it derived stop holding unless something else supports them."
-     :busy-behavior :apply
+    (:name              "/retire-rule"
+     :argument          "[ID]"
+     :description       "stop a rule deriving facts"
+     :tip               "retires a rule; facts it derived stop holding unless something else supports them."
+     :busy-behavior     :apply
      :terminal-behavior :shared
-     :callable t)
+     :callable          t)
     (application &optional identifier)
   (application-present
    application
