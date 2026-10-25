@@ -115,7 +115,7 @@
               (and (eq action ':assess) (non-empty-string-p identifier)
                    (= (length options) 6)
                    (every (lambda (key) (member key '(:revision :verdict :evidence)))
-                          (loop for (key value) on options by #'cddr collect key))
+                          (plist-keys options))
                    (integerp (getf options :revision)) (plusp (getf options :revision))
                    (member (getf options :verdict) '(:passed :failed))
                    (non-empty-string-p (getf options :evidence))))
