@@ -46,8 +46,8 @@ The replacement keeps the existing position; otherwise it is appended."
 (defun layered-registry-effective (registrations key-function source-rank-function)
   "Return effective layers, preserving first-key order and highest rank.
 Later layers win when their source ranks tie."
-  (let ((order nil)
-        (seen (make-hash-table :test #'equal))
+  (let ((order   nil)
+        (seen    (make-hash-table :test #'equal))
         (winners (make-hash-table :test #'equal)))
     (dolist (registration registrations)
       (let ((key (funcall key-function registration)))
