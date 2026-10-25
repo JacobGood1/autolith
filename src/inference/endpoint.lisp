@@ -7,56 +7,56 @@
 
 (defclass rlm-endpoint (image-daemon:daemon-runtime)
   ((provider
-    :initarg :provider
-    :reader rlm-endpoint--provider
-    :type model-provider
+    :initarg       :provider
+    :reader        rlm-endpoint--provider
+    :type          model-provider
     :documentation "The provider serving proxied sub-inferences.")
    (configuration
-    :initarg :configuration
-    :reader rlm-endpoint--configuration
-    :type configuration
+    :initarg       :configuration
+    :reader        rlm-endpoint--configuration
+    :type          configuration
     :documentation "The configuration serving proxied sub-inferences.")
    (budget
-    :initarg :budget
-    :reader rlm-endpoint--budget
-    :type rlm-budget
+    :initarg       :budget
+    :reader        rlm-endpoint--budget
+    :type          rlm-budget
     :documentation "The root budget subtree every proxied call descends.")
    (ledger
-    :initarg :ledger
-    :initform nil
-    :reader rlm-endpoint--ledger
-    :type (option function)
+    :initarg       :ledger
+    :initform      nil
+    :reader        rlm-endpoint--ledger
+    :type          (option function)
     :documentation "An optional function recording one plist per served operation.")
    (activity-callback
-    :initarg :activity-callback
-    :initform nil
-    :reader rlm-endpoint--activity-callback
-    :type (option function)
+    :initarg       :activity-callback
+    :initform      nil
+    :reader        rlm-endpoint--activity-callback
+    :type          (option function)
     :documentation "An optional function receiving compact proxied activity.")
    (activity-lock
-    :initform (make-recursive-lock "Autolith inference endpoint activity")
-    :reader rlm-endpoint--activity-lock
-    :type t
+    :initform      (make-recursive-lock "Autolith inference endpoint activity")
+    :reader        rlm-endpoint--activity-lock
+    :type          t
     :documentation "The lock serializing activity publication with revocation.")
    (activity-enabled-p
-    :initform t
-    :accessor rlm-endpoint--activity-enabled-p
-    :type boolean
+    :initform      t
+    :accessor      rlm-endpoint--activity-enabled-p
+    :type          boolean
     :documentation "True while proxied operations may publish activity.")
    (final-value
-    :initform nil
-    :accessor rlm-endpoint--final-value
-    :type t
+    :initform      nil
+    :accessor      rlm-endpoint--final-value
+    :type          t
     :documentation "The value the environment recorded through finish.")
    (final-p
-    :initform nil
-    :accessor rlm-endpoint--final-p
-    :type boolean
+    :initform      nil
+    :accessor      rlm-endpoint--final-p
+    :type          boolean
     :documentation "True once the environment recorded a final value.")
    (active-operations
-    :initform 0
-    :accessor rlm-endpoint--active-operations
-    :type (integer 0)
+    :initform      0
+    :accessor      rlm-endpoint--active-operations
+    :type          (integer 0)
     :documentation "The admitted inference operations still running."))
   (:documentation
    "An unpublished loopback endpoint proxying environment inference calls."))
@@ -155,9 +155,9 @@ leaves a machine-readable invocation tree instead of orphaned frames."
 (-> rlm-endpoint--dispatch (rlm-endpoint keyword list) list)
 (defun rlm-endpoint--dispatch (endpoint operation arguments)
   "Serve one authenticated environment OPERATION and return its response."
-  (let ((provider (rlm-endpoint--provider endpoint))
+  (let ((provider      (rlm-endpoint--provider endpoint))
         (configuration (rlm-endpoint--configuration endpoint))
-        (budget (rlm-endpoint--budget endpoint))
+        (budget        (rlm-endpoint--budget endpoint))
         (activity-callback
           (rlm-endpoint--operation-activity-callback endpoint operation)))
     (rlm-endpoint--call-admitted
@@ -166,7 +166,7 @@ leaves a machine-readable invocation tree instead of orphaned frames."
      (lambda ()
        (ecase operation
          (:run
-          (let ((task (getf arguments ':task))
+          (let ((task   (getf arguments ':task))
                 (policy (or (getf arguments ':policy) ':direct)))
             (unless (and (stringp task) (non-empty-string-p task))
               (error 'rlm-inference-error
@@ -184,13 +184,13 @@ leaves a machine-readable invocation tree instead of orphaned frames."
                                policy)))
               (multiple-value-bind (value trace-identifier tokens-spent)
                   (rlm-run task
-                           :policy policy
-                           :context (rlm--context-designators
-                                     (getf arguments ':context))
-                           :contract (or (getf arguments ':contract) ':text)
-                           :budget run-budget
-                           :provider provider
-                           :configuration configuration
+                           :policy            policy
+                           :context           (rlm--context-designators
+                                               (getf arguments ':context))
+                           :contract          (or (getf arguments ':contract) ':text)
+                           :budget            run-budget
+                           :provider          provider
+                           :configuration     configuration
                            :activity-callback activity-callback
                            :concurrency
                            (let ((requested (getf arguments ':concurrency)))
@@ -198,11 +198,11 @@ leaves a machine-readable invocation tree instead of orphaned frames."
                                  requested
                                  *rlm-map-default-concurrency*)))
                 (rlm-endpoint--record endpoint
-                                      (list :operation :run
-                                            :task task
-                                            :policy policy
+                                      (list :operation   :run
+                                            :task        task
+                                            :policy      policy
                                             :child-trace trace-identifier
-                                            :tokens tokens-spent))
+                                            :tokens      tokens-spent))
                 (list :rlm-response :status :ok
                       :value value :trace trace-identifier
                       :tokens tokens-spent)))))
@@ -213,17 +213,17 @@ leaves a machine-readable invocation tree instead of orphaned frames."
                      :message "An environment infer call requires task text."))
             (multiple-value-bind (value trace-identifier tokens-spent)
                 (infer task
-                       :context (getf arguments ':context)
-                       :contract (or (getf arguments ':contract) ':text)
-                       :budget (rlm-budget-descend budget :task task)
-                       :provider provider
-                       :configuration configuration
+                       :context           (getf arguments ':context)
+                       :contract          (or (getf arguments ':contract) ':text)
+                       :budget            (rlm-budget-descend budget :task task)
+                       :provider          provider
+                       :configuration     configuration
                        :activity-callback activity-callback)
               (rlm-endpoint--record endpoint
-                                    (list :operation :infer
-                                          :task task
+                                    (list :operation   :infer
+                                          :task        task
                                           :child-trace trace-identifier
-                                          :tokens tokens-spent))
+                                          :tokens      tokens-spent))
               (list :rlm-response :status :ok
                     :value value :trace trace-identifier
                     :tokens tokens-spent))))
@@ -238,10 +238,10 @@ leaves a machine-readable invocation tree instead of orphaned frames."
                              *rlm-endpoint-map-maximum-tasks*)))
             (let ((results
                     (rlm-map tasks
-                             :contract (or (getf arguments ':contract) ':text)
-                             :budget (rlm-budget-descend budget :task "rlm-map")
-                             :provider provider
-                             :configuration configuration
+                             :contract          (or (getf arguments ':contract) ':text)
+                             :budget            (rlm-budget-descend budget :task "rlm-map")
+                             :provider          provider
+                             :configuration     configuration
                              :concurrency
                              (let ((requested (getf arguments ':concurrency)))
                                (if (and (integerp requested) (plusp requested))
@@ -280,7 +280,7 @@ leaves a machine-readable invocation tree instead of orphaned frames."
   (image-daemon:daemon-request-valid-p
    request
    (rlm-endpoint-token endpoint)
-   :request-tag ':rlm-request
+   :request-tag      ':rlm-request
    :protocol-version nil))
 
 (defmethod image-daemon:daemon-runtime-error-response
@@ -311,7 +311,6 @@ leaves a machine-readable invocation tree instead of orphaned frames."
                               (getf fields ':arguments))))
   nil)
 
-
 (-> rlm-endpoint-start
     (&key (:provider model-provider)
           (:configuration configuration)
@@ -324,15 +323,15 @@ leaves a machine-readable invocation tree instead of orphaned frames."
   "Start an unpublished loopback endpoint proxying environment calls."
   (let ((endpoint
           (image-daemon:daemon-runtime-create
-           :publish-p nil
-           :token (daemon-random-token)
+           :publish-p        nil
+           :token            (daemon-random-token)
            :request-function #'rlm-endpoint--request
-           :class 'rlm-endpoint
-           :initargs (list :provider provider
-                           :configuration configuration
-                           :budget budget
-                           :ledger ledger
-                           :activity-callback activity-callback))))
+           :class            'rlm-endpoint
+           :initargs         (list :provider          provider
+                                   :configuration     configuration
+                                   :budget            budget
+                                   :ledger            ledger
+                                   :activity-callback activity-callback))))
     (image-daemon:daemon-runtime-start endpoint)
     endpoint))
 
