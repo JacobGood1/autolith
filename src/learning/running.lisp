@@ -391,7 +391,9 @@ are checked again against actual results by the ordinary call dispatch."
          (handler-case (parse-integer value)
            (error () value)))
         (:number
-         (let ((number (ignore-errors (json-decode value))))
+         (let ((number (handler-case (json-decode value)
+                         (json-error ()
+                           nil))))
            (if (realp number) number value)))
         (:boolean
          (cond
