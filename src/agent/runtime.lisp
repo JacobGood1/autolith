@@ -1224,10 +1224,11 @@ worker results become explicit unknown outcomes so provider history stays valid.
         (funcall function)))))
 
 (-> agent--run-tool-wave
-    (agent list agent-observer integer boolean)
+    (agent list &key (:observer agent-observer) (:tool-round integer)
+                     (:tool-restriction-p boolean))
     null)
 (defun agent--run-tool-wave
-    (agent plans observer tool-round tool-restriction-p)
+    (agent plans &key observer tool-round tool-restriction-p)
   "Execute independent PLANS concurrently and complete them in wire order."
   (dolist (plan plans)
     (let ((call (getf plan :call)))
@@ -1336,9 +1337,9 @@ worker results become explicit unknown outcomes so provider history stays valid.
                  (agent--run-tool-wave
                   agent
                   (nreverse wave)
-                  serialized-observer
-                  tool-round
-                  tool-restriction-p)
+                  :observer           serialized-observer
+                  :tool-round         tool-round
+                  :tool-restriction-p tool-restriction-p)
                  (setf wave nil)
                  (clrhash wave-keys))))
       (loop for remaining on call-plans
