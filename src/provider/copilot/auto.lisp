@@ -9,9 +9,9 @@
 
 (defclass copilot-auto-provider (copilot-chat-provider)
   ((preferred-model
-    :initform nil
-    :accessor copilot-auto-provider-preferred-model
-    :type (option string)
+    :initform      nil
+    :accessor      copilot-auto-provider-preferred-model
+    :type          (option string)
     :documentation "The last successful concrete model ID, without credentials."))
   (:documentation "Resolve Copilot Auto to an entitled wire adapter for each request."))
 
@@ -38,7 +38,7 @@
            30 (lambda ()
                 (dexador:request
                  (concatenate 'string (copilot--base-url credentials) "/models/session")
-                 :method ':post
+                 :method  ':post
                  :headers (append
                            (copilot--headers (oauth-credentials-access-token credentials))
                            (list (cons "Content-Type" "application/json")
@@ -69,7 +69,7 @@
 (defun copilot-auto--catalog (configuration)
   "Read secret-free metadata for hidden models which Auto may select."
   (handler-case
-      (let* ((catalog (read-portable-form (copilot--catalog-path configuration)))
+      (let* ((catalog  (read-portable-form (copilot--catalog-path configuration)))
              (document (and (equal (getf catalog :domain) (copilot--domain))
                             (getf catalog :document))))
         (unless (stringp document)
@@ -108,15 +108,15 @@
        provider (copilot-auto--session provider credentials)
        :vision-p (copilot-vision-request-p
                   (conversation-input-items-for-family conversation ':copilot)))
-    (let* ((name (getf model :name))
-           (configuration (configuration-copy
-                           (provider-configuration provider) :model name
-                           :reasoning-effort "none" :provider-validation-p nil))
-           (adapter (copilot-provider--make
-                     configuration (provider-credential-manager provider)
-                     (provider-session-id provider)
-                     :registration (model-provider-registration provider)
-                     :protocol (getf model :protocol)))
+    (let* ((name                   (getf model :name))
+           (configuration          (configuration-copy
+                                    (provider-configuration provider) :model name
+                                    :reasoning-effort "none" :provider-validation-p nil))
+           (adapter                (copilot-provider--make
+                                    configuration (provider-credential-manager provider)
+                                    (provider-session-id provider)
+                                    :registration (model-provider-registration provider)
+                                    :protocol     (getf model :protocol)))
            (*copilot-auto-request* (list adapter token)))
       (prog1 (funcall function adapter (list token))
         (setf (copilot-auto-provider-preferred-model provider)
