@@ -22,8 +22,7 @@
   (handler-case
       (let ((length (and (listp value) (list-length value))))
         (and length (= length (* 2 (length keys)))
-             (let ((observed (loop for (key field) on value by #'cddr
-                                   collect key)))
+             (let ((observed (plist-keys value)))
                (and (= (length keys) (length (remove-duplicates observed)))
                     (every (lambda (key) (member key keys)) observed)))
              t))
@@ -60,7 +59,7 @@
                          (member (getf row :completion-policy) '(nil :notify :continue))
                          (member (getf row :delivery)
                                  '(:pending :undelivered :other-conversation :unknown))
-                         (loop for (key field) on row by #'cddr
+                         (loop for (nil field) on row by (partial #'nthcdr 2)
                                always (or (null field) (keywordp field)
                                           (and (stringp field)
                                                (<= (length field)
