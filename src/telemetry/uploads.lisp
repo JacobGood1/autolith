@@ -14,12 +14,12 @@
 (-> telemetry--take-upload-body (telemetry-controller) (option string))
 (defun telemetry--take-upload-body (controller)
   "Take a FIFO prefix bounded by encoded envelope bytes and span count under the lock."
-  (let* ((queue (telemetry-controller-queue controller))
+  (let* ((queue       (telemetry-controller-queue controller))
          (empty-bytes (length (babel:string-to-octets
                                (json-encode (telemetry--envelope controller nil)) :encoding :utf-8)))
-         (bytes empty-bytes)
-         (count 0)
-         (spans nil))
+         (bytes       empty-bytes)
+         (count       0)
+         (spans       nil))
     (loop while queue
           for span = (first queue)
           for size = (length (babel:string-to-octets (json-encode span) :encoding :utf-8))
@@ -62,9 +62,9 @@
 (-> telemetry--upload-loop (telemetry-run (option function)) null)
 (defun telemetry--upload-loop (context transport)
   "Batch on one thread, waking early for root completion or consent retirement."
-  (let ((controller (telemetry-run-controller context))
+  (let ((controller                   (telemetry-run-controller context))
         (*telemetry-process-function* transport)
-        (*telemetry-run* nil))
+        (*telemetry-run*              nil))
     (unwind-protect
          (ignore-errors
            (loop
@@ -90,9 +90,9 @@
   "Start at most one uploader under CONTROLLER's lock; retain the queue if startup fails."
   (when (and (telemetry-controller-queue controller)
              (not (telemetry-controller-upload-thread controller)))
-    (let ((context (telemetry--upload-context controller))
+    (let ((context   (telemetry--upload-context controller))
           (transport *telemetry-process-function*)
-          (interval *telemetry-upload-interval*))
+          (interval  *telemetry-upload-interval*))
       (when (telemetry--live-p context)
         (handler-case
             (setf (telemetry-controller-upload-thread controller)
@@ -143,7 +143,7 @@
 (-> telemetry--drain-uploads (telemetry-controller) null)
 (defun telemetry--drain-uploads (controller)
   "Close admissions and allow at most one configured upload deadline for clean exit."
-  (let ((thread nil)
+  (let ((thread   nil)
         (deadline (+ (get-internal-real-time)
                      (ceiling (* (config :telemetry-timeout-ms (telemetry-controller-owner controller))
                                  internal-time-units-per-second) 1000))))
