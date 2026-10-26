@@ -350,7 +350,8 @@ diagnosing a stalled worker. Inspect its captured log for `RUN` entries and
 live Lisp thread backtraces.
 
 Register zero-argument test functions in `tests/test-suites.lisp` using
-`define-test-suite`. Use FiveAM assertions or `test-assert`, which records a
+`define-test-suite`, or in `tests/check-suites.lisp` for tests of the
+development-only source checks, which load with `autolith/check-tests`. Use FiveAM assertions or `test-assert`, which records a
 FiveAM check in registered tests. `with-test-configuration` binds a fresh
 configuration and optional temporary root, cleaning it up on every exit.
 `with-test-environment` installs `(NAME VALUE)` bindings and restores previous

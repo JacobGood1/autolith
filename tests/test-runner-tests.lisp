@@ -191,7 +191,7 @@
                  (list 'asdf:load-system
                        (lambda (system &rest arguments)
                          (declare (ignore arguments))
-                         (when (eq system :autolith/tests)
+                         (when (eq system :autolith/check-tests)
                            (with-lock-held (state-lock)
                              (incf calls)
                              (incf active)

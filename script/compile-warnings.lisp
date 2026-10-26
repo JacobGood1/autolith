@@ -11,7 +11,7 @@
 (require :asdf)
 
 (defparameter *compile-warnings-systems*
-  '("autolith" "autolith/checks" "autolith/tests"
+  '("autolith" "autolith/checks" "autolith/tests" "autolith/check-tests"
     #-win32 "autolith/release-server"
     "autolith/structural" "autolith/structural/tests" "autolith/debug"
     "autolith/debug/tests")

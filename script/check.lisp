@@ -501,11 +501,11 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
                        (merge-pathnames ".qlot/" source-root))))
 
 (defun check--load-test-system (source-root)
-  "Load the test system while holding the shared FASL-cache lock."
+  "Load every test, the source checks' included, while holding the shared FASL-cache lock."
   (asdf:load-system :ls-flock)
   (uiop:symbol-call '#:ls-flock '#:call-with-file-lock
                     (check--test-load-lock-pathname source-root)
-                    (lambda () (asdf:load-system :autolith/tests))))
+                    (lambda () (asdf:load-system :autolith/check-tests))))
 
 (defun check--load-tests (source-root &key build-sandbox)
   "Load the locked test system and runtime libraries; return the setup pathname."

@@ -403,7 +403,6 @@
 (asdf:defsystem #:autolith/tests
   :description             "Tests for Autolith."
   :depends-on              (#:autolith
-                            #:autolith/checks
                             (:feature (:not :win32) #:autolith/release-server)
                             #:fiveam)
   :default-component-class autolith-source-file
@@ -592,8 +591,20 @@
                                           (:file "telemetry-hook-tool-denial-tests")
                                           (:file "telemetry-hook-authority-tests")
                                           (:file "telemetry-hook-os-permission-tests")
-                                          (:file "source-check-tests")
                                           (:file "test-suites"))))
+  :perform                 (asdf:test-op (operation component)
+                             (declare (ignore operation component))
+                             (uiop:symbol-call '#:autolith '#:run-tests)))
+
+(asdf:defsystem #:autolith/check-tests
+  :description             "Tests for Autolith's development source checks."
+  :depends-on              (#:autolith/tests #:autolith/checks)
+  :default-component-class autolith-source-file
+  :serial                  t
+  :components              ((:module     "tests"
+                             :serial     t
+                             :components ((:file "source-check-tests")
+                                          (:file "check-suites"))))
   :perform                 (asdf:test-op (operation component)
                              (declare (ignore operation component))
                              (uiop:symbol-call '#:autolith '#:run-tests)))
