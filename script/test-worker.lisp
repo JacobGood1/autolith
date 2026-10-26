@@ -44,9 +44,9 @@
       (format *error-output* "~&Test image failed: ~A~%" condition)
       (uiop:quit 2))))
 
-(defun test-worker--save-core (source-root pathname)
-  "Load the test system in this fresh builder, save its image and exit."
-  (check--load-tests source-root)
+(defun test-worker--save-core (source-root pathname &optional development-p)
+  "Load the requested test system in this fresh builder, save its image and exit."
+  (check--load-tests source-root :development-p development-p)
   (uiop:symbol-call
    '#:sbcl-generations '#:image-save pathname
    (uiop:symbol-call '#:sbcl-generations '#:image-build-record
@@ -117,7 +117,7 @@
           (unless preloaded-p
             (check--load-tests source-root))
           (let* ((names (getf request :cases))
-                 (cases (uiop:symbol-call '#:autolith '#:tests-select :tests names)))
+                 (cases (check--select-tests source-root nil names)))
             (unless (equal (mapcar #'string-downcase cases) names)
               (check--fail "Worker selection does not match its assigned cases."))
             (test-worker--start-stack-watchdog)
@@ -126,9 +126,9 @@
               (check--validate-result result names)
               (test-worker--report-live-threads)
               (unwind-protect
-                   (progn
-                     (check--write-form staging-path result)
-                     (uiop:rename-file-overwriting-target staging-path result-path))
+                  (progn
+                    (check--write-form staging-path result)
+                    (uiop:rename-file-overwriting-target staging-path result-path))
                 (when (probe-file staging-path)
                   (delete-file staging-path)))
               (if (getf result :failures) 1 0)))))
@@ -140,6 +140,8 @@
   (let ((arguments   (uiop:command-line-arguments))
         (source-root (uiop:pathname-parent-directory-pathname
                       (uiop:pathname-directory-pathname (truename *load-truename*)))))
-    (if (and (= (length arguments) 2) (string= (first arguments) "--save-core"))
-        (test-worker--save-core source-root (pathname (second arguments)))
+    (if (and (<= 2 (length arguments) 3) (string= (first arguments) "--save-core"))
+        (test-worker--save-core source-root (pathname (second arguments))
+                                (and (= (length arguments) 3)
+                                     (string= (third arguments) "development")))
         (uiop:quit (test-worker-main arguments source-root)))))

@@ -262,6 +262,28 @@
               (join-thread thread)))))))
   nil)
 
+(-> test-check-load-test-system-selection () null)
+(defun test-check-load-test-system-selection ()
+  "Test that runtime selections do not load development check dependencies."
+  (with-test-configuration (configuration root)
+    (declare (ignore configuration))
+    (let ((systems     nil)
+          (source-root (merge-pathnames "checkout/" root)))
+      (test-call-with-function-replacements
+       (list
+        (list 'asdf:load-system
+              (lambda (system &rest arguments)
+                (declare (ignore arguments))
+                (push system systems))))
+       (lambda ()
+         (test-check--call "CHECK--LOAD-TEST-SYSTEM" source-root
+                           :development-p nil)
+         (test-check--call "CHECK--LOAD-TEST-SYSTEM" source-root
+                           :development-p t)))
+      (test-assert (equal (reverse systems)
+                          '(:ls-flock :autolith/tests :ls-flock :autolith/check-tests))
+                   "runtime loading skips the development test system"))))
+
 (-> test-check-command-selection () null)
 (defun test-check-command-selection ()
   "Test CLI parsing and deterministic nonoverlapping worker assignments."
