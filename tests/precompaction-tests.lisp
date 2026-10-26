@@ -99,7 +99,12 @@
         (test-assert (= 1 (prepare (list ':codex "model-b") 1330))
                      "an idled-out cache precompacts")
         (test-assert (null (precompaction-tests--call-ids conversation))
-                     "every earlier failed call is gone"))))
+                     "every earlier failed call is gone")
+        (fail-turn "third")
+        ;; The request at 1330 spent 400 seconds failing and retrying.
+        (conversation-note-provider-response conversation :now 1730)
+        (test-assert (zerop (prepare (list ':codex "model-b") 1740))
+                     "a request completing after long retries leaves its cache warm"))))
   nil)
 
 (-> test-precompaction-before-compaction () null)
@@ -162,7 +167,7 @@
           (agent--prepare-provider-request agent)
           (precompaction-tests--exchange conversation "failed")
           (conversation-append-user-message conversation "again")
-          (setf (conversation-request-started-at conversation) (- (get-universal-time) age))
+          (setf (conversation-prompt-processed-at conversation) (- (get-universal-time) age))
           (test-assert (= expected (agent--prepare-provider-request agent))
                        "idle pruning follows the effective retention policy")))))
   nil)

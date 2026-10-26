@@ -1777,6 +1777,7 @@ loop, so compaction ahead of the user message shares the turn's budget."
                      :output-item-count (length (provider-result-output-items result))
                      :tool-call-count   (length calls)
                      :turn-completion   (provider-result-turn-completion result))))
+        (conversation-note-provider-response conversation)
         (handler-case
             (progn
               (when (and calls (not tools-p))

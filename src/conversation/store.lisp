@@ -275,11 +275,12 @@
     :accessor      conversation-request-identity
     :type          list
     :documentation "The provider family and model of the latest provider request in this process.")
-   (request-started-at
-    :initform      nil
-    :accessor      conversation-request-started-at
-    :type          (option integer)
-    :documentation "When the latest provider request in this process started, as universal time.")
+   (prompt-processed-at
+    :initform nil
+    :accessor conversation-prompt-processed-at
+    :type     (option integer)
+    :documentation
+    "When a provider last processed this conversation's prompt in this process, as universal time.")
    (image-artifact-names
     :initform      (make-hash-table :test #'equal)
     :reader        conversation-image-artifact-names

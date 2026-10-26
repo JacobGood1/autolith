@@ -46,20 +46,30 @@ Return how many calls were dropped. The durable log is unchanged."
   "Precompact cold or estimated-expired context, then note this request.
 
 IDENTITY names the provider and model serving the request. Prune on the first
-request after resume, a provider/model change, or IDLE-SECONDS since the last
-request started. NIL means retention is unknown and disables idle pruning.
-Return how many calls were dropped."
-  (let ((previous-identity (conversation-request-identity conversation))
-        (previous-start    (conversation-request-started-at conversation)))
+request after resume, a provider/model change, or IDLE-SECONDS since a provider
+last processed the prompt, at a request start or a completed response. NIL
+means retention is unknown and disables idle pruning. Return how many calls
+were dropped."
+  (let ((previous-identity  (conversation-request-identity conversation))
+        (previous-processed (conversation-prompt-processed-at conversation)))
     (prog1 (if (if previous-identity
                    (or (not (equal identity previous-identity))
-                       (and previous-start idle-seconds (plusp idle-seconds)
-                            (>= (- now previous-start) idle-seconds)))
+                       (and previous-processed idle-seconds (plusp idle-seconds)
+                            (>= (- now previous-processed) idle-seconds)))
                    (conversation-resumed-p conversation))
                (conversation-precompact conversation)
                0)
-      (setf (conversation-request-identity conversation)   identity
-            (conversation-request-started-at conversation) now))))
+      (setf (conversation-request-identity conversation)    identity
+            (conversation-prompt-processed-at conversation) now))))
+
+(-> conversation-note-provider-response (conversation &key (:now integer)) null)
+(defun conversation-note-provider-response (conversation &key (now (get-universal-time)))
+  "Note that a provider just completed a response to CONVERSATION's prompt.
+
+The prompt cache is warm from that moment, however long the request spent
+failing and retrying before it, so idle pruning measures from here."
+  (setf (conversation-prompt-processed-at conversation) now)
+  nil)
 
 
 ;;;; -- Private Functions --
