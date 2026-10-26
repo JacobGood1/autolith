@@ -164,7 +164,7 @@
       ((string= value "@smol")
        "gpt-5.6-luna")
       ((member value '("@slow" "@designer") :test #'string=)
-       "gpt-5.6-terra")
+       "gpt-6.1-terra")
       ((member alias *supported-models* :test #'string=)
        alias) (t
                nil))))
