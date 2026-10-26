@@ -15,7 +15,7 @@
    (json-object
     "action" (json-object "type" "string" "enum"
                           #("list" "get" "allow-restart" "checkpoint" "revive" "abandon"))
-    "id" (json-object "type" "string")
+    "id" (task-job-identifier-property)
     "offset" (json-object "type" "integer" "minimum" 0)
     "limit" (json-object "type" "integer" "minimum" 1 "maximum" 100)
     "safety" (json-object "type" "string" "maxLength" 4000)

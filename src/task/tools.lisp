@@ -322,6 +322,14 @@ The primary blocking field and legacy inverse async field are mutually exclusive
            :tool-name tool-name))
   value)
 
+(-> task-job-identifier-property () hash-table)
+(defun task-job-identifier-property ()
+  "Return the public schema for a full job ID or unambiguous visible number."
+  (json-object
+   "description" "The full session job identifier, or its nonnegative number when it identifies exactly one visible job."
+   "anyOf" (vector (tool-string-property "The full session job identifier.")
+                   (json-object "type" "integer" "minimum" 0))))
+
 (-> task--numbered-job-identifier
     ((integer 0) &key (:orchestrator task-orchestrator) (:viewer agent) (:tool-name string))
     non-empty-string)
@@ -1345,7 +1353,7 @@ poll a job whose completion will wake it."
   (let* ((orchestrator (task-orchestrator-create))
          (identifier-schema
            (tool-object-schema
-            (json-object "id" (tool-string-property "The session job identifier."))
+            (json-object "id" (task-job-identifier-property))
             '("id")))
          (job-list-schema
            (tool-object-schema
@@ -1395,8 +1403,7 @@ poll a job whose completion will wake it."
                                            :parameters
                                            (tool-object-schema
                                             (json-object "id"
-                                                         (tool-string-property
-                                                          "The session job identifier.")
+                                                         (task-job-identifier-property)
                                                          "timeout-seconds"
                                                          (tool-integer-property
                                                           "Maximum wait in seconds; defaults to 0."))
@@ -1416,8 +1423,7 @@ poll a job whose completion will wake it."
                                            (tool-object-schema
                                             (json-object
                                              "id"
-                                             (tool-string-property
-                                              "The session job identifier.")
+                                             (task-job-identifier-property)
                                              "message"
                                              (tool-string-property
                                               "The steering message text."))

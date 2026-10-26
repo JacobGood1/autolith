@@ -618,6 +618,24 @@
                      (task-tests--wait-until
                       (lambda () (probe-file cancel-marker)) 5))
                 "an asynchronous Lisp evaluation reaches its worker before cancellation")
+               (dolist (tool (tool-registry-tools registry))
+                 (when (typep tool 'task-job-tool)
+                   (let ((property (json-get (json-get (tool-parameters tool) "properties") "id")))
+                     (when property
+                       (test-assert
+                        (loop for variant across (json-get property "anyOf")
+                              thereis (and (equal (json-get variant "type") "integer")
+                                           (eql (json-get variant "minimum") 0)))
+                        "job ID schemas advertise nonnegative numeric shorthand")))))
+               (let* ((tool (tool-registry-find registry "job" "get"))
+                      (result
+                        (tool-execute tool context
+                                      (tool-decode-arguments
+                                       tool (format nil "{\"id\":~D}"
+                                                    (parse-integer identifier
+                                                                   :start (1+ (position #\: identifier))))))))
+                 (test-assert (tool-result-success-p result)
+                              "job.get resolves a decoded JSON number to its visible job"))
                (test-assert
                 (handler-case
                     (progn
@@ -628,12 +646,14 @@
                     (and (search "No visible job is numbered 999999" (princ-to-string condition))
                          t)))
                 "a job number naming no visible job is refused")
-               (let* ((cancel-result
+               (let* ((tool    (tool-registry-find registry "job" "cancel"))
+                      (cancel-result
                         (tool-execute
-                         (tool-registry-find registry "job" "cancel")
-                         context
-                         (json-object "id" (parse-integer identifier
-                                                          :start (1+ (position #\: identifier))))))
+                         tool context
+                         (tool-decode-arguments
+                          tool (format nil "{\"id\":~D}"
+                                       (parse-integer identifier
+                                                      :start (1+ (position #\: identifier)))))))
                       (details (rest (tool-result-details cancel-result))))
                  (test-assert
                   (and (tool-result-success-p cancel-result)
