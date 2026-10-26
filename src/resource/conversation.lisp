@@ -149,6 +149,42 @@ readable context object instead of being cut.")
                              *conversation-resource-default-record-count*)))))))
 
 
+;;;; -- Whole-Text Reads --
+
+(defmethod resource-whole-text
+    ((resource conversation-resource) (context tool-context) &key maximum-bytes tool-name)
+  "Return RESOURCE's complete durable history with every record whole.
+
+The text stops being built once it passes MAXIMUM-BYTES of UTF-8, which
+signals a TOOL-ERROR naming TOOL-NAME instead of returning part of it."
+  (declare (ignore context))
+  (let ((conversation (conversation-resource-conversation resource))
+        (bytes        0)
+        (start        1))
+    (with-output-to-string (stream)
+      (format stream "Conversation ~A, complete history. ~A~%"
+              (conversation-resource--label resource)
+              (conversation-resource--compaction-note conversation))
+      (loop
+        (multiple-value-bind (records more-p)
+            (conversation-records-from conversation start
+                                       *conversation-resource-maximum-record-count*)
+          (dolist (record records)
+            (let ((text (conversation-resource--render-record record nil)))
+              (incf bytes (length (utf8-string-to-octets text)))
+              (when (> bytes maximum-bytes)
+                (error 'tool-error
+                       :message   (format nil "Conversation ~A is larger than ~:D bytes, the most ~A reads whole. Read it in windows with resource.read instead."
+                                          (conversation-resource--label resource)
+                                          maximum-bytes
+                                          tool-name)
+                       :tool-name tool-name))
+              (write-string text stream)))
+          (unless (and more-p records)
+            (return))
+          (setf start (1+ (getf (rest (first (last records))) :seq))))))))
+
+
 ;;;; -- Read Arguments and Rendering --
 
 (-> conversation-resource--integer-argument

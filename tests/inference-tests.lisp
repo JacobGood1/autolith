@@ -2393,6 +2393,10 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
     (resource-registry-register
      (tool-registry-resource-registry registry)
      (make-instance 'context-object-resolver :scheme "context"))
+    (resource-registry-register
+     (tool-registry-resource-registry registry)
+     (make-instance 'conversation-resolver :scheme "conversation"))
+    (conversation-append-user-message conversation "A message the view should carry.")
     (flet ((run (view &key (calls 3))
              (tool-execute
               (rlm-infer-tool-create
@@ -2415,6 +2419,9 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
       (test-assert (tool-result-success-p
                     (run (json-object "uri" "workspace:README.org")))
                    "resource uris materialize through the resource protocol")
+      (test-assert (tool-result-success-p
+                    (run (json-object "uri" "conversation:current")))
+                   "conversation history materializes whole as a view")
       (test-assert (let ((*resource-readable-schemes* (list "scratchpad")))
                      (not (tool-result-success-p
                            (run (json-object "uri" "workspace:README.org")))))
