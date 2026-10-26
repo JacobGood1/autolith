@@ -2048,11 +2048,16 @@ retained value is credential-redacted or projected."
                          name)
                  :tool-name "mcp.refresh"))
         (setf (gethash name seen) t)))
-    (tool-registry-delete-if
-     registry
-     (lambda (tool)
-       (and (typep tool 'mcp-provider-tool)
-            (eq (mcp-managed-tool-manager tool) manager))))
+    ;; Replace survivors in place and append only new tools, so a refresh with
+    ;; the same capabilities in any order leaves the tool declarations, and
+    ;; with them a provider's cached prefix, unchanged.
+    (let ((names (mapcar #'tool-canonical-name effective-replacements)))
+      (tool-registry-delete-if
+       registry
+       (lambda (tool)
+         (and (typep tool 'mcp-provider-tool)
+              (eq (mcp-managed-tool-manager tool) manager)
+              (not (member (tool-canonical-name tool) names :test #'string=))))))
     (dolist (tool effective-replacements)
       (tool-registry-register registry tool)))
   registry)

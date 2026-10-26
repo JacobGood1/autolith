@@ -3812,7 +3812,27 @@
                              (eq (mcp-managed-tool-manager tool) manager)))
                       (tool-registry-tools all-tools-registry)))
                     '("read file" "read/file" "mutate" "error" "image"))
-                   "a valid MCP retry restores provider tools in discovery order"))
+                   "a valid MCP retry restores provider tools in discovery order")
+                  (let ((local (make-instance
+                                'tool
+                                :namespace   "static"
+                                :name        "after"
+                                :description "A local tool registered after MCP discovery."
+                                :parameters  (tool-object-schema (json-object) nil))))
+                    (tool-registry-register all-tools-registry local)
+                    (let ((before (json-encode
+                                   (tool-registry-provider-schemas all-tools-registry))))
+                      (mcp-tool-registry--replace-dynamic-tools
+                       all-tools-registry
+                       manager
+                       (reverse (mcp-tools--manager-tool-objects manager)))
+                      (test-assert
+                       (string= before (json-encode
+                                        (tool-registry-provider-schemas all-tools-registry)))
+                       "a refresh listing the same tools in another order keeps every declaration in place"))
+                    (tool-registry-delete-if all-tools-registry
+                                             (lambda (tool)
+                                               (eq tool local)))))
                (test-assert
                 (and
                  (test-mcp--tool-with-raw-name
