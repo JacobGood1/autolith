@@ -2748,6 +2748,24 @@
                          "request placement does not mutate durable history"))))))
   nil)
 
+(-> test-codex-reasoning-context () null)
+(defun test-codex-reasoning-context ()
+  "Request reasoning from every turn only for the Codex models that keep it."
+  (with-test-configuration (configuration)
+    (let ((conversation (conversation-create configuration))
+          (provider     (provider-create configuration)))
+      (conversation-append-user-message conversation "synthetic task")
+      (flet ((reasoning-context ()
+               (json-get (json-get (provider-request-object provider conversation #())
+                                   "reasoning")
+                         "context")))
+        (test-assert (equal "all_turns" (reasoning-context))
+                     "a Codex model marked for it keeps reasoning from every turn")
+        (let ((*codex-all-turns-reasoning-models* nil))
+          (test-assert (null (reasoning-context))
+                       "other models leave reasoning retention to the service")))))
+  nil)
+
 (-> test-codex-rendered-context-request () null)
 (defun test-codex-rendered-context-request ()
   "Exercise actual goal plus rendered-context ordering and partial omission."

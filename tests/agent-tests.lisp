@@ -409,18 +409,24 @@
      &key
      (:turn-state (option string))
      (:turn-completion turn-completion)
-     (:usage json-object))
+     (:usage json-object)
+     (:reasoning-context (option string)))
     provider-result)
 (defun agent-test-result
     (response-id output-items
      &key turn-state (turn-completion :unspecified)
-       (usage (json-object "input_tokens" 1 "output_tokens" 1)))
-  "Return a scripted provider result containing OUTPUT-ITEMS."
+       (usage (json-object "input_tokens" 1 "output_tokens" 1))
+       reasoning-context)
+  "Return a scripted provider result containing OUTPUT-ITEMS.
+
+REASONING-CONTEXT is the retention mode its response metadata reports."
   (make-instance 'provider-result
                  :response-id     response-id
                  :output-items    output-items
                  :tool-calls      (remove-if-not #'function-call-item-p output-items)
                  :usage           usage
+                 :metadata        (make-instance 'provider-response-metadata
+                                                 :reasoning-context reasoning-context)
                  :turn-state      turn-state
                  :turn-completion turn-completion))
 
@@ -501,12 +507,13 @@
              (agent-test-result
               "response-2"
               (list message)
-              :usage (json-object
-                      "input_tokens" 10
-                      "output_tokens" 2
-                      "input_tokens_details"
-                      (json-object "cached_tokens" 8
-                                   "cache_write_tokens" 1))))))
+              :reasoning-context "all_turns"
+              :usage             (json-object
+                                  "input_tokens" 10
+                                  "output_tokens" 2
+                                  "input_tokens_details"
+                                  (json-object "cached_tokens" 8
+                                               "cache_write_tokens" 1))))))
          (registry            (agent-test-registry))
          (deltas              nil)
          (statuses            nil)
@@ -634,7 +641,11 @@
                    (= (second (assoc "cache_creation_input_tokens"
                                      persisted-usage :test #'string=))
                       1))
-              "provider metadata persists normalized cache usage"))
+              "provider metadata persists normalized cache usage")
+             (test-assert
+              (equal "all_turns"
+                     (getf (getf (rest provider-record) :metadata) :reasoning-context))
+              "provider metadata records the reasoning retention mode the response reports"))
            (test-assert
             (= (count :provider-progress statuses) 2)
             "every streamed delta refreshes visible provider progress"))

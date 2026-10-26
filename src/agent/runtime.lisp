@@ -716,11 +716,14 @@ commit 6f51c65958."
              ':durable))))
     (conversation-append-provider-metadata
      conversation
-     (list :request-number request-number
-           :response-id    (provider-result-response-id result)
-           :usage          (agent--portable-value
-                            (provider-usage-normalize
-                             (provider-result-usage result))))))
+     (append (list :request-number request-number
+                   :response-id    (provider-result-response-id result)
+                   :usage          (agent--portable-value
+                                    (provider-usage-normalize
+                                     (provider-result-usage result))))
+             ;; The service's effective retention mode, when it reports one.
+             (let ((context (agent--result-reasoning-context result)))
+               (and context (list :reasoning-context context))))))
   nil)
 
 (-> agent--answer-tool-searches
@@ -1524,6 +1527,12 @@ to usage accounting instead of hiding behind the compaction record."
         call-id
         "Tools are unavailable during compaction. Return only the requested handoff summary as visible assistant text."))))
   nil)
+
+(-> agent--result-reasoning-context (provider-result) (option string))
+(defun agent--result-reasoning-context (result)
+  "Return the reasoning retention mode RESULT's response reports, or NIL."
+  (let ((metadata (provider-result-metadata result)))
+    (and metadata (provider-response-metadata-reasoning-context metadata))))
 
 (-> agent--prepare-provider-request (agent) (integer 0))
 (defun agent--prepare-provider-request (agent)

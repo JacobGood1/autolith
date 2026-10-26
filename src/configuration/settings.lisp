@@ -271,6 +271,17 @@
 ;; codex-rs/models-manager/models.json at
 ;; 444da310e108da16aaeb18fd790b0ac464f08aca: every GPT-6.1, GPT-6, and GPT-5.6
 ;; entry lists the priority service tier named Fast.
+(defparameter *codex-all-turns-reasoning-models*
+  '("gpt-6.1-sol" "gpt-6-astra" "gpt-6-sol" "gpt-6-luna"
+    "gpt-5.6-sol" "gpt-5.6-luna" "gpt-5.6-terra")
+  "Codex model identifiers whose requests keep reasoning from every turn.
+
+https://github.com/openai/codex commit 970111f6cb62cc02fe36a82ea7d71b37a2889c97
+marks each of these use_responses_lite in codex-rs/models-manager/models.json,
+and codex-rs/core/src/client.rs sends reasoning.context all_turns for exactly
+those. The service otherwise defaults to current_turn, which stops rendering
+earlier turns' reasoning at each new user message, including automatic ones.")
+
 (defparameter *codex-fast-mode-models*
   '("gpt-6.1-sol" "gpt-6-astra" "gpt-6-sol" "gpt-6-luna"
     "gpt-5.6-sol" "gpt-5.6-luna" "gpt-5.6-terra")

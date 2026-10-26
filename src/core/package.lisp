@@ -420,10 +420,12 @@
                 #:provider-responses-wire-effort
                 #:provider-result
                 #:provider-result-metadata
+                #:provider-response-metadata
                 #:provider-response-metadata-event
                 #:provider-response-metadata-event-metadata
                 #:provider-response-metadata-model
                 #:provider-response-metadata-finish-reason
+                #:provider-response-metadata-reasoning-context
                 #:provider-response-metadata-cache-write-tokens
                 #:provider-cache-write-tokens
                 #:provider-result-output-items

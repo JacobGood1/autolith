@@ -247,6 +247,26 @@ tools only when trimming history for compaction, which
   (when (provider-reasoning-summaries-p provider)
     "auto"))
 
+(defgeneric provider-responses-reasoning-context (provider configuration)
+  (:documentation
+   "Return the reasoning retention mode PROVIDER requests for CONFIGURATION's model, or NIL.
+
+NIL leaves the service default in place."))
+
+(defmethod provider-responses-reasoning-context
+    ((provider responses-api-provider) (configuration configuration))
+  "Leave reasoning retention at the service default."
+  (declare (ignore provider configuration))
+  nil)
+
+(defmethod provider-responses-reasoning-context
+    ((provider codex-subscription-provider) (configuration configuration))
+  "Keep reasoning from every turn for the models Codex itself requests it for."
+  (declare (ignore provider))
+  (and (member (config :model configuration) *codex-all-turns-reasoning-models*
+               :test #'string=)
+       "all_turns"))
+
 (defmethod provider-responses-hosted-tools
     ((provider codex-subscription-provider) configuration)
   "Return Codex's enabled hosted tool declarations."
@@ -323,6 +343,8 @@ changing one never invalidates a provider's cached prefix of earlier history."
                      :reasoning-summary
                      (and (not compaction-p)
                           (provider-responses-reasoning-summary provider configuration))
+                     :reasoning-context
+                     (provider-responses-reasoning-context provider configuration)
                      :maximum-output-tokens
                      (and (provider-output-ceiling-p provider)
                           *provider-maximum-output-tokens*)

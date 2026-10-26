@@ -687,6 +687,7 @@
 
 (define-test-suite provider
   test-codex-context-request
+  test-codex-reasoning-context
   test-codex-rendered-context-request
   test-codex-anchored-contributions-request
   test-provider-deferred-tool-models
