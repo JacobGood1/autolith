@@ -2214,12 +2214,14 @@ reaches the very next provider request."
        source (operation-kind ':command) retry-p (return-values-p nil))
   "Call FUNCTION under the user restart debugger and fatal condition boundary."
   (let ((signal-backtrace nil))
-    (handler-bind
-        ((serious-condition
-           (lambda (condition)
-             (declare (ignore condition))
-             (setf signal-backtrace (application-safe-backtrace)))))
-      (handler-case
+    ;; The backtrace handler must sit inside HANDLER-CASE: its handlers are
+    ;; tried first and unwind before any enclosing handler could look.
+    (handler-case
+        (handler-bind
+            ((serious-condition
+               (lambda (condition)
+                 (declare (ignore condition))
+                 (setf signal-backtrace (application-safe-backtrace)))))
           (multiple-value-bind
                 (values debugger-status condition restart-names
                         selected-restart-name)
@@ -2236,22 +2238,22 @@ reaches the very next provider request."
             (declare (ignore restart-names selected-restart-name))
             (if (eq debugger-status ':aborted)
                 (values ':aborted condition)
-                (values (first values) condition)))
-        ((or application-operation-loop-action
-             application-turn-cancelled
-             application-input-failed)
-         (condition)
-         (error condition))
-        ((or agent-loop-error
-             conversation-invariant-error
-             active-image-corruption)
-         (condition)
-         (application-raise-fatal application condition signal-backtrace))
-        ((or autolith-error cl-llm-provider-api:provider-api-error) (condition)
-          (funcall expected-error-function application condition)
-          (values ':failed (princ-to-string condition)))
-        (serious-condition (condition)
-          (application-raise-fatal application condition signal-backtrace))))))
+                (values (first values) condition))))
+      ((or application-operation-loop-action
+           application-turn-cancelled
+           application-input-failed)
+       (condition)
+       (error condition))
+      ((or agent-loop-error
+           conversation-invariant-error
+           active-image-corruption)
+       (condition)
+       (application-raise-fatal application condition signal-backtrace))
+      ((or autolith-error cl-llm-provider-api:provider-api-error) (condition)
+        (funcall expected-error-function application condition)
+        (values ':failed (princ-to-string condition)))
+      (serious-condition (condition)
+        (application-raise-fatal application condition signal-backtrace)))))
 
 (-> application-input-controller--run-responsive-lisp
     (application-input-controller string)
@@ -3871,47 +3873,49 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
   (let* ((conversation        (application-conversation application))
          (turn-start-sequence (conversation-next-sequence conversation))
          (signal-backtrace    nil))
-    (handler-bind
-        ((serious-condition
-           (lambda (condition)
-             (declare (ignore condition))
-             (setf signal-backtrace (application-safe-backtrace)))))
-      (handler-case
+    ;; The backtrace handler must sit inside HANDLER-CASE: its handlers are
+    ;; tried first and unwind before any enclosing handler could look.
+    (handler-case
+        (handler-bind
+            ((serious-condition
+               (lambda (condition)
+                 (declare (ignore condition))
+                 (setf signal-backtrace (application-safe-backtrace)))))
           (progn
             (funcall function)
-            ':continue)
-        (application-turn-cancelled (condition)
-          (application--record-turn-aborted
-           application condition
-           :turn-start-sequence turn-start-sequence
-           :reason              ':cancelled)
-          (error condition))
-        (application-input-failed (condition)
-          (error condition))
-        (agent-loop-error (condition)
-          (application--record-turn-aborted
-           application condition
-           :turn-start-sequence turn-start-sequence
-           :reason              ':agent-loop)
-          (if fatal-agent-loop-errors-p
-              (application-raise-fatal
-               application condition signal-backtrace)
-              (progn
-                (application-handle-expected-error application condition)
-                ':failed)))
-        ((or conversation-invariant-error
-             active-image-corruption)
-         (condition)
-         (application-raise-fatal application condition signal-backtrace))
-        ((or autolith-error cl-llm-provider-api:provider-api-error) (condition)
-          (application--record-turn-aborted
-           application condition
-           :turn-start-sequence turn-start-sequence
-           :reason              ':application-error)
-          (application-handle-expected-error application condition)
-          ':failed)
-        (serious-condition (condition)
-          (application-raise-fatal application condition signal-backtrace))))))
+            ':continue))
+      (application-turn-cancelled (condition)
+        (application--record-turn-aborted
+         application condition
+         :turn-start-sequence turn-start-sequence
+         :reason              ':cancelled)
+        (error condition))
+      (application-input-failed (condition)
+        (error condition))
+      (agent-loop-error (condition)
+        (application--record-turn-aborted
+         application condition
+         :turn-start-sequence turn-start-sequence
+         :reason              ':agent-loop)
+        (if fatal-agent-loop-errors-p
+            (application-raise-fatal
+             application condition signal-backtrace)
+            (progn
+              (application-handle-expected-error application condition)
+              ':failed)))
+      ((or conversation-invariant-error
+           active-image-corruption)
+       (condition)
+       (application-raise-fatal application condition signal-backtrace))
+      ((or autolith-error cl-llm-provider-api:provider-api-error) (condition)
+        (application--record-turn-aborted
+         application condition
+         :turn-start-sequence turn-start-sequence
+         :reason              ':application-error)
+        (application-handle-expected-error application condition)
+        ':failed)
+      (serious-condition (condition)
+        (application-raise-fatal application condition signal-backtrace)))))
 
 (-> application--run-message-input
     (application (or string user-message-input)

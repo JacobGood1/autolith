@@ -3165,23 +3165,47 @@
     (let* ((application (mission-test--application configuration))
            (controller  (make-instance 'application-input-controller
                                        :application application
-                                       :main-thread (current-thread))))
+                                       :main-thread (current-thread)))
+           (reported    nil)
+           (failure     (lambda ()
+                          (error "Injected fatal failure."))))
       (setf (application-input-controller application) controller)
       (unwind-protect
-           (progn
-             (application-input-controller--record-failure
-              controller
-              (make-condition 'simple-error :format-control "Injected reader failure.")
-              (list "READER-FRAME"))
-             (test-assert
-              (equal (handler-case
-                         (progn
-                           (application-input-controller--next-work controller)
-                           nil)
-                       (application-input-failed (condition)
-                         (application-input-failed-backtrace condition)))
-                     '("READER-FRAME"))
-              "a terminal reader failure reaches the main thread with its frames"))
+           (test-call-with-function-replacements
+            (list (list 'application-raise-fatal
+                        (lambda (application condition backtrace)
+                          (declare (ignore application condition))
+                          (throw 'test-fatal backtrace)))
+                  (list 'application-lisp-call-with-ui-debugger
+                        (lambda (application function &rest arguments)
+                          (declare (ignore application arguments))
+                          (values (multiple-value-list (funcall function))
+                                  ':completed nil nil nil))))
+            (lambda ()
+              (dolist (case (list (list "model work"
+                                        #'application--call-with-model-error-handling)
+                                  (list "a command"
+                                        #'application--call-with-command-debugger)))
+                (destructuring-bind (name boundary) case
+                  (setf reported (catch 'test-fatal
+                                   (funcall boundary application failure)))
+                  (test-assert (and (consp reported)
+                                    (every #'stringp reported)
+                                    (find "ERROR" reported :test #'search))
+                               (format nil "a fatal failure in ~A keeps its signal frames" name))))
+              (application-input-controller--record-failure
+               controller
+               (make-condition 'simple-error :format-control "Injected reader failure.")
+               (list "READER-FRAME"))
+              (test-assert
+               (equal (handler-case
+                          (progn
+                            (application-input-controller--next-work controller)
+                            nil)
+                        (application-input-failed (condition)
+                          (application-input-failed-backtrace condition)))
+                      '("READER-FRAME"))
+               "a terminal reader failure reaches the main thread with its frames")))
         (setf (application-input-controller application) nil)
         (terminal-ui-stop (application-ui application)))))
   nil)
