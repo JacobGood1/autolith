@@ -123,7 +123,7 @@
 
 (-> test-prompt-cache-small-losses () null)
 (defun test-prompt-cache-small-losses ()
-  "Accumulate repeated cache losses below the report threshold until they are reported."
+  "Accumulate small cache losses without confusing a partial recovery with stagnation."
   (let ((baseline (prompt-cache-baseline-create (prompt-cache-tests--usage 100000 99000)))
         (reports  nil))
     (loop for request from 1 to 60
@@ -142,6 +142,21 @@
                   baseline (prompt-cache-tests--usage 101000 100000))))
       (test-assert (= 100000 (prompt-cache-baseline-cached-tokens grown))
                    "growing reads become the new reference")))
+  (let ((baseline (prompt-cache-baseline-create (prompt-cache-tests--usage 120000 99000))))
+    (loop for (input cached lost) in '((120000 98936 nil)
+                                       (121000 98968 nil)
+                                       (121000 98904 nil)
+                                       (121000 98840 128))
+          for usage = (prompt-cache-tests--usage input cached)
+          do (let ((miss (prompt-cache-miss-detect baseline usage)))
+               (test-assert
+                (if lost
+                    (and (eq (getf miss :kind) ':shrunk)
+                         (= (getf miss :lost-tokens) lost))
+                    (null miss))
+                "partial recovery resets loss accumulation and is never reported as stalled")
+               (setf baseline (prompt-cache-baseline-advance
+                               baseline usage :reported-p (not (null miss)))))))
   nil)
 
 (-> test-prompt-cache-baseline-from-conversation () null)

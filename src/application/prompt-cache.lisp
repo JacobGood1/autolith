@@ -87,6 +87,12 @@
     :reader        prompt-cache-baseline-cached-tokens
     :type          (option (integer 0))
     :documentation "How much of that prompt the cache already served, when reported.")
+   (loss-reference-tokens
+    :initarg       :loss-reference-tokens
+    :initform      nil
+    :reader        prompt-cache-baseline-loss-reference-tokens
+    :type          (option (integer 0))
+    :documentation "The cache-read reference for accumulating unreported losses, or NIL to use actual reads.")
    (completed-at
     :initarg  :completed-at
     :initform nil
@@ -123,20 +129,21 @@
 (defun prompt-cache-baseline-advance (baseline usage &key completed-at model reported-p)
   "Return the baseline following BASELINE after a request completing with USAGE.
 
-A loss of cache reads too small to report keeps BASELINE's reads as the
-reference, so repeated small losses accumulate until one report covers them.
-When REPORTED-P or the reads did not fall, USAGE's own reads become it."
-  (let ((next (prompt-cache-baseline-create usage :completed-at completed-at :model model)))
-    (if (and next baseline (not reported-p)
-             (prompt-cache-baseline-cached-tokens baseline)
-             (prompt-cache-baseline-cached-tokens next)
-             (< (prompt-cache-baseline-cached-tokens next)
-                (prompt-cache-baseline-cached-tokens baseline)))
+Always retain the actual reads for progression. Accumulate unreported losses
+in a separate reference, resetting it when reads recover or a loss is reported."
+  (let* ((next (prompt-cache-baseline-create usage :completed-at completed-at :model model))
+         (previous-cached (and baseline (prompt-cache-baseline-cached-tokens baseline)))
+         (next-cached (and next (prompt-cache-baseline-cached-tokens next))))
+    (if (and next baseline (not reported-p) previous-cached next-cached
+             (<= next-cached previous-cached))
         (make-instance 'prompt-cache-baseline
                        :prompt-tokens (prompt-cache-baseline-prompt-tokens next)
-                       :cached-tokens (prompt-cache-baseline-cached-tokens baseline)
-                       :completed-at  completed-at
-                       :model         model)
+                       :cached-tokens next-cached
+                       :loss-reference-tokens
+                       (or (prompt-cache-baseline-loss-reference-tokens baseline)
+                           previous-cached)
+                       :completed-at completed-at
+                       :model model)
         next)))
 
 (-> prompt-cache-baseline-from-conversation
@@ -209,16 +216,19 @@ not advance lose the previous prompt's unread part, which accumulates over
 consecutive stalled requests; it includes that request's temporary context, so
 it is an upper bound. Without previous reads, low reads against the previous
 prompt are the only evidence. The first value is NIL when nothing is anomalous."
-  (let ((previous        (prompt-cache-baseline-prompt-tokens baseline))
-        (previous-cached (prompt-cache-baseline-cached-tokens baseline)))
+  (let* ((previous        (prompt-cache-baseline-prompt-tokens baseline))
+         (previous-cached (prompt-cache-baseline-cached-tokens baseline))
+         (loss-reference  (or (prompt-cache-baseline-loss-reference-tokens baseline)
+                              previous-cached)))
     (cond
       ((null previous-cached)
        (if (and (>= previous *prompt-cache-miss-minimum-tokens*)
                 (< cached-tokens (* previous *prompt-cache-miss-ratio*)))
            (values ':missed (max 0 (- previous cached-tokens)))
            (values nil 0)))
-      ((>= (- previous-cached cached-tokens) *prompt-cache-block-tokens*)
-       (values ':shrunk (- previous-cached cached-tokens)))
+      ((and (<= cached-tokens previous-cached)
+            (>= (- loss-reference cached-tokens) *prompt-cache-block-tokens*))
+       (values ':shrunk (- loss-reference cached-tokens)))
       ((and (> prompt-tokens previous)
             (<= cached-tokens previous-cached)
             (>= (- previous previous-cached)
