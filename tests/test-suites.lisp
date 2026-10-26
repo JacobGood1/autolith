@@ -260,6 +260,7 @@
   test-terminal-fullscreen-clicks
   test-localgroup-click-events
   test-terminal-fullscreen-message-jumps
+  test-terminal-fullscreen-repl-message-starts
   test-terminal-fullscreen-exit-epilogue
   test-terminal-fullscreen-forced-exit-resume)
 
@@ -1281,6 +1282,7 @@
   test-tool-execution-handoff-presentation
   test-recovery-cursor-normalization
   test-fatal-boundaries-keep-backtraces
+  test-repl-transcript-style
   test-activity-line-setting
   test-recovery-diagnosis-prompt
   test-recovery-application-construction

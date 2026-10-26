@@ -330,6 +330,17 @@ exist yet, and is only put in directory form."
   :scope                        :durable
   :default                      t)
 
+(define-setting :transcript-style (choice-setting)
+  :label                          "Transcript style"
+  :group                          :transcript
+  :documentation                  "How messages open: labels puts a ❯ you or ● autolith header above each message, and repl marks its first line with > or <, like a Lisp REPL exchange."
+  :type                           'keyword
+  :scope                          :durable
+  :options                        (lambda (configuration)
+                                    (declare (ignore configuration))
+                                    (list ':labels ':repl))
+  :default                        ':labels)
+
 (define-setting :turn-timestamps-p (boolean-setting)
   :label                           "Turn timestamps"
   :group                           :transcript

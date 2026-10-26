@@ -421,11 +421,15 @@ truthful source of dimensions."
 (defparameter *application-prompt* "❯ "
   "The styled input prompt shown on the live editor row.")
 
-(defparameter *application-message-header-prefixes* '("❯ you" "● autolith")
-  "The transcript header prefixes opening user and assistant messages.
+(defparameter *application-message-header-prefixes* '("❯ you" "● autolith" "> " "< ")
+  "The transcript prefixes opening user and assistant messages in either style.
 
 The fullscreen viewport jumps between these lines, so a reader can follow the
 exchange without scrolling through reasoning and tool activity.")
+
+(defparameter *application-message-markers*
+  '(:user (:user "> ") :assistant (:brand "< "))
+  "The style and text marking a REPL-style message's first line, by role.")
 
 (defparameter *application-placeholder*
   "Ask Autolith anything. Type (help) for operations."
@@ -2126,6 +2130,68 @@ the fence's raw source; that span becomes a widget copying the source."
   (and (application-turn-timestamps-p application)
        (application--timestamp-text timestamp)))
 
+(-> application--repl-transcript-p (application) boolean)
+(defun application--repl-transcript-p (application)
+  "Return true when APPLICATION marks messages like a REPL exchange."
+  (eq (config :transcript-style (application-configuration application)) ':repl))
+
+(-> application--marked-row (list (member :user :assistant)) list)
+(defun application--marked-row (spans role)
+  "Return SPANS with their leading two-space indent replaced by ROLE's REPL marker.
+
+The marker takes the indent's two cells, so the following lines stay aligned."
+  (destructuring-bind (style text) (getf *application-message-markers* role)
+    (let* ((first   (first spans))
+           (content (and first
+                         (not (termdown:widget-p first))
+                         (terminal-span-text first)))
+           (marker  (terminal-span style text)))
+      (if (and content (uiop:string-prefix-p "  " content))
+          (append (list marker)
+                  (when (> (length content) 2)
+                    (list (terminal-span (terminal-span-style first) (subseq content 2))))
+                  (rest spans))
+          (cons marker spans)))))
+
+(-> application--message-timestamp-row (application (option timestamp)) list)
+(defun application--message-timestamp-row (application timestamp)
+  "Return the indented timestamp spans above a REPL-style message, or NIL."
+  (let ((text (application--turn-timestamp-text application timestamp)))
+    (when text
+      (list (terminal-span ':dim (format nil "  ~A" text))))))
+
+(-> application--message-entry
+    (application &key (:role (member :user :assistant)) (:timestamp (option timestamp))
+                      (:body list))
+    list)
+(defun application--message-entry (application &key role timestamp body)
+  "Return one user or assistant message entry over its indented BODY spans.
+
+The labels style puts a header with ROLE's name and TIMESTAMP above BODY. The
+REPL style marks BODY's first line with > or < instead, with TIMESTAMP on the
+line above."
+  (if (application--repl-transcript-p application)
+      (append (let ((row (application--message-timestamp-row application timestamp)))
+                (when row
+                  (append row (list (terminal-span ':plain (string #\Newline))))))
+              (application--marked-row body role))
+      (append (application--transcript-entry
+               application
+               :style     (if (eq role ':user) ':user ':brand)
+               :header    (if (eq role ':user) "❯ you" "● autolith")
+               :timestamp timestamp)
+              (list (terminal-span ':plain (string #\Newline)))
+              body)))
+
+(-> application--user-message-entry (application string (option timestamp)) list)
+(defun application--user-message-entry (application text timestamp)
+  "Return the transcript entry presenting user message TEXT sent at TIMESTAMP."
+  (application--message-entry
+   application
+   :role      ':user
+   :timestamp timestamp
+   :body      (list (terminal-span ':plain (application--indented-body application text)))))
+
 (-> application--child-response-entry (application list) (option list))
 (defun application--child-response-entry (application payload)
   "Return one canonical primary-window entry for a portable child response."
@@ -2435,13 +2501,10 @@ column is WIDTH cells, or otherwise wide enough for the longest label present."
             (string= (or (json-get item "role") "") "assistant"))
        (let ((text (application--visible-assistant-text item)))
          (when text
-           (append (application--transcript-entry
-                    application
-                    :style     ':brand
-                    :header    "● autolith"
-                    :timestamp timestamp)
-                   (list (terminal-span ':plain (string #\Newline)))
-                   (application--markdown-body application text)))))
+           (application--message-entry application
+                                       :role      ':assistant
+                                       :timestamp timestamp
+                                       :body      (application--markdown-body application text)))))
       ((string= (or type "") "reasoning")
        (when (application-reasoning-traces-p application)
          (let ((summary (response-item-reasoning-summary item)))
@@ -2545,11 +2608,7 @@ has no faithful invocation."
                   (application--goal-continuation-message-p content))
               (application--continuation-entry content))
              (t
-              (application--transcript-entry application
-                                             :style     ':user
-                                             :header    "❯ you"
-                                             :timestamp (getf properties :time)
-                                             :body      content)))))))
+              (application--user-message-entry application content (getf properties :time))))))))
     (:provider-item
      (let ((wire-json (getf (rest record) :wire-json)))
        (and (stringp wire-json)
@@ -3518,9 +3577,27 @@ checked."
         (stream-text              (text-buffer-create))
         (stream-pending           "")
         (stream-open-p            nil)
+        (stream-marker-pending-p  nil)
         (stream-started-at        nil)
         (stream-renderer          nil))
-    (labels ((reasoning-flush ()
+    (labels ((stream-mark (rows)
+               "Mark ROWS' first content row as the REPL-style reply while it is pending."
+               (let ((position (position-if-not #'null rows)))
+                 (if (and stream-marker-pending-p position)
+                     (progn
+                       (setf stream-marker-pending-p nil)
+                       (append (subseq rows 0 position)
+                               (list (application--marked-row (nth position rows) ':assistant))
+                               (nthcdr (1+ position) rows)))
+                     rows)))
+
+             (stream-tail-mark (tail)
+               "Show TAIL's first row marked while the reply's first line is still arriving."
+               (if (and stream-marker-pending-p (consp tail) (consp (first tail)))
+                   (cons (application--marked-row (first tail) ':assistant) (rest tail))
+                   tail))
+
+             (reasoning-flush ()
                "Finalize the visible reasoning summary before assistant output."
                (terminal-ui-set-preview-rows ui nil)
                (when (and (application-reasoning-traces-p application)
@@ -3551,20 +3628,27 @@ checked."
                      ;; phase only times the modeline.
                      (application-set-activity application "receiving response"
                                                :label-p nil)
-                     (push
-                      (application--transcript-entry
-                       application
-                       :style     ':brand
-                       :header    "● autolith"
-                       :timestamp stream-started-at)
-                      rows))
+                     (if (application--repl-transcript-p application)
+                         (let ((row (application--message-timestamp-row
+                                     application stream-started-at)))
+                           (setf stream-marker-pending-p t)
+                           (when row
+                             (push row rows)))
+                         (push
+                          (application--transcript-entry
+                           application
+                           :style     ':brand
+                           :header    "● autolith"
+                           :timestamp stream-started-at)
+                          rows)))
                    (loop for newline = (position #\Newline stream-pending)
                          while newline
                          do (setf rows
                                   (append rows
-                                          (application--markdown-rows
-                                           stream-renderer
-                                           (subseq stream-pending 0 newline)))
+                                          (stream-mark
+                                           (application--markdown-rows
+                                            stream-renderer
+                                            (subseq stream-pending 0 newline))))
                                   stream-pending
                                   (subseq stream-pending (1+ newline))))
                    (multiple-value-bind (overflow-rows tail-rows retained)
@@ -3572,22 +3656,24 @@ checked."
                      (setf stream-pending retained)
                      (terminal-ui-stream-update
                       ui
-                      :rows (append rows overflow-rows)
-                      :tail tail-rows)))))
+                      :rows (append rows (stream-mark overflow-rows))
+                      :tail (stream-tail-mark tail-rows))))))
 
              (stream-flush ()
                "Finish the streamed block with its remaining text and separator."
                (when stream-open-p
                  (terminal-ui-stream-update
                   ui
-                  :rows (append (when (plusp (length stream-pending))
-                                  (application--markdown-rows stream-renderer
-                                                              stream-pending))
-                                (termdown:markdown-render-finish stream-renderer)
+                  :rows (append (stream-mark
+                                 (append (when (plusp (length stream-pending))
+                                           (application--markdown-rows stream-renderer
+                                                                       stream-pending))
+                                         (termdown:markdown-render-finish stream-renderer)))
                                 (list nil))
                   :tail nil)
                  (setf stream-pending ""
                        stream-open-p nil
+                       stream-marker-pending-p nil
                        stream-renderer nil))))
       (callback-agent-observer-create
        :text-callback               #'stream-text-delta
@@ -3640,13 +3726,8 @@ checked."
                     (application--operation-request-entry
                      application operation-request timestamp))
                    (t
-                    (application--transcript-entry
-                     application
-                     :style     ':user
-                     :header    "❯ you"
-                     :timestamp timestamp
-                     :body
-                     (user-message-input-text user-message-input)))))
+                    (application--user-message-entry
+                     application (user-message-input-text user-message-input) timestamp))))
                 (setf (application-rendered-sequence application) sequence)))
             (application-publish-recovery-session application))
            (:related-memories

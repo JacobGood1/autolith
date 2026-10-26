@@ -37,6 +37,10 @@ complete, =Tab= sends the input like Enter, or queues it as a follow-up while a
 turn is running. Inside a form you are still typing, such as =(job.continuity :=,
 =Tab= does nothing rather than send half a form.
 The work indicator displays =REPL= with one letter highlighted in sequence.
+=(settings :transcript-style :repl)= opens messages like a Lisp REPL exchange,
+with =>= before yours and =<= before Autolith's, and the time on the line above
+while turn timestamps are on; =:labels= restores the =❯ you= and =● autolith=
+headers.
 Below the modeline, a line names what the turn is doing, such as =pondering=;
 =(settings :activity-line-p nil)= hides it and spares the row, while the
 modeline keeps timing the turn. A streaming response needs no such line.
@@ -1390,9 +1394,9 @@ sets its value. A change to a durable setting is saved at once for future
 sessions. In a script, =(settings)= prints every setting grouped by area.
 
 Settings live in one of four scopes. Durable settings, such as the model,
-reasoning effort, Fast mode, reasoning traces, compact view, timestamps,
-cache miss notices, Simple Technical English, generated titles, fullscreen,
-and the saved permission mode, persist in =preferences.sexp= under the state
+reasoning effort, Fast mode, reasoning traces, compact view, timestamps, the
+transcript style, the activity line, cache miss notices, Simple Technical
+English, generated titles, fullscreen, and the saved permission mode, persist in =preferences.sexp= under the state
 directory. Session settings, such as hurry-up mode, last until exit. Process
 settings, such as the immutable flag, the management endpoint, and the roots,
 come from the command line, the environment, or defaults at startup and stay
