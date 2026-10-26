@@ -374,7 +374,13 @@
                                            :key #'tool-canonical-name :test #'string=)
                                      t))
                             (format nil "diagnosis.run is ~:[not ~;~]offered with ~A knowledge and probes ~:[off~;on~]"
-                                    expected mode diagnosis-p)))))
+                                    expected mode diagnosis-p))))
+    (test-assert (find "diagnosis.run"
+                       (tool-registry-tools (make-default-tool-registry
+                                             :configuration (configuration-copy
+                                                             base :working-directory root)))
+                       :key #'tool-canonical-name :test #'string=)
+                 "a fresh configuration offers diagnosis.run by default"))
   nil)
 
 (-> test-diagnosis-commands () null)

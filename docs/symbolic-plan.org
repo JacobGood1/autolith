@@ -79,7 +79,7 @@ Not shipped yet.
   =(run-procedure)=, =(admit-procedure)=, =(retire-procedure)=.
 
 ** Diagnosis
-- New setting =Diagnostic probes= (=diagnosis-p=, =AUTOLITH_DIAGNOSIS=), off by
+- New setting =Diagnostic probes= (=diagnosis-p=, =AUTOLITH_DIAGNOSIS=), on by
   default. With it, =diagnosis.run= finds which of up to four hypotheses
   explains a failure by running the probes that tell them apart, at most
   three, before any repair. A case no probe settles is reported as open.

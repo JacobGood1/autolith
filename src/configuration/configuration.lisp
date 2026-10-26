@@ -370,7 +370,8 @@ exist yet, and is only put in directory form."
   :group                     :behavior
   :documentation             "Whether the model may test hypotheses about a failure with probe tool calls (diagnosis.run). It needs active structured knowledge."
   :scope                     :durable
-  :environment               "AUTOLITH_DIAGNOSIS")
+  :environment               "AUTOLITH_DIAGNOSIS"
+  :default                   t)
 
 (define-setting :idle-compaction-p (boolean-setting)
   :label                           "Idle cache compaction"

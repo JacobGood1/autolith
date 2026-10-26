@@ -1184,7 +1184,8 @@ and are learned and offered only while =knowledge-mode= is =active=.
 
 *** Diagnosis
 
-With =Diagnostic probes= on in =(settings)= (or =AUTOLITH_DIAGNOSIS=1=) and
+With =Diagnostic probes= on, as they are by default (=AUTOLITH_DIAGNOSIS=0= or
+=(settings)= turns them off), and
 structured knowledge active, the model can find out why something fails
 before repairing it, instead of trying repairs in turn. =diagnosis.run= takes
 up to four hypotheses, each predicting facts, and probes: tool calls whose

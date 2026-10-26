@@ -542,9 +542,9 @@ Use =(retire-procedure "NAME")= to stop using and learning that procedure.
 * Diagnose before repairing
 :PROPERTIES:
 :ID: symbolic-diagnosis
-:VERSION: 1
+:VERSION: 2
 :END:
-Enable *Diagnostic probes* in =(settings)= to let Autolith compare hypotheses using structured observations.
+With *Diagnostic probes* on, as they are by default, Autolith compares hypotheses using structured observations. Turn them off in =(settings)=.
 
 It checks known facts first, then runs a bounded set of probes to distinguish the remaining causes. Read the probe results, eliminated hypotheses, and suggested repair in the report. An unresolved case is shown as open.
 
