@@ -384,15 +384,19 @@ which only theme colors carrying RGB values make use of."
   "Return one styled span pairing STYLE with untrusted TEXT."
   (cons style text))
 
-(-> terminal-span-style (cons) terminal-style)
+(-> terminal-span-style ((or cons termdown:widget)) terminal-style)
 (defun terminal-span-style (span)
-  "Return SPAN's semantic style."
-  (first span))
+  "Return SPAN's semantic style, or the role styling a widget's label."
+  (if (termdown:widget-p span)
+      (termdown:widget-role span)
+      (first span)))
 
-(-> terminal-span-text (cons) string)
+(-> terminal-span-text ((or cons termdown:widget)) string)
 (defun terminal-span-text (span)
-  "Return SPAN's untrusted text."
-  (rest span))
+  "Return SPAN's untrusted text, or a widget's label."
+  (if (termdown:widget-p span)
+      (termdown:widget-label span)
+      (rest span)))
 
 (-> terminal-styled-text-p (t) boolean)
 (defun terminal-styled-text-p (value)
