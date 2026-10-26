@@ -30,6 +30,12 @@ the clanker can, and the same machinery is exposed to you.
 Type =(=, =[=, or ={= in the composer to insert a matching pair with the cursor
 between the braces. Type the closing brace to move past it, or press Backspace
 between an empty pair to delete both braces.
+
+=Tab= completes slash commands, operation names, finite options, and workspace
+paths, and =Shift-Tab= steps back through the suggestions. With nothing to
+complete, =Tab= sends the input like Enter, or queues it as a follow-up while a
+turn is running. Inside a form you are still typing, such as =(job.continuity :=,
+=Tab= does nothing rather than send half a form.
 The work indicator displays =REPL= with one letter highlighted in sequence.
 
 * Terminal diagrams

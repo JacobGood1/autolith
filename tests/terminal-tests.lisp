@@ -1867,6 +1867,22 @@
                        "idle tab submits outside command completion")
           (test-assert (string= payload "plain text")
                        "idle tab submits the complete editor contents"))
+        (dolist (case '(("(job.continuity :" 0 nil "an open form")
+                        ("(job.continuity :)" 1 nil "a form with its paired closer after the cursor")
+                        ("(job.continuity :id \"a(b\"" 0 nil "an open form with a parenthesis in a string")
+                        ("(print #\\()" 0 t "a closed form with a parenthesis character")))
+          (destructuring-bind (text closers submits-p description) case
+            (terminal-ui-process-event active-ui (list :insert text))
+            (dotimes (count closers)
+              (terminal-ui-process-event active-ui :left))
+            (let ((action (terminal-ui-process-event active-ui :complete)))
+              (test-assert (eq (eq action ':submit) submits-p)
+                           (format nil "tab without completions ~:[keeps~;submits~] ~A"
+                                   submits-p description))
+              (unless submits-p
+                (test-assert (uiop:string-prefix-p text (line-editor-text (terminal-ui-editor active-ui)))
+                             (format nil "tab leaves ~A as typed" description))
+                (terminal-ui-process-event active-ui :interrupt)))))
         (terminal-ui-process-event active-ui '(:insert "queued follow-up"))
         (multiple-value-bind (action payload)
             (terminal-ui-process-event

@@ -635,6 +635,44 @@ so they are not part of the name being completed."
          (every (lambda (character) (find character ")]}")) rest)
          rest)))
 
+(-> terminal-ui--open-form-p (string) boolean)
+(defun terminal-ui--open-form-p (text)
+  "Return true when TEXT leaves a parenthesized form open.
+
+Strings, character names, and comments are skipped, so their parentheses do not
+count."
+  (let ((depth     0)
+        (string-p  nil)
+        (comment-p nil)
+        (index     0)
+        (size      (length text)))
+    (loop while (< index size)
+          do (let ((character (char text index)))
+               (cond
+                 (comment-p
+                  (when (char= character #\Newline)
+                    (setf comment-p nil)))
+                 (string-p
+                  (cond
+                    ((char= character #\\)
+                     (incf index))
+                    ((char= character #\")
+                     (setf string-p nil))))
+                 ((char= character #\")
+                  (setf string-p t))
+                 ((char= character #\;)
+                  (setf comment-p t))
+                 ((and (char= character #\#)
+                       (< (1+ index) size)
+                       (char= (char text (1+ index)) #\\))
+                  (incf index 2))
+                 ((char= character #\()
+                  (incf depth))
+                 ((char= character #\))
+                  (setf depth (max 0 (1- depth))))))
+             (incf index))
+    (or string-p (plusp depth))))
+
 (-> terminal-ui--completion-text (line-editor) string)
 (defun terminal-ui--completion-text (editor)
   "Return EDITOR's text as completion reads it, without paired closers after the cursor."
@@ -3457,7 +3495,7 @@ installed owner the thunk simply runs."
        (multiple-value-bind (action payload)
            (line-editor-handle-event editor :submit)
          (values (if (eq action :submit) ':queue action) payload)))
-      ((eq event :clear-screen)
+      ((member event '(:clear-screen :complete-unavailable))
        (values :changed nil))
       (t
        (multiple-value-bind (action payload)
@@ -3523,6 +3561,12 @@ released, so the action may present notices of its own."
                   ((and queue-editing-p
                         (zerop (length (line-editor-text editor))))
                    ':keep-queue-edit)
+                  ;; Inside a form being typed there is nothing to send yet:
+                  ;; submitting would only break the line or evaluate half a
+                  ;; form, so Tab waits for completions to exist.
+                  ((or (terminal-ui--paired-closers editor)
+                       (terminal-ui--open-form-p (line-editor-text editor)))
+                   ':complete-unavailable)
                   ((not queue-completion-p)
                    ':submit)
                   ((plusp (length (line-editor-text editor)))
