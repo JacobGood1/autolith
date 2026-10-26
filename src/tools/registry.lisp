@@ -917,14 +917,18 @@ spilling is unavailable, in which case the tail is discarded as before.")
                        :from-end t)))
 
 (-> tool-registry--ordered-runtime-representatives
-    (tool-registry &key (:reverse-p boolean) (:priority-p boolean))
+    (tool-registry &key (:reverse-p boolean) (:priority-p boolean) (:retain list))
     list)
 (defun tool-registry--ordered-runtime-representatives
-    (registry &key reverse-p priority-p)
-  "Return REGISTRY runtime representatives in the requested operation order."
+    (registry &key reverse-p priority-p retain)
+  "Return REGISTRY runtime representatives in the requested operation order.
+
+Runtimes whose identity is in RETAIN are left out, because another registry
+shares and owns them."
   (let ((representatives
-          (tool-registry--runtime-representatives
-           registry :reverse-p reverse-p)))
+          (remove-if (lambda (tool) (member (tool-runtime-identity tool) retain :test #'eq))
+                     (tool-registry--runtime-representatives
+                      registry :reverse-p reverse-p))))
     (if priority-p
         (stable-sort representatives #'>
                      :key #'tool-runtime-close-priority)
@@ -947,17 +951,18 @@ spilling is unavailable, in which case the tail is discarded as before.")
     (values (nreverse completed) first-failure)))
 
 (-> tool-registry--apply-runtime-operation
-    (tool-registry function &key (:reverse-p boolean) (:priority-p boolean))
+    (tool-registry function &key (:reverse-p boolean) (:priority-p boolean) (:retain list))
     null)
 (defun tool-registry--apply-runtime-operation
-    (registry function &key reverse-p priority-p)
-  "Call FUNCTION once per runtime in registration or shutdown order."
+    (registry function &key reverse-p priority-p retain)
+  "Call FUNCTION once per runtime outside RETAIN in registration or shutdown order."
   (multiple-value-bind (completed first-failure)
       (tool-registry--attempt-runtime-operation
        (tool-registry--ordered-runtime-representatives
         registry
         :reverse-p  reverse-p
-        :priority-p priority-p)
+        :priority-p priority-p
+        :retain     retain)
        function)
     (declare (ignore completed))
     (when first-failure
@@ -965,20 +970,24 @@ spilling is unavailable, in which case the tail is discarded as before.")
   nil)
 
 (-> tool-registry-quiesce-runtime-state
-    (tool-registry)
+    (tool-registry &key (:retain list))
     (values list (option serious-condition)))
-(defun tool-registry-quiesce-runtime-state (registry)
-  "Close every runtime and return the successfully quiesced tools and failure."
+(defun tool-registry-quiesce-runtime-state (registry &key retain)
+  "Close every runtime outside RETAIN and return the quiesced tools and failure.
+
+RETAIN lists runtime identities a replacement registry shares and now owns."
   (tool-registry--attempt-runtime-operation
    (tool-registry--ordered-runtime-representatives
-    registry :reverse-p t :priority-p t)
+    registry :reverse-p t :priority-p t :retain retain)
    #'tool-runtime-close))
 
-(-> tool-registry-close-runtime-state (tool-registry) null)
-(defun tool-registry-close-runtime-state (registry)
-  "Stop runtimes by explicit dependency priority, then reverse registration."
+(-> tool-registry-close-runtime-state (tool-registry &key (:retain list)) null)
+(defun tool-registry-close-runtime-state (registry &key retain)
+  "Stop runtimes outside RETAIN by dependency priority, then reverse registration.
+
+RETAIN lists runtime identities another registry shares and still owns."
   (tool-registry--apply-runtime-operation
-   registry #'tool-runtime-close :reverse-p t :priority-p t))
+   registry #'tool-runtime-close :reverse-p t :priority-p t :retain retain))
 
 (-> tool-registry-resume-runtime-state
     (tool-registry &key (:tools list))
