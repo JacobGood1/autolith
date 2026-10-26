@@ -1525,6 +1525,14 @@ to usage accounting instead of hiding behind the compaction record."
         "Tools are unavailable during compaction. Return only the requested handoff summary as visible assistant text."))))
   nil)
 
+(-> agent--prepare-provider-request (agent) (integer 0))
+(defun agent--prepare-provider-request (agent)
+  "Prune cold-cache history before capturing any request for AGENT."
+  (conversation-prepare-provider-request
+   (agent-conversation agent)
+   :identity (list (provider-family (agent-provider agent))
+                   (config :model (agent-configuration agent)))))
+
 (-> agent-compact-conversation
     (agent agent-observer &key (:tool-allowlist (option list))
                                (:tool-restriction-p boolean)
@@ -1543,6 +1551,7 @@ Each provider request is metered under the next number after REQUEST-NUMBER
 once the summary is known to be usable. Capture the durable cutoff before
 native or portable requests and retain arrivals at checkpoint publication.
 Return the number of requests issued so the turn's request count covers them."
+  (agent--prepare-provider-request agent)
   (let* ((conversation                 (agent-conversation agent))
          (compaction                   (conversation-compaction-capture conversation))
          (captured-view                (conversation-compaction-view compaction))
@@ -1700,10 +1709,7 @@ loop, so compaction ahead of the user message shares the turn's budget."
          :messages       (peer-message-take-context agent)
          :request-number (1+ request-number))
         (setf first-request-p nil))
-      (conversation-prepare-provider-request
-       (agent-conversation agent)
-       :identity (list (provider-family (agent-provider agent))
-                       (config :model (agent-configuration agent))))
+      (agent--prepare-provider-request agent)
       (incf request-number)
       (let ((output-limit
               (agent-observer-status

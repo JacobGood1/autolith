@@ -101,3 +101,42 @@
         (test-assert (null (precompaction-tests--call-ids conversation))
                      "every earlier failed call is gone"))))
   nil)
+
+(-> test-precompaction-before-compaction () null)
+(defun test-precompaction-before-compaction ()
+  "Prune resumed history before native or portable threshold compaction captures it."
+  (dolist (native-p '(nil t))
+    (with-test-configuration (configuration)
+      (let* ((original (conversation-create configuration :identifier "precompaction-full"))
+             (provider (make-instance
+                        (if native-p 'native-scripted-provider 'scripted-provider)
+                        :results (list (mission-test--result "Earlier work.")
+                                       (mission-test--result "Done.")))))
+        (when native-p
+          (setf (native-scripted-provider-native-items provider)
+                (list (json-object "type" "compaction" "encrypted_content" "checkpoint"))))
+        (conversation-append-user-message original "start")
+        (precompaction-tests--exchange original "failed-earlier")
+        (precompaction-tests--exchange original "succeeded" :success-p t)
+        (conversation-append-user-message original "continue")
+        (precompaction-tests--exchange original "failed-current")
+        (conversation-append-provider-metadata
+         original (list :request-number 1 :usage '(("total_tokens" 999999))))
+        (let* ((conversation (conversation-load-by-id configuration "precompaction-full"))
+               (agent        (agent-create :configuration configuration
+                                           :provider      provider
+                                           :conversation  conversation
+                                           :tool-registry (agent-test-registry)
+                                           :worker        nil)))
+          (agent-run-user-turn agent "next question")
+          (test-assert (equal '(t nil) (reverse (scripted-provider-compaction-flags provider)))
+                       "threshold compaction precedes the ordinary request")
+          (let* ((items (first (if native-p
+                                  (native-scripted-provider-native-input-snapshots provider)
+                                  (reverse (scripted-provider-input-snapshots provider)))))
+                 (calls (loop for item in items
+                              when (clinker-transcript:function-call-item-p item)
+                                collect (json-get item "call_id"))))
+            (test-assert (equal '("succeeded" "failed-current") calls)
+                         "compaction receives successful and current exchanges, not earlier failures"))))))
+  nil)

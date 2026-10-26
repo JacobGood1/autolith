@@ -962,6 +962,7 @@
   test-agent-skill-provider-barrier
   test-agent-compaction-missing-summary
   test-agent-compaction-tool-call-follow-up
+  test-precompaction-before-compaction
   test-agent-compaction
   test-agent-native-compaction
   test-agent-parallel-tool-wave
