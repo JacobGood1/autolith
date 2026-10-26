@@ -166,6 +166,7 @@
                                           (:file "state/plan")
                                           (:file "agent/prompt")
                                           (:file "agent/context")
+                                          (:file "agent/context-anchors")
                                           (:file "mcp/configuration")
                                           (:file "configuration/directory")
                                           (:file "skills/runtime")

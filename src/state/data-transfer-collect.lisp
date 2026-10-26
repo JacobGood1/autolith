@@ -163,7 +163,7 @@ on other global memories, so premises are followed until none are new."
                                 :session (data-transfer--session configuration ':conversation identifier :root directory)
                                 :result  result) children))
                   (setf excluded (append (conversation-storage-pathnames identity)
-                                         (conversation-picker-sidecar-pathnames identity)
+                                         (conversation-sidecar-pathnames identity)
                                          (list result-path) excluded)))))))))
     (values (nreverse children) excluded)))
 

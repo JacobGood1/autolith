@@ -544,6 +544,15 @@
                        (string= (json-encode (json-get first "tools"))
                                 (json-encode (json-get second "tools"))))
                   "equivalent requests retain stable instruction and tool definitions")
+                 (let ((resumed (conversation-load (conversation-pathname conversation))))
+                   (test-assert
+                    (prefix-p second
+                              (let ((*context-request-contributions*
+                                      (list (make-context-contribution
+                                             :identifier "mutable" :instruction state
+                                             :class      ':mandatory))))
+                                (provider-request-object provider resumed schemas)))
+                    "a resumed conversation keeps selected skills at their boundaries"))
                  (select "beta")
                  (test-assert (prefix-p second (request))
                               "adding a second skill preserves previously projected blocks"))
@@ -575,7 +584,13 @@
                        "selection expires at the logical-turn boundary")
           (test-assert (and (search "select-alpha" replayed) (search "select-beta" replayed)
                             (not (search body replayed))
-                            (not (search "UPDATED-ALPHA-BODY" replayed))
-                            (null (conversation-context-anchors loaded)))
-                       "selection metadata replays without skill bodies or process-local anchors")))))
+                            (not (search "UPDATED-ALPHA-BODY" replayed)))
+                       "selection metadata replays without skill bodies")
+          (let ((anchors (uiop:read-file-string
+                          (conversation-context-anchors-pathname
+                           (conversation-pathname conversation)))))
+            (test-assert (and (not (search "ALPHA-CACHE-BODY" anchors))
+                              (not (search "UPDATED-ALPHA-BODY" anchors))
+                              (not (search "Cache projection fixture" anchors)))
+                         "durable anchors hold digests and positions, never context"))))))
   nil)

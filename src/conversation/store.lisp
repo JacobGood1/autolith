@@ -259,7 +259,12 @@
     :accessor conversation-context-anchors
     :type     list
     :documentation
-    "Process-local context identities and history boundaries, without instruction bodies.")
+    "Context anchor identities and history boundaries as digests, without instruction bodies.")
+   (context-anchors-loaded-p
+    :initform      nil
+    :accessor      conversation-context-anchors-loaded-p
+    :type          boolean
+    :documentation "Whether the durable context anchors have been read into this object.")
    (failed-call-ids
     :initform      (make-hash-table :test #'equal)
     :reader        conversation-failed-call-ids
@@ -1245,7 +1250,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
                              (conversation-pathname conversation))))
               ; mallet:suppress no-ignore-errors -- best-effort sidecar cleanup must not mask the append failure
               (ignore-errors
-                (conversation-picker-sidecars-delete
+                (conversation-sidecars-delete
                  (conversation-pathname conversation))))
             (error 'conversation-invariant-error
                    :message
@@ -3248,7 +3253,7 @@ storage is missing, IDENTIFIER is invalid, or another process owns it."
          (chunk-directory
            (conversation-storage-directory-pathname pathname))
          (sidecar-pathnames
-           (conversation-picker-sidecar-pathnames pathname))
+           (conversation-sidecar-pathnames pathname))
          (task-fragment
            (or (conversation-identifier-path-fragment normalized)
                (string-downcase normalized)))

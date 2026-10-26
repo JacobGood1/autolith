@@ -657,7 +657,7 @@ large conversations that contain no legacy reference."
              (conversation-storage-directory-pathname source)))
       (when (probe-file source)
         (delete-file source))
-      (conversation-picker-sidecars-delete source)
+      (conversation-sidecars-delete source)
       (when (uiop:directory-exists-p source-directory)
         (platform-delete-directory-tree
          *platform*

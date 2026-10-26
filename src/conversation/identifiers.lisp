@@ -224,6 +224,15 @@ would let a second allocation in the same second choose the same identifier."
                    :type     "sexp"
                    :defaults metadata-pathname)))
 
+(-> conversation-context-anchors-pathname (pathname) pathname)
+(defun conversation-context-anchors-pathname (conversation-pathname)
+  "Return the request-context anchor sidecar owned by CONVERSATION-PATHNAME."
+  (let ((metadata-pathname
+          (conversation-picker-metadata-pathname conversation-pathname)))
+    (make-pathname :name     (format nil "~A.anchors" (pathname-name metadata-pathname))
+                   :type     "sexp"
+                   :defaults metadata-pathname)))
+
 (-> conversation-picker-source-lock-pathname (pathname) pathname)
 (defun conversation-picker-source-lock-pathname (conversation-pathname)
   "Return the persistent lock shared by source appends and picker reconstruction."
@@ -263,10 +272,16 @@ would let a second allocation in the same second choose the same identifier."
         (conversation-picker-search-revision-pathname conversation-pathname)
         (conversation-input-history-pathname conversation-pathname)))
 
-(-> conversation-picker-sidecars-delete (pathname) null)
-(defun conversation-picker-sidecars-delete (conversation-pathname)
-  "Delete every picker sidecar owned by CONVERSATION-PATHNAME."
-  (dolist (pathname (conversation-picker-sidecar-pathnames conversation-pathname))
+(-> conversation-sidecar-pathnames (pathname) list)
+(defun conversation-sidecar-pathnames (conversation-pathname)
+  "Return every sidecar CONVERSATION-PATHNAME may own, including its context anchors."
+  (append (conversation-picker-sidecar-pathnames conversation-pathname)
+          (list (conversation-context-anchors-pathname conversation-pathname))))
+
+(-> conversation-sidecars-delete (pathname) null)
+(defun conversation-sidecars-delete (conversation-pathname)
+  "Delete every sidecar owned by CONVERSATION-PATHNAME."
+  (dolist (pathname (conversation-sidecar-pathnames conversation-pathname))
     (when (probe-file pathname)
       (delete-file pathname)))
   nil)

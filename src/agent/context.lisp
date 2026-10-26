@@ -631,39 +631,52 @@ the one-request contributions together: they change on every delivery."
                            (typep contribution 'anchored-context-contribution))
                          contributions)))
     (with-recursive-lock-held ((conversation-append-lock conversation))
-      (let ((previous   (conversation-context-anchors conversation))
-            (generation (conversation-log-generation conversation))
-            (groups     (make-hash-table :test #'eq))
-            (anchors    nil)
-            (projected  nil))
+      (let ((previous  (context-anchors-current conversation))
+            (history   (coerce items 'simple-vector))
+            (groups    (make-hash-table :test #'eq))
+            (anchors   nil)
+            (projected nil))
         (dolist (contribution anchored)
-          (let* ((key   (list (context-contribution-contributor contribution)
-                              (context-contribution-source contribution)
-                              (context-contribution-identifier contribution)))
-                 (old   (assoc key previous :test #'equal))
-                 (after (if (and old
-                                (= (getf (rest old) :generation) generation)
-                                (or (null (getf (rest old) :after))
-                                    (member (getf (rest old) :after) items
-                                            :test #'eq)))
-                            (getf (rest old) :after)
-                            (first (last items))))
-                 (message
-                   (json-object
-                    "role" "developer"
-                    "content" (json-array
-                               (json-object
-                                "type" "input_text"
-                                "text" (context--render (list contribution)))))))
-            (push (list key :generation generation :after after) anchors)
-            (push message (gethash after groups))))
+          (let* ((key   (context-anchors-key-digest
+                         (list (context-contribution-contributor contribution)
+                               (context-contribution-source contribution)
+                               (context-contribution-identifier contribution))))
+                 (old   (find key previous :key  (lambda (anchor) (getf anchor :key))
+                                           :test #'equal))
+                 ;; A boundary survives while the item at its index is unchanged,
+                 ;; across tool rounds, user messages and resumed conversations.
+                 (index (cond
+                          ((and old (null (getf old :index)))
+                           nil)
+                          ((and old
+                                (< (getf old :index) (length history))
+                                (equal (getf old :item)
+                                       (context-anchors-item-digest
+                                        (aref history (getf old :index)))))
+                           (getf old :index))
+                          ((plusp (length history))
+                           (1- (length history)))
+                          (t
+                           nil)))
+                 (after (and index (aref history index))))
+            (push (list :key   key
+                        :index index
+                        :item  (and after (context-anchors-item-digest after)))
+                  anchors)
+            (push (json-object
+                   "role" "developer"
+                   "content" (json-array
+                              (json-object
+                               "type" "input_text"
+                               "text" (context--render (list contribution)))))
+                  (gethash after groups))))
         (dolist (message (reverse (gethash nil groups)))
           (push message projected))
         (dolist (item items)
           (push item projected)
           (dolist (message (reverse (gethash item groups)))
             (push message projected)))
-        (setf (conversation-context-anchors conversation) (nreverse anchors))
+        (context-anchors-update conversation (nreverse anchors))
         (values (nreverse projected)
                 (mapcar (lambda (contribution)
                           (context--render (list contribution)))
