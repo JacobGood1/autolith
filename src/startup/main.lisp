@@ -568,7 +568,8 @@ closes. Both carry the same styling, rendered for the terminal that shows it."
 (defgeneric main--launcher-exit (condition)
   (:documentation
    "Return the launcher status for session-ending CONDITION, the message announcing
-it, and the terminal style that message is shown in."))
+it, the terminal style that message is shown in, and the exit details plist a
+relaying terminal needs to hand the stable launcher, or NIL."))
 
 (defmethod main--launcher-exit ((condition update-requested))
   "Ask the packaged outer launcher to install the requested release."
@@ -589,21 +590,25 @@ it, and the terminal style that message is shown in."))
   (values *main-fatal-recovery-status*
           (format nil "Autolith entered recovery after a fatal error. Capsule: ~A"
                   (fatal-control-path-error-capsule-pathname condition))
-          ':failure))
+          ':failure
+          (list :crash-capsule
+                (namestring (fatal-control-path-error-capsule-pathname condition)))))
 
-(-> main--launcher-exit-text (condition) (values integer string))
+(-> main--launcher-exit-text (condition) (values integer string list))
 (defun main--launcher-exit-text (condition)
-  "Return CONDITION's launcher status and its message styled for the session terminal.
+  "Return CONDITION's launcher status, its message styled for the session terminal,
+and its exit details.
 
 The message is printed after the terminal UI is gone, so it is rendered for the
 active application's terminal, plain when that terminal is not styled."
-  (multiple-value-bind (status message style) (main--launcher-exit condition)
+  (multiple-value-bind (status message style details) (main--launcher-exit condition)
     (values status
             (if *active-application*
                 (terminal--render-spans
                  (terminal-ui-terminal (application-ui *active-application*))
                  (list (terminal-span style message)))
-                message))))
+                message)
+            details)))
 
 (-> main--authentication-provider (configuration (option string)) model-provider)
 (defun main--authentication-provider (configuration selection)
@@ -899,7 +904,7 @@ state, including an empty list after successful or pristine startup."
                        ; mallet:suppress no-ignore-errors -- best-effort kill while the attach failure propagates
                        (ignore-errors (localgroup-query-record record ':kill))
                        (error condition)))))
-            (localgroup-relay-exit exit ':control))
+            (localgroup-relay-exit configuration exit ':control))
           (return-from main--start-session nil))))
     (let ((*localgroup-startup-record* handoff-record))
       (setf *active-application*
@@ -928,11 +933,12 @@ state, including an empty list after successful or pristine startup."
           ;; attached terminals before the session unwinds and closes them.
           (handler-bind ((main-launcher-exit-condition
                            (lambda (condition)
-                             (multiple-value-bind (status message)
+                             (multiple-value-bind (status message details)
                                  (main--launcher-exit-text condition)
                                (localgroup-finish-attachments *active-application*
                                                               :status  status
-                                                              :message message)))))
+                                                              :message message
+                                                              :details details)))))
             (application-run
              *active-application*
              :initial-command    (and resume-command-p

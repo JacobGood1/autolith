@@ -27,15 +27,20 @@
       (autolith-error-message condition)
       (format nil "Unexpected condition of type ~S." (type-of condition))))
 
-(-> application-publish-crash-pointer (application pathname) null)
-(defun application-publish-crash-pointer (application capsule-pathname)
-  "Publish CAPSULE-PATHNAME to this launcher's private pointer, when configured."
+(-> application-publish-crash-pointer (configuration pathname) null)
+(defun application-publish-crash-pointer (configuration capsule-pathname)
+  "Publish CAPSULE-PATHNAME to this launcher's private pointer, when configured.
+
+Only a capsule in CONFIGURATION's private crash directory is published, since
+a relaying terminal publishes the capsule its detached session reports."
   (let ((pointer-value (uiop:getenv "AUTOLITH_CRASH_POINTER")))
     (when (non-empty-string-p pointer-value)
-      (let ((configuration    (application-configuration application))
-            (pointer-pathname (pathname pointer-value)))
-        (when (uiop:subpathp pointer-pathname
-                             (config :state-root configuration))
+      (let ((pointer-pathname (pathname pointer-value)))
+        (when (and (uiop:subpathp pointer-pathname
+                                  (config :state-root configuration))
+                   (uiop:subpathp capsule-pathname
+                                  (merge-pathnames "crashes/"
+                                                   (config :state-root configuration))))
           (publish-file
            pointer-pathname
            (format nil "~A~%" (namestring capsule-pathname))
@@ -96,7 +101,7 @@
                    (file-length stream))
                  0))))
     (platform-make-private *platform* pathname)
-    (application-publish-crash-pointer application pathname)
+    (application-publish-crash-pointer configuration pathname)
     pathname))
 
 

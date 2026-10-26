@@ -482,20 +482,24 @@ forced shutdown does; the conversation stays resumable."
                (image-daemon:daemon-runtime-identifier session))))))
 
 (-> localgroup-finish-attachments
-    ((option application) &key (:status (integer 0 255)) (:message (option string)))
+    ((option application)
+     &key (:status (integer 0 255)) (:message (option string)) (:details list))
     boolean)
-(defun localgroup-finish-attachments (application &key status message)
+(defun localgroup-finish-attachments (application &key status message details)
   "Tell APPLICATION's attached terminals the session exits with STATUS and MESSAGE.
 
 A detached session's own launcher only logs its exit status, so the relaying
 terminal must exit with it instead for the outer launcher to update, roll back,
-or recover. Return true when APPLICATION's terminal is a relay; a terminal that
-already disconnected costs nothing."
+or recover. DETAILS carries what that launcher needs besides the status, such
+as the session's crash capsule. Return true when APPLICATION's terminal is a
+relay; a terminal that already disconnected costs nothing."
   (let* ((ui       (and application (application-ui application)))
          (terminal (and ui (terminal-ui-terminal ui))))
     (when (typep terminal 'localgroup-terminal)
       (handler-case
-          (image-daemon:relay-finish terminal :status status :message message)
+          (image-daemon:relay-finish terminal :status  status
+                                              :message message
+                                              :details details)
         (error ()
           nil))
       t)))

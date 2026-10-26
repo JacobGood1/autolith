@@ -716,20 +716,32 @@ Return an application exit plist, or NIL after a detach or connection loss."
         ; mallet:suppress no-ignore-errors -- best-effort socket close during unwinding
         (ignore-errors (sb-bsd-sockets:socket-close socket))))))
 
-(-> localgroup-relay-exit ((option list) keyword) null)
-(defun localgroup-relay-exit (exit mode)
+(-> localgroup-relay-exit (configuration (option list) keyword) null)
+(defun localgroup-relay-exit (configuration exit mode)
   "Finish this relaying process as the detached session did when EXIT is present.
 
 A controlling terminal reports EXIT's message and exits with its status, so the
 outer launcher updates, rolls back, or recovers exactly as it would for a
-foreground session. A read-only observer only reports the message, leaving
-that action to the controlling terminal."
+foreground session. The session published its crash capsule to its own
+launcher, so the controlling terminal publishes the capsule its exit details
+name to this process's launcher for recovery to restore the conversation. A
+read-only observer only reports the message, leaving that action to the
+controlling terminal."
   (when exit
     (let ((message (getf exit :message)))
       (when message
         (format *error-output* "~&~A~%" message)
         (finish-output *error-output*)))
     (unless (eq mode ':read-only)
+      (let ((capsule (getf (getf exit :details) :crash-capsule)))
+        (when (non-empty-string-p capsule)
+          ;; A missed pointer only costs recovery its conversation, never the
+          ;; status the launcher recovers on.
+          (handler-case
+              (application-publish-crash-pointer configuration (pathname capsule))
+            (error (condition)
+              (format *error-output* "~&Could not hand the crash capsule to recovery: ~A~%"
+                      condition)))))
       (uiop:quit (getf exit :status))))
   nil)
 
@@ -865,6 +877,7 @@ that action to the controlling terminal."
                                       ':control)))
                 (entry         (localgroup--session-record configuration session-id)))
            (localgroup-relay-exit
+            configuration
             (localgroup-attach-record configuration entry mode)
             mode)))))))
 
