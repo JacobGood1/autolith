@@ -6,7 +6,7 @@ ID, VERSION, and optional EXERCISE identify the stable lesson revision and pract
 Bump VERSION only for a material lesson change. Keep the order of the headings.
 
 Use *strong*, =code=, [[https://example.org][link text]], and semantic spans
-@@brand:text@@, @@dim:text@@, @@lisp-prompt:text@@, @@success:text@@. Spans may cross newlines.
+@@brand:text@@, @@dim:text@@, @@user:text@@, @@lisp-prompt:text@@, @@success:text@@. Spans may cross newlines.
 Use @@lambda-logo-1:text@@ through @@lambda-logo-6:text@@ for the centered green logo.
 Authored newlines and spaces are preserved, including aligned example columns.
 The org-templater slots {{{:config-root}}} and {{{:state-root}}} use runtime paths.
@@ -395,6 +395,33 @@ what Autolith is doing:
 
 Keep that line, or hide it and spare the row; the modeline's timer stays
 either way. Change it later with =(settings)=.
+
+* Choose how messages open
+:PROPERTIES:
+:ID: transcript-style
+:VERSION: 1
+:EXERCISE: choose
+:SETTING: transcript-style
+:CHOICES: :labels :repl
+:END:
+Each message can open with a labeled header:
+
+@@user:❯ you@@
+  hi!
+
+@@brand:● autolith@@
+  Hello, I am Autolith. How can I help you today?
+
+Or like an exchange at a Lisp REPL, with the time on the line above:
+
+@@dim:  2026-10-26 21:30@@
+@@user:>@@ hi!
+
+@@dim:  2026-10-26 21:30@@
+@@brand:<@@ Hello, I am Autolith. How can I help you today?
+
+The time shows only while turn timestamps are on. Change the style later with
+=(settings)=.
 
 * Leave the terminal.  Keep the session.
 :PROPERTIES:

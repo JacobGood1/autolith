@@ -89,6 +89,7 @@ newlines; decode links within strong text without treating code as markup."
                                     (onboarding-source--fail "Semantic span needs a style.")))
                          (name  (subseq text (+ cursor 2) colon))
                          (style (rest (assoc name '(("brand" . :brand) ("dim" . :dim)
+                                                    ("user" . :user)
                                                     ("lisp-prompt" . :lisp-prompt)
                                                     ("code" . :code) ("success" . :success)
                                                     ("lambda-logo-1" . :lambda-logo-1)

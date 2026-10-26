@@ -123,7 +123,7 @@
                           '(("first-provider" . :authentication)
                             ("ordinary-prompt" . :continue) ("lisp-listener" . :help)
                             ("asynchronous-lisp" . :async) ("settings" . :settings)
-                            ("activity-line" . :choose)))
+                            ("activity-line" . :choose) ("transcript-style" . :choose)))
                    "practice contracts use the authored metadata")))
   nil)
 
