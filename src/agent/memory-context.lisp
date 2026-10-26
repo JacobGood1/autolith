@@ -166,22 +166,47 @@ adds its status and the reason."
                                            (knowledge-node-text (rest right)))))))))
     (mapcar #'rest (subseq ranked 0 (min *memory-context-fact-limit* (length ranked))))))
 
-(-> memory-context--evidence (list list) string)
+(-> memory-context--evidence (list list) (values string (integer 0) (integer 0)))
 (defun memory-context--evidence (memory-lines fact-lines)
-  "Return MEMORY-LINES then FACT-LINES as recall evidence within the evidence limit.
+  "Return recall evidence from ranked MEMORY-LINES and FACT-LINES within the evidence limit.
 
 Without facts the evidence is exactly the earlier memory-only form. With facts,
-whole lines are kept while they fit, so no fact is cut in half."
+memory and fact lines are taken alternately in rank order while whole lines
+fit, so neither kind crowds the other out and no line is cut in half; each
+kind stops at its first line that no longer fits, so what is kept is a ranked
+prefix of each. The kept memories come before the kept facts.
+
+Return the evidence, then how many memory lines and fact lines it delivers."
   (if (null fact-lines)
-      (bounded-string (format nil "~{~A~^~%~}" memory-lines)
-                      :limit *memory-context-evidence-limit*)
-      (let ((kept nil)
-            (used 0))
-        (dolist (line (append memory-lines fact-lines))
-          (when (<= (+ used (length line) 1) *memory-context-evidence-limit*)
-            (push line kept)
-            (incf used (1+ (length line)))))
-        (format nil "~{~A~^~%~}" (nreverse kept)))))
+      (values (bounded-string (format nil "~{~A~^~%~}" memory-lines)
+                              :limit *memory-context-evidence-limit*)
+              (length memory-lines)
+              0)
+      (let ((used         0)
+            (memory-count 0)
+            (fact-count   0)
+            (memory-open  (not (null memory-lines)))
+            (fact-open    t))
+        (flet ((fits-p (lines count)
+                 "Return true and claim room when line COUNT of LINES fits."
+                 (let ((line (nth count lines)))
+                   (when (and line (<= (+ used (length line) 1) *memory-context-evidence-limit*))
+                     (incf used (1+ (length line)))
+                     t))))
+          (loop while (or memory-open fact-open)
+                do (when memory-open
+                     (if (fits-p memory-lines memory-count)
+                         (incf memory-count)
+                         (setf memory-open nil)))
+                   (when fact-open
+                     (if (fits-p fact-lines fact-count)
+                         (incf fact-count)
+                         (setf fact-open nil)))))
+        (values (format nil "~{~A~^~%~}"
+                        (append (subseq memory-lines 0 memory-count)
+                                (subseq fact-lines 0 fact-count)))
+                memory-count
+                fact-count))))
 
 (-> memory-context--instruction
     (&key (:memories (integer 0)) (:status-p boolean) (:facts (integer 0)))
@@ -285,52 +310,59 @@ Changes to facts this conversation was given earlier are explained once."
                                           (knowledge-base-read configuration))))))
              (assessor      (and (or selected knowledge-p) (memory-assessor-create configuration)))
              (view          (and assessor (memory-assessor-view assessor)))
-             (facts         (and knowledge-p (memory-context--relevant-facts view query)))
-             (changes       (and knowledge-p
-                                 (memory-context--recall-changes
-                                  configuration (request-context-conversation request)
-                                  :view    view
-                                  :offered facts)))
-             (fact-lines    (mapcar (lambda (node) (json-encode (knowledge-node-json view node)))
-                                    facts)))
-        (when knowledge-p
-          (knowledge-usage-note
-           (conversation-identifier (request-context-conversation request))
-           :facts             (length facts)
-           :fact-characters   (reduce #'+ fact-lines :key #'length)
-           :changes           (if changes (knowledge-change-contribution-count changes) 0)
-           :change-characters (if changes
-                                  (length (context-contribution-evidence changes))
-                                  0)))
-        (remove
-         nil
-         (list
-          (when (or selected facts)
-            (let* ((assessments (mapcar (lambda (match)
-                                          (memory-assess assessor (memory-match-memory match)))
-                                        selected))
-                   (stale-count (count ':stale assessments :key #'memory-assessment-status))
-                   (unverified-count
-                     (count ':unverified assessments :key #'memory-assessment-status)))
-              (change-class
-               (make-context-contribution
-                :identifier        "related-memories"
-                :instruction       (memory-context--instruction
-                                    :memories (length selected)
-                                    :status-p (plusp (+ stale-count unverified-count))
-                                    :facts    (length facts))
-                :evidence          (memory-context--evidence
-                                    (mapcar #'memory-context--match-line selected assessments)
-                                    fact-lines)
-                :priority          25
-                :lifetime          ':turn
-                :deduplication-key "related-memories")
-               'memory-context-contribution
-               :count            (length selected)
-               :stale-count      stale-count
-               :unverified-count unverified-count
-               :fact-count       (length facts))))
-          changes))))))
+             (ranked-facts  (and knowledge-p (memory-context--relevant-facts view query)))
+             (assessments   (mapcar (lambda (match)
+                                      (memory-assess assessor (memory-match-memory match)))
+                                    selected))
+             (ranked-lines  (mapcar (lambda (node) (json-encode (knowledge-node-json view node)))
+                                    ranked-facts)))
+        ;; Count and remember only what the shared allowance actually delivers.
+        (multiple-value-bind (evidence memory-count fact-count)
+            (memory-context--evidence
+             (mapcar #'memory-context--match-line selected assessments)
+             ranked-lines)
+          (let* ((selected    (subseq selected 0 memory-count))
+                 (assessments (subseq assessments 0 memory-count))
+                 (facts       (subseq ranked-facts 0 fact-count))
+                 (fact-lines  (subseq ranked-lines 0 fact-count))
+                 (changes     (and knowledge-p
+                                   (memory-context--recall-changes
+                                    configuration (request-context-conversation request)
+                                    :view    view
+                                    :offered facts))))
+            (when knowledge-p
+              (knowledge-usage-note
+               (conversation-identifier (request-context-conversation request))
+               :facts             (length facts)
+               :fact-characters   (reduce #'+ fact-lines :key #'length)
+               :changes           (if changes (knowledge-change-contribution-count changes) 0)
+               :change-characters (if changes
+                                      (length (context-contribution-evidence changes))
+                                      0)))
+            (remove
+             nil
+             (list
+              (when (or selected facts)
+                (let* ((stale-count (count ':stale assessments :key #'memory-assessment-status))
+                       (unverified-count
+                         (count ':unverified assessments :key #'memory-assessment-status)))
+                  (change-class
+                   (make-context-contribution
+                    :identifier        "related-memories"
+                    :instruction       (memory-context--instruction
+                                        :memories (length selected)
+                                        :status-p (plusp (+ stale-count unverified-count))
+                                        :facts    (length facts))
+                    :evidence          evidence
+                    :priority          25
+                    :lifetime          ':turn
+                    :deduplication-key "related-memories")
+                   'memory-context-contribution
+                   :count            (length selected)
+                   :stale-count      stale-count
+                   :unverified-count unverified-count
+                   :fact-count       (length facts))))
+              changes))))))))
 
 (register-context-contributor "related-memories"
                               'memory-related-context

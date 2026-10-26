@@ -380,6 +380,7 @@
   test-knowledge-changes
   test-knowledge-memory-premises
   test-knowledge-recall
+  test-knowledge-recall-shared-allowance
   test-knowledge-commands
   test-knowledge-activation
   test-knowledge-mission-observations

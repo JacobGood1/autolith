@@ -1053,6 +1053,45 @@
   "Return the contribution IDENTIFIER among CONTRIBUTIONS."
   (find identifier contributions :key #'context-contribution-identifier :test #'string=))
 
+(-> test-knowledge-recall-shared-allowance () null)
+(defun test-knowledge-recall-shared-allowance ()
+  "Test long prose memories cannot crowd facts out, and counts follow what is delivered."
+  (with-test-configuration (base root)
+    (multiple-value-bind (configuration workspace)
+        (memory-source-tests--workspace base root)
+      (knowledge-tests--define-appointments configuration)
+      (knowledge-tests--admit-departure configuration)
+      (knowledge-tests--schedule-review configuration workspace "13:00")
+      (knowledge-tests--said configuration "event.buffer" '("review" "PT10M")
+                             :quote "be there ten minutes early")
+      (knowledge-tests--said configuration "event.travel" '("review" "PT30M")
+                             :quote "half an hour to get there")
+      (dotimes (index 6)
+        (memory-remember configuration
+                         :title   (format nil "Review note ~D" index)
+                         :content (format nil "Before the review, ~A"
+                                          (make-string 600 :initial-element #\x))
+                         :scope   ':workspace))
+      (let ((conversation (conversation-create configuration)))
+        (conversation-append-user-message conversation "When should I leave for the review?")
+        (let* ((advice   (knowledge-tests--contribution
+                          (knowledge-tests--recall configuration conversation)
+                          "related-memories"))
+               (evidence (context-contribution-evidence advice))
+               (lines    (uiop:split-string evidence :separator '(#\Newline)))
+               (facts    (count-if (lambda (line) (search "\"fact\":" line)) lines)))
+          (test-assert (and (plusp facts)
+                            (search "leave for review at 2026-10-22 12:20 UTC" evidence))
+                       "facts still reach the model beside long prose memories")
+          (test-assert (and (= facts (memory-context-contribution-fact-count advice))
+                            (= (- (length lines) facts) (memory-context-contribution-count advice))
+                            (search (format nil "~D current fact" facts)
+                                    (context-contribution-instruction advice)))
+                       "the counts describe the delivered lines, not the selected ones")
+          (test-assert (<= (length evidence) *memory-context-evidence-limit*)
+                       "recall stays within its existing allowance")))))
+  nil)
+
 (-> test-knowledge-recall () null)
 (defun test-knowledge-recall ()
   "Test recall of complete current facts and once-only explanation of their changes."
