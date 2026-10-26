@@ -421,8 +421,15 @@ never change the external action's outcome and never disappear silently."
     (dolist (match matches)
       (destructuring-bind (contract environment &optional supports) match
         (let* ((identifier (getf (rest contract) :id))
+               ;; The call names the invocation, not only the contract, so a
+               ;; result shared by calls about different subjects stays
+               ;; separate evidence for each of them.
+               (call       (format nil "~A/~A" identifier
+                                   (subseq (memory-source-text-digest
+                                            (json-encode (or arguments (json-object))))
+                                           0 16)))
                (source     (list :tool :name tool :conversation conversation
-                                 :call identifier :requirements supports)))
+                                 :call call :requirements supports)))
           (labels ((record (pattern basis)
                      (push (knowledge-assert
                             configuration pattern

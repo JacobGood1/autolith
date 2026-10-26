@@ -394,6 +394,7 @@
   test-knowledge-admissible-support
   test-knowledge-expiry-lifecycle
   test-knowledge-action-contracts
+  test-knowledge-contract-evidence-per-call
   test-contract-requirement-bindings)
 
 (define-test-suite knowledge-replacement

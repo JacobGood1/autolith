@@ -2010,6 +2010,49 @@
                               :job (list :id "exec:9" :state ':running)))
       (tool-success (json-encode (json-object "id" "msg-1" "status" "queued")))))
 
+(-> test-knowledge-contract-evidence-per-call () null)
+(defun test-knowledge-contract-evidence-per-call ()
+  "Test identical results of calls about different subjects stay separate evidence."
+  (with-test-configuration (base root)
+    (let* ((configuration (configuration-copy base :working-directory root))
+           (registry      (make-default-tool-registry :configuration configuration))
+           (mail          (make-instance 'knowledge-tests--mail-tool
+                                         :namespace "mail" :name "send" :description "Send a report."
+                                         :parameters (tool-object-schema
+                                                      (json-object "report" (tool-string-property "Report."))
+                                                      '("report"))))
+           (context       (make-instance 'tool-context :configuration configuration :worker nil
+                                                       :conversation (conversation-create configuration))))
+      (tool-registry-register registry mail)
+      (knowledge-define-schema
+       configuration
+       (knowledge-make-schema :predicate "mail.message"
+                              :arguments '((:name "report" :type :entity) (:name "message" :type :string))
+                              :key       '("report")))
+      (knowledge-define-contract
+       configuration
+       :id "note-message" :tool "mail.send"
+       :when     (json-object "report" "?report")
+       :observes (vector (json-object "predicate" "mail.message"
+                                      "arguments" #("$arg.report" "$result.id"))))
+      (flet ((send (report)
+               (memory-resource-tests--call registry context :namespace "mail" :name "send"
+                                                             :arguments (list "report" report)))
+
+             (evidence ()
+               (loop for record being the hash-values
+                       of (knowledge-base-evidence (knowledge-base-read configuration))
+                     when (equal (getf record :adapter) "contract/note-message/observation")
+                       collect record)))
+        (send "q1")
+        (send "q2")
+        (test-assert (= 2 (length (evidence)))
+                     "identical receipts for different reports remain separate evidence")
+        (send "q2")
+        (test-assert (= 2 (length (evidence)))
+                     "repeating the same call observes the same evidence again"))))
+  nil)
+
 (-> test-knowledge-action-contracts () null)
 (defun test-knowledge-action-contracts ()
   "Test contracts refusing calls on unmet requirements and recording predictions and observations."
