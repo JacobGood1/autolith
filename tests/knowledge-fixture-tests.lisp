@@ -176,6 +176,69 @@
   (knowledge-term-display (knowledge-make-instant (+ *knowledge-fixture-day* (* 60 minutes)))))
 
 
+;;;; -- Starter Recipes --
+
+(-> test-knowledge-recipes () null)
+(defun test-knowledge-recipes ()
+  "Use starter recipes as a first vocabulary, so recorded facts derive at once."
+  (knowledge-fixture--call-with
+   "recipes"
+   (lambda (fixture)
+     (let ((listing (knowledge-fixture--read fixture "memory:recipes")))
+       (knowledge-fixture--check fixture
+                                 (and (search "appointments:" listing)
+                                      (search "service-dependencies:" listing)
+                                      (search "departure: event.start(?event, ?start)" listing))
+                                 "memory:recipes lists each recipe with its predicates and rules"))
+     (let ((result (knowledge-fixture--edit fixture (json-object "op" "recipe-use"
+                                                                 "recipe" "service-dependencies"))))
+       (knowledge-fixture--check fixture
+                                 (and (search "Defined service.status version 1." result)
+                                      (search "Admitted rule dependency-down version 1." result))
+                                 "recipe-use defines the predicates and admits the rules once approved"))
+     (knowledge-fixture--say fixture "The api depends on the db, and the db is down.")
+     (knowledge-fixture--edit
+      fixture
+      (knowledge-fixture--assert "service.depends-on" '("api" "db")
+                                 (json-object "user" "The api depends on the db"))
+      (knowledge-fixture--assert "service.status" '("db" "down")
+                                 (json-object "user" "the db is down")))
+     (knowledge-fixture--check fixture
+                               (knowledge-fixture--holds fixture '("service.at-risk" "api" "db"))
+                               "facts recorded in a recipe's vocabulary derive through its rules")
+     (knowledge-fixture--edit fixture (json-object "op" "recipe-use" "recipe" "appointments"))
+     (knowledge-fixture--say fixture "The review starts at 13:00 UTC, travel takes 30 minutes, and I want 10 minutes of buffer.")
+     (knowledge-fixture--edit
+      fixture
+      (knowledge-fixture--assert "event.start" '("review" "2026-10-22T13:00:00Z")
+                                 (json-object "user" "The review starts at 13:00 UTC"))
+      (knowledge-fixture--assert "event.travel" '("review" "PT30M")
+                                 (json-object "user" "travel takes 30 minutes"))
+      (knowledge-fixture--assert "event.buffer" '("review" "PT10M")
+                                 (json-object "user" "10 minutes of buffer")))
+     (knowledge-fixture--check fixture
+                               (knowledge-fixture--holds
+                                fixture '("event.departure" "review" (:instant "2026-10-22T12:20:00Z")))
+                               "the appointments recipe derives when to leave")
+     (knowledge-fixture--check fixture
+                               (search "is unchanged and active"
+                                       (knowledge-fixture--edit
+                                        fixture (json-object "op" "recipe-use"
+                                                             "recipe" "service-dependencies")))
+                               "using a recipe again changes nothing")
+     (knowledge-fixture--check fixture
+                               (handler-case
+                                   (progn
+                                     (knowledge-fixture--edit
+                                      fixture (json-object "op" "recipe-use" "recipe" "taxes"))
+                                     nil)
+                                 (error (condition)
+                                   (search "is not one of appointments, service-dependencies"
+                                           (princ-to-string condition))))
+                               "an unknown recipe names the ones that exist")))
+  nil)
+
+
 ;;;; -- Appointment Family --
 
 (-> knowledge-fixture--appointment-vocabulary () list)

@@ -269,7 +269,15 @@ retracting facts, and proposing rules."
                                      "description" "The pattern the rule concludes, using bound variables.")
            "description" (tool-string-property "What the rule does.")
            "scope" (memory-scope-property))
-          '("id" "premises" "conclusion"))))
+          '("id" "premises" "conclusion"))
+         (operation-schema
+          "recipe-use"
+          (json-object
+           "recipe" (cl-llm-provider-api:provider-enum-schema
+                     (knowledge-recipe-identifiers)
+                     "The starter recipe from memory:recipes to define.")
+           "scope" (memory-scope-property))
+          '("recipe"))))
       (vector
        (operation-schema
         "replace-lines"

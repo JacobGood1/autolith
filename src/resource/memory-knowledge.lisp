@@ -55,6 +55,8 @@
        (make ':contracts))
       ((string= identifier "procedures")
        (make ':procedures))
+      ((string= identifier "recipes")
+       (make ':recipes))
       ((and (uiop:string-prefix-p "claim/" identifier)
             (> (length identifier) (length "claim/")))
        (make ':claim (subseq identifier (length "claim/"))))
@@ -322,6 +324,27 @@ Conflicted facts come first, then the rest by predicate and text."
       (unless entries
         (format stream "~%No predicates are defined. Define one with predicate-define on memory:facts.")))))
 
+(-> memory-knowledge--render-recipes () string)
+(defun memory-knowledge--render-recipes ()
+  "Return the starter recipes with the predicates they define and the rules they propose."
+  (with-output-to-string (stream)
+    (format stream "collection: recipes~%count: ~D~%" (length *knowledge-recipes*))
+    (dolist (recipe *knowledge-recipes*)
+      (let ((properties (rest recipe)))
+        (format stream "~%~A: ~A~%  predicates: ~{~A~^, ~}~%  rules: ~{~A~^; ~}~%"
+                (getf properties :id) (getf properties :description)
+                (mapcar (lambda (predicate)
+                          (format nil "~A(~{~A~^, ~})" (second predicate)
+                                  (mapcar (lambda (argument) (getf argument :name))
+                                          (getf (rest (rest predicate)) :arguments))))
+                        (getf properties :predicates))
+                (mapcar (lambda (rule)
+                          (format nil "~A: ~{~A~^ and ~} => ~A" (getf rule :id)
+                                  (mapcar #'memory-knowledge--pattern-text (getf rule :premises))
+                                  (memory-knowledge--pattern-text (getf rule :conclusion))))
+                        (getf properties :rules)))))
+    (format stream "~%Use one with a recipe-use operation on memory:facts, then record its facts.")))
+
 (-> memory-knowledge--pattern-text (list) string)
 (defun memory-knowledge--pattern-text (pattern)
   "Return a rule PATTERN as compact text."
@@ -387,6 +410,8 @@ Conflicted facts come first, then the rest by predicate and text."
               (memory-knowledge--render-contracts base workspace))
              (:procedures
               (memory-knowledge--render-procedures base workspace))
+             (:recipes
+              (memory-knowledge--render-recipes))
              (:changes
               (memory-knowledge--render-changes
                configuration
@@ -762,28 +787,76 @@ never the time a later assertion cites it."
                                 :scope               scope
                                 :source-conversation (conversation-identifier
                                                       (tool-context-conversation context)))
-      (let* ((entry    (knowledge-base-rule (knowledge-base-read configuration) identifier
-                                            :workspace (knowledge--workspace configuration)))
-             (active-p (eql (getf entry :active) version))
-             (decision (if active-p
-                           ':full-access
-                           (tool-context-authorize-command
-                            context
-                            (memory-knowledge--admission-command
-                             identifier version
-                             (getf (knowledge-rule-entry-version entry version) :rule))
-                            (config :working-directory configuration)))))
-        (cond
-          (active-p
-           (format nil "Rule ~A version ~D is unchanged and active." identifier version))
-          ((eq decision ':deny)
-           (format nil "~:[Rule ~A version ~D is unchanged~;Proposed rule ~A version ~D~]; admission was declined, so it derives nothing. The user can admit it with (admit-rule ~S)."
-                   new-p identifier version identifier))
-          (t
-           (knowledge-admit-rule configuration identifier
-                                 :scope scope :version version
-                                 :by (string-downcase (symbol-name decision)))
-           (format nil "Admitted rule ~A version ~D." identifier version)))))))
+      (memory-knowledge--admit-proposal context identifier
+                                        :version version :new-p new-p :scope scope))))
+
+(-> memory-knowledge--admit-proposal
+    (tool-context string &key (:version integer) (:new-p boolean) (:scope memory-scope))
+    string)
+(defun memory-knowledge--admit-proposal (context identifier &key version new-p scope)
+  "Ask to admit proposed rule IDENTIFIER's VERSION and describe the outcome.
+
+An unchanged active version needs no approval; a declined one derives nothing
+until the user admits it."
+  (let ((configuration (tool-context-configuration context)))
+    (let* ((entry    (knowledge-base-rule (knowledge-base-read configuration) identifier
+                                          :workspace (knowledge--workspace configuration)))
+           (active-p (eql (getf entry :active) version))
+           (decision (if active-p
+                         ':full-access
+                         (tool-context-authorize-command
+                          context
+                          (memory-knowledge--admission-command
+                           identifier version
+                           (getf (knowledge-rule-entry-version entry version) :rule))
+                          (config :working-directory configuration)))))
+      (cond
+        (active-p
+         (format nil "Rule ~A version ~D is unchanged and active." identifier version))
+        ((eq decision ':deny)
+         (format nil "~:[Rule ~A version ~D is unchanged~;Proposed rule ~A version ~D~]; admission was declined, so it derives nothing. The user can admit it with (admit-rule ~S)."
+                 new-p identifier version identifier))
+        (t
+         (knowledge-admit-rule configuration identifier
+                               :scope scope :version version
+                               :by (string-downcase (symbol-name decision)))
+         (format nil "Admitted rule ~A version ~D." identifier version))))))
+
+(-> memory-knowledge--use-recipe (tool-context hash-table) string)
+(defun memory-knowledge--use-recipe (context operation)
+  "Apply one recipe-use OPERATION: define its predicates and propose its rules."
+  (memory-knowledge--fields operation "recipe-use"
+                            :allowed  '("op" "recipe" "scope")
+                            :required '("recipe"))
+  (let* ((configuration (tool-context-configuration context))
+         (scope         (memory-knowledge--scope operation))
+         (recipe        (knowledge-recipe (gethash "recipe" operation))))
+    (unless recipe
+      (memory-resource--fail "Recipe ~S is not one of ~{~A~^, ~}; read memory:recipes."
+                             (gethash "recipe" operation) (knowledge-recipe-identifiers)))
+    (format nil "~{~A~^ ~}"
+            (append
+             (mapcar (lambda (schema)
+                       (multiple-value-bind (defined version)
+                           (knowledge-define-schema configuration schema :scope scope)
+                         (format nil "Defined ~A version ~D."
+                                 (knowledge-schema-predicate defined) version)))
+                     (knowledge-recipe-schemas recipe))
+             (mapcar (lambda (rule)
+                       (multiple-value-bind (identifier version new-p)
+                           (knowledge-propose-rule configuration
+                                                   :id                  (getf rule :id)
+                                                   :premises            (getf rule :premises)
+                                                   :bindings            (getf rule :bindings)
+                                                   :conclusion          (getf rule :conclusion)
+                                                   :description         (getf rule :description)
+                                                   :scope               scope
+                                                   :source-conversation (conversation-identifier
+                                                                         (tool-context-conversation context)))
+                         (memory-knowledge--admit-proposal context identifier
+                                                           :version version :new-p new-p
+                                                           :scope   scope)))
+                     (getf (rest recipe) :rules))))))
 
 (-> memory-knowledge--admission-command (string integer list) string)
 (defun memory-knowledge--admission-command (identifier version rule)
@@ -916,8 +989,10 @@ never the time a later assertion cites it."
        (memory-knowledge--define-method context operation))
       ((equal name "contract-define")
        (memory-knowledge--define-contract context operation))
+      ((equal name "recipe-use")
+       (memory-knowledge--use-recipe context operation))
       (t
-       (memory-resource--fail "memory:facts accepts predicate-define, fact-assert, fact-retract, rule-propose, method-define, and contract-define.")))))
+       (memory-resource--fail "memory:facts accepts predicate-define, fact-assert, fact-retract, rule-propose, method-define, contract-define, and recipe-use.")))))
 
 (defmethod resource-tool-edit
     ((resource memory-knowledge-resource) (tool resource-edit-tool)

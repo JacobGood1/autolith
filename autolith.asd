@@ -160,6 +160,7 @@
                                           (:file "knowledge/viewers")
                                           (:file "knowledge/methods")
                                           (:file "knowledge/contracts")
+                                          (:file "knowledge/recipes")
                                           (:file "knowledge/diagnosis")
                                           (:file "state/memory-status")
                                           (:file "state/papercuts")

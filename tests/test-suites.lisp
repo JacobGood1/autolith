@@ -407,6 +407,7 @@
   test-symbolic-command-styles)
 
 (define-test-suite knowledge-fixtures
+  test-knowledge-recipes
   test-knowledge-appointment-fixtures
   test-knowledge-document-fixtures
   test-knowledge-sales-fixtures

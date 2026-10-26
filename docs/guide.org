@@ -1052,6 +1052,12 @@ The model reads =memory:facts=, =memory:claim/ID=, =memory:predicates=,
 per edit. Mission status and gate results are recorded as =autolith.mission.*=
 facts.
 
+Starter recipes give common work a ready vocabulary. =memory:recipes= lists
+them: =appointments= derives when to leave from an event's start, travel, and
+buffer, and =service-dependencies= marks a service at risk while something it
+depends on is down. A =recipe-use= operation on =memory:facts= defines a
+recipe's predicates and proposes its rules, which are admitted like any other.
+
 The =knowledge-mode= setting is =active= by default. =passive= keeps recording
 observations such as mission results but offers nothing to the model, and =off=
 records nothing; in both, model requests are exactly as without structured
