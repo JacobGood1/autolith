@@ -48,7 +48,7 @@ can appear as unmarked standalone entries:
 | Rules | =rules=, =what changed=, =admitted …=, =retired …=, empty/error feedback |
 | Procedures and diagnoses | =procedures=, =ran …=, =stopped …=, =diagnoses=, empty/error feedback |
 | Papercut inspection/closure | =PAPERCUTS=, =PAPERCUT=, =PAPERCUT CLOSED=, lookup/usage feedback |
-| Skills and context inspection | =Skills:=, =Registered context contributors:= |
+| Skills and context inspection | =Skills:=, =context contributors= |
 | Corrections | =Correction: …=, =Saved correction …= |
 | Import/export | =Imported=, =Exported= |
 | Vault operations | =Recovery input vault=, =Stored …=, =Restored …=, =Discarded …=, =Could not read vault: …= |

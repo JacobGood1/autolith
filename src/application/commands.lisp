@@ -3504,9 +3504,7 @@ The current value and its source sit in aligned columns of their own."
      :terminal-behavior :shared
      :callable          t)
     (application)
-  (application-present
-   application
-   (context-status (application-conversation application)))
+  (application-present application (application-context-entry application))
   ':continue)
 
 (define-application-command application--builtin-compact-command

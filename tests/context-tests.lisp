@@ -229,7 +229,11 @@
                   (diagnostic
                     (first
                      (context-delivery-diagnostic-contributions retained)))
-                  (status (context-status conversation)))
+                  (status (context-status conversation))
+                  (entry  (test-terminal-row-text
+                           (application-context-entry
+                            (make-instance 'application :configuration configuration
+                                                        :conversation  conversation)))))
              (test-assert
               (and
                (search *context-test-sensitive-instruction*
@@ -262,7 +266,9 @@
                  *context-last-deliveries*
                  *context-test-sensitive-evidence*))
                (not (search *context-test-sensitive-instruction* status))
-               (not (search *context-test-sensitive-evidence* status)))
+               (not (search *context-test-sensitive-evidence* status))
+               (not (search *context-test-sensitive-instruction* entry))
+               (not (search *context-test-sensitive-evidence* entry)))
               "retained diagnostics and /context discard request-local payload text")
              (test-assert
               (and (search "sensitive" status)
