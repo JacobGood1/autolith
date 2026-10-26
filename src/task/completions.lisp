@@ -190,6 +190,7 @@
     (with-lock-held ((task-orchestrator-artifact-lock (session-job-orchestrator job)))
       (let ((record (task-continuity--read path)))
         (unless (getf record :detached-p)
+          (task-completion-index-note job (agent-configuration parent))
           (setf (getf record :detached-p) t)
           (task-continuity--write path record))))
     (setf (session-job-detached-p job) t)
@@ -283,6 +284,106 @@
           :created-at 0 :started-at nil :ended-at nil
           :progress (list :completion metadata))))
 
+(-> task-completion-index-note (session-job configuration) null)
+(defun task-completion-index-note (job configuration)
+  "Record detached JOB's completion as outstanding before its continuity says so.
+
+Callers hold JOB's orchestrator artifact lock and publish the detached
+continuity record right after this returns, so every detached record with a
+deliverable policy is indexed. A note into a missing or unreadable index starts
+an incomplete one, which the next restore completes with one full scan."
+  (let ((owner (session-job-completion-owner-conversation job)))
+    (when (and owner (member (session-job-completion-policy job) '(:notify :continue)))
+      (let* ((root        (task--artifact-group-root
+                           configuration (session-job-root-conversation-identifier job)))
+             (path        (task-completion--index-path root owner))
+             (index       (task-completion--index-read path))
+             (identifier  (session-job-execution-identifier job))
+             (identifiers (getf index :execution-ids)))
+        (unless (member identifier identifiers :test #'equal)
+          (task-completion--index-write path
+                                        :complete-p  (getf index :complete-p)
+                                        :identifiers (cons identifier identifiers))))))
+  nil)
+
+(-> task-completion--index-path (pathname string) pathname)
+(defun task-completion--index-path (root owner)
+  "Return OWNER's outstanding completion index below task group ROOT."
+  (merge-pathnames (format nil "completion-~A.outstanding.sexp" owner) root))
+
+(-> task-completion--index-read (pathname) list)
+(defun task-completion--index-read (path)
+  "Read the outstanding completion index at PATH, or NIL when absent or damaged."
+  (let ((index (and (probe-file path)
+                    (handler-case (task-continuity--read path)
+                      (error () nil)))))
+    (when (and (eql 1 (getf index :version))
+               (listp (getf index :execution-ids))
+               (every #'non-empty-string-p (getf index :execution-ids)))
+      index)))
+
+(-> task-completion--index-write (pathname &key (:complete-p boolean) (:identifiers list)) pathname)
+(defun task-completion--index-write (path &key complete-p identifiers)
+  "Atomically publish the outstanding completion index at PATH."
+  (ensure-directories-exist path)
+  (task-continuity--write path (list :version       1
+                                     :complete-p    complete-p
+                                     :execution-ids identifiers)))
+
+(-> task-completion--outstanding-entries (agent task-orchestrator) list)
+(defun task-completion--outstanding-entries (agent runtime)
+  "Return continuity entries of AGENT's undelivered detached completions.
+
+A complete index names every detached job whose notification may still be
+undelivered, so restoring reads those few records instead of every job the
+conversation ever ran. A missing or incomplete index is rebuilt from one full
+scan. The index is read under RUNTIME's artifact lock, so each job it names
+already has its detached continuity record. Only those jobs can leave the
+index, and only once delivered or gone; jobs noted since then stay."
+  (let* ((conversation (agent-conversation agent))
+         (owner        (conversation-identifier conversation))
+         (root         (task--artifact-group-root
+                        (agent-configuration agent) (task-parent-root-conversation-identifier agent)))
+         (path         (task-completion--index-path root owner))
+         (index        (with-lock-held ((task-orchestrator-artifact-lock runtime))
+                         (task-completion--index-read path)))
+         (indexed      (getf index :execution-ids))
+         (complete-p   (getf index :complete-p))
+         (entries      (if complete-p
+                           (loop for identifier in indexed
+                                 append (task-continuity-directory-entries
+                                         agent (merge-pathnames (format nil "~A/" identifier) root)))
+                           (task-continuity-records agent)))
+         (settled      (if complete-p
+                           indexed
+                           (intersection indexed
+                                         (loop for entry in entries
+                                               for record = (getf entry :record)
+                                               when record collect (getf record :execution-id))
+                                         :test #'equal)))
+         (outstanding  (remove-if-not
+                        (lambda (entry)
+                          (let ((record (getf entry :record)))
+                            (and record (getf record :detached-p)
+                                 (equal owner (getf record :completion-owner-conversation))
+                                 (member (getf record :completion-policy) '(:notify :continue))
+                                 (not (task-completion--delivered-p
+                                       conversation (getf record :execution-id))))))
+                        entries))
+         (kept         (mapcar (lambda (entry) (getf (getf entry :record) :execution-id))
+                               outstanding)))
+    (with-lock-held ((task-orchestrator-artifact-lock runtime))
+      (let* ((current     (task-completion--index-read path))
+             (identifiers (union kept
+                                 (set-difference (getf current :execution-ids) settled
+                                                 :test #'equal)
+                                 :test #'equal)))
+        (unless (and (getf current :complete-p)
+                     (null (set-exclusive-or identifiers (getf current :execution-ids)
+                                             :test #'equal)))
+          (task-completion--index-write path :complete-p t :identifiers identifiers))))
+    outstanding))
+
 (-> task-completion-restore (agent) null)
 (defun task-completion-restore (agent)
   "Reconstruct outstanding owned notifications without replaying job side effects."
@@ -298,7 +399,7 @@
             (task-completion--reconcile-claims service conversation)
             (let ((known (mapcar (lambda (message) (getf message :id))
                                  (task-completion--messages service))))
-              (dolist (entry (task-continuity-records agent))
+              (dolist (entry (task-completion--outstanding-entries agent runtime))
                 (let* ((record     (getf entry :record))
                        (identifier (getf record :execution-id)))
                   (when (and record (getf record :detached-p)

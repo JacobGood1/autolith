@@ -188,6 +188,56 @@
            (task-orchestrator-close (task-completion--runtime fresh)))))))
   nil)
 
+(-> test-job-completion-outstanding-index () null)
+(defun test-job-completion-outstanding-index ()
+  "Restore only indexed undelivered jobs, rebuilding a missing index from job history."
+  (job-completion-tests--fixture
+   (lambda (parent runtime configuration)
+     (let* ((delivered (session-job-execution-identifier
+                        (job-completion-tests--start parent runtime)))
+            (owner     (conversation-identifier (agent-conversation parent)))
+            (root      (task--artifact-group-root configuration owner))
+            (index     (task-completion--index-path root owner))
+            (unindexed (make-identifier)))
+       (task-completion-deliver parent)
+       (flet ((restored-executions (agent)
+                (task-completion-restore agent)
+                (mapcar (lambda (notice) (getf notice :execution-id))
+                        (task-completion-pending agent))))
+         (let* ((fresh   (job-completion-tests--fresh-agent parent configuration))
+                (pending (session-job-execution-identifier
+                          (job-completion-tests--start fresh (task-completion--runtime fresh)))))
+           (task-continuity--write
+            (merge-pathnames (format nil "~A/continuity.sexp" unindexed) root)
+            (list :version 1 :job-id "unindexed" :execution-id unindexed
+                  :root-conversation owner :owners nil :kind ':tool
+                  :created-at (get-universal-time) :detached-p t
+                  :completion-owner-conversation owner :completion-policy ':continue))
+           (task-orchestrator-close (task-completion--runtime fresh))
+           (let ((again (job-completion-tests--fresh-agent fresh configuration)))
+             (unwind-protect
+                  (progn
+                    (test-assert (equal (list pending) (restored-executions again))
+                                 "a complete index restores its jobs without reading other history")
+                    (test-assert (equal (list pending)
+                                        (getf (task-completion--index-read index) :execution-ids))
+                                 "restore drops delivered jobs from the index"))
+               (task-orchestrator-close (task-completion--runtime again))))
+           (delete-file index)
+           (let ((rebuilt (job-completion-tests--fresh-agent fresh configuration)))
+             (unwind-protect
+                  (progn
+                    (test-assert (null (set-exclusive-or (list pending unindexed)
+                                                         (restored-executions rebuilt)
+                                                         :test #'equal))
+                                 "a missing index is rebuilt from every job's continuity")
+                    (test-assert (not (member delivered
+                                              (getf (task-completion--index-read index) :execution-ids)
+                                              :test #'equal))
+                                 "the rebuilt index omits delivered jobs"))
+               (task-orchestrator-close (task-completion--runtime rebuilt)))))))))
+  nil)
+
 (-> test-job-completion-event-wakeup () null)
 (defun test-job-completion-event-wakeup ()
   "Receive a publication wakeup without invoking job polling or a model callback."

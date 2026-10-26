@@ -55,6 +55,8 @@ explicit safety declaration; admission alone grants no replay authority."
                       (session-job-orchestrator job)))
       (unless (probe-file path)
         (ensure-directories-exist path)
+        (when (session-job-detached-p job)
+          (task-completion-index-note job configuration))
         (task-continuity--write
          path
          (list :version 1 :job-id (session-job-identifier job)

@@ -300,6 +300,7 @@
   test-job-completion-durable-delivery
   test-job-completion-delivery-crash-points
   test-job-completion-terminal-truth-and-reconstruction
+  test-job-completion-outstanding-index
   test-job-completion-event-wakeup
   test-job-completion-history-rollover
   test-job-completion-capacity-recovery
