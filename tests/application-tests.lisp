@@ -9489,3 +9489,75 @@
                               (search "A[Start]" text))
                           "closed blocks render diagrams and interrupted blocks render source")))))))
   nil)
+
+(-> test-application-job-program-status () null)
+(defun test-application-job-program-status ()
+  "Exercise title updates, owner filtering, lifecycle events, and disconnect."
+  (let* ((configuration (test-configuration))
+         (root          (test-configuration-root configuration))
+         (registry      (task-augment-tool-registry (make-default-tool-registry)))
+         (orchestrator  (task-run-tool-orchestrator
+                         (tool-registry-find registry "task" "run")))
+         (conversation  (conversation-create configuration :identifier "status-owner"))
+         (terminal      (make-instance 'scripted-terminal))
+         (ui            (terminal-ui-create :terminal terminal))
+         (application   (make-instance 'application :configuration configuration
+                                       :conversation conversation :tool-registry registry :ui ui))
+         (primary       (task-tests--primary-agent configuration "status-owner" registry))
+         (definition    (task-agent-definition-create
+                         :name "status-child" :description "Status test"
+                         :instructions "Private assignment" :source ':test))
+         (owned         nil)
+         (foreign       nil))
+    (unwind-protect
+         (with-terminal-ui (active ui)
+           (let ((*active-application* application))
+             (dolist (title '("First title" "Changed title"))
+               (setf (conversation-title conversation) title)
+               (recording-terminal-reset terminal)
+               (terminal-ui-report-program-status active ':working)
+               (test-assert
+                (search (format nil ":title=~A" (terminal--program-status-text title 192))
+                        (recording-terminal-output terminal))
+                "each root report reads the current conversation title")))
+           (setf owned (task-tests--register-job orchestrator primary definition
+                                                 :name                         "Owned child"
+                                                 :root-conversation-identifier "status-owner")
+                 foreign (task-tests--register-job orchestrator primary definition
+                                                   :name                         "Foreign child"
+                                                   :root-conversation-identifier "another-owner"))
+           (recording-terminal-reset terminal)
+           (application-connect-task-presentation application)
+           (let ((output (recording-terminal-output terminal)))
+             (test-assert
+              (and (search (terminal--program-status-record-text
+                            (application--job-program-status-report owned))
+                           output)
+                   (not (search (terminal--program-status-record-text
+                                 (application--job-program-status-report foreign))
+                                output)))
+              "only the application's conversation publishes job records"))
+           (recording-terminal-reset terminal)
+           (task-tests--publish-terminal owned ':completed "Private result")
+           (test-assert
+            (search (terminal--program-status-record-text
+                     (application--job-program-status-report owned))
+                    (recording-terminal-output terminal))
+            "the real pool completion event updates the job record")
+           (let ((listener (application-task-presentation-listener application)))
+             (recording-terminal-reset terminal)
+             (application-disconnect-task-presentation application)
+             (test-assert
+              (and (search (terminal--program-status-record-sequence
+                            (getf (application--job-program-status-report owned) :id) ':clear)
+                           (recording-terminal-output terminal))
+                   (null (terminal-ui-job-status-records active)))
+              "disconnect clears owned records and their cache")
+             (recording-terminal-reset terminal)
+             (funcall listener ':task-subagent-progress (list :id (job-identifier owned)))
+             (test-assert (not (search "7501" (recording-terminal-output terminal)))
+                          "a disconnected observer cannot publish stale records")))
+      (application-disconnect-task-presentation application)
+      (tool-registry-close-runtime-state registry)
+      (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
+  nil)

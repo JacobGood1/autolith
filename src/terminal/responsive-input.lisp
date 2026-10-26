@@ -2188,10 +2188,10 @@ reaches the very next provider request."
                      result-p t)
                (when (application-input-controller--prompt-result-failure-p
                       result)
-                 (setf status 1))
+                (setf status (if (eq result ':aborted) 130 1)))
                result)
            (serious-condition (condition)
-             (setf status 1
+             (setf status (if (typep condition 'application-turn-cancelled) 130 1)
                    reopen-p (typep condition 'application-turn-cancelled))
              (error condition)))
       (when marker-p
@@ -3152,6 +3152,7 @@ sandbox grant is revalidated at this final authorization boundary."
                 (lambda ()
                   (terminal-ui-select
                    ui
+                   :status-kind     ':permission
                    :title
                    (format nil "run ~A"
                            (text-cell-prefix
@@ -3367,6 +3368,7 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
                (application--tool-authorization-request-entry tool arguments))
               (terminal-ui-select
                ui
+               :status-kind     ':permission
                :title           (application--tool-authorization-title tool)
                :items           (application--command-authorization-items
                                  key directory :external-tool-p t)
@@ -3662,6 +3664,11 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
     (application-input-controller--publish-counts controller)
     work))
 
+(-> application-input-controller--continuation-work-p ((option keyword)) boolean)
+(defun application-input-controller--continuation-work-p (kind)
+  "Return whether KIND can resume model work without a new terminal submission."
+  (not (null (member kind '(:job-completion :operation-request :recovery-diagnosis)))))
+
 (-> application-input-controller--finish-work
     (application-input-controller)
     null)
@@ -3670,6 +3677,7 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
   (let ((clear-notice-p nil)
         (pause-notice   nil)
         (marker-work-p  nil)
+        (continuation-p nil)
         (marker-status  0)
         (reopen-p       nil))
     (with-lock-held ((application-input-controller-lock controller))
@@ -3707,12 +3715,15 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
       (when (and (application-input-controller-turn-cancellation-p controller)
                  (not (eq (application-input-controller-exit-reason controller)
                           ':quit)))
-        (setf (application-input-controller-prompt-marker-status controller) 1))
+        (setf (application-input-controller-prompt-marker-status controller) 130))
       (setf clear-notice-p
             (or (application-input-controller-turn-cancellation-p controller)
                 (application-input-controller-interrupt-deadline controller))
             marker-work-p
             (application-input-controller-prompt-marker-work-p controller)
+            continuation-p
+            (application-input-controller--continuation-work-p
+             (application-input-controller-active-work-kind controller))
             marker-status
             (application-input-controller-prompt-marker-status controller)
             reopen-p
@@ -3759,6 +3770,9 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
     (let ((ui
             (application-ui
              (application-input-controller-application controller))))
+      (when (and ui continuation-p)
+        (terminal-ui-report-program-status
+         ui (terminal--program-status-outcome marker-status)))
       (when (and ui marker-work-p)
         (terminal-ui-finish-prompt-block ui marker-status))
       (when (and ui reopen-p)
@@ -3971,6 +3985,11 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
   (setf (application-input-controller-prompt-marker-work-p controller) nil
         (application-input-controller-prompt-marker-status controller) 0
         (application-input-controller-prompt-marker-reopen-p controller) t)
+  (when (application-input-controller--continuation-work-p (first work))
+    (let* ((application (application-input-controller-application controller))
+           (ui          (and (slot-boundp application 'ui) (application-ui application))))
+      (when ui
+        (terminal-ui-report-program-status ui ':working))))
   (when (and
          (application-input-controller-active-work-interactive-p controller)
          (application-input-controller--interactive-prompt-work-p work))
@@ -3987,7 +4006,8 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
 (defun application-input-controller--record-prompt-result (controller result)
   "Record RESULT's completion status for CONTROLLER's current prompt block."
   (when (application-input-controller--prompt-result-failure-p result)
-    (setf (application-input-controller-prompt-marker-status controller) 1))
+    (setf (application-input-controller-prompt-marker-status controller)
+          (if (eq result ':aborted) 130 1)))
   nil)
 
 (-> application-input-controller--record-prompt-condition
@@ -3996,7 +4016,8 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
 (defun application-input-controller--record-prompt-condition
     (controller condition)
   "Record escaping CONDITION and whether cancellation may reopen the next prompt."
-  (setf (application-input-controller-prompt-marker-status controller) 1
+  (setf (application-input-controller-prompt-marker-status controller)
+        (if (typep condition 'application-turn-cancelled) 130 1)
         (application-input-controller-prompt-marker-reopen-p controller)
         (typep condition 'application-turn-cancelled))
   nil)
@@ -4056,14 +4077,16 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
                (application-input-controller--record-prompt-result
                 controller result)))
             (:recovery-diagnosis
-             (application--run-message-input
-              application
-              (second work)
-              :tools-p                   t
-              :tool-allowlist            *application-recovery-diagnostic-tool-names*
-              :tool-restriction-p        t
-              :goal-continuations-p      nil
-              :fatal-agent-loop-errors-p nil))
+             (application-input-controller--record-prompt-result
+              controller
+              (application--run-message-input
+               application
+               (second work)
+               :tools-p                   t
+               :tool-allowlist            *application-recovery-diagnostic-tool-names*
+               :tool-restriction-p        t
+               :goal-continuations-p      nil
+               :fatal-agent-loop-errors-p nil)))
             (:lisp
              (let ((result
                      (if (terminal-ui--async-lisp-draft-p (second work))

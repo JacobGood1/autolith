@@ -482,28 +482,90 @@ exchange without scrolling through reasoning and tool activity.")
         (and (typep tool 'task-run-tool)
              (task-run-tool-orchestrator tool))))))
 
+(-> application--job-program-status-report (session-job) (values list boolean))
+(defun application--job-program-status-report (job)
+  "Return JOB's status record plist and whether it is active, without result text."
+  (let* ((snapshot (job-snapshot job))
+         (state    (ecase (getf snapshot :state)
+                     ((:queued :running)
+                      ':working)
+                     (:completed
+                      ':done)
+                     (:failed
+                      ':error)
+                     (:aborted
+                      ':idle)))
+         (title    (etypecase job
+                     (task-job
+                      (or (job-name job) (task-job-agent-name job) "Child agent"))
+                     (tool-execution-job
+                      (or (tool-execution-job-description job)
+                          (tool-execution-job-tool-name job)))))
+         (id       (concatenate 'string "jobs/"
+                                (remove #\- (session-job-execution-identifier job)))))
+    (values
+     (list :id      id
+           :state   state
+           :title   title
+           :message (when (eq (getf snapshot :state) ':queued) "Queued"))
+     (eq state ':working))))
+
+(-> application--job-program-status-reports (list) list)
+(defun application--job-program-status-reports (jobs)
+  "Return at most 63 reports, reserving capacity for the newest active jobs."
+  (let ((active   nil)
+        (finished nil))
+    (dolist (job jobs)
+      (multiple-value-bind (report active-p)
+          (application--job-program-status-report job)
+        (if active-p
+            (push report active)
+            (push report finished))))
+    (let ((active (last (nreverse active) 63)))
+      (append (last (nreverse finished) (- 63 (length active))) active))))
+
+(-> application-connect-program-status (application) null)
+(defun application-connect-program-status (application)
+  "Let APPLICATION's terminal status reports carry its current conversation title."
+  (let ((ui (and (slot-boundp application 'ui)
+                 (application-ui application))))
+    (when (typep ui 'terminal-ui)
+      (setf (terminal-ui-program-status-title-function ui)
+            (lambda ()
+              (and (slot-boundp application 'conversation)
+                   (application-conversation application)
+                   (conversation-title (application-conversation application)))))))
+  nil)
+
 (-> application--refresh-task-presentation-locked
     (application task-orchestrator)
     null)
 (defun application--refresh-task-presentation-locked (application orchestrator)
-  "Project ORCHESTRATOR's live session jobs while APPLICATION's task lock is held."
+  "Project live job rows and independent protocol records under the task lock."
   (when (eq orchestrator
             (application-task-presentation-orchestrator application))
-    (let ((ui
-            (and (slot-boundp application 'ui)
-                 (application-ui application))))
+    (let ((ui (and (slot-boundp application 'ui)
+                   (application-ui application))))
       (when (typep ui 'terminal-ui)
         (let ((activities (task-orchestrator-live-activities orchestrator)))
           (terminal-ui-set-agent-activities
-           ui
-           (remove-if-not (lambda (activity)
-                            (eq (getf activity :type) ':task))
-                          activities))
+           ui (remove-if-not (lambda (activity)
+                               (eq (getf activity :type) ':task))
+                             activities))
           (terminal-ui-set-command-activities
-           ui
-           (remove-if-not (lambda (activity)
-                            (eq (getf activity :type) ':tool))
-                          activities))))))
+           ui (remove-if-not (lambda (activity)
+                               (eq (getf activity :type) ':tool))
+                             activities)))
+        (let* ((conversation (and (slot-boundp application 'conversation)
+                                  (application-conversation application)))
+               (owner        (and conversation (conversation-identifier conversation)))
+               (jobs         (when owner
+                               (remove-if-not
+                                (lambda (job)
+                                  (equal owner (session-job-root-conversation-identifier job)))
+                                (task-orchestrator-list-jobs orchestrator)))))
+          (terminal-ui-report-job-statuses
+           ui (application--job-program-status-reports jobs))))))
   nil)
 
 (-> application--wake-input-controller (application) null)
@@ -542,21 +604,19 @@ exchange without scrolling through reasoning and tool activity.")
 
 (-> application--disconnect-task-presentation-locked (application) null)
 (defun application--disconnect-task-presentation-locked (application)
-  "Disconnect APPLICATION's task observer while its presentation lock is held."
-  (let ((orchestrator
-          (application-task-presentation-orchestrator application))
-        (listener
-          (application-task-presentation-listener application)))
+  "Disconnect the task observer and clear its UI rows and protocol records."
+  (let ((orchestrator (application-task-presentation-orchestrator application))
+        (listener     (application-task-presentation-listener application)))
     (setf (application-task-presentation-orchestrator application) nil
           (application-task-presentation-listener application) nil)
     (when (and orchestrator listener)
       (task-orchestrator-remove-listener orchestrator listener))
-    (let ((ui
-            (and (slot-boundp application 'ui)
-                 (application-ui application))))
+    (let ((ui (and (slot-boundp application 'ui)
+                   (application-ui application))))
       (when (typep ui 'terminal-ui)
         (terminal-ui-set-agent-activities ui nil)
-        (terminal-ui-clear-command-activities ui))))
+        (terminal-ui-clear-command-activities ui)
+        (terminal-ui-report-job-statuses ui nil))))
   nil)
 
 (-> application-disconnect-task-presentation (application) null)

@@ -393,6 +393,11 @@ preferences record; =--fullscreen= overrides it for one launch.
   closes execution. This way you can rely on smarter terminals
 - OSC 0: the interactive window title is =autolith - PATH=. Autolith writes
   it at UI start, after localgroup attach, and after =(cwd "PATH")=.
+- OSC 7501: =protocol.lisp= encodes bounded root and job program-status reports;
+  =ui.lisp= serializes output, caches job records, and replays active records
+  after OSC 133 prompt-start. =application/runtime.lisp= maps conversation-owned
+  jobs to independent records. Root reports include the current conversation title.
+  Foreground execution and modal input boundaries publish root status.
 - Clinedi owns editor state, input decoding, geometry, and live repainting
 - The fullscreen viewport owns transcript wrapping, application scrolling,
   reflow anchors, and bottom-pinned composer geometry

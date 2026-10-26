@@ -198,8 +198,9 @@
                              (test-assert
                               (not (search "private" (prin1-to-string activity)))
                               "the live projection excludes task and source contents"))
-                           (test-assert (string= (recording-terminal-output terminal) "")
-                                        "RLM progress never paints from its worker")
+                           (test-assert
+                            (string= (clinedi:ansi-strip (recording-terminal-output terminal)) "")
+                            "RLM progress never paints visible text from its worker")
                            (terminal-ui-refresh-status active-ui)
                            (test-assert
                             (search "RLM" (recording-terminal-output terminal))

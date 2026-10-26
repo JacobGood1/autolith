@@ -1138,6 +1138,11 @@
   test-terminal-primary-screen-controls
   test-terminal-nonblocking-lock-interrupt
   test-terminal-prompt-markers
+  test-terminal-program-status-wire
+  test-terminal-job-status-records
+  test-terminal-job-status-transport
+  test-application-job-program-status
+  test-terminal-program-status-lifecycle
   test-terminal-window-title
   test-terminal-finalized-batch
   test-terminal-untrusted-text
@@ -1343,7 +1348,8 @@
   test-application-lisp-activity
   test-application-lisp-input-routing
   test-application-prompt-marker-reader-order
-  test-application-prompt-marker-lifecycle)
+  test-application-prompt-marker-lifecycle
+  test-application-program-status-continuation)
 
 (define-test-suite async-lisp
   test-terminal-async-lisp-prompt

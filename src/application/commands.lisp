@@ -2170,42 +2170,45 @@ are forwarded to TERMINAL-UI-SELECT."
 (-> application-call-with-authentication-ui (terminal-ui boolean function) t)
 (defun application-call-with-authentication-ui (ui stop-ui-p function)
   "Call FUNCTION with provider-owned I/O, restoring the console on every exit."
-  (if (and (terminal-ui-fullscreen-p ui)
-           (fullscreen-terminal-ui-active-p ui))
-      (let ((terminal            (terminal-ui-terminal ui))
-            (output-mode         nil)
-            (transport-stopped-p nil))
-        (unwind-protect
-             (progn
-               (with-terminal-ui-locked (ui)
-                 (setf (terminal-ui-live-output-suspended-p ui) t)
-                 (terminal--write terminal (mouse-reporting-disable-sequence))
-                 (when stop-ui-p
-                   (setf transport-stopped-p t)
-                   (terminal-stop terminal))
-                 (setf output-mode (platform-terminal-enable-fullscreen *platform*))
-                 (terminal-ui-fullscreen-invalidate ui)
-                 (terminal-ui-boot-screen ui ':authenticating "Provider authentication in progress"))
-               (funcall function))
-          (with-terminal-ui-locked (ui)
-            (unwind-protect
-                 (platform-terminal-restore-fullscreen *platform* output-mode)
-              (unwind-protect
-                   (when transport-stopped-p
-                     (terminal-start terminal))
-                (terminal-ui-fullscreen-invalidate ui)
-                (unwind-protect
-                     (terminal--write terminal (mouse-reporting-enable-sequence))
-                  (application--authentication-ui-resume ui)))))))
-      (unwind-protect
-           (progn
-             (if stop-ui-p
-                 (terminal-ui-stop ui)
-                 (application--authentication-ui-suspend ui))
-             (funcall function))
-        (if stop-ui-p
-            (terminal-ui-start ui)
-            (application--authentication-ui-resume ui)))))
+  (terminal-ui-call-with-blocked-status
+   ui ':auth
+   (lambda ()
+     (if (and (terminal-ui-fullscreen-p ui)
+              (fullscreen-terminal-ui-active-p ui))
+         (let ((terminal            (terminal-ui-terminal ui))
+               (output-mode         nil)
+               (transport-stopped-p nil))
+           (unwind-protect
+                (progn
+                  (with-terminal-ui-locked (ui)
+                    (setf (terminal-ui-live-output-suspended-p ui) t)
+                    (terminal--write terminal (mouse-reporting-disable-sequence))
+                    (when stop-ui-p
+                      (setf transport-stopped-p t)
+                      (terminal-stop terminal))
+                    (setf output-mode (platform-terminal-enable-fullscreen *platform*))
+                    (terminal-ui-fullscreen-invalidate ui)
+                    (terminal-ui-boot-screen ui ':authenticating "Provider authentication in progress"))
+                  (funcall function))
+             (with-terminal-ui-locked (ui)
+               (unwind-protect
+                    (platform-terminal-restore-fullscreen *platform* output-mode)
+                 (unwind-protect
+                      (when transport-stopped-p
+                        (terminal-start terminal))
+                   (terminal-ui-fullscreen-invalidate ui)
+                   (unwind-protect
+                        (terminal--write terminal (mouse-reporting-enable-sequence))
+                     (application--authentication-ui-resume ui)))))))
+         (unwind-protect
+              (progn
+                (if stop-ui-p
+                    (terminal-ui-stop ui)
+                    (application--authentication-ui-suspend ui))
+                (funcall function))
+           (if stop-ui-p
+               (terminal-ui-start ui)
+               (application--authentication-ui-resume ui)))))))
 
 (defgeneric terminal-authentication-streams (terminal)
   (:documentation

@@ -2415,12 +2415,82 @@ does not change UI."
               :operation ':resize
               :cause     nil)))))
 
+(-> terminal-ui-report-job-statuses (terminal-ui list) null)
+(defun terminal-ui-report-job-statuses (ui records)
+  "Synchronize the newest 63 job RECORDS, plists of :ID, :STATE, :TITLE and :MESSAGE.
+
+Only changed records are sent, and records no longer present are cleared."
+  (with-terminal-ui-locked (ui)
+    (let* ((terminal (terminal-ui-terminal ui))
+           (previous (terminal-ui-job-status-records ui))
+           (current  (last records 63)))
+      (flet ((find-record (id records)
+               (find id records :key (lambda (record) (getf record :id)) :test #'string=)))
+        (if (terminal-interactive-p terminal)
+            (progn
+              (dolist (record previous)
+                (unless (find-record (getf record :id) current)
+                  (terminal--write terminal
+                                   (terminal--program-status-record-sequence
+                                    (getf record :id) ':clear))))
+              (dolist (record current)
+                (unless (equal record (find-record (getf record :id) previous))
+                  (terminal--write terminal (terminal--program-status-record-text record))))
+              (setf (terminal-ui-job-status-records ui) current)
+              (when (or previous current)
+                (terminal-flush terminal)))
+            (setf (terminal-ui-job-status-records ui) nil)))))
+  nil)
+
+(-> terminal-ui-replay-job-statuses (terminal-ui) null)
+(defun terminal-ui-replay-job-statuses (ui)
+  "Restore working job records after a semantic prompt expires active records."
+  (with-terminal-ui-locked (ui)
+    (let ((terminal  (terminal-ui-terminal ui))
+          (changed-p nil))
+      (when (terminal-interactive-p terminal)
+        (dolist (record (terminal-ui-job-status-records ui))
+          (when (eq (getf record :state) ':working)
+            (terminal--write terminal (terminal--program-status-record-text record))
+            (setf changed-p t)))
+        (when changed-p
+          (terminal-flush terminal)))))
+  nil)
+
+(-> terminal-ui-report-program-status
+    (terminal-ui keyword &key (:kind (option keyword)))
+    null)
+(defun terminal-ui-report-program-status (ui state &key kind)
+  "Publish root status with the title UI's installed title function returns."
+  (with-terminal-ui-locked (ui)
+    (setf (terminal-ui-program-status ui) (list state kind))
+    (when (terminal-interactive-p (terminal-ui-terminal ui))
+      (let ((title (let ((function (terminal-ui-program-status-title-function ui)))
+                     (and function (funcall function)))))
+        (terminal--write (terminal-ui-terminal ui)
+                         (terminal--program-status-sequence
+                          state :kind kind :title title))
+        (terminal-flush (terminal-ui-terminal ui)))))
+  nil)
+
+(-> terminal-ui-call-with-blocked-status (terminal-ui keyword function) t)
+(defun terminal-ui-call-with-blocked-status (ui kind function)
+  "Call FUNCTION at an input boundary, restoring UI's previous status on exit."
+  (let ((previous (with-terminal-ui-locked (ui)
+                    (copy-list (terminal-ui-program-status ui)))))
+    (unwind-protect
+         (progn
+           (terminal-ui-report-program-status ui ':blocked :kind kind)
+           (funcall function))
+      (terminal-ui-report-program-status ui (first previous) :kind (second previous)))))
+
 (-> terminal-ui-select
     (terminal-ui &key (:title string) (:items list) (:hint (option string))
      (:visible-count (integer 1)) (:initial-name (option string))
      (:initial-value (option string)) (:search-p boolean)
      (:search-key function) (:resize-callback (option function))
-     (:on-event (option function)) (:poll-interval (option real)))
+     (:on-event (option function)) (:poll-interval (option real))
+     (:status-kind keyword))
     (option string))
 (defun terminal-ui-select
     (ui &key (title "select") items hint
@@ -2428,7 +2498,7 @@ does not change UI."
           initial-name initial-value search-p
           (search-key #'terminal-ui--picker-default-search-text)
           resize-callback on-event
-          (poll-interval *terminal-ui-picker-poll-interval*))
+          (poll-interval *terminal-ui-picker-poll-interval*) (status-kind ':question))
   "Select an application entry through Clinedi's filtered modal session.
 
 Entries carry :NAME and optionally a distinct :VALUE. ON-EVENT receives
@@ -2521,7 +2591,8 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
                                       (setf (terminal-ui-selector ui) nil
                                             (terminal-ui-selector-title ui) nil
                                             (terminal-ui-selector-hint ui) nil)
-                                      (terminal-ui--repaint-live ui)))))))
+                                      (terminal-ui--repaint-live ui))))
+                 :status-kind status-kind)))
           (if (stringp selected) selected (value selected)))))))
 
 
@@ -2529,7 +2600,7 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
 
 (-> terminal-ui-open-prompt-block (terminal-ui) boolean)
 (defun terminal-ui-open-prompt-block (ui)
-  "Emit prompt-start and input-start boundaries around one semantic prompt paint."
+  "Emit semantic prompt boundaries and restore independent active job reports."
   (with-terminal-ui-locked (ui)
     (let ((terminal (terminal-ui-terminal ui)))
       (when (and (terminal-ui-started-p ui)
@@ -2545,6 +2616,7 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
                  (eq (terminal-ui-prompt-marker-state ui) ':closed))
         (live-region-suspend (terminal-ui-live-region ui))
         (terminal-write-prompt-marker terminal ':prompt-start)
+        (terminal-ui-replay-job-statuses ui)
         (setf (terminal-ui-prompt-marker-state ui) ':prompt)
         (terminal-ui--paint-live ui)
         (terminal-write-prompt-marker terminal ':input-start)
@@ -2558,8 +2630,12 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
     (let ((terminal (terminal-ui-terminal ui)))
       (when (and (terminal-ui-started-p ui)
                  (terminal-interactive-p terminal)
-                 (eq (terminal-ui-prompt-marker-state ui) ':input))
-        (terminal-write-prompt-marker terminal ':execution-start)
+                 (or (eq (terminal-ui-prompt-marker-state ui) ':input)
+                     (and (terminal-ui-fullscreen-p ui)
+                          (eq (terminal-ui-prompt-marker-state ui) ':closed))))
+        (terminal-ui-report-program-status ui ':working)
+        (unless (terminal-ui-fullscreen-p ui)
+          (terminal-write-prompt-marker terminal ':execution-start))
         (setf (terminal-ui-prompt-marker-state ui) ':executing)
         t))))
 
@@ -2572,8 +2648,14 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
     (let ((terminal (terminal-ui-terminal ui)))
       (when (and (terminal-ui-started-p ui)
                  (terminal-interactive-p terminal)
-                 (eq (terminal-ui-prompt-marker-state ui) ':executing))
-        (terminal-write-prompt-marker terminal ':command-finished status)
+                 (or (eq (terminal-ui-prompt-marker-state ui) ':executing)
+                     (member (first (terminal-ui-program-status ui)) '(:working :blocked))))
+        (terminal-ui-report-program-status
+         ui (terminal--program-status-outcome status))
+        (when (and (not (terminal-ui-fullscreen-p ui))
+                   (eq (terminal-ui-prompt-marker-state ui) ':executing))
+          (terminal-write-prompt-marker terminal ':command-finished
+                                        (if (= status 130) 1 status)))
         (setf (terminal-ui-prompt-marker-state ui) ':closed)
         t))))
 
@@ -2587,6 +2669,9 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
     (unless (terminal-ui-started-p ui)
       (terminal-start (terminal-ui-terminal ui))
       (setf (terminal-ui-started-p ui) t)
+      (terminal-ui-report-program-status
+       ui (first (terminal-ui-program-status ui))
+       :kind (second (terminal-ui-program-status ui)))
       (when (terminal-ui-fullscreen-p ui)
         (terminal-ui-fullscreen-enter ui))
       (terminal-ui--paint-live ui)))
@@ -2608,7 +2693,12 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
   (with-terminal-ui-locked (ui)
     (unwind-protect
          (when (terminal-ui-started-p ui)
-           (when (eq (terminal-ui-prompt-marker-state ui) ':executing)
+           (when (or (eq (first (terminal-ui-program-status ui)) ':working)
+                     (and (eq (first (terminal-ui-program-status ui)) ':blocked)
+                          (not (eq (second (terminal-ui-program-status ui)) ':auth))))
+             (terminal-ui-report-program-status ui ':error))
+           (when (and (not (terminal-ui-fullscreen-p ui))
+                      (eq (terminal-ui-prompt-marker-state ui) ':executing))
              (terminal-write-prompt-marker
               (terminal-ui-terminal ui) ':command-finished 1))
            (unless (terminal-ui-fullscreen-p ui)
@@ -3244,15 +3334,19 @@ transcript widgets and URLs do nothing."
           t)
         nil)))
 
-(-> terminal-ui-call-with-exclusive-input (terminal-ui function) t)
-(defun terminal-ui-call-with-exclusive-input (ui function)
+(-> terminal-ui-call-with-exclusive-input
+    (terminal-ui function &key (:status-kind keyword))
+    t)
+(defun terminal-ui-call-with-exclusive-input (ui function &key (status-kind ':question))
   "Call FUNCTION while it alone reads UI's terminal input, returning its values.
 
 Modal pickers and other direct event readers take ownership here when they
 open, so the work that reached them, whether a slash command, a Lisp form, or
 an agent turn, never has to give up responsive input in advance. Without an
 installed owner the thunk simply runs."
-  (funcall (terminal-ui-exclusive-input-function ui) function))
+  (funcall (terminal-ui-exclusive-input-function ui)
+           (lambda ()
+             (terminal-ui-call-with-blocked-status ui status-kind function))))
 
 (-> terminal-ui--safe-editor-event (t) t)
 (defun terminal-ui--safe-editor-event (event)

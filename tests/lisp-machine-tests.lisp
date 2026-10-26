@@ -1054,3 +1054,27 @@
                                           :validate          t
                                           :if-does-not-exist ':ignore)))))
   nil)
+
+(-> test-application-program-status-continuation () null)
+(defun test-application-program-status-continuation ()
+  "Check terminal status for model work resumed without new prompt execution."
+  (multiple-value-bind (application root) (lisp-machine-tests--application)
+    (let* ((ui         (application-ui application))
+           (controller (lisp-machine-tests--controller application)))
+      (unwind-protect
+           (with-terminal-ui (active ui)
+             (terminal-ui-open-prompt-block active)
+             (dolist (kind '(:job-completion :operation-request :recovery-diagnosis))
+               (setf (application-input-controller-active-work-kind controller) kind)
+               (application-input-controller--begin-prompt-work controller (list kind))
+               (test-assert (equal (terminal-ui-program-status active) '(:working nil))
+                            "a model continuation reports working")
+               (application-input-controller--record-prompt-result controller ':failed)
+               (application-input-controller--finish-work controller)
+               (test-assert (and (equal (terminal-ui-program-status active) '(:error nil))
+                                 (eq (terminal-ui-prompt-marker-state active) ':input))
+                            "a failed continuation reports error without an OSC 133 execution block")))
+        (application-input-controller-stop controller)
+        (tool-registry-close-runtime-state (application-tool-registry application))
+        (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore))))
+  nil)

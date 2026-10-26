@@ -210,12 +210,13 @@
         (list 'application-present
               (lambda (&rest arguments) (declare (ignore arguments)) nil))
         (list 'terminal-ui-select
-              (lambda (ui &key title items resize-callback)
+              (lambda (ui &key title items resize-callback status-kind)
                 (declare (ignore ui title resize-callback))
                 (incf pick-count)
                 (test-assert
-                 (equal (mapcar (lambda (item) (getf item :name)) items)
-                        '("auto" "once" "always" "full" "deny"))
+                 (and (eq status-kind ':permission)
+                      (equal (mapcar (lambda (item) (getf item :name)) items)
+                             '("auto" "once" "always" "full" "deny")))
                  "external calls offer normal permission choices without sandbox")
                 choice))
         (list 'permissions-model-classify-command
