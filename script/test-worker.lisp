@@ -44,9 +44,13 @@
       (format *error-output* "~&Test image failed: ~A~%" condition)
       (uiop:quit 2))))
 
-(defun test-worker--save-core (source-root pathname &optional development-p)
-  "Load the requested test system in this fresh builder, save its image and exit."
-  (check--load-tests source-root :development-p development-p)
+(defun test-worker--save-core (source-root pathname mode)
+  "Load MODE's test system in this fresh builder, save its image and exit.
+
+MODE must be :runtime or :development."
+  (unless (member mode '(:runtime :development))
+    (check--fail "The test image mode must be :runtime or :development."))
+  (check--load-tests source-root :development-p (eq mode :development))
   (uiop:symbol-call
    '#:sbcl-generations '#:image-save pathname
    (uiop:symbol-call '#:sbcl-generations '#:image-build-record
@@ -114,24 +118,24 @@
                           (length (remove-duplicates (getf request :cases)
                                                      :test #'string-equal))))
             (check--fail "Invalid test worker request."))
-          (unless preloaded-p
-            (check--load-tests source-root))
-          (let* ((names (getf request :cases))
-                 (cases (check--select-tests source-root nil names)))
-            (unless (equal (mapcar #'string-downcase cases) names)
-              (check--fail "Worker selection does not match its assigned cases."))
-            (test-worker--start-stack-watchdog)
-            (let ((result (uiop:symbol-call '#:autolith '#:tests-run-cases cases
-                                            :temporary-root (getf request :temporary-root))))
-              (check--validate-result result names)
-              (test-worker--report-live-threads)
-              (unwind-protect
-                  (progn
-                    (check--write-form staging-path result)
-                    (uiop:rename-file-overwriting-target staging-path result-path))
-                (when (probe-file staging-path)
-                  (delete-file staging-path)))
-              (if (getf result :failures) 1 0)))))
+         (unless preloaded-p
+           (check--load-tests source-root :development-p nil))
+         (let* ((names (getf request :cases))
+                (cases (check--select-tests source-root nil names)))
+               (unless (equal (mapcar #'string-downcase cases) names)
+                 (check--fail "Worker selection does not match its assigned cases."))
+               (test-worker--start-stack-watchdog)
+               (let ((result (uiop:symbol-call '#:autolith '#:tests-run-cases cases
+                                               :temporary-root (getf request :temporary-root))))
+                 (check--validate-result result names)
+                 (test-worker--report-live-threads)
+                 (unwind-protect
+                     (progn
+                       (check--write-form staging-path result)
+                       (uiop:rename-file-overwriting-target staging-path result-path))
+                   (when (probe-file staging-path)
+                     (delete-file staging-path)))
+                 (if (getf result :failures) 1 0)))))
     (error (condition)
       (format *error-output* "~&Test worker failed: ~A~%" condition)
       2)))
@@ -140,8 +144,15 @@
   (let ((arguments   (uiop:command-line-arguments))
         (source-root (uiop:pathname-parent-directory-pathname
                       (uiop:pathname-directory-pathname (truename *load-truename*)))))
-    (if (and (<= 2 (length arguments) 3) (string= (first arguments) "--save-core"))
-        (test-worker--save-core source-root (pathname (second arguments))
-                                (and (= (length arguments) 3)
-                                     (string= (third arguments) "development")))
-        (uiop:quit (test-worker-main arguments source-root)))))
+   (if (and (<= 2 (length arguments) 3) (string= (first arguments) "--save-core"))
+       (let ((mode (if (= (length arguments) 2)
+                       :runtime
+                       (cond ((string= (third arguments) "runtime")
+                              :runtime)
+                             ((string= (third arguments) "development")
+                              :development)
+                             (t
+                              (check--fail
+                               "The test image mode must be runtime or development."))))))
+         (test-worker--save-core source-root (pathname (second arguments)) mode))
+       (uiop:quit (test-worker-main arguments source-root)))))
