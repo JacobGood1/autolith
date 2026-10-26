@@ -20,7 +20,7 @@
     :initarg       :library
     :reader        source-parinfer-rule-library
     :type          pathname
-    :documentation "The private parinfer library the bootstrap builds."))
+    :documentation "The private parinfer library ./script/check builds."))
   (:default-initargs
    :name "parinfer"
    :description "Indentation agrees with the parentheses as parinfer-rust's paren mode requires, so editors running parinfer leave files unchanged.")
@@ -101,7 +101,7 @@
     (unless (probe-file library)
       (error 'source-parinfer-error
              :library library
-             :message (format nil "The parinfer library ~A is missing; run ./script/bootstrap."
+             :message (format nil "The parinfer library ~A is missing; run ./script/check, which builds it."
                               library)))
     (handler-case (cffi:load-foreign-library library)
       (error (condition)

@@ -273,7 +273,7 @@
 
 (-> test-source-parinfer-missing-library () null)
 (defun test-source-parinfer-missing-library ()
-  "Report a missing parinfer library as a structured failure that names the bootstrap."
+  "Report a missing parinfer library as a structured failure that names its builder."
   (with-test-configuration (configuration root)
     (declare (ignore configuration))
     (let ((library (merge-pathnames (source-parinfer-library-name) root)))
@@ -283,7 +283,7 @@
                          nil)
                      (source-parinfer-error (condition)
                        (and (equal (source-parinfer-error-library condition) library)
-                            (search "./script/bootstrap" (autolith-error-message condition))
+                            (search "./script/check" (autolith-error-message condition))
                             t)))
                    "a missing library is a parinfer error")))
   nil)

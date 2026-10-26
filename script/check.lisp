@@ -529,8 +529,12 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
     (check--load-test-system source-root)
     setup))
 
-(defun check--parinfer-library ()
-  "Return the private parinfer library the bootstrap installs."
+(defun check--parinfer-library (source-root)
+  "Return the private parinfer library, building it first when it is missing or stale.
+
+parinfer is a development tool, so the source checks build it on first use
+rather than every bootstrap and release build."
+  (load (merge-pathnames "script/build-parinfer.lisp" source-root))
   (merge-pathnames (concatenate 'string "native/parinfer/"
                                 (uiop:symbol-call '#:autolith '#:source-parinfer-library-name))
                    (autolith-application-root :data)))
@@ -539,7 +543,7 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
   "Return the source rules' findings in SOURCE-ROOT, repairing what they can first with FIX."
   (uiop:symbol-call '#:autolith '#:source-check-run source-root
                     :fix              fix
-                    :parinfer-library (check--parinfer-library)
+                    :parinfer-library (check--parinfer-library source-root)
                     :stream           *standard-output*))
 
 (defun check--start-warnings (source-root temporary-root)

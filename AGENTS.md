@@ -333,12 +333,13 @@ section headers, documentation strings, `->` declarations, keyword parameters,
 list accessors, `format` percent signs, constants, the project package, TODO and FIXME
 comments, and em dashes. They also require every Lisp file to be a fixed point
 of parinfer-rust's paren mode, so editors running parinfer never reindent
-committed source. The bootstrap builds the private parinfer library from the
-commit in `native/parinfer/commit`. The checks also run the rules of the
-Mallet linter that agree with this file, listed with the reasons for those
-left out in `checks/mallet.lisp`. Code that breaks a Mallet rule on purpose
-says why in place, as in `; mallet:suppress no-ignore-errors -- best-effort
-cleanup`. Every finding is reported at the end of the run.
+committed source. `./script/check` builds the private parinfer library on first
+use from the commit in `native/parinfer/commit`; bootstrap and release builds
+never do. The checks also run the rules of the Mallet linter that agree with
+this file, listed with the reasons for those left out in `checks/mallet.lisp`.
+Code that breaks a Mallet rule on purpose says why in place, as in
+`; mallet:suppress no-ignore-errors -- best-effort cleanup`. Every finding is
+reported at the end of the run.
 
 ```sh
 ./script/check --source
