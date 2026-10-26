@@ -2522,6 +2522,15 @@
                             (< (length text) 200)
                             (not (find #\Newline text)))
                        "durable handoffs show background state and job identity in one compact row")
+                      (let ((widget (find-if #'termdown:widget-p entry)))
+                        (test-assert
+                         (and (search (format nil "(job.cancel :id ~A)" identifier) text)
+                              widget
+                              (equal (termdown:widget-action widget)
+                                     (list ':insert
+                                           (format nil "(job.cancel :id ~S)" identifier)))
+                              (terminal-ui--compact-handoff-group entry))
+                         "a running handoff offers its cancellation as a clickable call"))
                       (test-assert
                        (search "Run repository checks"
                                (test-terminal-row-text

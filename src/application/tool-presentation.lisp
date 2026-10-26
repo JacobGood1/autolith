@@ -2201,14 +2201,18 @@ re-emitting untrusted serialized JSON."
                          "cancelled")
                         (otherwise
                          "background handoff"))))
-    (application--tool-entry
-     application
-     :style  (if (eq state ':failed) ':failure ':notice)
-     :header (format nil "↪ ~A"
-                     (application--tool-display-name
-                      application (getf (rest record) :tool)))
-     :detail (format nil "~A · ~A" status (getf job :id))
-     :rows   (unless (application-compact-view-p application)
+    (application--job-cancel-widget
+     (application--tool-entry
+      application
+      :style  (if (eq state ':failed) ':failure ':notice)
+      :header (format nil "↪ ~A"
+                      (application--tool-display-name
+                       application (getf (rest record) :tool)))
+      :detail (format nil "~A · ~A" status
+                      (if (member state '(:queued :running))
+                          (application--job-cancel-text (getf job :id))
+                          (getf job :id)))
+      :rows   (unless (application-compact-view-p application)
                (application--tool-field-rows
                 application
                 (append
@@ -2217,7 +2221,34 @@ re-emitting untrusted serialized JSON."
                                :value (bounded-string description :limit 200))))
                  (when (eq reason ':grace-expired)
                    (list (list :label "handoff"
-                               :value "blocking wait expired")))))))))
+                               :value "blocking wait expired")))))))
+     (getf job :id))))
+
+(-> application--job-cancel-text (string) string)
+(defun application--job-cancel-text (identifier)
+  "Return the job.cancel call shown for IDENTIFIER, its id unquoted like other calls."
+  (format nil "(job.cancel :id ~A)" identifier))
+
+(-> application--job-cancel-widget (list t) list)
+(defun application--job-cancel-widget (spans identifier)
+  "Make the job.cancel call in SPANS insert its readable form when clicked.
+
+Only a call shown in full becomes clickable; a detail cut at the terminal edge
+stays plain. The header stays an ordinary span, so the entry keeps its group."
+  (let ((text (and (stringp identifier) (application--job-cancel-text identifier))))
+    (if (null text)
+        spans
+        (loop for span in spans
+              for content = (and (not (termdown:widget-p span)) (terminal-span-text span))
+              for position = (and content (search text content :from-end t))
+              if (and position (= (+ position (length text)) (length content)))
+                append (list (terminal-span (terminal-span-style span) (subseq content 0 position))
+                             (termdown:make-widget ':code text
+                                                   (list ':insert
+                                                         (format nil "(job.cancel :id ~S)"
+                                                                 identifier))))
+              else
+                collect span))))
 
 (defmethod application-tool-result-entry :around
     (tool (application application) record)

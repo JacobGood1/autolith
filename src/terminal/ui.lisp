@@ -2388,7 +2388,7 @@ A call's header spans may be widgets inserting its invocation when clicked."
 (defun terminal-ui--compact-handoff-group (entry)
   "Return a per-tool group for a single-line background handoff."
   (when (and (consp entry)
-             (notany #'termdown:widget-p entry)
+             (not (termdown:widget-p (first entry)))
              (eq (terminal-span-style (first entry)) ':notice))
     (let ((header (terminal-span-text (first entry)))
           (text   (terminal--spans-text entry)))

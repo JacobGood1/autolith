@@ -160,7 +160,9 @@
          (handoff         (list (terminal-span ':notice "↪ shell.run")
                                 (terminal-span ':dim "  running in background · exec:16")))
          (handoff-next    (list (terminal-span ':notice "↪ shell.run")
-                                (terminal-span ':dim "  running in background · exec:17")))
+                                (terminal-span ':dim "  running in background · ")
+                                (termdown:make-widget ':code "(job.cancel :id exec:17)"
+                                                      '(:insert "(job.cancel :id \"exec:17\")"))))
          (handoff-other   (list (terminal-span ':notice "↪ lisp.eval")))
          (handoff-body    (append handoff
                                   (list (terminal-span ':plain (format nil "~%  │ task")))))
@@ -171,7 +173,7 @@
                                 handoff handoff-next handoff-other handoff-body
                                 handoff handoff-failed handoff-clipped handoff-clipped))
          (pairs           (loop for entry in entries for index from 0 collect (list index entry)))
-         (expected        (format nil "▸ (resource.read)~%▸ (resource.read :uri workspace:x)~%▸ (resource.read)~%~%▸ (resource.edit)~%▸ (resource.edit)~%~%✓ resource.read~%✓ resource.read~%~%▸ (resource.read)~%~%▸ (resource.re…~%~%▸ (resource.read)~%~%▸ (resource.read)~%  │ body~%~%▸ (resource.read)~%~%▸ (MCP server / read)~%▸ (MCP server / read)~%~%▸ (MCP server / write)~%~%↪ shell.run  running in background · exec:16~%↪ shell.run  running in background · exec:17~%~%↪ lisp.eval~%~%↪ shell.run  running in background · exec:16~%  │ task~%~%↪ shell.run  running in background · exec:16~%~%↪ shell.run~%~%↪ shell.r…~%~%↪ shell.r…")))
+         (expected        (format nil "▸ (resource.read)~%▸ (resource.read :uri workspace:x)~%▸ (resource.read)~%~%▸ (resource.edit)~%▸ (resource.edit)~%~%✓ resource.read~%✓ resource.read~%~%▸ (resource.read)~%~%▸ (resource.re…~%~%▸ (resource.read)~%~%▸ (resource.read)~%  │ body~%~%▸ (resource.read)~%~%▸ (MCP server / read)~%▸ (MCP server / read)~%~%▸ (MCP server / write)~%~%↪ shell.run  running in background · exec:16~%↪ shell.run  running in background · (job.cancel :id exec:17)~%~%↪ lisp.eval~%~%↪ shell.run  running in background · exec:16~%  │ task~%~%↪ shell.run  running in background · exec:16~%~%↪ shell.run~%~%↪ shell.r…~%~%↪ shell.r…")))
     (dolist (fullscreen-p '(nil t))
       (dolist (deferred-p '(nil t))
         (dolist (batch-p '(nil t))
