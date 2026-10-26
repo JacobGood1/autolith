@@ -421,6 +421,7 @@
   test-procedure-automatic-runs
   test-procedure-build-then-use
   test-procedure-grounded-preflight
+  test-procedure-preflight-term-equality
   test-procedure-preflight-rule-bindings
   test-procedure-preflight-conflict-closure
   test-procedure-preflight-shared-future-conflicts

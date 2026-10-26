@@ -1,5 +1,18 @@
 (in-package #:autolith)
 
+(-> test-procedure-preflight-term-equality () null)
+(defun test-procedure-preflight-term-equality ()
+  "Unify concrete terms by the value they denote, not by their spelling."
+  (dolist (case '(((:quantity 1 "km") (:quantity 1000 "m") t "equal lengths in different units")
+                  ((:quantity 1 "km") (:quantity 999 "m") nil "different lengths")
+                  ((:quantity 1 "kg") (:quantity 1000 "m") nil "quantities of different dimensions")
+                  ("report" "report" t "equal strings")
+                  ("?size" (:quantity 2 "GB") t "a variable and a quantity")))
+    (destructuring-bind (left right expected description) case
+      (test-assert (eq (nth-value 1 (procedure--preflight-unify left right nil)) expected)
+                   (format nil "~A ~:[do not unify~;unify~]" description expected))))
+  nil)
+
 (-> test-procedure-grounded-preflight () null)
 (defun test-procedure-grounded-preflight ()
   "Check each grounded requirement before allowing earlier external side effects."

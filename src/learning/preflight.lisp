@@ -24,7 +24,10 @@
 
 (-> procedure--preflight-unify (t t list) (values list boolean))
 (defun procedure--preflight-unify (left right environment)
-  "Unify two symbolic terms without replacing future values by concrete guesses."
+  "Unify two symbolic terms without replacing future values by concrete guesses.
+
+Concrete terms unify when they denote the same value, so quantities in
+different units of one dimension match."
   (let ((left  (procedure--preflight-resolve left environment))
         (right (procedure--preflight-resolve right environment)))
     (cond
@@ -34,6 +37,10 @@
        (values (acons left right environment) t))
       ((knowledge-variable-p right)
        (values (acons right left environment) t))
+      ((and (knowledge-term-p left) (knowledge-term-p right))
+       (if (knowledge-term= left right)
+           (values environment t)
+           (values nil nil)))
       ((and (consp left) (consp right))
        (multiple-value-bind (next matched-p)
            (procedure--preflight-unify (first left) (first right) environment)
@@ -89,7 +96,7 @@ are conditional until the ordinary per-call check. Bound the entire proof search
                                     (some (lambda (left-term right-term)
                                             (and (null (variables left-term))
                                                  (null (variables right-term))
-                                                 (not (equal left-term right-term))))
+                                                 (not (knowledge-term= left-term right-term))))
                                           (knowledge-proposition-arguments left)
                                           (knowledge-proposition-arguments right)))))
                         (equal (knowledge-proposition-atom left)
