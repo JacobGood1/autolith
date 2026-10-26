@@ -618,16 +618,27 @@
                      (task-tests--wait-until
                       (lambda () (probe-file cancel-marker)) 5))
                 "an asynchronous Lisp evaluation reaches its worker before cancellation")
+               (test-assert
+                (handler-case
+                    (progn
+                      (tool-execute (tool-registry-find registry "job" "get")
+                                    context (json-object "id" 999999))
+                      nil)
+                  (task-error (condition)
+                    (and (search "No visible job is numbered 999999" (princ-to-string condition))
+                         t)))
+                "a job number naming no visible job is refused")
                (let* ((cancel-result
                         (tool-execute
                          (tool-registry-find registry "job" "cancel")
                          context
-                         (json-object "id" identifier)))
+                         (json-object "id" (parse-integer identifier
+                                                          :start (1+ (position #\: identifier))))))
                       (details (rest (tool-result-details cancel-result))))
                  (test-assert
                   (and (tool-result-success-p cancel-result)
                        (getf details :accepted-p))
-                  "job.cancel accepts cancellation of a running Lisp request"))
+                  "job.cancel accepts cancellation of a running Lisp request by its number"))
                (multiple-value-bind (snapshot terminal-p)
                    (session-job-await job 5)
                  (test-assert

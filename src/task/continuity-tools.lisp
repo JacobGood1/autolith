@@ -62,6 +62,11 @@ Offsets refer to execution-ID order in the current inventory, not a snapshot."
          (identifier   (tool-argument arguments "id")))
     (unless (typep viewer 'agent)
       (task-continuity--fail "Continuity requires an executing conversation owner."))
+    (when (typep identifier '(integer 0))
+      (setf identifier (task--numbered-job-identifier identifier
+                                                      :orchestrator orchestrator
+                                                      :viewer       viewer
+                                                      :tool-name    "job.continuity")))
     (unless (or (equal action "list") (non-empty-string-p identifier))
       (task-continuity--fail "This action requires a job or execution ID."))
     (when (equal action "revive")

@@ -322,6 +322,50 @@ The primary blocking field and legacy inverse async field are mutually exclusive
            :tool-name tool-name))
   value)
 
+(-> task--numbered-job-identifier
+    ((integer 0) &key (:orchestrator task-orchestrator) (:viewer agent) (:tool-name string))
+    non-empty-string)
+(defun task--numbered-job-identifier (number &key orchestrator viewer tool-name)
+  "Return the one visible job identifier ending in :NUMBER, such as exec:NUMBER.
+
+A bare number is shorthand only while it is unambiguous: no match or several
+matches signal a TASK-ERROR naming the candidates."
+  (let* ((suffix  (format nil ":~D" number))
+         (matches (loop for job in (task-orchestrator-list-visible-jobs orchestrator viewer)
+                        for identifier = (session-job-identifier job)
+                        when (uiop:string-suffix-p identifier suffix)
+                          collect identifier)))
+    (cond
+      ((= (length matches) 1)
+       (first matches))
+      ((null matches)
+       (error 'task-error
+              :message   (format nil "No visible job is numbered ~D." number)
+              :tool-name tool-name))
+      (t
+       (error 'task-error
+              :message   (format nil "Job number ~D is ambiguous among ~{~A~^, ~}; use the full id."
+                                 number (sort matches #'string<))
+              :tool-name tool-name)))))
+
+(-> task--resolve-numbered-job-argument
+    (hash-table &key (:orchestrator task-orchestrator) (:viewer agent) (:tool-name string))
+    hash-table)
+(defun task--resolve-numbered-job-argument (arguments &key orchestrator viewer tool-name)
+  "Return ARGUMENTS with a numeric \"id\" replaced by the job identifier it names."
+  (let ((value (gethash "id" arguments)))
+    (if (typep value '(integer 0))
+        (let ((resolved (make-hash-table :test (hash-table-test arguments))))
+          (maphash (lambda (key entry)
+                     (setf (gethash key resolved) entry))
+                   arguments)
+          (setf (gethash "id" resolved)
+                (task--numbered-job-identifier value :orchestrator orchestrator
+                                                     :viewer       viewer
+                                                     :tool-name    tool-name))
+          resolved)
+        arguments)))
+
 (defparameter *task-parent-steering-preamble*
   "Steering from the agent that assigned this job. It refines your current assignment and does not replace it: keep working toward the complete original assignment, and change objectives only if this message explicitly cancels, narrows, or replaces that assignment."
   "The framing that keeps a parent's job.send message from becoming the child's whole task.")
@@ -1066,6 +1110,10 @@ poll a job whose completion will wake it."
       (error 'task-error
              :message   "Job tools require an executing agent context."
              :tool-name (tool-canonical-name tool)))
+    (setf arguments (task--resolve-numbered-job-argument
+                     arguments :orchestrator orchestrator
+                               :viewer       viewer
+                               :tool-name    (tool-canonical-name tool)))
     (cond
       ((string= operation "list")
        (task--validate-tool-arguments arguments '("offset" "limit")

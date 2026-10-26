@@ -807,7 +807,9 @@ spaces, tabs, and line breaks after =?= select asynchronous Lisp. Continue an
 incomplete form on another line as with ordinary Lisp input.
 
 Inspect or cancel the returned =exec:N= job with =job.get=, =job.wait=, or
-=job.cancel=. Standard output, error output, and Lisp diagnostic streams are
+=job.cancel=. The bare number works too, as in =(job.cancel :id 1)=, while
+exactly one visible job ends in =:1=; otherwise the error lists the candidates.
+Standard output, error output, and Lisp diagnostic streams are
 captured with bounded retention and rate-limited, sanitized terminal display.
 On completion, receive all returned values or the error, together with captured
 output. Asynchronous evaluation uses noninteractive error handling and EOF input
