@@ -377,9 +377,11 @@
   "Record project compile and load warnings without claiming nested vendored systems."
   (with-test-configuration (configuration root)
     (declare (ignore configuration))
-    (uiop:copy-file (asdf:system-relative-pathname "autolith" "script/compile-warnings.lisp")
-                    (ensure-directories-exist
-                     (merge-pathnames "script/compile-warnings.lisp" root)))
+    (dolist (script '("script/compile-warnings.lisp" "script/check-dependencies.lisp"
+                      "script/roots.lisp" "checks/qlfile" "checks/qlfile.lock"
+                      "checks/autolith-check-tools.asd"))
+      (uiop:copy-file (asdf:system-relative-pathname "autolith" script)
+                      (ensure-directories-exist (merge-pathnames script root))))
     (source-check-tests--write
      root ".qlot/setup.lisp"
      (source-check-tests--text

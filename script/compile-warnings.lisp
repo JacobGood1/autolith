@@ -84,6 +84,9 @@
                            ,(uiop:native-namestring fasl-directory))
                           :inherit-configuration))
   (asdf:load-asd (merge-pathnames "autolith.asd" source-root))
+  ;; The parent check installed the development tools autolith/checks loads.
+  (load (merge-pathnames "script/check-dependencies.lisp" source-root))
+  (autolith-register-check-dependencies source-root)
   (let ((owned-paths (compile-warnings--owned-paths source-root)))
     (handler-bind ((warning
                      (lambda (condition)

@@ -87,11 +87,16 @@ copy their architecture wholesale.
 - Gray streams subclass and specialize the portable `trivial-gray-streams`
   classes and generic functions, never an implementation's own Gray package
   such as `sb-gray`, so stream code moves into portable libraries unchanged.
-- The qlfile is the only place a git dependency is pinned. `./script/bootstrap`
-  writes `qlfile.lock`, and `nix/package.nix` reads that lock for every git
-  source, so never copy a ref or hash into Nix. A new git dependency needs only
-  its build metadata (systems and `lispLibs`) in `nix/package.nix`, and Nix
-  evaluation fails until that entry exists.
+- The qlfile is the only place a runtime git dependency is pinned.
+  `./script/bootstrap` writes `qlfile.lock`, and `nix/package.nix` reads that
+  lock for every git source, so never copy a ref or hash into Nix. A new git
+  dependency needs only its build metadata (systems and `lispLibs`) in
+  `nix/package.nix`, and Nix evaluation fails until that entry exists.
+- Development-only tools are dev-dependencies, like Cargo's: `checks/qlfile`
+  pins them, `checks/autolith-check-tools.asd` names them for qlot, and
+  `./script/check` installs them on first use into Autolith's cache, outside
+  the source tree, and makes them visible only to its own processes. Never add
+  them to the root qlfile, the Nix package, bootstrap, or release archives.
 - `VERSION` is the single release-version source. ASDF, runtime reporting, and
   Nix derive their versions from it. For a release, update that file and add
   the release notes.

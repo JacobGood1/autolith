@@ -523,6 +523,9 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
       (when (probe-file directory)
         (pushnew directory (symbol-value directories) :test #'equal)))
     (asdf:load-asd (merge-pathnames "autolith.asd" source-root))
+    (load (merge-pathnames "script/check-dependencies.lisp" source-root))
+    (autolith-ensure-check-dependencies source-root (check--runtime-command source-root))
+    (autolith-register-check-dependencies source-root)
     (check--load-test-system source-root)
     setup))
 

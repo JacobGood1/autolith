@@ -55,6 +55,12 @@ loaded by Autolith."
 (let* ((script-path      (truename *load-truename*))
        (script-directory (uiop:pathname-directory-pathname script-path))
        (source-root      (uiop:pathname-parent-directory-pathname script-directory))
+       ;; The optional argument names another qlot project, such as checks/.
+       (project-root     (let ((argument (first (uiop:command-line-arguments))))
+                           (if argument
+                               (uiop:merge-pathnames*
+                                (uiop:ensure-directory-pathname argument) (uiop:getcwd))
+                               source-root)))
        (quicklisp-setup  (merge-pathnames "quicklisp/setup.lisp"
                                           (user-homedir-pathname))))
   (unless (probe-file quicklisp-setup)
@@ -82,8 +88,8 @@ loaded by Autolith."
   (let ((qlot-project-root (find-symbol "*PROJECT-ROOT*" "QLOT")))
     (unless qlot-project-root
       (error "The loaded Qlot does not expose its project root."))
-    (progv (list qlot-project-root) (list source-root)
-      (uiop:with-current-directory (source-root)
+    (progv (list qlot-project-root) (list project-root)
+      (uiop:with-current-directory (project-root)
         (if (member :bsd *features*)
             (uiop:symbol-call '#:qlot '#:install :jobs 1)
             (uiop:symbol-call '#:qlot '#:install))))))

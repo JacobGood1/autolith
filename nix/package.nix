@@ -51,9 +51,9 @@ let
     "cl-llm-provider-api" "cl-lsp" "cl-resources" "cl-rfc8252" "cl-rfc8628"
     "cl-skills" "cl-termdown" "cl-worktree" "clasted" "clermaid" "clifff" "clinedi"
     "clinker-transcript" "colordiff" "colorlisp" "daphne" "defingerprinter" "fetch-gist"
-    "idsmall" "image-daemon" "lambda-debugger" "ls-compat" "ls-flock" "mallet" "mcparen"
+    "idsmall" "image-daemon" "lambda-debugger" "ls-compat" "ls-flock" "mcparen"
     "org-templater" "parenchek" "sbcl-generations" "sbcl-workers" "setinka" "sexp-config"
-    "sexp-store" "sophisticated-clipboard" "structlisp" "surgeon" "trivial-glob" "yolokuva"
+    "sexp-store" "sophisticated-clipboard" "structlisp" "surgeon" "yolokuva"
   ];
   qlotSourcesWithoutBuildMetadata =
     lib.subtractLists qlotLibrariesWithBuildMetadata (builtins.attrNames qlotGitSources);
@@ -436,32 +436,6 @@ let
     lispLibs = with lispPackages; [ opticl ];
   };
 
-  trivialGlob = pkgs.sbcl.buildASDFSystem {
-    pname = "trivial-glob";
-    version = qlotVersion "trivial-glob";
-    src = qlotSource "trivial-glob";
-  };
-
-  # Mallet vendors ASDF for its executable. The build reads its source in
-  # place, so the vendored copy must leave the source, not the build tree.
-  mallet = pkgs.sbcl.buildASDFSystem {
-    pname = "mallet";
-    version = qlotVersion "mallet";
-    src = pkgs.applyPatches {
-      name = "mallet-source";
-      src = qlotSource "mallet";
-      postPatch = ''
-        rm -rf .bundle-libs
-      '';
-    };
-    lispLibs = [ trivialGlob ] ++ (with lispPackages; [
-      alexandria
-      cl-interpol
-      cl-ppcre
-      eclector
-    ]);
-  };
-
   surgeon = pkgs.sbcl.buildASDFSystem {
     pname = "surgeon";
     version = qlotVersion "surgeon";
@@ -655,7 +629,6 @@ let
       lambdaDebugger
       lsCompat
       lsFlock
-      mallet
       mcparen
       sbclGenerations
       sbclWorkers
