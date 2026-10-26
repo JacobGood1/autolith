@@ -414,9 +414,11 @@
     (tool-registry-register registry instance)
     instance))
 
-(-> learning-tests--offers (configuration string) list)
-(defun learning-tests--offers (configuration text)
-  "Return the procedure offers context resolution makes for a conversation whose request is TEXT."
+(-> learning-tests--offers (configuration string &key (:related-p boolean)) list)
+(defun learning-tests--offers (configuration text &key related-p)
+  "Return the procedure offers context resolution makes for a conversation whose request is TEXT.
+
+Only exact offers are returned, or with RELATED-P only offers of procedures that may fit."
   (let ((*context-contributors*        nil)
         (*context-resolver*            (cl-llm-provider-api:make-context-resolver))
         (*context-last-deliveries*     (make-hash-table :test #'equal))
@@ -424,9 +426,11 @@
         (conversation                  (conversation-create configuration)))
     (conversation-append-user-message conversation text)
     (register-context-contributor "procedure-offers" 'procedure-offer-context :source ':built-in)
-    (remove "procedure-offers"
-            (context-delivery-contributions (context-resolve-request configuration conversation #()))
-            :key #'context-contribution-identifier :test-not #'string=)))
+    (remove-if-not (lambda (contribution)
+                     (and (string= (context-contribution-identifier contribution) "procedure-offers")
+                          (eq (procedure-offer-contribution-related-p contribution) related-p)))
+                   (context-delivery-contributions
+                    (context-resolve-request configuration conversation #())))))
 
 (-> learning-tests--typed-parameters () null)
 (defun learning-tests--typed-parameters ()
@@ -625,8 +629,22 @@
                        "a fitting request is offered the one call that does the work"))
         (test-assert (null (learning-tests--offers configuration "Make the sales forecast for q9."))
                      "a request that does not fit is not offered")
+        (let ((related (first (learning-tests--offers configuration "Make the sales forecast for q9."
+                                                      :related-p t))))
+          (test-assert (and related
+                            (search "make-sales-report (admitted; calls sales.load, sales.report; learned from requests like"
+                                    (context-contribution-evidence related))
+                            (search "parameters quarter (string)" (context-contribution-evidence related))
+                            (search "may fit this request" (context-contribution-instruction related)))
+                       "a request sharing a procedure's wording lists it as a possible fit to fill in"))
+        (test-assert (null (learning-tests--offers configuration "Draft a poem about autumn."
+                                                   :related-p t))
+                     "an unrelated request lists no possible fits")
         (test-assert (null (learning-tests--offers configuration "Make the sales report for q8."))
                      "a request whose values its contracts refuse is not offered")
+        (test-assert (null (learning-tests--offers configuration "Make the sales report for q8."
+                                                   :related-p t))
+                     "a matching request its contracts refuse is not listed as a possible fit either")
         (let ((user-run (procedure-run context "make-sales-report"
                                        :parameters '(("quarter" . "q9")) :caller ':user)))
           (test-assert (and (eq (getf user-run :status) ':ok)
@@ -1154,7 +1172,7 @@
           (test-assert (and (equal (turn "q4") (list 2 (second (fourth learned))))
                             (statuses)
                             (every (lambda (status)
-                                     (equal status '(:procedure-offers :names ("make-sales-report"))))
+                                     (equal status '(:procedure-offers :names ("make-sales-report") :related-p nil)))
                                    (statuses))
                             (equal (learning-tests--session-asked session)
                                    '("procedure.admit -- make-sales-report v1: sales.load, sales.report, notify.send")))

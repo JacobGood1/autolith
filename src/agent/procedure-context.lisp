@@ -7,7 +7,10 @@
 ;;; the earlier turns made, with the parameters the request supplies. An
 ;;; admitted procedure the request fits runs before the model's first request,
 ;;; recorded as that procedure.run call, so the model answers from its results
-;;; in one request; admission is the consent to run it this way.
+;;; in one request; admission is the consent to run it this way. A request no
+;;; pattern matches may still share its wording with a procedure; such related
+;;; procedures are only listed as possible fits for the model to choose among,
+;;; with their parameters to fill in, and never run on their own.
 
 (defclass procedure-offer-contribution (context-contribution)
   ((names :initarg       :names
@@ -18,28 +21,40 @@
           :initform      nil
           :reader        procedure-offer-contribution-ran-p
           :type          boolean
-          :documentation "Whether the procedures already ran for this request."))
+          :documentation "Whether the procedures already ran for this request.")
+   (related-p :initarg       :related-p
+              :initform      nil
+              :reader        procedure-offer-contribution-related-p
+              :type          boolean
+              :documentation "Whether the procedures only may fit, matched by shared words."))
   (:documentation "Advice offering learned procedures that fit the request, or noting they ran."))
 
 (defclass procedure-offer-event (provider-event)
   ((names :initarg       :names
           :reader        procedure-offer-event-names
           :type          list
-          :documentation "The names of the procedures offered to the model."))
+          :documentation "The names of the procedures offered to the model.")
+   (related-p :initarg       :related-p
+              :initform      nil
+              :reader        procedure-offer-event-related-p
+              :type          boolean
+              :documentation "Whether the procedures only may fit the request."))
   (:documentation "A presentation event for offered procedures."))
 
 (defmethod context--copy-contribution :around
     ((contribution procedure-offer-contribution) contributor source)
   "Preserve the offered names when attaching contribution provenance."
   (change-class (call-next-method) 'procedure-offer-contribution
-                :names (procedure-offer-contribution-names contribution)
-                :ran-p (procedure-offer-contribution-ran-p contribution)))
+                :names     (procedure-offer-contribution-names contribution)
+                :ran-p     (procedure-offer-contribution-ran-p contribution)
+                :related-p (procedure-offer-contribution-related-p contribution)))
 
 (defmethod context-contribution-provider-event ((contribution procedure-offer-contribution))
   "Project the offered procedure names; a procedure that already ran shows as its call."
   (unless (procedure-offer-contribution-ran-p contribution)
     (make-instance 'procedure-offer-event
-                   :names (procedure-offer-contribution-names contribution))))
+                   :names     (procedure-offer-contribution-names contribution)
+                   :related-p (procedure-offer-contribution-related-p contribution))))
 
 (-> procedure-offer-line (list) string)
 (defun procedure-offer-line (offer)
@@ -49,6 +64,21 @@
             (getf offer :id) (eq (getf offer :status) ':admitted)
             (mapcar (lambda (step) (getf step :tool)) (getf (rest procedure) :steps))
             (procedure-describe-call procedure (getf offer :bindings)))))
+
+(-> procedure-related-offer-line (list) string)
+(defun procedure-related-offer-line (offer)
+  "Return the line listing related OFFER: its calls, request pattern, and parameters to fill."
+  (let* ((procedure  (getf offer :procedure))
+         (parameters (getf (rest procedure) :parameters)))
+    (format nil "~A (~:[learned, not yet admitted~;admitted~]; calls ~{~A~^, ~}; learned from requests like ~S~:[~;; parameters ~:*~{~A~^, ~}~]; shares ~{~A~^, ~}): procedure.run {\"id\":~S,\"parameters\":{...}}"
+            (getf offer :id) (eq (getf offer :status) ':admitted)
+            (mapcar (lambda (step) (getf step :tool)) (getf (rest procedure) :steps))
+            (or (procedure-input-text procedure) "")
+            (mapcar (lambda (parameter)
+                      (format nil "~A (~(~A~))" (getf parameter :name) (getf parameter :type)))
+                    parameters)
+            (getf offer :shared)
+            (getf (rest procedure) :id))))
 
 (-> procedure-offer-context (request-context) (option context-contribution))
 (defun procedure-offer-context (request)
@@ -74,9 +104,29 @@ Once one ran for this request, the model is told so instead of offered it again.
              'procedure-offer-contribution
              :names ran
              :ran-p t)
-            (let ((offers (handler-case (procedure-offers configuration text)
-                            (knowledge-error ()
-                              nil))))
+            (let ((offers  (handler-case (procedure-offers configuration text)
+                             (knowledge-error ()
+                               nil)))
+                  (related nil))
+              (unless offers
+                (setf related (handler-case (procedure-related-offers configuration text)
+                                (knowledge-error ()
+                                  nil))))
+              (when related
+                (return-from procedure-offer-context
+                  (change-class
+                   (make-context-contribution
+                    :identifier        "procedure-offers"
+                    :instruction
+                    "Procedures Autolith learned from earlier turns may fit this request, though its wording matched none of their request patterns. If one does the work this request needs, call procedure.run with its id and the parameters it lists, taken from the request; otherwise work normally."
+                    :evidence          (format nil "~{~A~^~%~}"
+                                               (mapcar #'procedure-related-offer-line related))
+                    :priority          25
+                    :lifetime          ':turn
+                    :deduplication-key "procedure-offers")
+                   'procedure-offer-contribution
+                   :names     (mapcar (lambda (offer) (getf offer :id)) related)
+                   :related-p t)))
               (when offers
                 (change-class
                  (make-context-contribution

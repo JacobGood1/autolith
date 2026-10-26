@@ -177,6 +177,72 @@ are not."
                                     :procedure procedure
                                     :bindings  (reverse bindings)))))))
 
+(defparameter *procedure-related-offer-limit* 3
+  "The most learned procedures offered as possible fits for one request.")
+
+(defparameter *procedure-related-minimum-shared* 2
+  "The fewest content words a request shares with a procedure for it to be a possible fit.")
+
+(-> procedure--content-words (string) list)
+(defun procedure--content-words (text)
+  "Return TEXT's distinct lowercase words without punctuation or naming stopwords."
+  (remove-duplicates
+   (loop for word in (procedure-words (substitute #\Space #\- text))
+         for bare = (string-downcase (string-trim "\"'.,;:!?()[]{}" word))
+         when (and (> (length bare) 1)
+                   (not (member bare *procedure-name-stopwords* :test #'string=)))
+           collect bare)
+   :test #'string=))
+
+(-> procedure--vocabulary (list) list)
+(defun procedure--vocabulary (procedure)
+  "Return the content words describing PROCEDURE: its name, request pattern, and description."
+  (let ((properties (rest procedure)))
+    (procedure--content-words
+     (format nil "~A ~{~A~^ ~} ~@[~A~]"
+             (getf properties :id)
+             (remove-if-not #'stringp (getf properties :input))
+             (getf properties :description)))))
+
+(-> procedure-related-offers (configuration string) list)
+(defun procedure-related-offers (configuration text)
+  "Return the procedures request TEXT may call for although no pattern matched it, best first.
+
+These are admitted procedures and never-admitted candidates sharing at least
+*PROCEDURE-RELATED-MINIMUM-SHARED* content words with TEXT, at most
+*PROCEDURE-RELATED-OFFER-LIMIT* of them. A procedure whose pattern matches
+TEXT is left out: PROCEDURE-OFFERS either offers it exactly or has a reason,
+such as a refusing contract, not to. Each is a plist of :ID, :STATUS,
+:PROCEDURE, and the :SHARED words. They are only advice: nothing runs without
+the model choosing one and supplying its parameters."
+  (let* ((words  (procedure--content-words text))
+         (scored
+           (loop for entry in (knowledge-base-procedures (knowledge-base-read configuration)
+                                                         (knowledge--workspace configuration))
+                 for status = (procedure-entry-status entry)
+                 for procedure = (getf (if (eq status ':admitted)
+                                           (procedure-entry-runnable-version entry)
+                                           (procedure-entry-version entry))
+                                       :procedure)
+                 for shared = (and (member status '(:admitted :candidate))
+                                   procedure
+                                   (not (nth-value 1 (procedure-match-input procedure text)))
+                                   (intersection words (procedure--vocabulary procedure)
+                                                 :test #'string=))
+                 when (>= (length shared) *procedure-related-minimum-shared*)
+                   collect (list :id        (getf entry :id)
+                                 :status    status
+                                 :procedure procedure
+                                 :shared    (sort (copy-list shared) #'string<)))))
+    (subseq (sort scored
+                  (lambda (left right)
+                    (let ((left-count  (length (getf left :shared)))
+                          (right-count (length (getf right :shared))))
+                      (or (> left-count right-count)
+                          (and (= left-count right-count)
+                               (string< (getf left :id) (getf right :id)))))))
+            0 (min *procedure-related-offer-limit* (length scored)))))
+
 (-> procedure-savings (configuration string) (option list))
 (defun procedure-savings (configuration identifier)
   "Return measured costs of completed model turns running IDENTIFIER's admitted definition.

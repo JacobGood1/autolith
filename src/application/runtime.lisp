@@ -3758,9 +3758,12 @@ checked."
                (list (terminal-span
                       ':brand
                       (sanitize-text
-                       (format nil "@ learned procedure~P ~{~A~^, ~} fit~:[s~;~] this request"
-                               (length (getf details :names)) (getf details :names)
-                               (rest (getf details :names)))
+                       (if (getf details :related-p)
+                           (format nil "@ learned procedure~P ~{~A~^, ~} may fit this request"
+                                   (length (getf details :names)) (getf details :names))
+                           (format nil "@ learned procedure~P ~{~A~^, ~} fit~:[s~;~] this request"
+                                   (length (getf details :names)) (getf details :names)
+                                   (rest (getf details :names))))
                        :single-line-p t))))
               (setf procedure-offers-shown-p t)))
            (:procedures-learned

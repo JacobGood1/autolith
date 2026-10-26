@@ -629,7 +629,8 @@ retries stay auditable next to the request they belong to."
       (procedure-offer-event
        (agent-observer-status
         observer :procedure-offers
-        (list :names (procedure-offer-event-names event))))
+        (list :names     (procedure-offer-event-names event)
+              :related-p (procedure-offer-event-related-p event))))
       (provider-attempt-failed-event
        (let ((details
                (list :request-number request-number

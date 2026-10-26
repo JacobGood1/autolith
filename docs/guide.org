@@ -1160,7 +1160,12 @@ matching its wording exactly, apart from its parameters, then runs it before the
 model's first request, shown as its =procedure.run= call, and the model answers
 from the results in one request. A wording learned with a word that varied, such as
 =Please= or =Kindly=, matches any word there, so it stays an offer the model
-may decline. Procedures are learned only from turns the model finished: every
+may decline. A request worded differently, such as =Make the sales forecast
+for q9.=, matches no pattern, but when it shares at least two words with a
+procedure, up to three such procedures are listed as possible fits with their
+parameters to fill in, and =@ learned procedure make-sales-report may fit this
+request= appears; the model decides, and nothing runs on its own. Procedures
+are learned only from turns the model finished: every
 call succeeded, the model answered, and the turn was not cancelled.
 
 Every call still asks its own approval and passes its contracts. A run whose
