@@ -2109,20 +2109,32 @@ form keeps every speculative Markdown wrap live until the logical line commits."
                  row-width))))))
     rows))
 
-(-> terminal-ui--live-prefix-rows (terminal-ui &optional (option real)) list)
-(defun terminal-ui--live-prefix-rows (ui &optional status-now)
-  "Return the live activity and unfinished transcript rows before the composer."
+(-> terminal-ui--live-prefix-rows
+    (terminal-ui &optional (option real) (option (integer 0)))
+    list)
+(defun terminal-ui--live-prefix-rows (ui &optional status-now limit)
+  "Return the unfinished transcript and live activity rows before the composer.
+
+The unfinished response continues the transcript above, so it comes before the
+modeline and activity rows rather than between them and the composer. When the
+rows exceed LIMIT, activity rows are dropped from the end, pending inputs first
+and the modeline last, so the response being received stays in view."
   (let* ((terminal  (terminal-ui-terminal ui))
          (row-width (max 1 (terminal-columns terminal)))
-         (rows      (terminal-ui--prompt-prefix-rows ui status-now))
-         (tail      (terminal-ui-stream-tail ui)))
-    (when tail
-      (setf rows (append rows (terminal-ui--stream-tail-rows terminal tail row-width))))
-    (when rows
-      (setf rows (append rows (list nil))))
-    (if (terminal-ui-compact-tail-group ui)
-        (cons nil rows)
-        rows)))
+         (activity  (terminal-ui--prompt-prefix-rows ui status-now))
+         (tail      (terminal-ui-stream-tail ui))
+         (tail-rows (and tail (terminal-ui--stream-tail-rows terminal tail row-width)))
+         (leading   (if (terminal-ui-compact-tail-group ui) 1 0))
+         (overflow  (and limit
+                         (- (+ leading (length tail-rows) (length activity) 1) limit))))
+    (when (and tail-rows overflow (plusp overflow))
+      (setf activity (butlast activity overflow)))
+    (let ((rows (append tail-rows activity)))
+      (when rows
+        (setf rows (append rows (list nil))))
+      (if (plusp leading)
+          (cons nil rows)
+          rows))))
 
 (-> terminal-ui--composer-rows (terminal-ui) (values list integer integer))
 (defun terminal-ui--composer-rows (ui)
@@ -2157,9 +2169,12 @@ form keeps every speculative Markdown wrap live until the logical line commits."
     (values string string integer))
 (defun terminal-ui--live-content (ui &optional status-now)
   "Return UI's complete plain and styled live content plus its cursor index."
-  (let ((prefix (terminal-ui--live-prefix-rows ui status-now)))
-    (multiple-value-bind (composer cursor-row cursor-offset)
-        (terminal-ui--composer-rows ui)
+  (multiple-value-bind (composer cursor-row cursor-offset)
+      (terminal-ui--composer-rows ui)
+    (let ((prefix (terminal-ui--live-prefix-rows
+                   ui status-now
+                   (max 0 (- (terminal-ui--maximum-live-rows (terminal-ui-terminal ui))
+                             (length composer))))))
       (terminal-ui--rows-content
        (terminal-ui-terminal ui) (append prefix composer)
        :cursor-row    (+ (length prefix) cursor-row)

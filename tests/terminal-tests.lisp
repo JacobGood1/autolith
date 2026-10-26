@@ -1727,7 +1727,12 @@
         (test-assert (search "  visible response" output)
                      "pending inputs cannot crop the complete streamed response")
         (test-assert (search "hint" output)
-                     "the short viewport keeps the editable prompt visible"))))
+                     "the short viewport keeps the editable prompt visible"))
+      (let* ((plain    (terminal-ui--live-content active-ui))
+             (response (search "visible response" plain))
+             (status   (search "receiving response" plain)))
+        (test-assert (and response status (< response status))
+                     "the unfinished response continues the transcript above the activity rows"))))
   nil)
 
 (-> test-terminal-command-completion () null)
