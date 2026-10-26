@@ -2,16 +2,12 @@
 
 ;;;; -- Mechanical Precompaction --
 
-;;; When a provider's prompt cache is known to be cold, the next request pays
-;;; for its whole input anyway, so it is the cheap moment to drop context a
-;;; mechanical rule identifies as irrelevant: tool exchanges whose result
-;;; failed, which include denied commands and interrupted calls. Pruning
-;;; changes only the in-memory provider projection; the durable log keeps every
-;;; record, and each cold start prunes again. Failures after the latest user
-;;; message stay, because the model is still acting on them.
-
-(defparameter *conversation-precompaction-idle-seconds* 5400
-  "Seconds since the previous provider request after which its prompt cache counts as cold.")
+;;; When a provider's prompt cache is cold or its retention estimate has
+;;; elapsed, prune context a mechanical rule identifies as irrelevant: tool
+;;; exchanges whose result failed, including denied commands and interrupted
+;;; calls. Pruning changes only the in-memory provider projection; the durable
+;;; log keeps every record, and each cold start prunes again. Failures after
+;;; the latest user message stay, because the model is still acting on them.
 
 
 ;;;; -- Public Functions --
@@ -43,24 +39,22 @@ Return how many calls were dropped. The durable log is unchanged."
       count)))
 
 (-> conversation-prepare-provider-request
-    (conversation &key (:identity list) (:now integer))
+    (conversation &key (:identity list) (:now integer) (:idle-seconds (option real)))
     (integer 0))
 (defun conversation-prepare-provider-request
-    (conversation &key identity (now (get-universal-time)))
-  "Precompact CONVERSATION when its prompt cache is known cold, then note this request.
+    (conversation &key identity (now (get-universal-time)) idle-seconds)
+  "Precompact cold or estimated-expired context, then note this request.
 
-IDENTITY names the provider and model serving the request. The cache is cold
-for the first request after loading a resumed conversation, when the provider
-or model differs from the previous request's, and when that request started at
-least *CONVERSATION-PRECOMPACTION-IDLE-SECONDS* ago. Return how many calls were
-dropped."
+IDENTITY names the provider and model serving the request. Prune on the first
+request after resume, a provider/model change, or IDLE-SECONDS since the last
+request started. NIL means retention is unknown and disables idle pruning.
+Return how many calls were dropped."
   (let ((previous-identity (conversation-request-identity conversation))
         (previous-start    (conversation-request-started-at conversation)))
     (prog1 (if (if previous-identity
                    (or (not (equal identity previous-identity))
-                       (and previous-start
-                            (>= (- now previous-start)
-                                *conversation-precompaction-idle-seconds*)))
+                       (and previous-start idle-seconds (plusp idle-seconds)
+                            (>= (- now previous-start) idle-seconds)))
                    (conversation-resumed-p conversation))
                (conversation-precompact conversation)
                0)

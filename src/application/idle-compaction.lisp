@@ -15,23 +15,6 @@
   (lambda () (/ (get-internal-real-time) internal-time-units-per-second))
   "The process-local monotonic clock for cache opportunities, in seconds.")
 
-(defgeneric provider-prompt-cache-retention-estimate (provider)
-  (:documentation "Return PROVIDER's estimated inactive cache lifetime, or NIL when unknown.
-
-This scheduling hint is not a cache retention or pricing guarantee."))
-
-(defmethod provider-prompt-cache-retention-estimate ((provider model-provider))
-  "Require an explicit estimate for providers without a known caching policy."
-  (declare (ignore provider))
-  nil)
-
-(defmethod provider-prompt-cache-retention-estimate ((provider codex-subscription-provider))
-  "Use a conservative five-minute heuristic for the ChatGPT subscription route.
-
-The public OpenAI API retention contract does not establish this route's TTL."
-  (declare (ignore provider))
-  300)
-
 (-> application-idle-compaction-note-started
     (application &key (:now real)) null)
 (defun application-idle-compaction-note-started
@@ -110,10 +93,8 @@ substantial summarizable history. Skip missed expiry windows and resumed history
                    *idle-compaction-minimum-tokens*)
                (>= (prompt-cache-episode-history-characters episode)
                    *idle-compaction-minimum-history-characters*))
-      (let* ((override  (config :prompt-cache-retention-seconds configuration))
-             (retention (if (plusp override)
-                            override
-                            (provider-prompt-cache-retention-estimate (agent-provider agent))))
+      (let* ((retention (provider-prompt-cache-retention-seconds
+                         (agent-provider agent) configuration))
              (age       (- now (prompt-cache-episode-started-at episode))))
         (when (and retention (> retention *idle-compaction-lead-seconds*)
                    (<= 0 age) (< age retention))

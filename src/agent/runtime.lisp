@@ -1528,10 +1528,12 @@ to usage accounting instead of hiding behind the compaction record."
 (-> agent--prepare-provider-request (agent) (integer 0))
 (defun agent--prepare-provider-request (agent)
   "Prune cold-cache history before capturing any request for AGENT."
-  (conversation-prepare-provider-request
-   (agent-conversation agent)
-   :identity (list (provider-family (agent-provider agent))
-                   (config :model (agent-configuration agent)))))
+  (let ((provider      (agent-provider agent))
+        (configuration (agent-configuration agent)))
+    (conversation-prepare-provider-request
+     (agent-conversation agent)
+     :identity     (list (provider-family provider) (config :model configuration))
+     :idle-seconds (provider-prompt-cache-retention-seconds provider configuration))))
 
 (-> agent-compact-conversation
     (agent agent-observer &key (:tool-allowlist (option list))

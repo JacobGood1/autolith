@@ -78,7 +78,8 @@
       (flet ((prepare (identity now)
                "Prepare a request served by IDENTITY at universal time NOW."
                (conversation-prepare-provider-request conversation
-                                                      :identity identity :now now))
+                                                      :identity identity :now now
+                                                      :idle-seconds 300))
 
              (fail-turn (call-id)
                "Append a failed exchange followed by a new user message."
@@ -95,8 +96,7 @@
         (fail-turn "second")
         (test-assert (zerop (prepare (list ':codex "model-b") 1030))
                      "a warm follow-up keeps newer failures")
-        (test-assert (= 1 (prepare (list ':codex "model-b")
-                                   (+ 1030 *conversation-precompaction-idle-seconds*)))
+        (test-assert (= 1 (prepare (list ':codex "model-b") 1330))
                      "an idled-out cache precompacts")
         (test-assert (null (precompaction-tests--call-ids conversation))
                      "every earlier failed call is gone"))))
@@ -139,4 +139,30 @@
                                 collect (json-get item "call_id"))))
             (test-assert (equal '("succeeded" "failed-current") calls)
                          "compaction receives successful and current exchanges, not earlier failures"))))))
+  nil)
+
+(-> test-precompaction-retention-policy () null)
+(defun test-precompaction-retention-policy ()
+  "Use configured or provider retention for idle pruning; skip unknown retention."
+  (dolist (case '((scripted-provider 0 10000 0)
+                  (codex-subscription-provider 0 1000 1)
+                  (codex-subscription-provider 1800 1000 0)
+                  (codex-subscription-provider 1800 2000 1)
+                  (scripted-provider 1800 2000 1)))
+    (destructuring-bind (provider-class override age expected) case
+      (with-test-configuration (configuration)
+        (setf (config :prompt-cache-retention-seconds configuration) override)
+        (let* ((conversation (conversation-create configuration :identifier "retention"))
+               (agent        (agent-create :configuration configuration
+                                           :provider      (make-instance provider-class)
+                                           :conversation  conversation
+                                           :tool-registry (agent-test-registry)
+                                           :worker        nil)))
+          (conversation-append-user-message conversation "start")
+          (agent--prepare-provider-request agent)
+          (precompaction-tests--exchange conversation "failed")
+          (conversation-append-user-message conversation "again")
+          (setf (conversation-request-started-at conversation) (- (get-universal-time) age))
+          (test-assert (= expected (agent--prepare-provider-request agent))
+                       "idle pruning follows the effective retention policy")))))
   nil)

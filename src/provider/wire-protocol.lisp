@@ -1,5 +1,33 @@
 (in-package #:autolith)
 
+;;;; -- Prompt Cache Retention --
+
+(defgeneric provider-prompt-cache-retention-estimate (provider)
+  (:documentation "Return PROVIDER's estimated inactive cache lifetime, or NIL when unknown.
+
+This scheduling hint is not a cache retention or pricing guarantee."))
+
+(defmethod provider-prompt-cache-retention-estimate ((provider model-provider))
+  "Require an explicit estimate for providers without a known caching policy."
+  (declare (ignore provider))
+  nil)
+
+(defmethod provider-prompt-cache-retention-estimate ((provider codex-subscription-provider))
+  "Use a conservative five-minute heuristic for the ChatGPT subscription route.
+
+The public OpenAI API retention contract does not establish this route's TTL."
+  (declare (ignore provider))
+  300)
+
+(-> provider-prompt-cache-retention-seconds (model-provider configuration) (option real))
+(defun provider-prompt-cache-retention-seconds (provider configuration)
+  "Return CONFIGURATION's retention override or PROVIDER's estimate, when known."
+  (let ((override (config :prompt-cache-retention-seconds configuration)))
+    (if (plusp override)
+        override
+        (provider-prompt-cache-retention-estimate provider))))
+
+
 ;;;; -- Request Tool Filtering --
 
 (-> provider-hosted-web-search-tool-p (t) boolean)

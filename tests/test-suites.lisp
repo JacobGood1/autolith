@@ -588,6 +588,7 @@
 
 (define-test-suite precompaction
   test-precompaction-drops-failed-exchanges
+  test-precompaction-retention-policy
   test-precompaction-cold-requests)
 
 (define-test-suite conversation
