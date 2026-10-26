@@ -116,8 +116,18 @@ assumed to be shell source."
 
 (-> application--lisp-key-token (string) string)
 (defun application--lisp-key-token (name)
-  "Return JSON property NAME as one reader-safe Lisp keyword token."
-  (format nil ":~A" (application--lisp-symbol-token name)))
+  "Return a reader-safe local call key naming JSON property NAME exactly.
+
+The reader upcases plain keywords and the local call boundary lowercases them
+again, so a name with uppercase letters is escaped when it also has lowercase
+ones and written as a string when it has none."
+  (cond
+    ((notany #'upper-case-p name)
+     (format nil ":~A" (application--lisp-symbol-token name)))
+    ((some #'lower-case-p name)
+     (format nil ":~A" (application--lisp-escaped-symbol-name name)))
+    (t
+     (prin1-to-string name))))
 
 (-> application--tool-header (application string) string)
 (defun application--tool-header (application header)

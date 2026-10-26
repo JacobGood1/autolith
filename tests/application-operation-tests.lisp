@@ -477,6 +477,25 @@
    "a non-Boolean value is rejected")
   nil)
 
+(-> test-application-operation-argument-keys () null)
+(defun test-application-operation-argument-keys ()
+  "Test presented local call keys name their exact JSON members when read back."
+  (dolist (case '(("text"      ":text")
+                  ("head_sha"  ":head_sha")
+                  ("filePath"  ":|filePath|")
+                  ("URL"       "\"URL\"")
+                  ("odd key)"  ":|odd key)|")))
+    (destructuring-bind (name token) case
+      (test-assert (string= token (application--lisp-key-token name))
+                   (format nil "~S is presented as ~A" name token))
+      (test-assert (string= name (application-operation--json-key
+                                  (let ((*package* (find-package '#:autolith)))
+                                    (read-from-string token))))
+                   (format nil "~A names the JSON member ~S" token name))))
+  (test-assert (string= "file-path" (application-operation--json-key ':file-path))
+               "a reader-upcased keyword names its lowercase member")
+  nil)
+
 (-> test-application-operation-binding-conflicts () null)
 (defun test-application-operation-binding-conflicts ()
   "Test canonical operation conflicts fail registration and never break evaluation."

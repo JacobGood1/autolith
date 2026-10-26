@@ -704,17 +704,24 @@ paths that do not contain QUERY as a contiguous substring."
 
 (-> application-operation--json-key (t) non-empty-string)
 (defun application-operation--json-key (key)
-  "Return KEY as one lowercase JSON object member name."
+  "Return KEY as one JSON object member name.
+
+A string names its member exactly. A symbol the reader upcased, such as
+:FILE-PATH, names the lowercase member; one whose name has a lowercase letter,
+such as :|filePath|, was escaped on purpose and keeps its case."
   (let ((name
           (etypecase key
             (string
              key)
             (symbol
-             (symbol-name key)))))
+             (let ((name (symbol-name key)))
+               (if (some #'lower-case-p name)
+                   name
+                   (string-downcase name)))))))
     (unless (non-empty-string-p name)
       (error 'configuration-error
              :message "A local tool argument key must not be empty."))
-    (string-downcase name)))
+    name))
 
 (-> application-operation--json-value (t) t)
 (defun application-operation--json-value (value)

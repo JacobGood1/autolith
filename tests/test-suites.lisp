@@ -1371,6 +1371,7 @@
 
 (define-test-suite application-operation
   run-application-operation-tests
+  test-application-operation-argument-keys
   test-compact-operation
   test-compact-operation-empty
   test-fix-skipped-definitions-operation
