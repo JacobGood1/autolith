@@ -477,7 +477,7 @@ KNOWLEDGE-P offers structured knowledge through memory: resources."
              "operations" (json-object
                            "type" "array"
                            "description"
-                           "Resource-specific operations. Agenda, memory, and papercut resources accept exactly one; line-edited text and observed missing files accept non-overlapping original-line operations; scratchpad: resources additionally accept one scratchpad-delete operation."
+                           "Resource-specific operations. Agenda, papercut, and memory collection or item resources accept exactly one, and memory:facts accepts up to 16 in one edit; line-edited text and observed missing files accept non-overlapping original-line operations; scratchpad: resources additionally accept one scratchpad-delete operation."
                            "minItems" 1
                            "items" (default-tools--resource-operation-schema
                                     :knowledge-p knowledge-p)))
