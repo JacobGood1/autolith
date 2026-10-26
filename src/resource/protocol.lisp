@@ -193,6 +193,19 @@ often base strings while the same text built elsewhere is not."
      (let ((*print-readably* nil))
        (prin1-to-string snapshot)))))
 
+(defgeneric resource-whole-text (resource context &key maximum-bytes tool-name)
+  (:documentation
+   "Return RESOURCE's complete current text under CONTEXT for a whole-text consumer.
+
+Consumers such as recursive inference take inputs larger than an editing
+observation retains, so this reads without establishing one. MAXIMUM-BYTES
+bounds the UTF-8 octets the consumer accepts, and TOOL-NAME names it in errors."))
+
+(defmethod resource-whole-text (resource context &key maximum-bytes tool-name)
+  "Return the text of RESOURCE's ordinary observation, which its own limits bound."
+  (declare (ignore maximum-bytes tool-name))
+  (resource-observation-content (resource-observe resource context)))
+
 (defgeneric resource-context-child-agent-p (context)
   (:documentation "Return true when CONTEXT belongs to a restricted task child agent."))
 

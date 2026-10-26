@@ -24,6 +24,11 @@
 (defparameter *rlm-complete-depth-budget* 2
   "The default recursion depth below one root completion.")
 
+(defparameter *rlm-context-maximum-bytes* (* 64 1024 1024)
+  "The largest UTF-8 resource rlm.complete reads whole as its root context.
+
+The root context never enters a prompt, but its environment holds it in memory.")
+
 (defparameter *rlm-tool-maximum-value-characters* 12000
   "The largest printed final value returned inline by rlm.complete.")
 
@@ -358,6 +363,23 @@ confined to the schemes their restriction permits."
              :message    "the resource observation carries no text"))
     content))
 
+(-> rlm--tool-root-resource-content (tool-context string) string)
+(defun rlm--tool-root-resource-content (context uri)
+  "Read URI whole as a root context under CONTEXT's authority.
+
+A root context lives outside every prompt, so it is bounded by
+*RLM-CONTEXT-MAXIMUM-BYTES* rather than by what an editing observation retains."
+  (let* ((resource (resource-registry-resolve
+                    (rlm--tool-resource-registry context) uri context))
+         (content  (resource-whole-text resource context
+                                        :maximum-bytes *rlm-context-maximum-bytes*
+                                        :tool-name     "rlm.complete")))
+    (unless (stringp content)
+      (error 'rlm-view-error
+             :designator uri
+             :message    "the resource observation carries no text"))
+    content))
+
 (-> rlm--tool-object-content (tool-context string) string)
 (defun rlm--tool-object-content (context reference)
   "Return the stored context object REFERENCE names, by digest or URI.
@@ -638,7 +660,7 @@ turn, and async requests hand off at admission."
        (rlm-context-intern configuration text :label label))
       ((stringp uri)
        (rlm-context-intern configuration
-                           (rlm--tool-resource-content context uri)
+                           (rlm--tool-root-resource-content context uri)
                            :label (or label uri)))
       (t
        (rlm-context-intern configuration

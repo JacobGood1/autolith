@@ -295,6 +295,13 @@ model contexts, and content addressing already provides stable
 identity. Streaming, mmap, or indexes arrive when a workload actually
 exceeds the heap, not before.
 
+That heap bound is also the only size limit on a root context. The
+=rlm.complete= tool reads a workspace file named by its context URI
+whole, up to =*rlm-context-maximum-bytes*= (64 MiB), rather than
+through the editing snapshot that =resource.read= keeps, so an input
+far larger than the model's window, and larger than an editing
+snapshot, is still one context object.
+
 ** Token accounting is exact for output, soft for input
 
 Reservations bound what concurrent requests may produce, but exact

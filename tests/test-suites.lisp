@@ -1036,6 +1036,7 @@
   test-rlm-boundary-litmus
   test-rlm-complete-tool
   test-rlm-designator-confinement
+  test-rlm-root-context-size
   test-rlm-permission-classifier)
 
 (define-test-suite run-job

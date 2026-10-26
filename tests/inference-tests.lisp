@@ -2432,6 +2432,62 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                      "unknown context object digests are refused"))))
   nil)
 
+(-> test-rlm-root-context-size () null)
+(defun test-rlm-root-context-size ()
+  "Test a root context reads a workspace file whole past the editing snapshot limit."
+  (let* ((configuration (test-configuration))
+         (conversation  (conversation-create configuration
+                                             :identifier "rlm-root-size"))
+         (registry      (make-instance 'tool-registry))
+         (context       (make-instance 'tool-context
+                                       :configuration configuration
+                                       :worker        nil
+                                       :conversation  conversation
+                                       :registry      registry))
+         (characters    (length (uiop:read-file-string
+                                 (merge-pathnames "README.org"
+                                                  (config :working-directory configuration))))))
+    (resource-registry-register
+     (tool-registry-resource-registry registry)
+     (make-instance 'workspace-file-resolver :scheme "workspace"))
+    (flet ((run ()
+             (tool-execute
+              (rlm-complete-tool-create
+               :provider
+               (make-instance
+                'rlm-litmus-provider
+                :window-limit 100000
+                :root-results
+                (list (agent-test-result
+                       "root-size"
+                       (list (agent-test-call
+                              :call-id   "eval-size"
+                              :namespace "env"
+                              :name      "eval"
+                              :arguments (json-encode
+                                          (json-object "form"
+                                                       "(finish (context-length))"))))))))
+              context
+              (json-object "task"    "Measure the context."
+                           "context" (json-object "uri" "workspace:README.org")
+                           "calls"   4))))
+      (let ((*workspace-file-resource-maximum-bytes* 64))
+        (let ((result (run)))
+          (test-assert (and (tool-result-success-p result)
+                            (search (princ-to-string characters)
+                                    (tool-result-content result)))
+                       "a root context outgrows the editing snapshot limit whole"))
+        (let ((*rlm-context-maximum-bytes* 64))
+          (test-assert (handler-case
+                           (progn
+                             (run)
+                             nil)
+                         (tool-error (condition)
+                           (and (search "rlm.complete" (princ-to-string condition))
+                                t)))
+                       "a root context beyond the context limit is refused by name")))))
+  nil)
+
 (-> test-rlm-partial-results () null)
 (defun test-rlm-partial-results ()
   "Preserve unvalidated frame evidence and completed map siblings on exhaustion."

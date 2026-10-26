@@ -250,15 +250,23 @@
              :tool-name "resource.read"))))
 
 (-> workspace-file--read-content
-    (pathname &optional (option tool-context))
+    (pathname
+     &key (:context (option tool-context))
+          (:maximum-bytes (integer 0))
+          (:tool-name non-empty-string)
+          (:description non-empty-string))
     string)
-(defun workspace-file--read-content (path &optional context)
+(defun workspace-file--read-content
+    (path &key context
+            (maximum-bytes *workspace-file-resource-maximum-bytes*)
+            (tool-name     "resource.read")
+            (description   "Workspace resource snapshot"))
   "Read PATH as a bounded, stable UTF-8 workspace resource."
   (file--read-bounded-utf-8
    path
-   :maximum-bytes *workspace-file-resource-maximum-bytes*
-   :tool-name     "resource.read"
-   :description   "Workspace resource snapshot"
+   :maximum-bytes maximum-bytes
+   :tool-name     tool-name
+   :description   description
    :validation-function
    (and context
         (lambda ()
@@ -368,7 +376,7 @@ Return NIL when NAME disappears during enumeration."
     (let ((content
             (case kind
               (:file
-               (workspace-file--read-content path context))
+               (workspace-file--read-content path :context context))
               (:directory
                (workspace-file--directory-content path))
               (:missing
@@ -387,6 +395,20 @@ Return NIL when NAME disappears during enumeration."
     ((resource workspace-file-resource) (context tool-context))
   "Observe RESOURCE as a complete exact filesystem snapshot under CONTEXT."
   (workspace-file--observe-path resource context))
+
+(defmethod resource-whole-text
+    ((resource workspace-file-resource) (context tool-context)
+     &key maximum-bytes tool-name)
+  "Read a workspace file whole up to MAXIMUM-BYTES, past the editing snapshot limit.
+
+Directories and missing files keep their ordinary observation."
+  (let ((path (workspace-file-resource-pathname resource)))
+    (if (eq (workspace-file--path-kind path) ':file)
+        (workspace-file--read-content path :context       context
+                                           :maximum-bytes maximum-bytes
+                                           :tool-name     tool-name
+                                           :description   "Workspace resource")
+        (call-next-method))))
 
 
 ;;;; -- Conversation Observation State --
@@ -750,6 +772,13 @@ would print as a drive prefix, and NTFS reads NAME:REST as a named stream."
 
 Tools such as rlm.map observe resources directly. An enclosing authorization
 already admits the path to the readable roots, so it is not asked again."
+  (workspace-file--call-with-authorized-access
+   resource context ':read :function (lambda () (call-next-method))))
+
+(defmethod resource-whole-text :around
+    ((resource workspace-file-resource) (context tool-context) &key maximum-bytes tool-name)
+  "Authorize an out-of-root workspace RESOURCE before reading it whole."
+  (declare (ignore maximum-bytes tool-name))
   (workspace-file--call-with-authorized-access
    resource context ':read :function (lambda () (call-next-method))))
 
