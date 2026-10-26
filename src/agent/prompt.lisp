@@ -215,6 +215,10 @@ prompt instead of the full Autolith persona.")
         :hosted-web-search-p *system-prompt-hosted-web-search-p*
         :web-run-p           (system-prompt--web-run-p configuration)
         :rlm-available       t
+        :knowledge-active-p  (knowledge-active-p configuration)
+        :diagnosis-available (and (knowledge-active-p configuration)
+                                  (config :diagnosis-p configuration)
+                                  t)
         :user                (system-prompt--environment-value "USER")
         :os                  (system-prompt--context-value (software-type))
         :os-version          (system-prompt--context-value (software-version))
