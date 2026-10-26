@@ -2978,10 +2978,10 @@ as the terminal UI's exclusive-input function."
     keyword)
 (defun application--apply-classified-command-permission
     (application command directory &key decision reason)
-  "Apply one automatic DECISION for COMMAND with a terse dim notice.
+  "Apply one automatic DECISION for COMMAND with a terse annotation of its call.
 
-The command already appears with its tool call, so the notice never
-restates it; only a refusal carries the classifier's short reason. A
+The command already appears with its tool call, so the notice attaches to it
+and never restates it; only a refusal carries the classifier's short reason. A
 sandbox grant is revalidated at this final authorization boundary."
   (declare (ignore command directory))
   (ecase decision
@@ -2990,26 +2990,26 @@ sandbox grant is revalidated at this final authorization boundary."
          (progn
            (application-present
             application
-            (list (terminal-span ':dim "· auto-permission sandbox")))
+            (list (terminal-span ':annotation "  auto-permission sandbox")))
            ':sandboxed)
          (progn
            (application-present
             application
             (list (terminal-span
-                   ':dim
-                   "· auto-permission deny: the workspace sandbox became unavailable")))
+                   ':annotation
+                   "  auto-permission deny: the workspace sandbox became unavailable")))
            ':deny)))
     (:full-access
      (application-present
       application
-      (list (terminal-span ':dim "· auto-permission full access")))
+      (list (terminal-span ':annotation "  auto-permission full access")))
      ':full-access)
     (:deny
      (application-present
       application
       (list (terminal-span
-             ':dim
-             (format nil "· auto-permission deny: ~A"
+             ':annotation
+             (format nil "  auto-permission deny: ~A"
                      (sanitize-text reason :single-line-p t)))))
      ':deny)))
 

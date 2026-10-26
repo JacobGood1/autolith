@@ -2371,15 +2371,52 @@ A call's header spans may be widgets inserting its invocation when clicked."
       (or (terminal-ui--compact-call-tool entry)
           (terminal-ui--compact-handoff-group entry))))
 
+(-> terminal-ui--attached-entry-p ((or string list)) boolean)
+(defun terminal-ui--attached-entry-p (entry)
+  "Return true when ENTRY is a single-line annotation of the call above it."
+  (and (consp entry)
+       (not (termdown:widget-p (first entry)))
+       (eq (terminal-span-style (first entry)) ':annotation)
+       (let ((text (terminal--spans-text entry)))
+         (not (or (find #\Newline text) (find #\Return text))))
+       t))
+
+(-> terminal-ui--call-entry-p ((or string list)) boolean)
+(defun terminal-ui--call-entry-p (entry)
+  "Return true when ENTRY presents a tool call, on one row or several."
+  (and (consp entry)
+       (eq (terminal-span-style (first entry)) ':tool)
+       (uiop:string-prefix-p "▸ (" (terminal-span-text (first entry)))
+       t))
+
+(-> terminal-ui--separation-group
+    ((or string list))
+    (or null (member :success :call :attached) string))
+(defun terminal-ui--separation-group (entry)
+  "Return the group deciding the blank rows around ENTRY, or NIL for a plain block.
+
+Compact entries share their group without blank rows. A multi-row call is a
+:CALL whose blank row waits for the next entry, so an :ATTACHED annotation of
+that call, such as its permission decision, can follow it directly. Every
+other entry ends with its own blank row."
+  (cond
+    ((terminal-ui--attached-entry-p entry)
+     ':attached)
+    ((terminal-ui--compact-entry-group entry))
+    ((terminal-ui--call-entry-p entry)
+     ':call)
+    (t
+     nil)))
+
 (-> terminal-ui--finalized-content
     (terminal-ui (or string list))
     (values string string))
 (defun terminal-ui--finalized-content (ui entry)
   "Return finalized ENTRY as plain text, styled text, and click regions.
 
-Compact calls, handoffs, and successes end with one newline; other entries
-include a blank separator row. Regions index the plain text. This formatter
-does not change UI."
+Compact calls, handoffs, successes, multi-row calls, and annotations end with
+one newline; other entries include a blank separator row. Regions index the
+plain text. This formatter does not change UI."
   (let* ((terminal (terminal-ui-terminal ui))
          (spans    (if (stringp entry)
                        (list (terminal-span ':plain entry))
@@ -2391,7 +2428,7 @@ does not change UI."
                  (char= (char plain (1- (length plain))) #\Newline))
       (setf plain (concatenate 'string plain (string #\Newline))
             display (concatenate 'string display (string #\Newline))))
-    (if (terminal-ui--compact-entry-group entry)
+    (if (terminal-ui--separation-group entry)
         (values plain display regions)
         (values (concatenate 'string plain (string #\Newline))
                 (concatenate 'string display (string #\Newline))
@@ -2724,14 +2761,18 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
 
 (defmethod terminal-ui--append-output :around
     ((ui terminal-ui) text display &key regions compact-first-group compact-last-group)
-  "Separate compact groups at committed output boundaries."
+  "Separate groups at committed output boundaries.
+
+An annotation attaches to the entry above it and inherits its group, and a
+multi-row call is always set off from whatever else follows it."
   (if (zerop (length text))
       (call-next-method)
       (let* ((previous    (terminal-ui-compact-tail-group ui))
-             (gap-p       (and previous (not (equal previous compact-first-group))))
+             (gap-p       (terminal-ui--separated-p previous compact-first-group))
              (prefix      (if gap-p (string #\Newline) ""))
              (completed-p nil))
-        (setf (terminal-ui-compact-tail-group ui) compact-last-group)
+        (setf (terminal-ui-compact-tail-group ui)
+              (if (eq compact-last-group ':attached) previous compact-last-group))
         (unwind-protect
              (prog1
                  (call-next-method
@@ -2758,12 +2799,24 @@ REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
         (terminal-flush (terminal-ui-terminal ui))))
   nil)
 
+(-> terminal-ui--separated-p
+    ((or null (member :success :call :attached) string)
+     (or null (member :success :call :attached) string))
+    boolean)
+(defun terminal-ui--separated-p (previous next)
+  "Return true when a blank row belongs between groups PREVIOUS and NEXT."
+  (and previous
+       (not (eq next ':attached))
+       (or (eq previous ':call)
+           (not (equal previous next)))
+       t))
+
 (defmethod terminal-ui-set-epilogue ((ui terminal-ui) entry)
   "Append ENTRY to native scrollback, where it outlives the UI."
   (with-terminal-ui-locked (ui)
     (multiple-value-bind (text display)
         (terminal-ui--finalized-content ui entry)
-      (let ((group (terminal-ui--compact-entry-group entry)))
+      (let ((group (terminal-ui--separation-group entry)))
         (terminal-ui--append-output ui text display
                                     :compact-first-group group
                                     :compact-last-group  group))))
@@ -2779,7 +2832,7 @@ REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
       (handler-case
           (multiple-value-bind (text display regions)
               (terminal-ui--finalized-content ui entry)
-            (let ((group (terminal-ui--compact-entry-group entry)))
+            (let ((group (terminal-ui--separation-group entry)))
               (terminal-ui--append-output
                ui text display :regions regions
                :compact-first-group group :compact-last-group group))
@@ -2805,14 +2858,20 @@ REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
                       (gethash identifier seen))
             (multiple-value-bind (text display regions)
                 (terminal-ui--finalized-content ui entry)
-              (let ((group (terminal-ui--compact-entry-group entry)))
-                (when (and previous-group (not (equal previous-group group)))
+              (let ((group (terminal-ui--separation-group entry)))
+                (when (and pending (terminal-ui--separated-p previous-group group))
                   (setf text (concatenate 'string (string #\Newline) text)
                         display (concatenate 'string (string #\Newline) display)
                         regions (termdown:shift-regions regions 1)))
-                (push (list identifier text display regions group) pending)
-                (setf previous-group group
-                      (gethash identifier seen) t))))))
+                ;; Only the batch's first entry meets the transcript's own tail
+                ;; in TERMINAL-UI--APPEND-OUTPUT, so a later annotation takes
+                ;; the group of the call it follows.
+                (push (list identifier text display regions
+                            (if (and pending (eq group ':attached)) previous-group group))
+                      pending)
+                (unless (and pending (eq group ':attached))
+                  (setf previous-group group))
+                (setf (gethash identifier seen) t))))))
       (setf pending (nreverse pending))
       (when pending
         (let ((text-stream    (make-string-output-stream))

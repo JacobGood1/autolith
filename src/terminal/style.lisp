@@ -11,7 +11,7 @@
       :recovery-gradient-4 :recovery-gradient-5 :recovery-gradient-6
       :lambda-logo-1 :lambda-logo-2 :lambda-logo-3
       :lambda-logo-4 :lambda-logo-5 :lambda-logo-6
-      :user :tool :success :failure :notice :dim :hint :selected
+      :user :tool :success :failure :notice :dim :annotation :hint :selected
       :strong :emphasis :code :code-copy :lisp-prompt :plan-active :timestamp-time
       :mermaid-box :mermaid-edge :mermaid-arrow :mermaid-label
       :agent-spinner :agent-name :child-name :agent-role :agent-tool
@@ -87,6 +87,7 @@ name, and status background opt into indexed colors."
       (:failure (:foreground :red :bold t))
       (:notice (:foreground :yellow))
       (:dim (:faint t))
+      (:annotation (:faint t))
       (:hint (:faint t :italic t))
       (:selected (:reverse t))
       (:strong (:bold t))
@@ -198,6 +199,7 @@ secondary, and quiet text the soft blue."
         (:failure (:foreground ,danger :bold t))
         (:notice (:foreground ,accent))
         (:dim (:foreground ,soft))
+        (:annotation (:foreground ,soft))
         (:hint (:foreground ,soft :italic t))
         (:selected (:reverse t))
         (:strong (:foreground ,accent :bold t))

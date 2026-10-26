@@ -391,10 +391,12 @@ mutation passes through TERMINAL-SET-DIMENSIONS.")
     :type          (or null string list)
     :documentation "Unfinished streamed text, styled spans, or styled rows continuing the transcript block above.")
    (compact-tail-group
-    :initform      nil
-    :accessor      terminal-ui-compact-tail-group
-    :type          (or null (eql :success) string)
-    :documentation "Pending separator group: :SUCCESS, an exact call tool name, or NIL.")
+    :initform nil
+    :accessor terminal-ui-compact-tail-group
+    :type     (or null (member :success :call) string)
+    :documentation
+    "Pending separator group: :SUCCESS, an exact call tool name, :CALL after a
+multi-row call, or NIL.")
    (finalized-identifiers
     :initform      (make-hash-table :test #'equal)
     :reader        terminal-ui-finalized-identifiers
