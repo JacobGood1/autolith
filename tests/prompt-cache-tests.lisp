@@ -150,6 +150,30 @@
                 "partial recovery resets loss accumulation and is never reported as stalled")
                (setf baseline (prompt-cache-baseline-advance
                                baseline usage :reported-p (not (null miss)))))))
+  (dolist (case '((98970 "recovery below the retained peak")
+                  (99000 "recovery to the retained peak")))
+    (destructuring-bind (recovered description) case
+      (let* ((prefix   '(:header "stable" :items (("history" 400000))))
+             (grown    '(:header "stable" :items (("history" 400000) ("exchange" 40000))))
+             (baseline (prompt-cache-baseline-create
+                        (prompt-cache-tests--usage 100000 99000) :prefix prefix))
+             (declined (prompt-cache-tests--usage 108000 98936))
+             (recovery (prompt-cache-tests--usage 109000 recovered)))
+        (test-assert (null (prompt-cache-miss-detect baseline declined :prefix grown))
+                     "a small decline stays quiet")
+        (setf baseline (prompt-cache-baseline-advance baseline declined :prefix grown))
+        (test-assert (eq ':stalled
+                         (getf (prompt-cache-miss-detect baseline declined :prefix grown) :kind))
+                     "the shared history growth is enough to detect a genuine plateau")
+        (test-assert (null (prompt-cache-miss-detect baseline recovery :prefix grown))
+                     (format nil "~A after a small decline is not a stall" description))
+        (setf baseline (prompt-cache-baseline-advance baseline recovery :prefix grown))
+        (let ((miss (prompt-cache-miss-detect
+                     baseline (prompt-cache-tests--usage 109000 (- recovered 128))
+                     :prefix grown)))
+          (test-assert (and (eq (getf miss :kind) ':shrunk)
+                            (= (getf miss :lost-tokens) 128))
+                       "a later loss is measured from the recovered reads")))))
   nil)
 
 (-> test-prompt-cache-baseline-from-conversation () null)
