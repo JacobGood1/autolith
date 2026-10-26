@@ -283,6 +283,7 @@
 (define-test-suite onboarding
   test-onboarding-source-rendering
   test-onboarding-source-validation
+  test-onboarding-source-choice
   test-onboarding-source-catalog
   test-onboarding-source-text
   test-onboarding-operation
@@ -293,6 +294,7 @@
   test-onboarding-fullscreen-restoration
   test-onboarding-startup-interruption
   test-onboarding-settings-exercise
+  test-onboarding-choice-exercise
   test-onboarding-authentication
   test-onboarding-openai-api
   test-onboarding-authentication-pending)

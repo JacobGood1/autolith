@@ -132,8 +132,13 @@ newlines; decode links within strong text without treating code as markup."
          (exercise      (rest (assoc exercise-text
                                      '(("continue" . :continue) ("help" . :help)
                                        ("async" . :async) ("settings" . :settings)
-                                       ("authentication" . :authentication))
+                                       ("authentication" . :authentication)
+                                       ("choose" . :choose))
                                      :test #'equal)))
+         (setting-text  (rest (assoc "SETTING" properties :test #'string=)))
+         (choices-text  (rest (assoc "CHOICES" properties :test #'string=)))
+         (setting       (and setting-text (onboarding-source--setting setting-text)))
+         (choices       (and choices-text (onboarding-source--choices choices-text)))
          (body          (format nil "~{~A~^~%~}" (reverse lines))))
     (unless (and (non-empty-string-p title) (non-empty-string-p id)
                  (every (lambda (character)
@@ -141,9 +146,12 @@ newlines; decode links within strong text without treating code as markup."
                               (char= character #\-)))
                         id)
                  (integerp version) (plusp version)
-                 (or (null exercise-text) exercise))
+                 (or (null exercise-text) exercise)
+                 (if (eq exercise ':choose)
+                     (and setting choices)
+                     (not (or setting-text choices-text))))
       (onboarding-source--fail (format nil "Invalid metadata for ~S" title)))
-    (list :id id :version version
+    (list* :id id :version version
           :title    (org-templater:render :template title :config variables)
           :exercise exercise
           :body
@@ -159,7 +167,37 @@ newlines; decode links within strong text without treating code as markup."
                                  (list ':open-url
                                        (org-templater:render :template url :config variables)))
                                 (terminal-span style rendered))))))
-                  (onboarding-source--inline body)))))
+                  (onboarding-source--inline body))
+          (when (eq exercise ':choose)
+            (list :setting setting :choices choices)))))
+
+(-> onboarding-source--setting (string) (option keyword))
+(defun onboarding-source--setting (text)
+  "Return the setting keyword TEXT names, or NIL when no setting has that name."
+  (let ((setting (find-symbol (string-upcase text) '#:keyword)))
+    (and setting
+         (handler-case (and (find-setting setting) setting)
+           (setting-error ()
+             nil)))))
+
+(-> onboarding-source--choices (string) list)
+(defun onboarding-source--choices (text)
+  "Return the readable choice values TEXT lists, or NIL when it lists none.
+
+Values are read without evaluation in the project package, so T, NIL, and
+keywords written with their colon keep their usual meaning."
+  (handler-case
+      (let ((*read-eval* nil)
+            (*package*   (find-package '#:autolith))
+            (end         (gensym "END")))
+        (with-input-from-string (stream text)
+          (loop for value = (read stream nil end)
+                until (eq value end)
+                unless (or (symbolp value) (stringp value) (integerp value))
+                  do (return nil)
+                collect value)))
+    (error ()
+      nil)))
 
 (-> onboarding-source-pages (string hash-table) list)
 (defun onboarding-source-pages (source variables)
@@ -215,7 +253,8 @@ line separating lessons. Reject duplicate IDs and malformed metadata."
                       (unless colon
                         (onboarding-source--fail "Malformed property."))
                       (let ((name (subseq line 1 colon)))
-                        (unless (and (member name '("ID" "VERSION" "EXERCISE") :test #'string=)
+                        (unless (and (member name '("ID" "VERSION" "EXERCISE" "SETTING" "CHOICES")
+                                             :test #'string=)
                                      (not (assoc name properties :test #'string=)))
                           (onboarding-source--fail "Unknown or duplicate property."))
                         (push (cons name (string-trim '(#\Space #\Tab)

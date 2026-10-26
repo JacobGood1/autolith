@@ -20,7 +20,38 @@
        (or (stringp (getf page :body))
            (terminal-styled-text-p (getf page :body)))
        (not (null (member (getf page :exercise)
-                          '(nil :continue :help :async :settings :authentication) :test #'eq)))))
+                          '(nil :continue :help :async :settings :authentication :choose)
+                          :test #'eq)))
+       (if (eq (getf page :exercise) ':choose)
+           (and (keywordp (getf page :setting))
+                (consp (getf page :choices))
+                t)
+           t)))
+
+(-> terminal-ui-onboarding-choice-forms (list) list)
+(defun terminal-ui-onboarding-choice-forms (page)
+  "Return the settings forms that pick each of choice PAGE's values, in order."
+  (with-standard-io-syntax
+    (let ((*print-case* ':downcase))
+      (loop for value in (getf page :choices)
+            collect (format nil "(settings ~S ~S)" (getf page :setting) value)))))
+
+(-> terminal-ui-onboarding--choice (list string) (values t boolean))
+(defun terminal-ui-onboarding--choice (page text)
+  "Return the value choice PAGE's form TEXT picks, and whether it picks one.
+
+Spacing and letter case do not matter, so a typed form need not match the
+shown spelling exactly."
+  (let ((typed (format nil "~{~A~^ ~}"
+                       (remove "" (uiop:split-string
+                                   (string-trim '(#\Space #\Tab #\Newline #\Return) text)
+                                   :separator '(#\Space #\Tab #\Newline #\Return))
+                               :test #'string=))))
+    (loop for value in (getf page :choices)
+          for form in (terminal-ui-onboarding-choice-forms page)
+          when (string-equal typed form)
+            do (return-from terminal-ui-onboarding--choice (values value t)))
+    (values nil nil)))
 
 (-> terminal-ui-onboarding--validate-pages (list) null)
 (defun terminal-ui-onboarding--validate-pages (pages)
@@ -104,10 +135,12 @@
                    (string= name "footer-minimal"))
             return spans)))
 
-(-> terminal-ui-onboarding--exercise-hint ((option keyword) keyword) string)
-(defun terminal-ui-onboarding--exercise-hint (exercise stage)
-  "Return one authored instruction for EXERCISE at STAGE."
+(-> terminal-ui-onboarding--exercise-hint ((option keyword) keyword &optional list) string)
+(defun terminal-ui-onboarding--exercise-hint (exercise stage &optional page)
+  "Return one authored instruction for EXERCISE at STAGE on PAGE."
   (let ((name (case exercise
+                (:choose
+                 (if (eq stage ':result) "hint-choose-result" "hint-choose-input"))
                 (:continue
                  "hint-continue")
                 (:help
@@ -126,9 +159,16 @@
                     "hint-auth-cancelled")
                    (otherwise
                     "hint-auth-input"))))))
-    (if name
-        (onboarding-source-text name)
-        "")))
+    (cond
+      ((null name)
+       "")
+      ((eq exercise ':choose)
+       (let ((variables (make-hash-table :test #'eq)))
+         (setf (gethash ':choices variables)
+               (format nil "~{~A~^ or ~}" (terminal-ui-onboarding-choice-forms page)))
+         (onboarding-source-text name variables)))
+      (t
+       (onboarding-source-text name)))))
 
 (-> terminal-ui-onboarding--exercise-target ((option keyword) keyword) (option string))
 (defun terminal-ui-onboarding--exercise-target (exercise stage)
@@ -144,6 +184,8 @@
      (unless (eq stage ':result) "(settings)"))
     (:authentication
      (unless (eq stage ':result) "(auth)"))
+    (:choose
+     (unless (eq stage ':result) "(settings)"))
     (otherwise
      nil)))
 
@@ -259,7 +301,7 @@ Body scrolling never hides the exercise prompt. Recompute geometry each paint."
                         (list (terminal--render-spans
                                terminal (list (terminal-span ':hint
                                                             (make-string card-width :initial-element #\─))))))))
-         (hint       (terminal-ui-onboarding--exercise-hint exercise stage))
+         (hint       (terminal-ui-onboarding--exercise-hint exercise stage page))
          (regions    nil))
     (multiple-value-bind (prompt-rows prompt-row prompt-column)
         (if exercise (terminal-ui-onboarding--prompt-rows ui card-width) (values nil 0 0))
@@ -446,12 +488,13 @@ reader dispatch and never evaluate input, including quoted topic arguments."
 (-> terminal-ui-onboard
     (terminal-ui list &key (:help-function function) (:settings-function (option function))
                          (:authentication-function (option function))
+                         (:choose-function (option function))
                          (:page-completed-function function) (:introduction-title string)
                          (:resize-callback (option function)) (:wait-function function))
     (values keyword list))
 (defun terminal-ui-onboard
     (ui pages &key (help-function (constantly "")) settings-function authentication-function
-                  (page-completed-function (constantly nil))
+                  choose-function (page-completed-function (constantly nil))
                   (introduction-title "") resize-callback (wait-function #'sleep))
   "Present fullscreen PAGES with safe exercises through the real prompt editor.
 
@@ -461,6 +504,8 @@ plist. Hold exclusive input through snapshot, presentation and restoration;
 defer concurrent live output without dropping it. Only check exercises on Enter.
 Call HELP-FUNCTION once per accepted help request, with its optional native topic;
 cache its output across paints. Call SETTINGS-FUNCTION for the settings lesson.
+Call CHOOSE-FUNCTION with a choice lesson's setting and the value its typed
+settings form picks; another form is only edited, never evaluated.
 Call AUTHENTICATION-FUNCTION for provider selection and login; its outcome is
 :AUTHENTICATED, :SKIPPED, :CANCELLED, or :FAILED. Only the first two finish the
 exercise; cancellation and failure allow retry without acknowledging the page.
@@ -477,6 +522,9 @@ Never evaluate demo input."
                    (notany (lambda (page) (eq (getf page :exercise) ':settings)) pages))
                (or authentication-function
                    (notany (lambda (page) (eq (getf page :exercise) ':authentication)) pages))
+               (or (null choose-function) (functionp choose-function))
+               (or choose-function
+                   (notany (lambda (page) (eq (getf page :exercise) ':choose)) pages))
                (functionp page-completed-function)
                (stringp introduction-title))
     (error 'onboarding-error
@@ -559,6 +607,15 @@ Never evaluate demo input."
                            (setf help-output (onboarding-source-text "help-input-error")
                                  stage (if help-seen-p ':help-output ':help-error)))))))
 
+                (submit-choice ()
+                  (multiple-value-bind (value chosen-p)
+                      (terminal-ui-onboarding--choice
+                       (page) (line-editor-text (terminal-ui-editor ui)))
+                    (when chosen-p
+                      (terminal-ui-onboarding--reset-exercise ui)
+                      (funcall choose-function (getf (page) :setting) value)
+                      (setf stage ':result scroll-offset 0))))
+
                 (submit-exercise (target)
                   (when (terminal-ui-onboarding--exercise-submitted-p ui target)
                     (case (exercise)
@@ -622,6 +679,8 @@ Never evaluate demo input."
                       ((and (eq (exercise) ':authentication) (eq event ':submit)
                             (terminal-ui-onboarding--exercise-submitted-p ui "continue"))
                        (advance))
+                      ((and (eq (exercise) ':choose) target (eq event ':submit))
+                       (submit-choice))
                       ((and target (eq event ':submit))
                        (submit-exercise target))
                       (target

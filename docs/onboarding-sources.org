@@ -125,6 +125,16 @@ Type (settings), browse the picker, then press Esc to return.
 Press Space or Enter to continue.
 #+end_onboarding_text
 
+#+name: hint-choose-input
+#+begin_onboarding_text
+Type {{{:choices}}}.
+#+end_onboarding_text
+
+#+name: hint-choose-result
+#+begin_onboarding_text
+Saved. Press Space or Enter to continue.
+#+end_onboarding_text
+
 #+name: help-title
 #+begin_onboarding_text
 Help
@@ -368,6 +378,23 @@ Find saved preferences and completed lessons in the state directory.
 
 @@code:Config root: {{{:config-root}}}
 State root:  {{{:state-root}}}@@
+
+* Keep or hide the activity line
+:PROPERTIES:
+:ID: activity-line
+:VERSION: 1
+:EXERCISE: choose
+:SETTING: activity-line-p
+:CHOICES: t nil
+:END:
+While Autolith works, the modeline times the turn and a line under it names
+what Autolith is doing:
+
+@@dim:REPL  ∙ 00:04  gpt-6.1-sol · high@@
+@@brand:∙@@ @@dim:pondering@@
+
+Keep that line, or hide it and spare the row; the modeline's timer stays
+either way. Change it later with =(settings)=.
 
 * Leave the terminal.  Keep the session.
 :PROPERTIES:

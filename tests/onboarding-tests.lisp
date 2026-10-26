@@ -73,8 +73,9 @@
                       ':completed))
               (list 'terminal-ui-onboard
                     (lambda (target pages &key help-function settings-function authentication-function resize-callback
-                                              page-completed-function introduction-title)
+                                              choose-function page-completed-function introduction-title)
                       (declare (ignore introduction-title))
+                      (test-assert (functionp choose-function) "tutorial can apply a chosen setting")
                       (test-assert (fullscreen-terminal-ui-active-p target) "lesson presentation owns the alternate buffer")
                       (test-assert (non-empty-string-p (funcall help-function)) "tutorial receives real basic operation help")
                       (dolist (topic '(:workspace "resume" resume "not-a-help-topic"))
@@ -299,6 +300,33 @@
                     "the user's original draft is restored")
        (test-assert (not (terminal-ui-fullscreen-p ui)) "the original inline mode is restored")
        (test-assert (not (terminal-ui-live-output-suspended-p ui)) "live output is available after the tour"))))
+  nil)
+
+(-> test-onboarding-choice-exercise () null)
+(defun test-onboarding-choice-exercise ()
+  "Pick a lesson's setting value by typing its form, persisting it for later launches."
+  (onboarding-tests--call
+   (lambda (application controller configuration terminal)
+     (declare (ignore controller))
+     (setf (application-configuration application)
+           (configuration-copy configuration :boot-screen-p nil))
+     (let ((pages (list (list :id "pick" :version 1 :title "Pick" :body "Choose."
+                              :exercise ':choose :setting ':activity-line-p :choices '(t nil))
+                        (onboarding-ui-test--page "finish"))))
+       (dolist (event '((:paste "(settings :activity-line-p maybe)") :submit :home :kill-to-end
+                        (:paste "(settings :activity-line-p nil)") :submit :submit :submit))
+         (queued-recording-terminal-enqueue terminal event))
+       (test-call-with-function-replacements
+        (list (list 'onboarding-pages (lambda (config) (declare (ignore config)) pages)))
+        (lambda ()
+          (test-assert (eq ':completed (application-onboard application))
+                       "the choice lesson completes once a value is picked")))
+       (test-assert (null (config :activity-line-p (application-configuration application)))
+                    "the picked value applies to the running session")
+       (test-assert (null (getf (preferences-load-values configuration) :activity-line-p ':absent))
+                    "the picked value is saved for later launches")
+       (test-assert (null (queued-recording-terminal-events terminal))
+                    "a form naming no choice is only edited, then the lesson continues"))))
   nil)
 
 (-> test-onboarding-authentication () null)

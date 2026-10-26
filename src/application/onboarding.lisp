@@ -146,6 +146,9 @@ remaining selected revisions; interruption leaves them pending."
                       :settings-function (lambda () (application-onboarding--settings application))
                        :authentication-function
                        (lambda () (application-onboarding--authenticate application))
+                       :choose-function
+                       (lambda (setting value)
+                         (application-apply-setting application setting value))
                       :resize-callback   #'application-pending-terminal-size
                      :page-completed-function
                      (lambda (page)
