@@ -181,7 +181,7 @@ Neither successful nor failed compaction can rearm this opportunity."
        (lambda ()
          (application-present
           application
-          (list (terminal-span ':hint "Compacting idle history before estimated cache expiry.")))
+          (list (terminal-span ':hint "· compacting idle history before estimated cache expiry")))
          (application-compact application)))))
   nil)
 

@@ -101,3 +101,14 @@ finalized-ledger append function.
   =src/startup/main.lisp:319=.
 
 The audit involved no code changes or test runs. No symbols were selected.
+
+* Standalone notice style
+
+Automatic permission decisions, idle compaction, update notices, recovered-input
+startup notices, input-storage warnings, and prompt-submission errors use =·=
+followed by a lowercase start. For example:
+
+: · compacting idle history before estimated cache expiry
+
+Command replies, canonical command hints, and local Lisp evaluation output are
+outside this change.

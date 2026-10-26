@@ -1079,8 +1079,8 @@ The caller must hold CONTROLLER's lock."
         (terminal-span
          (if failure ':failure ':notice)
          (if failure
-             (format nil "Vault storage error: ~A~%New submissions are blocked.~%" failure)
-             (format nil "~D follow-up/steer message~:P saved to vault.~%"
+             (format nil "· vault storage error: ~A~%New submissions are blocked.~%" failure)
+             (format nil "· ~D follow-up/steer message~:P saved to vault~%"
                      (application-recovery-input-vault--input-count captures))))
         (terminal-span ':dim "Use ")
         (terminal-span ':code "(vault)")

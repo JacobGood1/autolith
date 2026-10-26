@@ -1520,7 +1520,7 @@ user's input history, pending follow-ups, or recovery vault."
       (progn
         (application-present
          (application-input-controller-application controller)
-         "Recovered input storage is unavailable. Use (vault) to inspect it or (vault-discard) to discard the preserved input before submitting more work.")
+         "· recovered input storage is unavailable. Use (vault) to inspect it or (vault-discard) to discard the preserved input before submitting more work")
         nil)))
 
 (-> application-input-controller--admit-primary-prompt-locked
@@ -2516,7 +2516,11 @@ may execute immediately; other Lisp waits for the idle boundary."
           t)
       (prompt-error (condition)
         (unless (eq (prompt-error-reason condition) ':storage-unavailable)
-          (application-present application (autolith-error-message condition)))
+          (let ((message (autolith-error-message condition)))
+            (application-present
+             application
+             (format nil "· ~A"
+                     (string-downcase message :end (min 1 (length message)))))))
         nil))))
 
 (-> application-input-controller--handle-submission
@@ -2984,26 +2988,26 @@ sandbox grant is revalidated at this final authorization boundary."
          (progn
            (application-present
             application
-            (list (terminal-span ':dim "auto-permission sandbox")))
+            (list (terminal-span ':dim "· auto-permission sandbox")))
            ':sandboxed)
          (progn
            (application-present
             application
             (list (terminal-span
                    ':dim
-                   "auto-permission deny: the workspace sandbox became unavailable")))
+                   "· auto-permission deny: the workspace sandbox became unavailable")))
            ':deny)))
     (:full-access
      (application-present
       application
-      (list (terminal-span ':dim "auto-permission full access")))
+      (list (terminal-span ':dim "· auto-permission full access")))
      ':full-access)
     (:deny
      (application-present
       application
       (list (terminal-span
              ':dim
-             (format nil "auto-permission deny: ~A"
+             (format nil "· auto-permission deny: ~A"
                      (sanitize-text reason :single-line-p t)))))
      ':deny)))
 

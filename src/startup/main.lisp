@@ -226,7 +226,7 @@ the terminal wraps the semantic spans for both inline and fullscreen tips."
         (list
          (terminal-span
           ':notice
-          (format nil "Update available: Autolith ~A -> ~A.~%"
+          (format nil "· update available: Autolith ~A -> ~A~%"
                   current-version latest-version))
          (terminal-span
           ':dim
@@ -268,7 +268,7 @@ the terminal wraps the semantic spans for both inline and fullscreen tips."
            (application-present
             application
             (list (terminal-span ':dim
-                                 (format nil "Skipped Autolith ~A." (subseq tag 1))))))))))
+                                 (format nil "· skipped Autolith ~A" (subseq tag 1))))))))))
   nil)
 
 (-> application--expected-error-entry

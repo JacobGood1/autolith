@@ -571,7 +571,7 @@
                     (text        (format nil "~{~A~}"
                                          (mapcar #'terminal-span-text notice))))
                (test-assert
-                (and (search "Update available: Autolith" text)
+                (and (search "update available: Autolith" text)
                      (search "Choose whether to install" text))
                 "a packaged release receives the cached banner warning")
                (with-terminal-ui (active-ui ui)

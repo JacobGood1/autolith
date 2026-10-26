@@ -942,7 +942,7 @@
             (and (null (application-input-controller--state controller :work-items))
                  (null (application-input-controller--state
                         controller :steering-items))
-                 (search "Recovered input storage is unavailable"
+                 (search "recovered input storage is unavailable"
                          (recording-terminal-output terminal)))
             "disabled recovery storage rejects ordinary messages and commands")
            (test-assert
@@ -1011,7 +1011,7 @@
                  (null (application-input-controller--state controller :work-items))
                  (null (application-input-controller--state
                         controller :steering-items))
-                 (search "Recovered input storage is unavailable"
+                 (search "recovered input storage is unavailable"
                          (recording-terminal-output terminal)))
             "blocked recalled submission leaves the durable held follow-up selected")
            (multiple-value-bind (form complete-p)
@@ -1093,7 +1093,10 @@
                      entry)))
              (test-assert
               (and (eq (terminal-span-style summary) ':notice)
-                   (= (parse-integer (terminal-span-text summary) :junk-allowed t)
+                   (= (parse-integer
+                       (terminal-span-text summary)
+                       :start        (position-if #'digit-char-p (terminal-span-text summary))
+                       :junk-allowed t)
                       (first case)))
               "notice severity reports message totals rather than capture totals")
              (test-assert
