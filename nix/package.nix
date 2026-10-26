@@ -586,7 +586,7 @@ let
     pname = "autolith";
     version = lib.removeSuffix "\n" (builtins.readFile "${src}/VERSION");
     inherit src;
-    systems = [ "autolith" "autolith/tests" "autolith/structural" "autolith/debug" ];
+    systems = [ "autolith" "autolith/structural" "autolith/debug" ];
     lispLibs = with lispPackages; [
       agentcomms
       argo
@@ -600,7 +600,6 @@ let
       clTermdown
       dexador
       defingerprinter
-      fiveam
       fetchGist
       ironclad
       parenchek
@@ -712,6 +711,16 @@ let
   imageIdentity = pkgs.writeText "autolith-image-identity" ''
     ${autolithSystem}
   '';
+
+  # The test system and FiveAM are development dependencies. Only the flake's
+  # checks load them, from this variant, so the package never contains them.
+  autolithTests = autolithSystem.overrideLispAttrs (old: {
+    pname = "autolith-tests";
+    systems = old.systems ++ [ "autolith/tests" ];
+    lispLibs = old.lispLibs ++ (with lispPackages; [ fiveam ]);
+  });
+
+  testRuntime = pkgs.sbcl.withPackages (_: [ autolithTests ]);
 
   # Include the trusted native path in SBCL launches as well as the CLI, so
   # workers and checks inherit it without enabling diagnostics consent.
@@ -1004,7 +1013,7 @@ pkgs.writeShellApplication {
     tests.defingerprinter = defingerprinterChecks;
     inherit autolithSystem clColorist clExecSandbox clifff clinedi clJobpond
       colorlisp colorlispNativeLibrary fffLibrary idsmall imageIdentity
-      imageValidation runtime sandboxHelper sbclGenerations sbclSource mcparen
+      imageValidation runtime sandboxHelper sbclGenerations sbclSource mcparen testRuntime
       sbclWorkers sexpConfig sexpStore;
   };
 }

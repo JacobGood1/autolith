@@ -203,6 +203,8 @@
               touch "$out"
             '';
 
+            # The test runtime's ASDF environment describes the test variant, so
+            # the packaged launcher must start without inheriting it.
             acp-startup = pkgs.runCommand "autolith-acp-startup-check" {} ''
               export HOME="$TMPDIR/home"
               export XDG_CONFIG_HOME="$TMPDIR/config"
@@ -210,10 +212,11 @@
               export XDG_STATE_HOME="$TMPDIR/state"
               export XDG_CACHE_HOME="$TMPDIR/cache"
               mkdir -p "$HOME"
-              "${autolith.runtime}/bin/sbcl" \
+              "${autolith.testRuntime}/bin/sbcl" \
                 --noinform --no-sysinit --no-userinit --non-interactive \
-                --load "${autolith.runtime.asdfFasl}/asdf.${autolith.runtime.faslExt}" \
+                --load "${autolith.testRuntime.asdfFasl}/asdf.${autolith.testRuntime.faslExt}" \
                 --eval '(asdf:load-system :autolith/tests)' \
+                --eval '(dolist (name (list "ASDF_OUTPUT_TRANSLATIONS" "CL_SOURCE_REGISTRY")) (autolith::platform-unsetenv name))' \
                 --eval '(let ((result (autolith::acp-launcher-tests--initialize "${autolith}/bin/autolith" :arguments (quote ("acp")) :directory (uiop:ensure-directory-pathname (uiop:getenv "TMPDIR"))))) (assert (equal "autolith" (agentcomms:json-get (agentcomms:json-get result "agentInfo") "name"))) (assert (agentcomms:acp-capability-enabled-p (agentcomms:json-get result "agentCapabilities") "loadSession")))'
               touch "$out"
             '';
