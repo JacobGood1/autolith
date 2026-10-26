@@ -1761,16 +1761,17 @@ subscription route. Idle compaction uses the ordinary paid checkpoint and
 summary path. It can reduce the context sent after a long pause, but neither a
 cache hit nor a net saving is guaranteed.
 
-=(cache-misses t)= enables notices when cached input falls below half the
-previous prompt size, or cache reads stagnate as input grows and the shortfall
-against the previous prompt reaches both 4096 tokens and one sixteenth. Each
-notice starts with a red =!= and reports current uncached and total input tokens.
-Uncached input includes new messages and temporary context; it is not a
-measurement of repeated text. The cause is unknown. Model changes, idle intervals
-and smaller prompts are reported as local observations, not proof of eviction or
-routing failure. The first request after resuming a session or compacting is quiet
-and establishes a fresh baseline. The setting is off by default and persists
-across restarts.
+=(cache-misses t)= enables notices when cached reads fall by at least 128 tokens,
+including accumulated smaller losses, or remain flat while shared request history
+grows by at least 16,384 characters and one sixteenth of its reference size.
+Temporary context and newly offered history are excluded from shared growth.
+A cache miss reports measured lost reads; a stall reports shared-history growth
+in characters because its token count is unknown. Both show cached and total
+input tokens. Notices start with a red =!=. Model changes, idle intervals and
+smaller prompts are local observations, not proof of eviction or routing failure.
+The first request after resuming or compacting establishes a fresh baseline.
+Without comparable read counters or prefix measurements, no loss is inferred
+from total input. The setting is off by default and persists across restarts.
 
 In Responses requests, skill catalogs and selected skill instructions keep their
 first surviving history position instead of moving after each new message.

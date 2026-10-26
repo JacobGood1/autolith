@@ -14,6 +14,7 @@
   "Test anomalies measured on cached-prefix progression, their causes, and their lost reuse."
   (let ((baseline (make-instance 'prompt-cache-baseline
                                  :prompt-tokens 40000
+                                 :cached-tokens 40000
                                  :completed-at  1000
                                  :model         "model-a")))
     (dolist (case '((:model-changed 1010 "model-b" 41000 0 40000 10)
@@ -26,15 +27,16 @@
                      :started-at started-at :model model)))
           (test-assert
            (and miss
-                (eq (getf miss :kind) ':missed)
+                 (eq (getf miss :kind) ':shrunk)
                 (eq (getf miss :cause) cause)
                 (= (getf miss :lost-tokens) lost)
                 (= (getf miss :prompt-tokens) input)
                 (= (getf miss :cached-tokens) cached)
                 (eql (getf miss :idle-seconds) idle))
-           (format nil "~A is reported against a baseline without cache reads" cause)))))
+           (format nil "~A accompanies measured lost cache reads" cause)))))
     (dolist (case '((40000 nil 41000 39000 "mostly cached")
                     (40000 nil 41000 20000 "threshold boundary")
+                    (40000 nil 41000 0 "unknown previous cache counter")
                     (40000 nil 41000 nil "missing current cache counter")
                     (40000 30000 nil 0 "missing current input counter")
                     (500 0 600 0 "below the stall minimum")))
@@ -51,7 +53,7 @@
      (null (prompt-cache-miss-detect nil (prompt-cache-tests--usage 41000 0)))
      "no baseline means no comparative report")
     (let ((miss (prompt-cache-miss-detect
-                 (make-instance 'prompt-cache-baseline :prompt-tokens 40000)
+                 (make-instance 'prompt-cache-baseline :prompt-tokens 40000 :cached-tokens 40000)
                  (prompt-cache-tests--usage 41000 0)
                  :started-at 1010 :model "model-a")))
       (test-assert
@@ -60,7 +62,7 @@
        "a resumed baseline reports session provenance, not cache expiry"))
     ;; Each case: previous cached reads, current input, current cached reads,
     ;; the expected anomaly kind, and the reuse it lost.
-    (dolist (case '((63872 73000 63872 :stalled 8128)
+    (dolist (case '((63872 73000 63872 nil 0)
                     (63872 73000 63900 nil 0)
                     (63872 73000 64000 nil 0)
                     (63872 73000 70000 nil 0)
@@ -70,8 +72,8 @@
                     (69000 73000 68000 :shrunk 1000)
                     (72000 140000 72000 nil 0)
                     (nil 73000 63872 nil 0)
-                    (1024 73000 1024 :stalled 70976)
-                    (0 73000 0 :stalled 72000)
+                    (1024 73000 1024 nil 0)
+                    (0 73000 0 nil 0)
                     (1024 73000 20000 nil 0)))
       (destructuring-bind (previous-cached input cached kind lost) case
         (let ((miss (prompt-cache-miss-detect
@@ -89,15 +91,6 @@
                     (eq (getf miss :cause) ':unknown))
                (null miss))
            (format nil "cache reads ~S yield ~S" case kind)))))
-    (let ((miss (prompt-cache-miss-detect
-                 (make-instance 'prompt-cache-baseline
-                                :prompt-tokens 72000 :cached-tokens 0
-                                :completed-at 1000 :model "model-a")
-                 (prompt-cache-tests--usage 73000 0)
-                 :started-at 1010 :model "model-b")))
-      (test-assert
-       (and (eq (getf miss :kind) ':stalled) (eq (getf miss :cause) ':model-changed))
-       "a severe stall preserves an independently observed model change"))
     (let ((miss (prompt-cache-miss-detect
                  baseline
                  (append (prompt-cache-tests--usage 41000 0)
@@ -187,6 +180,142 @@
          "the newest usage with a prompt size seeds an untimed baseline"))))
   nil)
 
+(-> test-prompt-cache-prefix-progression () null)
+(defun test-prompt-cache-prefix-progression ()
+  "Exercise shared prefix measurements through request projection and application notices."
+  (with-test-configuration (configuration)
+    (let* ((conversation (conversation-create configuration :identifier "cache-prefix"))
+           (provider     (provider-create configuration))
+           (terminal     (make-instance 'recording-terminal :columns 100))
+           (ui           (terminal-ui-create :terminal terminal))
+           (application  (make-instance 'application :configuration configuration
+                                                    :conversation conversation :ui ui))
+           (observer     (application-agent-observer application))
+           (status       (callback-agent-observer-status-callback observer)))
+      (unwind-protect
+           (labels ((project (tail)
+                      "Capture the prefix of the actual Responses request with temporary TAIL."
+                      (let* ((prefix nil)
+                             (*provider-cache-prefix-function*
+                               (lambda (value) (setf prefix value))))
+                        (provider-request-object provider conversation #() :goal-context tail)
+                        prefix))
+
+                    (exchange (number)
+                      "Append an ordinary durable tool exchange."
+                      (let ((identifier (format nil "call-~D" number)))
+                        (conversation-append-provider-item
+                         conversation (json-object "type" "function_call" "call_id" identifier
+                                                   "name" "inspect" "arguments" "{}"))
+                        (conversation-append-provider-item
+                         conversation (json-object "type" "function_call_output"
+                                                   "call_id" identifier
+                                                   "output" (make-string 11200 :initial-element #\x)))))
+
+                    (complete (input cached prefix)
+                      "Complete a request carrying its usage and measured PREFIX."
+                      (recording-terminal-reset terminal)
+                      (funcall status :provider-request-started nil)
+                      (funcall status :provider-request-completed
+                               (list :usage        (prompt-cache-tests--usage input cached)
+                                     :cache-prefix prefix)))
+
+                    (noticed-p ()
+                      "Return whether a cache notice was presented."
+                      (let ((output (clinedi:ansi-strip (recording-terminal-output terminal))))
+                        (not (null (or (search "cache miss" output)
+                                       (search "cache stalled" output)))))))
+             (terminal-ui-start ui)
+             (setf (application-cache-miss-notices-p application) t)
+             (conversation-append-user-message
+              conversation (make-string 180000 :initial-element #\h))
+             (let ((first (project (make-string 88000 :initial-element #\a))))
+               (complete 67000 45000 first)
+               (exchange 1)
+               (let ((second (project (make-string 88000 :initial-element #\b))))
+                 (test-assert
+                  (provider-cache-prefix-extends-p first second)
+                  "changing temporary context preserves the measured history prefix")
+                 (complete 69800 45000 second)
+                 (test-assert (not (noticed-p))
+                              "45K cached history plus a new 2.8K exchange and 22K tail is healthy")
+                 (test-assert
+                  (equal second (prompt-cache-baseline-prefix
+                                 (application-prompt-cache-baseline application)))
+                  "the completion observer carries the projected prefix into the baseline")))
+             (exchange 2)
+             (complete 72600 45000 (project "temporary context changed again"))
+             (test-assert (not (noticed-p)) "small shared growth stays below the stall heuristic")
+             (exchange 3)
+             (let* ((prefix   (project "short tail"))
+                    (baseline (application-prompt-cache-baseline application))
+                    (usage    (prompt-cache-tests--usage 75400 45000))
+                    (miss     (prompt-cache-miss-detect baseline usage :prefix prefix)))
+               (test-assert
+                (and (eq (getf miss :kind) ':stalled)
+                     (null (getf miss :lost-tokens))
+                     (>= (getf miss :history-growth-characters)
+                         *prompt-cache-stall-minimum-characters*))
+                "a sustained plateau reports measured shared growth, not invented lost tokens")
+               (test-assert
+                (null (prompt-cache-miss-detect
+                       baseline usage :prefix (list :header "changed tools" :items (getf prefix :items))))
+                "a changed request header cannot establish reusable prefix growth")
+               (test-assert
+                (null (prompt-cache-miss-detect baseline (prompt-cache-tests--usage 75400 45028)
+                                                :prefix prefix))
+                "actual cache-read growth is progress")
+               (complete 75400 45000 prefix)
+               (test-assert (noticed-p) "sustained shared-history growth reaches the ledger")
+               (let ((counts (remove-if-not
+                              (lambda (span) (eq ':code (terminal-span-style span)))
+                              (application--prompt-cache-miss-notice miss))))
+                 (test-assert
+                  (equal (mapcar #'terminal-span-text counts)
+                         (mapcar #'application--token-count-description '(45000 75400)))
+                  "stall notices present only measured cache and input token quantities")))
+             (complete 100000 45000 (project (make-string 180000 :initial-element #\z)))
+             (test-assert (not (noticed-p))
+                          "a larger temporary tail cannot create another shared-growth notice"))
+        (ignore-errors (terminal-ui-stop ui)))))
+  nil)
+
+(-> test-prompt-cache-request-observation () null)
+(defun test-prompt-cache-request-observation ()
+  "Carry the projected prefix through a real agent loop without provider transport."
+  (with-test-configuration (configuration)
+    (let* ((conversation (conversation-create configuration :identifier "cache-observation"))
+           (provider     (provider-create configuration))
+           (agent        (agent-create :configuration configuration :provider provider
+                                       :conversation conversation :worker ':unused))
+           (completed    nil)
+           (observer
+             (callback-agent-observer-create
+              :status-callback
+              (lambda (status details)
+                (when (eq status ':provider-request-completed)
+                  (setf completed (getf details :cache-prefix)))))))
+      (test-call-with-function-replacements
+       (list
+        (list 'provider-stream-turn
+              (lambda (provider conversation &key tool-namespaces event-callback
+                                                  goal-context compaction-p)
+                (declare (ignore event-callback))
+                (provider-request-object provider conversation tool-namespaces
+                                         :goal-context goal-context :compaction-p compaction-p)
+                (make-instance 'provider-result
+                               :response-id     "cache-observation"
+                               :output-items nil :tool-calls nil
+                               :usage           (prompt-cache-tests--usage 1000 0)
+                               :turn-completion ':end))))
+       (lambda ()
+         (agent-run-user-turn agent "observe this request" :tools-p nil :observer observer)))
+      (test-assert
+       (and completed (= (length (getf completed :items)) 1)
+            (plusp (provider-cache-prefix-characters completed)))
+       "agent completion carries the fingerprinted user history, excluding temporary context")))
+  nil)
+
 (-> test-prompt-cache-miss-notices () null)
 (defun test-prompt-cache-miss-notices ()
   "Exercise compact colored cache-miss notices through the request lifecycle."
@@ -245,13 +374,14 @@
              (setf (application-prompt-cache-baseline application)
                    (make-instance 'prompt-cache-baseline
                                   :prompt-tokens 32000
+                                  :cached-tokens 32000
                                   :completed-at  (- (get-universal-time) 900)
                                   :model         (config :model configuration)))
              (request (prompt-cache-tests--usage 33000 0))
              (test-assert (notice-counts-p 32000 33000)
-                          "an idle miss reports the previous prompt it could not reuse")
+                          "an idle miss reports measured lost cache reads")
              (let* ((spans  (application--prompt-cache-miss-notice
-                              '(:kind :missed :lost-tokens 32000 :cached-tokens 0
+                              '(:kind :shrunk :lost-tokens 32000 :cached-tokens 0
                                 :prompt-tokens 33000)))
                     (counts (remove-if-not
                              (lambda (span) (eq ':code (terminal-span-style span))) spans)))
@@ -280,8 +410,8 @@
                                       (list "tools"
                                             (list (list "cached_tokens" 9221)
                                                   (list "input_tokens" 9221))))))))))
-             (test-assert (notice-counts-p 8128 73000)
-                          "a stalled cache reports the unread previous prompt and total input")
+             (test-assert (not (notice-p))
+                          "full-input growth alone cannot establish a stalled reusable prefix")
              (funcall send-status :compaction-completed nil)
              (test-assert
               (null (application-prompt-cache-baseline application))
@@ -298,19 +428,19 @@
                 (list :request-number 1
                       :usage          (prompt-cache-tests--usage 20000 19000)))
                (setf (application-conversation application) resumed)
-               (request (prompt-cache-tests--usage 21000 0))
+               (request (prompt-cache-tests--usage 21000 20000))
                (test-assert (not (notice-p))
                             "the first request after loading a conversation establishes a fresh baseline")
                (request (prompt-cache-tests--usage 22000 0))
-               (test-assert (notice-counts-p 21000 22000)
+               (test-assert (notice-counts-p 20000 22000)
                             "later misses compare against requests from this session")
                (setf (application-conversation application)
                      (conversation-load (conversation-pathname resumed)))
-               (request (prompt-cache-tests--usage 23000 0))
+               (request (prompt-cache-tests--usage 23000 22000))
                (test-assert (not (notice-p))
                             "resuming the same conversation again starts a fresh cache window")
                (request (prompt-cache-tests--usage 24000 0))
-               (test-assert (notice-counts-p 23000 24000)
+               (test-assert (notice-counts-p 22000 24000)
                             "same-conversation resume suppresses only its first request"))))
       (ignore-errors (terminal-ui-stop ui))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))

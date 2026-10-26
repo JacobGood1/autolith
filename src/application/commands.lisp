@@ -284,40 +284,40 @@ transcript renderer, including in fullscreen."
 
 (-> application--prompt-cache-miss-notice (list) list)
 (defun application--prompt-cache-miss-notice (miss)
-  "Return the reuse MISS lost, its cache reads, and any accompanying local observation."
-  (list (terminal-span ':failure "! ")
-        (terminal-span ':notice
-                       (case (getf miss :kind)
-                         (:stalled
-                          "cache stalled ")
-                         (otherwise
-                          "cache miss ")))
-        (terminal-span ':code
-                       (application--token-count-description (getf miss :lost-tokens)))
-        (terminal-span ':dim
-                       (case (getf miss :kind)
-                         (:shrunk
-                          " cached tokens lost · ")
-                         (otherwise
-                          " previous tokens not reused · ")))
-        (terminal-span ':code
-                       (application--token-count-description (getf miss :cached-tokens)))
-        (terminal-span ':dim " / ")
-        (terminal-span ':code
-                       (application--token-count-description (getf miss :prompt-tokens)))
-        (terminal-span ':dim " input tokens cached")
-        (terminal-span ':dim
-                       (case (getf miss :cause)
-                         (:model-changed
-                          " · model changed")
-                         (:idle
-                          " · idle interval exceeded local heuristic")
-                         (:prompt-shrank
-                          " · prompt size decreased")
-                         (:resumed
-                          " · resumed session")
-                         (otherwise
-                          "")))))
+  "Return measured lost reads or stalled shared-history growth, with current usage."
+  (append
+   (list (terminal-span ':failure "! ")
+         (terminal-span ':notice
+                        (if (eq (getf miss :kind) ':stalled)
+                            "cache stalled · "
+                            "cache miss ")))
+   (when (getf miss :lost-tokens)
+     (list (terminal-span ':code
+                          (application--token-count-description (getf miss :lost-tokens)))
+           (terminal-span ':dim " cached tokens lost · ")))
+   (list (terminal-span ':code
+                        (application--token-count-description (getf miss :cached-tokens)))
+         (terminal-span ':dim " / ")
+         (terminal-span ':code
+                        (application--token-count-description (getf miss :prompt-tokens)))
+         (terminal-span ':dim " input tokens cached"))
+   (when (eq (getf miss :kind) ':stalled)
+     (list (terminal-span ':dim
+                          (format nil " · shared history grew ~A characters"
+                                  (application--token-count-description
+                                   (getf miss :history-growth-characters))))))
+   (list (terminal-span ':dim
+                        (case (getf miss :cause)
+                          (:model-changed
+                           " · model changed")
+                          (:idle
+                           " · idle interval exceeded local heuristic")
+                          (:prompt-shrank
+                           " · prompt size decreased")
+                          (:resumed
+                           " · resumed session")
+                          (otherwise
+                           ""))))))
 
 (-> application-note-prompt-cache-request-started (application) null)
 (defun application-note-prompt-cache-request-started (application)
@@ -345,18 +345,20 @@ The completed request's usage becomes the next baseline whether or not the
 notice preference is on, so enabling it mid-session takes effect immediately."
   (application-idle-compaction-note-completed application (getf details :usage))
   (let* ((usage    (getf details :usage))
+         (prefix   (getf details :cache-prefix))
          (model    (application-prompt-cache-request-model application))
          (miss     (prompt-cache-miss-detect
                     (application-prompt-cache-baseline application)
                     usage
                     :started-at
                     (application-prompt-cache-request-started-at application)
-                    :model model))
+                    :model model :prefix prefix))
          (baseline (prompt-cache-baseline-advance
                     (application-prompt-cache-baseline application)
                     usage
                     :completed-at (get-universal-time)
                     :model        model
+                    :prefix       prefix
                     :reported-p   (not (null miss)))))
     (when baseline
       (setf (application-prompt-cache-baseline application) baseline))

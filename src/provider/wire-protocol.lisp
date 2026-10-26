@@ -28,6 +28,73 @@ The public OpenAI API retention contract does not establish this route's TTL."
         (provider-prompt-cache-retention-estimate provider))))
 
 
+;;;; -- Reusable Request Prefixes --
+
+(defparameter *provider-cache-prefix-function* nil
+  "A request-local callback receiving prefix fingerprints, or NIL outside observation.")
+
+(defmethod provider-request-object :around
+    ((provider model-provider) (projection cl-llm-provider-api:wire-request)
+     (tool-namespaces vector) &key goal-context compaction-p)
+  "Observe the projected prefix without its temporary suffix or retaining prompt text."
+  (declare (ignore goal-context))
+  (multiple-value-prog1 (call-next-method)
+    (when (and *provider-cache-prefix-function* (not compaction-p))
+      (funcall *provider-cache-prefix-function*
+               (provider-cache-prefix-create projection tool-namespaces)))))
+
+(-> provider-cache-prefix-create (cl-llm-provider-api:wire-request vector) list)
+(defun provider-cache-prefix-create (projection tool-namespaces)
+  "Fingerprint PROJECTION's instructions, tools and history, excluding its suffix.
+
+Entries contain only a digest and serialized character count. These measurements
+establish shared history growth, never the provider's token boundary."
+  (let ((options (cl-llm-provider-api:wire-request-options projection)))
+    (list :header
+          (first
+           (provider-cache-prefix--entry
+            (vector (cl-llm-provider-api:wire-request-model projection)
+                    (coerce (cl-llm-provider-api:wire-request-prefix projection) 'vector)
+                    tool-namespaces
+                    (getf options :reasoning-context)
+                    (getf options :reasoning-effort))))
+          :items
+          (map 'list #'provider-cache-prefix--entry
+               (cl-llm-provider-api:wire-request-items projection)))))
+
+(-> provider-cache-prefix-characters (list) (integer 0))
+(defun provider-cache-prefix-characters (prefix)
+  "Return the serialized history character count of PREFIX."
+  (reduce #'+ (getf prefix :items) :key #'second :initial-value 0))
+
+(-> provider-cache-prefix-shared-characters (list list) (integer 0))
+(defun provider-cache-prefix-shared-characters (previous current)
+  "Count unchanged leading history characters when instructions and tools match."
+  (if (and previous current (equal (getf previous :header) (getf current :header)))
+      (loop for old in (getf previous :items)
+            for new in (getf current :items)
+            while (equal old new)
+            sum (second old))
+      0))
+
+(-> provider-cache-prefix-extends-p (list list) boolean)
+(defun provider-cache-prefix-extends-p (previous current)
+  "Return whether CURRENT preserves all of PREVIOUS's reusable prefix."
+  (and previous current
+       (equal (getf previous :header) (getf current :header))
+       (= (provider-cache-prefix-shared-characters previous current)
+          (provider-cache-prefix-characters previous))
+       t))
+
+(-> provider-cache-prefix--entry (t) list)
+(defun provider-cache-prefix--entry (value)
+  "Return VALUE's JSON digest and character count without retaining the encoded text."
+  (let ((text (json-encode value)))
+    (list (ironclad:byte-array-to-hex-string
+           (ironclad:digest-sequence ':sha256 (utf8-string-to-octets text)))
+          (length text))))
+
+
 ;;;; -- Request Tool Filtering --
 
 (-> provider-hosted-web-search-tool-p (t) boolean)

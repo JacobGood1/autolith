@@ -1747,11 +1747,14 @@ loop, so compaction ahead of the user message shares the turn's budget."
                        (tool-registry-provider-schemas
                         (agent-tool-registry agent)))
                    #()))
+             (cache-prefix nil)
              (result
                (handler-case
                    (let ((*provider-hosted-tools-enabled-p*
                             (not tool-restriction-p))
                          (*provider-maximum-output-tokens* maximum-output-tokens)
+                         (*provider-cache-prefix-function*
+                           (lambda (prefix) (setf cache-prefix prefix)))
                          (*request-context-hurry-up-p*
                            (agent-hurry-up-p agent))
                          (*context-request-contributions*
@@ -1783,6 +1786,7 @@ loop, so compaction ahead of the user message shares the turn's budget."
                      :response-id       (provider-result-response-id result)
                      :usage             (agent--portable-value
                                          (provider-usage-normalize (provider-result-usage result)))
+                     :cache-prefix      cache-prefix
                      :output-item-count (length (provider-result-output-items result))
                      :tool-call-count   (length calls)
                      :turn-completion   (provider-result-turn-completion result))))

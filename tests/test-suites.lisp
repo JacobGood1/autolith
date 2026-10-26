@@ -468,6 +468,8 @@
   test-prompt-cache-miss-detection
   test-prompt-cache-small-losses
   test-prompt-cache-baseline-from-conversation
+  test-prompt-cache-prefix-progression
+  test-prompt-cache-request-observation
   test-prompt-cache-miss-notices
   test-cache-misses-command)
 
