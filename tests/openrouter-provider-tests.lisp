@@ -342,6 +342,54 @@
                        "other models keep their provider's own caching")))))
   nil)
 
+(-> test-openrouter-anchored-context-prefix () null)
+(defun test-openrouter-anchored-context-prefix ()
+  "Keep an anchored skill body in place before Claude's history breakpoint across tool rounds."
+  (with-test-environment (("AUTOLITH_OPENROUTER_PROVIDER_ROUTING" nil))
+    (let* ((*context-contributors*        nil)
+           (*context-resolver*            (cl-llm-provider-api:make-context-resolver))
+           (*context-last-deliveries*     (make-hash-table :test #'equal))
+           (*context-last-delivery-order* nil)
+           (body                          (concatenate 'string "ANCHORED-SKILL-BODY "
+                                                       (make-string 40000 :initial-element #\s)))
+           (configuration                 (openrouter-provider-test--configuration
+                                           :model (openrouter--model-name
+                                                   "anthropic/claude-haiku-4.5")))
+           (provider                      (openrouter-provider-create configuration))
+           (conversation                  (conversation-create configuration)))
+      (register-context-contributor
+       "openrouter-anchor-test"
+       (lambda (context)
+         (declare (ignore context))
+         (list (change-class (make-context-contribution :identifier "skill" :instruction body
+                                                          :class      ':mandatory)
+                             'anchored-context-contribution)
+               (make-context-contribution :identifier "state" :instruction "Mutable state."))))
+      (conversation-append-user-message conversation "Use the skill.")
+      (flet ((placement ()
+               "Return the index of the skill body's message and of the last cache breakpoint."
+               (let ((messages (json-get (provider-request-object provider conversation (json-array))
+                                         "messages")))
+                 (values (position-if (lambda (message) (search "ANCHORED-SKILL-BODY"
+                                                                (json-encode message)))
+                                      messages)
+                         (position-if (lambda (message) (search "cache_control"
+                                                                (json-encode message)))
+                                      messages :from-end t)))))
+        (multiple-value-bind (body-index marker-index) (placement)
+          (conversation-append-provider-item
+           conversation (json-object "type" "function_call" "name" "sample"
+                                     "call_id" "anchor-round" "arguments" "{}"))
+          (conversation-append-provider-item
+           conversation (json-object "type" "function_call_output"
+                                     "call_id" "anchor-round" "output" "done"))
+          (multiple-value-bind (next-body-index next-marker-index) (placement)
+            (test-assert (and body-index marker-index (<= body-index marker-index)
+                              (eql body-index next-body-index)
+                              (< next-body-index next-marker-index))
+                         "the skill body keeps its message inside the cached history"))))))
+  nil)
+
 (-> test-openrouter-routing-environment () null)
 (defun test-openrouter-routing-environment ()
   "Load and validate routing supplied through the process environment."

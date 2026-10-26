@@ -739,6 +739,7 @@
 
 (define-test-suite anthropic-provider
   anthropic-provider-test--selection
+  anthropic-provider-test--anchored-context-prefix
   anthropic-provider-test--tool-schemas
   anthropic-provider-test--thinking-continuation
   anthropic-provider-test--credential-source
@@ -786,6 +787,7 @@
   test-openrouter-routing-validation
   test-openrouter-provider-routing
   test-openrouter-cache-breakpoints
+  test-openrouter-anchored-context-prefix
   test-openrouter-routing-environment)
 
 (define-test-suite mistral-provider

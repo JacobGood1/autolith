@@ -198,6 +198,51 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
+(-> anthropic-provider-test--anchored-context-prefix () null)
+(defun anthropic-provider-test--anchored-context-prefix ()
+  "Keep an anchored skill body in place before the history cache marker across tool rounds."
+  (let* ((*context-contributors*        nil)
+         (*context-resolver*            (cl-llm-provider-api:make-context-resolver))
+         (*context-last-deliveries*     (make-hash-table :test #'equal))
+         (*context-last-delivery-order* nil)
+         (body                          (concatenate 'string "ANCHORED-SKILL-BODY "
+                                                     (make-string 40000 :initial-element #\s)))
+         (configuration                 (anthropic-provider-test--configuration))
+         (provider                      (anthropic-provider-create configuration))
+         (conversation                  (conversation-create configuration)))
+    (register-context-contributor
+     "anthropic-anchor-test"
+     (lambda (context)
+       (declare (ignore context))
+       (list (change-class (make-context-contribution :identifier "skill" :instruction body
+                                                          :class      ':mandatory)
+                           'anchored-context-contribution)
+             (make-context-contribution :identifier "state" :instruction "Mutable state."))))
+    (conversation-append-user-message conversation "Use the skill.")
+    (flet ((placement ()
+             "Return the index of the skill body's message and of the history cache marker."
+             (let ((messages (json-get (provider-request-object provider conversation #())
+                                       "messages")))
+               (values (position-if (lambda (message) (search "ANCHORED-SKILL-BODY"
+                                                              (json-encode message)))
+                                    messages)
+                       (position-if (lambda (message) (search "cache_control"
+                                                              (json-encode message)))
+                                    messages :from-end t)))))
+      (multiple-value-bind (body-index marker-index) (placement)
+        (conversation-append-provider-item
+         conversation (json-object "type" "function_call" "name" "sample"
+                                   "call_id" "anchor-round" "arguments" "{}"))
+        (conversation-append-provider-item
+         conversation (json-object "type" "function_call_output"
+                                   "call_id" "anchor-round" "output" "done"))
+        (multiple-value-bind (next-body-index next-marker-index) (placement)
+          (test-assert (and body-index marker-index (<= body-index marker-index)
+                            (eql body-index next-body-index)
+                            (< next-body-index next-marker-index))
+                       "the skill body keeps its message inside the cached history")))))
+  nil)
+
 (-> anthropic-provider-test--inherited-reference-order () null)
 (defun anthropic-provider-test--inherited-reference-order ()
   "Test that a child-reference boundary retains its transcript position."

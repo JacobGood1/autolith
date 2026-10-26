@@ -70,24 +70,24 @@ Return the encoded request and its unconsumed context delivery."
               (conversation-input-items-for-family
                conversation (provider-family provider) :include-ephemeral-p t))))
          (projection
-           (make-instance
-            'cl-llm-provider-api:wire-request
-            :model   (config :model configuration)
-            :items   durable-items
-            :prefix  (append
-                      (list (let ((*system-prompt-hosted-web-search-p* nil))
-                              (system-prompt configuration)))
-                      (when compaction-p (list *compaction-instructions*)))
-            :suffix  (append
-                      (when (and goal-context (not compaction-p))
-                        (list goal-context))
-                      (when (and delivery
-                                 (non-empty-string-p
-                                  (context-delivery-rendered delivery)))
-                        (list (context-delivery-rendered delivery))))
-            :options (list :ephemeral-items       ephemeral-items
-                           :maximum-output-tokens *provider-maximum-output-tokens*
-                           :cache-p               (not compaction-p)))))
+           ;; Anchored context joins the durable history before its cache
+           ;; marker; the goal and the rest of the context follow it.
+           (let ((items (context-delivery-project-items delivery conversation durable-items)))
+             (make-instance
+              'cl-llm-provider-api:wire-request
+              :model   (config :model configuration)
+              :items   items
+              :prefix  (append
+                        (list (let ((*system-prompt-hosted-web-search-p* nil))
+                                (system-prompt configuration)))
+                        (when compaction-p (list *compaction-instructions*)))
+              :suffix  (remove-if-not
+                        #'non-empty-string-p
+                        (list (and (not compaction-p) goal-context)
+                              (context-delivery-rendered-tail delivery)))
+              :options (list :ephemeral-items       ephemeral-items
+                             :maximum-output-tokens *provider-maximum-output-tokens*
+                             :cache-p               (not compaction-p))))))
     (values (provider-request-object provider projection effective-tools)
             delivery)))
 

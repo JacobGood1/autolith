@@ -154,6 +154,12 @@ OpenAI's explicit cache boundary, which otherwise lands on the trailing context.
                 *openrouter-cache-breakpoint-prefixes*)
       (list "cache_control" (json-object "type" "ephemeral")))))
 
+(defmethod openai-compatible-provider-anchored-context-p
+    ((provider openrouter-chat-completions-provider))
+  "Keep anchored context in the cached history; OpenRouter accepts system messages there."
+  (declare (ignore provider))
+  t)
+
 (defmethod provider-request-object :around
     ((provider openrouter-chat-completions-provider)
      (conversation conversation)

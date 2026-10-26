@@ -603,6 +603,17 @@ invoke request-local contributors merely to display idle context usage."
                                (context-contribution-evidence contribution)))))
                ordered)))))
 
+(-> context-delivery-rendered-tail ((option context-delivery)) (option string))
+(defun context-delivery-rendered-tail (delivery)
+  "Render DELIVERY's unanchored contributions as one block, or NIL when there are none.
+
+Requests that place all context after their last cache marker use this beside
+CONTEXT-DELIVERY-PROJECT-ITEMS, which already put the anchored blocks in history."
+  (and delivery
+       (context--render (remove-if (lambda (contribution)
+                                     (typep contribution 'anchored-context-contribution))
+                                   (context-delivery-contributions delivery)))))
+
 (-> context-delivery-project-items
     ((option context-delivery) conversation list)
     (values list list (option string)))
@@ -663,12 +674,8 @@ the one-request contributions together: they change on every delivery."
                         :index index
                         :item  (and after (context-anchors-item-digest after)))
                   anchors)
-            (push (json-object
-                   "role" "developer"
-                   "content" (json-array
-                              (json-object
-                               "type" "input_text"
-                               "text" (context--render (list contribution)))))
+            ;; A typed message, so every provider's history serializer keeps it.
+            (push (responses-developer-message (context--render (list contribution)))
                   (gethash after groups))))
         (dolist (message (reverse (gethash nil groups)))
           (push message projected))

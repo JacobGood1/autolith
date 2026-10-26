@@ -63,6 +63,19 @@ repeats. NIL leaves caching to the provider's own placement."))
   (declare (ignore provider configuration))
   nil)
 
+(defgeneric openai-compatible-provider-anchored-context-p (provider)
+  (:documentation
+   "Return true when PROVIDER accepts anchored context as system messages inside the history.
+
+Anchored context keeps its place in the cached prefix across requests. Without
+it, the complete rendered context follows the history, as every Chat Completions
+service accepts."))
+
+(defmethod openai-compatible-provider-anchored-context-p ((provider openai-compatible-provider))
+  "Keep all context after the history unless a provider is known to accept it there."
+  (declare (ignore provider))
+  nil)
+
 (defmethod provider-account-label ((provider openai-compatible-provider))
   "Return the configured OpenAI-compatible provider name."
   (openai-compatible-provider-display-name provider))
@@ -370,21 +383,25 @@ ask for a final usage chunk."
             (context-resolve-request configuration conversation request-namespaces
                                      :goal-context goal-context :compaction-p
                                      compaction-p)))
+         (history
+          (conversation-input-items-for-family conversation (provider-family provider)
+                                               :include-ephemeral-p (not compaction-p)))
          (projection
-          (make-instance 'cl-llm-provider-api::wire-request :model
-                         (config :model configuration) :items
-                         (conversation-input-items-for-family conversation
-                                                              (provider-family
-                                                               provider)
-                                                              :include-ephemeral-p
-                                                              (not compaction-p))
+          ;; Anchored context joins the history before its cache breakpoint where
+          ;; the provider accepts it there; the goal and other context follow.
+          (multiple-value-bind (items context)
+              (if (openai-compatible-provider-anchored-context-p provider)
+                  (values (context-delivery-project-items delivery conversation history)
+                          (context-delivery-rendered-tail delivery))
+                  (values history (and delivery (context-delivery-rendered delivery))))
+           (make-instance 'cl-llm-provider-api::wire-request :model
+                         (config :model configuration) :items items
                          :prefix
                          (list (system-prompt configuration)
                                (and compaction-p *compaction-instructions*))
                          :suffix
                          (unless compaction-p
-                           (list goal-context
-                                 (and delivery (context-delivery-rendered delivery))))
+                           (list goal-context context))
                          :options
                          (list :stream-usage-p
                                (openai-compatible-provider-stream-usage-p provider)
@@ -401,7 +418,7 @@ ask for a final usage chunk."
                                 provider)
                                :cache-breakpoint-fields
                                (openai-compatible-provider-cache-breakpoint-fields
-                                provider configuration)))))
+                                provider configuration))))))
     (values (provider-request-object provider projection effective-tools) delivery)))
 
 

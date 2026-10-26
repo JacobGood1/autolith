@@ -85,7 +85,8 @@ placement-only change; content is identical.
 
 Implementation update: Codex keeps the system prompt in top-level
 =instructions=. Opted-in anchored contributions (=A=, such as selected skills)
-are projected at their first surviving history boundary for every provider;
+are projected at their first surviving history boundary on Responses, Anthropic
+and OpenRouter requests;
 the goal and every other contribution follow the history as developer input
 items. An earlier revision also anchored the goal and tail at their first
 boundary, but any change to a mutable block (the agenda, background jobs, or
