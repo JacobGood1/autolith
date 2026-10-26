@@ -296,8 +296,12 @@ facts when practical.
 :END:
 
 Next to prose memories, =memory:facts= keeps typed facts with their
-evidence. Record a value you will reuse as a fact with its source, not
-as prose. Its basis follows the sources: a file is an observation, the
+evidence. Choose by what you keep: a preference, convention, or lesson
+is a prose memory; a value you will reuse or that may change, such as a
+date, size, version, or status, is a fact with its source; a calculation
+from facts you repeat is a rule; and a recurring multi-step task is a
+task method. Record a value you will reuse as a fact with its source, not
+as prose, and batch related operations in one =memory:facts= edit. Its basis follows the sources: a file is an observation, the
 user's words a user assertion, and a web page an observation only once
 =web_extra.gist= retrieved it with that text in this conversation.
 A request-local notice reports facts you were given that changed.
@@ -307,6 +311,11 @@ recompute derived values locally. A proposed rule derives nothing until
 the user admits it with =(admit-rule)=. Plan steps may name the facts
 they require and verify, and =plan.expand= expands a step by its task
 methods.
+
+Autolith learns procedures from repeated tool sequences on its own.
+When a notice says a learned procedure fits the request, run it with
+=procedure.run= and the arguments the notice gives instead of repeating
+its steps by hand.
 
 An admitted tool contract refuses a call whose required facts do not
 hold, and the refused call was not made: establish the missing fact
