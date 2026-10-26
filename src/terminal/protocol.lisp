@@ -50,6 +50,9 @@ mutation passes through TERMINAL-SET-DIMENSIONS.")
                     :styling-p-function #'terminal-environment-styling-p)
   (:documentation "Native stream transport with Autolith's input and styling policy."))
 
+(defparameter *terminal-program-status-application* "autolith"
+  "The application name of every OSC 7501 report Autolith sends.")
+
 (defclass terminal-ui ()
   ((lock
     :initform      (make-recursive-lock "Autolith terminal UI")
@@ -94,11 +97,11 @@ mutation passes through TERMINAL-SET-DIMENSIONS.")
     :type          (option function)
     :documentation "The function returning the title root status reports carry, or NIL.")
    (job-status-records
-    :initform nil
-    :accessor terminal-ui-job-status-records
-    :type     list
-    :documentation
-    "The job records last sent, as plists of :ID, :STATE, :TITLE and :MESSAGE, under UI's lock.")
+    :initform      (make-instance 'clinedi:program-status-records
+                                  :application *terminal-program-status-application*)
+    :reader        terminal-ui-job-status-records
+    :type          clinedi:program-status-records
+    :documentation "The job records reported to the terminal, used under UI's lock.")
    (prompt-marker-state
     :initform      ':closed
     :accessor      terminal-ui-prompt-marker-state
@@ -466,86 +469,24 @@ Autolith repaints its own prompt, so prompt starts disable terminal redraw."
 
 ;;;; -- Program Status Protocol --
 
-(-> terminal--program-status-text (string (integer 0)) string)
-(defun terminal--program-status-text (text limit)
-  "Encode control-free TEXT as base64 UTF-8 within LIMIT decoded bytes."
-  (let ((bytes 0))
-    (usb8-array-to-base64-string
-     (utf8-string-to-octets
-      (with-output-to-string (output)
-        (loop for character across text
-              for code = (char-code character)
-              unless (or (< code 32) (<= 127 code 159))
-                do (let ((size (length (utf8-string-to-octets (string character)))))
-                     (when (> (+ bytes size) limit)
-                       (return))
-                     (incf bytes size)
-                     (write-char character output))))))))
+;;; Clinedi encodes OSC 7501 reports and keeps their record sets; this layer
+;;; decides what each report says.
 
-(-> terminal--program-status-id-p (t) boolean)
-(defun terminal--program-status-id-p (id)
-  "Return true when ID is a bounded OSC 7501 record path."
-  (and (stringp id)
-       (<= 1 (length id) 128)
-       (loop with depth = 0
-             for start = 0 then (1+ end)
-             for end = (or (position #\/ id :start start) (length id))
-             always (and (<= (incf depth) 8)
-                         (<= 1 (- end start) 32)
-                         (loop for index from start below end
-                               for character = (char id index)
-                               always (or (find character "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.+-") nil)))
-             until (= end (length id)))
-       t))
-
-(-> terminal--program-status-record-sequence
-    ((option string) keyword &key (:kind (option keyword))
-     (:message (option string)) (:title (option string)) (:progress t))
+(-> terminal--program-status-sequence
+    (keyword &key (:kind (option keyword)) (:title (option string)))
     string)
-(defun terminal--program-status-record-sequence (id state &key kind message title progress)
-  "Return one OSC 7501 report for optional record ID and explicit STATE."
-  (let ((name (ecase state
-                (:idle
-                 "idle")
-                (:working
-                 "working")
-                (:done
-                 "done")
-                (:blocked
-                 "blocked")
-                (:error
-                 "error")
-                (:clear
-                 "clear"))))
-    (assert (or (null id) (terminal--program-status-id-p id)))
-    (assert (if (eq state ':blocked)
-                (member kind '(:permission :question :auth))
-                (null kind)))
-    (assert (or (null progress) (member state '(:working :blocked))))
-    (format nil "~C]7501;app=autolith:state=~A~A~A~A~A~A~C\\"
-            #\Escape name
-            (if id (format nil ":id=~A" id) "")
-            (if kind (format nil ":kind=~(~A~)" kind) "")
-            (if (typep progress '(integer 0 100)) (format nil ":progress=~D" progress) "")
-            (if message (format nil ":msg=~A" (terminal--program-status-text message 2048)) "")
-            (if title (format nil ":title=~A" (terminal--program-status-text title 192)) "")
-            #\Escape)))
+(defun terminal--program-status-sequence (state &key kind title)
+  "Return the OSC 7501 root report of Autolith in STATE."
+  (clinedi:program-status-sequence *terminal-program-status-application* state
+                                   :kind kind :title title))
 
 (-> terminal--program-status-record-text (list) string)
 (defun terminal--program-status-record-text (record)
   "Return the OSC 7501 report for job RECORD, a plist of :ID, :STATE, :TITLE and :MESSAGE."
-  (terminal--program-status-record-sequence
-   (getf record :id) (getf record :state)
-   :title (getf record :title) :message (getf record :message)))
-
-(-> terminal--program-status-sequence
-    (keyword &key (:kind (option keyword)) (:message (option string))
-                  (:title (option string)) (:progress t))
-    string)
-(defun terminal--program-status-sequence (state &key kind message title progress)
-  "Return one bounded OSC 7501 root report, omitting invalid progress values."
-  (terminal--program-status-record-sequence
-   nil state :kind kind :message message :title title :progress progress))
+  (clinedi:program-status-sequence *terminal-program-status-application* (getf record :state)
+                                   :id      (getf record :id)
+                                   :title   (getf record :title)
+                                   :message (getf record :message)))
 
 (-> terminal--program-status-outcome ((integer 0)) keyword)
 (defun terminal--program-status-outcome (status)

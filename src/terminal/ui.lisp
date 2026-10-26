@@ -2417,44 +2417,32 @@ does not change UI."
 
 (-> terminal-ui-report-job-statuses (terminal-ui list) null)
 (defun terminal-ui-report-job-statuses (ui records)
-  "Synchronize the newest 63 job RECORDS, plists of :ID, :STATE, :TITLE and :MESSAGE.
+  "Report job RECORDS, plists of :ID, :STATE, :TITLE and :MESSAGE, under UI's lock.
 
-Only changed records are sent, and records no longer present are cleared."
+Only changed records are sent and removed ones are cleared. A terminal that
+cannot show them keeps none."
   (with-terminal-ui-locked (ui)
-    (let* ((terminal (terminal-ui-terminal ui))
-           (previous (terminal-ui-job-status-records ui))
-           (current  (last records 63)))
-      (flet ((find-record (id records)
-               (find id records :key (lambda (record) (getf record :id)) :test #'string=)))
-        (if (terminal-interactive-p terminal)
-            (progn
-              (dolist (record previous)
-                (unless (find-record (getf record :id) current)
-                  (terminal--write terminal
-                                   (terminal--program-status-record-sequence
-                                    (getf record :id) ':clear))))
-              (dolist (record current)
-                (unless (equal record (find-record (getf record :id) previous))
-                  (terminal--write terminal (terminal--program-status-record-text record))))
-              (setf (terminal-ui-job-status-records ui) current)
-              (when (or previous current)
-                (terminal-flush terminal)))
-            (setf (terminal-ui-job-status-records ui) nil)))))
+    (let ((terminal (terminal-ui-terminal ui))
+          (set      (terminal-ui-job-status-records ui)))
+      (if (terminal-interactive-p terminal)
+          (let ((controls (clinedi:program-status-records-update set records)))
+            (when (plusp (length controls))
+              (terminal--write terminal controls)
+              (terminal-flush terminal)))
+          (clinedi:program-status-records-reset set))))
   nil)
 
 (-> terminal-ui-replay-job-statuses (terminal-ui) null)
 (defun terminal-ui-replay-job-statuses (ui)
   "Restore working job records after a semantic prompt expires active records."
   (with-terminal-ui-locked (ui)
-    (let ((terminal  (terminal-ui-terminal ui))
-          (changed-p nil))
+    (let ((terminal (terminal-ui-terminal ui)))
       (when (terminal-interactive-p terminal)
-        (dolist (record (terminal-ui-job-status-records ui))
-          (when (eq (getf record :state) ':working)
-            (terminal--write terminal (terminal--program-status-record-text record))
-            (setf changed-p t)))
-        (when changed-p
-          (terminal-flush terminal)))))
+        (let ((controls (clinedi:program-status-records-replay
+                         (terminal-ui-job-status-records ui))))
+          (when (plusp (length controls))
+            (terminal--write terminal controls)
+            (terminal-flush terminal))))))
   nil)
 
 (-> terminal-ui-report-program-status

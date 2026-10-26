@@ -2694,48 +2694,6 @@ Resize tests drive size changes through COLUMNS and LINES."
 
 ;;;; -- Program Status Protocol --
 
-(-> test-terminal-program-status-wire () null)
-(defun test-terminal-program-status-wire ()
-  "Check OSC 7501 framing, UTF-8 limits, and control removal."
-  (dolist (case '((:idle nil) (:working nil) (:done nil) (:error nil)
-                  (:clear nil) (:blocked :permission) (:blocked :question) (:blocked :auth)))
-    (destructuring-bind (state kind) case
-      (let ((report (terminal--program-status-sequence state :kind kind)))
-        (test-assert
-         (and (string= report (format nil "~C]7501;app=autolith:state=~(~A~)~A~C\\"
-                                     #\Escape state
-                                     (if kind (format nil ":kind=~(~A~)" kind) "") #\Escape))
-              (<= (length report) 4096))
-         "each root state has valid framing and application identity"))))
-  (let* ((text    (concatenate 'string "é" (string #\Tab) (string (code-char 159))
-                               (make-string 2048 :initial-element #\界)))
-         (message (terminal--program-status-text text 2048))
-         (title   (terminal--program-status-text text 192))
-         (decoded (babel:octets-to-string (base64-string-to-usb8-array message)
-                                          :encoding ':utf-8)))
-    (test-assert
-     (and (string= decoded (concatenate 'string "é" (make-string 682 :initial-element #\界)))
-          (= (length (base64-string-to-usb8-array message)) 2048)
-          (<= (length message) 2732)
-          (<= (length title) 256)
-          (<= (length (base64-string-to-usb8-array title)) 192)
-          (<= (length (terminal--program-status-sequence
-                       ':working :message text :title text :progress 0)) 4096))
-     "text fields remove controls and truncate at complete UTF-8 character boundaries"))
-  (test-assert
-   (search ":progress=100" (terminal--program-status-sequence ':blocked :kind ':auth :progress 100))
-   "known progress is an integer on a working or blocked report")
-  (dolist (state '(:working :blocked))
-    (dolist (progress (list nil -1 101 (expt 10 10000) 1/2 50.0 "50" ':unknown))
-      (let* ((text   (make-string 2048 :initial-element #\界))
-             (report (terminal--program-status-sequence
-                      state :kind (when (eq state ':blocked) ':question)
-                      :progress progress :message text :title text)))
-        (test-assert (and (null (search ":progress=" report))
-                          (<= (length report) 4096))
-                     "invalid progress is omitted even with maximum-size text fields"))))
-  nil)
-
 (-> test-terminal-program-status-lifecycle () null)
 (defun test-terminal-program-status-lifecycle ()
   "Exercise root reports in inline, fullscreen, and noninteractive sessions."
@@ -2812,16 +2770,6 @@ Resize tests drive size changes through COLUMNS and LINES."
 (-> test-terminal-job-status-records () null)
 (defun test-terminal-job-status-records ()
   "Check record paths, both job types, lifecycle states, and bounded capacity."
-  (dolist (id '("jobs/0123456789abcdef0123456789abcdef" "a_b.c+d-e"))
-    (test-assert (terminal--program-status-id-p id) "valid paths encode"))
-  (dolist (id (list "" "/a" "a/" "a//b" "a:b" "a=b"
-                    (make-string 33 :initial-element #\a)
-                    "a/b/c/d/e/f/g/h/i"))
-    (test-assert (not (terminal--program-status-id-p id)) "invalid paths fail")
-    (test-assert
-     (handler-case (progn (terminal--program-status-record-sequence id ':working) nil)
-       (error () t))
-     "the encoder rejects invalid paths"))
   (dolist (class '(task-job tool-execution-job))
     (let ((job (terminal-tests--status-job class 1)))
       (dolist (case '((:queued :working) (:running :working) (:completed :done)
@@ -2834,9 +2782,8 @@ Resize tests drive size changes through COLUMNS and LINES."
              (and (string= (getf report :id) "jobs/00000000000000000000000000000001")
                   (search (format nil ":state=~(~A~)" (second case)) text)
                   (eq active-p (eq (second case) ':working))
-                  (search (terminal--program-status-text
-                           (if (eq class 'task-job) "Visible job" "Visible tool") 192)
-                          text)
+                  (equal (getf report :title)
+                         (if (eq class 'task-job) "Visible job" "Visible tool"))
                   (not (search ":progress=" text)))
              "job identity, state and short title form one independent record"))))))
   (let* ((active   (terminal-tests--status-job 'task-job 1))
@@ -2887,11 +2834,11 @@ Resize tests drive size changes through COLUMNS and LINES."
       (test-assert (string= "" (recording-terminal-output terminal))
                    "completed records do not replay")
       (terminal-ui-report-job-statuses other nil)
-      (test-assert (terminal-ui-job-status-records active)
+      (test-assert (clinedi:program-status-records-current (terminal-ui-job-status-records active))
                    "another UI cannot remove these records")
       (terminal-ui-report-job-statuses active nil)
       (test-assert
-       (and (search (terminal--program-status-record-sequence (getf done :id) ':clear)
+       (and (search (terminal--program-status-record-text (list :id (getf done :id) :state ':clear))
                     (recording-terminal-output terminal))
             (not (search (terminal--program-status-sequence ':clear)
                          (recording-terminal-output terminal))))
@@ -2906,8 +2853,9 @@ Resize tests drive size changes through COLUMNS and LINES."
         (recording-terminal-reset terminal)
         (terminal-ui-report-job-statuses active reports)
         (test-assert
-         (and (= 63 (length (terminal-ui-job-status-records active)))
-              (search (terminal--program-status-record-sequence (getf working :id) ':clear)
+         (and (= 63 (length (clinedi:program-status-records-current
+                                (terminal-ui-job-status-records active))))
+              (search (terminal--program-status-record-text (list :id (getf working :id) :state ':clear))
                       (recording-terminal-output terminal)))
          "capacity eviction clears the old record and bounds the cache"))
       (recording-terminal-reset terminal)
@@ -2915,7 +2863,8 @@ Resize tests drive size changes through COLUMNS and LINES."
       (terminal-ui-report-job-statuses active (list working))
       (terminal-ui-replay-job-statuses active)
       (test-assert (and (string= "" (recording-terminal-output terminal))
-                        (not (terminal-ui-job-status-records active)))
+                        (null (clinedi:program-status-records-current
+                               (terminal-ui-job-status-records active))))
                    "a noninteractive transport writes no reports and drops its cache")
       (setf (terminal-interactive-p terminal) t)))
   nil)

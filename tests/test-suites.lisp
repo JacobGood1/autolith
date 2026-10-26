@@ -1138,7 +1138,6 @@
   test-terminal-primary-screen-controls
   test-terminal-nonblocking-lock-interrupt
   test-terminal-prompt-markers
-  test-terminal-program-status-wire
   test-terminal-job-status-records
   test-terminal-job-status-transport
   test-application-job-program-status

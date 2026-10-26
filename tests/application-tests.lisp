@@ -9517,7 +9517,7 @@
                (recording-terminal-reset terminal)
                (terminal-ui-report-program-status active ':working)
                (test-assert
-                (search (format nil ":title=~A" (terminal--program-status-text title 192))
+                (search (format nil ":title=~A" (clinedi:program-status-text title 192))
                         (recording-terminal-output terminal))
                 "each root report reads the current conversation title")))
            (setf owned (task-tests--register-job orchestrator primary definition
@@ -9548,10 +9548,12 @@
              (recording-terminal-reset terminal)
              (application-disconnect-task-presentation application)
              (test-assert
-              (and (search (terminal--program-status-record-sequence
-                            (getf (application--job-program-status-report owned) :id) ':clear)
+              (and (search (terminal--program-status-record-text
+                            (list :id    (getf (application--job-program-status-report owned) :id)
+                                  :state ':clear))
                            (recording-terminal-output terminal))
-                   (null (terminal-ui-job-status-records active)))
+                   (null (clinedi:program-status-records-current
+                          (terminal-ui-job-status-records active))))
               "disconnect clears owned records and their cache")
              (recording-terminal-reset terminal)
              (funcall listener ':task-subagent-progress (list :id (job-identifier owned)))
