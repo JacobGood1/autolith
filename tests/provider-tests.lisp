@@ -1021,6 +1021,17 @@
           (incf (test-character-input-stream-position stream)))
         :eof)))
 
+(defclass test-tls-eof-stream (test-character-input-stream)
+  ()
+  (:documentation "A provider stream that signals an unclean TLS EOF after its source."))
+
+(defmethod trivial-gray-streams:stream-read-char ((stream test-tls-eof-stream))
+  "Read the scripted input, then signal the OpenSSL unexpected-EOF condition."
+  (let ((character (call-next-method)))
+    (if (eq character ':eof)
+        (error (provider-tests--tls-eof-condition))
+        character)))
+
 (defclass test-failing-close-stream (test-character-input-stream)
   ((close-abort-p
     :initform      nil
@@ -1073,6 +1084,8 @@
   (incf (test-transport-provider-attempt-count provider))
   (let ((outcome (pop (test-transport-provider-outcomes provider))))
     (cond
+      ((typep outcome 'condition)
+       (error outcome))
       ((eq outcome ':syscall)
        (error 'ssl-error-syscall
               :queue         nil
@@ -1106,6 +1119,8 @@
   (incf (test-transport-provider-attempt-count provider))
   (let ((outcome (pop (test-transport-provider-outcomes provider))))
     (cond
+      ((typep outcome 'condition)
+       (error outcome))
       ((eq outcome ':name-service)
        (error 'sb-bsd-sockets:name-service-error
               :errno   1
@@ -1118,6 +1133,15 @@
        (error 'test-provider-tls-error :detail (second outcome)))
       (t
        (values outcome 200 nil)))))
+
+(-> provider-tests--tls-eof-condition () cl+ssl::ssl-error-ssl)
+(defun provider-tests--tls-eof-condition ()
+  "Return the pinned cl+ssl condition for an OpenSSL 3+ unclean peer EOF."
+  (make-condition 'cl+ssl::ssl-error-ssl
+                  :handle        nil
+                  :ret           1
+                  :queue         nil
+                  :printed-queue "00000000:error:0A000126:SSL routines::unexpected eof while reading:ssl/record/example.c:1:"))
 
 (-> provider-tests--completed-sse-source (string) string)
 (defun provider-tests--completed-sse-source (response-id)
@@ -1187,6 +1211,83 @@
                          "both request modes reach transport and complete with a callback")
             (test-assert (= memory-notices (if compaction-p 0 1))
                          "only ordinary requests announce their selected memories"))))))
+  nil)
+
+(-> test-provider-tls-eof-recovery () null)
+(defun test-provider-tls-eof-recovery ()
+  "Reconnect on TLS EOF across authenticated opens, SSE reads, and native compaction."
+  (with-test-configuration (configuration)
+    (let* ((conversation (conversation-create configuration))
+           (credentials  (provider-tests--credentials configuration))
+           (*bounded-retry-sleep-function*
+             (lambda (seconds)
+               (declare (ignore seconds)))))
+      (conversation-append-user-message conversation "continue after reconnecting")
+      (dolist (boundary '(:open :stream-before-output :stream-after-output :native))
+        (let* ((native-p (eq boundary ':native))
+               (output-p (eq boundary ':stream-after-output))
+               (first-outcome
+                 (if (member boundary '(:open :native))
+                     (provider-tests--tls-eof-condition)
+                     (make-instance
+                      'test-tls-eof-stream
+                      :source
+                      (concatenate
+                       'string
+                       (test-sse-event-string
+                        (json-object "type" "response.created"
+                                     "response" (json-object "id" "failed-tls-response")))
+                       (if output-p
+                           (test-sse-event-string
+                            (json-object "type" "response.output_text.delta" "delta" "partial"))
+                           "")))))
+               (success-outcome
+                 (if native-p
+                     (json-encode
+                      (json-object "output"
+                                   (json-array
+                                    (json-object "type" "compaction"
+                                                 "encrypted_content" "tls-checkpoint"))))
+                     (make-instance
+                      'test-character-input-stream
+                      :source (provider-tests--completed-sse-source "tls-reconnected"))))
+               (provider
+                 (provider-tests--transport-provider
+                  configuration (list first-outcome success-outcome)))
+               (events   nil))
+          (credential-source-save
+           (credential-manager-primary-source (provider-credential-manager provider))
+           credentials)
+          (let ((result
+                  (if native-p
+                      (provider-native-compact-conversation
+                       provider conversation
+                       :tool-namespaces #()
+                       :event-callback  (lambda (event) (push event events)))
+                      (provider-stream-turn
+                       provider conversation
+                       :tool-namespaces #()
+                       :event-callback  (lambda (event) (push event events))))))
+            (test-assert
+             (and (= (test-transport-provider-attempt-count provider) 2)
+                  (if native-p
+                      (and (native-compaction-item-p result)
+                           (string= (json-get result "encrypted_content") "tls-checkpoint"))
+                      (string= (provider-result-response-id result) "tls-reconnected")))
+             "each TLS EOF boundary reconnects and returns the next successful response"))
+          (let ((failures
+                  (remove-if-not
+                   (lambda (event) (typep event 'provider-attempt-failed-event)) events)))
+            (test-assert
+             (and (= (length failures) 1)
+                  (provider-attempt-failed-event-retryable-p (first failures))
+                  (typep (provider-attempt-failed-event-condition (first failures))
+                         'provider-transport-error)
+                  (eq (provider-attempt-failed-event-output-received-p (first failures)) output-p))
+             "TLS EOF retains its retryable transport class and observed output state"))
+          (test-assert
+           (= (count-if (lambda (event) (typep event 'provider-retry-event)) events) 2)
+           "each TLS EOF schedules one bounded reconnect")))))
   nil)
 
 (-> test-provider-transport-boundary () null)

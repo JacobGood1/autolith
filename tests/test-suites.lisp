@@ -694,6 +694,7 @@
   test-provider-rate-limits
   test-provider-context-presentation
   test-provider-transport-boundary
+  test-provider-tls-eof-recovery
   test-provider-codex-request-headers
   test-provider-usage-limit-terminal
   test-provider-credential-echo-containment
