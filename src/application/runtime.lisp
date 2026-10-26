@@ -600,10 +600,18 @@ exchange without scrolling through reasoning and tool activity.")
   (application--wake-input-controller application)
   nil)
 
-(-> application--create-tool-registry (configuration) tool-registry)
-(defun application--create-tool-registry (configuration)
-  "Create one complete registry and close its base runtimes on later failure."
+(-> application--create-tool-registry
+    (configuration &key (:shared-mcp-manager (option mcp-manager)))
+    (values tool-registry list))
+(defun application--create-tool-registry (configuration &key shared-mcp-manager)
+  "Create one complete registry and close its base runtimes on later failure.
+
+The registry binds SHARED-MCP-MANAGER instead of connecting its servers again
+when that manager still serves CONFIGURATION. The second value lists the shared
+runtimes the registry did not create, which its owner must neither close nor
+lose: an empty list, or SHARED-MCP-MANAGER alone."
   (let ((registry    nil)
+        (retained    nil)
         (completed-p nil))
     (unwind-protect
          (progn
@@ -614,16 +622,19 @@ exchange without scrolling through reasoning and tool activity.")
            (setf registry
                  (task-augment-tool-registry registry))
            (multiple-value-bind (augmented manager)
-               (mcp-tool-registry-augment registry configuration)
-             (declare (ignore manager))
+               (mcp-tool-registry-augment registry configuration
+                                          :shared-manager shared-mcp-manager)
+             (when (and manager (eq manager shared-mcp-manager))
+               (setf retained (list manager)))
              (setf registry augmented
                    completed-p t)
-             registry))
+             (values registry retained)))
       (unless completed-p
         (when registry
           ; mallet:suppress no-ignore-errors -- best-effort cleanup of an incomplete registry
           (ignore-errors
-            (tool-registry-close-runtime-state registry)))))))
+            (tool-registry-close-runtime-state
+             registry :retain (and shared-mcp-manager (list shared-mcp-manager)))))))))
 
 (-> application--extension-registry-snapshot () list)
 (defun application--extension-registry-snapshot ()
@@ -1526,22 +1537,31 @@ command replaced the active conversation."
   nil)
 
 (-> application--prepare-runtime-replacement
-    (application configuration conversation)
-    (values model-provider tool-registry agent))
+    (application configuration conversation &key (:share-mcp-p boolean))
+    (values model-provider tool-registry agent list))
 (defun application--prepare-runtime-replacement
-    (application configuration conversation)
-  "Prepare a fresh provider, registry, and agent without touching APPLICATION."
+    (application configuration conversation &key share-mcp-p)
+  "Prepare a fresh provider, registry, and agent without touching APPLICATION.
+
+With SHARE-MCP-P, the new registry shares the current registry's MCP manager
+when it still serves CONFIGURATION. The fourth value lists such shared
+runtimes, which the replacement must retain while retiring the old registry."
   (let ((registry    nil)
+        (retained    nil)
         (completed-p nil))
     (unwind-protect
          (let* ((previous-provider (application-provider application))
+                (previous-registry (application-tool-registry application))
                 (provider
                   (if previous-provider
                       (provider-with-configuration
                        previous-provider configuration)
                       (provider-create configuration))))
-           (setf registry
-                 (application--create-tool-registry configuration))
+           (multiple-value-setq (registry retained)
+             (application--create-tool-registry
+              configuration
+              :shared-mcp-manager (and share-mcp-p previous-registry
+                                       (mcp-tool-registry-manager previous-registry))))
            (let ((agent
                    (agent-create
                     :configuration configuration
@@ -1551,12 +1571,12 @@ command replaced the active conversation."
                      :hurry-up-p   (application-hurry-up-p application)
                     :worker        (application-worker application))))
              (setf completed-p t)
-             (values provider registry agent)))
+             (values provider registry agent retained)))
       (unless completed-p
         (when registry
           ; mallet:suppress no-ignore-errors -- best-effort cleanup of an incomplete registry
           (ignore-errors
-            (tool-registry-close-runtime-state registry)))))))
+            (tool-registry-close-runtime-state registry :retain retained)))))))
 
 (-> application--working-directory-failure
     (&key (:requested-path t)
@@ -1809,6 +1829,7 @@ command replaced the active conversation."
          (provider                    nil)
          (registry                    nil)
          (agent                       nil)
+         (retained                    nil)
          (application-swapped-p       nil)
          (retirement-started-p        nil)
          (presentation-disconnected-p nil)
@@ -1817,9 +1838,9 @@ command replaced the active conversation."
          (failure                     nil)
          (failure-stage               ':retire)
          (rollback-failures           nil))
-    (multiple-value-setq (provider registry agent)
+    (multiple-value-setq (provider registry agent retained)
       (application--prepare-runtime-replacement
-       application configuration conversation))
+       application configuration conversation :share-mcp-p t))
     (unwind-protect
          (handler-case
              (progn
@@ -1828,7 +1849,8 @@ command replaced the active conversation."
                (application-disconnect-task-presentation application)
                (setf presentation-disconnected-p t)
                (multiple-value-bind (completed retirement-failure)
-                   (tool-registry-quiesce-runtime-state previous-registry)
+                   (tool-registry-quiesce-runtime-state
+                    previous-registry :retain retained)
                  (setf quiesced-tools completed)
                  (when retirement-failure
                    (error retirement-failure)))
@@ -1893,7 +1915,7 @@ command replaced the active conversation."
               (push condition rollback-failures))))
         (when registry
           (handler-case
-              (tool-registry-close-runtime-state registry)
+              (tool-registry-close-runtime-state registry :retain retained)
             (serious-condition (condition)
               (push condition rollback-failures))))
         (when retirement-started-p

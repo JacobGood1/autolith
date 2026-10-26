@@ -6482,6 +6482,82 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
+(-> test-application-conversation-switch-mcp-sharing () null)
+(defun test-application-conversation-switch-mcp-sharing ()
+  "Test conversation switching keeps unchanged MCP connections and replaces changed ones."
+  (let* ((configuration (test-configuration))
+         (root          (test-configuration-root configuration))
+         (registrations (mcp--registry-snapshot))
+         (registries    nil))
+    (unwind-protect
+         (progn
+           (mcp--registry-restore nil)
+           (register-mcp-server
+            '(:name "switch-shared"
+              :transport (:type :stdio :command "/autolith-tests/no-such-mcp-server")
+              :startup-timeout-seconds 1)
+            :source ':user)
+           (let* ((registry     (application--create-tool-registry configuration))
+                  (manager      (mcp-tool-registry-manager registry))
+                  (runtime      (first (mcp-manager-runtimes manager)))
+                  (provider     (provider-create configuration))
+                  (conversation (conversation-create configuration :identifier "mcp-first"))
+                  (application
+                    (make-instance
+                     'application
+                     :configuration configuration
+                     :conversation  conversation
+                     :provider      provider
+                     :tool-registry registry
+                     :worker        nil
+                     :agent         (agent-create :configuration configuration
+                                                  :provider      provider
+                                                  :conversation  conversation
+                                                  :tool-registry registry
+                                                  :worker        nil)
+                     :ui            nil)))
+             (push registry registries)
+             (flet ((install (identifier)
+                      (application-install-conversation
+                       application (conversation-create configuration :identifier identifier))
+                      (push (application-tool-registry application) registries)
+                      (mcp-tool-registry-manager (application-tool-registry application))))
+               (test-assert (eq ':failed (mcp-server-runtime-state runtime))
+                            "the fixture server records its startup failure")
+               (test-assert (and (eq manager (install "mcp-second"))
+                                 (eq ':failed (mcp-server-runtime-state runtime)))
+                            "switching with unchanged MCP servers keeps their manager open")
+               (let ((current (application-tool-registry application)))
+                 (test-call-with-function-replacements
+                  (list (list 'application--load-goal
+                              (lambda (application)
+                                (declare (ignore application))
+                                (error "late conversation install failure"))))
+                  (lambda ()
+                    (test-assert (handler-case (progn (install "mcp-failed") nil)
+                                   (application-runtime-replacement-error () t))
+                                 "an injected install failure rolls the switch back")))
+                 (test-assert (and (eq current (application-tool-registry application))
+                                   (eq manager (mcp-tool-registry-manager current))
+                                   (eq ':failed (mcp-server-runtime-state runtime)))
+                              "a rolled back switch leaves the shared manager open and owned"))
+               (register-mcp-server
+                '(:name "switch-added"
+                  :transport (:type :stdio :command "/autolith-tests/no-such-mcp-server")
+                  :startup-timeout-seconds 1)
+                :source ':user)
+               (let ((replacement (install "mcp-third")))
+                 (test-assert (and replacement
+                                   (not (eq replacement manager))
+                                   (eq ':disconnected (mcp-server-runtime-state runtime)))
+                              "changed MCP servers get a new manager and close the old one")))))
+      (dolist (registry registries)
+        (handler-case (tool-registry-close-runtime-state registry)
+          (serious-condition () nil)))
+      (mcp--registry-restore registrations)
+      (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
+  nil)
+
 (define-condition application-test-runtime-retirement-interruption
     (serious-condition)
   ()
@@ -6673,8 +6749,8 @@
             (list
              (list
               'application--create-tool-registry
-              (lambda (configuration)
-                (declare (ignore configuration))
+              (lambda (configuration &key shared-mcp-manager)
+                (declare (ignore configuration shared-mcp-manager))
                 workspace-registry))
              (list
               'lisp-worker-manager-change-working-directory
@@ -6729,8 +6805,8 @@
                 (list
                  (list
                   'application--create-tool-registry
-                  (lambda (configuration)
-                    (declare (ignore configuration))
+                  (lambda (configuration &key shared-mcp-manager)
+                    (declare (ignore configuration shared-mcp-manager))
                     (error
                      'mcp-server-startup-error
                      :message     "Required MCP server failed."
@@ -6785,8 +6861,8 @@
                (list
                 (list
                  'application--create-tool-registry
-                 (lambda (configuration)
-                   (declare (ignore configuration))
+                 (lambda (configuration &key shared-mcp-manager)
+                   (declare (ignore configuration shared-mcp-manager))
                    conversation-registry))
                 (list
                  'application-publish-recovery-session
@@ -6871,8 +6947,8 @@
                    (list
                     (list
                      'application--create-tool-registry
-                     (lambda (configuration)
-                       (declare (ignore configuration))
+                     (lambda (configuration &key shared-mcp-manager)
+                       (declare (ignore configuration shared-mcp-manager))
                        failed-registry))
                     (list
                      'context-runtime-reset
@@ -6930,8 +7006,8 @@
                               identifier))))
                     (list
                      'application--create-tool-registry
-                     (lambda (configuration)
-                       (declare (ignore configuration))
+                     (lambda (configuration &key shared-mcp-manager)
+                       (declare (ignore configuration shared-mcp-manager))
                        (error
                         'mcp-server-startup-error
                         :message     "Required MCP server failed."
@@ -7054,8 +7130,8 @@
             (list
              (list
               'application--create-tool-registry
-              (lambda (replacement-configuration)
-                (declare (ignore replacement-configuration))
+              (lambda (replacement-configuration &key shared-mcp-manager)
+                (declare (ignore replacement-configuration shared-mcp-manager))
                 new-registry))
              (list
               'mcp-configuration-load

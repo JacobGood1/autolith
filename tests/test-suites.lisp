@@ -1282,6 +1282,7 @@
   test-application-busy-conversation-resume
   test-application-fresh-conversation-lease-collision
   test-application-tool-runtime-lifecycle
+  test-application-conversation-switch-mcp-sharing
   test-application-conversation-input-history
   test-application-runtime-replacement-transactions
   test-application-runtime-retirement-failures

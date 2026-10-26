@@ -2222,23 +2222,51 @@ retained value is credential-redacted or projected."
   registry)
 
 (-> mcp-tool-registry-augment
-    (tool-registry configuration)
+    (tool-registry configuration &key (:shared-manager (option mcp-manager)))
     (values tool-registry (option mcp-manager)))
-(defun mcp-tool-registry-augment (registry configuration)
-  "Discover configured MCP servers and add their tools to REGISTRY."
-  (if (null (mcp-server-registrations))
-      (values registry nil)
-      (let ((manager (mcp-manager-create configuration)))
-        (handler-case
-            (values
-             (mcp-tool-registry-register-manager registry manager)
-             manager)
-          (serious-condition (cause)
-            (handler-case
-                (mcp-manager-close manager)
-              (serious-condition ()
-                nil))
-            (error cause))))))
+(defun mcp-tool-registry-augment (registry configuration &key shared-manager)
+  "Discover configured MCP servers and add their tools to REGISTRY.
+
+When SHARED-MANAGER already serves exactly CONFIGURATION's servers, REGISTRY
+binds it instead of connecting every server again. Its caller keeps ownership,
+so a failure here never closes it. The second value is the bound manager."
+  (cond
+    ((null (mcp-server-registrations))
+     (values registry nil))
+    ((and shared-manager (mcp-manager-reusable-p shared-manager configuration))
+     (values (mcp-tool-registry-register-manager registry shared-manager)
+             shared-manager))
+    (t
+     (let ((manager (mcp-manager-create configuration)))
+       (handler-case
+           (values
+            (mcp-tool-registry-register-manager registry manager)
+            manager)
+         (serious-condition (cause)
+           (handler-case
+               (mcp-manager-close manager)
+             (serious-condition ()
+               nil))
+           (error cause)))))))
+
+(-> mcp-manager-reusable-p (mcp-manager configuration) boolean)
+(defun mcp-manager-reusable-p (manager configuration)
+  "Return true when MANAGER serves exactly what a new manager for CONFIGURATION would.
+
+The registered servers must be the same immutable configurations from the same
+sources in the same order, and stdio servers must resolve the same workspace."
+  (let ((registrations (mcp-server-registrations))
+        (runtimes      (mcp-manager-runtimes manager)))
+    (and (= (length registrations) (length runtimes))
+         (every (lambda (registration runtime)
+                  (and (eq (mcp-server-registration-configuration registration)
+                           (mcp-server-runtime-configuration runtime))
+                       (eq (mcp-server-registration-source registration)
+                           (mcp-server-runtime-registration-source runtime))))
+                registrations runtimes)
+         (equal (config :working-directory (mcp-manager-configuration manager))
+                (config :working-directory configuration))
+         t)))
 
 
 ;;;; -- Managed Connection Policy Boundaries --
