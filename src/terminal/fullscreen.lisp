@@ -168,8 +168,8 @@ sequence, so it lands in the normal screen where it stays readable."
      ("Ctrl-PgUp/PgDn" "messages"))
    (if following-p
        '(("Ctrl-Home/End" "ends")
-         ("Shift+mouse" "selects text"))
-       '(("Ctrl-End" "follows")))))
+         ("Shift+mouse" "to select text"))
+       '(("Ctrl-End" "to follow")))))
 
 (-> terminal-ui-fullscreen--legend-row
     (fullscreen-terminal-ui &key (:top integer) (:total integer) (:space integer)
