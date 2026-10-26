@@ -275,8 +275,9 @@ tools only when trimming history for compaction, which
      &key goal-context compaction-p)
   "Project product history, prompt policy, and context into a Responses request.
 
-Return the request, its context delivery, and the actual suffix texts from this
-assembly. The third value is private evidence for Codex placement validation."
+Return the request and its context delivery. Only anchored contributions keep a
+place inside the history; the goal and every other contribution follow it, so
+changing one never invalidates a provider's cached prefix of earlier history."
   (let* ((configuration       (provider-configuration provider))
          (hosted-tools
            (and (not compaction-p)
@@ -331,112 +332,4 @@ assembly. The third value is private evidence for Codex placement validation."
         (values
          (provider-request-object provider projection effective-namespaces
                                   :compaction-p compaction-p)
-         delivery
-         ;; Private assembly evidence for Codex's exact current-suffix guard.
-         ;; Anchored contributions are already in ITEMS, not in SUFFIX.
-         suffix)))))
-
-
-;;;; -- Codex Request-Context Placement --
-
-(-> provider--codex-context-digest (vector) string)
-(defun provider--codex-context-digest (items)
-  "Hash context placement evidence without retaining prompt contents."
-  (ironclad:byte-array-to-hex-string
-   (ironclad:digest-sequence :sha256 (json-encode-utf8 items))))
-
-(defparameter *codex-context-anchor-states* (make-hash-table :test #'eq :weakness :key)
-  "Hash-only request-context placement state, weakly keyed by conversation.")
-
-(defparameter *codex-context-anchor-lock* (make-lock "Codex request-context placement")
-  "Serialize placement-state updates without changing conversation history.")
-
-(-> provider--codex-anchor-context (vector (integer 0) list)
-    (values vector list))
-(defun provider--codex-anchor-context (items suffix-count state)
-  "Place each identically resupplied context message at its previous history position.
-
-ITEMS ends with SUFFIX-COUNT current context messages. STATE contains only
-positions and SHA-256 digests: the previous history's length and digest, and a
-history position and digest per context message. When the history only grew,
-a message identical to a previous one returns to that one's position, before
-or after later user messages alike, so the provider's cached prefix through it
-survives; new and changed messages follow the history. Old context is never
-copied from STATE."
-  (check-type suffix-count (integer 0))
-  (assert (<= suffix-count (length items)))
-  (when (zerop suffix-count)
-    (return-from provider--codex-anchor-context (values items nil)))
-  (let* ((history-count  (- (length items) suffix-count))
-         (history        (subseq items 0 history-count))
-         (history-digest (provider--codex-context-digest history))
-         (previous-count (getf state :history-count))
-         (append-only-p
-           (and (typep previous-count '(integer 0))
-                (<= previous-count history-count)
-                (equal (if (= previous-count history-count)
-                           history-digest
-                           (provider--codex-context-digest
-                            (subseq history 0 previous-count)))
-                       (getf state :history-digest))))
-         (available      (and append-only-p (copy-list (getf state :placements))))
-         (placements
-           (loop for index from history-count below (length items)
-                 for digest = (provider--codex-context-digest
-                               (vector (aref items index)))
-                 for previous = (find digest available :key #'first :test #'equal)
-                 do (setf available (remove previous available :count 1))
-                 collect (list digest (if previous (second previous) history-count))))
-         (result         (make-array (length items) :fill-pointer 0)))
-    (loop for position from 0 to history-count
-          do (loop for (nil placed) in placements
-                   for index from history-count
-                   when (= placed position)
-                     do (vector-push (aref items index) result))
-             (when (< position history-count)
-               (vector-push (aref items position) result)))
-    (values (coerce result 'simple-vector)
-            (list :history-count  history-count
-                  :history-digest history-digest
-                  :placements     placements))))
-
-(defmethod provider-request-object :around
-    ((provider codex-subscription-provider) (conversation conversation)
-     (tool-namespaces vector) &key goal-context compaction-p)
-  "Stabilize the placement of currently supplied Codex request context.
-
-Each identical context message keeps its original position, across later
-user messages as well as tool rounds, so later requests extend the previous
-one through it. Only current request objects are reused; changed or omitted
-context is never recovered from placement state."
-  (declare (ignore tool-namespaces goal-context))
-  (multiple-value-bind (request delivery suffix) (call-next-method)
-    ;; This lock protects placement evidence, not conversation mutation or
-    ;; network dispatch order. Concurrent constructors may reset one another's
-    ;; evidence; full-history validation makes that a cache miss, not stale input.
-    (with-lock-held (*codex-context-anchor-lock*)
-      (if compaction-p
-          ;; Detached compaction views have their own key; the original
-          ;; conversation resets when its compacted history fails validation.
-          (remhash conversation *codex-context-anchor-states*)
-          (let* ((texts    (remove-if-not #'non-empty-string-p suffix))
-                 (expected (map 'vector #'responses-developer-message texts))
-                 (input    (json-get request "input"))
-                 (count    (length expected)))
-            ;; Use the exported wire helper, also imported by this package, so
-            ;; a changed serializer fails closed instead of moving unknown input.
-            (if (and (vectorp input) (not (stringp input))
-                     (<= count (length input))
-                     (loop for item across expected
-                           for index from (- (length input) count)
-                           always (string= (json-encode item)
-                                           (json-encode (aref input index)))))
-                (multiple-value-bind (anchored state)
-                    (provider--codex-anchor-context
-                     input count (gethash conversation *codex-context-anchor-states*))
-                  (setf (gethash "input" request) anchored)
-                  (if state
-                      (setf (gethash conversation *codex-context-anchor-states*) state)
-                      (remhash conversation *codex-context-anchor-states*)))
-                (remhash conversation *codex-context-anchor-states*)))))
-    (values request delivery)))
+         delivery)))))
