@@ -3235,6 +3235,21 @@
         (setf (application-input-controller application) nil)
         (terminal-ui-stop (application-ui application)))))
   nil)
+(-> test-activity-line-setting () null)
+(defun test-activity-line-setting ()
+  "Test the activity line setting hides activity words while the modeline keeps timing."
+  (dolist (case '((t t "an enabled activity line names the work")
+                  (nil nil "a disabled activity line spares its row")))
+    (destructuring-bind (enabled-p shown-p description) case
+      (let ((application (application-tests--ui-application)))
+        (setf (config :activity-line-p (application-configuration application)) enabled-p)
+        (application-set-activity application "pondering")
+        (let ((ui (application-ui application)))
+          (test-assert (and (string= (terminal-ui-status ui) "pondering")
+                            (eq (not (null (search "pondering" (terminal-ui--live-content ui))))
+                                shown-p))
+                       description)))))
+  nil)
 
 (-> test-recovery-diagnosis-prompt () null)
 (defun test-recovery-diagnosis-prompt ()

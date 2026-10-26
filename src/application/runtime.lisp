@@ -256,6 +256,9 @@ Clicking the rendered call's header inserts it into the composer.")
 (define-application-setting-accessor application-reasoning-traces-p :reasoning-traces-p
   "Return whether provider-visible reasoning summaries appear in the transcript.")
 
+(define-application-setting-accessor application-activity-line-p :activity-line-p
+  "Return whether working turns show their activity word on a line of its own.")
+
 (define-application-setting-accessor application-compact-view-p :compact-view-p
   "Return whether verbose tool calls are condensed and routine results hidden.")
 
@@ -3369,12 +3372,13 @@ continuation turns, so the notice names what woke the model."
 (defun application-set-activity (application status &key (label-p t))
   "Set APPLICATION's live STATUS and snapshot its contextual details once.
 
-LABEL-P false times the modeline without showing STATUS on an activity row."
+LABEL-P false times the modeline without showing STATUS on an activity row, as
+does turning the activity line setting off."
   (application-refresh-context-meter application)
   (terminal-ui-set-status
    (application-ui application)
    status
-   :label-p        label-p
+   :label-p        (and label-p (application-activity-line-p application))
    :details        (and status
                         (append (list (terminal-span ':status-dim "  "))
                                 (application--status-details application)))

@@ -37,6 +37,9 @@ complete, =Tab= sends the input like Enter, or queues it as a follow-up while a
 turn is running. Inside a form you are still typing, such as =(job.continuity :=,
 =Tab= does nothing rather than send half a form.
 The work indicator displays =REPL= with one letter highlighted in sequence.
+Below the modeline, a line names what the turn is doing, such as =pondering=;
+=(settings :activity-line-p nil)= hides it and spares the row, while the
+modeline keeps timing the turn. A streaming response needs no such line.
 
 * Terminal diagrams
 

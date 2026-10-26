@@ -1279,6 +1279,7 @@
   test-tool-execution-handoff-presentation
   test-recovery-cursor-normalization
   test-fatal-boundaries-keep-backtraces
+  test-activity-line-setting
   test-recovery-diagnosis-prompt
   test-recovery-application-construction
   test-bounded-transcript-replay

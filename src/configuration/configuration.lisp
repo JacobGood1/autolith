@@ -408,6 +408,13 @@ exist yet, and is only put in directory form."
   :documentation              "Whether interactive sessions use the fullscreen terminal UI."
   :scope                      :durable)
 
+(define-setting :activity-line-p (boolean-setting)
+  :label                         "Activity line"
+  :group                         :terminal
+  :documentation                 "Whether a working turn shows what Autolith is doing, such as pondering, on its own line under the modeline."
+  :scope                         :durable
+  :default                       t)
+
 (define-setting :onboarding-p (boolean-setting)
   :label                      "Onboarding"
   :group                      :terminal
