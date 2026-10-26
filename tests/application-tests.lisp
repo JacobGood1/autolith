@@ -2964,10 +2964,10 @@
                                               WARNING: The edit succeeded, but delimiters are unbalanced."))))
            (text  (test-terminal-row-text entry)))
       (test-assert (and (search "Applied replace-lines 3-4" text)
-                        (search "WARNING: The edit succeeded" text)
+                        (search "│ WARNING: The edit succeeded" text)
                         (not (search "Revision" text))
                         (not (search "AB12" text)))
-                   "resource.edit results show the outcome and warnings, not the next observation"))
+                   "resource.edit results show the outcome and railed warnings, not the next observation"))
     (let* ((entry (conversation-record-entry
                    (application-tests--ui-application :columns 100 :compact-view-p nil)
                    (list :tool-result :seq 9 :time 0 :call-id "parens"

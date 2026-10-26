@@ -2469,7 +2469,8 @@ that follow are the model's next observation, not something the user reads."
          :rows   (when warning
                    (application--preview-rows (subseq output warning)
                                               ':failure
-                                              *application-tool-output-lines*))))
+                                              *application-tool-output-lines*
+                                              :gutter "│ "))))
       (call-next-method)))
 
 (defmethod application-tool-result-entry
