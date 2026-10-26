@@ -136,7 +136,10 @@ original metadata as provenance and adapt visible section ranges to its prefix."
           (if (and refusal (knowledge-active-p configuration))
               (tool-failure refusal :code ':precondition-unmet)
               (let ((result (tool-execute tool context arguments)))
-                (if (not (tool-result-success-p result))
+                ;; A handed-off call has only started, so its effects and
+                ;; observations are not known yet.
+                (if (or (not (tool-result-success-p result))
+                        (tool-result-handed-off-p result))
                     result
                     (multiple-value-bind (claims errors)
                         (knowledge-contract-record

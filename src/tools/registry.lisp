@@ -515,6 +515,18 @@ spilling is unavailable, in which case the tail is discarded as before.")
                  :category   ':mechanics
                  :error-code code))
 
+(-> tool-result-handed-off-p (tool-result) boolean)
+(defun tool-result-handed-off-p (result)
+  "Return true when RESULT only reports a call handed off to a background job.
+
+Such a result succeeds as soon as the job starts, so it says nothing yet about
+what the call did."
+  (let ((details (tool-result-details result)))
+    (and (consp details)
+         (eq (first details) ':tool-execution)
+         (getf (rest details) :handed-off-p)
+         t)))
+
 (defgeneric tool-execute (tool context arguments)
   (:documentation "Execute TOOL with validated JSON ARGUMENTS inside CONTEXT."))
 

@@ -1993,14 +1993,22 @@
   ((calls
     :initform      0
     :accessor      knowledge-tests--mail-tool-calls
-    :documentation "How many times the tool ran."))
+    :documentation "How many times the tool ran.")
+   (handoff-p
+    :initform      nil
+    :accessor      knowledge-tests--mail-tool-handoff-p
+    :documentation "Whether the tool hands its call off to a background job."))
   (:documentation "A mail tool answering with a JSON receipt, for contract tests."))
 
 (defmethod tool-execute ((tool knowledge-tests--mail-tool) (context tool-context) (arguments hash-table))
-  "Count the call and answer with a JSON receipt."
+  "Count the call and answer with a JSON receipt, or with a background handoff."
   (declare (ignore context arguments))
   (incf (knowledge-tests--mail-tool-calls tool))
-  (tool-success (json-encode (json-object "id" "msg-1" "status" "queued"))))
+  (if (knowledge-tests--mail-tool-handoff-p tool)
+      (task-tool-result "Job exec:9 runs in the background."
+                        (list :tool-execution :handed-off-p t :handoff-reason ':requested
+                              :job (list :id "exec:9" :state ':running)))
+      (tool-success (json-encode (json-object "id" "msg-1" "status" "queued")))))
 
 (-> test-knowledge-action-contracts () null)
 (defun test-knowledge-action-contracts ()
@@ -2087,7 +2095,17 @@
             (test-assert (and message
                               (equal (third (knowledge-node-proposition message)) "msg-1")
                               (knowledge-node-observed-p message))
-                         "the result's id is observed through the contract")))
+                         "the result's id is observed through the contract"))
+          (knowledge-tests--said configuration "report.ready" '("q4") :quote "the q4 report is ready")
+          (setf (knowledge-tests--mail-tool-handoff-p mail) t)
+          (test-assert (and (tool-result-success-p
+                             (memory-resource-tests--call registry context
+                                                          :namespace "mail"
+                                                          :name      "send"
+                                                          :arguments (list "report" "q4")))
+                            (null (holding '("report.sent" "q4")))
+                            (null (holding '("mail.message" "q4" "?m"))))
+                       "a call handed off to a background job records neither effects nor observations"))
         (when (string= mode "active")
           (let ((listing (memory-resource-tests--call registry context
                                                       :namespace "resource"
