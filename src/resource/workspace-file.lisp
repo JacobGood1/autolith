@@ -843,7 +843,10 @@ already admits the path to the readable roots, so it is not asked again."
                                                         :total-lines total-lines
                                                         :truncated-p truncated-p)))
               (if (eq (workspace-file-observation-kind observation) ':missing)
-                  (tool-failure content :code ':not-found)
+                  (tool-failure
+                   (format nil "No file exists at ~A; resource.edit can create it at the revision below.~%~A"
+                           (resource-uri resource) content)
+                   :code ':not-found)
                   (tool-success content)))))))))
 
 (defmethod resource-tool-edit

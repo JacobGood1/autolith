@@ -1578,6 +1578,12 @@
                         (search "Kind: missing" (tool-result-content result))
                         (null (probe-file path)))
                    "resource.read reports not-found while establishing a revision for creation")
+                  (test-assert
+                   (string= (tool-failure-summary (make-instance 'resource-read-tool)
+                                                  (tool-result-content result))
+                            (format nil "No file exists at ~A; resource.edit can create it at the revision below."
+                                    uri))
+                   "a missing file's failure summary is its cause, naming the resource")
                   (let ((edit-result
                           (edit-resource
                            first-context uri revision

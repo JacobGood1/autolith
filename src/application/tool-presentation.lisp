@@ -2625,13 +2625,20 @@ that follow are the model's next observation, not something the user reads."
 
 (defmethod application-tool-result-entry
     ((tool resource-read-tool) (application application) record)
-  "Present numbered file contents with their path's source language and anchors."
-  (let ((rows (and (application--tool-result-success-p record)
-                   (application--resource-source-rows
-                    (or (getf (rest record) :output) "")))))
-    (if rows
-        (application--tool-result-entry application record :rows rows)
-        (call-next-method))))
+  "Present numbered file contents with their path's source language and anchors.
+
+A failure shows only its cause, not the observation the model receives."
+  (let ((output (or (getf (rest record) :output) "")))
+    (if (application--tool-result-success-p record)
+        (let ((rows (application--resource-source-rows output)))
+          (if rows
+              (application--tool-result-entry application record :rows rows)
+              (call-next-method)))
+        (application--tool-result-entry
+         application record
+         :rows (application--failure-result-rows
+                (tool-failure-summary tool output)
+                :tool-name (getf (rest record) :tool))))))
 
 
 ;;;; -- Search Source Matches --

@@ -3046,6 +3046,23 @@
                        (terminal-span ':failure (format nil "! ~A failed" tool)))
                 (find (terminal-span ':plain reason) entry :test #'equal))
            "the failure header identifies the tool and its body shows only the reason"))))
+    (let* ((cause    "No file exists at workspace:gone.lisp; resource.edit can create it.")
+           (registry (make-instance 'tool-registry))
+           (entry    (progn
+                       (tool-registry-register registry (conversation-resource-tests--read-tool))
+                       (setf (application-tool-registry application) registry)
+                       (conversation-record-entry
+                        application
+                        (list :tool-result :tool "resource.read" :status ':error
+                              :output (format nil "resource.read failed: ~A~%URI: workspace:gone.lisp~%Revision: R1~%Kind: missing~%Elided: none~%Content:~%"
+                                              cause)))))
+           (text     (test-terminal-row-text entry)))
+      (test-assert (and (find-if (lambda (span)
+                                   (uiop:string-prefix-p "No file exists at workspace:"
+                                                         (terminal-span-text span)))
+                                 entry)
+                        (not (search "Revision" text)))
+                   "a missing file read shows its cause, not the observation the model receives"))
     (let* ((entry (conversation-record-entry
                    application
                    (list :tool-result :seq 6 :time 0 :call-id 5

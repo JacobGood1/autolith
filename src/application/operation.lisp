@@ -1073,7 +1073,7 @@ No live result, tool, or native data object escapes in the snapshot."
                  (application-set-local-activity application previous-activity)))))
       (unless (tool-result-success-p result)
         (error 'tool-error
-               :message   (tool-result-content result)
+               :message   (tool-failure-summary tool (tool-result-content result))
                :tool-name canonical-name))
       (when *application-lisp-tool-results*
         (let ((content (tool-result-content result)))

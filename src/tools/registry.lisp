@@ -518,6 +518,23 @@ spilling is unavailable, in which case the tail is discarded as before.")
 (defgeneric tool-execute (tool context arguments)
   (:documentation "Execute TOOL with validated JSON ARGUMENTS inside CONTEXT."))
 
+(defgeneric tool-failure-summary (tool content)
+  (:documentation
+   "Return the part of TOOL's failure CONTENT a person needs, the cause rather than
+what the model receives to act on it."))
+
+(defmethod tool-failure-summary (tool content)
+  "Show a failure's complete content."
+  (declare (ignore tool))
+  content)
+
+(defmethod tool-failure-summary ((tool resource-read-tool) content)
+  "Show only a read failure's leading cause line, which names the resource.
+
+A missing file's failure also carries its observation for resource.edit."
+  (declare (ignore tool))
+  (subseq content 0 (or (position #\Newline content) (length content))))
+
 (defgeneric tool-decode-arguments (tool source)
   (:documentation
    "Decode one provider argument SOURCE according to TOOL's JSON requirements."))
