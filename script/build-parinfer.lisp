@@ -92,8 +92,12 @@
             (error "Fetched parinfer-rust commit ~A instead of ~A." actual commit)))
         ;; The release's lock file predates its own version bump, so Cargo
         ;; rewrites that one entry; every dependency stays as locked.
-        (parinfer-build--run (list "cargo" "build" "--release" "--lib" "--no-default-features")
-                             :directory checkout)
+        ;; Musl defaults to a static C runtime, which disables Cargo's cdylib output.
+        (parinfer-build--run
+         (list "cargo" "build" "--release" "--lib" "--no-default-features"
+               "--config"
+               "target.'cfg(target_env = \"musl\")'.rustflags=[\"-C\",\"target-feature=-crt-static\"]")
+         :directory checkout)
         (let ((built (merge-pathnames (format nil "target/release/~A" library-name) checkout)))
           (unless (probe-file built)
             (error "parinfer-rust did not produce ~A." built))
