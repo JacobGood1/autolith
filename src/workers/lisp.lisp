@@ -17,7 +17,7 @@
     (error 'worker-error
            :message
            (format nil
-                   "Invalid Lisp REPL name ~S. Use 1 to 80 letters, digits, hyphens, or underscores."
+                   "Invalid Lisp REPL name ~S. Use 1 to 80 letters, digits, hyphens, underscores, or periods."
                    name)
            :tool-name "lisp.repls"))
   name)
