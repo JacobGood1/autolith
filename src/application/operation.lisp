@@ -791,6 +791,50 @@ such as :|filePath|, was escaped on purpose and keeps its case."
                    (application-operation--json-value value)))
     object))
 
+(-> application-operation-tool-call-form (string (option json-object)) string)
+(defun application-operation-tool-call-form (name arguments)
+  "Return the local Lisp call invoking tool NAME with decoded JSON ARGUMENTS.
+
+Evaluating it at the prompt sends the same arguments again. Keys are spelled
+as presented call keys, and values as APPLICATION-OPERATION--LISP-VALUE
+spells them, in the order the arguments were decoded."
+  (with-output-to-string (stream)
+    (format stream "(~A" (application--lisp-symbol-token name))
+    (when arguments
+      (maphash (lambda (key value)
+                 (format stream " ~A ~A"
+                         (application--lisp-key-token key)
+                         (application-operation--lisp-value value)))
+               arguments))
+    (write-char #\) stream)))
+
+(-> application-operation--lisp-value (t) string)
+(defun application-operation--lisp-value (value)
+  "Return decoded JSON VALUE as Lisp source evaluating to the same JSON value.
+
+True and false become T and NIL, null becomes :NULL, an array a VECTOR call
+so it stays an array when empty, and an object a DICT call."
+  (cond
+    ((eq value t)
+     "t")
+    ((json-false-p value)
+     "nil")
+    ((null value)
+     ":null")
+    ((hash-table-p value)
+     (with-output-to-string (stream)
+       (write-string "(dict" stream)
+       (maphash (lambda (key member)
+                  (format stream " ~S ~A" key (application-operation--lisp-value member)))
+                value)
+       (write-char #\) stream)))
+    ((and (vectorp value) (not (stringp value)))
+     (format nil "(vector~{ ~A~})"
+             (map 'list #'application-operation--lisp-value value)))
+    (t
+     (let ((*print-pretty* nil))
+       (prin1-to-string value)))))
+
 (-> application-operation--command-invocation
     (application-command (or list application-command-invocation))
     application-command-invocation)

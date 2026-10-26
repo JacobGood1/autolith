@@ -3,6 +3,11 @@
 (defvar *application-tool-presentation-label* nil
   "The durable readable label bound only while rendering one conversation record.")
 
+(defvar *application-tool-call-invocation* nil
+  "The local Lisp call repeating the tool call being rendered, or NIL.
+
+Clicking the rendered call's header inserts it into the composer.")
+
 ;;;; -- Active Application --
 
 (defclass application ()
@@ -2382,7 +2387,9 @@ column is WIDTH cells, or otherwise wide enough for the longest label present."
       ((string= (or type "") "function_call")
        (let* ((*application-tool-presentation-label* tool-label)
               (canonical-name                        (function-call-canonical-name item))
-              (tool                                  (application--find-tool application canonical-name)))
+              (tool                                  (application--find-tool application canonical-name))
+              (*application-tool-call-invocation*    (application--tool-call-invocation
+                                                      canonical-name item)))
          (application-tool-call-entry tool application item)))
       ((string= (or type "") "web_search_call")
        (application--transcript-entry
@@ -2396,6 +2403,18 @@ column is WIDTH cells, or otherwise wide enough for the longest label present."
        (application--tool-search-entry application item))
       (t
        nil))))
+
+(-> application--tool-call-invocation ((option string) json-object) (option string))
+(defun application--tool-call-invocation (canonical-name call)
+  "Return the local Lisp call repeating function CALL, or NIL when it cannot.
+
+A call without a name, or whose arguments do not decode to one JSON object,
+has no faithful invocation."
+  (let ((arguments (application--function-call-arguments call)))
+    (when (and (non-empty-string-p canonical-name)
+               (or arguments
+                   (not (non-empty-string-p (json-get call "arguments")))))
+      (application-operation-tool-call-form canonical-name arguments))))
 
 (-> application--job-completion-message-p (list) boolean)
 (defun application--job-completion-message-p (properties)

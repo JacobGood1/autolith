@@ -496,6 +496,51 @@
                "a reader-upcased keyword names its lowercase member")
   nil)
 
+(-> test-application-tool-call-invocation () null)
+(defun test-application-tool-call-invocation ()
+  "Test a clicked tool call inserts a local call sending the same arguments again."
+  (dolist (source '("{}"
+                    "{\"text\":\"hello\",\"enabled\":false}"
+                    "{\"text\":\"two\\nlines \\\"quoted\\\"\",\"limit\":3,\"ratio\":1.5,\"flag\":true}"
+                    "{\"items\":[],\"nested\":{\"filePath\":\"x\",\"none\":null,\"list\":[1,\"a\"]}}"
+                    "{\"URL\":\"https://example.com\",\"odd key)\":\"v\"}"))
+    (let* ((arguments (json-decode source))
+           (form      (let ((*package* (find-package '#:autolith)))
+                        (read-from-string
+                         (application-operation-tool-call-form "test-operation.echo" arguments)))))
+      (test-assert (and (string-equal "test-operation.echo" (symbol-name (first form)))
+                        (string= (json-encode arguments)
+                                 (json-encode
+                                  (application-operation--tool-arguments
+                                   (mapcar #'eval (rest form))))))
+                   (format nil "the invocation of ~A sends the same arguments" source))))
+  (test-assert (string= "(test-operation.echo :text \"hello\" :enabled nil)"
+                        (application-operation-tool-call-form
+                         "test-operation.echo" (json-decode "{\"text\":\"hello\",\"enabled\":false}")))
+               "invocations spell simple arguments as a person would type them")
+  (multiple-value-bind (application root) (application-operation-tests--application)
+    (unwind-protect
+         (let ((terminal (make-instance 'recording-terminal :columns 100 :rows 12)))
+           (with-terminal-ui (ui (terminal-ui-create :terminal terminal :fullscreen-p t :prompt "> "))
+             (setf (application-ui application) ui)
+             (application-connect-transcript-actions application)
+             (terminal-ui-append-finalized
+              ui ':call
+              (response-item-entry
+               application
+               (json-object "type"      "function_call"
+                            "call_id"   "invocation-call"
+                            "namespace" "test-operation"
+                            "name"      "echo"
+                            "arguments" "{\"text\":\"hello\",\"enabled\":false}")))
+             (terminal-ui-set-input ui "Why did ")
+             (terminal-ui-process-event ui '(:click 4 1))
+             (test-assert (string= "Why did (test-operation.echo :text \"hello\" :enabled nil)"
+                                   (line-editor-text (terminal-ui-editor ui)))
+                          "clicking a call's header inserts its invocation at the cursor")))
+      (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
+  nil)
+
 (-> test-application-operation-binding-conflicts () null)
 (defun test-application-operation-binding-conflicts ()
   "Test canonical operation conflicts fail registration and never break evaluation."

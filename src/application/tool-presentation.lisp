@@ -227,16 +227,31 @@ header without participating in compaction."
           (application--inline-tool-call-header application header rows :style style)
           (values nil rows))
     (append
-     (or inline-header
-         (application--transcript-entry
-          application
-          :style  style
-          :header (application--tool-header application header)
-          :detail detail))
+     (application--tool-call-header-actions
+      (or inline-header
+          (application--transcript-entry
+           application
+           :style  style
+           :header (application--tool-header application header)
+           :detail detail)))
      (loop for row in body-rows
            append (list (terminal-span ':plain (string #\Newline)))
            when row
              append (application--tool-row-spans application row)))))
+
+(-> application--tool-call-header-actions (list) list)
+(defun application--tool-call-header-actions (spans)
+  "Make header SPANS insert the rendered call's local Lisp invocation when clicked.
+
+Without a bound *APPLICATION-TOOL-CALL-INVOCATION* the spans are unchanged."
+  (if *application-tool-call-invocation*
+      (let ((action (list ':insert *application-tool-call-invocation*)))
+        (mapcar (lambda (span)
+                  (termdown:make-widget (terminal-span-style span)
+                                        (terminal-span-text span)
+                                        action))
+                spans))
+      spans))
 
 (-> application--tool-field-rows (application list) list)
 (defun application--tool-field-rows (application fields)

@@ -2839,7 +2839,8 @@
                                  (json-object "forms" (vector "(+ 1 2)"))))))
            (text  (test-terminal-row-text entry)))
       (test-assert
-       (and (equal (first entry) (terminal-span :tool "▸ (lisp.eval)"))
+       (and (eq (terminal-span-style (first entry)) ':tool)
+            (string= (terminal-span-text (first entry)) "▸ (lisp.eval)")
             (search "(+ 1 2)" text)
             (not (search "{\"forms\"" text)))
        "lisp.eval calls show a parenthesized name above their source rail"))

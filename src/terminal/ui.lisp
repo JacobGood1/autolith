@@ -2324,9 +2324,10 @@ while output is deferred and otherwise dropped."
 
 (-> terminal-ui--compact-call-tool ((or string list)) (option string))
 (defun terminal-ui--compact-call-tool (entry)
-  "Return the full tool name of a single-line call, or NIL for other entries."
+  "Return the full tool name of a single-line call, or NIL for other entries.
+
+A call's header spans may be widgets inserting its invocation when clicked."
   (when (and (consp entry)
-             (notany #'termdown:widget-p entry)
              (eq (terminal-span-style (first entry)) ':tool))
     (let* ((header    (terminal-span-text (first entry)))
            (text      (terminal--spans-text entry))
@@ -3174,6 +3175,15 @@ thread."
   "Replace UI's editable input with INPUT and repaint it."
   (with-terminal-ui-locked (ui)
     (terminal-ui--set-draft-input ui input)
+    (setf (terminal-ui-completion-dismissed-p ui) nil)
+    (terminal-ui--paint-live ui))
+  ui)
+
+(-> terminal-ui-insert-input (terminal-ui string) terminal-ui)
+(defun terminal-ui-insert-input (ui text)
+  "Insert TEXT into UI's editable input at its cursor, as a paste would, and repaint."
+  (with-terminal-ui-locked (ui)
+    (line-editor-handle-event (terminal-ui-editor ui) (list ':paste (sanitize-text text)))
     (setf (terminal-ui-completion-dismissed-p ui) nil)
     (terminal-ui--paint-live ui))
   ui)
