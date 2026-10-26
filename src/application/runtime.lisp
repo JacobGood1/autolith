@@ -704,19 +704,31 @@ exchange without scrolling through reasoning and tool activity.")
     (values nil &optional))
 (defun application--raise-runtime-replacement-error
     (&key operation stage cause rollback-causes)
-  "Signal a structured runtime replacement failure for OPERATION and STAGE."
+  "Signal a structured runtime replacement failure for OPERATION and STAGE.
+
+The message ends with CAUSE's report, so the user sees why the replacement
+failed, such as another live session owning the conversation."
   (error
    'application-runtime-replacement-error
    :message
    (format nil
-           "Could not replace the application runtime during ~(~A~) ~(~A~).~:[~; The previous runtime could not be restored completely.~]"
+           "Could not replace the application runtime during ~(~A~) ~(~A~): ~A~:[~; The previous runtime could not be restored completely.~]"
            operation
            stage
+           (application--runtime-replacement-cause-text cause)
            (not (null rollback-causes)))
    :operation       operation
    :stage           stage
    :cause           cause
    :rollback-causes rollback-causes))
+
+(-> application--runtime-replacement-cause-text (serious-condition) string)
+(defun application--runtime-replacement-cause-text (cause)
+  "Return CAUSE's report as one bounded line, or its type when the report itself fails."
+  (let ((report (handler-case (princ-to-string cause)
+                  (serious-condition ()
+                    (string-downcase (symbol-name (type-of cause)))))))
+    (bounded-string (sanitize-text report :single-line-p t) :limit 400)))
 
 (-> application--validate-provider-registration (model-provider configuration) null)
 (defun application--validate-provider-registration (provider configuration)

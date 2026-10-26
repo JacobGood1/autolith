@@ -824,8 +824,11 @@
                 (test-assert
                  (handler-case
                   (progn (application-install-conversation application blocked) nil)
-                  (application-runtime-replacement-error nil t))
-                 "a conflicting live registry owner aborts the conversation switch")
+                  (application-runtime-replacement-error (condition)
+                    (and (search "already owns this conversation"
+                                 (autolith-error-message condition))
+                         t)))
+                 "a conflicting live registry owner aborts the switch and says why")
                 (test-assert
                  (and (eq before (application-conversation application))
                       (equal record (image-daemon:daemon-registry-read pathname)))
