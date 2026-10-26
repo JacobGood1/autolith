@@ -309,16 +309,19 @@ row that still overruns instead of scrolling."
 
 (-> terminal-ui-fullscreen-jump-message (fullscreen-terminal-ui (member -1 1)) null)
 (defun terminal-ui-fullscreen-jump-message (ui direction)
-  "Scroll so the nearest message header in DIRECTION tops the viewport.
+  "Scroll to the neighboring message in DIRECTION, ending it on the bottom row.
 
-DIRECTION -1 seeks above the current top row and 1 below it. A header inside
-the final window follows the tail again. Without a header in that direction
-the viewport does not move."
+DIRECTION -1 moves to the message before the one on the bottom row and 1 to
+the one after it. The message ends where the reader's eyes already are, next
+to the composer; one taller than the window shows its header on top. A
+message inside the final window follows the tail again. Without a message in
+that direction the viewport does not move."
   (when (clinedi:transcript-viewport-jump
          (fullscreen-terminal-ui-viewport ui)
          direction
          (lambda (text offset)
-           (terminal-ui-fullscreen--message-start-p ui text offset)))
+           (terminal-ui-fullscreen--message-start-p ui text offset))
+         :align ':end)
     (terminal-ui--paint-live ui))
   nil)
 

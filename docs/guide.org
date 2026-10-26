@@ -430,8 +430,10 @@ modeline, command, RLM, and task activity rows. Use =PageUp= and =PageDown= for
 page movement, =Ctrl-PageUp= and =Ctrl-PageDown= to jump between the user and
 assistant messages while skipping reasoning and tool activity, =Ctrl-Home= and
 =Ctrl-End= for the oldest and newest transcript positions, and the mouse wheel
-for incremental scrolling. The =--fullscreen= option enables it for one launch
-without changing the saved preference.
+for incremental scrolling. A message jump ends the message on the row above the
+composer, where your eyes already are; a message taller than the window shows
+its header at the top instead. The =--fullscreen= option enables it for one
+launch without changing the saved preference.
 Pass =nil= to =preferences-set-fullscreen= to return future launches to inline mode.
 Because the viewport owns the mouse, hold =Shift= while dragging to select text
 with the terminal emulator. Fullscreen history lives in the application rather
