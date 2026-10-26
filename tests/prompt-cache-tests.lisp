@@ -121,6 +121,29 @@
        "server attribution reports uncached instructions and tools")))
   nil)
 
+(-> test-prompt-cache-small-losses () null)
+(defun test-prompt-cache-small-losses ()
+  "Accumulate repeated cache losses below the report threshold until they are reported."
+  (let ((baseline (prompt-cache-baseline-create (prompt-cache-tests--usage 100000 99000)))
+        (reports  nil))
+    (loop for request from 1 to 60
+          for usage = (prompt-cache-tests--usage (+ 100000 (* 10 request))
+                                                 (- 99000 (* 64 request)))
+          do (let ((miss (prompt-cache-miss-detect baseline usage)))
+               (when miss
+                 (push (getf miss :lost-tokens) reports))
+               (setf baseline (prompt-cache-baseline-advance
+                               baseline usage :reported-p (not (null miss))))))
+    (test-assert (= 3840 (reduce #'+ reports))
+                 "sixty losses of 64 cached tokens report every lost token")
+    (test-assert (every (lambda (lost) (>= lost *prompt-cache-block-tokens*)) reports)
+                 "each report covers at least one cache block")
+    (let ((grown (prompt-cache-baseline-advance
+                  baseline (prompt-cache-tests--usage 101000 100000))))
+      (test-assert (= 100000 (prompt-cache-baseline-cached-tokens grown))
+                   "growing reads become the new reference")))
+  nil)
+
 (-> test-prompt-cache-baseline-from-conversation () null)
 (defun test-prompt-cache-baseline-from-conversation ()
   "Test the baseline seeded from a conversation's newest persisted usage."

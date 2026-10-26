@@ -352,10 +352,12 @@ notice preference is on, so enabling it mid-session takes effect immediately."
                     :started-at
                     (application-prompt-cache-request-started-at application)
                     :model model))
-         (baseline (prompt-cache-baseline-create
+         (baseline (prompt-cache-baseline-advance
+                    (application-prompt-cache-baseline application)
                     usage
                     :completed-at (get-universal-time)
-                    :model        model)))
+                    :model        model
+                    :reported-p   (not (null miss)))))
     (when baseline
       (setf (application-prompt-cache-baseline application) baseline))
     (when (and miss (application-cache-miss-notices-p application))

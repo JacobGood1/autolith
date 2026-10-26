@@ -116,6 +116,29 @@
                         :completed-at  completed-at
                         :model         model))))
 
+(-> prompt-cache-baseline-advance
+    ((option prompt-cache-baseline) t
+     &key (:completed-at (option timestamp)) (:model (option string)) (:reported-p boolean))
+    (option prompt-cache-baseline))
+(defun prompt-cache-baseline-advance (baseline usage &key completed-at model reported-p)
+  "Return the baseline following BASELINE after a request completing with USAGE.
+
+A loss of cache reads too small to report keeps BASELINE's reads as the
+reference, so repeated small losses accumulate until one report covers them.
+When REPORTED-P or the reads did not fall, USAGE's own reads become it."
+  (let ((next (prompt-cache-baseline-create usage :completed-at completed-at :model model)))
+    (if (and next baseline (not reported-p)
+             (prompt-cache-baseline-cached-tokens baseline)
+             (prompt-cache-baseline-cached-tokens next)
+             (< (prompt-cache-baseline-cached-tokens next)
+                (prompt-cache-baseline-cached-tokens baseline)))
+        (make-instance 'prompt-cache-baseline
+                       :prompt-tokens (prompt-cache-baseline-prompt-tokens next)
+                       :cached-tokens (prompt-cache-baseline-cached-tokens baseline)
+                       :completed-at  completed-at
+                       :model         model)
+        next)))
+
 (-> prompt-cache-baseline-from-conversation
     (conversation)
     (option prompt-cache-baseline))
