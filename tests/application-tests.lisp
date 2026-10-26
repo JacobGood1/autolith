@@ -4265,9 +4265,12 @@
                                (application-ui application)))
                         "assistant output replaces the live reasoning preview")
            (test-assert
-            (string= (terminal-ui-status (application-ui application))
-                     "receiving response")
-            "assistant streaming keeps a timed activity phase visible")
+            (and (string= (terminal-ui-status (application-ui application))
+                          "receiving response")
+                 (not (terminal-ui-status-label-p (application-ui application)))
+                 (not (search "receiving response"
+                              (terminal-ui--live-content (application-ui application)))))
+            "assistant streaming times the modeline without a redundant activity row")
            (let* ((live-output (recording-terminal-output terminal))
                   (first-row   (search "The quick brown fox" live-output))
                   (last-row    (search "over the lazy" live-output)))

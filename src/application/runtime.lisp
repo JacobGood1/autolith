@@ -3365,13 +3365,16 @@ continuation turns, so the notice names what woke the model."
        (conversation-working-seconds
         (application-conversation application))))
 
-(-> application-set-activity (application (option string)) terminal-ui)
-(defun application-set-activity (application status)
-  "Set APPLICATION's live STATUS and snapshot its contextual details once."
+(-> application-set-activity (application (option string) &key (:label-p boolean)) terminal-ui)
+(defun application-set-activity (application status &key (label-p t))
+  "Set APPLICATION's live STATUS and snapshot its contextual details once.
+
+LABEL-P false times the modeline without showing STATUS on an activity row."
   (application-refresh-context-meter application)
   (terminal-ui-set-status
    (application-ui application)
    status
+   :label-p        label-p
    :details        (and status
                         (append (list (terminal-span ':status-dim "  "))
                                 (application--status-details application)))
@@ -3540,7 +3543,10 @@ checked."
                            stream-started-at (get-universal-time)
                            stream-renderer (application--markdown-renderer
                                             application))
-                     (application-set-activity application "receiving response")
+                     ;; The streaming text shows the response arriving, so the
+                     ;; phase only times the modeline.
+                     (application-set-activity application "receiving response"
+                                               :label-p nil)
                      (push
                       (application--transcript-entry
                        application
