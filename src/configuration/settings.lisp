@@ -262,7 +262,7 @@
 ;; ql:quickload must not reset it to the built-in list and invalidate
 ;; the very model the image is running on.
 (defvar *supported-models*
-  '("gpt-6.1-sol" "gpt-6-sol" "gpt-6-luna" "gpt-6-astra"
+  '("gpt-6.1-sol" "gpt-6.1-terra" "gpt-6-sol" "gpt-6-luna" "gpt-6-astra"
     "gpt-5.6-sol" "gpt-5.6-luna" "gpt-5.6-terra" "grok-4.5"
     "accounts/fireworks/models/kimi-k3")
   "The model identifiers offered by the interactive model picker.")
@@ -272,7 +272,7 @@
 ;; 444da310e108da16aaeb18fd790b0ac464f08aca: every GPT-6.1, GPT-6, and GPT-5.6
 ;; entry lists the priority service tier named Fast.
 (defparameter *codex-all-turns-reasoning-models*
-  '("gpt-6.1-sol" "gpt-6-astra" "gpt-6-sol" "gpt-6-luna"
+  '("gpt-6.1-sol" "gpt-6.1-terra" "gpt-6-astra" "gpt-6-sol" "gpt-6-luna"
     "gpt-5.6-sol" "gpt-5.6-luna" "gpt-5.6-terra")
   "Codex model identifiers whose requests keep reasoning from every turn.
 
@@ -280,12 +280,15 @@ https://github.com/openai/codex commit 970111f6cb62cc02fe36a82ea7d71b37a2889c97
 marks each of these use_responses_lite in codex-rs/models-manager/models.json,
 and codex-rs/core/src/client.rs sends reasoning.context all_turns for exactly
 those. The service otherwise defaults to current_turn, which stops rendering
-earlier turns' reasoning at each new user message, including automatic ones.")
+earlier turns' reasoning at each new user message, including automatic ones.
+gpt-6.1-terra follows gpt-5.6-terra until upstream publishes its entry.")
 
 (defparameter *codex-fast-mode-models*
-  '("gpt-6.1-sol" "gpt-6-astra" "gpt-6-sol" "gpt-6-luna"
+  '("gpt-6.1-sol" "gpt-6.1-terra" "gpt-6-astra" "gpt-6-sol" "gpt-6-luna"
     "gpt-5.6-sol" "gpt-5.6-luna" "gpt-5.6-terra")
-  "Codex model identifiers verified to support the Fast service tier.")
+  "Codex model identifiers verified to support the Fast service tier.
+
+gpt-6.1-terra is assumed to, like gpt-5.6-terra, until upstream lists it.")
 
 ;; GPT window sizes read from the live Codex model catalog on 2026-07-19 and
 ;; confirmed in Codex reference commit 444da310e108da16aaeb18fd790b0ac464f08aca.
@@ -295,6 +298,7 @@ earlier turns' reasoning at each new user message, including automatic ones.")
 ;; registry rewrites this table at runtime.
 (defvar *model-context-windows*
   '(("gpt-6.1-sol"   . 272000)
+    ("gpt-6.1-terra" . 272000)
     ("gpt-6-sol"     . 272000)
     ("gpt-6-luna"    . 272000)
     ("gpt-6-astra"   . 272000)

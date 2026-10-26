@@ -160,6 +160,9 @@
   '((:name              "gpt-6.1-sol"
      :context-window    272000
      :reasoning-efforts ("low" "medium" "high" "xhigh" "max" "ultra"))
+    (:name              "gpt-6.1-terra"
+     :context-window    272000
+     :reasoning-efforts ("low" "medium" "high" "xhigh" "max" "ultra"))
     (:name              "gpt-6-astra"
      :context-window    272000
      :reasoning-efforts ("low" "medium" "high" "xhigh" "max" "ultra"))
@@ -178,7 +181,10 @@
     (:name              "gpt-5.6-terra"
      :context-window    272000
      :reasoning-efforts ("low" "medium" "high" "xhigh" "max" "ultra")))
-  "Codex subscription defaults, independent of public OpenAI API metadata.")
+  "Codex subscription defaults, independent of public OpenAI API metadata.
+
+gpt-6.1-terra is not yet in that catalog; it takes gpt-5.6-terra's window and
+efforts until upstream publishes its entry.")
 
 (register-provider
  "chatgpt"
