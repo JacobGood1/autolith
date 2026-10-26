@@ -88,55 +88,62 @@ explicit safety declaration; admission alone grants no replay authority."
 (-> task-continuity-records (agent) list)
 (defun task-continuity-records (viewer)
   "Return owned durable records or bounded diagnostics from existing task storage."
-  (let* ((root-id (task-parent-root-conversation-identifier viewer))
-         (root    (task--artifact-group-root (agent-configuration viewer) root-id)))
+  (let ((root (task--artifact-group-root
+               (agent-configuration viewer) (task-parent-root-conversation-identifier viewer))))
     (loop for directory in (when (uiop:directory-exists-p root)
                              (uiop:subdirectories root))
-          for path = (merge-pathnames "continuity.sexp" directory)
-          for result-path = (merge-pathnames "result.sexp" directory)
-          when (or (probe-file path)
-                   (and (not (typep viewer 'task-child-agent)) (probe-file result-path)))
-            append
-            (handler-case
-                (let* ((old-result (and (not (probe-file path))
-                                        (task--read-result-artifact result-path)))
-                       (record
-                         (if old-result
-                             (list :version 1 :kind ':task
-                                   :execution-id (first (last (pathname-directory directory)))
-                                   :job-id       (or (getf old-result :id)
-                                                     (first (last (pathname-directory directory))))
-                                   :root-conversation root-id :owners nil)
-                             (task-continuity--read path))))
-                  (unless (and (eql 1 (getf record :version))
-                               (member (getf record :kind) '(:task :tool))
-                               (every #'non-empty-string-p
-                                      (list (getf record :execution-id)
-                                            (getf record :job-id)
-                                            (getf record :root-conversation)))
-                               (equal (getf record :execution-id)
-                                      (first (last (pathname-directory directory))))
-                               (listp (getf record :owners))
-                               (every #'non-empty-string-p (getf record :owners)))
-                    (task-continuity--fail "Invalid persisted continuity identity."))
-                  (let ((specification (getf record :specification))
-                        (checkpoint    (getf record :checkpoint)))
-                    (when specification
-                      (unless (and (eq (getf record :kind) :task)
-                                   (non-empty-string-p (getf specification :agent))
-                                   (non-empty-string-p (getf specification :task)))
-                        (task-continuity--fail "Invalid persisted task specification.")))
-                    (when checkpoint
-                      (unless (and (non-empty-string-p (getf checkpoint :image))
-                                   (non-empty-string-p (getf checkpoint :repl)))
-                        (task-continuity--fail "Invalid persisted worker checkpoint."))))
-                  (when (task-continuity--visible-p record viewer)
-                    (list (list :record record :path (namestring path)))))
-              (error (condition)
-                (unless (typep viewer 'task-child-agent)
-                  (list (list :path  (namestring path)
-                              :error (bounded-string (princ-to-string condition)
-                                                     :limit 500)))))))))
+          append (task-continuity-directory-entries viewer directory))))
+
+(-> task-continuity-directory-entries (agent pathname) list)
+(defun task-continuity-directory-entries (viewer directory)
+  "Return the owned durable record or bounded diagnostic of one job DIRECTORY.
+
+The result is a list of at most one entry, so callers can append scans."
+  (let ((root-id     (task-parent-root-conversation-identifier viewer))
+        (path        (merge-pathnames "continuity.sexp" directory))
+        (result-path (merge-pathnames "result.sexp" directory)))
+    (when (or (probe-file path)
+              (and (not (typep viewer 'task-child-agent)) (probe-file result-path)))
+      (handler-case
+          (let* ((old-result (and (not (probe-file path))
+                                  (task--read-result-artifact result-path)))
+                 (record
+                   (if old-result
+                       (list :version 1 :kind ':task
+                             :execution-id (first (last (pathname-directory directory)))
+                             :job-id       (or (getf old-result :id)
+                                               (first (last (pathname-directory directory))))
+                             :root-conversation root-id :owners nil)
+                       (task-continuity--read path))))
+            (unless (and (eql 1 (getf record :version))
+                         (member (getf record :kind) '(:task :tool))
+                         (every #'non-empty-string-p
+                                (list (getf record :execution-id)
+                                      (getf record :job-id)
+                                      (getf record :root-conversation)))
+                         (equal (getf record :execution-id)
+                                (first (last (pathname-directory directory))))
+                         (listp (getf record :owners))
+                         (every #'non-empty-string-p (getf record :owners)))
+              (task-continuity--fail "Invalid persisted continuity identity."))
+            (let ((specification (getf record :specification))
+                  (checkpoint    (getf record :checkpoint)))
+              (when specification
+                (unless (and (eq (getf record :kind) :task)
+                             (non-empty-string-p (getf specification :agent))
+                             (non-empty-string-p (getf specification :task)))
+                  (task-continuity--fail "Invalid persisted task specification.")))
+              (when checkpoint
+                (unless (and (non-empty-string-p (getf checkpoint :image))
+                             (non-empty-string-p (getf checkpoint :repl)))
+                  (task-continuity--fail "Invalid persisted worker checkpoint."))))
+            (when (task-continuity--visible-p record viewer)
+              (list (list :record record :path (namestring path)))))
+        (error (condition)
+          (unless (typep viewer 'task-child-agent)
+            (list (list :path  (namestring path)
+                        :error (bounded-string (princ-to-string condition)
+                                               :limit 500)))))))))
 
 (-> task-continuity--find (agent string) list)
 (defun task-continuity--find (viewer identifier)
