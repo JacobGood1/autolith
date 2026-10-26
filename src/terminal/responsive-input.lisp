@@ -279,8 +279,8 @@
    (failure-backtrace
     :initform      nil
     :accessor      application-input-controller-failure-backtrace
-    :type          (option string)
-    :documentation "The reader backtrace captured with FAILURE."))
+    :type          list
+    :documentation "The bounded reader backtrace frames captured with FAILURE."))
   (:documentation
    "Ephemeral terminal input and FIFO submission state for one application run."))
 
@@ -1394,7 +1394,7 @@ The caller must hold CONTROLLER's publication lock."
   nil)
 
 (-> application-input-controller--record-failure
-    (application-input-controller serious-condition (option string))
+    (application-input-controller serious-condition list)
     null)
 (defun application-input-controller--record-failure
     (controller condition backtrace)

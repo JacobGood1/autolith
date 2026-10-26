@@ -152,8 +152,8 @@
    (backtrace
     :initarg       :backtrace
     :reader        application-input-failed-backtrace
-    :type          (option string)
-    :documentation "The backtrace captured on the terminal reader thread."))
+    :type          list
+    :documentation "The bounded backtrace frames captured on the terminal reader thread."))
   (:documentation
    "An internal control condition transferring reader failure to the main thread.")
   (:report (lambda (condition stream)

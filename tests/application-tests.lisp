@@ -3158,6 +3158,34 @@
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
+(-> test-fatal-boundaries-keep-backtraces () null)
+(defun test-fatal-boundaries-keep-backtraces ()
+  "Test each fatal boundary hands recovery the frames of the failure it ends."
+  (with-test-configuration (configuration)
+    (let* ((application (mission-test--application configuration))
+           (controller  (make-instance 'application-input-controller
+                                       :application application
+                                       :main-thread (current-thread))))
+      (setf (application-input-controller application) controller)
+      (unwind-protect
+           (progn
+             (application-input-controller--record-failure
+              controller
+              (make-condition 'simple-error :format-control "Injected reader failure.")
+              (list "READER-FRAME"))
+             (test-assert
+              (equal (handler-case
+                         (progn
+                           (application-input-controller--next-work controller)
+                           nil)
+                       (application-input-failed (condition)
+                         (application-input-failed-backtrace condition)))
+                     '("READER-FRAME"))
+              "a terminal reader failure reaches the main thread with its frames"))
+        (setf (application-input-controller application) nil)
+        (terminal-ui-stop (application-ui application)))))
+  nil)
+
 (-> test-recovery-diagnosis-prompt () null)
 (defun test-recovery-diagnosis-prompt ()
   "Test recovered crash context becomes one bounded diagnosis-only prompt."
