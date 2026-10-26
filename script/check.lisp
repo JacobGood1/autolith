@@ -526,15 +526,13 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
       (when (probe-file directory)
         (pushnew directory (symbol-value directories) :test #'equal)))
     (asdf:load-asd (merge-pathnames "autolith.asd" source-root))
-    (when development-p
-      (load (merge-pathnames "script/check-dependencies.lisp" source-root))
-      (autolith-ensure-check-dependencies source-root (check--runtime-command source-root))
-      (autolith-register-check-dependencies source-root))
-    (check--load-test-system source-root :development-p development-p)
+    (if development-p
+        (check--load-development-tests source-root)
+        (check--load-test-system source-root :development-p nil))
     setup))
 
 (defun check--load-development-tests (source-root)
-  "Install and load the development test extensions after runtime selection fails."
+  "Install and load the development test extensions."
   (load (merge-pathnames "script/check-dependencies.lisp" source-root))
   (autolith-ensure-check-dependencies source-root (check--runtime-command source-root))
   (autolith-register-check-dependencies source-root)
@@ -543,16 +541,14 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
 (defun check--select-tests (source-root suites tests)
   "Select tests, extending the runtime catalog when a selector is unknown.
 
-Return the selected cases and whether development tests were loaded. Only an
-unknown selector triggers the development fallback; unrelated conditions are
-propagated without initializing development tooling."
+Return the selected cases and whether this call loaded development tests. Only
+an unknown selector triggers the fallback; unrelated errors propagate."
   (handler-case
       (values (uiop:symbol-call '#:autolith '#:tests-select :suites suites :tests tests)
               nil)
-    (condition (condition)
+    (error (condition)
       (let ((selection-error (find-symbol "TEST-SELECTION-ERROR" "AUTOLITH")))
-        (if (and selection-error
-                 (typep condition (find-class selection-error)))
+        (if (and selection-error (typep condition selection-error))
             (progn
               (check--load-development-tests source-root)
               (values (uiop:symbol-call '#:autolith '#:tests-select
@@ -603,71 +599,73 @@ rather than every bootstrap and release build."
 (defun check--run (options source-root)
   "Run the checks OPTIONS select and return the exit status.
 
-  Complete runs and source checks need development dependencies. Selected runtime
-  cases start with the packaged runtime test system and extend it only when a
-  selector is not present there."
- (let* ((suites                 (getf options :suites))
-        (tests                  (getf options :tests))
-        (list-p                 (getf options :list))
-        (source-only-p          (getf options :source))
-        (complete-p             (not (or suites tests)))
-        (development-p          (or complete-p source-only-p))
-        ;; Compile once before concurrent processes load the same FASL cache.
-        (quicklisp-setup        (check--load-tests source-root
-                                                    :development-p development-p
-                                                    :build-sandbox (not (or list-p source-only-p))))
-        (cases                  nil)
-        (selected-development-p development-p))
-   (unless source-only-p
-     (multiple-value-setq (cases selected-development-p)
-       (check--select-tests source-root suites tests)))
-   (unless (or source-only-p cases)
-     (check--fail "No test cases matched the selection."))
-   (when list-p
-     (uiop:symbol-call '#:autolith '#:tests-list :suites suites :tests tests)
-     (return-from check--run 0))
-   (let ((temporary-root (merge-pathnames
-                          (format nil "autolith-check-~D-~D/" (sb-posix:getpid)
-                                  (random most-positive-fixnum))
-                          (uiop:temporary-directory)))
-         (jobs           (getf options :jobs))
-         (timeout        (getf options :timeout))
-         (warnings       nil))
-     (unwind-protect
-          (progn
-            (when complete-p
-              (setf warnings (check--start-warnings source-root temporary-root)))
-            (let* ((findings (and complete-p (check--source-findings source-root)))
-                   (passed-p (or source-only-p
-                                 (check--run-workers
-                                  cases
-                                  :source-root    source-root
-                                  :temporary-root temporary-root
-                                    :active-core  (check--build-active-core source-root
-                                                                              temporary-root)
-                                    :worker-core  (check--build-worker-core
-                                                      source-root temporary-root
-                                                   :development-p selected-development-p)
-                                  :jobs           jobs
-                                  :timeout        timeout))))
-              (when (and complete-p (not source-only-p))
-                (check--run-recovery :source-root     source-root
-                                     :temporary-root  temporary-root
-                                     :quicklisp-setup quicklisp-setup
-                                     :jobs            jobs
-                                     :timeout         timeout))
-              (when complete-p
-                (setf findings
-                      (append findings
-                              (uiop:symbol-call '#:autolith '#:source-warning-run-finish
-                                                warnings)))
-                (check--report-findings findings))
-              (if (and passed-p (null findings))
-                  0
-                  1)))
-       (when warnings
-         (check--stop-warnings warnings))
-       (check--delete-temporary-root temporary-root)))))
+Complete runs and source checks need development dependencies. Selected runtime
+cases start with the packaged runtime test system and extend it only when a
+selector is not present there."
+  (let* ((suites                 (getf options :suites))
+         (tests                  (getf options :tests))
+         (list-p                 (getf options :list))
+         (source-only-p          (getf options :source))
+         (complete-p             (not (or suites tests)))
+         (development-p          (or complete-p source-only-p))
+         ;; Compile once before concurrent processes load the same FASL cache.
+         (quicklisp-setup        (check--load-tests source-root
+                                                  :development-p development-p
+                                                  :build-sandbox (not (or list-p source-only-p))))
+         (cases                  nil)
+         (selected-development-p development-p))
+    (unless source-only-p
+      (multiple-value-bind (selected-cases extended-p)
+          (check--select-tests source-root suites tests)
+        (setf cases                  selected-cases
+              selected-development-p (or development-p extended-p))))
+    (unless (or source-only-p cases)
+      (check--fail "No test cases matched the selection."))
+    (when list-p
+      (uiop:symbol-call '#:autolith '#:tests-list :suites suites :tests tests)
+      (return-from check--run 0))
+    (let ((temporary-root (merge-pathnames
+                           (format nil "autolith-check-~D-~D/" (sb-posix:getpid)
+                                   (random most-positive-fixnum))
+                           (uiop:temporary-directory)))
+          (jobs           (getf options :jobs))
+          (timeout        (getf options :timeout))
+          (warnings       nil))
+      (unwind-protect
+           (progn
+             (when complete-p
+               (setf warnings (check--start-warnings source-root temporary-root)))
+             (let* ((findings (and complete-p (check--source-findings source-root)))
+                    (passed-p (or source-only-p
+                                  (check--run-workers
+                                   cases
+                                   :source-root    source-root
+                                   :temporary-root temporary-root
+                                   :active-core    (check--build-active-core source-root
+                                                                            temporary-root)
+                                   :worker-core    (check--build-worker-core
+                                                    source-root temporary-root
+                                                    :development-p selected-development-p)
+                                   :jobs           jobs
+                                   :timeout        timeout))))
+               (when (and complete-p (not source-only-p))
+                 (check--run-recovery :source-root     source-root
+                                      :temporary-root  temporary-root
+                                      :quicklisp-setup quicklisp-setup
+                                      :jobs            jobs
+                                      :timeout         timeout))
+               (when complete-p
+                 (setf findings
+                       (append findings
+                               (uiop:symbol-call '#:autolith '#:source-warning-run-finish
+                                                 warnings)))
+                 (check--report-findings findings))
+               (if (and passed-p (null findings))
+                   0
+                   1)))
+        (when warnings
+          (check--stop-warnings warnings))
+        (check--delete-temporary-root temporary-root)))))
 
 (defun check--delete-temporary-root (pathname)
   "Delete PATHNAME through Autolith's host-specific directory-tree adapter."
