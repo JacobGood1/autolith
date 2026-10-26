@@ -63,7 +63,7 @@
 
 (defstruct launcher-request
   "The launcher options separated from the application arguments."
-  recovery-p from-source-p update-p uninstall-p data-p acp-p arguments)
+  recovery-p from-source-p update-p uninstall-p data-p acp-p localgroup-handoff-p arguments)
 
 (defun launcher-bootstrap-command-name (source-root)
   "Return the bootstrap command to show the user for SOURCE-ROOT."
@@ -121,6 +121,8 @@ of deleting them, as the Windows update path also hands off to the user."
          (setf (launcher-request-from-source-p request) t)
          (push argument remaining))
         ((member argument *launcher-value-options* :test #'string=)
+         (when (string= argument "--localgroup-handoff")
+           (setf (launcher-request-localgroup-handoff-p request) t))
          (setf take-value-p t)
          (push argument remaining))
         ((string= argument "--update")
@@ -675,8 +677,11 @@ boot therefore leaves the generation identity available to recovery."
               (cond
                 ((zerop status)
                  0)
+                ;; A detached session relays its exit to the attached terminal,
+                ;; whose own launcher updates, rolls back, or recovers.
                 ((or (launcher-request-acp-p request)
                      (launcher-request-data-p request)
+                     (launcher-request-localgroup-handoff-p request)
                      (member status *launcher-terminal-statuses*))
                  status)
                 (t

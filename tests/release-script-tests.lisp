@@ -816,6 +816,7 @@ printf '%s %s\\n' \"$mode\" \"$*\"
 case \" $* \" in
   *\" fixture-update \"*) exit 76 ;;
   *\" fixture-data-failure \"*) exit 1 ;;
+  *\" fixture-session-crash \"*) exit 70 ;;
 esac
 if [ \"$mode\" = SOURCE ]; then
   case \" $* \" in
@@ -917,6 +918,14 @@ printf '(:SBCL-GENERATIONS-IMAGE-MANIFEST :VERSION 1\\n)\\n' > \"$active/manifes
         (declare (ignore error-output))
         (test-assert (and (= status 1) (not (search "/recovery/launcher.lisp" output)))
                      "a noninteractive data failure returns without starting recovery"))
+      (multiple-value-bind (output error-output status)
+          (release-script-tests--run
+           (list (namestring launcher) "--from-source"
+                 "--localgroup-handoff" "fixture-ticket" "fixture-session-crash")
+           :environment environment :ignore-error-status t)
+        (declare (ignore error-output))
+        (test-assert (and (= status 70) (not (search "RECOVERY" output)))
+                     "a detached session's crash leaves recovery to its relaying terminal"))
       (let* ((cache-home  (merge-pathnames "cache/" fixture-root))
              (config-home (merge-pathnames "config/" fixture-root))
              (artifacts

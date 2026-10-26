@@ -338,7 +338,10 @@ fi
 
 restore_terminal
 
-if [[ "$data_requested" == true ]]; then
+# A detached session relays its exit to the attached terminal, whose own
+# launcher updates, rolls back, or recovers; recovering here as well would race
+# it for the conversation without a terminal to show.
+if [[ "$data_requested" == true || "$localgroup_handoff_requested" == true ]]; then
   exit "$status"
 fi
 

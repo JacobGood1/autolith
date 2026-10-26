@@ -40,6 +40,7 @@ autolith_launcher_parse()
   uninstall_confirmed=false
   data_requested=false
   acp_requested=false
+  localgroup_handoff_requested=false
   remaining_arguments=()
   for argument in "$@"; do
     if [[ $take_value == true ]]; then
@@ -62,7 +63,12 @@ autolith_launcher_parse()
         from_source_requested=true
         remaining_arguments+=("$argument")
         ;;
-      --permissions|--image|-i|--localgroup-handoff|--site-config-root|--id|--input|--output|\
+      --localgroup-handoff)
+        localgroup_handoff_requested=true
+        take_value=true
+        remaining_arguments+=("$argument")
+        ;;
+      --permissions|--image|-i|--site-config-root|--id|--input|--output|\
       --events|--generation|--status|--capsule|--original-argument|--workspace)
         # Forward a value verbatim, even when it resembles a launcher flag.
         # These are arities only, not a second application option parser.
