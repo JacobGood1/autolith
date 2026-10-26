@@ -371,10 +371,12 @@ the text, which need not fit what an editing observation retains."
              :message    "the resource observation carries no text"))
     content))
 
-(-> rlm--tool-object-content (tool-context string) string)
-(defun rlm--tool-object-content (context reference)
+(-> rlm--tool-object-content
+    (tool-context string &key (:maximum-bytes (integer 0)) (:tool-name non-empty-string))
+    string)
+(defun rlm--tool-object-content
+    (context reference &key (maximum-bytes *rlm-view-maximum-bytes*) (tool-name "rlm"))
   "Return the stored context object REFERENCE names, by digest or URI.
-
 Dereferencing routes through the context resource scheme, so object
 references obey the same authority and scheme restrictions as every
 other uri designator."
@@ -382,7 +384,9 @@ other uri designator."
    context
    (if (uiop:string-prefix-p "context:" reference)
        reference
-       (format nil "context:~A" reference))))
+       (format nil "context:~A" reference))
+   :maximum-bytes maximum-bytes
+   :tool-name     tool-name))
 
 (-> rlm--tool-views (t tool-context) list)
 (defun rlm--tool-views (views context)
@@ -657,7 +661,9 @@ turn, and async requests hand off at admission."
                            :label (or label uri)))
       (t
        (rlm-context-intern configuration
-                           (rlm--tool-object-content context object)
+                           (rlm--tool-object-content
+                            context object :maximum-bytes *rlm-context-maximum-bytes*
+                                           :tool-name     "rlm.complete")
                            :label label)))))
 
 (defmethod tool-execute

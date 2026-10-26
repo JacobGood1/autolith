@@ -1037,6 +1037,7 @@
   test-rlm-complete-tool
   test-rlm-designator-confinement
   test-rlm-root-context-size
+  test-rlm-whole-resource-views
   test-rlm-permission-classifier)
 
 (define-test-suite run-job

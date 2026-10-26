@@ -2439,6 +2439,57 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                      "unknown context object digests are refused"))))
   nil)
 
+(-> test-rlm-whole-resource-views () null)
+(defun test-rlm-whole-resource-views ()
+  "Test complete resource views preserve paged records and enforce UTF-8 limits."
+  (with-test-configuration (configuration)
+    (let* ((conversation (conversation-create configuration :identifier "rlm-whole-views"))
+           (registry     (make-instance 'tool-registry))
+           (context      (make-instance 'tool-context
+                                        :configuration configuration
+                                        :worker        nil
+                                        :conversation  conversation
+                                        :registry      registry))
+           (first-text   (concatenate 'string (make-string 2000 :initial-element #\界)
+                                      "first-record-end"))
+           (last-text    "last-record-end"))
+      (dolist (resolver (list (make-instance 'conversation-resolver :scheme "conversation")
+                             (make-instance 'context-object-resolver :scheme "context")))
+        (resource-registry-register (tool-registry-resource-registry registry) resolver))
+      (conversation-append-user-message conversation first-text)
+      (dotimes (index 3)
+        (conversation-append-user-message conversation (format nil "middle ~D" index)))
+      (conversation-append-user-message conversation last-text)
+      (let* ((*conversation-resource-maximum-record-count* 2)
+             (content                                      (rlm--tool-resource-content context "conversation:current"))
+             (object                                       (rlm-context-intern configuration "ž界")))
+        (test-assert (and (search first-text content) (search last-text content))
+                     "whole conversation views include untruncated records across pages")
+        (let ((*rlm-view-maximum-bytes* 0))
+          (test-assert
+           (string= (rlm-context-object-digest object)
+                    (rlm-context-object-digest
+                     (rlm--tool-complete-object
+                      context (json-object "object" (rlm-context-object-digest object)))))
+           "stored root contexts use the root limit rather than the frame-view limit"))
+        (dolist (case (list (list "conversation:current" content)
+                           (list (format nil "context:~A" (rlm-context-object-digest object))
+                                 "ž界")))
+          (destructuring-bind (uri expected) case
+            (let ((bytes (length (utf8-string-to-octets expected))))
+              (test-assert (equal expected
+                                  (rlm--tool-resource-content context uri :maximum-bytes bytes))
+                           "a whole resource fits its exact UTF-8 byte limit")
+              (test-assert
+               (handler-case
+                   (progn
+                     (rlm--tool-resource-content context uri :maximum-bytes (1- bytes))
+                     nil)
+                 (tool-error ()
+                   t))
+               "whole-text limits include headers and multibyte characters")))))))
+  nil)
+
 (-> test-rlm-root-context-size () null)
 (defun test-rlm-root-context-size ()
   "Test a root context reads a workspace file whole past the editing snapshot limit."

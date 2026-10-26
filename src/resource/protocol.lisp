@@ -202,9 +202,15 @@ observation retains, so this reads without establishing one. MAXIMUM-BYTES
 bounds the UTF-8 octets the consumer accepts, and TOOL-NAME names it in errors."))
 
 (defmethod resource-whole-text (resource context &key maximum-bytes tool-name)
-  "Return the text of RESOURCE's ordinary observation, which its own limits bound."
-  (declare (ignore maximum-bytes tool-name))
-  (resource-observation-content (resource-observe resource context)))
+  "Return RESOURCE's ordinary observation text within the consumer's UTF-8 limit."
+  (let ((content (resource-observation-content (resource-observe resource context))))
+    (when (and (stringp content)
+               (> (length (utf8-string-to-octets content)) maximum-bytes))
+      (error 'tool-error
+             :message   (format nil "Resource ~A exceeds the ~:D-byte whole-text limit for ~A."
+                                (resource-uri resource) maximum-bytes tool-name)
+             :tool-name tool-name))
+    content))
 
 (defgeneric resource-context-child-agent-p (context)
   (:documentation "Return true when CONTEXT belongs to a restricted task child agent."))
