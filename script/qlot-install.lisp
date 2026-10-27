@@ -55,8 +55,12 @@ loaded by Autolith."
 (let* ((script-path      (truename *load-truename*))
        (script-directory (uiop:pathname-directory-pathname script-path))
        (source-root      (uiop:pathname-parent-directory-pathname script-directory))
-       ;; The optional argument names another qlot project, such as checks/.
-       (project-root     (let ((argument (first (uiop:command-line-arguments))))
+       (arguments        (uiop:command-line-arguments))
+       ;; The optional first argument names another qlot project, such as
+       ;; checks/. Names after --update refresh those projects instead.
+       (updates          (rest (member "--update" arguments :test #'string=)))
+       (project-root     (let ((argument (and (not (equal (first arguments) "--update"))
+                                              (first arguments))))
                            (if argument
                                (uiop:merge-pathnames*
                                 (uiop:ensure-directory-pathname argument) (uiop:getcwd))
@@ -90,6 +94,10 @@ loaded by Autolith."
       (error "The loaded Qlot does not expose its project root."))
     (progv (list qlot-project-root) (list project-root)
       (uiop:with-current-directory (project-root)
-        (if (member :bsd *features*)
-            (uiop:symbol-call '#:qlot '#:install :jobs 1)
-            (uiop:symbol-call '#:qlot '#:install))))))
+        (cond
+          (updates
+           (uiop:symbol-call '#:qlot '#:update updates))
+          ((member :bsd *features*)
+           (uiop:symbol-call '#:qlot '#:install :jobs 1))
+          (t
+           (uiop:symbol-call '#:qlot '#:install)))))))

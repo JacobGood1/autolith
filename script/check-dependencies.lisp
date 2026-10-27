@@ -16,6 +16,15 @@
   '("qlfile" "qlfile.lock" "autolith-check-tools.asd")
   "The checks/ files that define the check tools' qlot project.")
 
+(defparameter *autolith-check-dependency-floating* '("cheque")
+  "Check tools that follow their default branch instead of the lock.
+
+cheque is Lambda Symbolics' shared source checker, so every project picks up
+its current rules; installs still honor the lock for the pinned tools.")
+
+(defparameter *autolith-check-dependency-refresh-seconds* 3600
+  "The longest the installed floating check tools go without a refresh.")
+
 (defvar *autolith-check-dependency-directories* nil
   "The installed check tool source directories ASDF consults last.")
 
@@ -38,10 +47,15 @@ Its name is a digest of the defining files, so a changed lock installs afresh."
   "Return the file recording a complete install of SOURCE-ROOT's check tools."
   (merge-pathnames "installed" (autolith-check-dependency-root source-root)))
 
-(defun autolith-ensure-check-dependencies (source-root script-command)
-  "Install SOURCE-ROOT's locked check tools unless they are already installed.
+(defun autolith-check-dependency-refresh-stamp (source-root)
+  "Return the file whose write date records the last refresh of the floating check tools."
+  (merge-pathnames "refreshed" (autolith-check-dependency-root source-root)))
 
-SCRIPT-COMMAND is the command prefix that runs one Lisp script file."
+(defun autolith-ensure-check-dependencies (source-root script-command)
+  "Install SOURCE-ROOT's locked check tools unless installed, then refresh floating ones when due.
+
+SCRIPT-COMMAND is the command prefix that runs one Lisp script file. A failed
+refresh, such as one without network access, keeps the installed versions."
   (let ((root (autolith-check-dependency-root source-root)))
     (unless (probe-file (autolith-check-dependency-stamp source-root))
       (format t "~&Installing the locked source-check tools.~%")
@@ -57,7 +71,34 @@ SCRIPT-COMMAND is the command prefix that runs one Lisp script file."
                         :error-output ':interactive)
       (with-open-file (stream (autolith-check-dependency-stamp source-root)
                               :direction ':output :if-exists ':supersede)
-        (write-line "installed" stream)))))
+        (write-line "installed" stream)))
+    (let ((stamp (probe-file (autolith-check-dependency-refresh-stamp source-root))))
+      (when (or (null stamp)
+                (> (- (get-universal-time) (file-write-date stamp))
+                   *autolith-check-dependency-refresh-seconds*))
+        (autolith-refresh-check-dependencies source-root script-command)))))
+
+(defun autolith-refresh-check-dependencies (source-root script-command)
+  "Update SOURCE-ROOT's floating check tools to their newest commits, recording success."
+  (format t "~&Refreshing ~{~A~^, ~}.~%" *autolith-check-dependency-floating*)
+  (finish-output)
+  (let ((status (nth-value 2 (uiop:run-program
+                              (append script-command
+                                      (list (uiop:native-namestring
+                                             (merge-pathnames "script/qlot-install.lisp" source-root))
+                                            (uiop:native-namestring
+                                             (autolith-check-dependency-root source-root))
+                                            "--update")
+                                      *autolith-check-dependency-floating*)
+                              :output              ':interactive
+                              :error-output        ':interactive
+                              :ignore-error-status t))))
+    (if (eql status 0)
+        (with-open-file (stream (autolith-check-dependency-refresh-stamp source-root)
+                                :direction ':output :if-exists ':supersede)
+          (write-line "refreshed" stream))
+        (format t "~&Refreshing the check tools failed with status ~A; using the installed versions.~%"
+                status))))
 
 (defun autolith-check-dependency-directories (source-root)
   "Return every installed check tool source directory for SOURCE-ROOT."

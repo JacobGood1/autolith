@@ -97,6 +97,9 @@ copy their architecture wholesale.
   `./script/check` installs them on first use into Autolith's cache, outside
   the source tree, and makes them visible only to its own processes. Never add
   them to the root qlfile, the Nix package, bootstrap, or release archives.
+  cheque, the shared Lambda Symbolics source checker, is deliberately
+  unpinned: `./script/check` refreshes it to its newest commit at most hourly,
+  while the lock keeps pinning every other tool.
 - `VERSION` is the single release-version source. ASDF, runtime reporting, and
   Nix derive their versions from it. For a release, update that file and add
   the release notes.
