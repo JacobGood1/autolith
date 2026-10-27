@@ -247,6 +247,7 @@
   test-terminal-fullscreen-flush-wrap-cursor
   test-terminal-fullscreen-failure-and-lifecycle
   test-terminal-style-tables-cover-every-name
+  test-terminal-style-sequence-unthemed
   test-fullscreen-boot-geometry
   test-fullscreen-boot-sequence
   test-fullscreen-boot-disabled

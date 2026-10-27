@@ -2905,3 +2905,14 @@ Resize tests drive size changes through COLUMNS and LINES."
         (test-assert (plusp (length (terminal-style-sequence name t)))
                      "a true-color terminal renders every semantic style"))))
   nil)
+
+(-> test-terminal-style-sequence-unthemed () null)
+(defun test-terminal-style-sequence-unthemed ()
+  "Resolve a style the installed table omits to no control."
+  (let ((*terminal-style-table*
+          (remove ':surface (terminal-style-table-autolith) :key #'first)))
+    (test-assert (null (terminal-style-sequence :surface t))
+                 "an unthemed style resolves to no control")
+    (test-assert (plusp (length (terminal-style-sequence :brand t)))
+                 "defined styles keep their controls"))
+  nil)
