@@ -331,6 +331,10 @@ before any shell is involved."
    (platform-session-launch-command
     *platform* (config :source-root configuration))
    (list "--permissions" permission-argument)
+   (when (config :model-selection-override-p configuration)
+     (append (list "--model" (config :model configuration))
+             (when (non-empty-string-p (config :model-provider configuration))
+               (list "--provider" (config :model-provider configuration)))))
    (when immutable-p
      (list "--immutable"))
    (when (config :fullscreen-p configuration)

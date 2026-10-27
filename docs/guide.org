@@ -1862,6 +1862,24 @@ catalog ID. An explicit provider and a conflicting qualified prefix signal a
 selection error. The selected provider is saved with the model in preferences
 and conversation history, so reopening a session uses the same registration.
 
+Select a model for one launch with =--model MODEL=. Use a provider-qualified
+ID, or pass =--provider PROVIDER= together with =--model= for an exact catalog
+ID. These options work before or after =run-job= and =resume=:
+
+#+begin_src sh
+autolith --model my-provider/my-model
+autolith --provider my-provider --model hf:custom/model
+autolith resume --model my-provider/my-model
+autolith run-job --model my-provider/my-model --input job.sexp --output result.sexp
+#+end_src
+
+The launch selection takes precedence over environment variables, saved
+preferences, and a resumed conversation's model. It does not save a new default;
+use =(model ...)= to save a selection. Autolith loads executable initialization
+and the local provider catalog before validating the requested model, so providers
+registered in =init.lisp= are available. Startup does not fetch a remote catalog;
+use =autolith models= to list locally known IDs and =(models)= to refresh them.
+
 The built-in model picker uses =https://models.dev/api.json= for ChatGPT,
 Gemini, Grok, Anthropic, Fireworks, OpenCode, OpenRouter, and Mistral metadata.
 An explicit =(models)= refresh downloads the public catalog once without

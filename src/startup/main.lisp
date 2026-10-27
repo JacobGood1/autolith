@@ -781,6 +781,24 @@ state, including an empty list after successful or pristine startup."
     (when (non-empty-string-p value)
       (list :site-config-root (pathname value)))))
 
+(-> main--model-arguments (clingon:command) list)
+(defun main--model-arguments (command)
+  "Return transient model overrides, leaving provider validation to user init."
+  (let ((model    (getopt* command ':model))
+        (provider (getopt* command ':provider)))
+    (when (and provider (not model))
+      (error 'configuration-error :message "--provider requires --model MODEL."))
+    (dolist (entry (list (cons "--model" model) (cons "--provider" provider)))
+      (when (and (rest entry)
+                 (or (not (non-empty-string-p (string-trim '(#\Space #\Tab #\Newline)
+                                                          (rest entry))))
+                     (uiop:string-prefix-p "--" (rest entry))))
+        (error 'configuration-error
+               :message (format nil "~A requires a nonempty value." (first entry)))))
+    (when model
+      (list :model model :model-provider (or provider "")
+            :model-selection-override-p t))))
+
 (-> main--start-session
     (clingon:command
      &key (:resume-requested-p boolean)
@@ -803,7 +821,8 @@ state, including an empty list after successful or pristine startup."
             (let ((base (apply #'configuration-create
                                :immutable-p                 immutable-p
                                :defer-provider-validation-p t
-                               (main--site-root-arguments command))))
+                               (append (main--site-root-arguments command)
+                                       (main--model-arguments command)))))
               ;; The command line beats the saved preference; provider
               ;; validation stays deferred until executable user init.
               (when (getopt* command ':fullscreen)
@@ -1017,6 +1036,18 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
 (defun main--session-options ()
   "Return the persistent session options shared with every sub-command."
   (list
+   (make-option ':string
+                :long-name   "model"
+                :key         ':model
+                :parameter   "MODEL"
+                :persistent  t
+                :description "select a model for this launch without saving preferences")
+   (make-option ':string
+                :long-name   "provider"
+                :key         ':provider
+                :parameter   "PROVIDER"
+                :persistent  t
+                :description "select the registered provider for --model")
    (make-option ':flag
                 :long-name   "fullscreen"
                 :key         ':fullscreen
@@ -1198,7 +1229,7 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
    (lambda (command)
      (when (command-arguments command)
        (error 'configuration-error
-              :message "run-job accepts only --input, --output and --events options."))
+              :message "run-job accepts options only; use --input FILE and --output FILE."))
      (let ((input  (getopt* command ':input))
            (output (getopt* command ':output))
            (events (getopt* command ':events)))
@@ -1212,7 +1243,8 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
                 (apply #'configuration-create
                        :immutable-p                 (not (null (getopt* command ':immutable)))
                        :defer-provider-validation-p t
-                       (main--site-root-arguments command)))
+                       (append (main--site-root-arguments command)
+                               (main--model-arguments command))))
               (permission-mode
                 (or (getopt* command ':permissions)
                     (config :permission-mode configuration)

@@ -160,10 +160,17 @@ registrations use models.dev when mapped. Failures retain the last successful li
   "Load local provider metadata and validate CONFIGURATION.
 
 When REFRESH-P is true, also perform the explicit synchronous discovery operation.
-The default startup path never performs remote model discovery."
+The default startup path never performs remote model discovery. Launch overrides
+are normalized after executable init and cache loading establish their provider."
   (provider-load-model-cache configuration)
   (when refresh-p
     (provider-refresh-models configuration))
+  (when (config :model-selection-override-p configuration)
+    (setf configuration
+          (configuration-copy configuration
+                              :model                 (config :model configuration)
+                              :model-provider        (config :model-provider configuration)
+                              :provider-validation-p nil)))
   (configuration-validate-deferred configuration))
 
 (-> provider--read-model-cache (configuration) t)

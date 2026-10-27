@@ -457,24 +457,26 @@ exchange without scrolling through reasoning and tool activity.")
     (configuration conversation)
     configuration)
 (defun application--configuration-for-conversation (configuration conversation)
-  "Restore the recorded model/provider and a supported effort over CONFIGURATION."
-  (multiple-value-bind (recorded-model registration)
-      (handler-case
-          (if (conversation-model conversation)
-              (provider-resolve-model (conversation-model conversation)
-                                      :provider (conversation-model-provider conversation))
-              (values nil nil))
-        (model-selection-error () (values nil nil)))
-    (let* ((model     (if registration recorded-model (config :model configuration)))
-           (provider  (if registration (provider-registration-name registration)
-                          (config :model-provider configuration)))
-           (effort    (conversation-reasoning-effort conversation))
-           (overrides (list :model model :model-provider provider)))
-      (when (and effort
-                 (member effort (configuration--reasoning-efforts-for model provider)
-                         :test #'string=))
-        (setf overrides (append overrides (list :reasoning-effort effort))))
-      (apply #'configuration-copy configuration overrides))))
+  "Restore the recorded model/provider unless this launch explicitly selected one."
+  (if (config :model-selection-override-p configuration)
+      configuration
+      (multiple-value-bind (recorded-model registration)
+          (handler-case
+              (if (conversation-model conversation)
+                  (provider-resolve-model (conversation-model conversation)
+                                          :provider (conversation-model-provider conversation))
+                  (values nil nil))
+            (model-selection-error () (values nil nil)))
+        (let* ((model     (if registration recorded-model (config :model configuration)))
+               (provider  (if registration (provider-registration-name registration)
+                              (config :model-provider configuration)))
+               (effort    (conversation-reasoning-effort conversation))
+               (overrides (list :model model :model-provider provider)))
+          (when (and effort
+                     (member effort (configuration--reasoning-efforts-for model provider)
+                             :test #'string=))
+            (setf overrides (append overrides (list :reasoning-effort effort))))
+          (apply #'configuration-copy configuration overrides)))))
 
 (-> application--task-orchestrator
     (application)
