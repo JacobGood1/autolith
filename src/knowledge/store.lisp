@@ -751,6 +751,41 @@ predicates, version 0, are visible everywhere."
   "Return the workspace owning knowledge in SCOPE, or NIL for global knowledge."
   (and (eq scope ':workspace) (knowledge--workspace configuration)))
 
+(-> knowledge--plan-schema-definition
+    (knowledge-base list &key (:scope memory-scope) (:workspace (option string))
+                             (:source-conversation (option string)))
+    (values list list integer boolean))
+(defun knowledge--plan-schema-definition (base schema &key scope workspace source-conversation)
+  "Return definition records, schema, version, and write-p for SCHEMA against BASE."
+  (unless (knowledge-schema-p schema)
+    (knowledge--fail ':invalid-schema schema "The schema is malformed."))
+  (let ((predicate (knowledge-schema-predicate schema)))
+    (destructuring-bind (&optional existing version)
+        (gethash (list scope workspace predicate) (knowledge-base-schemas base))
+      (cond
+        ((equal existing schema)
+         (values nil existing version nil))
+        ((and existing
+              (not (equal (knowledge-schema-arguments existing)
+                          (knowledge-schema-arguments schema)))
+              (some (lambda (claim)
+                      (let ((entry (knowledge-base-claim base claim)))
+                        (and (eq (getf entry :scope) scope)
+                             (equal (getf entry :workspace) workspace))))
+                    (knowledge-base-claims-with-predicate base predicate)))
+         (knowledge--fail ':schema-in-use predicate
+                          "Claims already use ~A; keep its arguments, or define a new predicate."
+                          predicate))
+        (t
+         (values (list (list :schema-defined
+                             :version *knowledge-format-version*
+                             :scope               scope
+                             :workspace           workspace
+                             :schema              schema
+                             :time                (get-universal-time)
+                             :source-conversation source-conversation))
+                 schema (if version (1+ version) 1) t))))))
+
 (-> knowledge-define-schema
     (configuration list &key (:scope memory-scope) (:source-conversation (option string)))
     (values list integer))
@@ -760,40 +795,15 @@ predicates, version 0, are visible everywhere."
 Redefining an unchanged schema writes nothing. A redefinition may change the
 key, template, and description; changing arguments while claims use the
 predicate is refused, because those claims would no longer fit."
-  (unless (knowledge-schema-p schema)
-    (knowledge--fail ':invalid-schema schema "The schema is malformed."))
-  (let ((workspace (knowledge--owner configuration scope))
-        (predicate (knowledge-schema-predicate schema)))
+  (let ((workspace (knowledge--owner configuration scope)))
     (values-list
      (knowledge-transact
       configuration
       (lambda (base)
-        (destructuring-bind (&optional existing version)
-            (gethash (list scope workspace predicate) (knowledge-base-schemas base))
-          (cond
-            ((equal existing schema)
-             (values nil (list existing version) nil))
-            ((and existing
-                  (not (equal (knowledge-schema-arguments existing)
-                              (knowledge-schema-arguments schema)))
-                  (some (lambda (claim)
-                          (let ((entry (knowledge-base-claim base claim)))
-                            (and (eq (getf entry :scope) scope)
-                                 (equal (getf entry :workspace) workspace))))
-                        (knowledge-base-claims-with-predicate base predicate)))
-             (knowledge--fail ':schema-in-use predicate
-                              "Claims already use ~A; keep its arguments, or define a new predicate."
-                              predicate))
-            (t
-             (values (list (list :schema-defined
-                                 :version *knowledge-format-version*
-                                 :scope               scope
-                                 :workspace           workspace
-                                 :schema              schema
-                                 :time                (get-universal-time)
-                                 :source-conversation source-conversation))
-                     (list schema (if version (1+ version) 1))
-                     t)))))))))
+        (multiple-value-bind (records defined version write-p)
+            (knowledge--plan-schema-definition base schema :scope scope :workspace workspace
+                                                           :source-conversation source-conversation)
+          (values records (list defined version) write-p)))))))
 
 (-> knowledge-make-evidence
     (&key (:source list) (:workspace (option string)) (:digest (option string))

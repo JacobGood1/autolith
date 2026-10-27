@@ -824,39 +824,62 @@ until the user admits it."
 
 (-> memory-knowledge--use-recipe (tool-context hash-table) string)
 (defun memory-knowledge--use-recipe (context operation)
-  "Apply one recipe-use OPERATION: define its predicates and propose its rules."
+  "Apply one recipe-use OPERATION atomically, then admit its proposed rules."
   (memory-knowledge--fields operation "recipe-use"
-                            :allowed  '("op" "recipe" "scope")
-                            :required '("recipe"))
+                             :allowed  '("op" "recipe" "scope")
+                             :required '("recipe"))
   (let* ((configuration (tool-context-configuration context))
          (scope         (memory-knowledge--scope operation))
          (recipe        (knowledge-recipe (gethash "recipe" operation))))
     (unless recipe
       (memory-resource--fail "Recipe ~S is not one of ~{~A~^, ~}; read memory:recipes."
                              (gethash "recipe" operation) (knowledge-recipe-identifiers)))
-    (format nil "~{~A~^ ~}"
-            (append
-             (mapcar (lambda (schema)
-                       (multiple-value-bind (defined version)
-                           (knowledge-define-schema configuration schema :scope scope)
-                         (format nil "Defined ~A version ~D."
-                                 (knowledge-schema-predicate defined) version)))
-                     (knowledge-recipe-schemas recipe))
-             (mapcar (lambda (rule)
-                       (multiple-value-bind (identifier version new-p)
-                           (knowledge-propose-rule configuration
-                                                   :id                  (getf rule :id)
-                                                   :premises            (getf rule :premises)
-                                                   :bindings            (getf rule :bindings)
-                                                   :conclusion          (getf rule :conclusion)
-                                                   :description         (getf rule :description)
-                                                   :scope               scope
-                                                   :source-conversation (conversation-identifier
-                                                                         (tool-context-conversation context)))
-                         (memory-knowledge--admit-proposal context identifier
-                                                           :version version :new-p new-p
-                                                           :scope   scope)))
-                     (getf (rest recipe) :rules))))))
+    (let* ((workspace       (knowledge--owner configuration scope))
+           (viewer          (knowledge--workspace configuration))
+           (source          (conversation-identifier (tool-context-conversation context)))
+           (result
+             (knowledge-transact
+              configuration
+              (lambda (base)
+                (let ((staged    (knowledge--copy-base base))
+                      (records   nil)
+                      (messages  nil)
+                      (proposals nil))
+                  (labels ((apply-records (planned)
+                             (dolist (record planned)
+                               (knowledge--reduce (configuration-knowledge-path configuration)
+                                                  staged record))))
+                    (dolist (schema (knowledge-recipe-schemas recipe))
+                      (multiple-value-bind (planned defined version write-p)
+                          (knowledge--plan-schema-definition
+                           staged schema :scope scope :workspace workspace :source-conversation source)
+                        (when write-p
+                          (setf records (nconc records planned)))
+                        (apply-records planned)
+                        (push (format nil "Defined ~A version ~D."
+                                      (knowledge-schema-predicate defined) version)
+                              messages)))
+                    (dolist (rule (getf (rest recipe) :rules))
+                      (multiple-value-bind (planned proposal write-p)
+                          (knowledge--plan-rule-definition
+                           staged rule :scope scope :workspace workspace :viewer viewer
+                                       :source-conversation source)
+                        (when write-p
+                          (setf records (nconc records planned)))
+                        (apply-records planned)
+                        (push proposal proposals)))
+                    (values records
+                            (list (nreverse messages) (nreverse proposals))
+                            (not (null records))))))))
+           (schema-messages (first result))
+           (proposals       (second result)))
+      (format nil "~{~A~^ ~}"
+              (append schema-messages
+                      (mapcar (lambda (proposal)
+                                (destructuring-bind (identifier version new-p) proposal
+                                  (memory-knowledge--admit-proposal
+                                   context identifier :version version :new-p new-p :scope scope)))
+                            proposals))))))
 
 (-> memory-knowledge--admission-command (string integer list) string)
 (defun memory-knowledge--admission-command (identifier version rule)

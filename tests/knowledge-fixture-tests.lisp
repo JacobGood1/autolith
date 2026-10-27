@@ -238,6 +238,144 @@
                                "an unknown recipe names the ones that exist")))
   nil)
 
+(-> test-knowledge-recipe-atomicity () null)
+(defun test-knowledge-recipe-atomicity ()
+  "Refuse a conflicting recipe without persisting any of its definitions."
+  (labels ((log-bytes (path)
+             (with-open-file (stream path :element-type '(unsigned-byte 8))
+               (let ((bytes (make-array (file-length stream)
+                                        :element-type '(unsigned-byte 8))))
+                 (read-sequence bytes stream)
+                 bytes)))
+
+           (recipe-call (fixture operation &optional context)
+             (tool-registry-execute-call
+              (knowledge-fixture-registry fixture)
+              (json-object "namespace" "resource"
+                           "name" "edit"
+                           "arguments"
+                           (json-encode
+                            (json-object "uri" "memory:facts"
+                                         "base-revision"
+                                         (memory-resource-tests--field
+                                          (knowledge-fixture--read fixture "memory:facts" "max-results" 1)
+                                          "Revision: ")
+                                         "operations" (vector operation))))
+              (or context (knowledge-fixture-context fixture)))))
+    (knowledge-fixture--call-with
+     "recipe-atomicity-conflict"
+     (lambda (fixture)
+       (knowledge-fixture--edit
+        fixture
+        (knowledge-fixture--define "event.travel"
+                                   '(("event" "entity") ("value" "string"))
+                                   :key '("event")))
+       (knowledge-fixture--say fixture "The old travel value is recorded.")
+       (knowledge-fixture--edit
+        fixture
+        (knowledge-fixture--assert "event.travel" '("review" "old")
+                                     (json-object "user" "The old travel value")))
+       (let* ((path      (configuration-knowledge-path
+                          (knowledge-fixture-configuration fixture)))
+              (before    (log-bytes path))
+              (result    (recipe-call fixture
+                                      (json-object "op" "recipe-use"
+                                                   "recipe" "appointments")))
+              (after     (log-bytes path))
+              (base      (knowledge-base-read
+                          (knowledge-fixture-configuration fixture)))
+              (workspace (knowledge--workspace
+                          (knowledge-fixture-configuration fixture))))
+         (knowledge-fixture--check
+          fixture
+          (and (not (tool-result-success-p result))
+               (search "Claims already use event.travel"
+                       (tool-result-content result)))
+          "a later recipe conflict is reported through resource.edit")
+         (knowledge-fixture--check
+          fixture
+          (and (equalp before after)
+               (null (knowledge-base-schema base "event.start" :workspace workspace))
+               (null (knowledge-base-schema base "event.departure" :workspace workspace))
+               (null (knowledge-base-rule base "departure" :workspace workspace)))
+          "a failed recipe leaves earlier predicates, rules, and its log unchanged"))))
+    (knowledge-fixture--call-with
+     "recipe-atomicity-cycle"
+     (lambda (fixture)
+       (knowledge-fixture--edit
+        fixture
+        (knowledge-fixture--define "event.start"
+                                   '(("event" "entity") ("time" "instant"))
+                                   :key '("event"))
+        (knowledge-fixture--define "event.departure"
+                                   '(("event" "entity") ("time" "instant"))
+                                   :key '("event"))
+        (json-object "op" "rule-propose"
+                     "id" "inverse-departure"
+                     "premises" #(#("event.departure" "?event" "?time"))
+                     "conclusion" #("event.start" "?event" "?time")))
+       (let* ((path      (configuration-knowledge-path
+                          (knowledge-fixture-configuration fixture)))
+              (before    (log-bytes path))
+              (result    (recipe-call fixture
+                                      (json-object "op" "recipe-use"
+                                                   "recipe" "appointments")))
+              (after     (log-bytes path))
+              (base      (knowledge-base-read
+                          (knowledge-fixture-configuration fixture)))
+              (workspace (knowledge--workspace
+                          (knowledge-fixture-configuration fixture))))
+         (knowledge-fixture--check
+          fixture
+          (and (not (tool-result-success-p result))
+               (or (search "cycle" (string-downcase (tool-result-content result)))
+                   (search "predicate depend" (string-downcase (tool-result-content result)))))
+          "a recipe rule cycle is rejected after staging its definitions")
+         (knowledge-fixture--check
+          fixture
+          (and (equalp before after)
+               (null (knowledge-base-schema base "event.travel" :workspace workspace))
+               (null (knowledge-base-schema base "event.buffer" :workspace workspace))
+               (null (knowledge-base-rule base "departure" :workspace workspace)))
+          "rule validation failure leaves the recipe log unchanged"))))
+    (knowledge-fixture--call-with
+     "recipe-atomicity-denial"
+     (lambda (fixture)
+       (let* ((configuration (knowledge-fixture-configuration fixture))
+              (conversation  (knowledge-fixture-conversation fixture))
+              (denied        (make-instance
+                              'tool-context
+                              :configuration configuration
+                              :worker        nil
+                              :conversation  conversation
+                              :command-authorization-function
+                              (lambda (command directory)
+                                (declare (ignore command directory))
+                                ':deny)))
+              (result        (recipe-call fixture
+                                          (json-object "op" "recipe-use"
+                                                       "recipe" "appointments")
+                                          denied))
+              (base          (knowledge-base-read configuration))
+              (workspace     (knowledge--workspace configuration))
+              (entry         (knowledge-base-rule base "departure" :workspace workspace)))
+         (knowledge-fixture--check
+          fixture
+          (and (tool-result-success-p result)
+               (search "admission was declined" (tool-result-content result)))
+          "a denied recipe admission reports the inactive proposal")
+         (knowledge-fixture--check
+          fixture
+          (and (every (lambda (predicate)
+                        (knowledge-base-schema base predicate :workspace workspace))
+                      '("event.start" "event.travel" "event.buffer" "event.departure"))
+               entry
+               (null (getf entry :active))
+               (null (knowledge-fixture--holds fixture
+                                               '("event.departure" "?event" "?time"))))
+          "a denied recipe keeps every schema and its inactive rule without deriving facts"))))
+   nil))
+
 
 ;;;; -- Appointment Family --
 

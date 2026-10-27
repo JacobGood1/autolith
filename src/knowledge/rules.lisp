@@ -641,14 +641,48 @@ restricted, not well typed, or exceeds its bounds."
                      (getf (rest rule) :id)))
   nil)
 
+(-> knowledge--plan-rule-definition
+    (knowledge-base list &key (:scope memory-scope) (:workspace (option string))
+                             (:viewer (option string)) (:source-conversation (option string)))
+    (values list list boolean))
+(defun knowledge--plan-rule-definition
+    (base rule &key scope workspace viewer source-conversation)
+  "Return definition records, proposal result, and write-p for RULE against BASE."
+  (let* ((prepared (knowledge-make-rule
+                    :id          (getf rule :id)
+                    :premises    (getf rule :premises)
+                    :guards      (getf rule :guards)
+                    :bindings    (getf rule :bindings)
+                    :conclusion  (getf rule :conclusion)
+                    :description (getf rule :description)
+                    :schema-function
+                    (lambda (predicate)
+                      (knowledge-base-schema base predicate
+                                              :workspace (and (eq scope ':workspace)
+                                                              viewer)))))
+         (key      (list scope workspace (getf rule :id)))
+         (entry    (gethash key (knowledge-base-rules base)))
+         (latest   (first (last (getf entry :versions)))))
+    (knowledge--check-acyclic base key :rule prepared :workspace viewer)
+    (if (and latest (equal (getf latest :rule) prepared))
+        (values nil (list (getf rule :id) (getf latest :version) nil) nil)
+        (values (list (list :rule-defined
+                            :version *knowledge-format-version*
+                            :scope               scope
+                            :workspace           workspace
+                            :rule                prepared
+                            :time                (get-universal-time)
+                            :source-conversation source-conversation))
+                (list (getf rule :id) (1+ (length (getf entry :versions))) t)
+                t))))
+
 (-> knowledge-propose-rule
     (configuration &key (:id string) (:premises t) (:guards t) (:bindings t)
-                        (:conclusion t) (:description (option string))
-                        (:scope memory-scope) (:source-conversation (option string)))
+                       (:conclusion t) (:description (option string))
+                       (:scope memory-scope) (:source-conversation (option string)))
     (values string integer boolean))
-(defun knowledge-propose-rule
-    (configuration &key id premises guards bindings conclusion description
-                        (scope ':workspace) source-conversation)
+(defun knowledge-propose-rule (configuration &key id premises guards bindings conclusion description
+                                         (scope ':workspace) source-conversation)
   "Validate and record a new version of rule ID, inactive until admitted.
 
 Return the rule ID, its version, and whether it differs from the latest one."
@@ -658,28 +692,10 @@ Return the rule ID, its version, and whether it differs from the latest one."
      (knowledge-transact
       configuration
       (lambda (base)
-        (let* ((rule   (knowledge-make-rule
-                        :id id :premises premises :guards guards :bindings bindings
-                        :conclusion conclusion :description description
-                        :schema-function
-                        (lambda (predicate)
-                          (knowledge-base-schema base predicate
-                                                 :workspace (and (eq scope ':workspace) viewer)))))
-               (key    (list scope workspace id))
-               (entry  (gethash key (knowledge-base-rules base)))
-               (latest (first (last (getf entry :versions)))))
-          (knowledge--check-acyclic base key :rule rule :workspace viewer)
-          (if (and latest (equal (getf latest :rule) rule))
-              (values nil (list id (getf latest :version) nil) nil)
-              (values (list (list :rule-defined
-                                  :version *knowledge-format-version*
-                                  :scope               scope
-                                  :workspace           workspace
-                                  :rule                rule
-                                  :time                (get-universal-time)
-                                  :source-conversation source-conversation))
-                      (list id (1+ (length (getf entry :versions))) t)
-                      t))))))))
+        (knowledge--plan-rule-definition
+         base (list :id id :premises premises :guards guards :bindings bindings
+                    :conclusion conclusion :description description)
+         :scope scope :workspace workspace :viewer viewer :source-conversation source-conversation))))))
 
 (-> knowledge--rule-transition
     (configuration string keyword &key (:scope memory-scope) (:version (option integer))
