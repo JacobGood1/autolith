@@ -299,13 +299,20 @@ The file belongs to another tool, so a symbolic link to it is followed."
         when account-id
           collect account-id))
 
-(-> call-with-credentials
-    (credential-manager function &key (:force-refresh boolean))
-    t)
-(defun call-with-credentials (manager function &key force-refresh)
-  "Call FUNCTION inside Autolith's credential request scope."
+(defgeneric call-with-credentials (manager function &key force-refresh)
+  (:documentation "Call FUNCTION inside the manager's credential request and secret scopes."))
+
+(defmethod call-with-credentials :around
+    ((manager credential-manager) function &key force-refresh)
+  "Mark credential ownership for the complete load and request."
+  (declare (ignore function force-refresh))
   (let ((*credentials-in-request-scope* t))
-    (cl-rfc8628:call-with-credentials manager function :force-refresh force-refresh)))
+    (call-next-method)))
+
+(defmethod call-with-credentials
+    ((manager credential-manager) function &key force-refresh)
+  "Use the OAuth manager's normal loading and refresh policy."
+  (cl-rfc8628:call-with-credentials manager function :force-refresh force-refresh))
 
 (defmacro with-credentials ((variable manager &key force-refresh) &body body)
   "Bind VARIABLE to request-scoped credentials from MANAGER while evaluating BODY."

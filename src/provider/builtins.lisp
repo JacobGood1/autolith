@@ -327,3 +327,26 @@ efforts until upstream publishes its entry.")
  :model-discovery-endpoint          *mistral-models-endpoint*
  :model-discovery-endpoint-resolver #'mistral-models-endpoint
  :source                            ':builtin)
+
+(register-provider
+ "vertex-gemini"
+ :description "Gemini on Google Vertex AI"
+ :family      ':gemini
+ :protocol    ':gemini-generate-content
+ :models      '((:name "gemini-3.5-flash" :context-window 1048576)
+                (:name "gemini-3.1-pro-preview" :context-window 1048576))
+ :factory     #'vertex-gemini-provider-create
+ :endpoint    "https://aiplatform.googleapis.com"
+ :source      ':builtin)
+
+(register-provider
+ "vertex-anthropic"
+ :description "Claude on Google Vertex AI"
+ :family      ':anthropic
+ :protocol    ':messages
+ :models      '((:name "claude-opus-5-5" :context-window 1000000)
+                (:name "claude-sonnet-4-6" :context-window 1000000)
+                (:name "claude-haiku-4-5@20251001" :context-window 200000))
+ :factory     #'vertex-anthropic-provider-create
+ :endpoint    "https://aiplatform.googleapis.com"
+ :source      ':builtin)

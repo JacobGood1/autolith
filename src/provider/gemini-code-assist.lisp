@@ -78,8 +78,8 @@
   (:documentation "A numeric project number was supplied where a project ID is required."))
 
 (defclass gemini-code-assist-provider
-    (session-preserving-provider-mixin subscription-provider
-     gemini-generate-content-provider)
+    (gemini-product-provider-mixin session-preserving-provider-mixin
+     subscription-provider gemini-generate-content-provider)
   ((endpoint
     :initarg       :endpoint
     :initform      *gemini-code-assist-endpoint*
@@ -473,51 +473,21 @@ propagates."
 ;;;; -- Request Projection --
 
 (defmethod provider-request-object
-    ((provider gemini-code-assist-provider)
-     (conversation conversation)
-     (tool-namespaces vector)
-     &key goal-context compaction-p)
-  "Project history and prompts through the shared GenerateContent encoding.
-
-Code Assist wraps that request with its model, project, and prompt identifiers
-and adds the session to it. Return the request and its context delivery."
-  (let* ((configuration (provider-configuration provider))
-         (effective-tools
-           (if compaction-p
-               #()
-               (provider-request-tool-namespaces configuration tool-namespaces)))
-         (delivery
-           (unless compaction-p
-             (context-resolve-request configuration conversation effective-tools
-                                      :goal-context goal-context
-                                      :compaction-p compaction-p)))
-         (projection
-           (make-instance
-            'cl-llm-provider-api:wire-request
-            :model   (gemini-code-assist-model-name (config :model configuration))
-            :items   (conversation-input-items-for-family
-                      conversation (provider-family provider)
-                      :include-ephemeral-p (not compaction-p))
-            :prefix  (list (system-prompt configuration)
-                           (and compaction-p *compaction-instructions*))
-            :suffix  (unless compaction-p
-                       (list goal-context
-                             (and delivery (context-delivery-rendered delivery))))
-            :options (list :maximum-output-tokens *provider-maximum-output-tokens*
-                           :include-thoughts-p
-                           (not (string= (config :reasoning-effort configuration)
-                                         "none")))))
-         (inner         (provider-request-object provider projection
-                                                 (provider-wire-tools provider effective-tools))))
+    ((provider gemini-code-assist-provider) (conversation conversation)
+     (tool-namespaces vector) &key goal-context compaction-p)
+  "Wrap the shared Gemini projection with Code Assist routing and session data.
+Return the request and its context delivery."
+  (declare (ignore goal-context compaction-p))
+  (multiple-value-bind (inner delivery)
+      (call-next-method)
     (setf (gethash "session_id" inner) (provider-session-id provider))
-    (values
-     (json-object
-      "model" (gemini-code-assist-model-name
-               (config :model configuration))
-      "project" (gemini-code-assist-provider-project provider)
-      "user_prompt_id" (make-identifier)
-      "request" inner)
-     delivery)))
+    (values (json-object
+             "model" (gemini-code-assist-model-name
+                      (config :model (provider-configuration provider)))
+             "project" (gemini-code-assist-provider-project provider)
+             "user_prompt_id" (make-identifier)
+             "request" inner)
+            delivery)))
 
 
 ;;;; -- Streaming Transport and Decoding --

@@ -838,6 +838,7 @@
 (defun test-openai-compatible-provider ()
   "Test registration, request projection, authentication, and stream decoding."
   (let ((registry-snapshot (provider--registry-snapshot))
+        (built-in-models   (provider-model-identifiers))
         (configuration     nil)
         (root              nil)
         (key               (make-string 12 :initial-element #\LATIN_SMALL_LETTER_K)))
@@ -874,15 +875,6 @@
                 (registration      (provider-registration-find "test-openai"))
                 (metadata          (provider-model-for model))
                 (astra-model       (provider-model-for "gpt-6-astra"))
-                (built-in-models
-                 (append
-                  (list "gpt-6.1-sol" "gpt-6.1-terra" "gpt-6-astra" "gpt-6-sol" "gpt-6-luna"
-                        "gpt-5.6-sol" "gpt-5.6-luna" "gpt-5.6-terra")
-                  (mapcar (lambda (entry) (getf entry ':name))
-                          *gemini-code-assist-models*)
-                  (list "grok-4.7" "grok-4.6" "grok-4.5" "accounts/fireworks/models/kimi-k3"
-                        "accounts/fireworks/models/qwen3p7-plus" "claude-opus-5"
-                        "claude-sonnet-5" "claude-haiku-4-5-20251001")))
                 (model-identifiers (provider-model-identifiers))
                 (model-position    (position model model-identifiers :test #'string=)))
            (test-assert

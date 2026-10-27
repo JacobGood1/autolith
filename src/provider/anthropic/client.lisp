@@ -2,9 +2,13 @@
 
 ;;;; -- Anthropic Account Adapter --
 
+(defclass anthropic-product-provider-mixin ()
+  ()
+  (:documentation "Autolith history and context projection for Messages transports."))
+
 (defclass anthropic-api-key-provider
-    (session-preserving-provider-mixin subscription-provider
-     cl-llm-provider-api:anthropic-messages-provider)
+    (anthropic-product-provider-mixin session-preserving-provider-mixin
+     subscription-provider cl-llm-provider-api:anthropic-messages-provider)
   ()
   (:documentation "A static API key client for the Anthropic Messages API."))
 
@@ -46,7 +50,7 @@
 ;;;; -- Anthropic Product Request Projection --
 
 (defmethod provider-request-object
-    ((provider anthropic-api-key-provider) (conversation conversation)
+    ((provider anthropic-product-provider-mixin) (conversation conversation)
      (tool-namespaces vector) &key goal-context compaction-p)
   "Project product prompts and history into the shared Anthropic wire request.
 Return the encoded request and its unconsumed context delivery."

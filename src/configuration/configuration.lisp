@@ -307,6 +307,30 @@ exist yet, and is only put in directory form."
                                                 (declare (ignore configuration))
                                                 *default-compaction-threshold-percent*))
 
+(define-setting :vertex-project (string-setting)
+  :label                        "Vertex project"
+  :group                        :model
+  :documentation                "The Google Cloud project used for Vertex AI requests."
+  :type                         'string
+  :environment                  "GOOGLE_CLOUD_PROJECT"
+  :default                      "")
+
+(define-setting :vertex-location (string-setting)
+  :label                         "Vertex location"
+  :group                         :model
+  :documentation                 "The Vertex AI region or global endpoint."
+  :type                          'non-empty-string
+  :environment                   "GOOGLE_CLOUD_LOCATION"
+  :default                       "global")
+
+(define-setting :vertex-quota-project (string-setting)
+  :label                              "Vertex quota project"
+  :group                              :model
+  :documentation                      "The quota project override, or empty to use local ADC's quota project."
+  :type                               'string
+  :environment                        "GOOGLE_CLOUD_QUOTA_PROJECT"
+  :default                            "")
+
 (define-setting :provider-endpoint (derived-setting)
   :label                           "Provider endpoint"
   :group                           :model

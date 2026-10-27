@@ -766,6 +766,10 @@
   anthropic-provider-test--compaction-request
   anthropic-provider-test--transport)
 
+(define-test-suite vertex-provider
+  vertex-test--selection-and-projection
+  vertex-test--credential-scope-and-streaming)
+
 (define-test-suite nous-provider
   nous-provider-test--registration-and-discovery
   nous-provider-test--transport)

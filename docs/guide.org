@@ -1973,6 +1973,41 @@ tool calls, token usage, account onboarding, and managed companion projects.
 client ID; =AUTOLITH_GEMINI_OAUTH_CLIENT_SECRET= supplies a client secret when a
 deployment requires one.
 
+Use =vertex-gemini= or =vertex-anthropic= for paid Google Vertex AI access.
+Create local application default credentials with gcloud:
+
+#+BEGIN_SRC sh
+gcloud auth application-default login
+export GOOGLE_CLOUD_PROJECT=your-project-id
+export GOOGLE_CLOUD_LOCATION=global
+
+autolith --model vertex-gemini/gemini-3.5-flash
+# Or:
+autolith --model vertex-anthropic/claude-sonnet-4-6
+#+END_SRC
+
+Enable billing and the Vertex AI API for that project. Your account needs
+=aiplatform.endpoints.predict= permission, such as the Vertex AI User role.
+For Claude, enable the model in Model Garden. Choose a location where the
+model is available; =global= is the default.
+
+Autolith reads local =authorized_user= ADC files. It checks
+=GOOGLE_APPLICATION_CREDENTIALS= first, then =CLOUDSDK_CONFIG=, then gcloud's
+usual config directory. Run =gcloud auth application-default login= even if
+you have already run =gcloud auth login=. Service-account, federation, and
+metadata-server credentials are not supported by this adapter.
+
+Each request exchanges a fresh access token. Autolith does not copy or write
+ADC credentials. Use =GOOGLE_CLOUD_QUOTA_PROJECT= to override the ADC quota
+project. The settings =:vertex-project=, =:vertex-location=, and
+=:vertex-quota-project= provide the same routing choices in =init.lisp=.
+
+Run =autolith auth vertex-gemini= or =autolith auth vertex-anthropic= to check
+the local ADC token exchange. This does not check model access. Send a prompt
+to test project permissions, billing, location, and model access.
+
+See Google's [[https://docs.cloud.google.com/docs/authentication/application-default-credentials][ADC guide]] and Anthropic's [[https://platform.claude.com/docs/en/build-with-claude/claude-models-on-google-cloud/google-managed][Vertex guide]] for cloud setup.
+
 #+BEGIN_SRC sh
 autolith auth nous
 #+END_SRC
