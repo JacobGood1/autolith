@@ -68,7 +68,7 @@ autolith_launcher_parse()
         take_value=true
         remaining_arguments+=("$argument")
         ;;
-      --permissions|--image|-i|--site-config-root|--id|--input|--output|\
+      --permissions|--image|-i|--site-config-root|--model|--provider|--id|--input|--output|\
       --events|--generation|--status|--capsule|--original-argument|--workspace)
         # Forward a value verbatim, even when it resembles a launcher flag.
         # These are arities only, not a second application option parser.

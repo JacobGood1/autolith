@@ -208,6 +208,14 @@ exist yet, and is only put in directory form."
                                             (declare (ignore configuration))
                                             (configuration--default-grok-bootstrap-path)))
 
+(define-setting :model-selection-override-p (boolean-setting)
+  :label                                    "Launch model override"
+  :group                                    :model
+  :documentation                            "Whether this launch's explicit model selection takes precedence over conversation state."
+  :scope                                    :session
+  :visible-p                                nil
+  :default                                  nil)
+
 (define-setting :model-provider (string-setting)
   :label                        "Model provider"
   :group                        :model

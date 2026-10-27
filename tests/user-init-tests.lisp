@@ -743,3 +743,153 @@
         (run '("models") :failure-p t)
         (run '("auth" "startup-private") :failure-p t))))
   nil)
+
+
+;;;; -- Command-line Model Overrides --
+
+(-> test-cli-model-overrides () null)
+(defun test-cli-model-overrides ()
+  "Exercise launch overrides through interactive and headless command handlers."
+  (with-test-configuration (fixture root)
+    (let ((fixture              (apply #'configuration-copy fixture
+                                       (loop for key in '(:config-root :data-root :state-root :cache-root)
+                                             append (list key (merge-pathnames "autolith/"
+                                                                               (config key fixture))))))
+          (snapshot             (provider--registry-snapshot))
+          (*active-application* nil)
+          (observed             nil))
+      (unwind-protect
+           (progn
+             (configuration-ensure-directories fixture)
+             (preferences-store fixture :model *default-model*)
+             (preferences-store fixture :model-provider "chatgpt")
+             (register-openai-compatible-provider
+              :name            "cli-custom"
+              :endpoint        "http://localhost:9999/v1/chat/completions"
+              :models-endpoint "http://localhost:9999/v1/models")
+             (openai-compatible-provider-tests--save-key fixture "cli-custom" "synthetic-cli-key")
+             (test-call-with-function-replacements
+              (list (list 'dexador:get
+                          (lambda (url &rest arguments)
+                            (declare (ignore url arguments))
+                            (values "{\"data\":[{\"id\":\"hf:custom/model\"}]}"
+                                    200 nil nil))))
+              (lambda ()
+                (test-assert (null (provider-refresh-models fixture :provider-name "cli-custom"))
+                             "the custom catalog is cached before CLI startup")))
+             (unregister-provider "cli-custom" :source ':runtime)
+             (with-open-file (stream (configuration-user-init-path fixture)
+                                     :direction ':output :if-exists ':supersede)
+               (write-line
+                "(register-openai-compatible-provider :name \"cli-custom\" :endpoint \"http://localhost:9999/v1/chat/completions\" :models-endpoint \"http://localhost:9999/v1/models\")"
+                stream))
+             (let ((saved (uiop:read-file-string (configuration-preferences-path fixture))))
+               (with-test-environment
+                   (("XDG_CONFIG_HOME" (namestring (uiop:pathname-parent-directory-pathname
+                                                    (config :config-root fixture))))
+                    ("XDG_DATA_HOME" (namestring (uiop:pathname-parent-directory-pathname
+                                                  (config :data-root fixture))))
+                    ("XDG_STATE_HOME" (namestring (uiop:pathname-parent-directory-pathname
+                                                   (config :state-root fixture))))
+                    ("XDG_CACHE_HOME" (namestring (uiop:pathname-parent-directory-pathname
+                                                   (config :cache-root fixture))))
+                    ("AUTOLITH_SITE_CONFIG_ROOT" nil)
+                    ("AUTOLITH_MODEL" *default-model*)
+                    ("AUTOLITH_MODEL_PROVIDER" "chatgpt"))
+                 (flet ((prepare (configuration)
+                          (test-assert (configuration-validation-deferred-p configuration)
+                                       "CLI model validation waits for executable init")
+                          (user-init-load configuration)
+                          (setf observed (provider-bootstrap-configuration configuration))
+                          (make-instance 'application :configuration observed)))
+                   (test-call-with-function-replacements
+                    (list
+                     (list 'dexador:get
+                           (lambda (&rest arguments)
+                             (declare (ignore arguments))
+                             (error "CLI startup must use the cached provider catalog.")))
+                     (list 'main--client-session-p (constantly nil))
+                     (list 'main--connect-application
+                           (lambda (&key configuration &allow-other-keys)
+                             (prepare configuration)))
+                     (list 'application-run
+                           (lambda (application &rest arguments)
+                             (declare (ignore application arguments))))
+                     (list 'run-job-run
+                           (lambda (input output mode &key configuration)
+                             (declare (ignore input output mode))
+                             (prepare configuration)
+                             0)))
+                    (lambda ()
+                      (dolist (arguments
+                               '(("--model" "cli-custom/hf:custom/model")
+                                 ("--model" "hf:custom/model" "--provider" "cli-custom")
+                                 ("run-job" "--model" "cli-custom/hf:custom/model"
+                                  "--input" "job.sexp" "--output" "result.sexp")
+                                 ("--provider" "cli-custom" "--model" "hf:custom/model"
+                                  "run-job" "--input" "job.sexp" "--output" "result.sexp")))
+                        (setf observed nil)
+                        (main-dispatch arguments)
+                        (test-assert
+                         (and observed
+                              (equal (config :model observed) "hf:custom/model")
+                              (equal (config :model-provider observed) "cli-custom"))
+                         (format nil "~S selects the custom provider after init" arguments))
+                        (let* ((conversation (conversation-create observed))
+                               (copied       (configuration-copy observed)))
+                          (setf (conversation-model conversation) *default-model*
+                                (conversation-model-provider conversation) "chatgpt")
+                          (test-assert
+                           (eq observed (application--configuration-for-conversation
+                                         observed conversation))
+                           "the CLI selection beats the saved conversation model")
+                          (test-assert (config :model-selection-override-p copied)
+                                       "configuration copies retain the launch override"))
+                        (let* ((handoff   (merge-pathnames "handoff.sexp" root))
+                               (arguments (localgroup-handoff--arguments observed handoff))
+                               (parsed    (parse-command-line (main--top-level-command)
+                                                              (member "--permissions" arguments :test #'equal))))
+                          (test-assert
+                           (equal (getopt* parsed ':model) "hf:custom/model")
+                           "detached session arguments carry the launch model")
+                          (test-assert (equal (getopt* parsed ':provider) "cli-custom")
+                                       "detached session arguments carry provider identity")))))))
+               (test-assert
+                (equal saved (uiop:read-file-string (configuration-preferences-path fixture)))
+                "launch overrides do not rewrite saved preferences")))
+        (provider--registry-restore snapshot))))
+  nil)
+
+(-> test-cli-model-override-errors () null)
+(defun test-cli-model-override-errors ()
+  "Reject missing, empty, unknown, and incompatible model selections."
+  (dolist (arguments '(("--model") ("--provider")
+                       ("--model" "") ("--model" "   ")
+                       ("--provider" "custom")
+                       ("--model" "example" "--provider" "")
+                       ("run-job" "--model")
+                       ("--model" "--provider" "custom")
+                       ("--modle" "example")))
+    (test-assert
+     (handler-case
+         (progn
+           (main--model-arguments (parse-command-line (main--top-level-command) arguments))
+           nil)
+       (error () t))
+     (format nil "invalid CLI selection ~S is rejected" arguments)))
+  (provider-selection-tests--with-providers
+   (lambda ()
+     (with-test-configuration (fixture)
+       (dolist (pair '(("missing" "selection-a") ("shared" "unknown")
+                       ("selection-a/shared" "selection-b")))
+         (test-assert
+          (handler-case
+              (progn
+                (provider-bootstrap-configuration
+                 (configuration-copy fixture :model                 (first pair)
+                                             :model-provider        (second pair)
+                                             :provider-validation-p nil))
+                nil)
+            (error () t))
+          (format nil "unavailable model/provider ~S is rejected after bootstrap" pair))))))
+  nil)

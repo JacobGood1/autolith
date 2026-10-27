@@ -101,6 +101,32 @@
        (test-assert (not (config :fullscreen-p configuration)) "onboarding does not overwrite fullscreen preference"))))
   nil)
 
+(-> test-onboarding-startup-input () null)
+(defun test-onboarding-startup-input ()
+  "Open the listener on Escape or text, retaining input and pending lessons."
+  (dolist (event '(:escape (:insert "(model \"deepseek-chat\")")
+                          (:paste "(model \"deepseek-chat\")")
+                          (:line "(model \"deepseek-chat\")")))
+    (onboarding-tests--call
+     (lambda (application controller configuration terminal)
+       (let* ((ui       (application-ui application))
+              (pages    (onboarding-pages configuration))
+              (expected (if (consp event) (second event) ""))
+              (next     '(:insert "more input")))
+         (queued-recording-terminal-enqueue terminal event)
+         (queued-recording-terminal-enqueue terminal next)
+         (test-assert (eq ':deferred (application-startup-presentation application controller))
+                      "Escape or typing bypasses the tour")
+         (test-assert (string= expected (line-editor-text (terminal-ui-editor ui)))
+                      "typed or pasted commands reach the listener intact")
+         (test-assert (equal next (terminal-read-event terminal))
+                      "the remaining input is available to the listener")
+         (test-assert (equal pages (onboarding-state-pending configuration pages))
+                      "bypassing startup leaves lessons available for replay")
+         (test-assert (not (terminal-ui-fullscreen-p ui))
+                      "the listener uses the saved inline mode")))))
+  nil)
+
 (-> test-onboarding-startup-exclusions () null)
 (defun test-onboarding-startup-exclusions ()
   "Exclude noninteractive startup and both configuration and caller opt-outs."

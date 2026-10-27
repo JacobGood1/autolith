@@ -22,7 +22,7 @@ Use the six green shades from userland/bootsplash/bootsplash.c, top to bottom.
 
 #+name: boot-linger
 #+begin_onboarding_text
-Press Space to start onboarding.
+Space: onboarding   Esc or typing: Lisp listener
 #+end_onboarding_text
 
 #+name: boot-start

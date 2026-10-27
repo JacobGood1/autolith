@@ -127,13 +127,16 @@ remaining selected revisions; interruption leaves them pending."
         (lambda ()
            (let ((*terminal-ui-boot-linger-prompt* (onboarding-source-text "boot-linger"))
                  (*terminal-ui-boot-start-label*   (onboarding-source-text "boot-start")))
-            (if (eq (terminal-ui-boot-sequence
-                     ui :screen-p (config :boot-screen-p configuration) :linger-p t
-                     :resize-callback #'application-pending-terminal-size
-                     :duration        (config :boot-screen-seconds configuration)
-                     :tip-seconds     (config :boot-screen-tip-seconds configuration))
-                    ':interrupt)
-                ':interrupted
+             (case (terminal-ui-boot-sequence
+                    ui :screen-p (config :boot-screen-p configuration) :linger-p t
+                    :resize-callback #'application-pending-terminal-size
+                    :duration        (config :boot-screen-seconds configuration)
+                    :tip-seconds     (config :boot-screen-tip-seconds configuration))
+               (:interrupt
+                ':interrupted)
+               (:listener
+                ':deferred)
+               (otherwise
                 (multiple-value-bind (outcome seen)
                     (terminal-ui-onboard
                      ui selected
@@ -141,15 +144,15 @@ remaining selected revisions; interruption leaves them pending."
                      (if (and new-only-p (< (length selected) (length pages)))
                          (onboarding-source-text "introduction-new")
                          (onboarding-source-text "introduction"))
-                     :help-function      (lambda (&optional topic)
-                                           (application-operation-help application topic))
-                      :settings-function (lambda () (application-onboarding--settings application))
-                       :authentication-function
-                       (lambda () (application-onboarding--authenticate application))
-                       :choose-function
-                       (lambda (setting value)
-                         (application-apply-setting application setting value))
-                      :resize-callback   #'application-pending-terminal-size
+                     :help-function     (lambda (&optional topic)
+                                          (application-operation-help application topic))
+                     :settings-function (lambda () (application-onboarding--settings application))
+                     :authentication-function
+                     (lambda () (application-onboarding--authenticate application))
+                     :choose-function
+                     (lambda (setting value)
+                       (application-apply-setting application setting value))
+                     :resize-callback   #'application-pending-terminal-size
                      :page-completed-function
                      (lambda (page)
                        (onboarding-state-record configuration (list page) ':completed)))
@@ -159,7 +162,7 @@ remaining selected revisions; interruption leaves them pending."
                      (remove-if (lambda (page) (member (getf page :id) seen :test #'equal))
                                 selected)
                      ':refused))
-                  outcome)))))))))
+                  outcome))))))))))
 
 (-> application-startup-presentation
     (application application-input-controller &key (:onboarding-p boolean)) keyword)

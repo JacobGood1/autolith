@@ -57,7 +57,7 @@
 (defparameter *terminal-ui-boot-linger-p* nil
   "Whether the boot screen currently advertises Space to start the session.")
 
-(defparameter *terminal-ui-boot-linger-prompt* "PRESS SPACE TO START"
+(defparameter *terminal-ui-boot-linger-prompt* "PRESS SPACE TO START | Esc or typing: listener"
   "The call to action shown below the tip while the boot screen waits.")
 
 (defparameter *terminal-ui-boot-start-label* "start"
@@ -181,17 +181,17 @@ the tip."
          (columns      (max 1 (terminal-columns terminal)))
          (tip          (terminal-ui--boot-tip-rows ui columns))
          (prompt       (when *terminal-ui-boot-linger-p*
-                         (list ""
-                               (terminal--render-spans
-                                terminal
-                                (list (terminal-span
-                                       ':plain
-                                       (make-string
-                                        (max 0 (floor (- columns
-                                                         (length *terminal-ui-boot-linger-prompt*))
-                                                      2))
-                                        :initial-element #\Space))
-                                      (terminal-span ':strong *terminal-ui-boot-linger-prompt*))))))
+                         (cons ""
+                               (mapcar
+                                (lambda (row)
+                                  (concatenate
+                                   'string
+                                   (make-string (max 0 (floor (- columns (clinedi:ansi-display-width row)) 2))
+                                                :initial-element #\Space)
+                                   row))
+                                (terminal-ui-fullscreen--display-rows
+                                 ui (list (list (terminal-span ':strong *terminal-ui-boot-linger-prompt*)))
+                                 (terminal-ui--boot-panel-width columns))))))
          (available    (max 0 (1- height)))
          ;; Keep status and advice visible before allocating rows to the mascot.
          (mascot-limit (max 0 (- available 11
@@ -254,7 +254,7 @@ window instead of judging interactivity before it could possibly happen."
     (:gc-prime "[###...]  Priming the generational garbage collector.")
     (:cons-check "[####..]  Verifying cons cells are still pointy.")
     (:reader-sync "[#####.]  Synchronizing reader macros.")
-    (:listener-ready "[######]  You are typing to Autolith Lisp Listener 1."))
+    (:listener-ready "[######]  Autolith Lisp Listener 1 is ready."))
   "The ordered (PHASE DETAIL) pairs painted across the boot sequence.")
 
 (defparameter *terminal-ui-boot-linger-poll-seconds* 0.05
@@ -282,19 +282,33 @@ window instead of judging interactivity before it could possibly happen."
                (return)))
   nil)
 
+(-> terminal-ui--boot-listener-event-p (t) boolean)
+(defun terminal-ui--boot-listener-event-p (event)
+  "Return true when EVENT requests the listener instead of the startup presentation."
+  (or (eq event ':escape)
+      (and (consp event)
+           (member (first event) '(:insert :paste :line))
+           (stringp (second event))
+           (plusp (length (second event)))
+           t)))
+
 (-> terminal-ui-boot-divert-event (terminal-ui t) boolean)
 (defun terminal-ui-boot-divert-event (ui event)
-  "Consume EVENT for a waiting boot screen, returning true when the reader must not process it.
+  "Consume boot navigation, letting typed input reach the listener's editor.
 
-While the boot screen waits, a start key requests the session and other keys
-are dropped. Interrupts and stream ends are left to the reader so Ctrl-C halts
-the same way it does at an empty prompt."
+Space or Enter starts the presentation. Escape or text opens the listener;
+text and subsequent editor events pass through the responsive reader normally.
+Interrupts and stream ends also pass through to the reader."
   (cond
-    ((not (terminal-ui-boot-waiting-p ui))
+    ((or (not (terminal-ui-boot-waiting-p ui))
+         (eq (terminal-ui-boot-request ui) ':listener))
      nil)
     ((terminal-ui--boot-start-event-p event)
-     (setf (terminal-ui-boot-start-requested-p ui) t)
+     (setf (terminal-ui-boot-request ui) ':start)
      t)
+    ((terminal-ui--boot-listener-event-p event)
+     (setf (terminal-ui-boot-request ui) ':listener)
+     (eq event ':escape))
     ((member event '(:interrupt :end-of-input :stream-end))
      nil)
     (t
@@ -307,14 +321,12 @@ the same way it does at an empty prompt."
     keyword)
 (defun terminal-ui--boot-linger
     (ui &key wait-function tip-seconds halted-function direct-input-p-function resize-callback)
-  "Hold the boot screen until the operator starts the session.
+  "Hold the boot screen until the operator chooses a presentation or the listener.
 
-Keys arrive through the responsive reader, which diverts them into the UI's
-boot flags, or directly from the terminal while DIRECT-INPUT-P-FUNCTION
-permits. Space, Enter, and end of input return :START; Ctrl-C, or
-HALTED-FUNCTION reporting an exit request, returns :INTERRUPT. The startup tip
-rotates every TIP-SECONDS, counted in WAIT-FUNCTION calls so scripted waits
-stay deterministic."
+Space, Enter, and end of input return :START. Escape or text returns :LISTENER,
+retaining text in the editor. Ctrl-C or HALTED-FUNCTION returns :INTERRUPT.
+Keys arrive through the responsive reader, or directly while
+DIRECT-INPUT-P-FUNCTION permits. Rotate tips on WAIT-FUNCTION intervals."
   (let* ((terminal                    (terminal-ui-terminal ui))
          (*terminal-ui-boot-linger-p* t)
          (detail                      (second (first (last *terminal-ui-boot-sequence-phases*))))
@@ -324,8 +336,8 @@ stay deterministic."
       (when (terminal-ui-refresh-size ui resize-callback)
         (terminal-ui-boot-screen ui ':listener-ready detail))
       (cond
-        ((terminal-ui-boot-start-requested-p ui)
-         (return ':start))
+        ((terminal-ui-boot-request ui)
+         (return (terminal-ui-boot-request ui)))
         ((funcall halted-function)
          (return ':interrupt))
         ((and (funcall direct-input-p-function)
@@ -334,6 +346,13 @@ stay deterministic."
            (cond
              ((terminal-ui--boot-start-event-p event)
               (return ':start))
+             ((terminal-ui--boot-listener-event-p event)
+              (unless (eq event ':escape)
+                (terminal-ui-process-event
+                 ui (if (eq (first event) ':line)
+                        (list ':insert (second event))
+                        event)))
+              (return ':listener))
              ((eq event ':interrupt)
               (return ':interrupt))
              ((member event '(:end-of-input :stream-end))
@@ -371,7 +390,8 @@ the boot screen owns keystrokes: the responsive reader diverts them through
 TERMINAL-UI-BOOT-DIVERT-EVENT, and the wait reads the terminal itself only
 while DIRECT-INPUT-P-FUNCTION allows. HALTED-FUNCTION reports an exit request
 made elsewhere. Poll RESIZE-CALLBACK while waiting and repaint resized boot frames.
-Returns :START, or :INTERRUPT when Ctrl-C ended the wait."
+Returns :START, :LISTENER when Escape or typing bypassed the presentation,
+or :INTERRUPT when Ctrl-C ended the wait."
   (let ((result ':start))
     (when (and (terminal-ui-fullscreen-p ui)
                (terminal-ui--await-interactive
@@ -388,7 +408,7 @@ Returns :START, or :INTERRUPT when Ctrl-C ended the wait."
           (with-terminal-ui-locked (ui)
             (setf suspended-p (terminal-ui-live-output-suspended-p ui)
                   (terminal-ui-live-output-suspended-p ui) t))
-          (setf (terminal-ui-boot-start-requested-p ui) nil
+          (setf (terminal-ui-boot-request ui) nil
                 (terminal-ui-boot-waiting-p ui) t)
           (unwind-protect
                (progn

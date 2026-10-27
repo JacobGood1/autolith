@@ -91,6 +91,10 @@ text inside a string.
 
 * Onboarding
 
+At the opening boot screen, press Space or Enter to start the tour. Press Esc
+or begin typing to open the listener instead. Typed and pasted text is kept in
+the prompt; the lessons are available on the next launch or with =(onboard)=.
+
 On your first interactive launch, try the prompt, =(help)=, background Lisp,
 and =(settings)= in the fullscreen tour. Edit the lesson input normally and
 press Enter to check it. Resize your terminal at any point. Use Page Up/Page Down
@@ -1857,6 +1861,24 @@ looks like another provider's full ID, specify =:provider= to select its exact
 catalog ID. An explicit provider and a conflicting qualified prefix signal a
 selection error. The selected provider is saved with the model in preferences
 and conversation history, so reopening a session uses the same registration.
+
+Select a model for one launch with =--model MODEL=. Use a provider-qualified
+ID, or pass =--provider PROVIDER= together with =--model= for an exact catalog
+ID. These options work before or after =run-job= and =resume=:
+
+#+begin_src sh
+autolith --model my-provider/my-model
+autolith --provider my-provider --model hf:custom/model
+autolith resume --model my-provider/my-model
+autolith run-job --model my-provider/my-model --input job.sexp --output result.sexp
+#+end_src
+
+The launch selection takes precedence over environment variables, saved
+preferences, and a resumed conversation's model. It does not save a new default;
+use =(model ...)= to save a selection. Autolith loads executable initialization
+and the local provider catalog before validating the requested model, so providers
+registered in =init.lisp= are available. Startup does not fetch a remote catalog;
+use =autolith models= to list locally known IDs and =(models)= to refresh them.
 
 The built-in model picker uses =https://models.dev/api.json= for ChatGPT,
 Gemini, Grok, Anthropic, Fireworks, OpenCode, OpenRouter, and Mistral metadata.

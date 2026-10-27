@@ -293,6 +293,7 @@
   test-onboarding-source-text
   test-onboarding-operation
   test-onboarding-first-startup
+  test-onboarding-startup-input
   test-onboarding-startup-exclusions
   test-onboarding-version-selection
   test-onboarding-incremental-interruption
@@ -459,6 +460,8 @@
 (define-test-suite user-init
   test-site-configuration-root
   test-site-configuration-noninteractive-commands
+  test-cli-model-overrides
+  test-cli-model-override-errors
   test-private-startup-replay
   test-user-init
   test-user-init-settings
