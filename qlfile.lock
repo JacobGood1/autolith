@@ -84,8 +84,8 @@
   :version "git-3dbecffb6340d4256a322c6e0daf32eb0205014f"))
 ("clermaid" .
  (:class qlot/source/git:source-git
-  :initargs (:remote-url "https://github.com/lambda-symbolics/clermaid.git" :ref "9e38610ef0a595f9542b2727e1f97f5974f73ce5")
-  :version "git-9e38610ef0a595f9542b2727e1f97f5974f73ce5"))
+  :initargs (:remote-url "https://github.com/lambda-symbolics/clermaid.git" :ref "adda288e76c2116da99c611af22442ad7c277756")
+  :version "git-adda288e76c2116da99c611af22442ad7c277756"))
 ("cl-jobpond" .
  (:class qlot/source/git:source-git
   :initargs (:remote-url "https://github.com/lambda-symbolics/cl-jobpond.git" :ref "3fa176f20caaf954ebe3b352a18c01fef34d33ee")
@@ -128,8 +128,8 @@
   :version "git-9ece528bfe07253a9450651808b28457b7ede71d"))
 ("cl-termdown" .
  (:class qlot/source/git:source-git
-  :initargs (:remote-url "https://github.com/lambda-symbolics/cl-termdown.git" :ref "adf0278f493c72ad629906342341048f8a75d0df")
-  :version "git-adf0278f493c72ad629906342341048f8a75d0df"))
+  :initargs (:remote-url "https://github.com/lambda-symbolics/cl-termdown.git" :ref "c8cd59fe8dd0d01e859ce0b4a835d55607b9e1f5")
+  :version "git-c8cd59fe8dd0d01e859ce0b4a835d55607b9e1f5"))
 ("cl-worktree" .
  (:class qlot/source/git:source-git
   :initargs (:remote-url "https://github.com/lambda-symbolics/cl-worktree.git" :ref "cd180c2b8f9cb4731be05c39320bbf91b0e2e63d")
