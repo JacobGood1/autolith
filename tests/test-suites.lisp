@@ -1226,7 +1226,8 @@
     test-release-runtime-openbsd-linker
     test-image-manifest-relocation
     test-installer-checksum-verification
-    test-release-scripts))
+    test-release-scripts
+    test-release-server-system-registration))
 
 (define-test-suite data-transfer
   test-data-transfer-commands

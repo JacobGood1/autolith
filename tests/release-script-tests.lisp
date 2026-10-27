@@ -3801,3 +3801,38 @@ esac
               (release-script-tests--installer-bsd source-root root))
       (release-script-tests--cleanup root)))
   nil)
+
+(-> test-release-server-system-registration () null)
+(defun test-release-server-system-registration ()
+  "Check release-service registration in fresh ASDF images for each host family."
+  (with-test-configuration (configuration root)
+    (declare (ignore configuration))
+    (let ((source (namestring (asdf:system-source-file "autolith")))
+          (probe  (merge-pathnames "system-platform.lisp" root)))
+      (dolist (windows-p '(nil t))
+        (with-open-file (stream probe :direction ':output :if-exists ':supersede
+                                     :external-format ':utf-8)
+          (write-line "(require :asdf)" stream)
+          (write-line "(asdf:load-system \"asdf\")" stream)
+          (with-standard-io-syntax
+            (prin1 `(let ((*features* (,(if windows-p 'adjoin 'remove)
+                                       :win32 *features*)))
+                      (asdf:initialize-source-registry
+                       '(:source-registry
+                         (:directory ,(namestring (uiop:pathname-directory-pathname source)))
+                         :ignore-inherited-configuration))
+                      (asdf:load-asd ,source)
+                      (assert (eq (not (null (asdf:find-system "autolith/release-server" nil)))
+                                  ,(not windows-p))))
+                   stream)))
+        (multiple-value-bind (output error-output status)
+            (uiop:run-program (list (lisp-worker-sbcl-command) "--script"
+                                    (uiop:native-namestring probe))
+                              :output              ':string
+                              :error-output        ':output
+                              :ignore-error-status t)
+          (declare (ignore error-output))
+          (test-assert (eql status 0)
+                       (format nil "~A release-service system registration: ~A"
+                               (if windows-p "Windows" "POSIX") output))))))
+  nil)
