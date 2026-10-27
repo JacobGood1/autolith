@@ -405,6 +405,10 @@ preferences record; =--fullscreen= overrides it for one launch.
   =Ctrl-End= jump to its ends, and mouse-wheel events scroll incrementally
 - cl-colorist is used for ANSI capability detection
 - Text is sanitized before styles are added
+- =:surface=, =:surface-code=, =:surface-diff-add=, and =:surface-diff-remove= carry
+    backgrounds for whole-row fills. =terminal--render-spans= takes a
+    =:background= style and =terminal--pad-spans= extends a row to the terminal
+    width, so a theme fills panels, code, and diff rows without losing span colors
 - Ctrl-C on an empty prompt exits.
 
 * Live mutation and generations

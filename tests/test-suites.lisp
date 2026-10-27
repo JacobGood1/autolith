@@ -248,6 +248,7 @@
   test-terminal-fullscreen-failure-and-lifecycle
   test-terminal-style-tables-cover-every-name
   test-terminal-style-sequence-unthemed
+  test-terminal-surface-row-background
   test-fullscreen-boot-geometry
   test-fullscreen-boot-sequence
   test-fullscreen-boot-disabled

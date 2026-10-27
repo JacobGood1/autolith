@@ -404,22 +404,36 @@ emergency terminal input responsive while another thread owns presentation."
   "Return sanitized visible text for semantic SPANS and widgets."
   (termdown:spans-text spans))
 
-(-> terminal--render-spans (terminal list) string)
-(defun terminal--render-spans (terminal spans)
+(-> terminal--render-spans
+    (terminal list &key (:background (option terminal-style)))
+    string)
+(defun terminal--render-spans (terminal spans &key background)
   "Render semantic SPANS using the application's style table.
 
 Styled terminals also receive OSC 8 hyperlinks around the web URLs in each
-span, so native modifier-clicks open them wherever the terminal supports it."
-  (termdown:render-spans
-   spans
-   :style-function
-   (when (terminal-styled-p terminal)
-     (lambda (role text)
-       (let ((sequence (terminal-style-sequence role))
-             (linked   (ansi-link-urls text)))
-         (if sequence
-             (concatenate 'string sequence linked *terminal-style-reset*)
-             linked))))))
+span, so native modifier-clicks open them wherever the terminal supports it.
+BACKGROUND names a style whose background paints the whole row: it precedes
+every span and returns after that span's reset, so content keeps its own
+foreground and emphasis. The rendered row ends with a reset."
+  (let* ((styled-p (terminal-styled-p terminal))
+         (fill     (and styled-p background (terminal-style-sequence background)))
+         (rendered
+           (termdown:render-spans
+            spans
+            :style-function
+            (when styled-p
+              (lambda (role text)
+                (let ((sequence (terminal-style-sequence role))
+                      (linked   (ansi-link-urls text)))
+                  (concatenate 'string
+                               (or fill "")
+                               (or sequence "")
+                               linked
+                               *terminal-style-reset*
+                               (or fill ""))))))))
+    (if fill
+        (concatenate 'string rendered *terminal-style-reset*)
+        rendered)))
 
 (-> terminal-ui--lisp-draft-p (string) boolean)
 (defun terminal-ui--lisp-draft-p (text)
