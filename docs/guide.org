@@ -2329,7 +2329,7 @@ the live arguments. =:code-act= interprets =(preview NAME)=,
 objects; generated forms are not evaluated in the Autolith image.
 
 Call a domain agent from the Autolith REPL as ordinary Lisp. It uses
-the active provider, which defaults to =grok-4.6=. See
+the active provider, which defaults to =grok-4.7=. See
 [[file:../nooa-autolith-extension/README.org][domain agents]].
 
 ** Child roles

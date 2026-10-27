@@ -52,7 +52,7 @@ helpers.
 (defparameter *support*
   (make-instance 'support-agent :order-db *orders*))
 
-;; Uses the active application's provider, currently grok-4.6 by default.
+;; Uses the active application's provider, currently grok-4.7 by default.
 (triage *support* "this never arrived" order)
 
 ;; Pin a provider, configuration, or budget for one call tree.
