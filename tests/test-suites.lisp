@@ -293,6 +293,7 @@
   test-onboarding-source-text
   test-onboarding-operation
   test-onboarding-first-startup
+  test-onboarding-startup-input
   test-onboarding-startup-exclusions
   test-onboarding-version-selection
   test-onboarding-incremental-interruption

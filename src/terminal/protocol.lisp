@@ -122,11 +122,11 @@ mutation passes through TERMINAL-SET-DIMENSIONS.")
     :accessor      terminal-ui-boot-waiting-p
     :type          boolean
     :documentation "Whether the boot screen owns keystrokes until the operator starts the session.")
-   (boot-start-requested-p
+   (boot-request
     :initform      nil
-    :accessor      terminal-ui-boot-start-requested-p
-    :type          boolean
-    :documentation "Whether a start key reached the waiting boot screen through the reader.")
+    :accessor      terminal-ui-boot-request
+    :type          (member nil :start :listener)
+    :documentation "The requested boot action: begin the presentation or open the listener.")
    (deferred-live-appended-text
     :initform      ""
     :accessor      terminal-ui-deferred-live-appended-text

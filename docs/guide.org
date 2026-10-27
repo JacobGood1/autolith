@@ -91,6 +91,10 @@ text inside a string.
 
 * Onboarding
 
+At the opening boot screen, press Space or Enter to start the tour. Press Esc
+or begin typing to open the listener instead. Typed and pasted text is kept in
+the prompt; the lessons are available on the next launch or with =(onboard)=.
+
 On your first interactive launch, try the prompt, =(help)=, background Lisp,
 and =(settings)= in the fullscreen tour. Edit the lesson input normally and
 press Enter to check it. Resize your terminal at any point. Use Page Up/Page Down
