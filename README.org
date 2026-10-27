@@ -72,7 +72,7 @@ nix run github:lambda-symbolics/autolith
 To build from a source checkout instead, follow the
 [[file:docs/guide.org][guide]]'s Source checkout section.
 
-Authenticate providers either with web flows or API keys:
+Authenticate providers with web flows, API keys, or local Google Cloud credentials:
 
 #+BEGIN_SRC sh
 autolith auth chatgpt
@@ -85,7 +85,12 @@ autolith auth fireworks
 autolith auth opencode
 autolith auth openrouter
 autolith auth mistral
+autolith auth vertex-gemini
+autolith auth vertex-anthropic
 #+END_SRC
+
+For Vertex AI, first run =gcloud auth application-default login= and set
+=GOOGLE_CLOUD_PROJECT= to your project ID. See the [[file:docs/guide.org][guide]] for setup details.
 
 Then start Autolith:
 
