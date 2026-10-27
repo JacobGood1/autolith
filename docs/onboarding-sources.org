@@ -52,22 +52,22 @@ next
 
 #+name: footer-wide
 #+begin_onboarding_text
-@@brand:{{{:current}}}/{{{:count}}}@@  @@lisp-prompt:Enter@@ {{{:action}}}  @@lisp-prompt:Shift-Tab@@ back  @@lisp-prompt:Esc@@ skip{{{:scroll}}}
+@@brand:{{{:current}}}/{{{:count}}}@@  @@lisp-prompt:Enter@@ {{{:action}}}  @@lisp-prompt:Tab@@ skip  @@lisp-prompt:Shift-Tab@@ back  @@lisp-prompt:Esc@@ end tour{{{:scroll}}}
 #+end_onboarding_text
 
 #+name: footer-medium
 #+begin_onboarding_text
-@@brand:{{{:current}}}/{{{:count}}}@@  @@lisp-prompt:Enter@@ {{{:action}}}  @@lisp-prompt:Shift-Tab@@ back  @@lisp-prompt:Esc@@ skip
+@@brand:{{{:current}}}/{{{:count}}}@@  @@lisp-prompt:Enter@@ {{{:action}}}  @@lisp-prompt:Tab@@ skip  @@lisp-prompt:Shift-Tab@@ back  @@lisp-prompt:Esc@@ end tour
 #+end_onboarding_text
 
 #+name: footer-compact
 #+begin_onboarding_text
-@@brand:{{{:current}}}/{{{:count}}}@@  @@lisp-prompt:Enter@@ {{{:action}}}  @@lisp-prompt:Esc@@ skip
+@@brand:{{{:current}}}/{{{:count}}}@@  @@lisp-prompt:Enter@@ {{{:action}}}  @@lisp-prompt:Tab@@ skip  @@lisp-prompt:Esc@@ end tour
 #+end_onboarding_text
 
 #+name: footer-scroll-compact
 #+begin_onboarding_text
-@@brand:{{{:current}}}/{{{:count}}}@@ @@lisp-prompt:Enter@@ {{{:action}}} @@lisp-prompt:Esc PgUp/PgDn@@
+@@brand:{{{:current}}}/{{{:count}}}@@ @@lisp-prompt:Enter@@ {{{:action}}} @@lisp-prompt:Tab@@ skip @@lisp-prompt:Esc PgUp/PgDn@@
 #+end_onboarding_text
 
 #+name: footer-scroll-small
@@ -77,7 +77,7 @@ next
 
 #+name: footer-small
 #+begin_onboarding_text
-@@brand:{{{:current}}}/{{{:count}}}@@ @@lisp-prompt:Enter Esc@@
+@@brand:{{{:current}}}/{{{:count}}}@@ @@lisp-prompt:Tab Esc@@
 #+end_onboarding_text
 
 #+name: footer-minimal

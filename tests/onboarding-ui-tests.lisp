@@ -36,6 +36,47 @@
         (test-assert (zerop (length (line-editor-history (terminal-ui-editor ui)))) "demo adds no command history"))))
   (onboarding-ui-test--navigation)
   (onboarding-ui-test--help-exploration)
+  (onboarding-ui-test--skip-slide)
+  nil)
+
+(-> onboarding-ui-test--skip-slide () null)
+(defun onboarding-ui-test--skip-slide ()
+  "Skip one page without executing exercises or acknowledging later pages."
+  (dolist (exercise '(nil :continue :help :async :settings :authentication :choose))
+    (dolist (ending '(:interrupt :complete))
+      (let* ((terminal  (make-instance 'scripted-terminal :columns 80 :rows 24
+                                       :events (list '(:paste "unfinished input")
+                                                     ':complete ':complete-previous
+                                                     ':complete ending)))
+             (page      (onboarding-ui-test--page "skip" exercise))
+             (completed nil)
+             (effects   0))
+        (when (eq exercise ':choose)
+          (setf (getf page :setting) ':activity-line-p
+                (getf page :choices) '(t nil)))
+        (with-terminal-ui (ui (terminal-ui-create :terminal terminal :fullscreen-p t :prompt "> "))
+          (line-editor-set-text (terminal-ui-editor ui) "saved draft" :cursor 4)
+          (flet ((side-effect (&rest arguments)
+                   (declare (ignore arguments))
+                   (incf effects)))
+            (multiple-value-bind (outcome ids)
+                (terminal-ui-onboard
+                 ui (list page (onboarding-ui-test--page "next" ':continue))
+                 :help-function #'side-effect :settings-function #'side-effect
+                 :authentication-function #'side-effect :choose-function #'side-effect
+                 :page-completed-function (lambda (page) (push (getf page :id) completed)))
+              (let ((expected (if (eq ending ':interrupt) '("skip") '("skip" "next"))))
+                (test-assert (eq outcome (if (eq ending ':interrupt) ':interrupted ':completed))
+                             "Tab advances one slide and can finish the last slide")
+                (test-assert (equal ids expected) "only skipped slides are acknowledged")
+                (test-assert (equal (reverse completed) expected)
+                             "revisiting a skipped slide does not acknowledge it twice"))))
+          (test-assert (zerop effects) "skipping does not invoke exercise callbacks")
+          (test-assert (and (string= (line-editor-text (terminal-ui-editor ui)) "saved draft")
+                            (= (line-editor-cursor (terminal-ui-editor ui)) 4))
+                       "skipping restores the original draft and cursor")
+          (test-assert (null (scripted-terminal-events terminal))
+                       "skipping leaves the next slide active until the next event")))))
   nil)
 
 (-> onboarding-ui-test--help-exploration () null)

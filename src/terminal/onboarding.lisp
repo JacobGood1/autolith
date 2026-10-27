@@ -658,6 +658,8 @@ Never evaluate demo input."
                        (setf outcome ':interrupted))
                       ((eq event ':escape)
                        (setf outcome ':refused))
+                      ((eq event ':complete)
+                       (advance))
                       ((member event '(:back :complete-previous) :test #'eq)
                        (back))
                       ((and (eq event ':left) (not target))

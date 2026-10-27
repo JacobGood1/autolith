@@ -94,7 +94,8 @@ text inside a string.
 On your first interactive launch, try the prompt, =(help)=, background Lisp,
 and =(settings)= in the fullscreen tour. Edit the lesson input normally and
 press Enter to check it. Resize your terminal at any point. Use Page Up/Page Down
-to scroll long lessons and Shift-Tab to go back.
+to scroll long lessons and Shift-Tab to go back. Press Tab to skip one slide,
+including an exercise, without changing its settings.
 
 Press Esc to skip the tour. Completed and skipped lesson versions are recorded
 in your state directory. Ctrl-C interrupts the tour without acknowledging the
