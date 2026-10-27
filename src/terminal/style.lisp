@@ -12,6 +12,7 @@
       :lambda-logo-1 :lambda-logo-2 :lambda-logo-3
       :lambda-logo-4 :lambda-logo-5 :lambda-logo-6
       :user :tool :success :failure :notice :dim :annotation :hint :selected
+      :surface :surface-code :surface-diff-add :surface-diff-remove
       :strong :emphasis :code :code-copy :lisp-prompt :plan-active :timestamp-time
       :mermaid-box :mermaid-edge :mermaid-arrow :mermaid-label
       :agent-spinner :agent-name :child-name :agent-role :agent-tool
@@ -76,7 +77,8 @@ Each specification is (NAME MAKE-STYLE-ARGUMENTS)."
 
 General interface styles use the basic ANSI palette so Autolith follows the
 terminal's own theme. The startup marks, Lambda Symbolics logo, promoted child
-name, and status background opt into indexed colors."
+name, and status background opt into indexed colors. Surface fills use the
+neutral bright black because basic terminals cannot tint a row."
   (append
    (terminal--style-table
     '((:plain ())
@@ -90,6 +92,10 @@ name, and status background opt into indexed colors."
       (:annotation (:faint t))
       (:hint (:faint t :italic t))
       (:selected (:reverse t))
+      (:surface (:background :bright-black))
+      (:surface-code (:background :bright-black))
+      (:surface-diff-add (:background :bright-black))
+      (:surface-diff-remove (:background :bright-black))
       (:strong (:bold t))
       (:emphasis (:italic t))
       (:code (:foreground :cyan))
@@ -202,6 +208,10 @@ secondary, and quiet text the soft blue."
         (:annotation (:foreground ,soft))
         (:hint (:foreground ,soft :italic t))
         (:selected (:reverse t))
+        (:surface (:background ,canvas-darker))
+        (:surface-code (:background ,canvas-darker))
+        (:surface-diff-add (:background ,canvas-darker))
+        (:surface-diff-remove (:background ,canvas-darker))
         (:strong (:foreground ,accent :bold t))
         (:emphasis (:italic t))
         (:code (:foreground ,secondary))
