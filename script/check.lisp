@@ -291,7 +291,7 @@ from this runner's heap."
                       :saver ':fresh-process)
     core))
 
-(defun check--build-worker-core (source-root temporary-root &key development-p)
+(defun check--build-worker-core (source-root temporary-root)
   "Build and probe one source-matched test image before admitting worker processes."
   (let* ((script                      (merge-pathnames "script/test-worker.lisp" source-root))
          (core                        (merge-pathnames "test-worker/autolith-tests.core" temporary-root))
@@ -310,8 +310,7 @@ from this runner's heap."
      (lambda (temporary)
        (append (check--runtime-command source-root)
                (list (uiop:native-namestring script) "--save-core"
-                     (uiop:native-namestring temporary)
-                     (if development-p "development" "runtime"))))
+                     (uiop:native-namestring temporary))))
      :probe-runner   (uiop:symbol-call
                       '#:sbcl-generations '#:make-sbcl-core-probe-runner
                       :command (uiop:native-namestring sb-ext:*runtime-pathname*))
@@ -501,17 +500,16 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
                    (or (autolith-script-environment-directory "AUTOLITH_ASDF_CACHE")
                        (merge-pathnames ".qlot/" source-root))))
 
-(defun check--load-test-system (source-root &key (development-p t))
-  "Load the runtime tests, or their development extensions, under the FASL lock."
+(defun check--load-test-system (source-root)
+  "Load the runtime test system under the FASL lock."
   (asdf:load-system :ls-flock)
   (uiop:symbol-call '#:ls-flock '#:call-with-file-lock
                     (check--test-load-lock-pathname source-root)
                     (lambda ()
-                      (asdf:load-system
-                       (if development-p :autolith/check-tests :autolith/tests)))))
+                      (asdf:load-system :autolith/tests))))
 
-(defun check--load-tests (source-root &key build-sandbox development-p)
-  "Load the selected test system and runtime libraries; return the setup pathname."
+(defun check--load-tests (source-root &key build-sandbox source-checks-p)
+  "Load the test system and runtime libraries, and cheque with SOURCE-CHECKS-P; return the setup pathname."
   (let ((setup (merge-pathnames ".qlot/setup.lisp" source-root)))
     (load (merge-pathnames "script/runtime-requirement.lisp" source-root))
     (autolith-require-minimum-runtime (merge-pathnames "sbcl.version" source-root))
@@ -526,69 +524,55 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
       (when (probe-file directory)
         (pushnew directory (symbol-value directories) :test #'equal)))
     (asdf:load-asd (merge-pathnames "autolith.asd" source-root))
-    (if development-p
-        (check--load-development-tests source-root)
-        (check--load-test-system source-root :development-p nil))
+    (check--load-test-system source-root)
+    (when source-checks-p
+      (check--load-source-checks source-root))
     setup))
 
-(defun check--load-development-tests (source-root)
-  "Install and load the development test extensions."
+(defun check--load-source-checks (source-root)
+  "Install the development tools and load cheque, the source checker, into this process.
+
+Only this process runs the source checks, so test images never carry cheque."
   (load (merge-pathnames "script/check-dependencies.lisp" source-root))
   (autolith-ensure-check-dependencies source-root (check--runtime-command source-root))
   (autolith-register-check-dependencies source-root)
-  (check--load-test-system source-root :development-p t))
+  (asdf:load-system :cheque))
 
-(defun check--select-tests (source-root suites tests)
-  "Select tests, extending the runtime catalog when a selector is unknown.
+(defun check--select-tests (suites tests)
+  "Return the test cases SUITES and TESTS select; unknown selectors signal an error."
+  (uiop:symbol-call '#:autolith '#:tests-select :suites suites :tests tests))
 
-Return the selected cases and whether this call loaded development tests. Only
-an unknown selector triggers the fallback; unrelated errors propagate."
-  (handler-case
-      (values (uiop:symbol-call '#:autolith '#:tests-select :suites suites :tests tests)
-              nil)
-    (error (condition)
-      (let ((selection-error (find-symbol "TEST-SELECTION-ERROR" "AUTOLITH")))
-        (if (and selection-error (typep condition selection-error))
-            (progn
-              (check--load-development-tests source-root)
-              (values (uiop:symbol-call '#:autolith '#:tests-select
-                                        :suites suites :tests tests)
-                      t))
-            (error condition))))))
-
-(defun check--parinfer-library (source-root)
-  "Return the private parinfer library, building it first when it is missing or stale.
-
-parinfer is a development tool, so the source checks build it on first use
-rather than every bootstrap and release build."
-  (load (merge-pathnames "script/build-parinfer.lisp" source-root))
-  (merge-pathnames (concatenate 'string "native/parinfer/"
-                                (uiop:symbol-call '#:autolith '#:source-parinfer-library-name))
-                   (autolith-application-root :data)))
+(defun check--project (source-root)
+  "Return the cheque project SOURCE-ROOT's cheque.sexp describes."
+  (uiop:symbol-call '#:cheque '#:project-read source-root))
 
 (defun check--source-findings (source-root &key fix)
-  "Return the source rules' findings in SOURCE-ROOT, repairing what they can first with FIX."
-  (uiop:symbol-call '#:autolith '#:source-check-run source-root
+  "Return the source rules' findings in SOURCE-ROOT, repairing what they can first with FIX.
+
+cheque builds its private parinfer library on first use rather than every
+bootstrap and release build."
+  (uiop:symbol-call '#:cheque '#:source-check-run (check--project source-root)
                     :fix              fix
-                    :parinfer-library (check--parinfer-library source-root)
+                    :parinfer-library (uiop:symbol-call '#:cheque
+                                                        '#:source-parinfer-library-ensure)
                     :stream           *standard-output*))
 
 (defun check--start-warnings (source-root temporary-root)
   "Start the clean compile that records SOURCE-ROOT's unsilenced warnings."
-  (uiop:symbol-call '#:autolith '#:source-warning-run-start source-root
+  (uiop:symbol-call '#:cheque '#:source-warning-run-start (check--project source-root)
                     :command   (check--runtime-command source-root)
                     :directory (merge-pathnames "warnings/" temporary-root)))
 
 (defun check--stop-warnings (run)
   "Stop the clean compile RUN when it is still running."
-  (let ((process (uiop:symbol-call '#:autolith '#:source-warning-run-process run)))
+  (let ((process (uiop:symbol-call '#:cheque '#:source-warning-run-process run)))
     (when (uiop:process-alive-p process)
       (uiop:terminate-process process :urgent t)
       (uiop:wait-process process))))
 
 (defun check--report-findings (findings)
   "Print the source and warning FINDINGS and their summary."
-  (uiop:symbol-call '#:autolith '#:source-check-report findings *standard-output*))
+  (uiop:symbol-call '#:cheque '#:source-check-report findings *standard-output*))
 
 (defun check--run-fix (source-root)
   "Repair what the source rules can, report the rest, and return the exit status."
@@ -599,26 +583,20 @@ rather than every bootstrap and release build."
 (defun check--run (options source-root)
   "Run the checks OPTIONS select and return the exit status.
 
-Complete runs and source checks need development dependencies. Selected runtime
-cases start with the packaged runtime test system and extend it only when a
-selector is not present there."
-  (let* ((suites                 (getf options :suites))
-         (tests                  (getf options :tests))
-         (list-p                 (getf options :list))
-         (source-only-p          (getf options :source))
-         (complete-p             (not (or suites tests)))
-         (development-p          (or complete-p source-only-p))
+Complete runs and source checks load cheque; selected cases and listings need
+only the runtime test system."
+  (let* ((suites          (getf options :suites))
+         (tests           (getf options :tests))
+         (list-p          (getf options :list))
+         (source-only-p   (getf options :source))
+         (complete-p      (not (or suites tests)))
          ;; Compile once before concurrent processes load the same FASL cache.
-         (quicklisp-setup        (check--load-tests source-root
-                                                  :development-p development-p
-                                                  :build-sandbox (not (or list-p source-only-p))))
-         (cases                  nil)
-         (selected-development-p development-p))
-    (unless source-only-p
-      (multiple-value-bind (selected-cases extended-p)
-          (check--select-tests source-root suites tests)
-        (setf cases                  selected-cases
-              selected-development-p (or development-p extended-p))))
+         (quicklisp-setup (check--load-tests source-root
+                                             :source-checks-p (and (or complete-p source-only-p)
+                                                                   (not list-p))
+                                             :build-sandbox   (not (or list-p source-only-p))))
+         (cases           (and (not source-only-p)
+                               (check--select-tests suites tests))))
     (unless (or source-only-p cases)
       (check--fail "No test cases matched the selection."))
     (when list-p
@@ -643,9 +621,7 @@ selector is not present there."
                                    :temporary-root temporary-root
                                    :active-core    (check--build-active-core source-root
                                                                             temporary-root)
-                                   :worker-core    (check--build-worker-core
-                                                    source-root temporary-root
-                                                    :development-p selected-development-p)
+                                   :worker-core    (check--build-worker-core source-root temporary-root)
                                    :jobs           jobs
                                    :timeout        timeout))))
                (when (and complete-p (not source-only-p))
@@ -657,7 +633,7 @@ selector is not present there."
                (when complete-p
                  (setf findings
                        (append findings
-                               (uiop:symbol-call '#:autolith '#:source-warning-run-finish
+                               (uiop:symbol-call '#:cheque '#:source-warning-run-finish
                                                  warnings)))
                  (check--report-findings findings))
                (if (and passed-p (null findings))
@@ -686,7 +662,7 @@ selector is not present there."
            (check--usage)
            0)
           ((getf options :fix)
-           (check--load-tests source-root :development-p t)
+           (check--load-tests source-root :source-checks-p t)
            (check--run-fix source-root))
           (t
            (check--run options source-root))))

@@ -1,12 +1,13 @@
 ;;;; -- Source Check Dependencies --
 
-;;; Mallet and the libraries only it needs are development tools, like Cargo's
-;;; dev-dependencies. checks/qlfile pins them apart from the runtime qlfile and
-;;; only the check scripts install or see them, so releases, Nix packages and
-;;; running Autolith images never carry them. They install as a qlot project in
-;;; Autolith's cache, outside the source tree, because ASDF's default source
-;;; registry searches trees like ~/common-lisp and would otherwise find Mallet's
-;;; vendored ASDF below a checkout.
+;;; cheque, the source checker, Mallet, and the libraries only they need are
+;;; development tools, like Cargo's dev-dependencies. checks/qlfile lists them
+;;; apart from the runtime qlfile and only the check scripts install or see
+;;; them, so releases, Nix packages and running Autolith images never carry
+;;; them. They install as a qlot project in Autolith's cache, outside the
+;;; source tree, because ASDF's default source registry searches trees like
+;;; ~/common-lisp and would otherwise find Mallet's vendored ASDF below a
+;;; checkout.
 
 (require :sb-md5)
 (load (merge-pathnames "roots.lisp" (uiop:pathname-directory-pathname *load-truename*)))

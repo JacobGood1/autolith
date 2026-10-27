@@ -388,22 +388,6 @@
                                           (:file "release-archive")
                                           (:file "release-main")))))
 
-(asdf:defsystem #:autolith/checks
-  :description             "Repository source checks and repairs for Autolith's coding rules."
-  :depends-on              (#:autolith #:mallet)
-  :default-component-class autolith-source-file
-  :serial                  t
-  :components              ((:module     "checks"
-                             :serial     t
-                             :components ((:file "syntax")
-                                          (:file "rules")
-                                          (:file "formatting")
-                                          (:file "definitions")
-                                          (:file "parinfer")
-                                          (:file "warnings")
-                                          (:file "mallet")
-                                          (:file "runner")))))
-
 (asdf:defsystem #:autolith/tests
   :description             "Tests for Autolith."
   :depends-on              (#:autolith
@@ -597,19 +581,6 @@
                                           (:file "telemetry-hook-authority-tests")
                                           (:file "telemetry-hook-os-permission-tests")
                                           (:file "test-suites"))))
-  :perform                 (asdf:test-op (operation component)
-                             (declare (ignore operation component))
-                             (uiop:symbol-call '#:autolith '#:run-tests)))
-
-(asdf:defsystem #:autolith/check-tests
-  :description             "Tests for Autolith's development source checks."
-  :depends-on              (#:autolith/tests #:autolith/checks)
-  :default-component-class autolith-source-file
-  :serial                  t
-  :components              ((:module     "tests"
-                             :serial     t
-                             :components ((:file "source-check-tests")
-                                          (:file "check-suites"))))
   :perform                 (asdf:test-op (operation component)
                              (declare (ignore operation component))
                              (uiop:symbol-call '#:autolith '#:run-tests)))

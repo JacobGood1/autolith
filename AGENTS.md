@@ -93,7 +93,7 @@ copy their architecture wholesale.
   dependency needs only its build metadata (systems and `lispLibs`) in
   `nix/package.nix`, and Nix evaluation fails until that entry exists.
 - Development-only tools are dev-dependencies, like Cargo's: `checks/qlfile`
-  pins them, `checks/autolith-check-tools.asd` names them for qlot, and
+  lists them, `checks/autolith-check-tools.asd` names them for qlot, and
   `./script/check` installs them on first use into Autolith's cache, outside
   the source tree, and makes them visible only to its own processes. Never add
   them to the root qlfile, the Nix package, bootstrap, or release archives.
@@ -328,15 +328,18 @@ cases run, a separate process compiles every system supported on the host from
 scratch into a private FASL directory and records each warning SBCL would print.
 Every warning nobody silenced on purpose, style warnings included, fails the
 check; silence one only where its reason is visible in the source. The rules
-in `checks/` enforce the mechanical parts of this file: layout and alignment,
-section headers, documentation strings, `->` declarations, keyword parameters,
-list accessors, `format` percent signs, constants, the project package, TODO and FIXME
-comments, and em dashes. They also require every Lisp file to be a fixed point
-of parinfer-rust's paren mode, so editors running parinfer never reindent
-committed source. `./script/check` builds the private parinfer library on first
-use from the commit in `native/parinfer/commit`; bootstrap and release builds
-never do. The checks also run the rules of the Mallet linter that agree with
-this file, listed with the reasons for those left out in `checks/mallet.lisp`.
+of [cheque](https://github.com/lambda-symbolics/cheque), configured by
+`cheque.sexp`, enforce the mechanical parts of this file: layout and
+alignment, section headers, documentation strings, `->` declarations, keyword
+parameters, list accessors, `format` percent signs, constants, the project
+package, TODO and FIXME comments, and em dashes. They also require every Lisp
+file to be a fixed point of parinfer-rust's paren mode, so editors running
+parinfer never reindent committed source. cheque builds its private parinfer
+library on first use from the commit its `native/parinfer/commit` pins;
+bootstrap and release builds never do. The checks also run the rules of the
+Mallet linter that agree with this file, listed with the reasons for those left
+out in cheque's `lambda-symbolics` preset. Fix rule behavior in cheque itself,
+not in this repository.
 Code that breaks a Mallet rule on purpose says why in place, as in
 `; mallet:suppress no-ignore-errors -- best-effort cleanup`. Every finding is
 reported at the end of the run.
@@ -356,8 +359,7 @@ diagnosing a stalled worker. Inspect its captured log for `RUN` entries and
 live Lisp thread backtraces.
 
 Register zero-argument test functions in `tests/test-suites.lisp` using
-`define-test-suite`, or in `tests/check-suites.lisp` for tests of the
-development-only source checks, which load with `autolith/check-tests`. Use FiveAM assertions or `test-assert`, which records a
+`define-test-suite`. Use FiveAM assertions or `test-assert`, which records a
 FiveAM check in registered tests. `with-test-configuration` binds a fresh
 configuration and optional temporary root, cleaning it up on every exit.
 `with-test-environment` installs `(NAME VALUE)` bindings and restores previous

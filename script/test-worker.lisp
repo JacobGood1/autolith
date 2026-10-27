@@ -44,13 +44,9 @@
       (format *error-output* "~&Test image failed: ~A~%" condition)
       (uiop:quit 2))))
 
-(defun test-worker--save-core (source-root pathname mode)
-  "Load MODE's test system in this fresh builder, save its image and exit.
-
-MODE must be :runtime or :development."
-  (unless (member mode '(:runtime :development))
-    (check--fail "The test image mode must be :runtime or :development."))
-  (check--load-tests source-root :development-p (eq mode :development))
+(defun test-worker--save-core (source-root pathname)
+  "Load the test system in this fresh builder, save its image and exit."
+  (check--load-tests source-root)
   (uiop:symbol-call
    '#:sbcl-generations '#:image-save pathname
    (uiop:symbol-call '#:sbcl-generations '#:image-build-record
@@ -119,11 +115,11 @@ MODE must be :runtime or :development."
                                                      :test #'string-equal))))
             (check--fail "Invalid test worker request."))
           (unless preloaded-p
-            (check--load-tests source-root :development-p nil))
+            (check--load-tests source-root))
           (let* ((names (getf request :cases))
                  (cases (if preloaded-p
                             (uiop:symbol-call '#:autolith '#:tests-select :tests names)
-                            (check--select-tests source-root nil names))))
+                            (check--select-tests nil names))))
             (unless (equal (mapcar #'string-downcase cases) names)
               (check--fail "Worker selection does not match its assigned cases."))
             (test-worker--start-stack-watchdog)
@@ -146,15 +142,6 @@ MODE must be :runtime or :development."
   (let ((arguments   (uiop:command-line-arguments))
         (source-root (uiop:pathname-parent-directory-pathname
                       (uiop:pathname-directory-pathname (truename *load-truename*)))))
-    (if (and (<= 2 (length arguments) 3) (string= (first arguments) "--save-core"))
-        (let ((mode (if (= (length arguments) 2)
-                        :runtime
-                        (cond
-                          ((string= (third arguments) "runtime")
-                           :runtime)
-                          ((string= (third arguments) "development")
-                           :development)
-                          (t
-                           (check--fail "The test image mode must be runtime or development."))))))
-          (test-worker--save-core source-root (pathname (second arguments)) mode))
+    (if (and (= (length arguments) 2) (string= (first arguments) "--save-core"))
+        (test-worker--save-core source-root (pathname (second arguments)))
         (uiop:quit (test-worker-main arguments source-root)))))

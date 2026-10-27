@@ -1458,7 +1458,6 @@
   test-check-worker-temporary-cleanup
   test-runner-catalog
   test-check-load-test-system-lock
-  test-check-load-test-system-selection
   test-check-committed-version
   test-check-command-selection
   test-check-result-validation

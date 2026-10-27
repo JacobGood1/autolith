@@ -191,7 +191,7 @@
                  (list 'asdf:load-system
                        (lambda (system &rest arguments)
                          (declare (ignore arguments))
-                         (when (eq system :autolith/check-tests)
+                         (when (eq system :autolith/tests)
                            (with-lock-held (state-lock)
                              (incf calls)
                              (incf active)
@@ -261,54 +261,6 @@
                   (destroy-thread thread)))
               (join-thread thread)))))))
   nil)
-
-(-> test-check-load-test-system-selection () null)
-(defun test-check-load-test-system-selection ()
-  "Test runtime selection, development fallback and unrelated errors."
-  (with-test-configuration (configuration root)
-    (declare (ignore configuration))
-    (let ((source-root       (merge-pathnames "checkout/" root))
-          (development-loads 0))
-      (test-call-with-function-replacements
-       (list
-        (list (find-symbol "CHECK--LOAD-DEVELOPMENT-TESTS" "COMMON-LISP-USER")
-              (lambda (source)
-                (declare (ignore source))
-                (incf development-loads)
-                (setf *test-suites*
-                      '(("runtime" runtime-case)
-                        ("development" runtime-case development-case))))))
-       (lambda ()
-         (let ((*test-suites* '(("runtime" runtime-case))))
-           (multiple-value-bind (cases development-p)
-               (test-check--call "CHECK--SELECT-TESTS" source-root nil
-                                 '("runtime-case"))
-             (test-assert (equal cases '(runtime-case))
-                          "runtime selectors use the packaged catalog")
-             (test-assert (not development-p)
-                          "runtime selectors do not load development tests"))
-           (multiple-value-bind (cases development-p)
-               (test-check--call "CHECK--SELECT-TESTS" source-root nil
-                                 '("development-case"))
-             (test-assert (equal cases '(development-case))
-                          "unknown runtime selectors retry after loading development tests")
-             (test-assert development-p
-                          "development fallback reports its selected image mode"))
-           (test-assert (= development-loads 1)
-                        "development loading occurs only for an unknown selector"))))
-      (test-call-with-function-replacements
-       (list
-        (list (find-symbol "TESTS-SELECT" "AUTOLITH")
-              (lambda (&rest arguments)
-                (declare (ignore arguments))
-                (error 'simple-error :format-control "unrelated"))))
-       (lambda ()
-         (test-assert
-          (handler-case
-              (progn (test-check--call "CHECK--SELECT-TESTS" source-root nil '("case")) nil)
-            (simple-error () t)
-            (error () nil))
-          "unrelated selection errors propagate without development loading"))))))
 
 (-> test-check-command-selection () null)
 (defun test-check-command-selection ()
