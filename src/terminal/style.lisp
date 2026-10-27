@@ -445,6 +445,17 @@ A theme that does not define STYLE renders it plainly instead of failing the row
   "Fit semantic SPANS to one terminal row."
   (termdown:fit-spans spans maximum-width))
 
+(-> terminal--pad-spans (list (integer 0) &key (:style terminal-style)) list)
+(defun terminal--pad-spans (spans width &key (style ':plain))
+  "Return SPANS clipped or padded with STYLE to exactly WIDTH cells."
+  (let* ((clipped   (terminal--clip-spans spans width))
+         (remaining (- width (terminal--spans-width clipped))))
+    (if (plusp remaining)
+        (append clipped
+                (list (terminal-span style
+                                     (make-string remaining :initial-element #\Space))))
+        clipped)))
+
 
 ;;;; -- Markdown Heading Styles --
 

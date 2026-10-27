@@ -249,6 +249,7 @@
   test-terminal-style-tables-cover-every-name
   test-terminal-style-sequence-unthemed
   test-terminal-surface-row-background
+  test-terminal-pad-spans
   test-fullscreen-boot-geometry
   test-fullscreen-boot-sequence
   test-fullscreen-boot-disabled

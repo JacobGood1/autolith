@@ -2943,3 +2943,19 @@ Resize tests drive size changes through COLUMNS and LINES."
                           (= (+ position (length reset)) (length surface))))
                    "the rendered row ends with a reset")))
   nil)
+
+(-> test-terminal-pad-spans () null)
+(defun test-terminal-pad-spans ()
+  "Fill a span row to an exact cell width and clip one that overruns."
+  (let ((spans (list (terminal-span ':plain "ab"))))
+    (test-assert (= 3 (terminal--spans-width (terminal--pad-spans spans 3)))
+                 "a short row is padded to the requested width")
+    (test-assert (= 5 (terminal--spans-width
+                       (terminal--pad-spans (list (terminal-span ':plain "abcdef")) 5)))
+                 "a long row is clipped to the requested width")
+    (test-assert (= 6 (terminal--spans-width
+                       (terminal--pad-spans (list (terminal-span ':plain "日本")) 6)))
+                 "wide characters are measured in cells")
+    (test-assert (equal spans (terminal--pad-spans spans 2))
+                 "an exact row is returned unchanged"))
+  nil)
