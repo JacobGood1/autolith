@@ -379,7 +379,7 @@ Find saved preferences and completed lessons in the state directory.
 @@code:Config root: {{{:config-root}}}
 State root:  {{{:state-root}}}@@
 
-* Keep or hide the activity line
+* Activity line
 :PROPERTIES:
 :ID: activity-line
 :VERSION: 1
@@ -387,16 +387,14 @@ State root:  {{{:state-root}}}@@
 :SETTING: activity-line-p
 :CHOICES: t nil
 :END:
-While Autolith works, the modeline times the turn and a line under it names
-what Autolith is doing:
+Read the turn timer in the modeline and the current activity below it:
 
 @@dim:REPL  ∙ 00:04  gpt-6.1-sol · high@@
 @@brand:∙@@ @@dim:pondering@@
 
-Keep that line, or hide it and spare the row; the modeline's timer stays
-either way. Change it later with =(settings)=.
+Choose whether to show the activity line. Change this in =(settings)=.
 
-* Choose how messages open
+* Message style
 :PROPERTIES:
 :ID: transcript-style
 :VERSION: 1
@@ -404,7 +402,7 @@ either way. Change it later with =(settings)=.
 :SETTING: transcript-style
 :CHOICES: :labels :repl
 :END:
-Each message can open with a labeled header:
+Choose labeled headers:
 
 @@user:❯ you@@
   hi!
@@ -412,7 +410,7 @@ Each message can open with a labeled header:
 @@brand:● autolith@@
   Hello, I am Autolith. How can I help you today?
 
-Or like an exchange at a Lisp REPL, with the time on the line above:
+Or Lisp REPL prompts:
 
 @@dim:  2026-10-26 21:30@@
 @@user:>@@ hi!
@@ -420,8 +418,8 @@ Or like an exchange at a Lisp REPL, with the time on the line above:
 @@dim:  2026-10-26 21:30@@
 @@brand:<@@ Hello, I am Autolith. How can I help you today?
 
-The time shows only while turn timestamps are on. Change the style later with
-=(settings)=.
+Enable turn timestamps to show the time above each message.
+Change the style in =(settings)=.
 
 * Leave the terminal.  Keep the session.
 :PROPERTIES:
@@ -544,9 +542,11 @@ Use =(retire-procedure "NAME")= to stop using and learning that procedure.
 :ID: symbolic-diagnosis
 :VERSION: 2
 :END:
-With *Diagnostic probes* on, as they are by default, Autolith compares hypotheses using structured observations. Turn them off in =(settings)=.
+Autolith checks known facts and tests possible causes before choosing a repair.
+Read the results and suggested repair in the diagnosis report.
+Cases without a known cause are marked open.
 
-It checks known facts first, then runs a bounded set of probes to distinguish the remaining causes. Read the probe results, eliminated hypotheses, and suggested repair in the report. An unresolved case is shown as open.
+*Diagnostic probes* are on by default. Turn them off in =(settings)=.
 
 =(diagnoses)=  inspect saved diagnoses and recent cases
 
