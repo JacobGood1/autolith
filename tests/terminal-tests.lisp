@@ -2908,13 +2908,20 @@ Resize tests drive size changes through COLUMNS and LINES."
 
 (-> test-terminal-style-sequence-unthemed () null)
 (defun test-terminal-style-sequence-unthemed ()
-  "Resolve a style the installed table omits to no control."
+  "Render a style the installed table omits without adding terminal controls."
   (let ((*terminal-style-table*
-          (remove ':surface (terminal-style-table-autolith) :key #'first)))
+          (remove ':surface (terminal-style-table-autolith) :key #'first))
+        (terminal (make-instance 'recording-terminal)))
+    (setf (terminal-styled-p terminal) t)
     (test-assert (null (terminal-style-sequence :surface t))
                  "an unthemed style resolves to no control")
     (test-assert (plusp (length (terminal-style-sequence :brand t)))
-                 "defined styles keep their controls"))
+                 "defined styles keep their controls")
+    (dolist (style '(:plain :surface))
+      (test-assert (string= "text"
+                            (terminal--render-spans
+                             terminal (list (terminal-span style "text"))))
+                   "a span without styling adds no reset")))
   nil)
 
 (-> test-terminal-surface-row-background () null)
@@ -2941,7 +2948,11 @@ Resize tests drive size changes through COLUMNS and LINES."
       (test-assert (let ((position (search reset surface :from-end t)))
                      (and position
                           (= (+ position (length reset)) (length surface))))
-                   "the rendered row ends with a reset")))
+                   "the rendered row ends with a reset"))
+    (setf (terminal-styled-p terminal) nil)
+    (test-assert (string= "abcd"
+                          (terminal--render-spans terminal spans :background ':surface))
+                 "an unstyled terminal receives text without background controls"))
   nil)
 
 (-> test-terminal-pad-spans () null)

@@ -412,9 +412,9 @@ emergency terminal input responsive while another thread owns presentation."
 
 Styled terminals also receive OSC 8 hyperlinks around the web URLs in each
 span, so native modifier-clicks open them wherever the terminal supports it.
-BACKGROUND names a style whose background paints the whole row: it precedes
-every span and returns after that span's reset, so content keeps its own
-foreground and emphasis. The rendered row ends with a reset."
+BACKGROUND names a style whose background paints each span and returns after
+its reset, preserving the span's foreground and emphasis. Pad SPANS first to
+fill a row. A background-filled row ends with a reset."
   (let* ((styled-p (terminal-styled-p terminal))
          (fill     (and styled-p background (terminal-style-sequence background)))
          (rendered
@@ -425,12 +425,14 @@ foreground and emphasis. The rendered row ends with a reset."
               (lambda (role text)
                 (let ((sequence (terminal-style-sequence role))
                       (linked   (ansi-link-urls text)))
-                  (concatenate 'string
-                               (or fill "")
-                               (or sequence "")
-                               linked
-                               *terminal-style-reset*
-                               (or fill ""))))))))
+                  (if (or sequence fill)
+                      (concatenate 'string
+                                   (or fill "")
+                                   (or sequence "")
+                                   linked
+                                   *terminal-style-reset*
+                                   (or fill ""))
+                      linked)))))))
     (if fill
         (concatenate 'string rendered *terminal-style-reset*)
         rendered)))
