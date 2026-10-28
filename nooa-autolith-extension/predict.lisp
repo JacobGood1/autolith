@@ -48,5 +48,5 @@ Agent catalog:
              :budget        budget
              :provider      provider
              :configuration configuration)
-    (declare (ignore trace-identifier))
+    (domain-agent--note-trace trace-identifier)
     value))
