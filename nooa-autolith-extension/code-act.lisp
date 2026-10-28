@@ -348,7 +348,7 @@ Live bindings:
                    :budget        budget
                    :provider      provider
                    :configuration configuration)
-          (declare (ignore trace-identifier))
+          (domain-agent--note-trace trace-identifier)
           (handler-case
               (multiple-value-bind (value finished-p)
                   (domain-agent--interpret

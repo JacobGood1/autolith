@@ -106,6 +106,21 @@
 (defvar *domain-agent-budget* nil
   "The RLM budget used by agentic methods in the current dynamic extent.")
 
+(defvar *domain-agent--trace-sinks* '()
+  "Collectors of inference trace identifiers, innermost first.
+
+Each is a cons whose car holds identifiers newest first. Every inference
+an agentic method makes notes its trace conversation identifier in every
+active collector, so a nested method's traces count toward its caller's.")
+
+(-> domain-agent--note-trace ((option string)) null)
+(defun domain-agent--note-trace (identifier)
+  "Note IDENTIFIER, an inference trace conversation, in every active collector."
+  (when identifier
+    (dolist (sink *domain-agent--trace-sinks*)
+      (push identifier (first sink))))
+  nil)
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter *domain-agentic-option-keys*
     '(:documentation :contract :strategy :budget)
@@ -369,14 +384,18 @@ leaves the corresponding special variable unchanged."
      &key (:provider (option model-provider))
           (:configuration (option configuration))
           (:budget (option rlm-budget)))
-    t)
+    (values t list))
 (defun domain-agent-invoke
     (agent name arguments &key provider configuration budget)
   "Run AGENT's agentic capability NAME on ARGUMENTS and return its value.
 
 PROVIDER, CONFIGURATION, and BUDGET default to the dynamic domain-agent
 environment, then to the active application. The return value satisfies
-the capability's contract or a condition is signaled."
+the capability's contract or a condition is signaled. The second value
+is the trace conversation identifiers of every inference the call made,
+nested agentic calls included, oldest first: one for :PREDICT (more when
+contract repair re-asks inside the frame, which keeps one trace), one per
+turn for :CODE-ACT."
   (let ((capability (domain-agent--find (class-of agent) name)))
     (unless capability
       (error 'domain-agent-error
@@ -409,17 +428,21 @@ the capability's contract or a condition is signaled."
            :capability    capability)
         (with-domain-agent-environment
             (:provider provider :configuration configuration :budget budget)
-          (ecase (domain-capability-strategy capability)
-            (:predict
-             (domain-agent--predict agent capability arguments
-                                    :provider      provider
-                                    :configuration configuration
-                                    :budget        budget))
-            (:code-act
-             (domain-agent--code-act agent capability arguments
-                                     :provider      provider
-                                     :configuration configuration
-                                     :budget        budget))))))))
+          (let* ((sink  (list '()))
+                 (value (let ((*domain-agent--trace-sinks*
+                                (cons sink *domain-agent--trace-sinks*)))
+                          (ecase (domain-capability-strategy capability)
+                            (:predict
+                             (domain-agent--predict agent capability arguments
+                                                    :provider      provider
+                                                    :configuration configuration
+                                                    :budget        budget))
+                            (:code-act
+                             (domain-agent--code-act agent capability arguments
+                                                     :provider      provider
+                                                     :configuration configuration
+                                                     :budget        budget))))))
+            (values value (reverse (first sink)))))))))
 
 (defmacro define-domain-capability (name lambda-list &body body)
   "Define NAME as a deterministic, model-visible method on a domain agent.
