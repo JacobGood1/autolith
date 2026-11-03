@@ -33,9 +33,10 @@ Reloading a suite replaces its registration without duplicating cases."
                                 (*model-catalog-fetch-function*
                                   (lambda (context) (declare (ignore context)) nil)))
                             (with-test-environment (("AUTOLITH_TELEMETRY" "off"))
-                              (unwind-protect
-                                   (,name)
-                                (task-tests--close-orchestrators))))))
+                              (with-test-default-model
+                                (unwind-protect
+                                     (,name)
+                                  (task-tests--close-orchestrators)))))))
        (setf *test-suites*
              (append (remove ,label *test-suites* :key #'first :test #'string=)
                      (list (cons ,label ',cases)))))))
