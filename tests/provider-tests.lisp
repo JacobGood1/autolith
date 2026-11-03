@@ -192,6 +192,225 @@
         (tool-registry-close-runtime-state registry))))
   nil)
 
+(-> test-provider-tool-choice () null)
+(defun test-provider-tool-choice ()
+  "Disable tool calls on every wire format while keeping the same tool definitions."
+  (let* ((configuration (test-configuration))
+         (root          (test-configuration-root configuration))
+         (registry      (make-default-tool-registry :configuration configuration))
+         (conversation  (conversation-create configuration :identifier "tool-choice")))
+    (unwind-protect
+         (progn
+           (conversation-append-user-message conversation "Answer now.")
+           (loop for (label provider choice-of) in
+                 (list (list "Responses" (provider-create configuration)
+                             (lambda (request) (json-get request "tool_choice")))
+                       (list "Chat Completions"
+                             (openai-compatible-provider-create
+                              configuration :name                "choice-openai"
+                                            :family              ':openai
+                                            :headers             nil
+                                            :reasoning-parameter nil
+                                            :stream-usage-p      t)
+                             (lambda (request) (json-get request "tool_choice")))
+                       (list "Messages" (anthropic-provider-create configuration)
+                             (lambda (request)
+                               (json-get (json-get request "tool_choice") "type")))
+                       (list "GenerateContent"
+                             (gemini-code-assist-provider-create
+                              configuration
+                              :credential-manager (credential-manager-create configuration))
+                             (lambda (request)
+                               (let ((tool-configuration
+                                       (json-get (json-get request "request") "toolConfig")))
+                                 (if tool-configuration
+                                     (string-downcase
+                                      (json-get (json-get tool-configuration
+                                                          "functionCallingConfig")
+                                                "mode"))
+                                     "auto")))))
+                 do (flet ((encode (choice)
+                             "Encode PROVIDER's request with tool CHOICE."
+                             (let ((*provider-tool-choice* choice))
+                               (provider-request-object
+                                provider conversation
+                                (tool-registry-provider-schemas registry)))))
+                      (let ((automatic (encode ':auto))
+                            (disabled  (encode ':none)))
+                        (test-assert
+                         (and (equal (funcall choice-of automatic) "auto")
+                              (equal (funcall choice-of disabled) "none"))
+                         (format nil "~A requests carry the bound tool choice" label))
+                        (test-assert
+                         (string= (json-encode (json-get (or (json-get disabled "request")
+                                                             disabled)
+                                                         "tools"))
+                                  (json-encode (json-get (or (json-get automatic "request")
+                                                             automatic)
+                                                         "tools")))
+                         (format nil "~A requests keep their tool definitions" label))))))
+      (tool-registry-close-runtime-state registry)
+      (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
+  nil)
+
+(-> test-provider-prompt-cache-ttl () null)
+(defun test-provider-prompt-cache-ttl ()
+  "Request the configured cache lifetime on Claude routes and nowhere else."
+  (with-test-environment (("AUTOLITH_OPENROUTER_PROVIDER_ROUTING" nil))
+    (with-test-configuration (configuration)
+      (setf (configuration-validation-deferred-p configuration) t)
+      (let ((conversation (conversation-create configuration :identifier "cache-ttl")))
+        (conversation-append-user-message conversation "Cache this history.")
+        (labels ((controls (value)
+                   "Return every cache_control object inside the JSON VALUE."
+                   (cond
+                     ((json-object-p value)
+                      (append (let ((control (json-get value "cache_control")))
+                                (and control (list control)))
+                              (loop for child being the hash-values of value
+                                    append (controls child))))
+                     ((and (vectorp value) (not (stringp value)))
+                      (loop for child across value
+                            append (controls child)))
+                     (t
+                      nil)))
+
+                 (request (route model ttl)
+                   "Encode a request through ROUTE to MODEL with cache lifetime TTL."
+                   (setf (config :prompt-cache-ttl configuration) ttl
+                         (config :model configuration)
+                         (if (eq route ':openrouter) (openrouter--model-name model) model))
+                   (provider-request-object (if (eq route ':openrouter)
+                                                (openrouter-provider-create configuration)
+                                                (anthropic-provider-create configuration))
+                                            conversation (json-array))))
+          (dolist (case '((:anthropic  "claude-haiku-4-5"           "5m" (nil))
+                          (:anthropic  "claude-haiku-4-5"           "1h" ("1h"))
+                          (:openrouter "anthropic/claude-haiku-4.5" "5m" (nil))
+                          (:openrouter "anthropic/claude-haiku-4.5" "1h" ("1h"))
+                          (:openrouter "openai/gpt-5.1"             "1h" (nil))))
+            (destructuring-bind (route model ttl expected) case
+              (test-assert (equal expected
+                                  (remove-duplicates
+                                   (mapcar (lambda (control) (json-get control "ttl"))
+                                           (controls (request route model ttl)))
+                                   :test #'equal))
+                           (format nil "~A ~A markers request lifetime ~A" route model ttl))))
+          (test-assert (equal (conversation-prompt-cache-key conversation)
+                              (json-get (request ':openrouter "anthropic/claude-haiku-4.5" "5m")
+                                        "session_id"))
+                       "OpenRouter requests carry the conversation's session identifier")))))
+  nil)
+
+(-> test-provider-shared-items-breakpoint () null)
+(defun test-provider-shared-items-breakpoint ()
+  "End shared leading items at their own cache marker on Claude routes."
+  (with-test-environment (("AUTOLITH_OPENROUTER_PROVIDER_ROUTING" nil))
+    (with-test-configuration (configuration)
+      (setf (configuration-validation-deferred-p configuration) t)
+      (let ((conversation (conversation-create configuration :identifier "shared-items")))
+        (conversation-append-user-message conversation "Shared views.")
+        (conversation-append-user-message conversation "Task: one question.")
+        (flet ((breakpoints (route count)
+                 "Return the cache marker paths of a request through ROUTE sharing COUNT items."
+                 (setf (config :model configuration)
+                       (if (eq route ':openrouter)
+                           (openrouter--model-name "anthropic/claude-haiku-4.5")
+                           "claude-haiku-4-5"))
+                 (let ((*provider-shared-item-count* count))
+                   (mapcar #'first
+                           (getf (provider-cache-wire-plan
+                                  (provider-request-object
+                                   (if (eq route ':openrouter)
+                                       (openrouter-provider-create configuration)
+                                       (anthropic-provider-create configuration))
+                                   conversation (json-array)))
+                                 :breakpoints)))))
+          (test-assert (and (member '("messages" 0 "content" 0) (breakpoints ':anthropic 1)
+                                    :test #'equal)
+                            (not (member '("messages" 0 "content" 0) (breakpoints ':anthropic 0)
+                                         :test #'equal)))
+                       "Messages marks the shared block inside the merged user message")
+          (test-assert (and (member '("messages" 1 "content" 0) (breakpoints ':openrouter 1)
+                                    :test #'equal)
+                            (not (member '("messages" 1 "content" 0) (breakpoints ':openrouter 0)
+                                         :test #'equal)))
+                       "Chat marks the end of the shared message")
+          (conversation-append-provider-item
+           conversation
+           (json-object "type" "function_call" "namespace" "skill" "name" "load"
+                        "call_id" "volatile-call" "arguments" "{}")
+           :persistence ':next-response)
+          (conversation-append-tool-result conversation "volatile-call"
+                                           :tool-name   "skill.load"
+                                           :output      "Blocked."
+                                           :success-p   nil
+                                           :persistence ':next-response)
+          (test-assert (member '("messages" 1 "content" 0) (breakpoints ':openrouter 1)
+                               :test #'equal)
+                       "Chat keeps the shared marker beside one-response exchanges")))))
+  nil)
+
+(defclass cost-test-provider (subscription-provider)
+  ((usage
+    :initarg       :usage
+    :reader        cost-test-provider-usage
+    :documentation "The usage every response reports."))
+  (:documentation "A configured provider answering every request with fixed usage."))
+
+(defmethod provider-stream-turn
+    ((provider cost-test-provider) (conversation conversation)
+     &key tool-namespaces event-callback goal-context compaction-p)
+  "Answer with the provider's fixed usage."
+  (declare (ignore tool-namespaces event-callback goal-context compaction-p))
+  (agent-test-result (make-identifier) (list (agent-test-message "priced"))
+                     :usage (cost-test-provider-usage provider)))
+
+(-> test-provider-cost () null)
+(defun test-provider-cost ()
+  "Price requests from settings or list prices, count unpriced ones, and enforce the limit."
+  (with-test-configuration (configuration)
+    (setf (configuration-validation-deferred-p configuration) t)
+    (let* ((*provider-cost-ledger* (make-cost-ledger))
+           (conversation           (conversation-create configuration :identifier "cost"))
+           (provider
+             (make-instance 'cost-test-provider
+                            :configuration configuration
+                            :usage         (json-object "input_tokens"        1000000
+                                                        "cached_input_tokens" 500000
+                                                        "output_tokens"       100000))))
+      (flet ((list-price ()
+               "Return the direct Anthropic route's price for the configured model."
+               (provider-model-price (anthropic-provider-create configuration) configuration)))
+        (setf (config :model configuration) "claude-opus-5-5")
+        (test-assert (and (= (model-price-input (list-price)) 4)
+                          (= (model-price-cache-write (list-price)) 5))
+                     "Anthropic list prices charge five-minute cache writes at 1.25 times input")
+        (setf (config :prompt-cache-ttl configuration) "1h")
+        (test-assert (= (model-price-cache-write (list-price)) 8)
+                     "a one-hour cache lifetime doubles the write price"))
+      (setf (config :model configuration) "local-model")
+      (provider-stream-turn provider conversation)
+      (test-assert (equal (getf (cost-ledger-summary *provider-cost-ledger*) :counts)
+                          '(:reported 0 :estimated 0 :unpriced 1 :unknown 0))
+                   "a request without a price is counted as unpriced")
+      (setf (config :model-prices configuration)
+            "{\"local-model\": {\"input\": 2, \"cache_read\": 0.2, \"output\": 10}}")
+      (provider-stream-turn provider conversation)
+      (test-assert (= (cost-ledger-total *provider-cost-ledger*) 21/10)
+                   "configured prices estimate each token category")
+      (test-assert (search "$2.1000 this process, 1 request unpriced"
+                           (application--cost-description configuration))
+                   "status reports spending next to unpriced requests")
+      (setf (config :cost-limit configuration) 2)
+      (test-assert (handler-case (progn (provider-stream-turn provider conversation) nil)
+                     (cost-limit-reached ()
+                       t))
+                   "requests past the cost limit are refused")
+      (test-assert (= (cost-ledger-total *provider-cost-ledger*) 21/10)
+                   "a refused request records nothing")))
+  nil)
+
 (-> test-provider-request-tool-filtering () null)
 (defun test-provider-request-tool-filtering ()
   "Test local web schemas are sent only when the request can execute them."
@@ -917,17 +1136,22 @@
                    (json-encode
                     (json-object
                      "output"
-                     (json-array
-                      (json-object
-                       "type" "message"
-                       "role" "assistant"
-                       "content"
                        (json-array
-                        (json-object "type" "output_text"
-                                     "text" "Ignored compact reply.")))
-                      (json-object "id" "cmp_123"
-                                   "type" "compaction"
-                                   "encrypted_content" "opaque-checkpoint"))))
+                        (json-object "type" "message"
+                                     "role" "user"
+                                     "content"
+                                     (json-array
+                                      (json-object "type" "input_text"
+                                                   "text" "retained user")))
+                        (json-object "id" "cmp_123"
+                                     "type" "compaction"
+                                     "encrypted_content" "opaque-checkpoint")
+                        (json-object "type" "message"
+                                     "role" "assistant"
+                                     "content"
+                                     (json-array
+                                      (json-object "type" "output_text"
+                                                   "text" "retained assistant"))))))
                    200
                    '(("x-request-id" . "native-success"))))))
               (lambda ()
@@ -936,9 +1160,14 @@
                        provider conversation
                        :tool-namespaces schemas
                        :event-callback  #'identity))))
-             (test-assert (native-compaction-item-p result)
-                          "native compaction finds its opaque checkpoint among output")
-             (multiple-value-bind (value present-p) (gethash "id" result)
+             (test-assert
+              (and (listp result)
+                   (= (length result) 3)
+                   (string= (json-get (first result) "role") "user")
+                   (native-compaction-item-p (second result))
+                   (string= (json-get (third result) "role") "assistant"))
+              "native compaction returns the complete ordered output window")
+             (multiple-value-bind (value present-p) (gethash "id" (second result))
                (declare (ignore value))
                (test-assert (not present-p)
                             "native compaction drops transient server item identifiers")))
@@ -953,12 +1182,14 @@
                                     "encrypted_content" "legacy-checkpoint")
                        (json-object "type" "context_compaction"
                                     "encrypted_content" "current-checkpoint")))))))
-             (test-assert
-              (and (native-compaction-item-p result)
-                   (string= (json-get result "type") "context_compaction")
-                   (string= (json-get result "encrypted_content")
-                            "current-checkpoint"))
-              "native compaction keeps the newest current checkpoint encoding"))
+              (test-assert
+               (and (listp result)
+                    (= (length result) 2)
+                    (native-compaction-item-p (second result))
+                    (string= (json-get (second result) "type") "context_compaction")
+                    (string= (json-get (second result) "encrypted_content")
+                             "current-checkpoint"))
+               "native compaction keeps the complete window and newest checkpoint encoding"))
            (let ((result
                    (provider--decode-native-compaction-response
                     provider
@@ -968,9 +1199,11 @@
                       (json-array
                        (json-object "type" "compaction_summary"
                                     "encrypted_content" "legacy-checkpoint")))))))
-             (test-assert
-              (string= (json-get result "type") "compaction")
-              "native compaction canonicalizes Codex's legacy checkpoint alias"))
+               (test-assert
+                (and (listp result)
+                     (= (length result) 1)
+                     (string= (json-get (first result) "type") "compaction"))
+                "native compaction canonicalizes Codex's legacy checkpoint alias"))
            (test-assert
             (null
              (provider--decode-native-compaction-response
@@ -1272,8 +1505,9 @@
             (test-assert
              (and (= (test-transport-provider-attempt-count provider) 2)
                   (if native-p
-                      (and (native-compaction-item-p result)
-                           (string= (json-get result "encrypted_content") "tls-checkpoint"))
+                      (and (= 1 (length result))
+                           (native-compaction-item-p (first result))
+                           (string= (json-get (first result) "encrypted_content") "tls-checkpoint"))
                       (string= (provider-result-response-id result) "tls-reconnected")))
              "each TLS EOF boundary reconnects and returns the next successful response"))
           (let ((failures
@@ -1868,11 +2102,14 @@
     (cond
       ((typep outcome 'provider-result)
        outcome)
+      ((typep outcome 'provider-unauthorized)
+       (error outcome))
       ((eq outcome :unauthorized)
        (error 'provider-unauthorized
-              :message    "Injected unauthorized response."
+              :message    "The provider returned HTTP 401. Provider explanation: Upstream account unavailable."
               :status     401
-              :request-id nil
+              :code       "missing_upstream_credential"
+              :request-id "request-authentication"
               :response   nil))
       ((eq outcome :stream-error)
        (error 'response-stream-error
@@ -1925,9 +2162,106 @@
                  :session-id         (make-identifier)
                  :outcomes           outcomes))
 
+(-> provider-tests--authentication-hook (subscription-provider) null)
+(defun provider-tests--authentication-hook (provider)
+  "Exercise Dexador condition bodies at the host hook, including hostile fields."
+  (let* ((body     "{\"error\":{\"message\":\"Account refused\",\"code\":\"invalid_api_key\"}}")
+         (stream   (make-string-input-stream body))
+         (fallback (format nil "The provider rejected the current ~A credentials."
+                           (provider-account-label provider))))
+    (dolist (case (list (list body "Account refused" "invalid_api_key")
+                       (list (sb-ext:string-to-octets body) "Account refused" "invalid_api_key")
+                       (list stream "Account refused" "invalid_api_key")
+                       (list (format nil "{\"error\":{\"message\":~S,\"code\":\"invalid_api_key\"}}"
+                                     fallback) fallback "invalid_api_key")
+                       (list "{broken" nil nil) (list "{}" nil nil)
+                       (list "{\"error\":{\"message\":[],\"code\":{}}}" nil nil)
+                       (list "{\"error\":{\"code\":\"scope_missing\"}}" nil "scope_missing")))
+      (let* ((condition (make-condition 'http-request-failed
+                                       :status  401
+                                       :body    (first case)
+                                       :headers '(("x-request-id" . "auth-hook-request"))
+                                       :uri     nil
+                                       :method  ':post))
+             (failure   (handler-case
+                            (provider-signal-transport-failure provider condition)
+                          (provider-unauthorized (failure)
+                            failure)))
+             (terminal  (provider--authentication-condition provider failure)))
+        (test-assert (typep failure 'provider-unauthorized)
+                     "host401 remains catchable by bounded credential refresh")
+        (test-assert (and (= (provider-error-status failure) 401)
+                          (equal (provider-error-request-id failure) "auth-hook-request")
+                          (null (provider-error-response failure)))
+                     "host401 preserves status and request-id without its body")
+        (test-assert
+         (and (equal (cl-llm-provider-api:provider-api-error-message failure)
+                     (or (second case) fallback))
+              (search (or (second case) fallback) (princ-to-string failure))
+              (equal (provider-error-code failure) (third case)))
+         "only valid JSON string fields replace the generic401 explanation")
+        (test-assert
+         (and (search "HTTP 401" (princ-to-string terminal))
+              (search "auth-hook-request" (princ-to-string terminal))
+              (if (second case)
+                  (and (not (typep failure 'provider--unauthorized-without-message))
+                       (search (second case) (princ-to-string terminal)))
+                  (and (typep failure 'provider--unauthorized-without-message)
+                       (not (search fallback (princ-to-string terminal)))))
+              (or (null (third case)) (search (third case) (princ-to-string terminal))))
+         "render body messages and codes, but omit synthesized fallback text")))
+    (test-assert (not (open-stream-p stream)) "the error-body stream closes after one drain"))
+  (let* ((*provider-active-credential-values* '("public-credential" "public-extra"))
+         (body                                (copy-seq "{\"error\":{\"message\":\"public\\u002dcredential\\npublic-extra\\u001b\",\"code\":\"public\\u002dcredential\"}}"))
+         (id                                  (copy-seq (format nil "public-credential~%public-extra")))
+         (failure
+           (handler-case
+               (provider-signal-transport-failure
+                provider (make-condition 'http-request-failed
+                                         :status  401
+                                         :body    body
+                                         :headers (list (cons "x-request-id" id))
+                                         :uri     nil
+                                         :method  ':post))
+             (provider-unauthorized (condition)
+               condition)))
+         (terminal                            (provider--authentication-condition provider failure))
+         (report                              (princ-to-string terminal)))
+    (test-assert (and (not (search "public-credential" report))
+                      (not (search "public-extra" report))
+                      (notany (lambda (character) (< (char-code character) 32)) report))
+                 "decoded fields and request identity redact active secrets and controls")
+    (fill body #\x)
+    (fill id #\x)
+    (test-assert (and (equal report (princ-to-string terminal))
+                      (null (provider-error-response terminal)))
+                 "the terminal report detaches from mutable wire strings"))
+  (let* ((body (format nil "{\"error\":{\"message\":\"~A\",\"code\":\"~A\"}}"
+                       (make-string 1600 :initial-element #\m)
+                       (make-string 500 :initial-element #\c)))
+         (failure
+           (handler-case
+               (provider-signal-transport-failure
+                provider (make-condition 'http-request-failed
+                                         :status 401 :body body :headers nil
+                                         :uri nil :method ':post))
+             (provider-unauthorized (condition)
+               condition))))
+    (test-assert
+     (and (<= (length (cl-llm-provider-api:provider-api-error-message failure))
+              *provider-error-detail-limit*)
+          (<= (length (provider-error-code failure)) 80)
+          (null (provider-error-request-id failure)))
+     "message and code are bounded while absent request identity stays absent")
+    (test-assert
+     (not (search "request NIL" (princ-to-string
+                                 (provider--authentication-condition provider failure))))
+     "missing diagnostic fields add no fabricated value"))
+  nil)
+
 (-> test-provider-authentication-retries () null)
 (defun test-provider-authentication-retries ()
-  "Test immediate bounded credential refresh and final unauthorized normalization."
+  "Test bounded refresh and detached terminal authentication diagnostics."
   (let* ((configuration (test-configuration))
          (root          (test-configuration-root configuration))
          (conversation  (conversation-create configuration :identifier "provider-retry"))
@@ -1940,63 +2274,117 @@
                           :turn-state   nil)))
     (unwind-protect
          (progn
+           (provider-tests--authentication-hook
+            (test-codex-provider-create configuration nil))
            (let ((provider
                    (test-codex-provider-create
                     configuration
-                    (list :unauthorized result))))
+                    (list :unauthorized result)))
+                 (events nil))
              (test-assert
               (eq (provider-stream-turn provider conversation
                                         :tool-namespaces #()
-                                        :event-callback  #'identity)
+                                        :event-callback  (lambda (event) (push event events)))
                   result)
               "one forced refresh may satisfy the first unauthorized response")
              (test-assert
               (equal (nreverse (test-codex-provider-refresh-flags provider))
                      '(nil t))
-              "the first retry forces credential refresh"))
-           (let ((provider
-                   (test-codex-provider-create
-                    configuration
-                    '(:unauthorized :unauthorized))))
-             (test-assert
-              (handler-case
-                  (progn
-                    (provider-stream-turn provider conversation
-                                          :tool-namespaces #()
-                                          :event-callback  #'identity)
-                    nil)
-                (authentication-error ()
-                  t))
-              "a second unauthorized response becomes a typed authentication failure")
-             (test-assert
-              (equal (nreverse (test-codex-provider-refresh-flags provider))
-                     '(nil t))
-              "authentication failure follows one immediate forced refresh"))
-           (let* ((manager
-                    (api-key-credential-manager-create
-                     :provider-name "retry-api-key"
-                     :pathname      (configuration-api-keys-path configuration)))
-                  (provider
-                    (make-instance 'test-codex-provider
-                                   :configuration      configuration
-                                   :credential-manager manager
-                                   :session-id         (make-identifier)
-                                   :outcomes           '(:unauthorized :unexpected))))
-             (test-assert
-              (handler-case
-                  (progn
-                    (provider-stream-turn provider conversation
-                                          :tool-namespaces #()
-                                          :event-callback  #'identity)
-                    nil)
-                (authentication-error (condition)
-                  (search "run autolith auth retry-api-key"
-                          (princ-to-string condition))))
-              "a rejected static API key gives its direct authentication hint")
-             (test-assert
-              (equal (nreverse (test-codex-provider-refresh-flags provider))
-                     '(nil))
-              "a rejected static API key is not retried or refreshed")))
+              "the first retry forces credential refresh")
+             (test-assert (null events) "credential refresh adds no provider events"))
+           (dolist (case '((nil nil) (t nil) (nil t) (t t)))
+             (let* ((refreshable-p (first case))
+                    (missing-p     (second case))
+                    (message       (copy-seq "Upstream account unavailable."))
+                    (code          (copy-seq "missing_upstream_credential"))
+                    (request-id    (copy-seq "request-authentication"))
+                    (original
+                      (make-condition (if missing-p
+                                          'provider--unauthorized-without-message
+                                          'provider-unauthorized)
+                                      :message    message
+                                      :status     401
+                                      :code       code
+                                      :request-id request-id
+                                      :response   (list :discarded-body)))
+                    (provider
+                      (if refreshable-p
+                          (test-codex-provider-create
+                           configuration (list :unauthorized original :unexpected))
+                          (make-instance
+                           'test-codex-provider
+                           :configuration      configuration
+                           :credential-manager (api-key-credential-manager-create
+                                                :provider-name "retry-api-key"
+                                                :pathname      (configuration-api-keys-path configuration))
+                           :session-id         (make-identifier)
+                           :outcomes           (list original :unexpected))))
+                    (events        nil)
+                    (terminal
+                      (handler-case
+                          (provider-stream-turn
+                           provider conversation
+                           :tool-namespaces #()
+                           :event-callback  (lambda (event) (push event events)))
+                        (authentication-error (condition)
+                          condition))))
+               (test-assert (typep terminal 'authentication-error)
+                            "exhausted unauthorized responses become authentication failures")
+               (test-assert
+                (and (not (typep terminal 'provider-error))
+                     (not (typep terminal 'provider-retryable-error)))
+                "terminal authentication is outside provider retry classification")
+               (test-assert
+                (equal (nreverse (test-codex-provider-refresh-flags provider))
+                       (if refreshable-p '(nil t) '(nil)))
+                "only refreshable credentials receive one forced refresh")
+               (test-assert (null events) "authentication exhaustion adds no provider events")
+               ;; Guard diagnostic readers so the unpatched control records assertions,
+               ;; rather than aborting on its generic authentication-error condition.
+               (let* ((report      (princ-to-string terminal))
+                      (preserved-p (if missing-p
+                                       (not (search message report))
+                                       (search message report))))
+                 (test-assert preserved-p "terminal authentication renders only provider body messages")
+                 (test-assert
+                  (equal (cl-llm-provider-api:provider-api-error-message original) message)
+                  "the source condition keeps its own message for other callers")
+                 (test-assert
+                  (and (search (if refreshable-p
+                                   "rejected Autolith's credentials after a bounded refresh."
+                                   "rejected Autolith's API key;") report)
+                       (or refreshable-p (search (credential-manager-login-hint
+                                                  (provider-credential-manager provider)) report))
+                       (search "HTTP 401" report)
+                       (search code report) (search request-id report))
+                  "both auth hints survive alongside rendered provider diagnostics")
+                 (test-assert
+                  (and preserved-p (= (provider-error-status terminal) 401))
+                  "terminal authentication preserves HTTP status")
+                 (test-assert
+                  (and preserved-p (equal (provider-error-code terminal) code))
+                  "terminal authentication preserves provider code")
+                 (test-assert
+                  (and preserved-p (equal (provider-error-request-id terminal) request-id))
+                  "terminal authentication preserves request identity")
+                 (test-assert
+                  (and preserved-p (null (provider-error-response terminal))
+                       (null (provider-error-response-id terminal)))
+                  "terminal authentication retains no provider response or response identity")
+                 (test-assert
+                  (and preserved-p
+                       (equal (cl-llm-provider-api:provider-api-error-message terminal) report)
+                       (equal (autolith-error-message terminal) report))
+                  "diagnostic readers and rendering expose the same actionable report")
+                 (fill message #\x)
+                 (fill code #\x)
+                 (fill request-id #\x)
+                 (test-assert
+                  (and preserved-p
+                       (equal (princ-to-string terminal) report)
+                       (equal (provider-error-code terminal) "missing_upstream_credential")
+                       (equal (provider-error-request-id terminal) "request-authentication"))
+                  "terminal diagnostic strings are detached from the original condition")))))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
@@ -2514,7 +2902,7 @@
 
 (-> test-provider-codex-request-headers () null)
 (defun test-provider-codex-request-headers ()
-  "Test Codex requests carry conversation identity and only pinned turn state."
+  "Test Codex requests carry conversation identity and no routing token."
   (let* ((configuration (test-configuration))
          (root          (test-configuration-root configuration))
          (conversation
@@ -2539,15 +2927,7 @@
               "the per-process provider session identity stays out of the headers")
              (test-assert
               (null (assoc "x-codex-turn-state" headers :test #'string=))
-              "an unpinned turn sends no routing token"))
-           (setf (conversation-turn-state conversation) "turn-state-1")
-           (test-assert
-            (string= (header (provider--codex-request-headers
-                              provider credentials conversation
-                              :accept "text/event-stream")
-                             "x-codex-turn-state")
-                     "turn-state-1")
-            "a pinned turn replays its routing token"))
+              "the backend's routing token is never replayed")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
@@ -2913,4 +3293,217 @@
                (string= history (json-encode (conversation-input-items-for-family
                                               conversation (provider-family provider))))
                "projection and omission leave durable history untouched")))))))
+  nil)
+
+(defclass test-error-body-character-stream (test-character-input-stream)
+  ((reads :initform 0 :accessor test-error-body-reads
+          :documentation "Number of character reads, including EOF probes.")
+   (closes :initform 0 :accessor test-error-body-closes
+           :documentation "Number of attempted closes.")
+   (abort-p :initform nil :accessor test-error-body-abort-p
+            :documentation "Whether cleanup requested an abortive close.")
+   (failure :initarg :failure :initform nil :reader test-error-body-failure
+            :documentation "Synthetic read failure or nonlocal exit.")
+   (close-failure :initarg :close-failure :initform nil
+                  :reader        test-error-body-close-failure
+                  :documentation "Synthetic cleanup failure."))
+  (:documentation "An optional diagnostic body with observable read and cleanup behavior."))
+
+(defmethod trivial-gray-streams:stream-read-char
+    ((stream test-error-body-character-stream))
+  "Count a body read and optionally leave it by a synthetic failure or throw."
+  (incf (test-error-body-reads stream))
+  (unless (open-stream-p stream) (error "Synthetic body is already closed."))
+  (case (test-error-body-failure stream)
+    (:error
+     (error "Synthetic diagnostic read failure."))
+    (:throw
+     (throw 'test-error-body-exit :cancelled))
+    (:deadline
+     (error 'sb-sys:deadline-timeout :seconds 2)))
+  (call-next-method))
+
+(defmethod close ((stream test-error-body-character-stream) &key abort)
+  "Record abort-close independently of the optional cleanup failure."
+  (incf (test-error-body-closes stream))
+  (setf (test-error-body-abort-p stream) (not (null abort)))
+  (call-next-method)
+  (case (test-error-body-close-failure stream)
+    (:error
+     (error "Synthetic diagnostic close failure."))
+    (:deadline
+     (error 'sb-sys:deadline-timeout :seconds 2))))
+
+(defclass test-error-body-binary-stream
+    (trivial-gray-streams:fundamental-binary-input-stream)
+  ((source :initarg :source :reader test-error-body-binary-source
+           :documentation "Synthetic UTF-8 or invalid diagnostic octets.")
+   (position :initform 0 :accessor test-error-body-binary-position
+             :documentation "The next unread byte offset.")
+   (closes :initform 0 :accessor test-error-body-binary-closes
+           :documentation "Number of attempted closes.")
+   (abort-p :initform nil :accessor test-error-body-binary-abort-p
+            :documentation "Whether cleanup requested an abortive close."))
+  (:documentation "An undecoded diagnostic body for the existing bounded UTF-8 drain."))
+
+(defmethod stream-element-type ((stream test-error-body-binary-stream))
+  "Declare the undecoded diagnostic body's byte element type."
+  '(unsigned-byte 8))
+
+(defmethod trivial-gray-streams:stream-read-byte
+    ((stream test-error-body-binary-stream))
+  "Return the next byte or the Gray EOF marker."
+  (let ((position (test-error-body-binary-position stream))
+        (source   (test-error-body-binary-source stream)))
+    (if (< position (length source))
+        (prog1 (aref source position)
+          (incf (test-error-body-binary-position stream)))
+        :eof)))
+
+(defmethod close ((stream test-error-body-binary-stream) &key abort)
+  "Record the binary diagnostic body's abort-close."
+  (incf (test-error-body-binary-closes stream))
+  (setf (test-error-body-binary-abort-p stream) (not (null abort)))
+  (call-next-method))
+
+(-> test-provider-usage-limit-streams () null)
+(defun test-provider-usage-limit-streams ()
+  "Classify genuine HTTP conditions through Codex and its unchanged retry boundary.
+
+Transport is synthetic. Only retry sleeps are suppressed in this component test;
+the separately retained local HTTP proof uses ordinary transport and delays."
+  (with-test-configuration (configuration)
+    (let ((provider                       (provider-create configuration))
+          (*bounded-retry-sleep-function* (lambda (seconds) (declare (ignore seconds))))
+          (quota                          "{\"error\":{\"type\":\"usage_limit_reached\",\"code\":\"insufficient_quota\",\"message\":\"Synthetic local quota exhausted\",\"plan_type\":\"stub\"}}")
+          (rate                           "{\"error\":{\"type\":\"rate_limit_exceeded\",\"message\":\"synthetic rate detail\"}}"))
+      (labels ((body (text representation)
+                 (ecase representation
+                   (:string
+                    text)
+                   (:octets
+                    (sb-ext:string-to-octets text :external-format :utf-8))
+                   (:character
+                    (make-instance 'test-error-body-character-stream :source text))
+                   (:binary
+                    (make-instance 'test-error-body-binary-stream
+                                   :source (sb-ext:string-to-octets text :external-format :utf-8)))))
+
+               (failure (content &optional (status 429))
+                 (handler-case
+                     (provider-signal-transport-failure
+                      provider (make-condition 'http-request-failed
+                                               :status status :body content :uri nil :method :post
+                                               :headers '(("x-request-id" . "synthetic-body-id")
+                                                          ("retry-after" . "1"))))
+                   (provider-error (condition) condition)))
+
+               (check (condition class)
+                 (test-assert (typep condition class) "the original HTTP status selects its typed failure")
+                 (test-assert (string= (provider-error-request-id condition) "synthetic-body-id")
+                              "body normalization retains request attribution"))
+
+               (closed (stream)
+                 (when (streamp stream)
+                   (test-assert (not (open-stream-p stream)) "diagnostic body is closed")
+                   (etypecase stream
+                     (test-error-body-character-stream
+                      (test-assert (and (= (test-error-body-closes stream) 1)
+                                        (test-error-body-abort-p stream))
+                                   "the raw character body is abort-closed once"))
+                     (test-error-body-binary-stream
+                      (test-assert (and (= (test-error-body-binary-closes stream) 1)
+                                        (test-error-body-binary-abort-p stream))
+                                   "the raw binary body is abort-closed once"))))))
+        (dolist (representation '(:string :octets :character :binary))
+          (dolist (text (list quota rate))
+            (let ((attempts 0) (streams nil)
+                  (quota-p (eq text quota)))
+              (let ((condition
+                      (handler-case
+                          (provider--call-with-bounded-retries
+                           provider
+                           (lambda (refresh callback)
+                             (declare (ignore callback))
+                             (test-assert (not refresh) "quota and rate failures do not refresh credentials")
+                             (incf attempts)
+                             (let ((content (body text representation)))
+                               (when (streamp content) (push content streams))
+                               (error (failure content))))
+                           (lambda (event) (declare (ignore event))))
+                        (provider-error (condition) condition))))
+                (check condition 'provider-error)
+                (test-assert (= (provider-error-status condition) 429) "the status survives the body drain")
+                (test-assert (eq (not (null (typep condition 'provider-retryable-error))) (not quota-p))
+                             "only the recognized allowance is terminal")
+                (test-assert (= attempts (if quota-p 1 7)) "the original bounded retry counts are retained")
+                (unless quota-p
+                  (test-assert (search "synthetic rate detail" (autolith-error-message condition))
+                               "fallback retains the normalized body after quota inspection")))
+              (dolist (stream streams)
+                (closed stream)
+                (when (typep stream 'test-error-body-character-stream)
+                  (test-assert (<= (test-error-body-reads stream) (+ 2 (length text)))
+                               "quota miss never drains the raw stream a second time"))))))
+        (dolist (representation '(:octets :character :binary))
+          (let* ((text      "{\"error\":{\"type\":\"rate_limit_exceeded\",\"message\":\"synthetic café\"}}")
+                 (content   (body text representation))
+                 (condition (failure content)))
+            (check condition 'provider-retryable-error)
+            (test-assert (search "café" (autolith-error-message condition)) "UTF-8 diagnostic detail is retained")
+            (closed content)))
+        (dolist (content (list nil "" "{" "[]" "null" "{\"error\":42}"
+                               "{\"error\":{\"type\":42}}" "usage_limit_reached" 42
+                               (make-array 1 :element-type '(unsigned-byte 8) :initial-element 255)))
+          (check (failure content) 'provider-retryable-error))
+        (dolist (mode '(:error :deadline))
+          (let* ((stream    (make-instance 'test-error-body-character-stream :source quota :failure mode))
+                 (condition (failure stream)))
+            (check condition 'provider-retryable-error)
+            (closed stream)))
+        (dolist (mode '(:error))
+          (let* ((stream    (make-instance 'test-error-body-character-stream :source quota :close-failure mode))
+                 (condition (failure stream)))
+            (check condition 'provider-error)
+            (test-assert (not (typep condition 'provider-retryable-error))
+                         "cleanup failure does not mask the terminal allowance classification")
+            (closed stream)))
+        (let ((stream    (make-instance 'test-error-body-character-stream :source quota :close-failure :deadline))
+              (attempts  0)
+              (escaped-p nil))
+          (handler-case
+              (provider--call-with-bounded-retries
+               provider
+               (lambda (refresh callback)
+                 (declare (ignore refresh callback))
+                 (incf attempts)
+                 (failure stream))
+               (lambda (event) (declare (ignore event))))
+            (sb-sys:deadline-timeout () (setf escaped-p t)))
+          (test-assert escaped-p "a native CLOSE deadline escapes before provider classification")
+          (test-assert (= attempts 1) "a native CLOSE deadline is not retried")
+          (closed stream))
+        (let ((stream (make-instance 'test-error-body-character-stream :source quota :failure :throw)))
+          (test-assert (eq (catch 'test-error-body-exit (failure stream)) :cancelled)
+                       "a nonlocal body exit is preserved")
+          (closed stream))
+        (let ((stream (make-instance 'test-error-body-character-stream
+                                     :source (concatenate 'string (make-string 4500 :initial-element #\Space) quota))))
+          (check (failure stream) 'provider-retryable-error)
+          (test-assert (= (test-character-input-stream-position stream) 4000)
+                       "optional body drain is bounded")
+          (closed stream))
+        (let ((stream (make-instance 'test-error-body-binary-stream
+                                     :source (make-array 1 :element-type '(unsigned-byte 8) :initial-element 255))))
+          (check (failure stream) 'provider-retryable-error)
+          (closed stream))
+        (let ((stream (make-instance 'test-error-body-character-stream :source quota)))
+          (close stream :abort t)
+          (check (failure stream) 'provider-retryable-error)
+          (test-assert (= (test-error-body-closes stream) 1) "an already closed body is not closed again"))
+        (dolist (status '(500 401))
+          (let* ((stream (body rate :character)) (condition (failure stream status)))
+            (check condition (if (= status 401) 'provider-unauthorized 'provider-retryable-error))
+            (test-assert (= (provider-error-status condition) status) "normalization retains nonquota status")
+            (closed stream))))))
   nil)

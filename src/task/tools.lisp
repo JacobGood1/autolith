@@ -13,8 +13,8 @@
   (if (not (stringp value))
       value
       (loop with current = value
-            repeat 2
             for trimmed = (task--trim current)
+            repeat 2
             if (and (> (length trimmed) 1)
                     (char= (char trimmed 0) #\QUOTATION_MARK)
                     (char= (char trimmed (1- (length trimmed)))
@@ -34,8 +34,9 @@
     ((and (non-empty-string-p shared) (non-empty-string-p item))
      (format nil "~A~2%~A" shared item))
     ((non-empty-string-p shared)
-     shared) ((non-empty-string-p item)
-              item)
+     shared)
+    ((non-empty-string-p item)
+     item)
     (t
      nil)))
 
@@ -187,10 +188,6 @@ The primary blocking field and legacy inverse async field are mutually exclusive
                           (plusp (length tasks)))
                (error 'task-error :message
                       "A batch task call requires a non-empty tasks array."
-                      :tool-name "task.run"))
-             (unless (non-empty-string-p shared-context)
-               (error 'task-error :message
-                      "A batch task call requires non-empty shared context."
                       :tool-name "task.run"))
              (loop for item across tasks
                    collect (task--normalize-item
@@ -392,6 +389,90 @@ matches signal a TASK-ERROR naming the candidates."
                (task--identifier-fragment conversation-identifier)
                "conversation"))
    (config :data-root configuration)))
+
+(-> task--owner-component-p (t) boolean)
+(defun task--owner-component-p (value)
+  "Accept finite opaque task owner identifiers before constructing storage paths."
+  (and (stringp value) (<= 1 (length value) 128)
+       (every (lambda (character)
+                (find character "-_0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                      :test #'char=)) value)
+       t))
+
+(-> task--safe-owner-path (configuration pathname) pathname)
+(defun task--safe-owner-path (configuration path)
+  "Reject links and special-file ancestors within configured private storage."
+  (let ((root (uiop:ensure-directory-pathname (config :data-root configuration))))
+    (unless (uiop:subpathp path root)
+      (error 'task-error :message "Task owner path escaped private storage."))
+    (loop for current = path then (uiop:pathname-parent-directory-pathname current)
+          while (and current (uiop:subpathp current root))
+          for status = (platform-path-status *platform* current :follow-links-p nil)
+          when (and status
+                    (not (eq (platform-file-status-kind status)
+                             (if (and (equal current path)
+                                      (not (uiop:directory-pathname-p path)))
+                                 :file :directory))))
+            do (error 'task-error :message "Task owner storage contains a link or special file.")
+          when (equal current root) do (return)))
+  path)
+
+(-> task--owner-conversation-identity (configuration t t) pathname)
+(defun task--owner-conversation-identity (configuration root owner)
+  "Resolve exact OWNER storage under ROOT, without falling back from task to primary storage."
+  (unless (every #'task--owner-component-p (list root owner))
+    (error 'task-error :message "Invalid task owner conversation identifier."))
+  (task--safe-owner-path
+   configuration
+   (if (equal owner root)
+       (conversation-pathname-for-id configuration owner)
+       (merge-pathnames (make-pathname :name owner :type "sexp")
+                        (merge-pathnames (format nil "~A/" owner)
+                                         (task--artifact-group-root configuration root))))))
+
+(-> task--receipt-index (list) hash-table)
+(defun task--receipt-index (receipts)
+  "Index exact durable RECEIPTS for constant-time delivery checks."
+  (let ((index (make-hash-table :test #'equal)))
+    (dolist (receipt receipts index)
+      (setf (gethash receipt index) t))))
+
+(-> task--owner-receipts
+    (configuration t t &key (:cache (option hash-table))) (option hash-table))
+(defun task--owner-receipts (configuration root owner &key cache)
+  "Index detached receipts from one fully validated physical owner segment.
+Version-2 checkpoint headers restate all preceding identifiers; v1 uses its
+identity file. Publish nothing until the complete selected segment validates.
+CACHE, when supplied, belongs to one caller snapshot, including negative reads."
+  (handler-case
+      (let* ((identity (task--owner-conversation-identity configuration root owner))
+             (key      (namestring identity)))
+        (multiple-value-bind (receipts present-p) (and cache (gethash key cache))
+          (if present-p
+              receipts
+              (let ((result
+                      (handler-case
+                          (progn
+                            (task--safe-owner-path configuration
+                                                  (conversation-storage-directory-pathname identity))
+                            (let ((active (conversation-storage-active-pathname identity)))
+                              (when active
+                                (task--safe-owner-path configuration active)
+                                (let* ((header       (conversation--peek-segment-header active))
+                                       (conversation (conversation--from-header identity active header))
+                                       (found        (task--receipt-index (conversation-pending-input-identifiers conversation))))
+                                  (conversation--map-segment-records
+                                   identity active
+                                   (lambda (record)
+                                     (when (eq (first record) :message)
+                                       (let ((receipt (getf (rest record) :pending-input-identifier)))
+                                         (when (non-empty-string-p receipt)
+                                           (setf (gethash receipt found) t))))))
+                                  found))))
+                        (error () nil))))
+                (when cache (setf (gethash key cache) result))
+                result))))
+    (error () nil)))
 
 (-> task--artifact-field
     (t keyword &key (:preview-limit integer)
@@ -1153,10 +1234,7 @@ poll a job whose completion will wake it."
                  (tool-argument arguments "id" :required t)
                  "job.get"))
               (job
-                (find identifier
-                      (task-orchestrator-list-visible-jobs orchestrator viewer)
-                      :key  #'session-job-identifier
-                      :test #'string=)))
+                (task-orchestrator-visible-job-named orchestrator viewer identifier)))
          (if job
              (let ((snapshot (session-job-snapshot job)))
                (multiple-value-bind (form content)
@@ -1170,7 +1248,7 @@ poll a job whose completion will wake it."
                  (task--durable-job-result viewer identifier "job.get")
                (unless result
                  (error 'task-error
-                        :message   (format nil "No visible job named ~A exists."
+                        :message   (format nil "No visible job named ~A exists. Jobs from before a restart, and jobs that ended without a result, are listed by job.continuity."
                                            identifier)
                         :tool-name "job.get"
                         :task-id   identifier))
@@ -1309,7 +1387,7 @@ poll a job whose completion will wake it."
                          "Self-contained assignment for a flat call.")
                         "context"
                         (tool-string-property
-                         "Shared non-empty background required for batch calls.")
+                         "Optional background shared by every task in a batch call.")
                         "isolation" (task-worktree-options-schema)
                         "blocking"
                         (tool-boolean-property

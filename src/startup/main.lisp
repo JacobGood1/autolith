@@ -148,6 +148,9 @@
      (:plain " uses a scrollable transcript and bottom-pinned composer. Save the choice for future launches with ")
      (:code "(setf (config :fullscreen-p) t)")
      (:plain "; nil restores the inline default."))
+    ((:plain "Claude caches a prompt for five minutes. If you often pause longer, ")
+     (:code "(setf (config :prompt-cache-ttl) \"1h\")")
+     (:plain " asks Anthropic and OpenRouter Claude models for one hour, at twice the cache-write price."))
     ((:plain "Visit ")
      (:code "https://almightylisp.com/")
      (:plain " for almighty tools for almighty programmers, and try ")
@@ -812,7 +815,10 @@ state, including an empty list after successful or pristine startup."
                   authentication-selection authentication-method)
   "Start one interactive Autolith session from COMMAND's parsed options."
   (main--register-local-source-trees)
-  (let* ((pristine-p               (not (null (getopt* command ':pristine))))
+  (main--validate-detached-options command :resume-requested-p resume-requested-p
+                                          :resume-id           resume-id)
+  (let* ((detached-p               (not (null (getopt* command ':detached))))
+         (pristine-p               (not (null (getopt* command ':pristine))))
          (immutable-p              (or pristine-p
                                        (not (null (getopt* command ':immutable)))))
          (explicit-permission-mode (getopt* command ':permissions))
@@ -849,11 +855,13 @@ state, including an empty list after successful or pristine startup."
          (effective-resume-requested-p
            (and (null handoff-record) resume-requested-p))
          (effective-resume-id
-           (if handoff-record
-               (getf (rest handoff-record) :conversation-id)
-               resume-id))
+           (cond
+             (handoff-record
+              (getf (rest handoff-record) :conversation-id))
+             (resume-id
+              (main-resolve-conversation configuration resume-id))))
          (recovery-state
-           (if handoff-record
+           (if (or handoff-record detached-p)
                (list nil nil)
                (multiple-value-list
                 (application-recovery-state configuration))))
@@ -861,7 +869,8 @@ state, including an empty list after successful or pristine startup."
          (recovery-diagnosis
            (if handoff-record
                (getf (rest handoff-record) :recovery-diagnosis)
-               (and (null effective-resume-id)
+               (and (not detached-p)
+                    (null effective-resume-id)
                     (application-recovery-diagnosis-prompt configuration))))
          (resume-command-p
            (or (and handoff-record
@@ -886,6 +895,24 @@ state, including an empty list after successful or pristine startup."
     (when handoff-record
       (localgroup-handoff-begin-startup handoff-record)
       (application--clear-recovery-environment))
+    (unless handoff-record
+      (let ((record (and effective-resume-id
+                         (main--live-conversation-record configuration effective-resume-id))))
+        (when record
+          (main--validate-live-options command)
+          (if detached-p
+              (main--print-detached-receipt record)
+              (localgroup-relay-exit configuration
+                                     (localgroup-attach-record configuration record ':control)
+                                     ':control))
+          (return-from main--start-session nil))))
+    (when detached-p
+      (main--start-detached configuration
+                            :permission-mode permission-mode
+                            :immutable-p     immutable-p
+                            :pristine-p      pristine-p
+                            :conversation-id effective-resume-id)
+      (return-from main--start-session nil))
     (when (and (string-equal (software-type) "Linux")
                (not (application--command-sandbox-available-p)))
       (format *error-output* "~&Autolith: ~A~%"
@@ -1036,6 +1063,11 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
 (defun main--session-options ()
   "Return the persistent session options shared with every sub-command."
   (list
+   (make-option ':flag
+                :long-name   "detached"
+                :key         ':detached
+                :persistent  t
+                :description "start without attaching; print conversation ID and session PID")
    (make-option ':string
                 :long-name   "model"
                 :key         ':model
@@ -1124,14 +1156,15 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
   (make-command
    :name        "resume"
    :description "resume a saved conversation, or pick one interactively"
-   :usage       "[ID]"
+   :usage       "[PREFIX] [--detached]"
    :handler
    (lambda (command)
      (main--start-session
       command
       :resume-requested-p t
-      :resume-id          (main--single-selection command
-                                                  "conversation identifier")))))
+       :resume-id         (progn
+                            (main--single-selection command "conversation ID prefix")
+                            (first (command-arguments command)))))))
 
 (-> main--replay-command () clingon:command)
 (defun main--replay-command ()
@@ -1154,6 +1187,33 @@ AUTOLITH_SESSION_STYLE=direct keep the direct path."
                               :defer-provider-validation-p t)
         (first arguments)
         (rest arguments))))))
+
+(-> main--tool-failures-command () clingon:command)
+(defun main--tool-failures-command ()
+  "Return the read-only failed tool call survey sub-command definition."
+  (make-command
+   :name        "tool-failures"
+   :description "list recent failed tool calls with their arguments, grouped by error"
+   :usage       "[ID ...] [--days N] [--examples N]"
+   :options
+   (list
+    (make-option ':integer :long-name "days" :key ':days :initial-value 7
+                 :parameter "N" :description "survey segments written in the last N days")
+    (make-option ':integer :long-name "examples" :key ':examples :initial-value 3
+                 :parameter "N" :description "examples printed for each error shape"))
+   :handler
+   (lambda (command)
+     (let ((days     (getopt* command ':days))
+           (examples (getopt* command ':examples)))
+       (unless (and (integerp days) (plusp days) (integerp examples) (>= examples 0))
+         (error 'configuration-error
+                :message "tool-failures needs a positive --days and a non-negative --examples."))
+       (tool-failures-report
+        (tool-failures (configuration-create :immutable-p                 t
+                                             :defer-provider-validation-p t)
+                       :days        days
+                       :identifiers (command-arguments command))
+        :examples examples)))))
 
 (-> main--fork-command () clingon:command)
 (defun main--fork-command ()
@@ -1343,18 +1403,60 @@ Lisp starts; on Windows it prints the folders to delete."
         (cons "update" (when tail '("--help"))))
       arguments))
 
+(-> main--acp-endpoint (clingon:command) (or null acp-endpoint))
+(defun main--acp-endpoint (command)
+  "Return the remote endpoint the acp COMMAND selects, or NIL for standard I/O."
+  (let ((http-p      (getopt* command ':http))
+        (websocket-p (getopt* command ':websocket))
+        (token       (getopt* command ':token))
+        (arguments   (command-arguments command)))
+    (cond
+      ((and http-p websocket-p)
+       (error 'configuration-error :message "Choose --http or --websocket, not both."))
+      ((or http-p websocket-p)
+       (when (rest arguments)
+         (error 'configuration-error :message "ACP takes at most one [HOST:]PORT."))
+       (acp-endpoint-parse (if http-p ':http ':websocket) (first arguments) :token token))
+      (arguments
+       (error 'configuration-error :message "A [HOST:]PORT needs --http or --websocket."))
+      (token
+       (error 'configuration-error :message "--token needs --http or --websocket."))
+      (t
+       nil))))
+
 (-> main--acp-command () clingon:command)
 (defun main--acp-command ()
   "Return the Agent Client Protocol server sub-command definition."
   (make-command
    :name        "acp"
-   :description "serve the Agent Client Protocol on standard input and output"
+   :description "serve the Agent Client Protocol on standard I/O, HTTP, or WebSocket"
+   :usage       "[--http | --websocket [HOST:]PORT [--token TOKEN]]"
+   :long-description
+   "Without options, ACP runs on standard input and output for the editor that
+started it. --http serves remote clients over Streamable HTTP and WebSocket on
+one endpoint, /acp; --websocket serves WebSocket alone. Both listen on
+127.0.0.1:8737 unless HOST:PORT or PORT says otherwise. With --token, clients
+must send the token as an Authorization: Bearer header or a token query
+parameter. Anything but loopback is reachable from other machines and is not
+secure: traffic is unencrypted, so put a TLS proxy in front."
+   :options
+   (list (make-option ':flag
+                      :long-name   "http"
+                      :key         ':http
+                      :description "serve Streamable HTTP and WebSocket clients")
+         (make-option ':flag
+                      :long-name   "websocket"
+                      :key         ':websocket
+                      :description "serve WebSocket clients")
+         (make-option ':string
+                      :long-name   "token"
+                      :key         ':token
+                      :parameter   "TOKEN"
+                      :description "the bearer token remote clients must present"))
    :handler
    (lambda (command)
-     (when (command-arguments command)
-       (error 'configuration-error
-              :message "ACP accepts no positional arguments."))
-     (let* ((pristine-p      (not (null (getopt* command ':pristine))))
+     (let* ((endpoint        (main--acp-endpoint command))
+            (pristine-p      (not (null (getopt* command ':pristine))))
             (configuration
               (configuration-create
                :immutable-p                 pristine-p
@@ -1362,7 +1464,8 @@ Lisp starts; on Windows it prints the folders to delete."
             (permission-mode (or (getopt* command ':permissions) ':ask)))
        (acp-run configuration
                 :permission-mode permission-mode
-                :pristine-p      pristine-p)))))
+                :pristine-p      pristine-p
+                :endpoint        endpoint)))))
 
 (-> main--top-level-command () clingon:command)
 (defun main--top-level-command ()
@@ -1380,6 +1483,7 @@ autolith uninstall removes the installation and keeps user data."
    :options      (main--session-options)
    :sub-commands (list (main--resume-command)
                        (main--replay-command)
+                       (main--tool-failures-command)
                        (main--fork-command)
                        (main--acp-command)
                        (main--auth-command)
@@ -1423,8 +1527,57 @@ autolith uninstall removes the installation and keeps user data."
                (error (condition)
                  (format *error-output* "~&~A~%" condition)
                  (uiop:quit 64)))))
+       (when (and (getopt* command ':detached)
+                  (not (member (command-name command) '("autolith" "resume")
+                               :test #'string=)))
+         (error 'configuration-error
+                :message "--detached is supported only for a new session or resume PREFIX."))
        (funcall (command-handler command) command))))
   nil)
+
+(-> main--conversation-owner-record (conversation-in-use) (option pathname))
+(defun main--conversation-owner-record (condition)
+  "Locate only the exact sibling localgroup record from a structurally valid lease path."
+  (let* ((lease      (conversation-in-use-lease-pathname condition))
+         (identifier (conversation-in-use-identifier condition))
+         (directory  (pathname-directory lease)))
+    (when (and (eq (first directory) ':absolute)
+               (equal (first (last directory)) "conversation-leases")
+               (equal (pathname-name lease) identifier)
+               (equal (pathname-type lease) "lock"))
+      (make-pathname :directory (append (butlast directory) '("localgroup"))
+                     :name identifier :type "sexp" :defaults lease))))
+
+(-> main--startup-error-text (condition) string)
+(defun main--startup-error-text (condition)
+  "Enrich busy errors only at startup; failed diagnostics preserve the original error."
+  (let ((original (princ-to-string condition)))
+    (handler-case
+        (if (typep condition 'conversation-in-use)
+            (let ((pid (conversation-in-use-owner-pid condition)))
+              (cond
+                ((null pid)
+                 (format nil "~A The lock owner could not be identified. Recheck before retrying."
+                         original))
+                ((= pid (current-process-id))
+                 (format nil "~A This process holds the conversation lease." original))
+                (t
+                 (let* ((record       (main--conversation-owner-record condition))
+                        (reachability (if record
+                                          (localgroup-owner-reachability
+                                           record (conversation-in-use-identifier condition) pid)
+                                          ':unknown)))
+                   (format nil "~A Observed lock owner PID ~D. ~A" original pid
+                           (case reachability
+                             (:reachable
+                              "A matching localgroup endpoint is reachable; inspect or attach with autolith lg.")
+                             (:no-reachable-endpoint
+                              (format nil "No matching published localgroup endpoint was found. Inspect and recheck PID ~D; if you choose to stop it, run kill ~D, then retry. The owner may have changed since this snapshot." pid pid))
+                             (otherwise
+                              "Localgroup reachability is unknown. Inspect and recheck the observed PID before retrying; the owner may have changed since this snapshot.")))))))
+            original)
+      ((or sb-sys:deadline-timeout error) ()
+        original))))
 
 (-> main (list) null)
 (defun main (arguments)
@@ -1432,6 +1585,11 @@ autolith uninstall removes the installation and keeps user data."
   (handler-case
       (main-dispatch arguments)
     ((or autolith-error cl-llm-provider-api:provider-api-error) (condition)
-      (format *error-output* "Autolith could not start: ~A~%" condition)
-      (uiop:quit 64)))
+      (format *error-output* "Autolith could not start: ~A~%"
+              (main--startup-error-text condition))
+      (uiop:quit 64))
+    ;; Ctrl-C outside the raw-mode terminal interface ends the command, after
+    ;; unwinding its cleanup, with the shell's interrupt status.
+    (sb-sys:interactive-interrupt ()
+      (uiop:quit 130)))
   nil)

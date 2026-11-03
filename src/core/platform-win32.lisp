@@ -12,6 +12,11 @@
   ()
   (:documentation "The adapter for Windows hosts built on the Win32 API."))
 
+(defmethod platform-file-lock-owner ((platform win32-platform) pathname)
+  "Return unknown: this adapter does not identify conversation lock owners."
+  (declare (ignore pathname))
+  (values ':unknown nil))
+
 (defmethod platform-file-uri ((platform win32-platform) pathname)
   "Encode drive and UNC paths using URI slashes rather than native separators."
   (let ((name (substitute #\/ #\\ (uiop:native-namestring pathname))))
@@ -880,14 +885,14 @@ Autolith publishes read-only lives below a private root anyway."
 (defmethod platform-make-temporary-directory ((platform win32-platform)
                                               parent prefix)
   "Create a private directory named PREFIX plus random characters below PARENT."
-  (loop repeat 100
-        for suffix = (map 'string
+  (loop for suffix = (map 'string
                           (lambda (octet)
                             (char "abcdefghijklmnopqrstuvwxyz0123456789"
                                   (mod octet 36)))
                           (random-data 8))
         for directory = (uiop:ensure-directory-pathname
                          (merge-pathnames (concatenate 'string prefix suffix) parent))
+        repeat 100
         do (cond
              ((not (zerop (win32--create-directory (win32--namestring directory) nil)))
               (win32--set-mode directory #o700)

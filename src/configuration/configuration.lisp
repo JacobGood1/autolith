@@ -268,6 +268,14 @@ exist yet, and is only put in directory form."
   :validator                                 'configuration--openrouter-provider-routing-problem
   :default                                   "")
 
+(define-setting :model-prices (string-setting)
+  :label                      "Model prices"
+  :group                      :model
+  :documentation              "Token prices in US dollars per million tokens as a JSON object keyed by model name, each with input and output rates and optional cache_read and cache_write rates. They override built-in prices."
+  :scope                      :durable
+  :validator                  'configuration--model-prices-problem
+  :default                    "")
+
 (define-setting :codex-fast-mode-p (boolean-setting)
   :label                           "Codex Fast mode"
   :group                           :model
@@ -314,6 +322,16 @@ exist yet, and is only put in directory form."
   :default                                    (lambda (configuration)
                                                 (declare (ignore configuration))
                                                 *default-compaction-threshold-percent*))
+
+(define-setting :context-output-reserve (integer-setting)
+  :label                                "Context output reserve"
+  :group                                :model
+  :documentation                        "Minimum output-token headroom for request admission. Explicit request output caps reserve at least their full size. Without a cap this is headroom, not an enforced generation limit."
+  :minimum                              1
+  :maximum                              1048576
+  :environment                          "AUTOLITH_CONTEXT_OUTPUT_RESERVE"
+  :default                              (lambda (configuration)
+                                          (max 1 (min 8192 (floor (config :context-window configuration) 10)))))
 
 (define-setting :vertex-project (string-setting)
   :label                        "Vertex project"
@@ -420,6 +438,26 @@ exist yet, and is only put in directory form."
   :minimum                                      0
   :maximum                                      86400
   :default                                      0)
+
+(define-setting :cost-limit (number-setting)
+  :label                    "Cost limit"
+  :group                    :behavior
+  :documentation            "US dollars of reported and estimated request cost after which this process refuses new model requests; zero disables the limit."
+  :type                     '(real 0)
+  :scope                    :durable
+  :minimum                  0
+  :default                  0)
+
+(define-setting :prompt-cache-ttl (choice-setting)
+  :label                          "Cache lifetime"
+  :group                          :behavior
+  :documentation                  "The prompt-cache lifetime requested from Claude routes that take one: 5m, or 1h at twice the cache-write price."
+  :type                           'non-empty-string
+  :scope                          :durable
+  :options                        (lambda (configuration)
+                                    (declare (ignore configuration))
+                                    (list "5m" "1h"))
+  :default                        "5m")
 
 (define-setting :simple-technical-english-p (boolean-setting)
   :label                                    "Simple Technical English"

@@ -34,16 +34,16 @@
     :accessor      scripted-provider-skill-contribution-snapshots
     :type          list
     :documentation "Skill contribution identifiers observed before each request.")
-   (turn-states
-    :initform      nil
-    :accessor      scripted-provider-turn-states
-    :type          list
-    :documentation "Request-local turn states observed before each request.")
    (tool-schema-counts
     :initform      nil
     :accessor      scripted-provider-tool-schema-counts
     :type          list
     :documentation "The number of tool namespaces advertised on each request.")
+   (tool-choices
+    :initform      nil
+    :accessor      scripted-provider-tool-choices
+    :type          list
+    :documentation "The tool choice bound for each request.")
    (goal-contexts
     :initform      nil
     :accessor      scripted-provider-goal-contexts
@@ -115,10 +115,10 @@
             (scripted-provider-configuration provider)
             conversation)))
      (scripted-provider-skill-contribution-snapshots provider)))
-  (push (conversation-turn-state conversation)
-        (scripted-provider-turn-states provider))
   (push (length tool-namespaces)
         (scripted-provider-tool-schema-counts provider))
+  (push *provider-tool-choice*
+        (scripted-provider-tool-choices provider))
   (push goal-context
         (scripted-provider-goal-contexts provider))
   (push compaction-p
@@ -131,6 +131,23 @@
     (funcall event-callback
              (make-instance 'assistant-delta-event :text "delta"))
     result))
+
+(defmethod provider-configuration ((provider scripted-provider))
+  "Expose the optional scripted provider configuration to provider checks."
+  (or (scripted-provider-configuration provider) *configuration*))
+
+(defmethod provider-request-object
+    ((provider scripted-provider) conversation tool-namespaces
+     &key goal-context compaction-p)
+  "Encode scripted input and selected tools for candidate admission tests."
+  (declare (ignore provider goal-context))
+  (values (json-object
+           "messages" (apply #'json-array
+                              (conversation-input-items-for-request
+                               conversation
+                               :include-ephemeral-p (not compaction-p)))
+           "tools"    tool-namespaces)
+          nil))
 
 (defclass agent-test-echo-tool (tool)
   ()
@@ -404,17 +421,22 @@
    "content" (json-array
               (json-object "type" "output_text" "text" text))))
 
+(-> agent-test-compaction-message () json-object)
+(defun agent-test-compaction-message ()
+  "Return a structured handoff accepted by the compaction contract."
+  (agent-test-message
+   "[Progress] Earlier work is recorded.\n[Decisions] Continue from the durable state.\n[Context] The prior conversation and references are available.\n[Constraints] Follow the user's stated requirements.\n[Next steps] Resume the pending request and verify its result.\n[References] Use the durable conversation and any cited inference traces."))
+
 (-> agent-test-result
     (string list
      &key
-     (:turn-state (option string))
      (:turn-completion turn-completion)
      (:usage json-object)
      (:reasoning-context (option string)))
     provider-result)
 (defun agent-test-result
     (response-id output-items
-     &key turn-state (turn-completion :unspecified)
+     &key (turn-completion :unspecified)
        (usage (json-object "input_tokens" 1 "output_tokens" 1))
        reasoning-context)
   "Return a scripted provider result containing OUTPUT-ITEMS.
@@ -427,7 +449,6 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
                  :usage           usage
                  :metadata        (make-instance 'provider-response-metadata
                                                  :reasoning-context reasoning-context)
-                 :turn-state      turn-state
                  :turn-completion turn-completion))
 
 (-> agent-test-concurrency-tool
@@ -475,7 +496,7 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
 
 (-> test-agent-tool-loop () null)
 (defun test-agent-tool-loop ()
-  "Test authoritative replay, correlated tool output, callbacks, and turn-state scope."
+  "Test authoritative replay, correlated tool output, and callbacks."
   (let* ((configuration       (test-configuration))
          (root                (test-configuration-root configuration))
          (conversation        (conversation-create configuration :identifier "agent-loop"))
@@ -502,8 +523,7 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
             (list
              (agent-test-result
               "response-1"
-              (list call blank-message)
-              :turn-state "turn-state-1")
+              (list call blank-message))
              (agent-test-result
               "response-2"
               (list message)
@@ -563,13 +583,6 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
             (equal (nreverse (scripted-provider-input-counts provider))
                    '(1 4))
             "the second request replays the call, blank message, and tool output")
-           (test-assert
-            (equal (nreverse (scripted-provider-turn-states provider))
-                   '(nil "turn-state-1"))
-            "provider turn state is replayed only inside the active turn")
-           (test-assert
-            (null (conversation-turn-state conversation))
-            "the agent clears request-local turn state after completion")
            (test-assert
             (= (length (conversation-input-items conversation)) 5)
             "conversation history contains user, call, blank answer, output, and answer")
@@ -754,8 +767,9 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
               :tool-allowlist     '("test.echo")
               :tool-restriction-p t))
            (test-assert
-            (equal (scripted-provider-tool-schema-counts provider) '(0 1))
-            "a restricted turn removes tool schemas after its bounded round")
+            (and (equal (scripted-provider-tool-schema-counts provider) '(1 1))
+                 (equal (scripted-provider-tool-choices provider) '(:none :auto)))
+            "a restricted turn keeps its tool schemas but disables calls after its bounded round")
            (test-assert
             (equal (nreverse (scripted-provider-input-counts provider)) '(1 3))
             "an allowed read-only call executes and returns to the same turn")
@@ -947,8 +961,9 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
                 (search "tool-round limit" (format nil "~A" condition))))
             "a restricted turn rejects calls beyond its tool-round limit")
            (test-assert
-            (equal (scripted-provider-tool-schema-counts provider) '(0 1))
-            "the provider sees no tool schemas after the restricted limit")
+            (and (equal (scripted-provider-tool-schema-counts provider) '(1 1))
+                 (equal (scripted-provider-tool-choices provider) '(:none :auto)))
+            "the provider may not call tools after the restricted limit")
            (test-assert
             (= (length (conversation-input-items conversation)) 3)
             "the over-limit call is rejected before persistence or execution"))
@@ -1018,8 +1033,7 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
               "steering-1"
               (list (agent-test-call
                      :call-id   "steering-call"
-                     :arguments "{\"value\":\"before\"}"))
-              :turn-state "transient-turn-state")
+                     :arguments "{\"value\":\"before\"}")))
              (agent-test-result
               "steering-2"
               (list (agent-test-message "changed course"))
@@ -1056,10 +1070,6 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
             (equal (nreverse (scripted-provider-input-counts provider))
                    '(1 4))
             "steering follows the function call and correlated tool output")
-           (test-assert
-            (equal (nreverse (scripted-provider-turn-states provider))
-                   '(nil nil))
-            "new steering invalidates the request-local provider turn state")
            (let ((user-records
                    (loop for record in
                            (rest (conversation--read-records
@@ -1098,7 +1108,6 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
             :results
             (list (agent-test-result "response-1"
                                      (list (agent-test-message "working"))
-                                     :turn-state      "continuation-state"
                                      :turn-completion ':continue)
                   (agent-test-result "response-2"
                                      (list (agent-test-message "done"))
@@ -1115,13 +1124,7 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
                         "the agent follows an explicit provider continuation")
            (test-assert
             (equal (nreverse (scripted-provider-input-counts provider)) '(1 2))
-            "the continuation request replays the first completed message")
-           (test-assert
-            (equal (nreverse (scripted-provider-turn-states provider))
-                   '(nil "continuation-state"))
-            "the continuation request receives request-local routing state")
-           (test-assert (null (conversation-turn-state conversation))
-                        "explicit continuation state is cleared after the user turn"))
+            "the continuation request replays the first completed message"))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
@@ -1211,8 +1214,7 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
                     (make-instance
                      'scripted-provider
                      :results
-                     (list (agent-test-result "first" (list first-call)
-                                              :turn-state "duplicate-state")
+                     (list (agent-test-result "first" (list first-call))
                            (agent-test-result "duplicate" (list duplicate-call)))))
                   (agent
                     (agent-create :configuration configuration
@@ -1229,9 +1231,7 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
                   t))
               "a repeated call identity is rejected before persistence")
              (test-assert (= (length (conversation-input-items conversation)) 3)
-                          "only the first call and its correlated output remain")
-             (test-assert (null (conversation-turn-state conversation))
-                          "turn state clears after a duplicate-call invariant failure")))
+                          "only the first call and its correlated output remain")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
@@ -2320,6 +2320,7 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
                 (provider
                   (make-instance
                    'scripted-provider
+                   :configuration configuration
                    :results
                    (list (agent-test-result "compact-empty" nil
                                             :turn-completion ':end))))
@@ -2339,22 +2340,25 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
                         nil)
                     (provider-protocol-error (condition)
                       condition))))
-           (test-assert
-            (and failure
-                 (string= (autolith-error-message failure)
-                          "Compaction produced no summary text.")
-                 (string= (provider-error-response-id failure)
-                          "compact-empty")
+             (test-assert
+              (and failure
+                   (string= (autolith-error-message failure)
+                           "Compaction produced no usable summary handoff: the response has no visible text.")
+                   (string= (provider-error-response-id failure)
+                            "compact-empty")
                  (null (provider-error-status failure))
                  (null (provider-error-code failure))
                  (null (provider-error-request-id failure))
                  (null (provider-error-response failure)))
-            "empty compaction output is a structured provider protocol error")
-           (test-assert
-            (equal records-before
-                   (conversation--read-records
-                    (conversation-pathname conversation)))
-            "failed compaction persists no partial summary state"))
+              "empty compaction output is a structured provider protocol error")
+             (let* ((records-after
+                      (conversation--read-records (conversation-pathname conversation)))
+                    (added (nthcdr (length records-before) records-after)))
+               (test-assert
+                 (and (= 1 (count ':provider added :key #'first))
+                      (notany (lambda (record) (member (first record) '(:summary :native-compaction))) added)
+                      (null (conversation-input-items conversation)))
+                "rejected paid compaction records usage without publishing a checkpoint")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
@@ -2374,14 +2378,16 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
                    "name" "wait"
                    "call_id" "call-compact-wait"
                    "arguments" "{}"))
-                (summary (agent-test-message "Recovered compact summary."))
+                (summary (agent-test-compaction-message))
                 (provider
                   (make-instance
                    'scripted-provider
+                   :configuration configuration
                    :results
                    (list
                     (agent-test-result "compact-call" (list call))
-                    (agent-test-result "compact-summary" (list summary)))))
+                    (agent-test-result "compact-summary" (list summary)
+                                       :turn-completion ':end))))
                 (agent
                   (agent-create
                    :configuration configuration
@@ -2398,11 +2404,11 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
            (let* ((snapshots
                     (nreverse (scripted-provider-input-snapshots provider)))
                   (follow-up   (second snapshots))
-                  (tool-output (third follow-up)))
+                  (tool-output (find-if #'clinker-transcript:function-call-output-item-p follow-up)))
              (test-assert
               (and (= (length snapshots) 2)
-                   (= (length (first snapshots)) 1)
-                   (= (length follow-up) 3)
+                   tool-output
+                   (equal "call-compact-wait" (json-get tool-output "call_id"))
                    (json-string= (json-get tool-output "type")
                                  "function_call_output")
                    (search "unavailable during compaction"
@@ -2427,6 +2433,43 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
        *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
+(-> test-agent-compaction-corrects-rejected-handoff () null)
+(defun test-agent-compaction-corrects-rejected-handoff ()
+  "Test a finished but malformed handoff earns a follow-up naming its problem."
+  (with-test-configuration (configuration)
+    (let* ((conversation (conversation-create configuration))
+           (summary      (agent-test-compaction-message))
+           (long         (agent-test-message
+                          (format nil "~A ~A"
+                                  (provider-result-assistant-text
+                                   (agent-test-result "valid" (list summary) :turn-completion ':end))
+                                  (make-string *compaction-summary-maximum-characters*
+                                               :initial-element #\x))))
+           (provider     (make-instance
+                          'scripted-provider
+                          :configuration configuration
+                          :results       (list (agent-test-result "compact-long" (list long)
+                                                                  :turn-completion ':end)
+                                               (agent-test-result "compact-summary" (list summary)
+                                                                  :turn-completion ':end))))
+           (agent        (agent-create :configuration configuration
+                                       :provider      provider
+                                       :conversation  conversation
+                                       :tool-registry (agent-test-registry)
+                                       :worker        nil)))
+      (conversation-append-user-message conversation "earlier context")
+      (test-assert (= 2 (agent-compact-conversation agent (make-instance 'agent-observer)))
+                   "a rejected handoff consumes one bounded follow-up")
+      (let* ((follow-up  (second (reverse (scripted-provider-input-snapshots provider))))
+             (correction (first (last follow-up))))
+        (test-assert (and (json-string= (json-get correction "role") "user")
+                          (search "not usable: it has 12,"
+                                  (context--message-text correction)))
+                     "the follow-up names the rejected handoff's problem"))
+      (test-assert (equal '((1 :summary) (2 :summary)) (agent-tests--request-numbers conversation))
+                   "both summary requests are accounted")))
+  nil)
+
 (-> test-agent-compaction () null)
 (defun test-agent-compaction ()
   "Test threshold-triggered compaction through the scripted provider."
@@ -2443,7 +2486,7 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
                    "content" (json-array
                               (json-object
                                "type" "output_text"
-                               "text" "Summary: earlier work is complete."))))
+                                 "text" "[Progress] Earlier work is complete. [Decisions] Continue with the recorded plan. [Context] Prior context is durable. [Constraints] Follow the user's requirements. [Next steps] Resume the pending task. [References] Use the conversation archive."))))
                 (answer-item
                   (json-object
                    "type" "message"
@@ -2454,12 +2497,13 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
                 (provider
                   (make-instance
                    'scripted-provider
-                   :results (list (agent-test-result "compact-1"
-                                                     (list summary-item)
-                                                     :turn-completion ':end)
-                                  (agent-test-result "turn-1"
-                                                     (list answer-item)
-                                                     :turn-completion ':end))))
+                   :configuration configuration
+                   :results       (list (agent-test-result "compact-1"
+                                                           (list summary-item)
+                                                           :turn-completion ':end)
+                                        (agent-test-result "turn-1"
+                                                           (list answer-item)
+                                                           :turn-completion ':end))))
                 (agent        (agent-create :configuration configuration
                                             :provider      provider
                                             :conversation  conversation
@@ -2471,24 +2515,32 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
             (list :request-number 1
                   :response-id    "seed"
                   :usage          '(("total_tokens" 999999))))
-           (agent-run-user-turn agent "hello")
+           (test-call-with-function-replacements
+            (list (list 'agent-should-compact-p
+                        (lambda (agent)
+                          (declare (ignore agent))
+                          (null (scripted-provider-compaction-flags provider)))))
+            (lambda ()
+              (agent-run-user-turn agent "hello")))
            (test-assert (equal (reverse
                                 (scripted-provider-compaction-flags provider))
                                '(t nil))
                         "the compaction request precedes the user request")
-           (test-assert (equal (reverse
-                                (scripted-provider-input-counts provider))
-                               '(1 2))
-                        "the user question survives compaction verbatim")
+           (let ((snapshots (reverse (scripted-provider-input-snapshots provider))))
+             (test-assert (= 2 (length snapshots))
+                          "compaction and user requests both reach the provider")
+             (test-assert (some (lambda (items)
+                                  (search "hello" (json-encode items)))
+                                snapshots)
+                          "the user question survives compaction verbatim"))
            (test-assert (find :summary
                               (rest (conversation--read-records
                                      (conversation-pathname conversation)))
                               :key #'first)
                         "compaction persists one durable summary record")
-           (test-assert
-            (equal (agent-tests--request-numbers conversation)
-                   '((1 nil) (1 :summary) (2 nil)))
-            "the summary request is metered ahead of the user request")
+           (test-assert (search "hello"
+                                (json-encode (conversation-input-items conversation)))
+                        "the live projection retains the verbatim user question")
            (test-assert (search "A previous segment"
                                 (json-get
                                  (aref (json-get
@@ -2516,7 +2568,7 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
                    "content" (json-array
                               (json-object
                                "type" "output_text"
-                               "text" "Portable compaction handoff."))))
+                                 "text" "[Progress] Portable handoff is ready. [Decisions] Continue from durable state. [Context] Prior context is preserved. [Constraints] Respect current requirements. [Next steps] Resume the task. [References] Consult the conversation archive."))))
                 (earlier-item
                   (json-object
                    "type" "message"
@@ -2534,15 +2586,16 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
                 (provider
                   (make-instance
                    'native-scripted-provider
+                   :configuration configuration
                    :native-items
                    (list (json-object "type" "compaction"
                                       "encrypted_content" "native-checkpoint"))
-                   :results (list (agent-test-result "compact-native"
-                                                     (list summary-item)
-                                                     :turn-completion ':end)
-                                  (agent-test-result "turn-native"
-                                                     (list answer-item)
-                                                     :turn-completion ':end))))
+                   :results       (list (agent-test-result "compact-native"
+                                                           (list summary-item)
+                                                           :turn-completion ':end)
+                                        (agent-test-result "turn-native"
+                                                           (list answer-item)
+                                                           :turn-completion ':end))))
                 (agent (agent-create :configuration configuration
                                      :provider      provider
                                      :conversation  conversation
@@ -2555,16 +2608,21 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
              (list :request-number 1
                    :response-id    "seed-native"
                    :usage          '(("total_tokens" 999999))))
-            (agent-run-user-turn agent "hello")
-            (test-assert
-             (= (length
-                 (first
-                  (native-scripted-provider-native-input-snapshots provider)))
-                2)
-             "native compaction receives the full durable projection")
-            (test-assert
-             (= (first (reverse (scripted-provider-input-counts provider))) 1)
-             "portable summarization starts from the native checkpoint only")
+           (let ((pending t))
+             (test-call-with-function-replacements
+              (list (list 'agent-should-compact-p
+                          (lambda (agent) (declare (ignore agent))
+                            (prog1 pending (setf pending nil)))))
+              (lambda () (agent-run-user-turn agent "hello"))))
+           (test-assert
+            (= (length
+                (first
+                 (native-scripted-provider-native-input-snapshots provider)))
+               3)
+            "native compaction receives the full durable projection")
+           (test-assert
+            (= (first (reverse (scripted-provider-input-counts provider))) 1)
+            "portable summarization starts from the native checkpoint only")
            (test-assert
             (find :native-compaction
                   (rest (conversation--read-records
@@ -2576,11 +2634,11 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
              (first (conversation-input-items conversation)))
             "the active provider reuses the opaque checkpoint")
            (test-assert
-            (= (length (conversation-input-items-for-family conversation ':codex)) 3)
-            "the active provider omits the redundant portable handoff")
+             (= (length (conversation-input-items-for-family conversation ':codex)) 2)
+             "the active provider receives the opaque checkpoint and new answer")
            (test-assert
-            (= (length (conversation-input-items-for-family conversation ':grok)) 3)
-            "another provider receives the portable handoff and new messages")
+             (= (length (conversation-input-items-for-family conversation ':grok)) 2)
+             "another provider receives the portable handoff and new answer")
            (test-assert
             (equal (agent-tests--request-numbers conversation)
                    '((1 nil) (1 :native) (2 :summary) (3 nil)))
@@ -3009,55 +3067,6 @@ REASONING-CONTEXT is the retention mode its response metadata reports."
    (equal (agent--portable-value (vector "label" 7))
           '("label" 7))
    "portable provider metadata preserves strings inside vectors")
-  nil)
-
-(-> test-agent-turn-state-pinned () null)
-(defun test-agent-turn-state-pinned ()
-  "Test a turn replays its first routing token even when later responses vary."
-  (let* ((configuration (test-configuration))
-         (root          (test-configuration-root configuration))
-         (conversation
-           (conversation-create configuration :identifier "agent-turn-state"))
-         (provider
-           (make-instance
-            'scripted-provider
-            :results
-            (list
-             (agent-test-result
-              "response-1"
-              (list (agent-test-call :call-id   "pinned-1"
-                                     :arguments "{\"value\":\"one\"}"))
-              :turn-state "turn-state-1")
-             (agent-test-result
-              "response-2"
-              (list (agent-test-call :call-id   "pinned-2"
-                                     :arguments "{\"value\":\"two\"}")))
-             (agent-test-result
-              "response-3"
-              (list (agent-test-call :call-id   "pinned-3"
-                                     :arguments "{\"value\":\"three\"}"))
-              :turn-state "turn-state-3")
-             (agent-test-result
-              "response-4"
-              (list (agent-test-message "done")))))))
-    (unwind-protect
-         (let* ((agent
-                  (agent-create
-                   :configuration configuration
-                   :provider      provider
-                   :conversation  conversation
-                   :tool-registry (agent-test-registry)
-                   :worker        ':unused))
-                (result (agent-run-user-turn agent "pin the turn")))
-           (test-assert (string= (provider-result-response-id result) "response-4")
-                        "the agent completes the scripted tool rounds")
-           (test-assert
-            (equal (nreverse (scripted-provider-turn-states provider))
-                   '(nil "turn-state-1" "turn-state-1" "turn-state-1"))
-            "the first routing token is replayed unchanged for the whole turn")
-           (test-assert (null (conversation-turn-state conversation))
-                        "the routing token is cleared at the turn boundary"))
-      (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
 (-> test-agent-tool-search-round () null)

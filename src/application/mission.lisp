@@ -21,13 +21,19 @@
          :documentation "Exact goal identity, including after replacement.")
    (lock :initform (make-recursive-lock "Mission state") :reader mission-context-lock
          :documentation "Serializes counters, transitions and persistence.")
+   (transition-revision :initform      0
+                        :accessor      mission-context-transition-revision
+                        :type          unsigned-byte
+                        :documentation "Orders terminal notice publication against later transitions.")
    (request-lock :initform      (make-recursive-lock "Mission requests")
                  :reader        mission-context-request-lock
                  :documentation "Serializes provider admission and settlement.")
    (threads :initform (make-hash-table :test #'eq) :reader mission-context-threads
             :documentation "Thread identities for safe sibling cancellation.")
    (jobs :initform nil :accessor mission-context-jobs
-         :documentation "Supervised operations currently owned by the mission."))
+         :documentation "Supervised operations currently owned by the mission.")
+   (draining-p :initform nil :accessor mission-context-draining-p
+               :documentation "Permit admitted children to drain only after a noncancelling block."))
   (:documentation "Ephemeral synchronization for one durable session goal."))
 
 (define-condition mission-error (autolith-error)
@@ -82,7 +88,7 @@
 (-> mission--ensure-reservations (list) null)
 (defun mission--ensure-reservations (allowance)
   "Append absent reservation counters without replacing ALLOWANCE's identity."
-  (dolist (key '(:tokens-reserved :requests-outstanding))
+  (dolist (key '(:tokens-reserved :requests-outstanding :reservation-charged-tokens))
     (unless (nth-value 2 (get-properties allowance (list key)))
       (nconc allowance (list key 0))))
   nil)
@@ -119,22 +125,93 @@
           (last entries (min (length entries) *mission-evidence-count-limit*))))
   nil)
 
-(-> mission--transition (mission-context keyword t) null)
-(defun mission--transition (context status evidence)
-  "Persist a mission STATUS with EVIDENCE and stop its admitted operations."
-  (with-recursive-lock-held ((mission-context-lock context))
-    (let ((goal (mission-context-goal context)))
-      (setf (getf goal :status) status)
-      (mission--evidence context status evidence)
-      (mission--record context)))
-  (mission-knowledge-record-status context status)
-  (when (member status '(:blocked :exhausted :cancelled :failed))
-    (let ((jobs
-            (with-recursive-lock-held ((mission-context-lock context))
-              (remove-if (lambda (job)
-                           (eq (gethash job (mission-context-threads context)) (current-thread)))
-                         (copy-list (mission-context-jobs context))))))
-      (dolist (job jobs) (job-cancel job :reason status))))
+(-> mission--attribute-child-unknown
+    (mission-context task-job &key (:reservation (option (integer 1)))) null)
+(defun mission--attribute-child-unknown (context child &key reservation)
+  "Audit one logical UNKNOWN and optional reservation charge under the mission lock."
+  (let ((goal (mission-context-goal context)))
+    (dolist (key '(:unknown-usage-by-child :reservation-charges-by-child))
+      (unless (nth-value 2 (get-properties goal (list key)))
+        (nconc goal (list key nil))))
+    (let ((entry (assoc (job-identifier child) (getf goal :unknown-usage-by-child)
+                        :test #'equal)))
+      (if entry
+          (incf (rest entry))
+          (push (cons (job-identifier child) 1) (getf goal :unknown-usage-by-child))))
+    (when reservation
+      (let ((entry (assoc (job-identifier child) (getf goal :reservation-charges-by-child)
+                          :test #'equal)))
+        (unless entry
+          (setf entry (cons (job-identifier child) (list :requests 0 :tokens 0)))
+          (push entry (getf goal :reservation-charges-by-child)))
+        (incf (getf (rest entry) :requests))
+        (incf (getf (rest entry) :tokens) reservation))))
+  nil)
+
+(-> mission-task-job-accounting-summary (task-job) list)
+(defun mission-task-job-accounting-summary (child)
+  "Read consistent child audit counters; reservation charges are included in tokens used."
+  (let ((context (task-job-mission-context child)))
+    (flet ((summary (goal)
+             (let ((charge (rest (assoc (job-identifier child)
+                                        (getf goal :reservation-charges-by-child) :test #'equal))))
+               (list :unknown-usage
+                     (or (rest (assoc (job-identifier child)
+                                      (getf goal :unknown-usage-by-child) :test #'equal)) 0)
+                     :reservation-charged-tokens  (getf charge :tokens 0)
+                     :reservation-charge-requests (getf charge :requests 0)))))
+      (if context
+          (with-recursive-lock-held ((mission-context-lock context))
+            (summary (mission-context-goal context)))
+          (summary nil)))))
+
+(-> mission-task-job-unknown-usage (task-job) unsigned-byte)
+(defun mission-task-job-unknown-usage (child)
+  "Read CHILD's durable UNKNOWN audit, including reservation-settled requests."
+  (getf (mission-task-job-accounting-summary child) :unknown-usage))
+
+(-> mission--present-terminal-notice (mission-context keyword t) null)
+(defun mission--present-terminal-notice (context status evidence)
+  "Persist a bounded terminal notice while holding CONTEXT's mission lock."
+  (let* ((application (mission-context-application context))
+         (header      (format nil "■ mission ~A" status))
+         (body        (sanitize-text (mission--bounded-text evidence)))
+         (style       (if (eq status ':blocked) ':notice ':failure)))
+    (application-side-status-present
+     application (format nil "mission ~A" (string-downcase status))
+     (if (application-ui application)
+         (application--transcript-entry application :style style :header header :body body)
+         ;; Startup can restore a terminal mission before a UI is attached.
+         (list (terminal-span style header)
+               (terminal-span ':plain (format nil "~%~A" body))))))
+  nil)
+
+(-> mission--transition (mission-context keyword t &key (:cancel-p boolean)) null)
+(defun mission--transition (context status evidence &key (cancel-p t))
+  "Persist STATUS and EVIDENCE; cancel admitted operations when CANCEL-P is true."
+  (let ((revision
+          (with-recursive-lock-held ((mission-context-lock context))
+            (let ((goal (mission-context-goal context)))
+              (setf (getf goal :status) status
+                    (mission-context-draining-p context) (and (eq status ':blocked) (not cancel-p)))
+              (mission--evidence context status evidence)
+              (mission--record context)
+              (incf (mission-context-transition-revision context))))))
+    (mission-knowledge-record-status context status)
+    (when (and cancel-p (member status '(:blocked :exhausted :cancelled :failed)))
+      (let ((jobs
+              (with-recursive-lock-held ((mission-context-lock context))
+                (remove-if (lambda (job)
+                             (eq (gethash job (mission-context-threads context)) (current-thread)))
+                           (copy-list (mission-context-jobs context))))))
+        (dolist (job jobs) (job-cancel job :reason status))))
+    (with-recursive-lock-held ((mission-context-lock context))
+      (let ((goal (mission-context-goal context)))
+        (when (and (eq goal (application-goal (mission-context-application context)))
+                   (= revision (mission-context-transition-revision context))
+                   (eq status (getf goal :status))
+                   (member status '(:blocked :exhausted :failed)))
+          (mission--present-terminal-notice context status evidence)))))
   nil)
 
 (-> mission--remaining-milliseconds (mission-context) integer)
@@ -143,16 +220,38 @@
   (* 1000 (- (getf (mission-context-goal context) :deadline)
              (get-universal-time))))
 
-(-> mission--admit (mission-context &key (:inference-p boolean)) null)
-(defun mission--admit (context &key (inference-p t))
-  "Reject terminal, replaced or exhausted missions before admitting work.
-Verification may use the final model turn's evidence without another inference."
+(-> mission--operation-draining-p (mission-context t) boolean)
+(defun mission--operation-draining-p (context job)
+  "Recognize a live, uncancelled admitted child of this exact quarantined mission."
+  (with-recursive-lock-held ((mission-context-lock context))
+    (let ((goal (mission-context-goal context)))
+      (not (null
+            (and (mission-context-draining-p context)
+                 (eq (getf goal :status) ':blocked)
+                 (eq goal (application-goal (mission-context-application context)))
+                 (typep job 'task-job)
+                 (eq (task-job-mission-context job) context)
+                 (not (job-terminal-p job))
+                 (not (job-cancellation-requested-p job))
+                 (not (task-job--cancelled-ancestor-reason job))))))))
+
+(-> mission--admit (mission-context &key (:inference-p boolean) (:new-work-p boolean)) null)
+(defun mission--admit (context &key (inference-p t) new-work-p)
+  "Admit active work or bounded continuation of an already started quarantined child.
+NEW-WORK-P always requires an active mission. Hard budgets apply to both paths."
   (let* ((goal        (mission-context-goal context))
          (application (mission-context-application context)))
     (unless (eq goal (application-goal application))
       (mission--reject ':replaced "The mission was replaced."))
-    (unless (eq (getf goal :status) ':active)
+    (unless (or (eq (getf goal :status) ':active)
+                (and (not new-work-p)
+                     (mission--operation-draining-p context *mission-admitted-operation*)))
       (mission--reject (getf goal :status) "The mission is not active."))
+    (when (and (eq (getf goal :status) ':active)
+               (plusp (getf goal :unknown-usage 0))
+               (or inference-p new-work-p))
+      (mission--reject ':mission-usage-quarantine
+                       "Mission usage is unknown; inference and new work require explicit spending authority."))
     (unless (plusp (mission--remaining-milliseconds context))
       (mission--transition context ':exhausted "Mission-wide wall-clock budget exhausted.")
       (mission--reject ':exhausted "Mission-wide wall-clock budget exhausted."))
@@ -186,7 +285,10 @@ The calling thread preserves provider bindings and authorization callbacks."
              ;; Register before releasing state so cancellation cannot miss this job.
              (mission--admit context :inference-p nil)
              (push job (mission-context-jobs context))
-             (setf (gethash job (mission-context-threads context)) (current-thread)))
+             (setf (gethash job (mission-context-threads context)) (current-thread))
+             (when (and (typep *mission-admitted-operation* 'task-job)
+                        (job-cancellation-requested-p *mission-admitted-operation*))
+               (job-cancel job :reason (job-cancellation-reason *mission-admitted-operation*))))
            (job-run-inline job)
            (let ((snapshot (job-await job)))
             (cond
@@ -274,6 +376,7 @@ The calling thread preserves provider bindings and authorization callbacks."
           :turn-limit  (getf specification :turn-limit)
           :token-limit (getf specification :token-limit)
           :turns-used 0 :tokens-used 0 :tokens-reserved 0 :unknown-usage 0 :requests-outstanding 0
+          :unknown-usage-by-child nil :reservation-charged-tokens 0 :reservation-charges-by-child nil
           :model-complete-p nil :criteria criteria :gates gates :evidence nil)))
 
 (-> application-mission-start (application list) null)
@@ -283,11 +386,18 @@ The calling thread preserves provider bindings and authorization callbacks."
     (when (and (mission-goal-p (application-goal application))
                (member (getf (application-goal application) :status) '(:active :paused :blocked)))
       (application-mission-stop application ':cancelled "Replaced by a new mission."))
-    (setf (application-goal application) goal)
-    (let ((context (mission--attach application)))
-      (mission--evidence context ':started "Explicit mission acceptance policy installed.")
-      (mission--record context)
-      (mission-knowledge-record-status context ':active)))
+    (let ((previous (mission-context-find (application-conversation application))))
+      (flet ((install ()
+               (setf (application-goal application) goal)
+               (let ((context (mission--attach application)))
+                 (mission--evidence context ':started "Explicit mission acceptance policy installed.")
+                 (mission--record context)
+                 (mission-knowledge-record-status context ':active))))
+        ;; Order replacement after any terminal notice for the previous mission.
+        (if previous
+            (with-recursive-lock-held ((mission-context-lock previous))
+              (install))
+            (install)))))
   nil)
 
 (-> application-mission-stop (application keyword string) null)
@@ -365,14 +475,82 @@ The calling thread preserves provider bindings and authorization callbacks."
              (mission--record context)))))))
   nil)
 
-(-> mission-agent-terminal-p (agent) boolean)
+(-> mission-agent-terminal-p (agent) (values boolean (option mission-context)))
 (defun mission-agent-terminal-p (agent)
-  "Return true when AGENT's exact mission no longer permits a model continuation."
+  "Return whether AGENT's exact mission has stopped and its associated context.
+A quarantined child with live admitted identity may finish its bounded task."
   (let ((context (mission-context-find agent)))
-    (and context
-         (or (not (eq (mission-context-goal context)
-                      (application-goal (mission-context-application context))))
-             (not (eq (getf (mission-context-goal context) :status) ':active))))))
+    (values
+     (and context
+          (or (not (eq (mission-context-goal context)
+                       (application-goal (mission-context-application context))))
+              (and (not (eq (getf (mission-context-goal context) :status) ':active))
+                   (not (and (typep agent 'task-child-agent)
+                             (mission--operation-draining-p
+                              context (task-child-agent-job agent)))))))
+     context)))
+
+(-> mission--stopped-tool-result ((option mission-context)) tool-result)
+(defun mission--stopped-tool-result (context)
+  "Explain a refused tool using only allowlisted exact-context state.
+Report identity relative to the guarded goal, never arbitrary goal evidence."
+  (if (null context)
+      (tool-failure "Mission work stopped; its associated context is unavailable. No tool ran."
+                    :code ':mission-stopped)
+      (with-recursive-lock-held ((mission-context-lock context))
+        (let* ((goal      (mission-context-goal context))
+               (current-p (eq goal (application-goal (mission-context-application context))))
+               (status    (case (getf goal :status)
+                            (:active
+                             "ACTIVE")
+                            (:paused
+                             "PAUSED")
+                            (:blocked
+                             "BLOCKED")
+                            (:cancelled
+                             "CANCELLED")
+                            (:exhausted
+                             "EXHAUSTED")
+                            (:failed
+                             "FAILED")
+                            (:verified
+                             "VERIFIED")
+                            (otherwise
+                             "UNKNOWN")))
+               (unknown   (getf goal :unknown-usage))
+               (code      (cond
+                            ((not current-p)
+                             ':mission-replaced)
+                            ((eq (getf goal :status) ':cancelled)
+                             ':mission-cancelled)
+                            ((and (eq (getf goal :status) ':blocked)
+                                  (integerp unknown) (plusp unknown))
+                             ':mission-usage-quarantine)
+                            (t
+                             ':mission-stopped)))
+               (reason    (case code
+                            (:mission-replaced
+                             "The associated goal was replaced.")
+                            (:mission-cancelled
+                             "The associated mission was cancelled.")
+                            (:mission-usage-quarantine
+                             "Unknown inference usage is quarantined; inspect durable accounting before an explicit budget decision.")
+                            (otherwise
+                             "Inspect the associated mission's durable state before further mission work."))))
+          (tool-failure
+           (format nil "Mission work stopped; ~A/~A; ~A goal. No tool ran. ~A"
+                   status
+                   (case code
+                     (:mission-replaced
+                      "replaced")
+                     (:mission-cancelled
+                      "cancelled")
+                     (:mission-usage-quarantine
+                      "unknown-usage")
+                     (otherwise
+                      "stopped"))
+                   (if current-p "current" "replaced") reason)
+           :code code)))))
 
 (defmethod tool-execution-invoke :around
     ((runtime task-orchestrator) parent
@@ -389,8 +567,12 @@ The calling thread preserves provider bindings and authorization callbacks."
          :completion-policy completion-policy
          :operation-function
          (lambda ()
-           (mission--admit context :inference-p nil)
-           (mission--supervise context (format nil "Mission ~A" tool-name) operation-function))))))
+           (let ((*mission-admitted-operation*
+                   (and (typep parent 'task-child-agent)
+                        (let ((job (task-child-agent-job parent)))
+                          (and (eq (task-job-mission-context job) context) job)))))
+             (mission--admit context :inference-p nil)
+             (mission--supervise context (format nil "Mission ~A" tool-name) operation-function)))))))
 
 (-> mission--request-owned-p (mission-context conversation) boolean)
 (defun mission--request-owned-p (context conversation)
@@ -448,8 +630,9 @@ The calling thread preserves provider bindings and authorization callbacks."
   (let ((context (task-job-mission-context job)))
     (if context
         (progn
-          (mission--admit context :inference-p nil)
-          (mission--supervise context "Mission child" (lambda () (task-job--run job))))
+          (mission--admit context :inference-p nil :new-work-p t)
+          (let ((*mission-admitted-operation* job))
+            (mission--supervise context "Mission child" (lambda () (task-job--run job)))))
         (task-job--run job))))
 
 (defmethod initialize-instance :after ((job session-job) &key mission-context &allow-other-keys)

@@ -269,6 +269,44 @@
        "framed inference forwards provider and nested RLM progress")))
   nil)
 
+(-> test-rlm-frame-shared-prefix () null)
+(defun test-rlm-frame-shared-prefix ()
+  "Put the task after shared views so frames over one context share a prefix."
+  (let* ((configuration (test-configuration))
+         (root          (test-configuration-root configuration))
+         (evidence      (make-string 6000 :initial-element #\e))
+         (provider
+           (make-instance
+            'rlm-inference-test-provider
+            :results (list (rlm-inference-test-result "first" "one" 10)
+                           (rlm-inference-test-result "second" "two" 10)))))
+    (unwind-protect
+         (progn
+           (dolist (task '("Count the first kind." "Count the second kind."))
+             (infer task :context       (list evidence)
+                         :provider      provider
+                         :configuration configuration))
+           (let ((requests
+                   (mapcar (lambda (snapshot)
+                             (mapcar (lambda (item)
+                                       (json-get (aref (json-get item "content") 0) "text"))
+                                     snapshot))
+                           (reverse (rlm-inference-test-provider-input-snapshots provider)))))
+             (test-assert
+              (and (every (lambda (request) (= (length request) 2)) requests)
+                   (string= (first (first requests)) (first (second requests)))
+                   (search evidence (first (first requests)))
+                   (equal (mapcar #'second requests)
+                          '("Task: Count the first kind." "Task: Count the second kind.")))
+              "frames over the same views share their first message and differ in the task"))
+           (let ((index (rlm--trace-index-render configuration)))
+             (test-assert
+              (and (search "Count the first kind" index)
+                   (search "Count the second kind" index))
+              "the trace index names each frame by its task")))
+      (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
+  nil)
+
 (-> test-rlm-response-usage-normalization () null)
 (defun test-rlm-response-usage-normalization ()
   "Test inference traces persist canonical provider cache usage."
@@ -332,7 +370,12 @@
     :initform      nil
     :accessor      rlm-inference-test-provider-tool-schema-counts
     :type          list
-    :documentation "The provider tool schema counts observed, newest first."))
+    :documentation "The provider tool schema counts observed, newest first.")
+   (tool-choices
+    :initform      nil
+    :accessor      rlm-inference-test-provider-tool-choices
+    :type          list
+    :documentation "The provider tool choices observed, newest first."))
   (:documentation "A deterministic provider for exercising inference frames."))
 
 (defmethod provider-with-configuration
@@ -352,6 +395,8 @@
         (rlm-inference-test-provider-input-snapshots provider))
   (push (length tool-namespaces)
         (rlm-inference-test-provider-tool-schema-counts provider))
+  (push *provider-tool-choice*
+        (rlm-inference-test-provider-tool-choices provider))
   (push *provider-maximum-output-tokens*
         (rlm-inference-test-provider-output-limits provider))
   (let ((result (pop (rlm-inference-test-provider-results provider))))
@@ -695,10 +740,11 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
               "budgeted answer")
      "read-capability frames reserve the final provider call for an answer")
     (test-assert
-     (equal (reverse
-             (rlm-inference-test-provider-tool-schema-counts provider))
-            '(2 0))
-     "the final reserved request omits every tool schema")
+     (and (equal (reverse (rlm-inference-test-provider-tool-schema-counts provider))
+                 '(2 2))
+          (equal (reverse (rlm-inference-test-provider-tool-choices provider))
+                 '(:auto :none)))
+     "the final reserved request keeps its tool schemas but disables calls")
     (test-assert (zerop (rlm-budget-remaining-calls budget))
                  "the reserved final answer may consume the last call"))
   nil)
@@ -946,20 +992,21 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
     :documentation "The lock serializing concurrent request counting."))
   (:documentation "A thread-safe provider answering from the request itself."))
 
+(-> rlm-map-test--trailing-user-text (list) (option string))
+(defun rlm-map-test--trailing-user-text (items)
+  "Return the text of the user messages ending ITEMS, joined by blank lines.
+
+A frame sends its shared views and its task as consecutive user messages."
+  (let ((texts (loop for item in (reverse items)
+                     while (and (json-object-p item)
+                                (json-string= (json-get item "role") "user"))
+                     collect (context--message-text item))))
+    (and texts (format nil "~{~A~^~%~%~}" (reverse texts)))))
+
 (-> rlm-map-test--last-user-text (conversation) (option string))
 (defun rlm-map-test--last-user-text (conversation)
-  "Return the newest user message text in CONVERSATION's request items."
-  (loop for item in (reverse (conversation-input-items-for-request
-                              conversation))
-        when (and (json-object-p item)
-                  (json-string= (json-get item "role") "user"))
-          do (let ((content (json-get item "content")))
-               (return
-                 (loop for part across content
-                       when (and (json-object-p part)
-                                 (json-string= (json-get part "type")
-                                               "input_text"))
-                         do (return (json-get part "text")))))))
+  "Return the newest user request text in CONVERSATION's request items."
+  (rlm-map-test--trailing-user-text (conversation-input-items-for-request conversation)))
 
 (defmethod provider-stream-turn
     ((provider rlm-map-test-provider)
@@ -1375,8 +1422,8 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                                             (json-object)))))
         (test-assert (search trace-identifier rendered)
                      "the trace index lists the persisted trace")
-        (test-assert (search "trace me please" rendered)
-                     "the trace index carries the task excerpt")))
+        (test-assert (search "Trace me please" rendered)
+                     "the trace index carries the task as its title")))
     (let ((missing (resource-resolver-resolve resolver "zzzz-none" context)))
       (test-assert (not (tool-result-success-p
                          (resource-tool-read missing read-tool context
@@ -1438,11 +1485,7 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
         (let* ((snapshot
                  (first
                   (rlm-inference-test-provider-input-snapshots provider)))
-               (request-text
-                 (loop for item in (reverse snapshot)
-                       when (and (json-object-p item)
-                                 (string= (or (json-get item "role") "") "user"))
-                         do (return (context--message-text item)))))
+               (request-text (rlm-map-test--trailing-user-text snapshot)))
           (test-assert
            (search "current user instructions" request-text)
            "classification includes a labeled user-instruction view")
@@ -1576,6 +1619,328 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
            (daemon-write-packet stream request)
            (daemon-read-packet stream))
       (ignore-errors (close stream)))))
+
+(defclass rlm-frame-set-test-provider (rlm-map-test-provider)
+  ()
+  (:documentation "A map test provider holding requests for slow tasks until cancelled."))
+
+(defmethod provider-stream-turn :before
+    ((provider rlm-frame-set-test-provider)
+     (conversation conversation)
+     &key tool-namespaces event-callback goal-context compaction-p)
+  "Hold a slow task's request for thirty seconds, so only cancellation ends it early."
+  (declare (ignore tool-namespaces event-callback goal-context compaction-p))
+  (when (search "slow" (or (rlm-map-test--last-user-text conversation) ""))
+    (loop repeat 3000
+          do (sleep 0.01))))
+
+(-> test-rlm-child-route-authority () null)
+(defun test-rlm-child-route-authority ()
+  "Refuse cross-provider models and incompatible inherited effort before execution."
+  (let ((snapshot      (provider--registry-snapshot))
+        (configuration (test-configuration)))
+    (unwind-protect
+         (progn
+           (register-provider "child-a" :family ':codex
+                              :factory          #'provider-selection-tests--factory
+                              :models           '((:name "child-root" :reasoning-efforts ("low" "high"))
+                                                  (:name "child-low" :reasoning-efforts ("low"))))
+           (register-provider "child-b" :family ':codex
+                              :factory          #'provider-selection-tests--factory
+                              :models           '((:name "child-other" :reasoning-efforts ("low" "high"))))
+           (setf (configuration-validation-deferred-p configuration) t
+                 (config :model configuration) "child-root"
+                 (config :model-provider configuration) ""
+                 (config :reasoning-effort configuration) "high")
+           (let ((endpoint (rlm-endpoint-start
+                            :provider      (make-instance 'rlm-map-test-provider)
+                            :configuration configuration
+                            :budget        (rlm-budget-create :calls 8 :tokens 100000 :depth 2))))
+             (unwind-protect
+                  (test-call-with-function-replacements
+                   (list (list 'infer (lambda (&rest arguments)
+                                        (declare (ignore arguments))
+                                        (values "answer" "trace" 0))))
+                   (lambda ()
+                     (dolist (model '("child-other" "child-low"))
+                       (let ((response
+                               (rest (rlm-endpoint-test-call
+                                      endpoint
+                                      (list :rlm-request :token (rlm-endpoint-token endpoint)
+                                            :operation   ':infer
+                                            :arguments   (list :task "refuse" :model model))))))
+                         (test-assert (eq (getf response :status) ':error)
+                                      "the endpoint refuses an invalid effective child route")))))
+               (rlm-endpoint-stop endpoint)))
+           (let ((calls nil))
+             (test-call-with-function-replacements
+              (list (list 'infer (lambda (&rest arguments)
+                                   (push arguments calls)
+                                   (values "answer" "trace" 0))))
+              (lambda ()
+                (dolist (spec '(("child-other" nil) ("child-low" nil)
+                                ("child-low" "high")))
+                  (let ((result (rlm-map--run-item
+                                 (list :task "refuse" :model (first spec) :effort (second spec))
+                                 :provider (make-instance 'rlm-map-test-provider)
+                                 :configuration configuration :contract ':text
+                                 :budget   (rlm-budget-create))))
+                    (test-assert (getf result :error)
+                                 "local children refuse cross-provider and unsupported effective effort")))
+                (test-assert (null calls) "invalid child routes never enter inference")
+                (let ((result (rlm-map--run-item
+                               '(:task "accept" :model "child-low" :effort "low")
+                               :provider (make-instance 'rlm-map-test-provider)
+                               :configuration configuration :contract ':text
+                               :budget   (rlm-budget-create))))
+                  (test-assert (equal (getf result :value) "answer")
+                               "a same-provider model may lower the inherited effort"))))))
+      (provider--registry-restore snapshot)))
+  nil)
+
+(-> test-rlm-frame-set-queued-cancellation () null)
+(defun test-rlm-frame-set-queued-cancellation ()
+  "Publish queued cancellation once without reclaiming another frame's reservation."
+  (let* ((configuration (test-configuration))
+         (budget        (rlm-budget-create :calls 10 :tokens 100000 :depth 2))
+         (records       nil)
+         (record-lock   (make-lock "Queued cancellation records"))
+         (frames        (rlm-frame-set-create
+                         :provider (make-instance 'rlm-frame-set-test-provider)
+                         :configuration configuration :budget budget :concurrency 1
+                         :completion-function
+                         (lambda (handle result)
+                           (with-lock-held (record-lock)
+                             (push (list* :handle handle (rlm-endpoint--child-record result)) records))))))
+    (unwind-protect
+         (let* ((handles (rlm-frame-set-submit frames '("slow blocker" "queued")))
+                (queued  (list (second handles))))
+           (loop repeat 500
+                 until (and (eq (getf (first (rlm-frame-set-status frames handles)) :state) ':running)
+                            (< (rlm-budget-remaining-tokens budget) 100000))
+                 do (sleep 0.01))
+           (test-assert (eq (getf (second (rlm-frame-set-status frames handles)) :state) ':queued)
+                        "concurrency one leaves the second frame queued")
+           (let ((remaining (rlm-budget-remaining-tokens budget)))
+             (rlm-frame-set-cancel frames queued)
+             (rlm-frame-set-cancel frames queued)
+             (test-assert (getf (first (rlm-frame-set-collect frames queued :timeout-seconds 10)) :error)
+                          "a queued cancellation is collectable")
+             (test-assert (= remaining (rlm-budget-remaining-tokens budget))
+                          "queued cancellation does not reclaim reserved tokens"))
+           (with-lock-held (record-lock)
+             (test-assert (= 1 (count (second handles) records
+                                     :key (lambda (record) (getf record :handle)) :test #'equal))
+                          "a queued cancellation publishes exactly one ledger record")
+             (test-assert (eq (getf (first records) :status) ':cancelled)
+                          "the queued frame's ledger outcome is cancelled"))
+           (rlm-frame-set-cancel frames (list (first handles)))
+           (rlm-frame-set-collect frames (list (first handles)) :timeout-seconds 10)
+           (with-lock-held (record-lock)
+             (test-assert (= 2 (length records))
+                          "running and queued cancellation each publish once")))
+      (rlm-frame-set-close frames)))
+  nil)
+
+(-> test-rlm-frame-set-start-cancellation () null)
+(defun test-rlm-frame-set-start-cancellation ()
+  "Cancel during worker startup and publish only the resolved terminal outcome."
+  (let* ((outcomes     nil)
+         (outcome-lock (make-lock "Frame startup outcomes"))
+         (frames       (rlm-frame-set-create
+                        :provider (make-instance 'rlm-frame-set-test-provider)
+                        :configuration (test-configuration) :concurrency 1
+                        :budget   (rlm-budget-create :calls 64 :tokens 1000000 :depth 2)
+                        :completion-function
+                        (lambda (handle result)
+                          (with-lock-held (outcome-lock)
+                            (push (cons handle result) outcomes))))))
+    (unwind-protect
+         (loop for handles = (rlm-frame-set-submit frames '("fast race" "slow race"))
+               repeat 16
+               do (rlm-frame-set-cancel frames handles)
+                  (rlm-frame-set-cancel frames handles)
+                  (dolist (handle handles)
+                    (rlm-frame-set-collect frames (list handle) :timeout-seconds 10)
+                    (let ((state (getf (first (rlm-frame-set-status frames (list handle))) :state)))
+                      (with-lock-held (outcome-lock)
+                        (let ((records (remove handle outcomes :key #'first :test-not #'equal)))
+                          (test-assert (= 1 (length records))
+                                       "startup cancellation invokes the completion function exactly once")
+                          (test-assert
+                           (case state
+                             (:aborted
+                              (eq (getf (rest (first records)) :status) ':cancelled))
+                             (:completed
+                              (getf (rest (first records)) :value)))
+                           "the callback agrees with the job's resolved terminal state"))))))
+      (rlm-frame-set-close frames)))
+  nil)
+
+(-> test-rlm-frame-set () null)
+(defun test-rlm-frame-set ()
+  "Collect background frames as they finish and charge cancelled requests."
+  (let* ((configuration (test-configuration))
+         (budget        (rlm-budget-create :calls 10 :tokens 100000 :depth 2))
+         (outcomes      nil)
+         (outcome-lock  (make-lock "Autolith frame set test outcomes"))
+         (frames
+           (rlm-frame-set-create
+            :budget              budget
+            :provider            (make-instance 'rlm-frame-set-test-provider)
+            :configuration       configuration
+            :concurrency         3
+            :completion-function (lambda (handle result)
+                                   (with-lock-held (outcome-lock)
+                                     (push (cons handle result) outcomes))))))
+    (unwind-protect
+         (let* ((handles   (rlm-frame-set-submit frames
+                                                 (list "fast first" "slow second" "fast third")))
+                (fast      (list (first handles) (third handles)))
+                (slow      (list (second handles)))
+                (collected nil))
+           (test-assert (equal handles '("frame-1" "frame-2" "frame-3"))
+                        "submission returns ordered handles")
+           (loop while (< (length collected) 2)
+                 do (setf collected (rlm-frame-set-collect frames fast :timeout-seconds 30)))
+           (test-assert (and (equal (mapcar (lambda (result) (getf result :handle)) collected)
+                                    fast)
+                             (search "fast third" (getf (second collected) :value)))
+                        "collection returns finished frames in handle order with their values")
+           (test-assert (eq (getf (first (rlm-frame-set-status frames slow)) :state) ':running)
+                        "a slow frame keeps running while others finish")
+           (test-assert (null (rlm-frame-set-collect frames slow :timeout-seconds 0.05))
+                        "a bounded collect over running frames times out")
+           (rlm-frame-set-cancel frames slow)
+           (test-assert (getf (first (rlm-frame-set-collect frames slow :timeout-seconds 30)) :error)
+                        "a cancelled frame collects as an error")
+           (test-assert (< (rlm-budget-remaining-tokens budget) (- 100000 20))
+                        "a cancelled request keeps its reserved tokens")
+           (test-assert (find ':cancelled outcomes :key (lambda (outcome)
+                                                          (getf (rest outcome) :status)))
+                        "the completion function hears of the cancellation")
+           (test-assert (handler-case (progn (rlm-frame-set-status frames (list "frame-9")) nil)
+                          (rlm-inference-error ()
+                            t))
+                        "unknown handles are refused"))
+      (rlm-frame-set-close frames)))
+  nil)
+
+(-> test-rlm-endpoint-frames () null)
+(defun test-rlm-endpoint-frames ()
+  "Proxy background frame submission, collection and cancellation for the environment."
+  (let* ((records  nil)
+         (endpoint (rlm-endpoint-start
+                    :provider      (make-instance 'rlm-frame-set-test-provider)
+                    :configuration (test-configuration)
+                    :budget        (rlm-budget-create :calls 6 :tokens 100000 :depth 2)
+                    :ledger        (lambda (record) (push record records)))))
+    (flet ((call (operation &rest arguments)
+             "Send OPERATION with ARGUMENTS and return the response fields."
+             (rest (rlm-endpoint-test-call
+                    endpoint
+                    (list :rlm-request
+                          :token     (rlm-endpoint-token endpoint)
+                          :operation operation
+                          :arguments arguments)))))
+      (unwind-protect
+           (progn
+             (test-assert (eq (getf (call ':collect :handles "frame-1") :status) ':error)
+                          "collecting before any submission is refused")
+             (let ((handles (getf (call ':submit :tasks (list "fast alpha" "slow beta")) :value)))
+               (test-assert (equal handles '("frame-1" "frame-2"))
+                            "submission returns frame handles")
+               (test-assert (search "fast alpha"
+                                    (getf (first (getf (call ':collect :handles "frame-1"
+                                                                       :timeout 30)
+                                                       :value))
+                                          :value))
+                            "a single handle collects its finished frame")
+               (test-assert (equal (mapcar (lambda (status) (getf status :state))
+                                           (getf (call ':status :handles handles) :value))
+                                   '(:completed :running))
+                            "status reports each frame's state")
+               (call ':cancel :handles "frame-2")
+               (test-assert (getf (first (getf (call ':collect :handles "frame-2" :timeout 30)
+                                               :value))
+                                  :error)
+                            "a cancelled frame collects as an error"))
+             (test-assert (and (find ':submit records :key (lambda (record)
+                                                             (getf record :operation)))
+                               (find-if (lambda (record)
+                                          (and (eq (getf record :operation) ':frame)
+                                               (getf record :child-trace)))
+                                        records)
+                               (find-if (lambda (record)
+                                          (and (eq (getf record :operation) ':frame)
+                                               (eq (getf record :status) ':cancelled)))
+                                        records))
+                          "the ledger links submitted, finished and cancelled frames")
+             (test-assert (eq (getf (call ':status :handles (list 1)) :status) ':error)
+                          "malformed handles are refused"))
+        (rlm-endpoint-stop endpoint))))
+  nil)
+
+(-> test-rlm-endpoint-child-routing () null)
+(defun test-rlm-endpoint-child-routing ()
+  "Route child frames to the root provider's models at no more than the root's effort."
+  (let* ((configuration (test-configuration))
+         (model         (config :model configuration))
+         (efforts       (configuration--reasoning-efforts-for
+                         model (config :model-provider configuration)))
+         (lowest        (first efforts))
+         (highest       (first (last efforts)))
+         (calls         nil)
+         (calls-lock    (make-lock "Autolith child routing test calls")))
+    (setf (configuration-validation-deferred-p configuration) t
+          (config :reasoning-effort configuration) lowest)
+    (let ((endpoint (rlm-endpoint-start
+                     :provider      (make-instance 'rlm-map-test-provider)
+                     :configuration configuration
+                     :budget        (rlm-budget-create :calls 6 :tokens 100000 :depth 2))))
+      (flet ((call (operation &rest arguments)
+               "Send OPERATION with ARGUMENTS and return the response fields."
+               (rest (rlm-endpoint-test-call
+                      endpoint
+                      (list :rlm-request
+                            :token     (rlm-endpoint-token endpoint)
+                            :operation operation
+                            :arguments arguments)))))
+        (unwind-protect
+             (test-call-with-function-replacements
+              (list (list 'infer
+                          (lambda (task &rest arguments)
+                            (with-lock-held (calls-lock)
+                              (push (list task (getf arguments :model) (getf arguments :effort))
+                                    calls))
+                            (values "routed" "routed-trace" 0))))
+              (lambda ()
+                (test-assert (eq (getf (call ':infer :task "cheap" :model model :effort lowest)
+                                       :status)
+                                 ':ok)
+                             "a child may name the root provider's model at the root's effort")
+                (test-assert (equal (first calls) (list "cheap" model lowest))
+                             "the child's model and effort reach its frame")
+                (test-assert (and (< 1 (length efforts))
+                                  (search "may not exceed"
+                                          (getf (call ':infer :task "eager" :effort highest)
+                                                :message)))
+                             "a child may not raise effort above the root's")
+                (test-assert (search "Unsupported model"
+                                     (getf (call ':infer :task "elsewhere" :model "no-such-model")
+                                           :message))
+                             "a child may not name a model the provider does not offer")
+                (let ((handles (getf (call ':submit
+                                           :tasks (list (list :task "own" :effort lowest) "plain")
+                                           :model model)
+                                     :value)))
+                  (dolist (handle handles)
+                    (call ':collect :handles handle :timeout 30)))
+                (test-assert (and (member (list "own" model lowest) calls :test #'equal)
+                                  (member (list "plain" model nil) calls :test #'equal))
+                             "submitted tasks take the call's model and their own effort")))
+          (rlm-endpoint-stop endpoint)))))
+  nil)
 
 (-> test-rlm-endpoint () null)
 (defun test-rlm-endpoint ()
@@ -2222,7 +2587,30 @@ CACHED-TOKENS, when supplied, reports that share as prompt-cache reads."
                           "a dead pooled environment starts fresh")
              (let ((trace (rlm--trace-content configuration trace-identifier)))
                (test-assert (search "ended unexpectedly" trace)
-                            "the fresh run notes the lost environment state"))))
+                            "the fresh run notes the lost environment state")))
+           (let ((*rlm-environment-pool-size* 0))
+             (rlm-complete
+              "Define again."
+              :context       context
+              :budget        (rlm-budget-create :calls 2 :tokens 50000 :depth 1)
+              :provider      (rlm-environment-reuse--provider
+                              "(progn (defvar *reuse-state* 7) (finish 7))")
+              :configuration configuration)
+             (test-assert (null *rlm-environment-pool*)
+                          "a pool past its bound retires the environment"))
+           (multiple-value-bind (value trace-identifier)
+               (rlm-complete
+                "Recall after retirement."
+                :context       context
+                :budget        (rlm-budget-create :calls 2 :tokens 50000 :depth 1)
+                :provider      (rlm-environment-reuse--provider
+                                "(finish (boundp (quote *reuse-state*)))")
+                :configuration configuration)
+             (test-assert (null value)
+                          "a retired environment's state is gone")
+             (test-assert (search "retired to keep memory bounded"
+                                  (rlm--trace-content configuration trace-identifier))
+                          "the next run is told the environment was retired")))
       (rlm-environment-pool-flush)))
   nil)
 

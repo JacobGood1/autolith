@@ -219,35 +219,8 @@ transcript renderer, including in fullscreen."
 (-> application--conversation-usage (application) list)
 (defun application--conversation-usage (application)
   "Return summed token and prompt-cache usage for the active conversation."
-  (let ((input         0)
-        (output        0)
-        (total         0)
-        (cached        0)
-        (cache-created 0)
-        (cache-seen-p  nil))
-    (labels ((usage-count (usage key)
-               "Return the integer usage value stored under KEY and whether it exists."
-               (let* ((entry (assoc key usage :test #'string=))
-                      (value (and entry (second entry))))
-                 (values (if (integerp value) value 0)
-                         (and entry (integerp value))))))
-      (conversation-map-records
-       (application-conversation application)
-       (lambda (record)
-         (when (eq (first record) :provider)
-           (let ((usage (getf (getf (rest record) :metadata) :usage)))
-             (when (listp usage)
-               (incf input (usage-count usage "input_tokens"))
-               (incf output (usage-count usage "output_tokens"))
-               (incf total (usage-count usage "total_tokens"))
-               (multiple-value-bind (count present-p)
-                   (usage-count usage "cached_input_tokens")
-                 (incf cached count)
-                 (setf cache-seen-p (or cache-seen-p present-p)))
-               (multiple-value-bind (count present-p)
-                   (usage-count usage "cache_creation_input_tokens")
-                 (incf cache-created count)
-                 (setf cache-seen-p (or cache-seen-p present-p)))))))))
+  (destructuring-bind (input output total cached cache-created cache-seen-p)
+      (conversation-usage (application-conversation application))
     (list :input         input
           :output        output
           :total         total
@@ -265,6 +238,19 @@ transcript renderer, including in fullscreen."
      (format nil "~,1FK" (/ count 1000)))
     (t
      (format nil "~,2FM" (/ count 1000000)))))
+
+(-> application--cost-description (configuration) string)
+(defun application--cost-description (configuration)
+  "Describe this process's recorded request cost, its limit and unpriced requests."
+  (let* ((summary  (cost-ledger-summary *provider-cost-ledger*))
+         (counts   (getf summary :counts))
+         (dollars  (or (second (assoc "USD" (getf summary :totals) :test #'string=)) 0))
+         (limit    (config :cost-limit configuration))
+         (unpriced (+ (getf counts :unpriced) (getf counts :unknown))))
+    (format nil "$~,4F this process~@[ of a $~,2F limit~]~[~:;, ~:*~D request~:P unpriced~]"
+            (float dollars 1d0)
+            (and (plusp limit) (float limit 1d0))
+            unpriced)))
 
 (-> application--prompt-cache-description (list) string)
 (defun application--prompt-cache-description (usage)
@@ -317,7 +303,33 @@ transcript renderer, including in fullscreen."
                           (:resumed
                            " · resumed session")
                           (otherwise
-                           ""))))))
+                           ""))))
+   (let ((description (application--wire-change-description (getf miss :wire-change))))
+     (when description
+       (list (terminal-span ':dim (format nil " · request ~A" description)))))))
+
+(-> application--wire-change-description (list) (option string))
+(defun application--wire-change-description (change)
+  "Describe the final-request CHANGE behind a cache notice, or NIL without a comparison.
+
+A request that repeats the previous reusable prefix with the same fields and
+markers reads as intact, which points at the provider rather than the prompt."
+  (and change
+       (let ((parts
+               (remove nil
+                       (list (and (getf change :fields)
+                                  (format nil "~{~A~^, ~} changed" (getf change :fields)))
+                             (let ((index (getf change :first-changed-item))
+                                   (count (getf change :items)))
+                               (when index
+                                 (if (< index count)
+                                     (format nil "item ~D of ~D changed" (1+ index) count)
+                                     (format nil "item ~D removed" (1+ index)))))
+                             (and (getf change :breakpoints-moved-p)
+                                  "cache markers moved")))))
+         (if parts
+             (format nil "~{~A~^, ~}" parts)
+             "prefix intact"))))
 
 (-> application-note-prompt-cache-request-started (application) null)
 (defun application-note-prompt-cache-request-started (application)
@@ -476,7 +488,7 @@ notice preference is on, so enabling it mid-session takes effect immediately."
 
 (-> application-status-entry (application) list)
 (defun application-status-entry (application)
-  "Return the styled /status summary of APPLICATION's session and rate limits."
+  "Return the styled (status) summary of APPLICATION's session and rate limits."
   (let* ((configuration   (application-configuration application))
          (provider        (application-provider application))
          (snapshot        (and provider (provider-rate-limits provider)))
@@ -530,6 +542,8 @@ notice preference is on, so enabling it mid-session takes effect immediately."
              (and (getf usage :cache-seen-p)
                   (list "prompt cache"
                         (application--prompt-cache-description usage)))
+             (list "cost" (application--cost-description configuration))
+             (list "memory" (application--retention-description application))
              (list "context"
                    (multiple-value-bind (used estimated-p)
                        (application-context-usage application)
@@ -1469,7 +1483,7 @@ it was published, and the tracked definition CONFIGURATION's source holds now."
 
 (-> application--goal-update-argument (string) (option string))
 (defun application--goal-update-argument (remainder)
-  "Return the objective following /goal update, or NIL for other input."
+  "Return the objective after the slash-syntax update action, or NIL otherwise."
   (let ((word (string-downcase remainder)))
     (and (uiop:string-prefix-p "update" word)
          (or (= (length word) (length "update"))
@@ -1524,7 +1538,7 @@ Return true only when the objective was rewritten."
 (defun application--start-goal-work (application)
   "Begin working toward APPLICATION's active session goal immediately.
 
-Goal turns run inside the /goal command's work item, so they wire the
+Goal turns run inside the (goal) command's work item, so they wire the
 input controller's steering hooks themselves: prose typed during goal
 work must steer the running turn, not queue as follow-up work."
   (let ((goal (application-goal application)))
@@ -1561,6 +1575,21 @@ work must steer the running turn, not queue as follow-up work."
     :documentation "The objective or action supplied by the caller."))
   (:documentation "A public goal request has an invalid action or arguments."))
 
+(-> application--replace-lightweight-goal (application (option list)) null)
+(defun application--replace-lightweight-goal (application goal)
+  "Cancel the mission and order GOAL's installation after its terminal notices."
+  (let ((previous (and (mission-goal-p (application-goal application))
+                       (mission-context-find (application-conversation application)))))
+    (mission-detach application)
+    (flet ((install ()
+             (setf (application-goal application) goal)
+             (application--record-goal application)))
+      (if previous
+          (with-recursive-lock-held ((mission-context-lock previous))
+            (install))
+          (install))))
+  nil)
+
 (-> application-goal-request (application t list) null)
 (defun application-goal-request (application request arguments)
   "Set a literal string objective or apply a keyword action to APPLICATION.
@@ -1589,9 +1618,7 @@ NIL and :STATUS show the goal. :UPDATE takes one string objective; :PAUSE,
        (application-present application
                             (application--goal-description application)))
       ((eq request ':clear)
-       (mission-detach application)
-       (setf (application-goal application) nil)
-       (application--record-goal application)
+       (application--replace-lightweight-goal application nil)
        (application-present application "The session goal was cleared."))
       ((eq request ':pause)
        (if (and goal (eq (getf goal :status) ':active))
@@ -1619,13 +1646,11 @@ NIL and :STATUS show the goal. :UPDATE takes one string objective; :PAUSE,
                   (eq (getf (application-goal application) :status) ':active))
          (application--start-goal-work application)))
       (t
-       (mission-detach application)
-       (setf (application-goal application)
-             (list :objective     (copy-seq request)
-                   :status        ':active
-                   :continuations 0
-                   :created-at    (get-universal-time)))
-       (application--record-goal application)
+       (application--replace-lightweight-goal
+        application (list :objective     (copy-seq request)
+                          :status        ':active
+                          :continuations 0
+                          :created-at    (get-universal-time)))
        (application-present
         application
         (format nil
@@ -2538,13 +2563,23 @@ are forwarded to TERMINAL-UI-SELECT."
        (t
         "default")))))
 
+(-> application-set-terminal-theme (application keyword) null)
+(defun application-set-terminal-theme (application name)
+  "Persist NAME before installing its styles and repainting the running terminal."
+  (terminal-theme-find name)
+  (setf (config :terminal-theme (application-configuration application)) name)
+  (if (and (slot-boundp application 'ui) (application-ui application))
+      (terminal-ui-set-theme (application-ui application) name)
+      (terminal-theme-install name))
+  nil)
+
 (-> application-apply-setting (application keyword t) null)
 (defun application-apply-setting (application name value)
   "Set NAME to VALUE for APPLICATION and apply the runtime side effects.
 
 Settings with runtime consequences, such as the provider's reasoning
 summaries or the transcript pagination, go through their dedicated setters so
-the settings page and the slash commands behave identically."
+the settings page and commands use the same setters."
   (let* ((configuration (if (member name '(:telemetry-enabled-p :telemetry-diagnostics-p))
                             (telemetry-consent-configuration (application-configuration application))
                             (application-configuration application)))
@@ -2584,6 +2619,8 @@ the settings page and the slash commands behave identically."
        (application-set-hurry-up application value))
       (:relax-p
        (application-set-relax application value))
+      (:terminal-theme
+       (application-set-terminal-theme application value))
       (:permission-mode
        (if value
            (application--set-durable-permission-mode application value)
@@ -2655,6 +2692,25 @@ The current value and its source sit in aligned columns of their own."
                 (application--setting-source-text configuration setting)
                 (setting-documentation setting))))))
 
+(-> application--setting-value-entry (application keyword) list)
+(defun application--setting-value-entry (application name)
+  "Return the real getter and current setting value as one highlighted Lisp row."
+  (append
+   (application-lisp--source-entry (format nil "(config :~(~A~))" name))
+   (list (terminal-span ':success " => "))
+   (application-lisp--value-spans
+    (application-lisp-render-value
+     (config name (application-configuration application))
+     :columns 16000))))
+
+(-> application--present-setting-value (application keyword) null)
+(defun application--present-setting-value (application name)
+  "Present a compact setting row with its getter as the command heading."
+  (let ((entry (application--setting-value-entry application name)))
+    (setf *application-command-presentation-pending-p* nil)
+    (application-present application entry))
+  nil)
+
 (-> application--settings-page (application) null)
 (defun application--settings-page (application)
   "Let the user browse settings and change adjustable ones until they cancel."
@@ -2696,9 +2752,7 @@ The current value and its source sit in aligned columns of their own."
                (application-apply-setting
                 application name
                 (setting-parse setting option (application-configuration application)))
-               (application-present
-                application
-                (format nil "~A is now ~A." (setting-label setting) option)))))
+               (application--present-setting-value application name))))
           (t
            (application-present
             application
@@ -2753,15 +2807,9 @@ The current value and its source sit in aligned columns of their own."
                 (application--setting-source-text configuration setting)
                 (setting-documentation setting)))))
     (t
-     (let* ((key     (application--setting-name name))
-            (setting (configuration-setting (application-configuration application) key)))
+     (let ((key (application--setting-name name)))
        (application-apply-setting application key value)
-       (application-present
-        application
-        (format nil "~A is now ~A~:[~; and saved~]."
-                (setting-label setting)
-                (setting-render-value setting (config key (application-configuration application)))
-                (eq (setting-scope setting) ':durable))))))
+       (application--present-setting-value application key))))
   nil)
 
 (define-application-command application--builtin-settings-command

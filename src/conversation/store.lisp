@@ -281,6 +281,12 @@
     :type     (option integer)
     :documentation
     "When a provider last processed this conversation's prompt in this process, as universal time.")
+   (last-response
+    :initform nil
+    :accessor conversation-last-response
+    :type     list
+    :documentation
+    "The request identity and universal time of the latest durable completed response.")
    (image-artifact-names
     :initform      (make-hash-table :test #'equal)
     :reader        conversation-image-artifact-names
@@ -300,11 +306,6 @@
     :type     t
     :documentation
     "The lock serializing transient resource observations and gated edits.")
-   (turn-state
-    :initform      nil
-    :accessor      conversation-turn-state
-    :type          (option string)
-    :documentation "The transient provider routing token for one user turn.")
    (resumed-p
     :initform nil
     :accessor conversation-resumed-p
@@ -348,7 +349,12 @@ not yet been told that work from the previous process is gone.")
     :initform      nil
     :accessor      conversation-durable-pending-input-identifiers
     :type          list
-    :documentation "Durable pending-input identifiers in chronological first-seen order.")
+    :documentation "Durable pending-input identifiers, newest first.")
+   (pending-input-identifier-index
+    :initform      (make-hash-table :test #'equal :synchronized t)
+    :reader        conversation-pending-input-identifier-index
+    :type          hash-table
+    :documentation "The durable pending-input identifiers as a set, for constant-time checks.")
    (picker-preview
     :initform      nil
     :accessor      conversation-picker-preview
@@ -367,16 +373,11 @@ not yet been told that work from the previous process is gone.")
     :type     deque
     :documentation
     "Recent bounded local user operations in chronological durable order.")
-   (input-history
-    :initform      (make-deque)
-    :accessor      conversation-input-history-entries
-    :type          deque
-    :documentation "Complete chronological editable inputs loaded from the sidecar.")
    (input-history-loaded-p
     :initform      nil
     :accessor      conversation-input-history-loaded-p
     :type          boolean
-    :documentation "Whether the complete input-only sidecar is loaded into this heap.")
+    :documentation "Whether this heap validated the complete input-only sidecar.")
    (input-history-indexed-sequence
     :initform      0
     :accessor      conversation-input-history-indexed-sequence
@@ -392,6 +393,26 @@ not yet been told that work from the previous process is gone.")
     :accessor      conversation-prompt-cache-usage
     :type          list
     :documentation "Newest numeric prompt and cached-input usage, or NIL when unknown.")
+   (usage-totals
+    :initform      (list 0 0 0 0 0 nil)
+    :accessor      conversation-usage-totals
+    :type          list
+    :documentation "Summed provider usage as (INPUT OUTPUT TOTAL CACHED CACHE-CREATED CACHE-SEEN-P), or NIL when unknown.")
+   (usage-lock
+    :initform      (make-lock "Autolith conversation usage migration")
+    :reader        conversation--usage-lock
+    :type          t
+    :documentation "Serializes legacy usage scans without blocking durable appends.")
+   (usage-since
+    :initform      nil
+    :accessor      conversation--usage-since
+    :type          list
+    :documentation "Usage noted while a history scan computes the totals, or NIL when no scan runs.")
+   (usage-sources
+    :initform      nil
+    :accessor      conversation--usage-sources
+    :type          list
+    :documentation "Filesystem identities captured for the running legacy usage scan.")
    (pending-async-lisp-events
     :initform      (make-deque)
     :accessor      conversation-pending-async-lisp-events
@@ -439,6 +460,110 @@ not yet been told that work from the previous process is gone.")
                     (list "cached_input_tokens"
                           (and (typep cached-tokens '(integer 0)) cached-tokens)))))))
   nil)
+
+(-> conversation-usage-totals-after-record (list list) list)
+(defun conversation-usage-totals-after-record (totals record)
+  "Return nonnegative usage TOTALS after a provider RECORD or durable checkpoint."
+  (let* ((metadata   (and (eq (first record) :provider)
+                          (getf (rest record) :metadata)))
+         (checkpoint (getf metadata :usage-checkpoint))
+         (usage      (getf metadata :usage)))
+    (cond
+      ((conversation--usage-totals-p checkpoint)
+       (copy-list checkpoint))
+      ((and usage (listp usage))
+       (flet ((field (key)
+                (let ((value (conversation--usage-field usage key)))
+                  (if (typep value '(integer 0)) value 0)))
+
+              (present-p (key)
+                (typep (conversation--usage-field usage key) '(integer 0))))
+         (destructuring-bind (input output total cached created seen-p) totals
+           (list (+ input (field "input_tokens"))
+                 (+ output (field "output_tokens"))
+                 (+ total (field "total_tokens"))
+                 (+ cached (field "cached_input_tokens"))
+                 (+ created (field "cache_creation_input_tokens"))
+                 (or seen-p
+                     (present-p "cached_input_tokens")
+                     (present-p "cache_creation_input_tokens"))))))
+      (t
+       totals))))
+
+(-> conversation--note-usage-totals (conversation list) null)
+(defun conversation--note-usage-totals (conversation record)
+  "Apply RECORD's durable checkpoint or add its provider usage."
+  (let ((checkpoint (and (eq (first record) :provider)
+                         (getf (getf (rest record) :metadata) :usage-checkpoint))))
+    (cond
+      ((conversation--usage-totals-p checkpoint)
+       (setf (conversation-usage-totals conversation) (copy-list checkpoint)))
+      ((conversation-usage-totals conversation)
+       (setf (conversation-usage-totals conversation)
+             (conversation-usage-totals-after-record
+              (conversation-usage-totals conversation) record)))
+      ((conversation--usage-since conversation)
+       (setf (conversation--usage-since conversation)
+             (conversation-usage-totals-after-record
+              (conversation--usage-since conversation) record)))))
+  nil)
+
+(-> conversation--usage-totals-p (t) boolean)
+(defun conversation--usage-totals-p (totals)
+  "Recognize nonnegative portable usage totals in a header or migration checkpoint."
+  (handler-case
+      (and (listp totals)
+           (eql (list-length totals) 6)
+           (every (lambda (value) (typep value '(integer 0))) (subseq totals 0 5))
+           (member (sixth totals) '(nil t))
+           t)
+    (type-error () nil)))
+
+(-> conversation-usage (conversation) list)
+(defun conversation-usage (conversation)
+  "Return lifetime usage without reading history once initialized.
+
+Serialize legacy scans separately from appends. Capture the scan boundary and
+concurrent tally together, then publish one bounded checkpoint through the
+ordinary append protocol. Failed scans or checkpoint writes can be retried."
+  (or (with-recursive-lock-held ((conversation-append-lock conversation))
+        (conversation-usage-totals conversation))
+      (with-lock-held ((conversation--usage-lock conversation))
+        (let ((boundary nil)
+              (scanned  (list 0 0 0 0 0 nil)))
+          (unwind-protect
+               (progn
+                 (with-recursive-lock-held ((conversation-append-lock conversation))
+                   (when (conversation-usage-totals conversation)
+                     (return-from conversation-usage (conversation-usage-totals conversation)))
+                   (call-with-file-lock
+                    (conversation-picker-source-lock-pathname (conversation-pathname conversation))
+                    (lambda ()
+                      (setf boundary (conversation-next-sequence conversation)
+                            (conversation--usage-since conversation) (list 0 0 0 0 0 nil)
+                            (conversation--usage-sources conversation)
+                            (mapcar (lambda (path)
+                                      (cons path (platform-path-status *platform* path)))
+                                    (conversation-storage-pathnames
+                                     (conversation-pathname conversation)))))))
+                 (conversation-map-records
+                  conversation
+                  (lambda (record)
+                    (when (< (getf (rest record) :seq) boundary)
+                      (setf scanned (conversation-usage-totals-after-record scanned record)))))
+                 (with-recursive-lock-held ((conversation-append-lock conversation))
+                   (or (conversation-usage-totals conversation)
+                       (let* ((since  (conversation--usage-since conversation))
+                              (totals (append (mapcar #'+ (subseq scanned 0 5)
+                                                       (subseq since 0 5))
+                                              (list (or (sixth scanned) (sixth since))))))
+                         (conversation-append-record
+                          conversation
+                          (list :provider :metadata (list :usage-checkpoint totals)))
+                         (conversation-usage-totals conversation)))))
+            (with-recursive-lock-held ((conversation-append-lock conversation))
+              (setf (conversation--usage-since conversation) nil
+                    (conversation--usage-sources conversation) nil)))))))
 
 (-> conversation--prompt-cache-usage-p (t) boolean)
 (defun conversation--prompt-cache-usage-p (usage)
@@ -583,11 +708,89 @@ not yet been told that work from the previous process is gone.")
   (merge-pathnames "conversation-leases.lock"
                    (config :state-root configuration)))
 
+(defstruct (conversation-lease-tracking (:constructor conversation--make-lease-tracking))
+  "Process-qualified diagnostic state; never authoritative for lease admission."
+  (pid (current-process-id) :type integer)
+  (mutex (make-lock "conversation lease diagnostics"))
+  (leases (make-hash-table :test 'equal) :type hash-table)
+  (incomplete-p nil :type boolean))
+
+(defvar *conversation-leases-held* (conversation--make-lease-tracking)
+  "Diagnostic ownership index, replaced before locking in a fork child.")
+
+(-> conversation--lease-tracking () conversation-lease-tracking)
+(defun conversation--lease-tracking ()
+  "Return this process's state without touching an inherited mutex after fork."
+  (unless (= (conversation-lease-tracking-pid *conversation-leases-held*)
+             (current-process-id))
+    (setf *conversation-leases-held* (conversation--make-lease-tracking)))
+  *conversation-leases-held*)
+
+(-> conversation--lease-remember (conversation-lease-tracking conversation-lease) null)
+(defun conversation--lease-remember (tracking lease)
+  "Remember a successfully acquired LEASE without changing its outcome on metadata failure."
+  (handler-case
+      (setf (gethash (namestring (platform-truename
+                                  *platform* (conversation-lease--lock-pathname lease)))
+                     (conversation-lease-tracking-leases tracking))
+            lease)
+    ((or sb-sys:deadline-timeout error) ()
+      ;; A failed index update must forbid future extra descriptor probes.
+      (setf (conversation-lease-tracking-incomplete-p tracking) t)))
+  nil)
+
+(-> conversation--lease-forget (conversation-lease-tracking conversation-lease) null)
+(defun conversation--lease-forget (tracking lease)
+  "Remove only LEASE's own diagnostic entries without preventing release."
+  (handler-case
+      (maphash (lambda (key value)
+                 (when (eq value lease)
+                   (remhash key (conversation-lease-tracking-leases tracking))))
+               (conversation-lease-tracking-leases tracking))
+    ((or sb-sys:deadline-timeout error) ()
+      (setf (conversation-lease-tracking-incomplete-p tracking) t)))
+  nil)
+
+(-> conversation--lease-owner (conversation-lease-tracking pathname) (option (integer 1)))
+(defun conversation--lease-owner (tracking pathname)
+  "Snapshot an owner under lifecycle and tracking locks, excluding our held inodes first."
+  (handler-case
+      (let* ((key   (namestring (platform-truename *platform* pathname)))
+             (known (gethash key (conversation-lease-tracking-leases tracking))))
+        (when (and known (conversation-lease-held-p known))
+          (return-from conversation--lease-owner (current-process-id)))
+        (when (conversation-lease-tracking-incomplete-p tracking)
+          (return-from conversation--lease-owner nil))
+        (let ((target (platform-path-status *platform* pathname :follow-links-p t))
+              (self-p nil))
+          (unless target
+            (return-from conversation--lease-owner nil))
+          (maphash
+           (lambda (key lease)
+             (declare (ignore key))
+             (when (conversation-lease-held-p lease)
+               (let ((status (platform-path-status
+                              *platform* (conversation-lease--lock-pathname lease)
+                              :follow-links-p t)))
+                 (unless status
+                   (return-from conversation--lease-owner nil))
+                 (when (platform-file-status-same-object-p target status)
+                   (setf self-p t)))))
+           (conversation-lease-tracking-leases tracking))
+          (if self-p
+              (current-process-id)
+              (multiple-value-bind (state pid)
+                  (platform-file-lock-owner *platform* pathname)
+                ;; FREE after contention is a race, never permission to take over.
+                (and (eq state ':held) (typep pid '(integer 1)) pid)))))
+    ((or sb-sys:deadline-timeout error) ()
+      nil)))
+
 (declaim (inline conversation--lease-in-use))
 
-(-> conversation--lease-in-use (string pathname pathname) null)
+(-> conversation--lease-in-use (string pathname pathname &key (:owner-pid (option (integer 1)))) null)
 (defun conversation--lease-in-use
-    (identifier conversation-pathname lease-pathname)
+    (identifier conversation-pathname lease-pathname &key owner-pid)
   "Signal that normalized IDENTIFIER already has a live primary owner."
   (error
    'conversation-in-use
@@ -599,7 +802,8 @@ not yet been told that work from the previous process is gone.")
    :pathname       conversation-pathname
    :sequence       nil
    :identifier     identifier
-   :lease-pathname lease-pathname))
+   :lease-pathname lease-pathname
+   :owner-pid      owner-pid))
 
 (-> conversation-lease-held-p (conversation-lease) boolean)
 (defun conversation-lease-held-p (lease)
@@ -633,11 +837,20 @@ a crash may leave one that a later lease acquisition can reuse safely."
           (call-with-file-lock
            guard-pathname
            (lambda ()
-             (make-instance 'conversation-lease
-                            :identifier     normalized
-                            :lock-pathname  lease-pathname
-                            :guard-pathname guard-pathname
-                            :lock-lease     (lease-acquire lease-pathname)))))
+             (let ((tracking (conversation--lease-tracking)))
+               (with-lock-held ((conversation-lease-tracking-mutex tracking))
+                 (handler-case
+                     (let ((lease (make-instance 'conversation-lease
+                                                :identifier     normalized
+                                                :lock-pathname  lease-pathname
+                                                :guard-pathname guard-pathname
+                                                :lock-lease     (lease-acquire lease-pathname))))
+                       (conversation--lease-remember tracking lease)
+                       lease)
+                   (file-lock-busy ()
+                     (conversation--lease-in-use
+                      normalized conversation-pathname lease-pathname
+                      :owner-pid (conversation--lease-owner tracking lease-pathname)))))))))
       (file-lock-busy ()
         (conversation--lease-in-use
          normalized conversation-pathname lease-pathname))
@@ -654,6 +867,15 @@ a crash may leave one that a later lease acquisition can reuse safely."
          :pathname conversation-pathname
          :sequence nil)))))
 
+(-> conversation--lease-release-tracked (conversation-lease ls-flock:lease) null)
+(defun conversation--lease-release-tracked (lease lock-lease)
+  "Release LOCK-LEASE under the diagnostic mutex without reacquiring its lifecycle guard."
+  (let ((tracking (conversation--lease-tracking)))
+    (with-lock-held ((conversation-lease-tracking-mutex tracking))
+      (unwind-protect (lease-release lock-lease)
+        (conversation--lease-forget tracking lease))))
+  nil)
+
 (-> conversation-lease-release (conversation-lease) null)
 (defun conversation-lease-release (lease)
   "Release LEASE idempotently and remove its empty per-ID lock file."
@@ -663,14 +885,14 @@ a crash may leave one that a later lease acquisition can reuse safely."
           (call-with-file-lock
            (conversation-lease--guard-pathname lease)
            (lambda ()
-             (lease-release lock-lease)
+             (conversation--lease-release-tracked lease lock-lease)
              ; mallet:suppress no-ignore-errors -- best-effort removal of the empty lock file after the lease is released
              (ignore-errors
                (let ((pathname (conversation-lease--lock-pathname lease)))
                  (when (probe-file pathname)
                    (delete-file pathname))))))
         (error ()
-          (lease-release lock-lease)))))
+          (conversation--lease-release-tracked lease lock-lease)))))
   nil)
 
 
@@ -684,6 +906,12 @@ a crash may leave one that a later lease acquisition can reuse safely."
 (defun conversation--activity-after-record
     (record &key (working-seconds 0) (user-turn-count 0) last-activity-at)
   "Return activity values after applying durable RECORD to a picker summary."
+  ;; A migration checkpoint records accounting, not new provider work.
+  (when (and (eq (first record) :provider)
+             (conversation--usage-totals-p
+              (getf (getf (rest record) :metadata) :usage-checkpoint)))
+    (return-from conversation--activity-after-record
+      (values working-seconds user-turn-count last-activity-at)))
   (let ((time (and (consp record) (getf (rest record) :time)))
         (user-message-p
           (and (consp record)
@@ -740,15 +968,27 @@ a crash may leave one that a later lease acquisition can reuse safely."
   (let ((identifier
           (and (eq (first record) ':message)
                (getf (rest record) :pending-input-identifier))))
-    (when (and (non-empty-string-p identifier)
-               (not (member identifier
-                            (conversation-durable-pending-input-identifiers
-                             conversation)
-                            :test #'string=)))
-      (setf (conversation-durable-pending-input-identifiers conversation)
-            (append
-             (conversation-durable-pending-input-identifiers conversation)
-             (list (copy-seq identifier))))))
+    (when (non-empty-string-p identifier)
+      (conversation--remember-pending-input-identifier conversation identifier)))
+  nil)
+
+(-> conversation--remember-pending-input-identifier (conversation string) null)
+(defun conversation--remember-pending-input-identifier (conversation identifier)
+  "Add IDENTIFIER to CONVERSATION's durable pending-input identifiers unless present."
+  (let ((index (conversation-pending-input-identifier-index conversation)))
+    (unless (gethash identifier index)
+      (let ((copy (copy-seq identifier)))
+        (push copy (conversation-durable-pending-input-identifiers conversation))
+        (setf (gethash copy index) t))))
+  nil)
+
+(-> conversation--restore-pending-input-identifiers (conversation list) null)
+(defun conversation--restore-pending-input-identifiers (conversation identifiers)
+  "Replace CONVERSATION's pending-input identifiers with chronological IDENTIFIERS."
+  (setf (conversation-durable-pending-input-identifiers conversation) nil)
+  (clrhash (conversation-pending-input-identifier-index conversation))
+  (dolist (identifier identifiers)
+    (conversation--remember-pending-input-identifier conversation identifier))
   nil)
 
 (-> conversation--note-activity (conversation list) null)
@@ -765,6 +1005,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
           (conversation-last-activity-at conversation) last-activity-at))
   (conversation--note-input-history conversation record)
   (conversation--note-prompt-cache-usage conversation record)
+  (conversation--note-usage-totals conversation record)
   nil)
 
 (-> conversation--header-record
@@ -794,8 +1035,8 @@ a crash may leave one that a later lease acquisition can reuse safely."
         (let ((preview (conversation-picker-preview conversation)))
           (and preview (copy-seq preview)))
         :pending-input-identifiers
-        (mapcar #'copy-seq
-                (conversation-durable-pending-input-identifiers conversation))
+        (reverse (mapcar #'copy-seq
+                         (conversation-durable-pending-input-identifiers conversation)))
         :user-operation-records
         (copy-tree (deque->list
                     (conversation-user-operation-records conversation)))
@@ -804,6 +1045,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
             0
             (conversation-input-history-last-sequence conversation))
         :prompt-cache-usage   (copy-tree (conversation-prompt-cache-usage conversation))
+        :usage-totals         (copy-list (conversation-usage-totals conversation))
         :pending-async-lisp-events
         (copy-tree (deque->list
                     (conversation-pending-async-lisp-events conversation)))
@@ -1196,6 +1438,57 @@ a crash may leave one that a later lease acquisition can reuse safely."
              :sequence (conversation-next-sequence conversation))))
   nil)
 
+(-> conversation--call-with-usage-checkpoint (conversation list function) t)
+(defun conversation--call-with-usage-checkpoint (conversation record append-function)
+  "Validate a migration's sources and reconcile an interrupted checkpoint append.
+
+The caller holds the append and source locks. Recovery reads only bytes after
+this append's original EOF, including when publication failed after the write."
+  (dolist (source (conversation--usage-sources conversation))
+    (let ((current (platform-path-status *platform* (first source))))
+      (unless (and current (rest source)
+                   (platform-file-status-same-object-p current (rest source)))
+        (error 'conversation-invariant-error
+               :message  "Conversation storage changed during usage migration."
+               :pathname (first source)
+               :sequence (conversation-next-sequence conversation)))))
+  (when (and (conversation-persisted-p conversation)
+             (not (equal (conversation-log-pathname conversation)
+                         (conversation-storage-active-pathname
+                          (conversation-pathname conversation)))))
+    (error 'conversation-invariant-error
+           :message  "The active conversation segment changed during usage migration."
+           :pathname (conversation-log-pathname conversation)
+           :sequence (conversation-next-sequence conversation)))
+  (when (conversation-incomplete-tail-p conversation)
+    (conversation--repair-incomplete-tail conversation))
+  (let* ((pathname    (conversation-log-pathname conversation))
+         (status      (platform-path-status *platform* pathname))
+         (position    (if status (platform-file-status-size status) 0))
+         (sequence    (conversation-next-sequence conversation))
+         (completed-p nil))
+    (sb-sys:without-interrupts
+      (unwind-protect
+           (prog1 (funcall append-function)
+             (setf completed-p t))
+        (unless completed-p
+          (let ((published nil))
+            (multiple-value-bind (end incomplete-p count)
+                (sexp-store:log-map
+                 (lambda (candidate)
+                   (when (and (eq (first candidate) :provider)
+                              (eql (getf (rest candidate) :seq) sequence)
+                              (equal (getf (rest candidate) :metadata)
+                                     (getf (rest record) :metadata)))
+                     (setf published candidate)))
+                 pathname :start-position position)
+              (declare (ignore end count))
+              (setf (conversation-incomplete-tail-p conversation) incomplete-p))
+            (when (and published (<= (conversation-next-sequence conversation) sequence))
+              (setf (conversation-next-sequence conversation) (1+ sequence)
+                    (conversation-persisted-p conversation) t)
+              (conversation--note-activity conversation published))))))))
+
 (defgeneric conversation-append-record (conversation record)
   (:documentation "Append portable RECORD to CONVERSATION and return the sequenced form."))
 
@@ -1204,7 +1497,13 @@ a crash may leave one that a later lease acquisition can reuse safely."
   (with-recursive-lock-held ((conversation-append-lock conversation))
     (call-with-file-lock
      (conversation-picker-source-lock-pathname (conversation-pathname conversation))
-     (lambda () (call-next-method)))))
+     (lambda ()
+       (if (and (eq (first record) :provider)
+                (conversation--usage-totals-p
+                 (getf (getf (rest record) :metadata) :usage-checkpoint)))
+           (conversation--call-with-usage-checkpoint
+            conversation record (lambda () (call-next-method)))
+           (call-next-method))))))
 
 (defmethod conversation-append-record ((conversation conversation) (record list))
   "Assign metadata, initialize persistence if needed, and append RECORD."
@@ -1858,8 +2157,7 @@ transcript show automatic INPUT as a short notice."
                        (unless attachments
                          (list :wire-json (json-encode item))))))
                (conversation--remember-image-attachments conversation attachments)
-               (setf durable-p t
-                     (conversation-turn-state conversation) nil)
+               (setf durable-p t)
                (values (conversation--append-input-item conversation item)
                        record))
           (unless durable-p
@@ -2134,16 +2432,15 @@ transcript show automatic INPUT as a short notice."
 
 (-> conversation--usage-field (t string) (option integer))
 (defun conversation--usage-field (usage name)
-  "Return the integer counter NAME carried by portable or wire USAGE data."
-  (cond
-    ((json-object-p usage)
-     (let ((value (json-get usage name)))
-       (and (integerp value) value)))
-    ((listp usage)
-     (let ((value (second (assoc name usage :test #'equal))))
-       (and (integerp value) value)))
-    (t
-     nil)))
+  "Return a nonnegative integer counter NAME, or NIL for malformed USAGE data."
+  (handler-case
+      (let ((value (cond
+                     ((json-object-p usage)
+                      (json-get usage name))
+                     ((listp usage)
+                      (second (assoc name usage :test #'equal))))))
+        (and (typep value '(integer 0)) value))
+    (type-error () nil)))
 
 (-> conversation--usage-total (t) (option integer))
 (defun conversation--usage-total (usage)
@@ -2156,9 +2453,11 @@ transcript show automatic INPUT as a short notice."
   (let ((total (conversation--usage-total (getf metadata :usage))))
     (when total
       (setf (conversation-last-total-tokens conversation) total)))
-  (conversation-append-record
-   conversation
-   (list :provider :metadata metadata)))
+  (let ((record (conversation-append-record
+                 conversation
+                 (list :provider :metadata metadata))))
+    (conversation-note-response-record conversation (rest record))
+    record))
 
 (-> conversation--model-selection-p (t t) boolean)
 (defun conversation--model-selection-p (model reasoning-effort)
@@ -2312,9 +2611,17 @@ translating a condition signaled by the record visitor."
 
 (-> conversation-pending-input-identifiers (conversation) list)
 (defun conversation-pending-input-identifiers (conversation)
-  "Return detached pending-input identifiers durably recorded in CONVERSATION."
-  (mapcar #'copy-seq
-          (conversation-durable-pending-input-identifiers conversation)))
+  "Return detached pending-input identifiers durably recorded in CONVERSATION, oldest first.
+
+This copies every identifier; use CONVERSATION-PENDING-INPUT-IDENTIFIER-P to
+test one."
+  (reverse (mapcar #'copy-seq
+                   (conversation-durable-pending-input-identifiers conversation))))
+
+(-> conversation-pending-input-identifier-p (conversation string) boolean)
+(defun conversation-pending-input-identifier-p (conversation identifier)
+  "Return true when CONVERSATION durably records pending-input IDENTIFIER."
+  (and (gethash identifier (conversation-pending-input-identifier-index conversation)) t))
 
 (-> conversation--map-picker-records (pathname function) (values boolean integer))
 (defun conversation--map-picker-records (pathname function)
@@ -2719,11 +3026,12 @@ later picker searches read it without scanning the log."
 
 (defmethod conversation--project-record
     ((kind (eql :provider)) conversation properties)
-  "Remember the latest provider usage total for context accounting."
+  "Remember the latest provider usage total and completed response."
   (let ((total (conversation--usage-total
                 (getf (getf properties :metadata) :usage))))
     (when total
-      (setf (conversation-last-total-tokens conversation) total))))
+      (setf (conversation-last-total-tokens conversation) total)))
+  (conversation-note-response-record conversation properties))
 
 (defmethod conversation--project-record
     ((kind (eql :configuration)) conversation properties)
@@ -2860,11 +3168,16 @@ later picker searches read it without scanning the log."
 
 (-> conversation--header-string-list-p (t) boolean)
 (defun conversation--header-string-list-p (value)
-  "Return true when VALUE is a finite proper list of nonempty strings."
+  "Return true when VALUE is a finite proper list of unique nonempty strings."
   (handler-case
       (and (listp value)
            (or (null value) (list-length value))
-           (every #'non-empty-string-p value)
+           (let ((seen (make-hash-table :test #'equal)))
+             (every (lambda (identifier)
+                      (and (non-empty-string-p identifier)
+                           (not (gethash identifier seen))
+                           (setf (gethash identifier seen) t)))
+                    value))
            t)
     (error ()
       nil)))
@@ -2951,7 +3264,9 @@ later picker searches read it without scanning the log."
            (input-history-last-sequence
              (if (= version 2) (getf properties :input-history-last-sequence 0) 0))
            (prompt-cache-usage
-             (and (= version 2) (getf properties :prompt-cache-usage))))
+             (and (= version 2) (getf properties :prompt-cache-usage)))
+           (usage-totals
+             (and (= version 2) (getf properties :usage-totals))))
       (unless (or (and (null title) (null title-source))
                   (and normalized-title
                        (member title-source '(:initial :generated))))
@@ -2981,9 +3296,6 @@ later picker searches read it without scanning the log."
                        (typep search-message-count '(integer 0))
                        (or (null preview) (stringp preview))
                        (conversation--header-string-list-p pending-identifiers)
-                       (= (length pending-identifiers)
-                          (length (remove-duplicates pending-identifiers
-                                                     :test #'string=)))
                        (conversation--header-record-list-p
                         user-operation-records ':user-operation)
                        (conversation--header-record-list-p
@@ -2992,6 +3304,8 @@ later picker searches read it without scanning the log."
                        (< input-history-last-sequence chunk-start-sequence)
                        (or (null prompt-cache-usage)
                            (conversation--prompt-cache-usage-p prompt-cache-usage))
+                       (or (null usage-totals)
+                           (conversation--usage-totals-p usage-totals))
                        (or (null latest-goal-record)
                            (and (conversation--record-form-p latest-goal-record)
                                 (eq (first latest-goal-record) :goal))))
@@ -3018,6 +3332,8 @@ later picker searches read it without scanning the log."
                                   reasoning-effort)
                              :next-sequence     chunk-start-sequence
                              :input-items       nil)))
+        ;; Headers written before usage totals existed leave them unknown.
+        (setf (conversation-usage-totals conversation) (copy-list usage-totals))
         (when (= version 2)
           (setf (conversation-working-seconds conversation) working-seconds
                 (conversation-user-turn-count conversation) user-turn-count
@@ -3026,10 +3342,9 @@ later picker searches read it without scanning the log."
                 search-message-count
                 (conversation-picker-preview conversation)
                 (and preview (copy-seq preview))
-                (conversation-durable-pending-input-identifiers conversation)
-                (mapcar #'copy-seq pending-identifiers)
                 (conversation-latest-goal-record conversation)
                 (copy-tree latest-goal-record))
+          (conversation--restore-pending-input-identifiers conversation pending-identifiers)
           (setf (conversation-prompt-cache-usage conversation)
                 (copy-tree prompt-cache-usage)
                 (conversation-input-history-last-sequence conversation)

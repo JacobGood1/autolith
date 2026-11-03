@@ -197,8 +197,9 @@ jumps between as messages."
                    :terminal                terminal
                    :editor                  (or editor
                                                 (line-editor-create
-                                                 :history-limit *terminal-history-limit*
-                                                 :auto-pair-p   t))
+                                                 :history-limit           *terminal-history-limit*
+                                                 :history-character-limit *terminal-history-character-limit*
+                                                 :auto-pair-p             t))
                    :live-region             live-region
                    :clock-function          clock-function
                    :prompt                  prompt
@@ -222,12 +223,32 @@ jumps between as messages."
        (with-recursive-lock-held ((terminal-ui-lock ,locked-ui))
          ,@body))))
 
-(-> terminal-ui-load-history (terminal-ui list) terminal-ui)
-(defun terminal-ui-load-history (ui entries)
-  "Replace editor history with sanitized application input entries."
+(-> terminal-ui-load-history
+    (terminal-ui list &key (:offset (integer 0))
+                      (:older-function (option function))
+                      (:newer-function (option function)))
+    terminal-ui)
+(defun terminal-ui-load-history (ui entries &key (offset 0) older-function newer-function)
+  "Replace editor history with sanitized ENTRIES beginning at absolute OFFSET.
+
+Paging functions receive absolute oldest-based resident boundaries and return
+adjacent entries, oldest first. Both directions keep the complete history
+recallable while the resident window obeys the editor's budgets."
   (with-terminal-ui-locked (ui)
-    (clinedi:line-editor-replace-history (terminal-ui-editor ui)
-                                         (mapcar #'sanitize-text entries)))
+    (let ((editor (terminal-ui-editor ui)))
+      (clinedi:line-editor-replace-history editor (mapcar #'sanitize-text entries))
+      ;; Replacement can trim the oldest entries to satisfy either budget.
+      (reinitialize-instance editor :history-offset
+                             (+ offset (- (length entries)
+                                          (length (clinedi:line-editor-history editor)))))
+      (setf (clinedi:line-editor-history-older-function editor)
+            (and older-function
+                 (lambda (start)
+                   (mapcar #'sanitize-text (funcall older-function start))))
+            (clinedi:line-editor-history-newer-function editor)
+            (and newer-function
+                 (lambda (end)
+                   (mapcar #'sanitize-text (funcall newer-function end)))))))
   ui)
 
 (-> terminal-ui--call-with-lock-if-available
@@ -2344,6 +2365,8 @@ while output is deferred and otherwise dropped."
               (and status-now
                    (terminal-ui--animation-signature-at ui status-now)))
         (when (terminal-interactive-p terminal)
+          (unless (terminal-ui-theme-defaults-current-p ui)
+            (terminal-ui--enter-theme ui))
           (let ((painted-command-activities
                   (terminal-ui--command-visible-activities ui)))
             (multiple-value-bind (text display cursor)
@@ -2439,13 +2462,24 @@ A call's header spans may be widgets inserting its invocation when clicked."
 
 (-> terminal-ui--compact-entry-group
     ((or string list))
-    (or null (eql :success) string))
+    (or null (member :success :lisp-result) string))
 (defun terminal-ui--compact-entry-group (entry)
-  "Group single-line successes, calls, and handoffs by kind and tool."
+  "Group single-line successes, calls, handoffs, and inline Lisp results."
   (if (terminal-ui--compact-success-p entry)
       ':success
       (or (terminal-ui--compact-call-tool entry)
-          (terminal-ui--compact-handoff-group entry))))
+          (terminal-ui--compact-handoff-group entry)
+          (when (and (consp entry)
+                     (not (termdown:widget-p (first entry)))
+                     (eq (terminal-span-style (first entry)) ':lisp-prompt)
+                     (some (lambda (span)
+                             (and (not (termdown:widget-p span))
+                                  (eq (terminal-span-style span) ':success)
+                                  (string= (terminal-span-text span) " => ")))
+                           entry)
+                     (let ((text (terminal--spans-text entry)))
+                       (not (or (find #\Newline text) (find #\Return text)))))
+            ':lisp-result))))
 
 (-> terminal-ui--attached-entry-p ((or string list)) boolean)
 (defun terminal-ui--attached-entry-p (entry)
@@ -2467,7 +2501,7 @@ A call's header spans may be widgets inserting its invocation when clicked."
 
 (-> terminal-ui--separation-group
     ((or string list))
-    (or null (member :success :call :attached) string))
+    (or null (member :success :lisp-result :call :attached) string))
 (defun terminal-ui--separation-group (entry)
   "Return the group deciding the blank rows around ENTRY, or NIL for a plain block.
 
@@ -2763,6 +2797,62 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
 
 ;;;; -- Public UI Lifecycle and Events --
 
+(-> terminal-ui--enter-theme (terminal-ui) null)
+(defun terminal-ui--enter-theme (ui)
+  "Apply the installed theme's defaults, retaining ownership across failed writes."
+  (let* ((terminal (terminal-ui-terminal ui))
+         (previous (terminal-ui-default-color-theme ui))
+         (theme    *terminal-theme*))
+    (setf (terminal-ui-theme-defaults-current-p ui) nil)
+    (when (and (terminal-interactive-p terminal) (terminal-styled-p terminal))
+      ;; A partial transition can leave either palette's defaults imposed.
+      (setf (terminal-ui-default-color-theme ui)
+            (make-terminal-theme
+             :name       ':pending-defaults
+             :foreground (or (terminal-theme-foreground theme)
+                             (and previous (terminal-theme-foreground previous)))
+             :background (or (terminal-theme-background theme)
+                             (and previous (terminal-theme-background previous)))))
+      (let ((controls (concatenate 'string
+                                   (if previous (terminal-theme-leave-sequence previous) "")
+                                   (terminal-theme-enter-sequence theme))))
+        (when (plusp (length controls))
+          (terminal--write terminal controls)
+          (terminal-flush terminal)))
+      (setf (terminal-ui-default-color-theme ui) theme
+            (terminal-ui-theme-defaults-current-p ui) t)))
+  nil)
+
+(-> terminal-ui--leave-theme (terminal-ui) null)
+(defun terminal-ui--leave-theme (ui)
+  "Restore the terminal defaults owned by UI, retaining ownership on failure."
+  (setf (terminal-ui-theme-defaults-current-p ui) nil)
+  (let ((theme (terminal-ui-default-color-theme ui)))
+    (when theme
+      (let ((controls (terminal-theme-leave-sequence theme)))
+        (when (plusp (length controls))
+          (terminal--write (terminal-ui-terminal ui) controls)
+          (terminal-flush (terminal-ui-terminal ui))))
+      (setf (terminal-ui-default-color-theme ui) nil)))
+  nil)
+
+(-> terminal-ui-set-theme (terminal-ui keyword) null)
+(defun terminal-ui-set-theme (ui name)
+  "Install NAME and redraw UI's live content without rewriting committed scrollback.
+
+The caller persists the setting first. A failed terminal write leaves the new
+logical theme installed and the physical frame invalid for the next repaint."
+  (with-terminal-ui-locked (ui)
+    (terminal-theme-install name)
+    (setf (terminal-ui-prompt-render-cache ui) nil
+          (terminal-ui-theme-defaults-current-p ui) nil)
+    (when (terminal-ui-fullscreen-p ui)
+      (terminal-ui-fullscreen-invalidate ui))
+    (when (terminal-ui-started-p ui)
+      (terminal-ui--enter-theme ui)
+      (terminal-ui--paint-live ui)))
+  nil)
+
 (-> terminal-ui-start (terminal-ui) terminal-ui)
 (defun terminal-ui-start (ui)
   "Start UI's transport and selected presentation mode."
@@ -2773,8 +2863,9 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
       (terminal-ui-report-program-status
        ui (first (terminal-ui-program-status ui))
        :kind (second (terminal-ui-program-status ui)))
-      (when (terminal-ui-fullscreen-p ui)
-        (terminal-ui-fullscreen-enter ui))
+      (if (terminal-ui-fullscreen-p ui)
+          (terminal-ui-fullscreen-enter ui)
+          (terminal-ui--enter-theme ui))
       (terminal-ui--paint-live ui)))
   ui)
 
@@ -2785,7 +2876,9 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
     (when (terminal-ui-started-p ui)
       (if (terminal-ui-fullscreen-p ui)
           (terminal-ui-fullscreen-leave ui)
-          (live-region-suspend (terminal-ui-live-region ui)))))
+          (progn
+            (live-region-suspend (terminal-ui-live-region ui))
+            (terminal-ui--leave-theme ui)))))
   ui)
 
 (-> terminal-ui-stop (terminal-ui) terminal-ui)
@@ -2810,8 +2903,9 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
             (terminal-ui-notice-deadline ui) nil
             (terminal-ui-live-output-suspended-p ui) nil)
       (unwind-protect
-           (when (terminal-ui-fullscreen-p ui)
-             (terminal-ui-fullscreen-leave ui))
+           (if (terminal-ui-fullscreen-p ui)
+               (terminal-ui-fullscreen-leave ui)
+               (terminal-ui--leave-theme ui))
         (terminal-stop (terminal-ui-terminal ui)))))
   ui)
 
@@ -2825,14 +2919,60 @@ readiness polling, resize coordination and lifecycle cleanup belong to Clinedi."
                 ,@body))
        (terminal-ui-stop ,variable))))
 
+(defmethod terminal-ui--note-finalized-output ((ui terminal-ui) identifiers)
+  "Native scrollback is never evicted, so nothing is associated."
+  (declare (ignore identifiers))
+  nil)
+
+(defmethod terminal-ui-take-evicted-sequence ((ui terminal-ui) owner)
+  "Native scrollback never evicts records."
+  (declare (ignore owner))
+  nil)
+
+(-> terminal-ui--finalized-p (terminal-ui t) boolean)
+(defun terminal-ui--finalized-p (ui identifier)
+  "Return true when UI recently emitted finalized IDENTIFIER."
+  (nth-value 1 (gethash identifier (terminal-ui-finalized-identifiers ui))))
+
+(-> terminal-ui--remember-finalized
+    (terminal-ui list &key (:note-output-p boolean)) null)
+(defun terminal-ui--remember-finalized (ui identifiers &key (note-output-p t))
+  "Remember finalized IDENTIFIERS, optionally tagging the newest output chunk."
+  (let ((table (terminal-ui-finalized-identifiers ui))
+        (order (terminal-ui-finalized-order ui)))
+    (dolist (identifier identifiers)
+      (let ((stamp (incf (terminal-ui-finalized-stamp ui))))
+        (setf (gethash identifier table) stamp)
+        (loop for (old . old-stamp) across (or (nth-value 1 (deque-push-back order (cons identifier stamp)))
+                                               #())
+              ;; A later emission of the same identifier keeps it remembered.
+              when (eql (gethash old table) old-stamp)
+                do (remhash old table))))
+    (when note-output-p
+      (terminal-ui--note-finalized-output ui identifiers)))
+  nil)
+
+(-> terminal-ui--forget-finalized (terminal-ui t) null)
+(defun terminal-ui--forget-finalized (ui identifier)
+  "Forget finalized IDENTIFIER so UI may present it again."
+  (remhash identifier (terminal-ui-finalized-identifiers ui))
+  nil)
+
+(-> terminal-ui--clear-finalized (terminal-ui) null)
+(defun terminal-ui--clear-finalized (ui)
+  "Forget every finalized identifier UI remembers."
+  (clrhash (terminal-ui-finalized-identifiers ui))
+  (deque-clear (terminal-ui-finalized-order ui))
+  nil)
+
 (-> terminal-ui-mark-finalized (terminal-ui t) boolean)
 (defun terminal-ui-mark-finalized (ui identifier)
   "Remember finalized IDENTIFIER and return true only on its first occurrence."
   (with-terminal-ui-locked (ui)
     (block nil
-      (when (gethash identifier (terminal-ui-finalized-identifiers ui))
+      (when (terminal-ui--finalized-p ui identifier)
         (return nil))
-      (setf (gethash identifier (terminal-ui-finalized-identifiers ui)) t)
+      (terminal-ui--remember-finalized ui (list identifier))
       t)))
 
 (defmethod terminal-ui--append-output :around
@@ -2876,8 +3016,8 @@ REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
   nil)
 
 (-> terminal-ui--separated-p
-    ((or null (member :success :call :attached) string)
-     (or null (member :success :call :attached) string))
+    ((or null (member :success :call :attached :lisp-result) string)
+     (or null (member :success :call :attached :lisp-result) string))
     boolean)
 (defun terminal-ui--separated-p (previous next)
   "Return true when a blank row belongs between groups PREVIOUS and NEXT."
@@ -2903,7 +3043,7 @@ REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
   "Append finalized transcript ENTRY once for IDENTIFIER and return true when emitted."
   (with-terminal-ui-locked (ui)
     (block nil
-      (when (gethash identifier (terminal-ui-finalized-identifiers ui))
+      (when (terminal-ui--finalized-p ui identifier)
         (return nil))
       (handler-case
           (multiple-value-bind (text display regions)
@@ -2912,11 +3052,9 @@ REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
               (terminal-ui--append-output
                ui text display :regions regions
                :compact-first-group group :compact-last-group group))
-            (setf (gethash identifier
-                          (terminal-ui-finalized-identifiers ui))
-                  t))
+            (terminal-ui--remember-finalized ui (list identifier)))
         (error (condition)
-          (remhash identifier (terminal-ui-finalized-identifiers ui))
+          (terminal-ui--forget-finalized ui identifier)
           (error condition)))
       t)))
 
@@ -2929,8 +3067,7 @@ REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
           (previous-group nil))
       (dolist (pair entries)
         (destructuring-bind (identifier entry) pair
-          (unless (or (gethash identifier
-                               (terminal-ui-finalized-identifiers ui))
+          (unless (or (terminal-ui--finalized-p ui identifier)
                       (gethash identifier seen))
             (multiple-value-bind (text display regions)
                 (terminal-ui--finalized-content ui entry)
@@ -2971,17 +3108,30 @@ REGIONS only matter to the fullscreen viewport, which owns mouse reporting."
                    ui text display :regions regions
                    :compact-first-group     (fifth (first pending))
                    :compact-last-group      (fifth (first (last pending))))
-                  (dolist (entry pending)
-                    (setf (gethash
-                           (first entry)
-                           (terminal-ui-finalized-identifiers ui))
-                          t)))
+                  (terminal-ui--remember-finalized ui (mapcar #'first pending)))
               (error (condition)
                 (dolist (entry pending)
-                  (remhash (first entry)
-                           (terminal-ui-finalized-identifiers ui)))
+                  (terminal-ui--forget-finalized ui (first entry)))
                 (error condition))))))
       (length pending))))
+
+(defgeneric terminal-ui-present-records (ui presentations)
+  (:documentation
+   "Present ordered (IDENTIFIER ENTRY METADATA) transcript records.
+
+METADATA is NIL for ordinary records or a presentation plist understood by a
+specialized UI.  ENTRY may be NIL for records hidden by compact presentation.
+Return the number of records emitted or used."))
+
+(defmethod terminal-ui-present-records ((ui terminal-ui) presentations)
+  "Append visible presentation records through the ordinary finalized path."
+  (terminal-ui-append-finalized-batch
+   ui
+   (loop for presentation in presentations
+         for identifier = (first presentation)
+         for entry = (second presentation)
+         when entry
+           collect (list identifier entry))))
 
 (-> terminal-ui-set-preview-rows (terminal-ui list) terminal-ui)
 (defun terminal-ui-set-preview-rows (ui rows)

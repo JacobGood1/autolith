@@ -1069,6 +1069,16 @@ values from either side of a terminal transition."
    (lambda (job) (session-job-visible-to-agent-p job viewer))
    (task-orchestrator-list-jobs orchestrator)))
 
+(-> task-orchestrator-visible-job-named (task-orchestrator t string) (option session-job))
+(defun task-orchestrator-visible-job-named (orchestrator viewer identifier)
+  "Return VIEWER's visible job whose job or execution identifier is IDENTIFIER.
+
+task.run reports both identifiers, and models pass either one."
+  (find-if (lambda (job)
+             (or (equal identifier (session-job-identifier job))
+                 (equal identifier (session-job-execution-identifier job))))
+           (task-orchestrator-list-visible-jobs orchestrator viewer)))
+
 (-> task-orchestrator-find-visible-job
     (task-orchestrator string &key (:viewer agent) (:tool-name string))
     session-job)
@@ -1092,6 +1102,10 @@ values from either side of a terminal transition."
   "Cancel JOB and every retained descendant in its own pool."
   (multiple-value-bind (accepted-p cascaded)
       (job-cancel job :reason reason :cascade-p t)
+    (when accepted-p
+      (session-job-note-cancellation job reason))
+    (dolist (descendant cascaded)
+      (session-job-note-cancellation descendant reason))
     (values accepted-p
             (sort (mapcar #'session-job-identifier cascaded) #'string<))))
 
@@ -1125,6 +1139,10 @@ values from either side of a terminal transition."
                       task-identifiers)
             (multiple-value-bind (cancelled-p cascaded)
                 (job-cancel candidate :reason reason :cascade-p t)
+              (when cancelled-p
+                (session-job-note-cancellation candidate reason))
+              (dolist (descendant cascaded)
+                (session-job-note-cancellation descendant reason))
               (when cancelled-p
                 (push (session-job-identifier candidate)
                       cancelled-descendants))

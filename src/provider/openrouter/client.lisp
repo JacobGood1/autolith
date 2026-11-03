@@ -88,6 +88,24 @@
   (:documentation
    "A static API key client for OpenRouter's Chat Completions API."))
 
+(defmethod provider-prompt-cache-retention-estimate
+    ((provider openrouter-chat-completions-provider))
+  "Estimate OpenRouter Claude cache lifetime from the requested TTL only."
+  (let ((configuration (provider-configuration provider))
+        (model         (config :model (provider-configuration provider))))
+    (when (and (stringp model)
+               (uiop:string-prefix-p "openrouter/anthropic/claude" model))
+        (let ((ttl (config :prompt-cache-ttl configuration)))
+          (if (stringp ttl)
+              (cond
+                ((string= ttl "5m")
+                 300)
+                ((string= ttl "1h")
+                 3600)
+                (t
+                 nil))
+              nil)))))
+
 (defmethod openai-compatible-provider-output-ceiling-field
     ((provider openrouter-chat-completions-provider))
   "Use the output limit field accepted across OpenRouter upstream providers."
@@ -145,14 +163,25 @@
 Claude caches nothing without them. OpenRouter turns the same breakpoint into
 OpenAI's explicit cache boundary, which otherwise lands on the trailing context.")
 
+(defparameter *openrouter-cache-lifetime-prefixes* '("anthropic/" "~anthropic/")
+  "OpenRouter model prefixes whose cache breakpoints accept a requested lifetime.")
+
 (defmethod openai-compatible-provider-cache-breakpoint-fields
     ((provider openrouter-chat-completions-provider) (configuration configuration))
-  "Request ephemeral cache breakpoints for models that need explicit ones."
+  "Request ephemeral cache breakpoints for models that need explicit ones.
+
+Claude breakpoints carry the configured cache lifetime when it is not the default."
   (declare (ignore provider))
-  (let ((wire-model (openrouter--wire-model-name (config :model configuration))))
-    (when (some (lambda (prefix) (uiop:string-prefix-p prefix wire-model))
-                *openrouter-cache-breakpoint-prefixes*)
-      (list "cache_control" (json-object "type" "ephemeral")))))
+  (flet ((matches-p (prefixes wire-model)
+           "Return true when WIRE-MODEL starts with one of PREFIXES."
+           (some (lambda (prefix) (uiop:string-prefix-p prefix wire-model)) prefixes)))
+    (let ((wire-model (openrouter--wire-model-name (config :model configuration)))
+          (ttl        (provider-prompt-cache-ttl configuration)))
+      (when (matches-p *openrouter-cache-breakpoint-prefixes* wire-model)
+        (list "cache_control"
+              (if (and ttl (matches-p *openrouter-cache-lifetime-prefixes* wire-model))
+                  (json-object "type" "ephemeral" "ttl" ttl)
+                  (json-object "type" "ephemeral")))))))
 
 (defmethod openai-compatible-provider-anchored-context-p
     ((provider openrouter-chat-completions-provider))
@@ -165,7 +194,10 @@ OpenAI's explicit cache boundary, which otherwise lands on the trailing context.
      (conversation conversation)
      (tool-namespaces vector)
      &key goal-context compaction-p)
-  "Translate the namespaced model, reasoning, and provider preferences for OpenRouter."
+  "Translate the namespaced model, reasoning, and provider preferences for OpenRouter.
+
+The conversation's cache key becomes the session identifier, so OpenRouter
+routes every request of the conversation to one provider from the first."
   (multiple-value-bind (request delivery)
       (call-next-method provider conversation tool-namespaces
                         :goal-context goal-context
@@ -178,7 +210,8 @@ OpenAI's explicit cache boundary, which otherwise lands on the trailing context.
               (provider-configuration provider))))
            (model-supports-reasoning-p
             (openrouter--model-supports-reasoning-p model)))
-      (setf (gethash "model" request) wire-model)
+      (setf (gethash "model" request)      wire-model
+            (gethash "session_id" request) (conversation-prompt-cache-key conversation))
       (when (and effort model-supports-reasoning-p)
         (setf (gethash "reasoning" request)
               (json-object "effort" effort)))
@@ -186,8 +219,8 @@ OpenAI's explicit cache boundary, which otherwise lands on the trailing context.
               (openrouter--provider-preferences
                wire-model (provider-configuration provider))))
         (when preferences
-          (setf (gethash "provider" request) preferences))))
-    (values request delivery)))
+          (setf (gethash "provider" request) preferences)))
+      (values request delivery))))
 
 (defmethod provider-authenticate
     ((provider openrouter-chat-completions-provider)

@@ -27,11 +27,14 @@ Autolith's prompt window can also evuluate lisp forms directly:
 This can be frequently helpful since you can use the exact same tools
 the clanker can, and the same machinery is exposed to you.
 
+Slash syntax is optional syntactic sugar for command forms, for example
+=/status= for =(status)=.
+
 Type =(=, =[=, or ={= in the composer to insert a matching pair with the cursor
 between the braces. Type the closing brace to move past it, or press Backspace
 between an empty pair to delete both braces.
 
-=Tab= completes slash commands, operation names, finite options, and workspace
+=Tab= completes operation names, finite options, and workspace
 paths, and =Shift-Tab= steps back through the suggestions. With nothing to
 complete, =Tab= sends the input like Enter, or queues it as a follow-up while a
 turn is running. Inside a form you are still typing, such as =(job.continuity :=,
@@ -157,12 +160,33 @@ children, compaction and recursive inference, including mapped and nested frames
 Reported billable tokens use the provider API's usage normalization and exclude
 known prompt-cache reads. Admissions and settlements are serialized within a
 mission; provider requests execute concurrently. Each admission reserves a turn
-and an output ceiling from the unspent, unreserved tokens. The default ceiling
-divides those tokens among the remaining turns; an explicit provider output cap
-replaces that division. Reviewer requests reserve from both allowances. Settlement
-releases the ceiling and charges reported input and output usage, so a request
-can exhaust the token allowance. Missing usage is recorded as unknown and blocks
-further inference. Install a new explicit budget to proceed after unknown usage.
+and an output accounting allocation from the unspent, unreserved tokens. The
+allocation normally divides those tokens among the remaining turns; an explicit
+provider output cap replaces that division. Reviewer requests reserve from both
+allowances. Settlement releases the reservation and charges reported input and
+output usage, so measured usage can exhaust the token allowance.
+
+When an exactly identified admitted child settles without usage, charge its full
+finite reservation once, including for length failures, HTTP 429, cancellation or
+an interrupted dispatch. Retain the child's failure and UNKNOWN audit. Record
+=:reservation-charged-tokens= as part of =:tokens-used=, not additional spend, and
+=:reservation-charges-by-child= with request counts and token charges. Child
+terminal results retain =:unknown-usage=, =:reservation-charged-tokens= and
+=:reservation-charge-requests=; =:usage= contains only provider-reported usage.
+The shared mission gains no unresolved UNKNOWN from this bounded settlement.
+Subsequent primary inference, new children and native scheduled continuations
+use the same mission and ordinary remaining budget, deadline and identity checks.
+
+This allocation is an accounting policy charge, not measured usage or a bound on
+actual provider billing. Input and repeated generations can exceed it; Codex does
+not enforce a wire output ceiling at the current library pin. Retry success uses
+only final returned usage and does not reconcile earlier unreported attempts.
+Without proven finite exact-child ownership, retain unresolved shared UNKNOWN.
+Exact-child unresolved usage quarantines further inference and new child work
+before dispatch; non-spending continuation and already-reserved requests may
+finish. Root or unproven ownership keeps conservative blocked behavior. Recovery
+cannot infer per-request child bounds from aggregate outstanding reservations.
+Existing unresolved UNKNOWN is never reclassified by restore or continuation.
 
 The wall-clock deadline includes gate execution, delegated tools, pauses and
 time away. Work runs under cl-jobpond supervision. Use =(goal :pause)= and
@@ -293,6 +317,35 @@ redacted from server output. Cancel a prompt to stop its provider, tools, and
 owned jobs; close the session or disconnect to release its resources and lease.
 One primary prompt, setting mutation, tool invocation, or session setup runs at a
 time in each ACP process. Catalog reads and owned-job controls can run alongside it.
+Ctrl-C ends an ACP process with status 130 after it releases its sessions.
+
+** Remote clients
+
+=autolith acp --http= serves remote clients on one endpoint, =/acp=, over the
+transports of the ACP proposal "Streamable HTTP & WebSocket Transport":
+Streamable HTTP over HTTP/1.1 or cleartext HTTP/2, and WebSocket.
+=autolith acp --websocket= serves WebSocket alone. Both listen on
+=127.0.0.1:8737= by default. Name another port, or a host and a port, to change
+that:
+
+#+BEGIN_SRC sh
+autolith acp --websocket 9000
+autolith acp --http 0.0.0.0:8737 --token "$ACP_TOKEN"
+autolith acp --http [::1]:8737
+#+END_SRC
+
+Autolith prints the endpoint URL on stderr and serves until Ctrl-C. Each client
+gets its own sessions. All clients share the process's one primary operation, so
+while one client's prompt runs, another client's prompt is refused as busy.
+
+With =--token=, a client must send =Authorization: Bearer TOKEN= or add
+=?token=TOKEN= to the URL. Other users of the machine can read the command line,
+the token included. Requests from web pages, which carry an =Origin= header, are
+refused.
+
+Any host but loopback makes the agent reachable from other machines, and
+Autolith warns that the endpoint is not secure. The traffic, the token included,
+is unencrypted: put a reverse proxy with TLS in front of it, and use a token.
 
 ** Typed client extensions
 
@@ -449,7 +502,10 @@ launch without changing the saved preference.
 Pass =nil= to =preferences-set-fullscreen= to return future launches to inline mode.
 Because the viewport owns the mouse, hold =Shift= while dragging to select text
 with the terminal emulator. Fullscreen history lives in the application rather
-than the terminal emulator's native scrollback.
+than the terminal emulator's native scrollback. The viewport keeps about four
+million characters of recent output; older output leaves memory, and the legend
+shows =(history)= at the oldest kept row. Run =(history)= to load the newest
+page of the output that left.
 
 For input with matching saved memories, a dim =@ N relevant memories exist= line
 appears below your message. Its count is the number offered to the model for that
@@ -460,7 +516,9 @@ Input recall includes every user message, command, and Lisp submission in the
 conversation. Automatic messages and assistant output are excluded. On first use,
 the complete input-only sidecar is built from the conversation records; later
 submissions are appended to it. Resuming reads this sidecar instead of replaying
-archived transcript chunks.
+archived transcript chunks. The editor keeps the newest 500 inputs, up to a
+million characters, in memory. Moving past the oldest of them loads the
+next older page from the sidecar, and leaving history recall releases it again.
 
 Clicking a web address in the fullscreen transcript opens it in the default
 browser, and every fenced code block ends with a =⧉ copy= label that copies the
@@ -477,6 +535,11 @@ arguments; editing it first runs a similar call; writing around it asks the
 model about that exact call. Arrays are spelled as =(vector ...)= and objects
 as =(dict ...)=, and argument names with uppercase letters keep their case as
 =:|filePath|= or a string key.
+
+In fullscreen mode, a pending tool call starts with =▸=. When it finishes, the
+same header shows a green =✓= for success or a red =!= for failure. Errors
+appear beneath the original invocation and arguments. Background handoffs keep
+=▸= until completion. Thanks to @rgbcube for suggesting these outcome markers.
 
 Interactive sessions report their root status with the
 [[https://www.superlogical.com/rex/docs/build/program-status][OSC 7501 Program Status Protocol]], with =app=autolith=. Reports use =idle=
@@ -541,7 +604,7 @@ presentation. Detached sessions carry the theme across handoff.
 Nix is the simplest way to install Autolith:
 
 #+BEGIN_SRC sh
-nix run github:luciusmagn/autolith
+nix run github:lambda-symbolics/autolith
 #+END_SRC
 
 The first launch builds Lisp images Autolith needs to launch.
@@ -868,7 +931,10 @@ to replace the whole list or one zero-based entry:
 (vault-restore)
 #+END_SRC
 
-Entries are =(:message INPUT)=, =(:command TEXT)=, or =(:lisp SOURCE)=.
+Entries are =(:message INPUT)=, =(:command TEXT)=, =(:lisp SOURCE)=, or
+=(:native-lisp SOURCE)= for noninteractive scheduled wakeups.
+Pending snapshots store scheduled wakeups in a separate section ignored by
+releases before 0.67.9; after a downgrade, only those wakeups are omitted.
 Direct vault reads and top-level =setf= forms containing only =vault-contents=
 places execute during an active turn. Returned lists are detached snapshots;
 publish edits with =setf=. Use =(setf (vault-contents) nil)= to clear parked input.
@@ -886,6 +952,13 @@ against retained file revisions and validates every member before publication.
 Each file is published atomically. On a later failure, Autolith restores earlier
 members; conflicting external updates require explicit recovery rather than
 replacement. File moves preserve source permissions captured during staging.
+
+Papercuts report concrete defects or repeated friction in the running Autolith
+harness or its tools. Record project source bugs and test, build, or CI failures
+in the task plan or agenda, even when developing Autolith itself; use a project
+tracker only when authorized. A project failure alone is not evidence of a
+harness defect. Papercuts are not progress reports or records of ordinary
+uncertainty.
 
 Papercuts use current-workspace resource URIs:
 
@@ -1050,6 +1123,11 @@ in a conversation changes, the next turn explains the change to it once, and
 =@ 1 fact given earlier changed= appears. A memory can name a fact as a
 premise and goes stale when the fact stops holding; a fact can cite a memory
 as evidence.
+
+Autolith keeps every current fact, its sources, and the 1,024 most recently
+retracted sources in memory. Older retractions stay in the knowledge log, so
+=(why "ID")= still explains a long-retracted fact, reading its history from the
+log.
 
 The model reads =memory:facts=, =memory:claim/ID=, =memory:predicates=,
 =memory:rules=, =memory:procedures=, and =memory:changes=, and edits =memory:facts= with
@@ -1294,6 +1372,21 @@ and =sequence= jump to a location; =raw= shows the selected replay form; and
 =quit= exits. Replay reads complete persisted forms without acquiring the
 conversation lease or repairing, appending, or resuming the conversation.
 
+List the tool calls that failed recently, with the arguments the model sent,
+grouped by tool and error:
+
+#+BEGIN_SRC sh
+autolith tool-failures
+autolith tool-failures --days 3 --examples 5
+autolith tool-failures ID
+#+END_SRC
+
+Without IDs it reads every conversation and child task conversation, but only
+the segments written in the last =--days= days, seven by default. Groups ignore
+the numbers and quoted values in error text, so the same mistake with different
+arguments counts once per call in one group. Use it to find where a tool
+description or argument rule makes models fail.
+
 ** Local sessions
 
 Every running Autolith session publishes a private authenticated local endpoint.
@@ -1308,6 +1401,27 @@ autolith lg status --sexp
 #+END_SRC
 
 =idle= means that the process is at input with no active work of any kind.
+
+Start an unattended session, or resume one by conversation ID prefix:
+
+#+BEGIN_SRC sh
+autolith --detached
+autolith resume b-6 --detached
+autolith resume b-6
+autolith resume
+#+END_SRC
+
+With =--detached=, Autolith prints the full conversation ID and session PID,
+then exits without attaching. This works with closed stdin and with
+=AUTOLITH_SESSION_STYLE=direct=. Detached resume requires a prefix. Without
+=--detached=, omit the prefix to open the conversation picker. Exact canonical
+and displayed IDs take priority; ambiguous prefixes report every matching ID
+with its available title, workspace, time, and preview. Running conversations,
+including empty new sessions, are selectable. Resuming a running conversation
+attaches to it; detached resume prints its existing PID without disturbing its
+clients. Launch-only overrides such as =--model= and =--permissions= are rejected
+when reusing a running conversation. =--image= and =--simulate-crash= cannot be
+combined with =--detached=.
 
 Control a session with the following commands:
 
@@ -1334,11 +1448,9 @@ case-sensitive. Legacy hexadecimal IDs accept either case.
 =pause= cancels active work and holds queued primary work.
 =kill= requests graceful shutdown.
 
-Detaching hands a session to a supervised process group that outlives the
-terminal. Windows has no process groups or detached sessions, so sessions
-there always run directly in the terminal that started them: =(detach)= and
-client-first starts report that the handoff is withheld, while the loopback
-endpoint and the =localgroup= commands work as elsewhere.
+On POSIX hosts, detaching hands a session to a supervised process group that
+outlives the terminal. On Windows, the supervisor uses a Job Object for the
+session process tree. Both support unattended starts and later attachment.
 
 Autolith stores configuration, durable data, process state, and replaceable
 caches below =${XDG_CONFIG_HOME:-~/.config}/autolith/=,
@@ -1425,11 +1537,13 @@ Enable the session's private context-pressure reminder with =(relax t)=, or
 =(settings :relax-p t)=. Use =(relax nil)= to disable it and =(relax)= to inspect
 its state.
 
-The private system-prompt reminder warns that the agent's session, context and
-token estimates are unreliable and often too small. Automatic compaction is
+The private reminder warns that the agent's session, context and token
+estimates are unreliable and often too small. Automatic compaction is
 available; perceived length is no reason to shrink scope, skip verification,
-rush, or end early. The reminder is rebuilt after compaction, outside
-conversation turns. The setting lasts until exit and defaults to =nil=.
+rush, or end early. It travels with the session state behind the conversation
+history, so turning it on or off keeps the cached prompt prefix. Inference
+frames carry it in their own system prompt. It is rebuilt after compaction,
+outside conversation turns. The setting lasts until exit and defaults to =nil=.
 
 A durable value is chosen at startup from the first source that supplies it:
 an explicit command-line choice, the setting's environment variable, then the
@@ -1743,9 +1857,16 @@ regardless of the meter. It uses the same provider-native checkpoint and portabl
 summary path as automatic compaction. During an active turn, the command waits
 in the idle queue. An empty conversation needs no provider request. Compaction
 adds a durable checkpoint without adding a user message or starting a model turn.
-The native checkpoint and the portable summary are two provider requests. Each
-is recorded with its usage as a numbered request of the turn, so the request
-count and the persisted usage cover compaction work instead of hiding it.
+The native checkpoint and its portable handoff normally require two provider
+requests. Completed requests are recorded with their usage before output validation,
+including rejected summaries and native responses that require portable fallback.
+A native checkpoint includes the full returned item window, in provider order.
+A summary must complete normally and contain bounded, nonempty progress, decisions,
+context, constraints, next-steps and reference sections before checkpoint publication.
+Markdown heading marks may decorate the labels. When a finished summary misses this
+shape, Autolith asks again and names the problem, up to four summary requests in all.
+The last request publishes any finished text answer, so a loosely shaped handoff
+never stops the agent. An empty or refused summary fails at once.
 
 Before either request, Autolith captures a fixed history cutoff. The checkpoint
 includes unresolved calls with correlated actual or interrupted/unknown outputs,
@@ -1756,6 +1877,21 @@ count; inspect =job.continuity=, =job.*= and their resources for full details.
 Provider-family changes use the portable handoff and exclude foreign private
 context.
 
+Portable compaction summarizes older history and retains a verbatim recent tail,
+normally at most two user turns and 32,768 characters. The latest actual user
+request and protocol-required tool/reasoning groups can exceed that bound. Current
+mission policy and the authoritative active plan are rebuilt from their stores
+for each ordinary request, independently of the summary.
+
+Automatic compaction compares freshly projected input with the soft threshold.
+Before transport, admission checks the encoded request, including current tools
+and temporary context, with output headroom. Set
+=(settings :context-output-reserve 8192)= to reserve at least 8,192 tokens, or use
+=AUTOLITH_CONTEXT_OUTPUT_RESERVE=. A larger explicit generation cap takes precedence.
+The local count is an estimate, with separate image allowances, rather than a
+provider tokenizer or paid usage. Candidate checkpoints are admitted with arrivals
+before publication; a rejected candidate leaves the previous projection intact.
+
 Set =ANALYTICS_EVENTS_FILE= to export completed streaming calls as UTF-8 JSONL
 usage events. =ANALYTICS_ACTOR= overrides the operating-system username. Each
 schema-v1 =llm-usage= event contains the UTC timestamp, actor, model, request
@@ -1764,15 +1900,17 @@ Unknown token counts are omitted. Export is disabled without a destination.
 Appends are synchronous and serialized across processes; export errors do not
 abort a completed provider call.
 
-Mechanical precompaction removes failed tool exchanges from earlier turns
-before the first request after resume, a provider/model change, or estimated
-prompt-cache expiry. Calls, correlated outputs and reasoning used only for
-those calls are removed together. Successful exchanges and failures in the
-latest user turn are retained. Pruning changes provider context, with every
-record available in the durable transcript. It runs before ordinary requests
-and native or portable compaction. Idle pruning uses the same retention
-estimate described below; providers without an estimate prune only on resume
-or provider/model changes.
+Mechanical precompaction bounds oversized old tool output before a request after
+estimated cache expiry or a provider/model change. Excerpts include the head and
+tail, known failure status, uncertainty about external effects, and a retrievable
+conversation/call reference. Calls, reasoning, and distinct or repeated failed
+attempts are retained. Full outputs are available in the durable transcript;
+the latest user turn is untouched. Each precompaction is recorded and replayed
+on resume. The first request after resume bounds old output only when the latest
+completed response used another provider or model, is older than the retention
+estimate, or no estimate exists. Conversations last answered before 0.67.15
+prepare once on resume. Precompaction runs before ordinary requests and native
+or portable compaction, using the retention estimate described below.
 
 Idle cache compaction is enabled by default. After a completed request with at
 least 32,768 prompt tokens and 131,072 characters of summarizable history, an
@@ -1783,10 +1921,32 @@ once, including after failure. Resumed sessions need a new completed request
 before scheduling one.
 
 Use =(settings :idle-compaction-p nil)= to disable it. The ChatGPT subscription
-route uses a conservative five-minute inactivity estimate. Other providers need
-an explicit estimate, for example
+route uses a conservative five-minute inactivity estimate. For Anthropic and
+OpenRouter Claude, the requested cache lifetime supplies the estimate. Other
+providers need an explicit estimate, for example
 =(settings :prompt-cache-retention-seconds 1800)= for thirty minutes. Set it to
 zero to use the provider estimate. Both settings persist across restarts.
+
+=(settings :prompt-cache-ttl "1h")= asks the Anthropic API and OpenRouter
+Claude models to keep cache entries for one hour instead of five minutes. A
+one-hour cache write costs twice the base input price, against 1.25 times for
+five minutes, so it pays when a conversation often pauses for between five
+minutes and an hour. Other routes ignore the setting. The requested lifetime also
+supplies the local estimate for precompaction and idle compaction; an explicit
+=:prompt-cache-retention-seconds= setting takes precedence. OpenRouter requests
+carry the conversation's cache key as their session identifier for upstream
+routing affinity from the first request.
+
+Use =(status)= to inspect this process's model-request costs. A request is priced
+by the charge its provider reports, as OpenRouter does, else by a price
+snapshot for its model: the built-in Anthropic API list prices, or
+=(settings :model-prices "{\"model\": {\"input\": 2, \"cache_read\": 0.2, \"output\": 10}}")=
+in US dollars per million tokens, keyed by the model name from =(model)=. A
+missing cache_write rate charges cache writes as input. Requests without a
+price, such as subscription routes, are counted as unpriced, not free.
+=(settings :cost-limit 5)= refuses new model requests, compaction and
+inference frames included, once reported and estimated spending reaches five
+dollars; zero disables the limit. Unpriced requests do not count toward it.
 
 Cache retention depends on the provider, model, routing and account policy.
 The [[https://developers.openai.com/api/docs/guides/prompt-caching][OpenAI API cache documentation]] describes a thirty-minute default for
@@ -1803,6 +1963,14 @@ A cache miss reports measured lost reads; a stall reports shared-history growth
 in characters because its token count is unknown. Both show cached and total
 input tokens. Notices start with a red =!=. Model changes, idle intervals and
 smaller prompts are local observations, not proof of eviction or routing failure.
+A notice also names what changed in the request as sent, compared with the
+previous one: top-level fields such as =tools= or =system=, the first item of
+the previous request's reusable prefix that the new request changes or lacks,
+and moved cache markers. The reusable prefix stops before the temporary
+context and one-response exchanges, so appended history is not a change, and
+a request that repeats the whole prefix reads =prefix intact=: the provider
+did not extend its cache. These come from digests of the final request, not
+from provider counters, and keep no prompt text.
 The first request after resuming or compacting establishes a fresh baseline.
 Without comparable read counters or prefix measurements, no loss is inferred
 from total input. The setting is off by default and persists across restarts.
@@ -2083,13 +2251,35 @@ Provider preference fields are sent as supplied, including =order=,
 
 ** Commands
 
+Use =(btw)= or =(side)= to inspect the running session without interrupting a
+turn. Select one field with =(btw :focus)=, =(btw :elapsed)=, =(btw :tasks)=,
+=(btw :queue)=, =(btw :step)=, or =(btw :eta)=.
+
+The colored =◆ status= entry shows the current objective or latest user input,
+elapsed and accumulated working time, queued/running task counts, pending input,
+and the current activity. Completion time is unknown. Status inspection uses
+live memory without tools or a model request. Ctrl-PgUp and Ctrl-PgDn include
+these entries among message jump points.
+
+Status output is durable display-only history. Resume and replay include it;
+rebuilt model input, compaction summaries, and recent-operation context exclude
+it. A status query advances the durable record sequence without adding a user
+turn.
+
+Put user commands in =${XDG_CONFIG_HOME:-~/.config}/autolith/init.lisp=, or load
+a user-owned Lisp file from there. Autolith loads those definitions after the
+tracked system on each startup, including after a source update or an installed
+upgrade. Use the existing =define-application-command= form; Lisp names, slash
+aliases, completion, and busy/terminal policy share its registration.
+
 #+BEGIN_SRC lisp
 (define-application-command my-version-command
     (:name              "/my-version"
+     :aliases           ("/local-version")
      :argument          "[LABEL]"
      :description       "show a labeled local integration version"
      :tip               "shows the version supplied by init.lisp."
-     :busy-behavior     :inspect
+     :busy-behavior     :execute
      :terminal-behavior :shared
      :callable          t)
     (application &optional (label "integration"))
@@ -2632,7 +2822,9 @@ the command again. Missing, interrupted and pruned captures return diagnostics.
 Defaults are 64 MiB per stream, 1 GiB of reserved capture capacity and 256
 retained artifacts. Eligible completed captures become pruneable after seven
 days or under capacity pressure, on the next allocation. Active captures and
-undelivered completion evidence are protected. Adjust
+undelivered completion evidence are protected. Delivery evidence observed before child artifact retention
+is recorded on each capture, allowing ordinary pruning after the owner's
+conversation storage is removed. Adjust
 =*shell-log-capture-byte-limit*=, =*shell-log-retention-byte-limit*=,
 =*shell-log-retention-count-limit*= and =*shell-log-retention-age*= in trusted
 configuration. Captures exceeding their limit are explicitly incomplete.

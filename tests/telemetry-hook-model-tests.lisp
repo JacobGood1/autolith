@@ -12,7 +12,7 @@
   "Consume PROVIDER's synthetic Responses SSE body through the real stream parser."
   (declare (ignore conversation tool-namespaces goal-context compaction-p))
   (with-input-from-string (stream (telemetry-test-stream-data provider))
-    (provider-consume-stream provider stream nil event-callback)))
+    (provider-consume-stream provider stream event-callback)))
 
 (defclass telemetry-test-terminal-stream ()
   ((configuration :initarg :configuration :reader telemetry-test-terminal-configuration
@@ -39,7 +39,7 @@
   "Consume PROVIDER's synthetic terminal SSE events through its pinned parser."
   (declare (ignore conversation tool-namespaces goal-context compaction-p))
   (with-input-from-string (stream (telemetry-test-terminal-data provider))
-    (provider-consume-stream provider stream nil event-callback)))
+    (provider-consume-stream provider stream event-callback)))
 
 (-> test-telemetry-context-window-streams () null)
 (defun test-telemetry-context-window-streams ()
@@ -292,7 +292,8 @@
                                          :native-items  (list (json-object "type" "compaction"
                                                                           "encrypted_content" "fixture"))
                                          :results       (list (agent-test-result
-                                                               "summary" (list (agent-test-message "Portable summary."))))))
+                                                               "summary" (list (agent-test-compaction-message))
+                                                               :turn-completion ':end))))
             (agent        (agent-create :configuration configuration :conversation conversation
                                         :provider provider :tool-registry (agent-test-registry) :worker nil)))
        (conversation-append-user-message conversation "Fixture summary context")

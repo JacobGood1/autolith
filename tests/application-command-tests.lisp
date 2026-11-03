@@ -1467,7 +1467,9 @@
   (test-call-with-typed-control-application
    (lambda (application root observations)
      (declare (ignore root observations))
-     (let ((configuration (application-configuration application)))
+     (let ((configuration          (application-configuration application))
+           (*terminal-theme*       *terminal-theme*)
+           (*terminal-style-table* *terminal-style-table*))
        (application-operation-call application 'settings ':onboarding-p t)
        (let ((evaluation
               (application-lisp-evaluate
@@ -1508,24 +1510,56 @@
        (test-application-typed-setting-values application))))
   nil)
 
+(-> test-application--setting-value-entry (configuration list keyword) null)
+(defun test-application--setting-value-entry (configuration entry name)
+  "Check feedback contains an executable getter, its native value, and one output row."
+  (let* ((text                    (terminal--spans-text entry))
+         (*read-eval*             nil)
+         (*package*               (find-package '#:autolith))
+         (setinka:*configuration* configuration))
+    (multiple-value-bind (query end)
+        (read-from-string text nil nil :start 2 :preserve-whitespace t)
+      (test-assert (equal query (list 'config name))
+                   "setting feedback names the real Lisp getter")
+      (test-assert
+       (equal (read-from-string text nil nil :start (+ end 4))
+              (apply #'config (rest query)))
+       "the reported Lisp value is the getter's current native value"))
+    (test-assert
+     (and (eq (terminal-span-style (first entry)) ':lisp-prompt)
+          (find ':syntax-function entry :key #'terminal-span-style)
+          (find ':success entry :key #'terminal-span-style))
+     "setting feedback highlights the getter and marks its result")
+    (let ((ui (terminal-ui-create
+               :terminal (make-instance 'recording-terminal :columns 200))))
+      (test-assert
+       (string= (terminal-ui--finalized-content ui entry)
+                (concatenate 'string text (string #\Newline)))
+       "each setting change occupies one finalized row without a blank separator")))
+  nil)
+
 (-> test-application-settings-command () null)
 (defun test-application-settings-command ()
   "Test the settings page lists, shows, changes, and refuses settings."
   (test-application-typed-settings)
   (let* ((configuration (test-configuration))
          (root          (test-configuration-root configuration))
+         (terminal      (make-instance 'recording-terminal :columns 200
+                                                          :interactive-p nil :styled-p nil))
+         (ui            (terminal-ui-create :terminal terminal))
+         (finalize      (symbol-function 'terminal-ui-append-finalized))
          (application   (make-instance 'application
-                                       :configuration configuration))
+                                       :configuration configuration
+                                       :ui            ui))
          (presented     nil)
          (picks         nil))
     (unwind-protect
          (test-call-with-function-replacements
           (list
-           (list 'application-present
-                 (lambda (candidate entry)
-                   (declare (ignore candidate))
+           (list 'terminal-ui-append-finalized
+                 (lambda (candidate identifier entry)
                    (push entry presented)
-                   t))
+                   (funcall finalize candidate identifier entry)))
            (list 'application--pick-identifier
                  (lambda (candidate &rest arguments)
                    (declare (ignore candidate arguments))
@@ -1545,9 +1579,13 @@
              "the listing shows visible settings with values and sources")
             (application--builtin-settings-command application "cache-miss-notices-p" t)
             (test-assert
-             (and (application-cache-miss-notices-p application)
-                  (search "Cache miss notices is now on and saved" (first presented)))
+             (application-cache-miss-notices-p application)
              "a named setting changes through the command")
+            (test-application--setting-value-entry
+             configuration (first presented) ':cache-miss-notices-p)
+            (dolist (name '(:relax-p :model :boot-screen-seconds :terminal-theme))
+              (test-application--setting-value-entry
+               configuration (application--setting-value-entry application name) name))
             (test-assert
              (eq (configuration-setting-source configuration :cache-miss-notices-p) ':session)
              "an interactive change records the session source")
@@ -1583,13 +1621,29 @@
               (test-assert
                (application-turn-timestamps-p application)
                "the page applies a picked option")
+              (test-application--setting-value-entry
+               configuration (second presented) ':turn-timestamps-p)
               (test-assert
-               (and (search "Turn timestamps is now on" (second presented))
-                    (search "read-only" (first presented)))
-               "the page reports changes and read-only settings")
+               (search "read-only" (first presented))
+               "the page explains why a read-only setting cannot change")
               (test-assert
                (null picks)
-               "the page loops until the picker is cancelled"))))
+               "the page loops until the picker is cancelled")
+              (setf presented nil
+                    (recording-terminal-chunks terminal) nil
+                    picks (list "turn-timestamps-p" "off" "cache-miss-notices-p" "off" nil))
+              (application-command--call-with-presentation
+               (application-command-invocation-parse "/settings")
+               (lambda ()
+                 (application--builtin-settings-command application)
+                 (test-assert (null *application-command-presentation-pending-p*)
+                              "inline settings supply their own command headings")))
+              (test-assert (and (= (length presented) 2)
+                                (= (count #\Newline (recording-terminal-output terminal)) 2))
+                           "two picker changes produce exactly two consecutive output rows")
+              (loop for entry in (reverse presented)
+                    for name in '(:turn-timestamps-p :cache-miss-notices-p)
+                    do (test-application--setting-value-entry configuration entry name)))))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
 
 

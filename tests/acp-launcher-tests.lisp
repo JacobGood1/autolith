@@ -173,6 +173,75 @@
          (test-assert (plusp (length diagnostics)) "startup diagnostics are on stderr")))))
   nil)
 
+(-> test-acp-launcher-failure-skips-recovery () null)
+(defun test-acp-launcher-failure-skips-recovery ()
+  "The stable shell launcher keeps a failed ACP status and starts no recovery."
+  (with-test-fixture (':posix-shell "the stable launcher's ACP status")
+    (with-test-configuration (configuration root)
+      (declare (ignore configuration))
+      (let ((fake-sbcl (merge-pathnames "bin/fake-sbcl" root))
+            (log       (merge-pathnames "calls.log" root)))
+        (recovery-tests--write-executable
+         fake-sbcl
+         "#!/bin/sh
+printf 'call\\n' >> \"$AUTOLITH_TEST_LOG\"
+exit 1
+")
+        (multiple-value-bind (output diagnostics status)
+            (uiop:run-program
+             (list "env"
+                   (format nil "AUTOLITH_SBCL=~A" (namestring fake-sbcl))
+                   (format nil "AUTOLITH_TEST_LOG=~A" (namestring log))
+                   (format nil "XDG_DATA_HOME=~A" (namestring (merge-pathnames "data/" root)))
+                   (format nil "XDG_STATE_HOME=~A" (namestring (merge-pathnames "state/" root)))
+                   (namestring (asdf:system-relative-pathname :autolith "bin/autolith"))
+                   "--from-source" "acp")
+             :directory           root
+             :input               nil
+             :output              ':string
+             :error-output        ':string
+             :ignore-error-status t)
+          (test-assert (= status 1) "the launcher keeps the ACP status")
+          (test-assert (zerop (length output)) "the launcher writes nothing to ACP's stdout")
+          (test-assert (not (search "RECOVERY" diagnostics)) "no recovery banner follows"))
+        (test-assert (equal (uiop:read-file-lines log) '("call"))
+                     "the launcher runs SBCL once, for ACP only"))))
+  nil)
+
+(-> test-acp-launcher-interrupt-exits-quietly () null)
+(defun test-acp-launcher-interrupt-exits-quietly ()
+  "Ctrl-C ends a serving ACP launcher with status 130 and no failure report."
+  (with-test-fixture (':posix-shell "process-group interrupts")
+    (with-test-configuration (configuration root)
+      (declare (ignore configuration))
+      (acp-launcher-tests--call-with-roots
+       root
+       (lambda ()
+         (with-test-environment (("AUTOLITH_ACTIVE_CORE" (uiop:getenv "AUTOLITH_TEST_ACTIVE_CORE")))
+           (let* ((channel (agentcomms:acp-launch-agent
+                            (namestring (asdf:system-relative-pathname :autolith "bin/autolith"))
+                            :arguments '("acp")
+                            :directory root))
+                  (process (agentcomms:acp-process-channel-process channel))
+                  (client  (make-instance 'agentcomms:acp-client)))
+             (unwind-protect
+                  (progn
+                    (agentcomms:acp-client-connect client channel)
+                    (agentcomms:client-initialize client :timeout 180)
+                    ;; The launcher leads its own process group, as a shell job does.
+                    (uiop:run-program (list "kill" "-INT" "--"
+                                            (format nil "-~D" (uiop:process-info-pid process))))
+                    (uiop:wait-process process))
+               (agentcomms:channel-close channel))
+             (let ((diagnostics (agentcomms:acp-process-channel-stderr-text channel)))
+               (test-assert (eql 130 (agentcomms:acp-process-channel-exit-code channel))
+                            "the interrupted launcher exits with status 130")
+               (test-assert (not (search "failed" diagnostics))
+                            "the interrupt reports no failure")
+               (test-assert (not (search "RECOVERY" diagnostics))
+                            "the interrupt starts no recovery"))))))))
+  nil)
+
 (-> test-acp-launcher-failure-diagnostics () null)
 (defun test-acp-launcher-failure-diagnostics ()
   "Retain the original transport failure, child status, and drained stderr."

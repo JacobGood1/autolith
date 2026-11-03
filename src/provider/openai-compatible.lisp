@@ -367,6 +367,33 @@ ask for a final usage chunk."
         :stream-usage-p      stream-usage-p))
      :source                   source)))
 
+(-> openai-compatible--cache-stable-prefix
+    (hash-table list list &key (:shared-count (integer 0)))
+    null)
+(defun openai-compatible--cache-stable-prefix (request durable-items fields &key (shared-count 0))
+  "Cache only the wire prefix unchanged by one-response exchanges.
+
+Encode the complete exchange together so reasoning and parallel calls share
+one assistant message. A partial durable projection can change that message,
+so stop at the first wire difference instead of splitting its source items.
+The first SHARED-COUNT durable items also end at their own breakpoint."
+  (let ((messages (json-get request "messages"))
+        (shared   (length (cl-llm-provider-api::openai-compatible--chat-input-messages
+                           (subseq durable-items 0 shared-count))))
+        (stable   nil))
+    (loop for durable in (cl-llm-provider-api::openai-compatible--chat-input-messages durable-items)
+          for index from 1 below (length messages)
+          for message = (aref messages index)
+          while (string= (json-encode durable) (json-encode message))
+          do (push message stable))
+    (cl-llm-provider-api::openai-compatible--chat-cache-breakpoint (aref messages 0) fields)
+    (when (<= 1 shared (length stable))
+      (cl-llm-provider-api::openai-compatible--chat-cache-breakpoint (aref messages shared) fields))
+    (some (lambda (message)
+            (cl-llm-provider-api::openai-compatible--chat-cache-breakpoint message fields))
+          stable))
+  nil)
+
 (defmethod provider-request-object
            ((provider openai-compatible-provider) (conversation conversation)
             (tool-namespaces vector)
@@ -383,18 +410,27 @@ ask for a final usage chunk."
             (context-resolve-request configuration conversation request-namespaces
                                      :goal-context goal-context :compaction-p
                                      compaction-p)))
-         (history
+         (durable-history
           (conversation-input-items-for-family conversation (provider-family provider)
-                                               :include-ephemeral-p (not compaction-p)))
+                                               :include-ephemeral-p nil))
+         (history
+          (if compaction-p
+              durable-history
+              (conversation-input-items-for-family conversation (provider-family provider)
+                                                   :include-ephemeral-p t)))
+         (ephemeral-p     (/= (length history) (length durable-history)))
+         (cache-fields    (openai-compatible-provider-cache-breakpoint-fields provider configuration))
          (projection
-          ;; Anchored context joins the history before its cache breakpoint where
-          ;; the provider accepts it there; the goal and other context follow.
+          ;; Keep the complete assistant exchange intact when encoding Chat.
+          ;; Choose its stable cache boundary afterward if it contains ephemera.
           (multiple-value-bind (items context)
               (if (openai-compatible-provider-anchored-context-p provider)
                   (values (context-delivery-project-items delivery conversation history)
                           (context-delivery-rendered-tail delivery))
                   (values history (and delivery (context-delivery-rendered delivery))))
-           (make-instance 'cl-llm-provider-api::wire-request :model
+           (multiple-value-bind (shared items)
+               (provider-shared-items-split items durable-history)
+            (make-instance 'cl-llm-provider-api::wire-request :model
                          (config :model configuration) :items items
                          :prefix
                          (list (system-prompt configuration)
@@ -403,7 +439,9 @@ ask for a final usage chunk."
                          (unless compaction-p
                            (list goal-context context))
                          :options
-                         (list :stream-usage-p
+                         (list :shared-items shared
+                               :tool-choice  *provider-tool-choice*
+                               :stream-usage-p
                                (openai-compatible-provider-stream-usage-p provider)
                                :reasoning-parameter
                                (openai-compatible-provider-reasoning-parameter
@@ -417,9 +455,16 @@ ask for a final usage chunk."
                                (openai-compatible-provider-output-ceiling-field
                                 provider)
                                :cache-breakpoint-fields
-                               (openai-compatible-provider-cache-breakpoint-fields
-                                provider configuration))))))
-    (values (provider-request-object provider projection effective-tools) delivery)))
+                               (unless ephemeral-p cache-fields))))))
+         (request         (provider-request-object provider projection effective-tools)))
+    (when (and ephemeral-p cache-fields)
+      (let ((durable (if (openai-compatible-provider-anchored-context-p provider)
+                         (context-delivery-project-items delivery conversation durable-history)
+                         durable-history)))
+        (openai-compatible--cache-stable-prefix
+         request durable cache-fields
+         :shared-count (length (provider-shared-items-split durable durable-history)))))
+    (values request delivery)))
 
 
 ;;;; -- Chat Completions Transport --
@@ -447,3 +492,11 @@ ask for a final usage chunk."
    (config :provider-endpoint (provider-configuration provider))
    (json-encode-utf8 request)
    :headers (openai-compatible--request-headers provider credentials conversation)))
+
+(defmethod provider-request-with-output-ceiling
+    ((provider openai-compatible-provider) (request hash-table) (ceiling integer))
+  "Respect the compatible provider's chosen output field on a request-local copy."
+  (if (provider-output-ceiling-p provider)
+      (provider-request--with-output-field
+       request (openai-compatible-provider-output-ceiling-field provider) ceiling)
+      request))

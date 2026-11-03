@@ -4,8 +4,8 @@
 * Command notation
 
 When release documentation or release notes name an Autolith application
-command, prefer its canonical parenthesized Common Lisp form, such as
-=(update)= or =(info)=, over slash compatibility forms such as =/update=.
+command, use its canonical parenthesized Common Lisp form, such as
+=(update)= or =(info)=.
 Use slash syntax only when documenting slash-specific parsing or compatibility
 behavior.
 
@@ -111,7 +111,7 @@ between discovery and checkout.
 
 #+BEGIN_SRC sh
 tag=v0.16.1
-repository=https://github.com/luciusmagn/autolith.git
+repository=https://github.com/lambda-symbolics/autolith.git
 commit=$(git ls-remote --tags --refs "$repository" "refs/tags/$tag" |
   awk 'NR == 1 { print $1 }')
 test "${#commit}" -eq 40

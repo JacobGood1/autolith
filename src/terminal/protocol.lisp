@@ -1,8 +1,19 @@
 (in-package #:autolith)
 
 ;;;; -- Terminal Defaults --
-(defparameter *terminal-history-limit* most-positive-fixnum
-  "The practical maximum retained by the line editor, effectively unlimited.")
+(defparameter *terminal-history-limit* 500
+  "The most input history entries the line editor keeps resident.
+
+Older inputs page in from the conversation as history traversal reaches them.")
+
+(defparameter *terminal-history-character-limit* 1048576
+  "The most characters resident line editor history entries may hold together.")
+
+(defparameter *terminal-history-page-size* 100
+  "How many older inputs one history page loads into the line editor.")
+
+(defparameter *terminal-ui-finalized-identifier-limit* 8192
+  "The most recent finalized transcript identifiers a terminal UI remembers.")
 
 (defparameter *terminal-ui-visible-completions* 6
   "The maximum number of candidate rows painted at once.")
@@ -74,6 +85,16 @@ mutation passes through TERMINAL-SET-DIMENSIONS.")
     :reader        terminal-ui-live-region
     :type          live-region
     :documentation "Clinedi region anchoring unfinished content below scrollback.")
+   (default-color-theme
+    :initform      nil
+    :accessor      terminal-ui-default-color-theme
+    :type          (option terminal-theme)
+    :documentation "The default-color channels this UI may need to restore, recorded as a theme.")
+   (theme-defaults-current-p
+    :initform      nil
+    :accessor      terminal-ui-theme-defaults-current-p
+    :type          boolean
+    :documentation "Whether the selected default colors were completely written to this terminal.")
    (prompt
     :initarg       :prompt
     :reader        terminal-ui-prompt
@@ -398,15 +419,29 @@ mutation passes through TERMINAL-SET-DIMENSIONS.")
    (compact-tail-group
     :initform nil
     :accessor terminal-ui-compact-tail-group
-    :type     (or null (member :success :call) string)
+    :type     (or null (member :success :call :lisp-result) string)
     :documentation
     "Pending separator group: :SUCCESS, an exact call tool name, :CALL after a
-multi-row call, or NIL.")
+multi-row call, :LISP-RESULT for inline getter/value rows, or NIL.")
    (finalized-identifiers
     :initform      (make-hash-table :test #'equal)
     :reader        terminal-ui-finalized-identifiers
     :type          hash-table
-    :documentation "Identifiers whose finalized transcript text was already emitted.")
+    :documentation "Recently emitted finalized identifiers, each to the stamp of its latest emission.")
+   (finalized-order
+    :initform      (make-deque :maximum-count *terminal-ui-finalized-identifier-limit*)
+    :reader        terminal-ui-finalized-order
+    :type          deque
+    :documentation "(IDENTIFIER . STAMP) of recent emissions, oldest first and bounded.
+
+Durable replay only re-presents records after the render cursor, and history
+paging only records before its floor, so a duplicate can only be offered
+within this recent window.")
+   (finalized-stamp
+    :initform      0
+    :accessor      terminal-ui-finalized-stamp
+    :type          (integer 0)
+    :documentation "The stamp of the latest finalized emission.")
    (started-p
     :initform      nil
     :accessor      terminal-ui-started-p
@@ -518,6 +553,19 @@ Autolith repaints its own prompt, so prompt starts disable terminal redraw."
 
 (defgeneric terminal-ui-reset-transcript (ui)
   (:documentation "Discard UI's application-owned transcript for a fresh conversation."))
+
+(defgeneric terminal-ui--note-finalized-output (ui identifiers)
+  (:documentation
+   "Associate finalized IDENTIFIERS with UI's newest committed output.
+
+A UI that evicts old output forgets these identifiers with it, so the
+evicted records can be presented again."))
+
+(defgeneric terminal-ui-take-evicted-sequence (ui owner)
+  (:documentation
+   "Return and clear the newest durable sequence of conversation OWNER that UI evicted.
+
+Return NIL when UI evicted none of OWNER's records since the last call."))
 
 (defmethod terminal-ui-reset-transcript ((ui terminal-ui))
   "Use native terminal scrollback for inline sessions."

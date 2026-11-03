@@ -2,12 +2,15 @@
 
 ;;;; -- Mechanical Precompaction --
 
-;;; When a provider's prompt cache is cold or its retention estimate has
-;;; elapsed, prune context a mechanical rule identifies as irrelevant: tool
-;;; exchanges whose result failed, including denied commands and interrupted
-;;; calls. Pruning changes only the in-memory provider projection; the durable
-;;; log keeps every record, and each cold start prunes again. Failures after
-;;; the latest user message stay, because the model is still acting on them.
+(defparameter *conversation-precompaction-output-maximum-characters* 4096
+  "Maximum old tool output retained verbatim in the provider projection.")
+
+(defmethod conversation--project-record
+    ((kind (eql :precompaction)) conversation properties)
+  "Replay bounded output at the same point as the original provider projection."
+  (declare (ignore properties))
+  (conversation-precompact conversation)
+  nil)
 
 
 ;;;; -- Public Functions --
@@ -21,21 +24,31 @@
 
 (-> conversation-precompact (conversation) (integer 0))
 (defun conversation-precompact (conversation)
-  "Drop failed tool exchanges before the latest user message from CONVERSATION's projection.
+  "Bound oversized old tool output without deleting evidence from CONVERSATION.
 
-A call and its output are dropped together, only when both precede that
-message, and a reasoning item goes with them when everything it led to went.
-Return how many calls were dropped. The durable log is unchanged."
+Only completed exchanges before the current user turn are bounded. Failed,
+denied, read-only, and repeated calls are never discarded because status or
+matching text cannot establish that an external effect was absent. The durable
+conversation record is unchanged. Return the number of bounded outputs."
   (with-recursive-lock-held ((conversation-append-lock conversation))
-    (let* ((items (coerce (conversation-input-items conversation) 'list))
-           (drop  (conversation-precompaction--droppable conversation items))
-           (count (count-if (lambda (item)
-                              (and (gethash item drop)
-                                   (clinker-transcript:function-call-item-p item)))
-                            items)))
-      (when (plusp (hash-table-count drop))
-        (setf (conversation-input-items conversation)
-              (remove-if (lambda (item) (gethash item drop)) items)))
+    (let* ((items    (coerce (conversation-input-items conversation) 'list))
+           (boundary (or (position-if #'conversation-precompaction--user-message-p
+                                      items :from-end t)
+                         0))
+           (index    0)
+           (count    0))
+      (setf (conversation-input-items conversation)
+            (mapcar (lambda (item)
+                      (prog1
+                          (if (and (< index boundary)
+                                   (conversation-precompaction--oversized-output-p item))
+                              (progn
+                                (incf count)
+                                (conversation-precompaction--bounded-output
+                                 conversation item))
+                              item)
+                        (incf index)))
+                    items))
       count)))
 
 (-> conversation-prepare-provider-request
@@ -45,19 +58,29 @@ Return how many calls were dropped. The durable log is unchanged."
     (conversation &key identity (now (get-universal-time)) idle-seconds)
   "Precompact cold or estimated-expired context, then note this request.
 
-IDENTITY names the provider and model serving the request. Prune on the first
-request after resume, a provider/model change, or IDLE-SECONDS since a provider
-last processed the prompt, at a request start or a completed response. NIL
-means retention is unknown and disables idle pruning. Return how many calls
-were dropped."
+IDENTITY names the provider and model serving the request. Bound old output
+on a provider/model change or after IDLE-SECONDS since the last response.
+After resume, preserve a known warm prefix and replay recorded precompaction.
+Unknown retention disables idle expiry but treats a resumed cache as cold.
+Return how many outputs were bounded."
   (let ((previous-identity  (conversation-request-identity conversation))
         (previous-processed (conversation-prompt-processed-at conversation)))
     (prog1 (if (if previous-identity
                    (or (not (equal identity previous-identity))
                        (and previous-processed idle-seconds (plusp idle-seconds)
                             (>= (- now previous-processed) idle-seconds)))
-                   (conversation-resumed-p conversation))
-               (conversation-precompact conversation)
+                   (and (conversation-resumed-p conversation)
+                        (conversation-precompaction--resume-cold-p
+                         conversation
+                         :identity     identity
+                         :now          now
+                         :idle-seconds idle-seconds)))
+               (with-recursive-lock-held ((conversation-append-lock conversation))
+                 (let ((count (conversation-precompact conversation)))
+                   (when (plusp count)
+                     (conversation-append-record
+                       conversation (list :precompaction :outputs count)))
+                   count))
                0)
       (setf (conversation-request-identity conversation)    identity
             (conversation-prompt-processed-at conversation) now))))
@@ -71,66 +94,74 @@ failing and retrying before it, so idle pruning measures from here."
   (setf (conversation-prompt-processed-at conversation) now)
   nil)
 
+(-> conversation-note-response-record (conversation list) null)
+(defun conversation-note-response-record (conversation properties)
+  "Remember the request identity and time of a completed response's provider record.
+
+PROPERTIES belong to a durable provider record. Records of failed attempts and
+records written before responses carried their identity are ignored."
+  (let ((identity (getf (getf properties :metadata) :request-identity))
+        (time     (getf properties :time)))
+    (when (and (consp identity) (typep time 'timestamp))
+      (setf (conversation-last-response conversation) (list identity time))))
+  nil)
+
 
 ;;;; -- Private Functions --
 
-(-> conversation-precompaction--droppable (conversation list) hash-table)
-(defun conversation-precompaction--droppable (conversation items)
-  "Return the set of ITEMS, keyed by identity, that precompaction drops."
-  (let* ((failed   (conversation-failed-call-ids conversation))
-         (boundary (or (position-if #'conversation-precompaction--user-message-p items
-                                    :from-end t)
-                       0))
-         (head     (subseq items 0 boundary))
-         (calls    (make-hash-table :test #'equal))
-         (outputs  (make-hash-table :test #'equal))
-         (drop     (make-hash-table :test #'eq)))
-    (dolist (item head)
-      (let ((call-id (and (json-object-p item) (json-get item "call_id"))))
-        (when (and call-id (gethash call-id failed))
-          (cond
-            ((clinker-transcript:function-call-item-p item)
-             (setf (gethash call-id calls) item))
-            ((clinker-transcript:function-call-output-item-p item)
-             (setf (gethash call-id outputs) item))))))
-    (maphash (lambda (call-id call)
-               (let ((output (gethash call-id outputs)))
-                 (when output
-                   (setf (gethash call drop)   t
-                         (gethash output drop) t))))
-             calls)
-    (loop for (item . following) on head
-          when (and (conversation-precompaction--reasoning-p item)
-                    (conversation-precompaction--consequences-dropped-p following drop))
-            do (setf (gethash item drop) t))
-    drop))
+(-> conversation-precompaction--resume-cold-p
+    (conversation &key (:identity list) (:now integer) (:idle-seconds (option real)))
+    boolean)
+(defun conversation-precompaction--resume-cold-p
+    (conversation &key identity now idle-seconds)
+  "Return true unless CONVERSATION's latest durable response shows a warm cache.
 
-(-> conversation-precompaction--consequences-dropped-p (list hash-table) boolean)
-(defun conversation-precompaction--consequences-dropped-p (following drop)
-  "Return true when the model output FOLLOWING a reasoning item exists and is all in DROP.
+A warm cache needs a response from the same IDENTITY less than IDLE-SECONDS
+before NOW. Unknown retention, a conversation whose latest response predates
+recorded identities, and a different provider or model all count as cold."
+  (destructuring-bind (&optional previous-identity previous-time)
+      (conversation-last-response conversation)
+    (not (and previous-identity
+              (equal identity previous-identity)
+              idle-seconds
+              (plusp idle-seconds)
+              (< (- now previous-time) idle-seconds)))))
 
-The output runs until the next user message or tool output, the next input."
-  (let ((consequences
-          (loop for item in following
-                until (or (conversation-precompaction--user-message-p item)
-                          (clinker-transcript:function-call-output-item-p item))
-                unless (conversation-precompaction--reasoning-p item)
-                  collect item)))
-    (and consequences
-         (every (lambda (item) (gethash item drop)) consequences)
-         t)))
+(-> conversation-precompaction--oversized-output-p (t) boolean)
+(defun conversation-precompaction--oversized-output-p (item)
+  "Return true when ITEM contains output requiring a bounded projection."
+  (let ((output (and (json-object-p item) (json-get item "output"))))
+    (and (clinker-transcript:function-call-output-item-p item)
+         (stringp output)
+         (> (length output)
+            *conversation-precompaction-output-maximum-characters*))))
+
+(-> conversation-precompaction--bounded-output (conversation json-object) json-object)
+(defun conversation-precompaction--bounded-output (conversation item)
+  "Return ITEM with head/tail excerpts and a retrievable durable evidence reference."
+  (let* ((output    (json-get item "output"))
+         (call-id   (json-get item "call_id"))
+         (limit     *conversation-precompaction-output-maximum-characters*)
+         (reference (format nil
+                            "[Full evidence: read conversation:id/~A with query ~S. Result: ~A; external effects unknown.]"
+                            (conversation-identifier conversation) call-id
+                            (if (gethash call-id (conversation-failed-call-ids conversation))
+                                "failed"
+                                "status unknown")))
+         (available (max 0 (- limit (length reference) 8)))
+         (head      (ceiling available 2))
+         (tail      (floor available 2))
+         (copy      (json-object-copy item)))
+    (setf (gethash "output" copy)
+          (format nil "~A~%[...]~%~A~%~A"
+                  (subseq output 0 head)
+                  (subseq output (- (length output) tail))
+                  reference))
+    copy))
 
 (-> conversation-precompaction--user-message-p (t) boolean)
 (defun conversation-precompaction--user-message-p (item)
   "Return true when ITEM is a user message."
   (and (json-object-p item)
        (equal (json-get item "role") "user")
-       t))
-
-(-> conversation-precompaction--reasoning-p (t) boolean)
-(defun conversation-precompaction--reasoning-p (item)
-  "Return true when ITEM is reasoning recorded with a model's output."
-  (and (json-object-p item)
-       (or (clinker-transcript:reasoning-item-p item)
-           (clinker-transcript:chat-reasoning-item-p item))
        t))
