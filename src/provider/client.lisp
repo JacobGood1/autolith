@@ -385,20 +385,43 @@ credentials and model metadata independently of their cached wire routes."
   (:documentation
    "POST REQUEST to PROVIDER's native compaction endpoint and return its body."))
 
+(defparameter *compaction-summary-maximum-characters* 12000
+  "The most characters a portable compaction handoff may contain.")
+
 ;; Modeled on the Codex context checkpoint compaction instructions at
 ;; reference commit 6219b7c40f, restated for Autolith.
 (defparameter *compaction-instructions*
-  "You are performing a context checkpoint compaction. Write a handoff summary for another model that will resume this conversation. Include the current progress and key decisions, important context, constraints, and user preferences, what remains to be done as clear next steps, and any critical data or references needed to continue. Reference completed rlm.infer and rlm.map frames by their trace identifiers as inference:<trace-id> resources instead of restating frame content; the traces stay readable through resource.read. Do not call tools, wait for jobs, or perform additional work. Return only the handoff summary as visible assistant text. Be concise, structured, and complete enough that no earlier context is required."
+  (format nil "You are performing a context checkpoint compaction. Return only visible assistant text with exactly these labeled sections, in this order: [Progress], [Decisions], [Context], [Constraints], [Next steps], and [References]. Begin with [Progress] and write each label once, at the start of its own line. Put useful content in every section. Include current progress and key decisions, important context, constraints and user preferences, clear next steps, and critical data or references needed for continuation. Reference completed rlm.infer and rlm.map frames by their trace identifiers as inference:<trace-id> resources instead of restating frame content; the traces stay readable through resource.read. Do not call tools, wait for jobs, or perform additional work. Keep the whole handoff under ~:D characters. Be concise, structured, and complete enough that no earlier context is required."
+          *compaction-summary-maximum-characters*)
   "The developer instructions driving one compaction request.")
 
 (defparameter *provider-hosted-tools-enabled-p* t
   "Whether the current provider request may advertise hosted provider tools.")
+
+(defparameter *provider-tool-choice* ':auto
+  "Whether the current provider request lets the model call its tools.
+
+':NONE still sends the tool definitions, so the cached prefix they start
+survives a request that must answer without calling one.")
+
+(defparameter *provider-shared-item-count* 0
+  "How many leading durable history items sibling requests repeat.
+
+An inference frame's views are one such item. Routes with explicit cache
+markers end the shared items at their own marker, so frames asking different
+questions of the same views reuse them.")
 
 (defparameter *provider-maximum-output-tokens* nil
   "An optional output token ceiling for the current provider request.
 
 Inference frames bind this to their reserved output tranche so one
 response cannot dramatically overrun the shared subtree budget.")
+
+(defparameter *provider-mission-output-allowance* nil
+  "Internal output reservation for this request, distinct from a caller's ceiling.
+
+Mission accounting retains this entire reservation in its ledger. Final request
+admission may lower the transport allowance to fit the encoded context.")
 
 (-> provider-web-search-tool (configuration) (option json-object))
 (defun provider-web-search-tool (configuration)
@@ -501,22 +524,29 @@ The ChatGPT backend derives prompt-cache affinity from the session-id header,
 so it carries CONVERSATION's identifier on every request, as the Codex
 reference does for its thread identifier at commit 6f51c65958. The provider
 session identity stays out of these headers: one process may serve several
-conversations, and a per-process value would route them all together."
+conversations, and a per-process value would route them all together.
+
+The x-codex-turn-state token the backend returns at turn start is not
+replayed. The Codex reference replays it on the incremental requests of its
+Responses WebSocket session, where the backend keeps the turn's state live.
+Over these HTTP requests the token pins the turn to a backend that never
+extends the stored prefix: in a live conversation on 2026-11-02 every request
+sent without the token had its prompt stored for the next request, 9 of 9,
+while no request sent with it did, 0 of 32, and a six-round probe on
+gpt-6.1-sol read 6912 cached tokens on every tool round with the token and
+grew to 11392 of 11491 without it."
   (declare (ignore provider))
-  (append
-   (list
-    (cons "Authorization"
-          (format nil "Bearer ~A" (oauth-credentials-access-token credentials)))
-    (cons "ChatGPT-Account-ID" (oauth-credentials-account-id credentials))
-    (cons "Content-Type" "application/json")
-    (cons "Accept" accept)
-    (cons "originator" "autolith")
-    (cons "User-Agent" (provider-user-agent))
-    (cons "session-id" (conversation-identifier conversation))
-    (cons "thread-id" (conversation-identifier conversation))
-    (cons "x-client-request-id" (conversation-identifier conversation)))
-   (when (conversation-turn-state conversation)
-     (list (cons "x-codex-turn-state" (conversation-turn-state conversation))))))
+  (list
+   (cons "Authorization"
+         (format nil "Bearer ~A" (oauth-credentials-access-token credentials)))
+   (cons "ChatGPT-Account-ID" (oauth-credentials-account-id credentials))
+   (cons "Content-Type" "application/json")
+   (cons "Accept" accept)
+   (cons "originator" "autolith")
+   (cons "User-Agent" (provider-user-agent))
+   (cons "session-id" (conversation-identifier conversation))
+   (cons "thread-id" (conversation-identifier conversation))
+   (cons "x-client-request-id" (conversation-identifier conversation))))
 
 (-> provider--native-compaction-endpoint (codex-subscription-provider) string)
 (defun provider--native-compaction-endpoint (provider)
@@ -654,6 +684,41 @@ and codes follow the Codex reference at commit 6f51c65958."
         (provider--signal-http-status-failure
          provider status :headers headers :raw-body raw-body))))
 
+(-> provider--authentication-detail (t &key (:limit (integer 1 *))) (option string))
+(defun provider--authentication-detail (value &key (limit *provider-error-detail-limit*))
+  "Return detached, redacted, bounded single-line text for an auth diagnostic."
+  (when (non-empty-string-p value)
+    (let* ((redacted (provider--sanitize-wire-string value))
+           (text     (map 'string
+                          (lambda (character)
+                            (let ((code (char-code character)))
+                              (if (or (< code 32) (<= 127 code 159)
+                                      (member code '(8232 8233)))
+                                  #\Space
+                                  character)))
+                          redacted)))
+      (unless (every (lambda (character) (char= character #\Space)) text)
+        ;; BOUNDED-STRING appends a multiline truncation notice; this field must not.
+        (subseq text 0 (min (length text) limit))))))
+
+(-> provider--unauthorized-body-fields (t) (values (option string) (option string)))
+(defun provider--unauthorized-body-fields (raw-body)
+  "Read one bounded body and return only sanitized JSON message and code strings."
+  (handler-case
+      (let* ((body    (provider--error-body-text
+                       (if (and (vectorp raw-body) (> (length raw-body) 4000))
+                           (subseq raw-body 0 4000)
+                           raw-body)))
+             (decoded (and body (json-decode (provider--sanitize-wire-string body))))
+             (detail  (and (json-object-p decoded) (json-get decoded "error"))))
+        (if (json-object-p detail)
+            ;; JSON escapes can conceal exact credentials until after decoding.
+            (values (provider--authentication-detail (json-get detail "message"))
+                    (provider--authentication-detail (json-get detail "code") :limit 80))
+            (values nil nil)))
+    (error ()
+      (values nil nil))))
+
 (defgeneric provider-signal-transport-failure (provider condition)
   (:documentation
    "Record CONDITION's response headers and signal its typed provider failure."))
@@ -662,6 +727,35 @@ and codes follow the Codex reference at commit 6f51c65958."
     ((provider subscription-provider) (condition condition))
   "Signal the shared HTTP failure classification."
   (provider-signal-http-failure provider condition))
+
+(define-condition provider--unauthorized-without-message (provider-unauthorized) ()
+  (:documentation "Unauthorized response without a usable provider body message."))
+
+(defmethod provider-signal-transport-failure :around
+    ((provider subscription-provider) (condition http-request-failed))
+  "Preserve detached401 details before either shared or Codex normalization."
+  (if (= (dexador.error:response-status condition) 401)
+      (let ((headers (provider--sanitize-wire-value
+                      (dexador.error:response-headers condition))))
+        (provider-note-response-headers provider headers)
+        (multiple-value-bind (message code)
+            (provider--unauthorized-body-fields
+             (handler-case
+                 (dexador.error:response-body condition)
+               (error ()
+                 nil)))
+          (error (if message
+                     'provider-unauthorized
+                     'provider--unauthorized-without-message)
+                 :message    (or message
+                                 (format nil "The provider rejected the current ~A credentials."
+                                         (provider-account-label provider)))
+                 :status     401
+                 :code       code
+                 :request-id (provider--authentication-detail
+                              (provider--response-request-id headers) :limit 200)
+                 :response   nil)))
+      (call-next-method)))
 
 (defmethod provider-signal-transport-failure
     ((provider codex-subscription-provider) (condition http-request-failed))
@@ -673,10 +767,11 @@ and codes follow the Codex reference at commit 6f51c65958."
      provider
      (dexador.error:response-status condition)
      :headers  headers
-     :raw-body (handler-case
-                   (dexador.error:response-body condition)
-                 (error ()
-                   nil)))))
+     :raw-body (provider--error-body-text
+                (handler-case
+                    (dexador.error:response-body condition)
+                  (error ()
+                    nil))))))
 
 
 ;;;; -- SSE Decoding --
@@ -839,6 +934,62 @@ are request-scoped and included in transport and result redaction."))
               (provider-signal-transport-failure adapter condition)))))
        :conversation conversation))))
 
+(define-condition provider--authentication-failure (authentication-error)
+  ((status :initarg :status :reader provider-error-status
+           :type (or null integer) :documentation "The rejected HTTP status.")
+   (code :initarg :code :reader provider-error-code
+         :type (or null string) :documentation "The sanitized provider code.")
+   (request-id :initarg :request-id :reader provider-error-request-id
+               :type (or null string) :documentation "The sanitized request identifier."))
+  (:documentation
+   "A detached terminal auth diagnostic outside provider retry classification."))
+
+(defmethod cl-llm-provider-api:provider-api-error-message
+    ((condition provider--authentication-failure))
+  "Read the actionable authentication report including available provider details."
+  (autolith-error-message condition))
+
+(defmethod provider-error-response-id ((condition provider--authentication-failure))
+  "No response object was returned on HTTP401."
+  (declare (ignore condition))
+  nil)
+
+(defmethod provider-error-response ((condition provider--authentication-failure))
+  "Never retain an arbitrary provider body in terminal authentication failures."
+  (declare (ignore condition))
+  nil)
+
+(-> provider--authentication-condition
+    (subscription-provider provider-unauthorized &key (:refreshable-p boolean))
+    authentication-error)
+(defun provider--authentication-condition (provider condition &key refreshable-p)
+  "Preserve the existing auth hint and append available detached provider diagnostics."
+  (let* ((status     (provider-error-status condition))
+         (code       (provider--authentication-detail (provider-error-code condition) :limit 80))
+         (request-id (provider--authentication-detail
+                      (provider-error-request-id condition) :limit 200))
+         (message    (unless (typep condition 'provider--unauthorized-without-message)
+                       (provider--authentication-detail
+                        (cl-llm-provider-api:provider-api-error-message condition))))
+         (hint       (if refreshable-p
+                         (format nil "~A rejected Autolith's credentials after a bounded refresh."
+                                 (provider-account-label provider))
+                         (format nil "~A rejected Autolith's API key; ~A."
+                                 (provider-account-label provider)
+                                 (credential-manager-login-hint
+                                  (provider-credential-manager provider)))))
+         (details    (append (when (integerp status) (list (format nil "HTTP ~D" status)))
+                             (when request-id (list (format nil "request ~A" request-id)))
+                             (when code (list (format nil "code ~A" code)))
+                             (when message (list message)))))
+    (make-condition 'provider--authentication-failure
+                    :message    (if details
+                                    (format nil "~A (~{~A~^, ~})" hint details)
+                                    hint)
+                    :status     (and (integerp status) status)
+                    :code       code
+                    :request-id request-id)))
+
 (-> provider--call-with-bounded-retries
     (subscription-provider function function)
     t)
@@ -860,17 +1011,8 @@ each attempt must stream through."
                 :refreshable-p refreshable-p
                 :exhausted-function
                 (lambda (condition)
-                  (declare (ignore condition))
-                  (error 'authentication-error
-                         :message
-                         (if refreshable-p
-                             (format nil
-                                     "~A rejected Autolith's credentials after a bounded refresh."
-                                     (provider-account-label provider))
-                             (format nil
-                                     "~A rejected Autolith's API key; ~A."
-                                     (provider-account-label provider)
-                                     (credential-manager-login-hint manager)))))))))
+                  (error (provider--authentication-condition
+                          provider condition :refreshable-p refreshable-p)))))))
     (call-with-streaming-retries #'attempt-with-authentication event-callback)))
 
 (defmethod provider-stream-turn
@@ -912,56 +1054,151 @@ each attempt must stream through."
          :request-id (provider--response-request-id headers)
          :response   nil))
 
-(-> provider--decode-native-compaction-response
-    (codex-subscription-provider t &key (:status integer) (:headers t))
-    (values (option json-object) (option json-object)))
-(defun provider--decode-native-compaction-response
-    (provider body &key status headers)
-  "Decode BODY and return its newest normalized opaque compaction output item.
+(defclass native-compaction-completed-event (provider-event)
+  ((usage
+    :initarg       :usage
+    :reader        native-compaction-completed-event-usage
+    :documentation "Reported paid usage, or NIL when the provider omitted it.")
+   (response-id
+    :initarg       :response-id
+    :reader        native-compaction-completed-event-response-id
+    :documentation "The response identifier when one was reported."))
+  (:documentation "A completion notification emitted before native output validation."))
 
-The endpoint can return a compacted transcript containing ordinary output,
-multiple checkpoint encodings, or no opaque checkpoint. The newest usable
-checkpoint carries native state; an opaque-free transcript uses the portable
-summary fallback. The second value is the response usage object, when the
-endpoint reported one, so the compaction request can be metered."
-  (let ((source (provider--error-body-text body)))
-    (unless (non-empty-string-p source)
+(-> provider--native-compaction-refusal-p (t) boolean)
+(defun provider--native-compaction-refusal-p (value)
+  "Recognize refusal items, including refusals nested inside message content."
+  (typecase value
+    (hash-table
+     (or (equal (json-get value "type") "refusal")
+         (non-empty-string-p (json-get value "refusal"))
+         (loop for child being the hash-values of value
+               thereis (provider--native-compaction-refusal-p child))))
+    (string
+     nil)
+    (vector
+     (some #'provider--native-compaction-refusal-p value))
+    (t
+     nil)))
+
+(-> provider--native-compaction-item-valid-p (json-object) boolean)
+(defun provider--native-compaction-item-valid-p (item)
+  "Check standard item fields while preserving unfamiliar typed protocol extensions."
+  (let ((type   (json-get item "type"))
+        (status (json-get item "status")))
+    (and (non-empty-string-p type)
+         (or (null status) (equal status "completed"))
+         (not (provider--native-compaction-refusal-p item))
+         (cond
+           ((equal type "message")
+            (and (member (json-get item "role") '("system" "developer" "user" "assistant")
+                         :test #'equal)
+                 (let ((content (json-get item "content")))
+                   (and (vectorp content) (not (stringp content))
+                        (every (lambda (part)
+                                 (and (json-object-p part)
+                                      (non-empty-string-p (json-get part "type"))
+                                      (or (not (member (json-get part "type")
+                                                       '("input_text" "output_text" "text")
+                                                       :test #'equal))
+                                          (stringp (json-get part "text")))))
+                               content)))
+                 t))
+           ((equal type "function_call")
+            (and (non-empty-string-p (json-get item "call_id"))
+                 (non-empty-string-p (json-get item "name"))
+                 (stringp (json-get item "arguments"))))
+           ((equal type "function_call_output")
+            (and (non-empty-string-p (json-get item "call_id"))
+                 (nth-value 1 (gethash "output" item))))
+           ((equal type "reasoning")
+            (let ((summary (json-get item "summary")))
+              (or (null summary) (and (vectorp summary) (not (stringp summary))))))
+           ((native-compaction-item-p item)
+            (non-empty-string-p (json-get item "encrypted_content")))
+           (t
+            t)))))
+
+(-> provider--native-compaction-window-valid-p (list) boolean)
+(defun provider--native-compaction-window-valid-p (items)
+  "Reject malformed items, orphan results, duplicate correlations and missing results."
+  (handler-case
+      (and (every #'provider--native-compaction-item-valid-p items)
+           (every (lambda (item)
+                    (or (not (clinker-transcript:function-call-output-item-p item))
+                        (find-if (lambda (call)
+                                   (and (clinker-transcript:function-call-item-p call)
+                                        (equal (json-get call "call_id")
+                                               (json-get item "call_id"))))
+                                 items)))
+                  items)
+           (null (clinker-transcript:reconciliation-repairs
+                  (clinker-transcript:reconcile-items items))))
+    (clinker-transcript:projection-error () nil)))
+
+(-> provider--decode-native-compaction-response
+    (codex-subscription-provider t &key (:status integer) (:headers t)
+                                     (:event-callback (option function)))
+    (values (option list) (option json-object)))
+(defun provider--decode-native-compaction-response
+    (provider body &key status headers event-callback)
+  "Decode BODY and return its complete normalized compacted output window.
+
+Emit one completion event before response validation, including when the HTTP
+success body cannot be decoded. Unknown usage and response IDs remain NIL."
+  (let* ((source (provider--error-body-text body))
+         (response
+           (and (non-empty-string-p source)
+                (handler-case (json-decode source)
+                  (error () nil))))
+         (usage  (and (json-object-p response) (json-get response "usage")))
+         (response-id
+           (and (json-object-p response)
+                (or (json-get response "id") (json-get response "response_id")))))
+    (when (functionp event-callback)
+      (funcall event-callback
+               (make-instance 'native-compaction-completed-event
+                              :usage       (and (json-object-p usage) usage)
+                              :response-id (and (stringp response-id) response-id))))
+    (unless (json-object-p response)
       (provider--signal-invalid-native-compaction provider status headers))
-    (let ((response
-            (handler-case
-                (json-decode source)
-              (error ()
-                (provider--signal-invalid-native-compaction
-                 provider status headers)))))
-      (let ((output (and (json-object-p response)
-                         (json-get response "output"))))
-        (unless (and (vectorp output)
-                     (every #'json-object-p output))
-          (provider--signal-invalid-native-compaction provider status headers))
-        (let ((items
-                (remove-if-not
-                 #'native-compaction-item-p
-                 (map 'list
-                      (lambda (item)
-                        (native-compaction-item-canonicalize
-                         (provider-normalize-output-item provider item)))
-                      output)))
-              (usage (json-get response "usage")))
-          (values (first (last items))
-                  (and (json-object-p usage) usage)))))))
+    (let ((output (json-get response "output")))
+      (unless (and (vectorp output) (every #'json-object-p output))
+        (provider--signal-invalid-native-compaction provider status headers))
+      (handler-case
+          (let ((items
+                  (map 'list
+                       (lambda (item)
+                         (let ((normalized
+                                 (provider-normalize-output-item provider item)))
+                           (when (native-compaction-item-p normalized)
+                             (native-compaction-item-canonicalize normalized))
+                           normalized))
+                       output)))
+            (unless (and (every (lambda (item)
+                                  (and (json-object-p item)
+                                       (non-empty-string-p (json-get item "type"))))
+                                items)
+                         (provider--native-compaction-window-valid-p items))
+              (provider--signal-invalid-native-compaction provider status headers))
+            (values (and (some #'native-compaction-item-p items) items)
+                    (and (json-object-p usage) usage)))
+        (error ()
+          (provider--signal-invalid-native-compaction provider status headers))))))
 
 (defgeneric provider-attempt-native-compaction
-    (provider conversation &key tool-namespaces force-refresh)
+    (provider conversation &key tool-namespaces force-refresh event-callback)
   (:documentation
    "Perform one authenticated Codex native compaction request.
 
-Return the newest opaque checkpoint item and the response usage as two
-values."))
+   Return the complete normalized compacted window and the response usage as
+   two values. The first value is NIL when the response has no usable opaque
+   checkpoint, while the usage value is still returned."))
 
 (defmethod provider-attempt-native-compaction
     ((provider codex-subscription-provider)
      (conversation conversation)
-     &key tool-namespaces force-refresh)
+     &key tool-namespaces force-refresh event-callback)
   "Perform one native compaction attempt with optional credential refresh."
   (declare (type vector tool-namespaces)
            (type boolean force-refresh))
@@ -986,7 +1223,8 @@ values."))
                   (provider--codex-signal-status-failure
                    provider status :headers headers :raw-body body))
                 (provider--decode-native-compaction-response
-                 provider body :status status :headers headers))))
+                 provider body :status status :headers headers
+                 :event-callback event-callback))))
         (dexador.error:http-request-unauthorized (condition)
           (provider-signal-http-failure provider condition))
         (http-request-failed (condition)
@@ -1005,19 +1243,19 @@ values."))
      &key tool-namespaces event-callback)
   "Compact CONVERSATION through the standard Responses compact endpoint.
 
-Return the checkpoint item and the request's usage as two values, or NIL when
-this endpoint is unavailable."
+  Return the complete compacted window and the request's usage as two values,
+  or NIL when this endpoint is unavailable."
   (declare (type vector tool-namespaces)
            (type function event-callback))
   (handler-case
       (provider--call-with-bounded-retries
        provider
-       (lambda (force-refresh attempt-callback)
-         (declare (ignore attempt-callback))
-         (provider-attempt-native-compaction
-          provider conversation
-          :tool-namespaces tool-namespaces
-          :force-refresh   force-refresh))
+         (lambda (force-refresh attempt-callback)
+           (provider-attempt-native-compaction
+            provider conversation
+            :tool-namespaces tool-namespaces
+            :force-refresh   force-refresh
+            :event-callback  attempt-callback))
        event-callback)
     (provider-error (condition)
       (if (provider--native-compaction-unavailable-p condition)

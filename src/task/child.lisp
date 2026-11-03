@@ -166,8 +166,9 @@
       ((member value '("@slow" "@designer") :test #'string=)
        "gpt-6.1-terra")
       ((member alias *supported-models* :test #'string=)
-       alias) (t
-               nil))))
+       alias)
+      (t
+       nil))))
 
 (defparameter *task-default-reasoning-effort* "medium"
   "The effort of child roles that leave their reasoning effort unspecified or :auto.
@@ -498,15 +499,17 @@ retention step."
             (uiop:pathname-directory-pathname output-path)))))
 
 (-> task--prune-result-artifacts
-    (pathname &key (:protected-roots list))
+    (pathname &key (:protected-roots list) (:before-delete (option function))
+                   (:around-delete (option function)))
     null)
 (defun task--prune-result-artifacts
-    (current-root &key (protected-roots (list current-root)))
+    (current-root &key (protected-roots (list current-root)) before-delete around-delete)
   "Remove oldest completed sibling artifacts beyond the retention limit.
 
 PROTECTED-ROOTS preserves artifacts still exposed by the live session. Directories
 without a published result are live or incomplete and are not retention
-candidates."
+candidates. AROUND-DELETE receives the directory and a zero-argument deletion
+continuation, allowing callers to hold a source lock through actual removal."
   (let* ((group-root
            (uiop:pathname-parent-directory-pathname current-root))
          (records
@@ -522,11 +525,15 @@ candidates."
                         (uiop:pathname-equal directory protected-root))
                       protected-roots)
           (handler-case
-              (progn
-                (platform-delete-directory-tree *platform* directory
-                                                :validate          t
-                                                :if-does-not-exist ':ignore)
-                (decf excess))
+                (flet ((delete-owner ()
+                         (when before-delete (funcall before-delete directory))
+                         (platform-delete-directory-tree *platform* directory
+                                                         :validate          t
+                                                         :if-does-not-exist ':ignore)
+                         (decf excess)))
+                  (if around-delete
+                      (funcall around-delete directory #'delete-owner)
+                      (delete-owner)))
             (error ()
               nil))))))
   nil)
@@ -629,7 +636,20 @@ candidates."
              (rename-file temporary target)
              (task--prune-result-artifacts
               root
-              :protected-roots (task--protected-artifact-roots job root))
+              :protected-roots (task--protected-artifact-roots job root)
+              :around-delete
+              (lambda (directory delete-function)
+                (let ((owner (first (last (pathname-directory directory))))
+                      (group (task--artifact-group-root configuration
+                               (session-job-root-conversation-identifier job))))
+                  (unless (and (task--owner-component-p owner)
+                               (uiop:pathname-equal group
+                                 (uiop:pathname-parent-directory-pathname directory)))
+                    (error 'task-error :message "Invalid retained child artifact identity."
+                                       :tool-name "task.run" :task-id (job-identifier job)))
+                  (shell-log-persist-owner-delivery configuration
+                    (session-job-root-conversation-identifier job) owner
+                    :delete-function delete-function))))
              target)
         (when (probe-file temporary)
           (delete-file temporary))))))
@@ -846,5 +866,9 @@ candidates."
                   :conversation    conversation
                   :completion      completion)))
       (task-job-cancel-execution-descendants job ':parent-finished)
+      ; mallet:suppress no-ignore-errors -- best-effort release must not mask the child result
+      (ignore-errors (task-completion-release child))
+      ; mallet:suppress no-ignore-errors -- best-effort release must not mask the child result
+      (ignore-errors (context-forget-conversation (conversation-identifier conversation)))
       ; mallet:suppress no-ignore-errors -- best-effort worker shutdown must not mask the child result
       (ignore-errors (lisp-worker-pool-stop-all worker)))))

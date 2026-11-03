@@ -229,7 +229,7 @@
                         :source-root       (asdf:system-source-directory :autolith)
                         :working-directory (asdf:system-source-directory :autolith)
                         :durable-p         nil)))
-    (test-assert (string= (sb-ext:symbol-global-value '*default-model*) "grok-4.7")
+    (test-assert (string= *shipped-default-model* "grok-4.7")
                  "the shipped default model is grok-4.7")
     (test-assert (string= (config :model configuration) *default-model*)
                  "new configurations select the default model")

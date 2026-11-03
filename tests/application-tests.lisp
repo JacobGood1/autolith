@@ -2522,15 +2522,20 @@
                             (< (length text) 200)
                             (not (find #\Newline text)))
                        "durable handoffs show background state and job identity in one compact row")
-                      (let ((widget (find-if #'termdown:widget-p entry)))
+                      (let* ((widgets (remove-if-not #'termdown:widget-p entry))
+                             (action  (list ':insert
+                                            (format nil "(job.cancel :id ~S)" identifier))))
                         (test-assert
                          (and (search (format nil "(job.cancel :id ~A)" identifier) text)
-                              widget
-                              (equal (termdown:widget-action widget)
-                                     (list ':insert
-                                           (format nil "(job.cancel :id ~S)" identifier)))
+                              (> (length widgets) 1)
+                              (find ':syntax-function widgets :key #'termdown:widget-role)
+                              (every (lambda (widget)
+                                       (equal (termdown:widget-action widget) action))
+                                     widgets)
+                              (string= (terminal--spans-text widgets)
+                                       (application--job-cancel-text identifier))
                               (terminal-ui--compact-handoff-group entry))
-                         "a running handoff offers its cancellation as a clickable call"))
+                         "a running handoff highlights every clickable cancellation token"))
                       (test-assert
                        (search "Run repository checks"
                                (test-terminal-row-text
@@ -3931,6 +3936,53 @@
                    (search "hidden-reasoning-7" output)
                    (search "hidden-reasoning-8" output))
               "changing visibility makes the newest newly visible page replayable")))
+      (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
+  nil)
+
+(-> test-paged-history-after-eviction () null)
+(defun test-paged-history-after-eviction ()
+  "Test (history) pages in the records a bounded fullscreen transcript evicted."
+  (let* ((configuration (test-configuration))
+         (root          (test-configuration-root configuration))
+         (conversation  (conversation-create configuration :identifier "evicted-history"))
+         (terminal      (make-instance 'recording-terminal :columns 80 :rows 24))
+         (application   nil))
+    (unwind-protect
+         (let ((*application-history-page-size*         2)
+               (*fullscreen-transcript-character-limit* 1500))
+           (setf application
+                 (make-instance 'application
+                                :configuration configuration
+                                :conversation  conversation
+                                :ui            (terminal-ui-create :terminal     terminal
+                                                                   :fullscreen-p t)))
+           (flet ((numbers ()
+                    (let ((viewport (fullscreen-terminal-ui-viewport (application-ui application))))
+                      (loop for index below (clinedi:transcript-viewport-chunk-count viewport)
+                            for text = (clinedi:transcript-viewport-chunk-text viewport index)
+                            append (loop for start = (search "message-" text)
+                                           then (search "message-" text :start2 (1+ start))
+                                         while start
+                                         collect (parse-integer text :start        (+ start 8)
+                                                                     :junk-allowed t))))))
+             (loop for index from 1 to 40
+                   do (conversation-append-user-message
+                       conversation (format nil "message-~D ~A" index
+                                            (make-string 30 :initial-element #\x)))
+                      (application-render-records application))
+             (let ((oldest (reduce #'min (numbers))))
+               (test-assert (> oldest 2) "the bounded transcript evicted the oldest messages")
+               (let ((retention (application-retention application)))
+                 (test-assert (and (<= (getf retention :transcript-characters) 1500)
+                                   (plusp (getf retention :transcript-evicted))
+                                   (plusp (getf retention :heap-bytes))
+                                   (search "chunks evicted"
+                                           (application--retention-description application)))
+                              "the retention report shows the bounded transcript"))
+               (application-render-history application)
+               (let ((loaded (last (numbers) 2)))
+                 (test-assert (equal loaded (list (- oldest 2) (- oldest 1)))
+                              "history pages in the newest evicted messages")))))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
@@ -5962,6 +6014,10 @@
     (unwind-protect
          (test-call-with-function-replacements
           (list
+           (list 'main-resolve-conversation
+                 (lambda (configuration prefix)
+                   (declare (ignore configuration))
+                   prefix))
            (list
             'application-reconnect
             (lambda (application
@@ -6186,11 +6242,11 @@
                        (application--pick-identifier application
                                                      :title        "resume"
                                                      :items        nil
-                                                     :usage        "Usage: /resume ID"
+                                                     :usage        "Usage: (resume \"ID\")"
                                                      :empty-notice "none")
                        nil)
                    (configuration-error (condition)
-                     (not (null (search "Usage: /resume"
+                     (not (null (search "Usage: (resume"
                                         (format nil "~A" condition))))))
                  "non-interactive pickers demand an explicit identifier"))
   nil)
@@ -6605,8 +6661,6 @@
                       ':open))
                 "conversation switching retires and replaces task runtimes")
                (tool-registry-close-runtime-state new-registry)
-               (setf (conversation-turn-state second-conversation)
-                     "transient-provider-turn-state")
                (test-assert
                 (conversation-lease-matches-p
                  (application-conversation-lease application)
@@ -6616,9 +6670,6 @@
                (test-assert
                 (zerop detach-count)
                 "checkpoint detachment never revisits a retired registry")
-               (test-assert
-                (null (conversation-turn-state second-conversation))
-                "checkpoint detachment removes transient provider turn state")
                (test-assert
                 (and
                  (null (application-conversation-lease application))
@@ -6789,6 +6840,20 @@
                    (= (conversation-picker-metadata-user-turn-count metadata) 2)
                    (equal (conversation-picker-metadata-preview metadata) "last user"))
               "a missing picker sidecar rebuilds from the self-contained active chunk")
+             (let* ((editor (line-editor-create :history-limit 1))
+                    (ui     (terminal-ui-create
+                             :terminal (make-instance 'recording-terminal :columns 40)
+                             :editor   editor)))
+               (application--load-conversation-input-history ui loaded)
+               (terminal-ui-set-input ui "draft")
+               (dolist (input '("last user" "(+ 1 2)" "/help" "first user"))
+                 (terminal-ui-process-event ui ':history-previous)
+                 (test-assert (string= input (line-editor-text editor))
+                              "application recall pages archived inputs through the sidecar"))
+               (dolist (input '("/help" "(+ 1 2)" "last user" "draft"))
+                 (terminal-ui-process-event ui ':history-next)
+                 (test-assert (string= input (line-editor-text editor))
+                              "application recall pages forward and restores its draft")))
              (conversation-append-provider-metadata loaded '(:usage nil))
              (conversation-append-summary loaded "second checkpoint")
              (let* ((reloaded (conversation-load-by-id configuration "input-history"))

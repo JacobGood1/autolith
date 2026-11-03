@@ -123,6 +123,10 @@
     :documentation "The lock preventing concurrent mutation of conversation turn state."))
   (:documentation "A model-driven conversation loop with namespaced Common Lisp tools."))
 
+(defvar *mission-admitted-operation* nil
+  "The admitted child task-job continued by this thread, or NIL for new work.
+Every thread hop must carry the same identity; its loss refuses quarantined work.")
+
 (defparameter *agent-restricted-maximum-tool-rounds* 4
   "Maximum executed tool rounds within one restricted agent turn.")
 
@@ -530,49 +534,41 @@ request that carries its expansion."
        (let ((conversation (agent-conversation agent)))
           (context-rule-start-turn agent)
          (conversation-flush-async-lisp-events conversation)
-         ;; Compact before appending CONTENT so the fresh question survives
-         ;; verbatim instead of being folded into the summary.
-         (let ((compaction-requests
-                 (if (agent-should-compact-p agent)
-                     (agent-compact-conversation
-                      agent observer
-                      :tool-allowlist     tool-allowlist
-                      :tool-restriction-p tool-restriction-p)
-                     0)))
-            (when (conversation-async-lisp--safe-boundary-p conversation)
-              (task-completion-deliver agent))
-           (multiple-value-bind (item record)
-               (conversation-append-user-message
-                conversation
-                content
-                :pending-input-identifier pending-input-identifier
-                :automatic-p              automatic-p
-                :operation-request        operation-request)
-             (declare (ignore item))
-             (agent-observer-status
-              observer
-              :user-message-persisted
-              (append
-               (list :sequence (getf (rest record) :seq)
-                     :time     (getf (rest record) :time))
-               (when pending-input-identifier
-                 (list :pending-input-identifier pending-input-identifier)))))
-           (unwind-protect
-                (progn
-                  (agent-run-fitting-procedure agent observer
-                                               (or (user-message-input-text content) "")
-                                               :automatic-p        automatic-p
-                                               :tools-p            tools-p
-                                               :tool-restriction-p tool-restriction-p)
-                  (agent--run-provider-loop
-                   agent observer
-                   :goal-context       goal-context
-                   :tools-p            tools-p
-                   :tool-allowlist     tool-allowlist
-                   :tool-restriction-p tool-restriction-p
-                   :request-number     compaction-requests))
-             (conversation-clear-ephemeral-input-items conversation)
-             (setf (conversation-turn-state conversation) nil))))))))
+           ;; The first admission check runs after the fresh question is appended.
+         (let ((compaction-requests 0))
+          (when (conversation-async-lisp--safe-boundary-p conversation)
+            (task-completion-deliver agent))
+          (multiple-value-bind (item record)
+              (conversation-append-user-message
+               conversation
+               content
+               :pending-input-identifier pending-input-identifier
+               :automatic-p              automatic-p
+               :operation-request        operation-request)
+            (declare (ignore item))
+            (agent-observer-status
+             observer
+             :user-message-persisted
+             (append
+              (list :sequence (getf (rest record) :seq)
+                    :time     (getf (rest record) :time))
+              (when pending-input-identifier
+                (list :pending-input-identifier pending-input-identifier)))))
+          (unwind-protect
+               (progn
+                 (agent-run-fitting-procedure agent observer
+                                              (or (user-message-input-text content) "")
+                                              :automatic-p        automatic-p
+                                              :tools-p            tools-p
+                                              :tool-restriction-p tool-restriction-p)
+                 (agent--run-provider-loop
+                  agent observer
+                  :goal-context       goal-context
+                  :tools-p            tools-p
+                  :tool-allowlist     tool-allowlist
+                  :tool-restriction-p tool-restriction-p
+                  :request-number     compaction-requests))
+            (conversation-clear-ephemeral-input-items conversation))))))))
 
 
 ;;;; -- Provider and Persistence Flow --
@@ -666,21 +662,6 @@ retries stay auditable next to the request they belong to."
       (t
        nil))))
 
-(-> agent--note-turn-state (conversation provider-result) null)
-(defun agent--note-turn-state (conversation result)
-  "Adopt RESULT's sticky-routing token when the active turn has none yet.
-
-The Codex backend issues an x-codex-turn-state token when a turn starts and
-expects every later request in that turn to replay the same value. Later
-responses may omit it or carry another value, so an already-pinned turn keeps
-its token and the turn boundary clears it. This follows the Codex reference at
-commit 6f51c65958."
-  (let ((turn-state (provider-result-turn-state result)))
-    (when (and turn-state
-               (null (conversation-turn-state conversation)))
-      (setf (conversation-turn-state conversation) turn-state)))
-  nil)
-
 (-> agent--persist-provider-result
     (agent provider-result
      &key (:request-number integer)
@@ -717,11 +698,12 @@ commit 6f51c65958."
              ':durable))))
     (conversation-append-provider-metadata
      conversation
-     (append (list :request-number request-number
-                   :response-id    (provider-result-response-id result)
-                   :usage          (agent--portable-value
-                                    (provider-usage-normalize
-                                     (provider-result-usage result))))
+     (append (list :request-number   request-number
+                   :response-id      (provider-result-response-id result)
+                   :usage            (agent--portable-value
+                                      (provider-usage-normalize
+                                       (provider-result-usage result)))
+                   :request-identity (conversation-request-identity conversation))
              ;; The service's effective retention mode, when it reports one.
              (let ((context (agent--result-reasoning-context result)))
                (and context (list :reasoning-context context))))))
@@ -1070,20 +1052,21 @@ restricted turn cannot discover tools outside its allowlist."
          (condition                            nil))
     (handler-case
         (setf result
-              (cond
-                ((mission-agent-terminal-p agent)
-                 (tool-failure "Mission work stopped; inspect its durable state and evidence."))
-                ((getf plan :withheld-reason)
-                 (tool-mechanics (getf plan :withheld-reason)
-                                 :code ':storm-withheld))
-                (argument-error
-                 (tool-mechanics argument-error :code ':invalid-arguments))
-                (t
-                 (agent-observer-call-with-tool-execution
-                  observer call-id
-                  (lambda ()
-                    (tool-registry-execute-call
-                     (agent-tool-registry agent) call context))))))
+              (multiple-value-bind (terminal-p mission-context) (mission-agent-terminal-p agent)
+                (cond
+                  (terminal-p
+                   (mission--stopped-tool-result mission-context))
+                  ((getf plan :withheld-reason)
+                   (tool-mechanics (getf plan :withheld-reason)
+                                   :code ':storm-withheld))
+                  (argument-error
+                   (tool-mechanics argument-error :code ':invalid-arguments))
+                  (t
+                   (agent-observer-call-with-tool-execution
+                    observer call-id
+                    (lambda ()
+                      (tool-registry-execute-call
+                       (agent-tool-registry agent) call context)))))))
       ((or autolith-control-condition
            serious-condition)
        (failure)
@@ -1218,13 +1201,15 @@ worker results become explicit unknown outcomes so provider history stays valid.
 (-> agent--tool-thread-function (function) function)
 (defun agent--tool-thread-function (function)
   "Return FUNCTION wrapped with the current turn-scoped tool bindings."
-  (let ((skill-logical-turn-state *skill-logical-turn-state*)
-        (worker-host-tool-policy  (copy-tree *worker-host-tool-policy*))
-        (telemetry-run            *telemetry-run*))
+  (let ((skill-logical-turn-state   *skill-logical-turn-state*)
+        (worker-host-tool-policy    (copy-tree *worker-host-tool-policy*))
+        (telemetry-run              *telemetry-run*)
+        (mission-admitted-operation *mission-admitted-operation*))
     (lambda ()
-      (let ((*skill-logical-turn-state* skill-logical-turn-state)
-            (*worker-host-tool-policy*  worker-host-tool-policy)
-            (*telemetry-run*            telemetry-run))
+      (let ((*skill-logical-turn-state*   skill-logical-turn-state)
+            (*worker-host-tool-policy*    worker-host-tool-policy)
+            (*telemetry-run*              telemetry-run)
+            (*mission-admitted-operation* mission-admitted-operation))
         (funcall function)))))
 
 (-> agent--run-tool-wave
@@ -1464,8 +1449,12 @@ tool registry reaches the very next provider request."
    "Return true when AGENT's conversation should compact before continuing."))
 
 (defmethod agent-should-compact-p ((agent agent))
-  "Return true when the newest usage crossed AGENT's compaction limit."
-  (>= (conversation-last-total-tokens (agent-conversation agent))
+  "Compare fresh known input with the soft compaction threshold, independently of paid usage."
+  (>= (context-estimate-known-tokens
+       (agent-configuration agent) (agent-conversation agent)
+       :tool-registry (agent-tool-registry agent)
+       :hurry-up-p    (agent-hurry-up-p agent)
+       :family        (provider-family (agent-provider agent)))
       (configuration-compaction-token-limit (agent-configuration agent))))
 
 (-> agent--note-compaction-request
@@ -1491,17 +1480,130 @@ to usage accounting instead of hiding behind the compaction record."
     (agent-observer-status observer :compaction-request-completed details))
   nil)
 
+(defparameter *agent-compaction-summary-labels*
+  '("[Progress]" "[Decisions]" "[Context]" "[Constraints]" "[Next steps]" "[References]")
+  "The labels that open a portable handoff's sections, in their required order.")
+
+(-> agent--compaction-summary-structure-problem (string) (option string))
+(defun agent--compaction-summary-structure-problem (text)
+  "Return why trimmed TEXT is not a structured handoff, or NIL when it is one.
+
+A handoff holds every label once, in order, each followed by content, within
+the character bound. Only Markdown heading or emphasis marks may precede the
+first label."
+  (let* ((labels    *agent-compaction-summary-labels*)
+         (lower     (string-downcase text))
+         (positions (mapcar (lambda (label) (search (string-downcase label) lower)) labels))
+         (missing   (loop for label in labels
+                          for position in positions
+                          unless position
+                            collect label)))
+    (cond
+      ((> (length text) *compaction-summary-maximum-characters*)
+       (format nil "it has ~:D characters, more than the ~:D allowed"
+               (length text) *compaction-summary-maximum-characters*))
+      (missing
+       (format nil "it lacks ~{~A~^, ~}" missing))
+      ((notevery #'< positions (rest positions))
+       "its labels are out of order")
+      ((notevery (lambda (character) (find character '(#\Space #\Tab #\Newline #\Return #\# #\* #\_ #\>)))
+                 (subseq text 0 (first positions)))
+       (format nil "text precedes ~A" (first labels)))
+      (t
+       (loop for label in labels
+             for position in positions
+             for end in (append (rest positions) (list (length text)))
+             for start = (+ position (length label))
+             when (search (string-downcase label) lower :start2 start)
+               return (format nil "~A appears more than once" label)
+             unless (some #'alphanumericp (subseq text start end))
+               return (format nil "~A has no content" label))))))
+
+(-> agent--compaction-summary-problem (provider-result) (option string))
+(defun agent--compaction-summary-problem (result)
+  "Return why RESULT is not a completed, structured, tool-free handoff, or NIL.
+
+Only ':CONTINUE marks unfinished output. Responses routes omit end_turn on
+many completed responses, and truncated output signals its own error."
+  (let* ((text    (provider-result-assistant-text result))
+         (trimmed (and (stringp text)
+                       (string-trim '(#\Space #\Tab #\Newline #\Return) text)))
+         (items   (provider-result-output-items result)))
+    (cond
+      ((eq (provider-result-turn-completion result) ':continue)
+       "the response did not finish")
+      ((notevery #'json-object-p items)
+       "the response holds a malformed item")
+      ((or (provider-result-tool-calls result)
+           (some (lambda (item)
+                   (member (json-get item "type")
+                           '("function_call" "function_call_output" "tool_use" "tool_result")
+                           :test #'equal))
+                 items))
+       "the response calls tools")
+      ((some #'provider--native-compaction-refusal-p items)
+       "the response refuses")
+      ((not (non-empty-string-p trimmed))
+       "the response has no visible text")
+      (t
+       (agent--compaction-summary-structure-problem trimmed)))))
+
+(-> agent--compaction-summary-usable-p (provider-result) boolean)
+(defun agent--compaction-summary-usable-p (result)
+  "Return true when RESULT is a completed, structured, tool-free handoff."
+  (null (agent--compaction-summary-problem result)))
+
+(-> agent--native-compaction-window (t) list)
+(defun agent--native-compaction-window (value)
+  "Normalize a native checkpoint VALUE to its complete ordered output window."
+  (cond
+    ((null value)
+     nil)
+    ((json-object-p value)
+     (list value))
+    ((listp value)
+     value)
+    (t
+     (error 'provider-protocol-error
+            :message     "Native compaction returned a malformed window."
+            :status      nil
+            :code        nil
+            :request-id  nil
+            :response-id nil
+            :response    nil))))
+
+(-> agent--compaction-text-answer-p (provider-result) boolean)
+(defun agent--compaction-text-answer-p (result)
+  "Return true when RESULT is a finished, tool-free, refusal-free answer with visible text."
+  (let ((text  (provider-result-assistant-text result))
+        (items (provider-result-output-items result)))
+    (and (not (eq (provider-result-turn-completion result) ':continue))
+         (null (provider-result-tool-calls result))
+         (every #'json-object-p items)
+         (stringp text)
+         (some #'alphanumericp text)
+         (notany #'provider--native-compaction-refusal-p items))))
+
 (-> agent--compaction-follow-up-p (provider-result) boolean)
 (defun agent--compaction-follow-up-p (result)
-  "Return true when RESULT can continue toward visible compaction text."
+  "Return true when another request can still turn RESULT into a handoff.
+
+Tool calls and output the provider will continue earn a follow-up, and so
+does a text answer that misses the handoff shape. Empty and refused answers
+end compaction."
   (or (not (null (provider-result-tool-calls result)))
-      (eq (provider-result-turn-completion result) ':continue)))
+      (eq (provider-result-turn-completion result) ':continue)
+      (agent--compaction-text-answer-p result)))
 
 (-> agent--advance-compaction-summary-view
-    (conversation provider-result)
+    (conversation provider-result string)
     null)
-(defun agent--advance-compaction-summary-view (conversation result)
-  "Add RESULT to transient CONVERSATION and reject its unavailable tool calls."
+(defun agent--advance-compaction-summary-view (conversation result problem)
+  "Add RESULT to transient CONVERSATION and say how to correct PROBLEM.
+
+Unavailable tool calls get a mechanics result. A finished answer that is not a
+usable handoff gets a user message naming PROBLEM. Unfinished output simply
+continues."
   (dolist (item (provider-result-output-items result))
     (unless (json-object-p item)
       (error 'provider-protocol-error
@@ -1527,6 +1629,13 @@ to usage accounting instead of hiding behind the compaction record."
        (function-call-output-item
         call-id
         "Tools are unavailable during compaction. Return only the requested handoff summary as visible assistant text."))))
+  (when (and (null (provider-result-tool-calls result))
+             (not (eq (provider-result-turn-completion result) ':continue)))
+    (conversation--append-input-item
+     conversation
+     (user-message-item
+      (format nil "That handoff is not usable: ~A. Return the complete handoff again as visible text: the labels ~{~A~^, ~} in this order, each once at the start of its own line, followed by its content, in under ~:D characters."
+              problem *agent-compaction-summary-labels* *compaction-summary-maximum-characters*))))
   nil)
 
 (-> agent--result-reasoning-context (provider-result) (option string))
@@ -1545,24 +1654,69 @@ to usage accounting instead of hiding behind the compaction record."
      :identity     (list (provider-family provider) (config :model configuration))
      :idle-seconds (provider-prompt-cache-retention-seconds provider configuration))))
 
+(-> agent--request-tool-choice (boolean boolean (integer 0)) (member :auto :none))
+(defun agent--request-tool-choice (tools-p tool-restriction-p tool-rounds)
+  "Resolve the next request's tool choice from its restricted round budget."
+  (if (or (not tools-p)
+          (not tool-restriction-p)
+          (< tool-rounds *agent-restricted-maximum-tool-rounds*))
+      ':auto
+      ':none))
+
+(-> agent--validate-compaction-projection
+    (agent conversation &key (:goal-context (option string))
+                      (:tool-restriction-p boolean) (:tool-allowlist (option list))
+                       (:tools-p boolean) (:tool-rounds (integer 0))
+                       (:maximum-output-tokens (option integer)))
+    null)
+(defun agent--validate-compaction-projection
+    (agent candidate &key goal-context tool-restriction-p tool-allowlist tools-p
+                         (tool-rounds 0) maximum-output-tokens)
+  "Reject a candidate checkpoint whose fresh ordinary request cannot fit."
+  (let* ((provider       (agent-provider agent))
+         (tool-namespaces
+           (cond
+             ((not tools-p)
+              #())
+             (tool-restriction-p
+              (tool-registry-provider-schemas
+               (agent-tool-registry agent) :canonical-names tool-allowlist))
+             (t
+              (tool-registry-provider-schemas (agent-tool-registry agent))))))
+    (let ((*provider-maximum-output-tokens* maximum-output-tokens)
+          (*provider-tool-choice*
+            (agent--request-tool-choice tools-p tool-restriction-p tool-rounds))
+          (*context-request-contributions*
+            (and tools-p (not tool-restriction-p)
+                 (mcp-tool-registry-context-contributions (agent-tool-registry agent)))))
+      (multiple-value-bind (request delivery)
+          (provider-request-object provider candidate tool-namespaces
+                                   :goal-context goal-context)
+        (declare (ignore delivery))
+        (provider-check-request-context provider request)))))
+
 (-> agent-compact-conversation
     (agent agent-observer &key (:tool-allowlist (option list))
                                (:tool-restriction-p boolean)
-                               (:request-number (integer 0)))
-    (integer 0))
+                               (:tools-p boolean)
+                               (:goal-context (option string))
+                               (:request-number (integer 0))
+                               (:next-request-status-details boolean)
+                               (:next-request-tool-rounds (integer 0)))
+    (values (integer 0) (option list)))
 (defun agent-compact-conversation
-    (agent observer
-     &key tool-allowlist (tool-restriction-p nil) (request-number 0))
+    (agent observer &key tool-allowlist (tool-restriction-p nil) (tools-p t)
+                           goal-context (request-number 0)
+                           (next-request-status-details nil) (next-request-tool-rounds 0))
   "Compact AGENT's conversation with native state when the provider supports it.
 
 A supported native checkpoint becomes the input to the portable summarization
 side channel, avoiding a second upload of the full pre-compaction history. The
 durable summary remains a handoff for another provider family.
 
-Each provider request is metered under the next number after REQUEST-NUMBER
-once the summary is known to be usable. Capture the durable cutoff before
-native or portable requests and retain arrivals at checkpoint publication.
-Return the number of requests issued so the turn's request count covers them."
+Each completed provider request is metered before response validation. Capture
+the durable cutoff before native or portable requests and retain arrivals at
+publication. Return issued request count and optional next-request details."
   (agent--prepare-provider-request agent)
   (let* ((conversation                 (agent-conversation agent))
          (compaction                   (conversation-compaction-capture conversation))
@@ -1570,7 +1724,8 @@ Return the number of requests issued so the turn's request count covers them."
          (unfinished-work              nil)
          (*request-context-hurry-up-p* (agent-hurry-up-p agent))
          (issued                       0)
-         (native-usage                 nil))
+         (native-usage                 nil)
+         (native-request-accounted-p   nil))
     ;; Announce compaction before reading job storage, which can take a while.
     (agent-observer-status
      observer
@@ -1579,36 +1734,60 @@ Return the number of requests issued so the turn's request count covers them."
     (setf unfinished-work (task-unfinished-work-snapshot agent))
     (let* ((*provider-hosted-tools-enabled-p* (not tool-restriction-p))
            (provider                          (agent-provider agent))
-           (native-item
-             (multiple-value-bind (item usage)
+           (native-window
+             (multiple-value-bind (window usage)
                  (provider-native-compact-conversation
                   provider
                   captured-view
-                  :tool-namespaces
-                  (if tool-restriction-p
-                      (tool-registry-provider-schemas
-                       (agent-tool-registry agent)
-                       :canonical-names tool-allowlist)
-                      (tool-registry-provider-schemas
-                       (agent-tool-registry agent)))
+                    :tool-namespaces
+                    (if (not tools-p)
+                        #()
+                        (if tool-restriction-p
+                            (tool-registry-provider-schemas
+                             (agent-tool-registry agent)
+                             :canonical-names tool-allowlist)
+                            (tool-registry-provider-schemas
+                             (agent-tool-registry agent))))
                   :event-callback
                   (lambda (event)
-                    (declare (ignore event))
-                    (agent-observer-status observer :provider-progress nil)))
-               (when item
-                 (setf native-usage usage))
-               item))
+                    (if (typep event 'native-compaction-completed-event)
+                        (progn
+                          (setf native-request-accounted-p t
+                                native-usage (native-compaction-completed-event-usage event))
+                          (incf issued)
+                          (agent--note-compaction-request
+                           agent observer
+                           :request-number (+ request-number issued)
+                           :kind           ':native
+                           :usage          native-usage
+                           :response-id    (native-compaction-completed-event-response-id event)))
+                        (agent-observer-status observer :provider-progress nil))))
+                 (unless native-request-accounted-p
+                   (setf native-usage usage))
+                 (agent--native-compaction-window window)))
+           (compaction                        (if native-window
+                                                  compaction
+                                                  (conversation-compaction-portable-capture compaction)))
+           (captured-view                     (conversation-compaction-view compaction))
            (family                            (provider-family provider))
            (summary-conversation
              (conversation-compaction-summary-view
               captured-view
-              (if native-item
-                  (list native-item)
+              (or native-window
                   (conversation-input-items-for-family
                    captured-view family :include-ephemeral-p nil))
               family))
            (summary-results                   nil)
            (summary                           nil))
+        ;; Native providers that cannot emit the completion event still return
+        ;; usage as their second value.  Account that fallback exactly once.
+        (when (and (not native-request-accounted-p) (or native-window native-usage))
+          (incf issued)
+          (agent--note-compaction-request
+           agent observer
+           :request-number (+ request-number issued)
+           :kind           ':native
+           :usage          native-usage))
       (loop for attempt from 1 to *agent-compaction-maximum-summary-requests*
             for result =
               (let ((*telemetry-request-role* ':compaction))
@@ -1621,55 +1800,88 @@ Return the number of requests issued so the turn's request count covers them."
                    (declare (ignore event))
                    (agent-observer-status observer :provider-progress nil))
                  :compaction-p    t))
-            do (push result summary-results)
-               (setf summary (provider-result-assistant-text result))
-               (when (non-empty-string-p summary)
-                 (return))
-               (unless (and (< attempt *agent-compaction-maximum-summary-requests*)
-                            (agent--compaction-follow-up-p result))
-                 (error 'provider-protocol-error
-                        :message     "Compaction produced no summary text."
-                        :status      nil
-                        :code        nil
-                        :request-id  nil
-                        :response-id (provider-result-response-id result)
-                        :response    nil))
-               (agent--advance-compaction-summary-view
-                summary-conversation result))
-      (when native-item
-        (incf issued)
-        (agent--note-compaction-request
-         agent observer
-         :request-number (+ request-number issued)
-         :kind           ':native
-         :usage          native-usage))
-      (dolist (result (nreverse summary-results))
-        (incf issued)
-        (agent--note-compaction-request
-         agent observer
-         :request-number (+ request-number issued)
-         :kind           ':summary
-         :usage          (provider-result-usage result)
-         :response-id    (provider-result-response-id result)))
-      (with-recursive-lock-held ((conversation-append-lock conversation))
-        (setf unfinished-work (task-unfinished-work-snapshot agent))
-        (if native-item
-            (conversation-append-native-compaction
-             conversation native-item
-             :family          (provider-family provider)
-             :summary         summary
-             :compaction      compaction
-             :unfinished-work unfinished-work)
-            (conversation-append-summary
-             conversation summary :compaction compaction
-             :unfinished-work                 unfinished-work)))
-      (agent-observer-status
-       observer
-       :compaction-completed
-       (list :summary-characters (length summary)
-             :native-p           (not (null native-item))
-             :provider-requests  issued)))
-    issued))
+            do (incf issued)
+               (push result summary-results)
+               ;; Every completed paid request is accounted for before its
+               ;; response is interpreted or a later retry is attempted.
+               (agent--note-compaction-request
+                agent observer
+                :request-number (+ request-number issued)
+                :kind           ':summary
+                :usage          (provider-result-usage result)
+                :response-id    (provider-result-response-id result))
+               (let ((problem (agent--compaction-summary-problem result)))
+                 ;; The last request publishes any text answer: a loosely
+                 ;; shaped handoff beats an agent that cannot continue.
+                 (when (or (null problem)
+                           (and (= attempt *agent-compaction-maximum-summary-requests*)
+                                (agent--compaction-text-answer-p result)))
+                   (setf summary (provider-result-assistant-text result))
+                   (return))
+                 (unless (and (< attempt *agent-compaction-maximum-summary-requests*)
+                              (agent--compaction-follow-up-p result))
+                   (error 'provider-protocol-error
+                          :message     (format nil "Compaction produced no usable summary handoff: ~A."
+                                               problem)
+                          :status      nil
+                          :code        nil
+                          :request-id  nil
+                          :response-id (provider-result-response-id result)
+                          :response    nil))
+                 (agent--advance-compaction-summary-view
+                  summary-conversation result problem)))
+      (let* ((next-output-tokens
+               (if next-request-status-details
+                   (let ((value
+                           (agent-observer-status
+                            observer :provider-request-started
+                            (list :request-number (+ request-number issued 1)
+                                  :tool-rounds    next-request-tool-rounds))))
+                     (and (integerp value) (plusp value) value))
+                   *provider-maximum-output-tokens*))
+             (next-request-details
+               (and next-request-status-details
+                    (list :announced-p           t
+                          :maximum-output-tokens next-output-tokens))))
+        (with-recursive-lock-held ((conversation-append-lock conversation))
+          (setf unfinished-work (task-unfinished-work-snapshot agent))
+          (if native-window
+              (conversation-append-native-compaction
+               conversation native-window
+               :family          (provider-family provider)
+               :summary         summary
+               :compaction      compaction
+               :unfinished-work unfinished-work
+               :validate-projection
+               (lambda (candidate)
+                 (agent--validate-compaction-projection
+                  agent candidate
+                  :goal-context          goal-context
+                  :tools-p               tools-p
+                   :tool-rounds          next-request-tool-rounds
+                  :maximum-output-tokens next-output-tokens
+                  :tool-restriction-p    tool-restriction-p
+                  :tool-allowlist        tool-allowlist)))
+              (conversation-append-summary
+               conversation summary :compaction compaction
+               :unfinished-work                 unfinished-work
+               :validate-projection
+               (lambda (candidate)
+                 (agent--validate-compaction-projection
+                  agent candidate
+                  :goal-context          goal-context
+                  :tools-p               tools-p
+                   :tool-rounds          next-request-tool-rounds
+                  :maximum-output-tokens next-output-tokens
+                  :tool-restriction-p    tool-restriction-p
+                  :tool-allowlist        tool-allowlist)))))
+        (agent-observer-status
+         observer
+         :compaction-completed
+         (list :summary-characters (length summary)
+               :native-p           (not (null native-window))
+               :provider-requests  issued))
+        (values issued next-request-details)))))
 
 (-> agent--run-provider-loop
     (agent agent-observer &key (:goal-context (option string))
@@ -1686,196 +1898,212 @@ Return the number of requests issued so the turn's request count covers them."
 
 REQUEST-NUMBER counts provider requests the turn already issued before the
 loop, so compaction ahead of the user message shares the turn's budget."
-  (let ((*task-unfinished-work-agent* agent)
-        (seen-call-identifiers        (make-hash-table :test #'equal))
-        (storm-state                  (agent-tool-storm-state-create))
-        (tool-rounds                  0)
-        (tool-calls                   0)
-        (first-request-p              t)
-        (maximum-output-tokens        nil))
-    (declare (special *task-unfinished-work-agent*))
-    (loop
-      (when (>= request-number *agent-maximum-provider-requests-per-turn*)
-        (error 'agent-loop-error
-               :message
-               (format nil
-                       "The turn reached its ~D provider-request safety limit."
-                       *agent-maximum-provider-requests-per-turn*)
-               :conversation-id
-               (conversation-identifier (agent-conversation agent))
-               :request-number request-number))
-      (when (agent-should-compact-p agent)
-        (incf request-number
-              (agent-compact-conversation
-               agent observer
-               :tool-allowlist     tool-allowlist
-               :tool-restriction-p tool-restriction-p
-               :request-number     request-number)))
-      (when (and tools-p (not tool-restriction-p))
-        (mcp-tool-registry-refresh
-         (agent-tool-registry agent)
-         :only-dirty-p t))
-      (when first-request-p
-        (agent--persist-steering-input
-         agent observer
-         :messages       (peer-message-take-context agent)
-         :request-number (1+ request-number))
-        (setf first-request-p nil))
-      (agent--prepare-provider-request agent)
-      (incf request-number)
-      (let ((output-limit
-              (agent-observer-status
-               observer
-               :provider-request-started
-               (list :request-number request-number
-                     :tool-rounds    tool-rounds))))
-        (setf maximum-output-tokens
-              (and (integerp output-limit)
-                   (plusp output-limit)
-                   output-limit)))
-      (let* ((conversation (agent-conversation agent))
-             (tool-schemas-p
-               (and tools-p
-                    (or (not tool-restriction-p)
-                        (< tool-rounds
-                           *agent-restricted-maximum-tool-rounds*))))
-             (tool-namespaces
-               (if tool-schemas-p
-                   (if tool-restriction-p
-                       (tool-registry-provider-schemas
-                        (agent-tool-registry agent)
-                        :canonical-names tool-allowlist)
-                       (tool-registry-provider-schemas
-                        (agent-tool-registry agent)))
-                   #()))
-             (cache-prefix nil)
-             (result
-               (handler-case
-                   (let ((*provider-hosted-tools-enabled-p*
-                            (not tool-restriction-p))
-                         (*provider-maximum-output-tokens* maximum-output-tokens)
-                         (*provider-cache-prefix-function*
-                           (lambda (prefix) (setf cache-prefix prefix)))
-                         (*request-context-hurry-up-p*
-                           (agent-hurry-up-p agent))
-                         (*context-request-contributions*
-                          (and
-                           tools-p
-                           (not tool-restriction-p)
-                           (mcp-tool-registry-context-contributions
-                            (agent-tool-registry agent)))))
-                     (provider-stream-turn
-                      (agent-provider agent)
-                      conversation
-                      :tool-namespaces tool-namespaces
-                      :event-callback
-                      (agent--provider-event-callback
-                       observer
-                       :conversation   conversation
-                       :request-number request-number)
-                      :goal-context    goal-context))
-                 (provider-error (condition)
-                   (conversation-append-provider-metadata
-                    conversation
-                    (list :request-number request-number
-                          :failure
-                          (agent--provider-error-metadata condition)))
-                   (error condition))))
-             (calls        (provider-result-tool-calls result))
-             (completion-details
-               (list :request-number    request-number
-                     :response-id       (provider-result-response-id result)
-                     :usage             (agent--portable-value
-                                         (provider-usage-normalize (provider-result-usage result)))
-                     :cache-prefix      cache-prefix
-                     :output-item-count (length (provider-result-output-items result))
-                     :tool-call-count   (length calls)
-                     :turn-completion   (provider-result-turn-completion result))))
-        (conversation-note-provider-response conversation)
-        (handler-case
-            (progn
-              (when (and calls (not tools-p))
-                (error 'agent-loop-error
-                       :message         "A tool-free model turn returned function calls."
-                       :conversation-id (conversation-identifier conversation)
-                       :request-number  request-number))
-              (when (and calls tool-restriction-p (not tool-schemas-p))
-                (error 'agent-loop-error
-                       :message
-                       (format nil "A restricted turn exceeded its ~D tool-round limit."
-                               *agent-restricted-maximum-tool-rounds*)
-                       :conversation-id (conversation-identifier conversation)
-                       :request-number  request-number))
-              (when (and calls tool-restriction-p)
-                (agent--validate-tool-call-allowlist
-                 agent calls tool-allowlist :request-number request-number))
-              (conversation-clear-ephemeral-input-items conversation)
-              (agent--validate-tool-call-identifiers
-               agent calls :seen-call-identifiers seen-call-identifiers
-                           :request-number        request-number))
-          (agent-loop-error (condition)
-            ;; Rejected calls still carry billable provider usage.
-            (agent-observer-status observer :provider-request-completed completion-details)
-            (error condition)))
-        (let ((call-plans
-                (agent--tool-call-plans agent calls :storm-state storm-state)))
-          (agent--persist-provider-result
-           agent
-           result
-           :request-number request-number
-           :call-plans     call-plans)
-          (agent--answer-tool-searches
-           agent result tool-namespaces :request-number request-number)
-          (agent--note-persisted-assistant-response
-           observer result request-number)
-          (agent--note-turn-state conversation result)
-          (agent-observer-status observer :provider-request-completed completion-details)
-          (knowledge-usage-capture conversation
-                                   :calls          calls
-                                   :request-number request-number
-                                   :usage          (provider-result-usage result))
-          (when (or (agent-turn-complete-p agent result)
-                    (and (null calls) (mission-agent-terminal-p agent)))
-            (agent-observer-status
-             observer
-             :turn-completed
-             (append
-              (list :provider-requests request-number
-                    :tool-rounds       tool-rounds
-                    :tool-calls        tool-calls
-                    :response-id       (provider-result-response-id result))
-              (agent-turn-completion-details agent)))
-            (agent-learn-procedures agent observer tool-calls)
-            (return result))
-          (cond
-            ((null calls)
-             (agent-observer-status
-              observer
-              :provider-follow-up
-              (list :request-number request-number))
-             (agent--apply-steering-input
-              agent observer request-number))
-            (t
-             (incf tool-rounds)
-             (incf tool-calls (length calls))
-             (agent--execute-tool-calls agent call-plans result
-                                        :observer           observer
-                                        :tool-round         tool-rounds
-                                        :tool-allowlist     tool-allowlist
-                                        :tool-restriction-p tool-restriction-p)
-             (if (or (agent-turn-complete-p agent result)
-                     (mission-agent-terminal-p agent))
-                 (progn
+    (let ((*task-unfinished-work-agent* agent)
+          (seen-call-identifiers        (make-hash-table :test #'equal))
+          (storm-state                  (agent-tool-storm-state-create))
+          (tool-rounds                  0)
+          (tool-calls                   0)
+          (first-request-p              t)
+          (maximum-output-tokens        nil)
+          (next-request-details         nil))
+     (declare (special *task-unfinished-work-agent*))
+     (loop
+       (when (>= request-number *agent-maximum-provider-requests-per-turn*)
+         (error 'agent-loop-error
+                :message
+                (format nil
+                        "The turn reached its ~D provider-request safety limit."
+                        *agent-maximum-provider-requests-per-turn*)
+                :conversation-id
+                (conversation-identifier (agent-conversation agent))
+                :request-number request-number))
+       (when (and tools-p (not tool-restriction-p))
+         (mcp-tool-registry-refresh
+          (agent-tool-registry agent)
+          :only-dirty-p t))
+       (when first-request-p
+         (agent--persist-steering-input
+          agent observer
+          :messages       (peer-message-take-context agent)
+          :request-number (1+ request-number))
+         (setf first-request-p nil))
+       (when (agent-should-compact-p agent)
+         (multiple-value-bind (compaction-requests details)
+             (agent-compact-conversation
+              agent observer
+              :tool-allowlist              tool-allowlist
+              :tool-restriction-p          tool-restriction-p
+              :tools-p                     tools-p
+              :goal-context                goal-context
+              :request-number              request-number
+              :next-request-status-details t
+              :next-request-tool-rounds    tool-rounds)
+           (incf request-number compaction-requests)
+           (setf next-request-details details)))
+       (agent--prepare-provider-request agent)
+       (incf request-number)
+       (let ((output-limit
+               (if (and next-request-details
+                        (getf next-request-details :announced-p))
+                   (getf next-request-details :maximum-output-tokens)
                    (agent-observer-status
                     observer
-                    :turn-completed
-                    (append
-                     (list :provider-requests request-number
-                           :tool-rounds       tool-rounds
-                           :tool-calls        tool-calls
-                           :response-id       (provider-result-response-id result))
-                     (agent-turn-completion-details agent)))
-                   (agent-learn-procedures agent observer tool-calls)
-                   (return result))
-                 (agent--apply-steering-input
-                  agent observer request-number)))))))))
+                    :provider-request-started
+                    (list :request-number request-number
+                            :tool-rounds  tool-rounds)))))
+         (setf next-request-details nil
+               maximum-output-tokens
+               (and (integerp output-limit)
+                    (plusp output-limit)
+                    output-limit)))
+       (let* ((conversation (agent-conversation agent))
+              (tool-calls-p
+                (and tools-p
+                     (eq (agent--request-tool-choice tools-p tool-restriction-p tool-rounds)
+                         ':auto)))
+              ;; A restricted turn past its tool rounds keeps its schemas and
+              ;; disables calls instead, so its answer reuses the cached prefix.
+              (tool-namespaces
+                (cond
+                  ((not tools-p)
+                   #())
+                  (tool-restriction-p
+                   (tool-registry-provider-schemas
+                    (agent-tool-registry agent)
+                    :canonical-names tool-allowlist))
+                  (t
+                   (tool-registry-provider-schemas
+                    (agent-tool-registry agent)))))
+              (cache-prefix nil)
+              (result
+                (handler-case
+                    (let ((*provider-hosted-tools-enabled-p*
+                             (not tool-restriction-p))
+                          (*provider-tool-choice*
+                             (agent--request-tool-choice tools-p tool-restriction-p tool-rounds))
+                          (*provider-maximum-output-tokens* maximum-output-tokens)
+                          (*provider-cache-request-prefix*  nil)
+                          (*provider-cache-prefix-function*
+                            (lambda (prefix) (setf cache-prefix prefix)))
+                          (*request-context-hurry-up-p*
+                            (agent-hurry-up-p agent))
+                          (*context-request-contributions*
+                           (and
+                            tools-p
+                            (not tool-restriction-p)
+                            (mcp-tool-registry-context-contributions
+                             (agent-tool-registry agent)))))
+                      (provider-stream-turn
+                       (agent-provider agent)
+                       conversation
+                       :tool-namespaces tool-namespaces
+                       :event-callback
+                       (agent--provider-event-callback
+                        observer
+                        :conversation   conversation
+                        :request-number request-number)
+                       :goal-context    goal-context))
+                  (provider-error (condition)
+                    (conversation-append-provider-metadata
+                     conversation
+                     (list :request-number request-number
+                           :failure
+                           (agent--provider-error-metadata condition)))
+                    (error condition))))
+              (calls        (provider-result-tool-calls result))
+              (completion-details
+                (list :request-number    request-number
+                      :response-id       (provider-result-response-id result)
+                      :usage             (agent--portable-value
+                                          (provider-usage-normalize (provider-result-usage result)))
+                      :cache-prefix      cache-prefix
+                      :output-item-count (length (provider-result-output-items result))
+                      :tool-call-count   (length calls)
+                      :turn-completion   (provider-result-turn-completion result))))
+         (conversation-note-provider-response conversation)
+         (handler-case
+             (progn
+               (when (and calls (not tools-p))
+                 (error 'agent-loop-error
+                        :message         "A tool-free model turn returned function calls."
+                        :conversation-id (conversation-identifier conversation)
+                        :request-number  request-number))
+               (when (and calls tool-restriction-p (not tool-calls-p))
+                 (error 'agent-loop-error
+                        :message
+                        (format nil "A restricted turn exceeded its ~D tool-round limit."
+                                *agent-restricted-maximum-tool-rounds*)
+                        :conversation-id (conversation-identifier conversation)
+                        :request-number  request-number))
+               (when (and calls tool-restriction-p)
+                 (agent--validate-tool-call-allowlist
+                  agent calls tool-allowlist :request-number request-number))
+               (conversation-clear-ephemeral-input-items conversation)
+               (agent--validate-tool-call-identifiers
+                agent calls :seen-call-identifiers seen-call-identifiers
+                            :request-number        request-number))
+           (agent-loop-error (condition)
+             ;; Rejected calls still carry billable provider usage.
+             (agent-observer-status observer :provider-request-completed completion-details)
+             (error condition)))
+         (let ((call-plans
+                 (agent--tool-call-plans agent calls :storm-state storm-state)))
+           (agent--persist-provider-result
+            agent
+            result
+            :request-number request-number
+            :call-plans     call-plans)
+           (agent--answer-tool-searches
+            agent result tool-namespaces :request-number request-number)
+           (agent--note-persisted-assistant-response
+            observer result request-number)
+           (agent-observer-status observer :provider-request-completed completion-details)
+           (knowledge-usage-capture conversation
+                                    :calls          calls
+                                    :request-number request-number
+                                    :usage          (provider-result-usage result))
+           (when (or (agent-turn-complete-p agent result)
+                     (and (null calls) (mission-agent-terminal-p agent)))
+             (agent-observer-status
+              observer
+              :turn-completed
+              (append
+               (list :provider-requests request-number
+                     :tool-rounds       tool-rounds
+                     :tool-calls        tool-calls
+                     :response-id       (provider-result-response-id result))
+               (agent-turn-completion-details agent)))
+             (agent-learn-procedures agent observer tool-calls)
+             (return result))
+           (cond
+             ((null calls)
+              (agent-observer-status
+               observer
+               :provider-follow-up
+               (list :request-number request-number))
+              (agent--apply-steering-input
+               agent observer request-number))
+             (t
+              (incf tool-rounds)
+              (incf tool-calls (length calls))
+              (agent--execute-tool-calls agent call-plans result
+                                         :observer           observer
+                                         :tool-round         tool-rounds
+                                         :tool-allowlist     tool-allowlist
+                                         :tool-restriction-p tool-restriction-p)
+              (if (or (agent-turn-complete-p agent result)
+                      (mission-agent-terminal-p agent))
+                  (progn
+                    (agent-observer-status
+                     observer
+                     :turn-completed
+                     (append
+                      (list :provider-requests request-number
+                            :tool-rounds       tool-rounds
+                            :tool-calls        tool-calls
+                            :response-id       (provider-result-response-id result))
+                      (agent-turn-completion-details agent)))
+                    (agent-learn-procedures agent observer tool-calls)
+                    (return result))
+                  (agent--apply-steering-input
+                   agent observer request-number)))))))))

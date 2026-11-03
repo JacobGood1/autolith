@@ -211,7 +211,7 @@
              (agentcomms:acp-invalid-params "Unsupported prompt content: ~A." type))))))
 
 (defmethod agentcomms:peer-handle-notification :before
-    ((service acp-service) connection method params)
+    ((service acp-service) connection method &key params)
   "Apply cancellation to headless continuations and explicit tool invocations too."
   (declare (ignore connection))
   (when (and (string= method "session/cancel") (hash-table-p params))
@@ -238,9 +238,11 @@
          (start-sequence               nil)
          (observer                     nil)
          (source                       (cond (queued-p
-                                              "queue") (automatic-p
-                                                        "completion") (t
-                                                                       "prompt")))
+                                              "queue")
+                                             (automatic-p
+                                              "completion")
+                                             (t
+                                              "prompt")))
          (outcome                      ':condition)
          (claimed-p                    nil))
     (acp-service--call-with-operation
@@ -334,7 +336,7 @@
                (acp-extension-notify session "state")
                (acp-completion-wake session)))))))))
 
-(defmethod agentcomms:agent-prompt ((service acp-service) session-id prompt params)
+(defmethod agentcomms:agent-prompt ((service acp-service) session-id prompt &key params)
   "Run one explicit user prompt through the shared primary turn boundary."
   (declare (ignore params))
   (acp-session-run-turn (acp-service--session service session-id) (acp-prompt->text prompt)))
@@ -343,7 +345,7 @@
   "Interrupt the prompt and its concurrent tools without waiting on the reader."
   (acp-session-cancel (acp-service--session service session-id)))
 
-(defmethod agentcomms:agent-set-mode ((service acp-service) session-id mode-id params)
+(defmethod agentcomms:agent-set-mode ((service acp-service) session-id mode-id &key params)
   "Validate and publish a permission mode change between turns."
   (declare (ignore params))
   (let* ((session (acp-service--session service session-id))
@@ -377,8 +379,9 @@
                            collect session)))
     (mapc #'acp-session-cancel sessions)))
 
-(defmethod agentcomms:peer-handle-request :around ((service acp-service) connection method params)
+(defmethod agentcomms:peer-handle-request :around ((service acp-service) connection method &key params)
   "Keep diagnostics off the protocol stream in every inbound handler thread."
+  (declare (ignore params))
   (let* ((*standard-output* *error-output*) (*trace-output* *error-output*)
          (*standard-input* (make-string-input-stream ""))
          (*terminal-io*    (make-two-way-stream *standard-input* *error-output*))
@@ -406,7 +409,6 @@
               (remhash (acp-session-identifier session) (acp-service-sessions service))))
         (serious-condition ()
           (setf failed-p t))))
-    (telemetry--call-safely #'telemetry-shutdown)
     (when failed-p
       (error 'agentcomms:acp-state-error :message "ACP session cleanup failed.")))
   nil)
@@ -421,10 +423,17 @@
       (agentcomms:channel-close channel)))
   nil)
 
-(-> acp-run (configuration &key (:permission-mode keyword) (:pristine-p boolean)) null)
-(defun acp-run (configuration &key (permission-mode ':ask) pristine-p)
-  "Bootstrap a headless ACP endpoint and serve UTF-8 standard I/O until disconnect."
-  (let* ((channel           (agentcomms:acp-standard-io-channel))
+(-> acp-run (configuration &key (:permission-mode keyword) (:pristine-p boolean)
+                                (:endpoint (or null acp-endpoint)))
+    null)
+(defun acp-run (configuration &key (permission-mode ':ask) pristine-p endpoint)
+  "Bootstrap a headless ACP process and serve its clients until they leave or Ctrl-C.
+
+Without ENDPOINT, the one client is the editor on UTF-8 standard I/O. With
+ENDPOINT, remote clients connect over the network. Every client gets its own
+service, and all of them share the process's one primary operation."
+  (let* ((channel           (and (null endpoint) (agentcomms:acp-standard-io-channel)))
+         (gate              (make-instance 'acp-operation-gate))
          (*standard-output* *error-output*)
          (*trace-output*    *error-output*)
          (*standard-input*  (make-string-input-stream ""))
@@ -432,7 +441,6 @@
          (*query-io*        *terminal-io*)
          (*debug-io*        *terminal-io*))
     (unwind-protect
-         ;; Client declarations can contain credentials for the service lifetime.
          (call-with-secret-use
           (lambda ()
             (configuration-ensure-directories configuration)
@@ -442,9 +450,19 @@
             (image-state-load configuration :pristine-p pristine-p)
             (application--load-extension-configuration configuration :pristine-p pristine-p)
             (setf configuration (provider-bootstrap-configuration configuration))
-            (with-slynk-endpoint (configuration)
-              (acp-service-serve (make-instance 'acp-service :configuration configuration
-                                                :permission-mode            permission-mode)
-                                 channel))))
-      (agentcomms:channel-close channel)))
+            (flet ((serve (client-channel)
+                     ;; Client declarations can contain credentials for the client's lifetime.
+                     (call-with-secret-use
+                      (lambda ()
+                        (acp-service-serve (make-instance 'acp-service :configuration   configuration
+                                                                       :permission-mode permission-mode
+                                                                       :gate            gate)
+                                           client-channel)))))
+              (with-slynk-endpoint (configuration)
+                (if endpoint
+                    (acp-serve-remote endpoint #'serve)
+                    (serve channel))))))
+      (when channel
+        (agentcomms:channel-close channel))
+      (telemetry--call-safely #'telemetry-shutdown)))
   nil)

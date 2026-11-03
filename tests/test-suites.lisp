@@ -4,6 +4,48 @@
 
 (setf *test-suites* nil)
 
+(define-test-suite context-admission
+  test-context-admission-mission-large-budget
+  test-context-admission-mission-wire-ceiling
+  test-context-admission-mission-explicit-policy
+  test-context-admission-mission-copy-protocol
+  test-context-admission-mission-code-assist-envelope
+  test-context-admission-code-assist-first-setup
+  test-context-admission-mission-final-recheck
+  test-context-admission-mission-reviewer
+  test-context-admission-mission-refusal-settlement
+  test-context-admission-boundary
+  test-context-admission-fresh-projection
+  test-context-admission-final-request
+  test-context-admission-images
+  test-context-admission-checkpoint-transaction)
+
+(define-test-suite cache-review
+  test-cache-review-retention
+  test-cache-review-final-wire)
+
+(define-test-suite compaction-acceptance
+  test-compaction-summary-acceptance
+  test-compaction-native-paid-rejection
+  test-compaction-next-request-admission
+  test-compaction-repeated-continuation-accounting)
+
+(define-test-suite native-compaction-window
+  test-native-compaction-window-validation
+  test-native-compaction-window-replay)
+
+(define-test-suite compaction-tail
+  test-compaction-tail-bounds-recent-user-and-expands-groups
+  test-compaction-tail-carries-arrivals-through-reload
+  test-compaction-tail-repeated-capture-does-not-accumulate-summaries
+  test-compaction-tail-summarizes-displaced-evidence)
+
+(define-test-suite plan-context
+  test-plan-state-context-projects-current-plan
+  test-plan-state-context-rebuilds-after-plan-update
+  test-plan-state-context-omits-missing-plan
+  test-plan-state-context-rebuilds-requirements-and-receipts)
+
 (define-test-suite telemetry-hooks
   ;; telemetry-hook-model-tests.lisp
   test-telemetry-context-window-streams
@@ -22,6 +64,7 @@
   ;; telemetry-hook-run-tests.lisp
   test-telemetry-terminal-outcomes
   test-telemetry-run-owner-token
+  test-telemetry-late-report-presentation
   test-telemetry-borrower-outcomes
   test-telemetry-finish-freezes-counters
   test-telemetry-detached-run-lifetime
@@ -118,6 +161,8 @@
   test-telemetry-worker-redactor-contract
   test-telemetry-worker-narratives
   test-telemetry-subprocess-deadlines
+  test-supervised-request-readerless-pipe-deadline
+  test-supervised-request-remaining-deadline
   test-telemetry-concurrent-process-retirement
   test-telemetry-process-admission-retirement
   test-telemetry-anonymous-upload
@@ -151,12 +196,36 @@
   test-shell-log-export-boundary)
 
 (define-test-suite shell-log-resource
+  test-shell-log-delivery-backfill
+  test-shell-log-delivery-backfill-retention
+  test-shell-log-backfill-retention-races
+  test-shell-log-sync-details-shapes
+  test-shell-log-sync-details-identities
+  test-shell-log-owner-delivery-restart
+  test-shell-log-owner-delivery-concurrency
+  test-shell-log-owner-delivery-persistence
+  test-shell-log-owner-delivery-failures
+  test-shell-log-owner-delivery-boundaries
+  test-shell-log-owner-delivery-tagged-details
+  test-shell-log-owner-delivery-leases
+  test-shell-log-owner-retention
+  test-shell-log-owner-retention-pressure
+  test-shell-log-receipt-migration
+  test-shell-log-receipt-cache
+  test-shell-log-receipt-linked-segment
+  test-shell-log-receipt-owners
+  test-shell-log-receipt-rotation
+  test-shell-log-receipt-validation
+  test-shell-log-receipt-pressure
+  test-shell-log-receipt-large-history
   test-shell-log-private-allocation
   test-shell-log-child-delivery
   test-shell-log-byte-windows-and-search
   test-shell-log-resource-authority
   test-shell-log-reopen-and-pruning
-  test-shell-log-capture-failure-metadata)
+  test-shell-log-capture-failure-metadata
+  test-shell-log-cross-process-lifecycle
+  test-shell-log-concurrent-allocation)
 
 (define-test-suite shell-log-job
   test-shell-log-job-results
@@ -172,7 +241,10 @@
   test-mission-schedule-recovery
   test-mission-schedule-events-and-authority
   test-mission-schedule-live-retry-exclusion
-  test-mission-schedule-hosted-admission)
+  test-mission-schedule-hosted-admission
+  test-mission-schedule-native-wakeup-stale-claim-process
+  test-mission-schedule-lisp-restart-policy
+  test-vault-edit-accepts-native-lisp)
 
 (define-test-suite peer-message
   test-peer-message-authority
@@ -237,6 +309,12 @@
   test-configuration-source-platform-reading)
 
 (define-test-suite fullscreen
+  test-fullscreen-transcript-residency
+  test-fullscreen-outcome-batch
+  test-fullscreen-outcome-deferred-order
+  test-fullscreen-outcome-retag
+  test-fullscreen-outcome-publication-retry
+  test-fullscreen-outcome-eviction-and-reset
   test-terminal-compact-success-groups
   test-terminal-compact-success-stream-and-retry
   test-terminal-compact-call-groups
@@ -245,6 +323,9 @@
   test-terminal-fullscreen-new-conversation
   test-terminal-fullscreen-small-windows
   test-terminal-fullscreen-flush-wrap-cursor
+  test-terminal-live-theme
+  test-terminal-theme-defaults
+  test-terminal-theme-write-failure
   test-terminal-fullscreen-failure-and-lifecycle
   test-terminal-style-tables-cover-every-name
   test-terminal-style-sequence-unthemed
@@ -311,6 +392,13 @@
   test-job-completion-policy-transport)
 
 (define-test-suite job-completion-delivery
+  test-job-cancellation-warning-once
+  test-job-cancellation-warning-controller
+  test-job-completion-continuation-selection
+  test-job-cancellation-presentation-boundaries
+  test-job-cancellation-selected-delivery-presentation
+  test-job-cancellation-terminal-replay
+  test-job-cancellation-rejected-root-descendants
   test-job-completion-durable-delivery
   test-job-completion-delivery-crash-points
   test-job-completion-terminal-truth-and-reconstruction
@@ -323,12 +411,15 @@
 (define-test-suite job-completion-controller
   test-job-completion-controller-coalescing
   test-job-completion-controller-continuation-notice
+  test-job-completion-controller-ticket-delivery
   test-job-completion-yield-presentation
   test-automatic-work-provider-failure
   test-job-completion-controller-notify-and-busy
   test-job-completion-controller-pause-and-switch
   test-job-completion-controller-mission-admission
   test-job-completion-controller-real-runtime
+  test-job-completion-controller-after-terminal-mission
+  test-job-completion-terminal-mission-authority
   test-job-completion-controller-goal-awaits-jobs
   test-job-completion-controller-mixed-overflow)
 
@@ -373,6 +464,9 @@
   test-knowledge-terms
   test-knowledge-schemas
   test-knowledge-store
+  test-knowledge-archived-history
+  test-knowledge-archived-lifecycle
+  test-knowledge-archived-snapshots
   test-knowledge-applicability
   test-knowledge-quotation-context
   test-knowledge-rule-validation
@@ -421,6 +515,7 @@
 
 (define-test-suite learning
   test-action-traces
+  test-action-trace-residency
   test-procedure-templates
   test-procedure-lifecycle
   test-procedure-mining
@@ -485,6 +580,8 @@
   test-prompt-cache-baseline-from-conversation
   test-prompt-cache-prefix-progression
   test-prompt-cache-request-observation
+  test-prompt-cache-one-response-prefix
+  test-prompt-cache-wire-plan
   test-prompt-cache-miss-notices
   test-cache-misses-command)
 
@@ -506,11 +603,13 @@
     test-command-permission-write-failure
     test-external-permission-persistence
     test-external-tool-permission-modes
+    test-command-classification-cache-bounds
     test-external-tool-permission-keys
     test-external-tool-permission-failures)
 
 (define-test-suite context
   test-session-state-context-contributor
+  test-context-forget-conversation
   test-request-local-context
   test-known-context-estimate
   test-context-estimate-cache
@@ -541,7 +640,7 @@
 
 (define-test-suite relax
   test-relax-setting-and-command
-  test-relax-warning-rebuilds-with-system-prompt)
+  test-relax-warning-rides-session-state)
 
 (define-test-suite interpreter-discipline
   test-interpreter-discipline)
@@ -611,9 +710,12 @@
   test-conversation-identifier-migration-resumption)
 
 (define-test-suite precompaction
-  test-precompaction-drops-failed-exchanges
+  test-precompaction-retains-failed-exchanges
   test-precompaction-retention-policy
-  test-precompaction-cold-requests)
+  test-precompaction-cold-requests
+  test-precompaction-survives-resume
+  test-precompaction-bounds-repeated-failures
+  test-precompaction-bounds-oversized-output)
 
 (define-test-suite conversation
   test-conversation-image-input
@@ -624,6 +726,8 @@
   test-conversation-concurrent-appends
   test-conversation-child-project-setup
   test-conversation-process-lease
+  test-conversation-lease-owner-diagnostic
+  test-conversation-lease-owner-startup-report
   test-conversation-interrupted-tool-call
   test-conversation-late-duplicate-tool-output
   test-conversation-reload-keeps-exchange-order
@@ -636,9 +740,17 @@
   test-conversation-compaction
   test-conversation-native-compaction
   test-conversation-chunk-storage
+  test-conversation-pending-input-identifier-order
+  test-tool-failure-survey
   test-conversation-segment-validation
   test-conversation-legacy-storage
   test-conversation-working-seconds
+  test-conversation-usage-totals
+  test-conversation-usage-migration
+  test-conversation-usage-concurrency
+  test-conversation-usage-checkpoint-recovery
+  test-conversation-usage-invalid-counters
+  test-conversation-usage-stale-source
   test-conversation-picker-metadata-stability
   test-conversation-picker-rebuild-exclusion
   test-conversation-picker-search
@@ -650,6 +762,7 @@
 (define-test-suite conversation-input-history
   test-conversation-input-history-complete
   test-conversation-input-history-rebuild
+  test-conversation-input-history-streaming
   test-conversation-input-history-append-failures
   test-conversation-input-history-rotation-failure
   test-conversation-input-history-recovery
@@ -718,6 +831,10 @@
   test-provider-request
   test-provider-request-tool-filtering
   test-provider-reserved-web-schema
+  test-provider-tool-choice
+  test-provider-prompt-cache-ttl
+  test-provider-shared-items-breakpoint
+  test-provider-cost
   test-provider-native-compaction
   test-provider-rate-limits
   test-provider-context-presentation
@@ -725,6 +842,7 @@
   test-provider-tls-eof-recovery
   test-provider-codex-request-headers
   test-provider-usage-limit-terminal
+  test-provider-usage-limit-streams
   test-provider-credential-echo-containment
   test-provider-authentication-retries
   test-agent-attempt-failure-metadata
@@ -816,6 +934,7 @@
   test-openrouter-routing-validation
   test-openrouter-provider-routing
   test-openrouter-cache-breakpoints
+  test-openrouter-ephemeral-reasoning
   test-openrouter-anchored-context-prefix
   test-openrouter-routing-environment)
 
@@ -828,9 +947,11 @@
   test-resource-tool-descriptions-follow-registry)
 
 (define-test-suite workspace-resource
-  test-workspace-file-resources)
+  test-workspace-file-resources
+  test-workspace-resource-ergonomics)
 
 (define-test-suite agenda-resource
+  test-agenda-resource-long-text
   test-agenda-resources)
 
 (define-test-suite memory-resource
@@ -977,7 +1098,6 @@
   test-agent-steering
   test-agent-explicit-continuation
   test-agent-provider-request-limit
-  test-agent-turn-state-pinned
   test-agent-invalid-call-history
   test-agent-malformed-tool-arguments
   test-agent-tool-storm-guard
@@ -993,6 +1113,7 @@
   test-agent-skill-provider-barrier
   test-agent-compaction-missing-summary
   test-agent-compaction-tool-call-follow-up
+  test-agent-compaction-corrects-rejected-handoff
   test-precompaction-before-compaction
   test-agent-compaction
   test-agent-native-compaction
@@ -1035,6 +1156,7 @@
   test-rlm-response-usage-normalization
   test-rlm-context-object-adapter
   test-rlm-infer
+  test-rlm-frame-shared-prefix
   test-rlm-partial-results
   test-rlm-read-partial-results
   test-rlm-incomplete-environment-reuse
@@ -1051,6 +1173,12 @@
   test-rlm-distill-tool
   test-rlm-trace-resource
   test-rlm-endpoint
+  test-rlm-endpoint-frames
+  test-rlm-endpoint-child-routing
+  test-rlm-frame-set
+  test-rlm-child-route-authority
+  test-rlm-frame-set-queued-cancellation
+  test-rlm-frame-set-start-cancellation
   test-rlm-environment-reuse
   test-rlm-litmus-completion
   test-rlm-boundary-litmus
@@ -1217,6 +1345,8 @@
   test-localgroup-resume-instruction-relay
   test-localgroup-relay-exit
   test-localgroup-cli-targets
+  test-localgroup-kill-exit-observation
+  test-localgroup-kill-cli-outcomes
   test-localgroup-session-prefixes
   test-localgroup-protocol
   test-localgroup-orphan-reconciliation
@@ -1235,6 +1365,12 @@
 (define-test-suite localgroup-handoff-boundary
   test-localgroup-handoff-cancellation
   test-localgroup-fresh-startup-selection)
+
+(define-test-suite session-cli
+  test-cli-resume-prefixes
+  test-cli-detached-dispatch
+  test-cli-detached-receipt-cleanup
+  test-cli-detached-process)
 
 ;;; The release scripts and the release server that drives them deploy to
 ;;; POSIX hosts, so their suites exist only where the POSIX shell does.
@@ -1315,6 +1451,7 @@
   test-chunked-transcript-replay
   test-hidden-reasoning-does-not-crowd-replay
   test-paged-transcript-history
+  test-paged-history-after-eviction
   test-provider-protocol-failure-is-recoverable
   test-compaction-presentation-lifecycle
   test-streaming-presentation
@@ -1349,7 +1486,37 @@
   test-pending-publication-lock-boundaries
   test-pending-input-persistence)
 
+(define-test-suite application-tool-outcomes
+  test-application-tool-outcomes-interleaved
+  test-application-tool-outcomes-scoped-identities
+  test-application-tool-outcomes-compact-and-prominent
+  test-application-tool-outcomes-background-lifecycle
+  test-application-tool-outcomes-inline-compatibility
+  test-application-tool-outcomes-transient
+  test-application-tool-outcomes-history-replay
+  test-application-tool-outcomes-history-bounded
+  test-application-tool-outcomes-startup-history
+  test-application-tool-outcomes-history-job-alias)
+
+(define-test-suite pending-native-work
+  test-pending-snapshot-readable-by-pre-native-readers
+  test-pending-native-work-form-rejections
+  test-pending-native-work-finite-and-legacy
+  test-pending-native-work-lifecycle
+  test-pending-native-work-vault
+  test-pending-native-work-identities
+  test-acp-input-validate-storage-native-work)
+
 (define-test-suite mission-inference
+  test-mission-child-bounded-unknown-length-continuation
+  test-mission-child-bounded-unknown-quota-continuation
+  test-mission-child-unknown-settlement-controls
+  test-mission-child-bounded-accounting-controls
+  test-mission-child-unknown-reservation-drain-and-recovery
+  test-mission-child-unknown-native-outcome-controls
+  test-mission-inference-unknown-drains-child
+  test-mission-inference-cancelling-block-refuses-continuation
+  test-mission-inference-cancel-before-dispatch
   test-mission-inference-overlap-and-settlement
   test-mission-inference-turn-contention
   test-mission-inference-verification-pending
@@ -1359,7 +1526,17 @@
   test-mission-inference-reservation-recovery)
 
 (define-test-suite missions
+  test-mission-terminal-notice-tool-path
+  test-mission-terminal-notice-controller
+  test-mission-terminal-notice-headless-exhaustion
+  test-mission-terminal-notice-evidence
+  test-mission-terminal-notice-status-scope
+  test-mission-terminal-notice-replacement-timeout
+  test-mission-terminal-notice-cancellation-ordering
+  test-mission-terminal-notice-aba-ordering
+  test-mission-terminal-notice-goal-replacement-ordering
   test-mission-tool-result-presentation
+  test-mission-tool-refusal-reporting
   test-mission-accounting
   test-mission-unknown-usage-and-recovery
   test-mission-gate-retries
@@ -1401,9 +1578,11 @@
   test-async-lisp-output-concurrent-writes)
 
 (define-test-suite compaction-unfinished-work
+  test-compaction-child-owner-receipts
   test-compaction-job-state-bounds
   test-compaction-job-state-delivery
   test-compaction-job-state-exact-owner
+  test-compaction-job-state-index
   test-compaction-job-state-live-unknown
   test-compaction-job-state-request-context
   test-compaction-unfinished-cutoff-replay
@@ -1414,6 +1593,13 @@
   test-agent-compaction-live-child-shell
   test-compaction-unfinished-corrupt-replay
   test-agent-compaction-completed-during-request)
+
+(define-test-suite side-status
+  test-side-status-snapshot
+  test-side-status-history-and-context
+  test-side-status-computed-arguments
+  test-side-status-policies-and-validation
+  test-side-status-message-jumps)
 
 (define-test-suite user-operation-context
   test-user-operation-persistence-and-context
@@ -1537,7 +1723,15 @@
   test-acp-launcher-detects-command-not-option-values
   test-acp-launcher-source-stdio-roundtrip
   test-acp-launcher-failure-keeps-stdout-clean
+  test-acp-launcher-failure-skips-recovery
+  test-acp-launcher-interrupt-exits-quietly
   test-acp-launcher-failure-diagnostics)
+
+(define-test-suite acp-remote
+  test-acp-endpoint-parse
+  test-acp-command-rejects-endpoint-combinations
+  test-acp-remote-websocket-process
+  test-acp-remote-http-process)
 
 (define-test-suite lisp-values
   test-application-lisp-value-roundtrips

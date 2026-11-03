@@ -247,6 +247,12 @@ and keyword arguments in multi-line calls.
 - A literal percent sign in a `format` control string is `%`, not `%%`.
   Common Lisp `format` directives begin with `~`.
 
+### Command notation
+
+Document Autolith commands in canonical Common Lisp form, such as `(status)` or
+`(settings :transcript-style :repl)`. Mention slash syntax only when explaining
+its syntactic sugar or its parser.
+
 ### Conditions, Restarts, and Returns
 
 - Define domain-specific conditions with structured data, documentation, and
@@ -415,6 +421,13 @@ Run the Qlot temporary-checkout cleanup fixtures in either PowerShell:
 ```powershell
 powershell -NoProfile -File script/check-windows-qlot-cleanup.ps1
 pwsh -NoProfile -File script/check-windows-qlot-cleanup.ps1
+```
+
+After bootstrap, run the Windows ColorLisp packaging fixtures with:
+
+```powershell
+powershell -NoProfile -File script/check-windows-colorlisp.ps1
+pwsh -NoProfile -File script/check-windows-colorlisp.ps1
 ```
 
 Rebuild only the installed pristine recovery image with:

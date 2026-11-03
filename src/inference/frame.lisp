@@ -146,6 +146,45 @@ Reply exactly in the requested shape with no preamble and no meta commentary."
              :message "No active application supplies a frame tool registry; pass :source-registry."))
     (application-tool-registry application)))
 
+(-> rlm--child-route
+    (configuration t t)
+    (values (option string) (option string) configuration))
+(defun rlm--child-route (configuration model effort)
+  "Validate a child override and return its model, effort and pinned configuration.
+
+An omitted effort inherits the root's effort. Resolve both models within the
+root's effective registration, even when its provider setting is empty."
+  (if (not (or model effort))
+      (values nil nil configuration)
+      (flet ((refuse (control &rest arguments)
+               "Signal an inference failure for the requested route."
+               (error 'rlm-inference-error
+                      :message (apply #'format nil control arguments))))
+        (unless (or (null model) (non-empty-string-p model))
+          (refuse "A child model must be a model name, not ~S." model))
+        (let* ((provider         (configuration-model-provider-name configuration))
+               (root             (config :reasoning-effort configuration))
+               (effective-model  (or model (config :model configuration)))
+               (effective-effort (or effort root))
+               (efforts          *supported-reasoning-efforts*))
+          (handler-case
+              (unless (nth-value 1 (provider-resolve-model effective-model :provider provider))
+                (refuse "Unsupported model ~S in the root provider ~A." effective-model provider))
+            (model-selection-error ()
+              (refuse "Unsupported model ~S in the root provider ~A." effective-model provider)))
+          (unless (and (stringp effective-effort)
+                       (member effective-effort efforts :test #'string=))
+            (refuse "A child effort must be one of ~{~A~^, ~}, not ~S." efforts effective-effort))
+          (when (> (position effective-effort efforts :test #'string=)
+                   (or (position root efforts :test #'string=) (length efforts)))
+            (refuse "A child frame's effort ~A may not exceed the root's ~A." effective-effort root))
+          (unless (member effective-effort
+                          (configuration--reasoning-efforts-for effective-model provider)
+                          :test #'string=)
+            (refuse "The model ~A does not support the effort ~A." effective-model effective-effort))
+          (values model effort
+                  (configuration-copy configuration :model-provider (or provider "")))))))
+
 (-> rlm--resolve-environment
     (&key (:model (option string))
           (:effort (option string))
@@ -212,21 +251,41 @@ value from the text through the library's answer reader."
             (values nil nil "The response contained no answer text.")))
       (cl-llm-provider-api:output-text-answer text contract)))
 
-(-> rlm--frame-request (string list string) string)
-(defun rlm--frame-request (task views instructions)
-  "Compose the single frame user message from TASK, VIEWS, and INSTRUCTIONS."
-  (format nil "Task: ~A~@[~%~%Read-only context views:~%~%~A~]~%~A"
-          task
-          (rlm-views-render views)
-          instructions))
+(defparameter *rlm-frame-cancelled-p* nil
+  "True while a cancelled frame unwinds, so its unreported request counts as spent.")
 
-(-> rlm--frame-conversation (configuration) conversation)
-(defun rlm--frame-conversation (configuration)
-  "Create the private trace conversation for one inference frame."
+(-> rlm--settle-unreported (rlm-budget (integer 0)) null)
+(defun rlm--settle-unreported (budget tranche)
+  "Settle a request TRANCHE that ended without reported usage.
+
+An unreported request is refunded, unless its frame was cancelled: the
+provider may already bill a cancelled request, so it keeps its reservation."
+  (rlm-budget-settle-output budget tranche (and *rlm-frame-cancelled-p* tranche))
+  nil)
+
+(-> rlm--frame-request (string list string) (values (option string) string))
+(defun rlm--frame-request (task views instructions)
+  "Compose the frame's user messages from TASK, VIEWS, and INSTRUCTIONS.
+
+Return the shared message and the task message. With VIEWS, the shared message
+holds them and the answer shape, so frames asking different questions of the
+same views share it and its cache marker; the task message follows. Without
+VIEWS there is nothing to share, and one message holds everything."
+  (let ((rendered (rlm-views-render views)))
+    (if (non-empty-string-p rendered)
+        (values (format nil "Read-only context views:~%~%~A~%~A" rendered instructions)
+                (format nil "Task: ~A" task))
+        (values nil (format nil "~A~%~%Task: ~A" instructions task)))))
+
+(-> rlm--frame-conversation (configuration &key (:task string)) conversation)
+(defun rlm--frame-conversation (configuration &key task)
+  "Create the private trace conversation for one inference frame titled by its TASK."
   (let ((root (configuration-inference-root configuration)))
     (ensure-directories-exist root)
     (let ((conversation (conversation-create configuration :storage-root root)))
       (mission-context-inherit configuration conversation)
+      (when (conversation-title-normalize task)
+        (conversation-set-title conversation task :source ':initial))
       conversation)))
 
 (-> rlm--record-response (conversation provider-result) null)
@@ -348,7 +407,7 @@ With no activity CALLBACK, return a no-op provider callback."
                                  (rlm--repair-request problem))
                                 (values nil nil)))))
                    (unless settled-p
-                     (rlm-budget-settle-output budget tranche nil)))
+                     (rlm--settle-unreported budget tranche)))
                (when done-p
                  (return (values value
                                  (conversation-identifier conversation)
@@ -413,7 +472,7 @@ returns the billable tokens settled so far."
               (rlm--note-activity activity-callback activity))))))
      (lambda ()
        (when tranche
-         (rlm-budget-settle-output budget (shiftf tranche nil) nil))
+         (rlm--settle-unreported budget (shiftf tranche nil)))
        nil)
      (lambda ()
        tokens-spent))))
@@ -444,26 +503,43 @@ returns the billable tokens settled so far."
             (make-instance 'callback-agent-observer
                            :status-callback status-callback))
           (allowlist (rlm--frame-tool-allowlist)))
-      (loop
-        (let ((result
-                (let ((*agent-restricted-maximum-tool-rounds*
-                        (max 0
-                             (min *rlm-frame-maximum-tool-rounds*
-                                  (1- (rlm-budget-remaining-calls budget))))))
-                  (unwind-protect
-                       (agent-run-user-turn agent request
-                                            :observer           observer
-                                            :tool-allowlist     allowlist
-                                            :tool-restriction-p t)
-                    (funcall flush-tranche)))))
-         (multiple-value-bind (value valid-p problem)
-             (rlm--contract-value contract
-                                  (provider-result-assistant-text result))
-           (when valid-p
-             (return (values value
-                             (conversation-identifier conversation)
-                             (funcall tokens-spent))))
-           (setf request (rlm--repair-request problem))))))))
+      (unwind-protect
+           (rlm--run-frame-turns agent request :observer      observer
+                                               :allowlist     allowlist
+                                               :contract      contract
+                                               :budget        budget
+                                               :flush-tranche flush-tranche
+                                               :tokens-spent  tokens-spent)
+        (context-forget-conversation (conversation-identifier conversation))))))
+
+(-> rlm--run-frame-turns
+    (agent t &key (:observer agent-observer) (:allowlist list) (:contract t)
+                  (:budget t) (:flush-tranche function) (:tokens-spent function))
+    (values t string (integer 0)))
+(defun rlm--run-frame-turns
+    (agent request &key observer allowlist contract budget flush-tranche tokens-spent)
+  "Repeat AGENT's restricted turns until the answer satisfies CONTRACT."
+  (let ((conversation (agent-conversation agent)))
+    (loop
+      (let ((result
+              (let ((*agent-restricted-maximum-tool-rounds*
+                      (max 0
+                           (min *rlm-frame-maximum-tool-rounds*
+                                (1- (rlm-budget-remaining-calls budget))))))
+                (unwind-protect
+                     (agent-run-user-turn agent request
+                                          :observer           observer
+                                          :tool-allowlist     allowlist
+                                          :tool-restriction-p t)
+                  (funcall flush-tranche)))))
+       (multiple-value-bind (value valid-p problem)
+           (rlm--contract-value contract
+                                (provider-result-assistant-text result))
+         (when valid-p
+           (return (values value
+                           (conversation-identifier conversation)
+                           (funcall tokens-spent))))
+         (setf request (rlm--repair-request problem)))))))
 
 (-> infer
     (string &key (:context t)
@@ -505,35 +581,39 @@ with bounded public outputs and a durable trace, never an unvalidated answer."
       (rlm--resolve-environment :model model :effort effort
                                 :provider      provider
                                 :configuration configuration)
-    (let* ((views                    (rlm-views-materialize
-                                      (rlm--context-designators context)))
-           (contract                 (rlm-contract-normalize contract))
-           (budget                   (or budget (rlm-budget-create)))
-           (conversation             (rlm--frame-conversation configuration))
-           (request                  (rlm--frame-request
-                                      task views (rlm--contract-instructions contract)))
-           (*system-prompt-override* (rlm--frame-prompt capabilities))
-           (*telemetry-request-role* (if (eq *telemetry-request-role* ':permission-classifier)
-                                         ':permission-classifier ':inference)))
-      (handler-case
-          (if (eq capabilities ':read)
-              (rlm--run-framed-inference
-               task
-               :request           request
-               :contract          contract
-               :budget            budget
-               :provider          provider
-               :configuration     configuration
-               :conversation      conversation
-               :source-registry   (or source-registry (rlm--environment-registry))
-               :activity-callback activity-callback)
-              (rlm--run-direct-inference
-               task
-               :request           request
-               :contract          contract
-               :budget            budget
-               :provider          provider
-               :conversation      conversation
-               :activity-callback activity-callback))
-        (rlm-budget-exhausted (condition)
-          (rlm--signal-partial condition conversation budget))))))
+    (let* ((views        (rlm-views-materialize (rlm--context-designators context)))
+           (contract     (rlm-contract-normalize contract))
+           (budget       (or budget (rlm-budget-create)))
+           (conversation (rlm--frame-conversation configuration :task task)))
+      (multiple-value-bind (shared request)
+          (rlm--frame-request task views (rlm--contract-instructions contract))
+        (let ((*system-prompt-override*     (rlm--frame-prompt capabilities))
+              (*telemetry-request-role*     (if (eq *telemetry-request-role*
+                                                    ':permission-classifier)
+                                                ':permission-classifier
+                                                ':inference))
+              (*provider-shared-item-count* (if shared 1 0)))
+          (when shared
+            (conversation-append-user-message conversation shared))
+          (handler-case
+              (if (eq capabilities ':read)
+                  (rlm--run-framed-inference
+                   task
+                   :request           request
+                   :contract          contract
+                   :budget            budget
+                   :provider          provider
+                   :configuration     configuration
+                   :conversation      conversation
+                   :source-registry   (or source-registry (rlm--environment-registry))
+                   :activity-callback activity-callback)
+                  (rlm--run-direct-inference
+                   task
+                   :request           request
+                   :contract          contract
+                   :budget            budget
+                   :provider          provider
+                   :conversation      conversation
+                   :activity-callback activity-callback))
+            (rlm-budget-exhausted (condition)
+              (rlm--signal-partial condition conversation budget))))))))

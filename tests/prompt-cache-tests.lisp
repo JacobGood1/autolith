@@ -222,7 +222,8 @@
                       (let* ((prefix nil)
                              (*provider-cache-prefix-function*
                                (lambda (value) (setf prefix value))))
-                        (provider-request-object provider conversation #() :goal-context tail)
+                        (provider-cache-prefix-observe
+                         (provider-request-object provider conversation #() :goal-context tail))
                         prefix))
 
                     (exchange (number)
@@ -325,8 +326,9 @@
               (lambda (provider conversation &key tool-namespaces event-callback
                                                   goal-context compaction-p)
                 (declare (ignore event-callback))
-                (provider-request-object provider conversation tool-namespaces
-                                         :goal-context goal-context :compaction-p compaction-p)
+                (provider-cache-prefix-observe
+                 (provider-request-object provider conversation tool-namespaces
+                                          :goal-context goal-context :compaction-p compaction-p))
                 (make-instance 'provider-result
                                :response-id     "cache-observation"
                                :output-items nil :tool-calls nil
@@ -337,7 +339,167 @@
       (test-assert
        (and completed (= (length (getf completed :items)) 1)
             (plusp (provider-cache-prefix-characters completed)))
-       "agent completion carries the fingerprinted user history, excluding temporary context")))
+       "agent completion carries the fingerprinted user history, excluding temporary context")
+      (test-assert (and (getf (getf completed :wire) :items)
+                        (assoc "model" (getf (getf completed :wire) :fields) :test #'string=))
+                   "agent completion carries the plan of the final request")))
+  nil)
+
+(-> test-prompt-cache-one-response-prefix () null)
+(defun test-prompt-cache-one-response-prefix ()
+  "Measure reusable prefixes through real product projections with one-response exchanges."
+  (with-test-configuration (configuration)
+    (test-call-with-function-replacements
+     (list (list 'context-resolve-request
+                 (lambda (&rest arguments)
+                   (declare (ignore arguments))
+                   nil)))
+     (lambda ()
+       (dolist (provider
+                (list (provider-create configuration)
+                      (openai-compatible-provider-create
+                       configuration :name                "cache-chat"
+                                     :family              ':openai
+                                     :headers             nil
+                                     :reasoning-parameter nil
+                                     :stream-usage-p      t)
+                      (anthropic-provider-create configuration)
+                      (gemini-code-assist-provider-create
+                       configuration :credential-manager
+                       (credential-manager-create configuration))))
+         (let ((conversation (conversation-create configuration)))
+           (labels ((project ()
+                      "Return the observed prefix and actual request for this conversation."
+                      (let* ((prefix                          nil)
+                             (*provider-cache-request-prefix* nil)
+                             (*provider-cache-prefix-function*
+                               (lambda (value) (setf prefix value)))
+                             (request                         (provider-request-object
+                                                               provider conversation #() :goal-context "temporary")))
+                        (provider-cache-prefix-observe request)
+                        (values prefix request)))
+
+                    (request-text (request)
+                      "Serialize REQUEST without Code Assist's generated envelope identifier."
+                      (let ((copy (json-object-copy request)))
+                        (remhash "user_prompt_id" copy)
+                        (json-encode copy)))
+
+                    (assistant (text)
+                      "Append a durable assistant message that may merge with a tool call."
+                      (conversation-append-provider-item
+                       conversation
+                       (json-object "type" "message" "role" "assistant"
+                                    "content" (json-array
+                                               (json-object "type" "output_text" "text" text))))))
+             (conversation-append-user-message conversation "Durable history.")
+             (assistant "Working.")
+             (conversation-append-provider-item
+              conversation (json-object "type" "function_call" "call_id" "temporary-call"
+                                        "name" "inspect" "arguments" "{}")
+              :persistence ':next-response)
+             (conversation-append-provider-item
+              conversation (json-object "type" "function_call_output" "call_id" "temporary-call"
+                                        "output" "temporary result")
+              :persistence ':next-response)
+              ;; Repeated text belongs to distinct durable history items.
+             (assistant "Working.")
+             (let ((expected (request-text (provider-request-object
+                                            provider conversation #() :goal-context "temporary"))))
+               (multiple-value-bind (previous observed-request) (project)
+                 (test-assert
+                  (and (string= expected (request-text observed-request))
+                       (string= expected
+                                (request-text (provider-request-object
+                                               provider conversation #() :goal-context "temporary"))))
+                  (format nil "~A cache measurement preserves the payload and conversation input"
+                          (class-name (class-of provider))))
+                 (test-assert
+                  (and (= (length (getf previous :items)) 2)
+                       (plusp (getf previous :volatile-items)))
+                  "the reusable history ends before the one-response exchange")
+                 (conversation-clear-ephemeral-input-items conversation)
+                 (let* ((current (project))
+                        (change  (provider-cache-wire-change (getf previous :wire)
+                                                            (getf current :wire))))
+                   (test-assert
+                    (and (provider-cache-prefix-extends-p previous current)
+                         (null (getf change :fields))
+                         (null (getf change :first-changed-item)))
+                    (format nil "~A omits one-response exchanges without mutating its reusable prefix"
+                            (class-name (class-of provider)))))))))))))
+  nil)
+
+(-> prompt-cache-tests--wire-request (&key (:tools string) (:texts list) (:ttl (option string)))
+    json-object)
+(defun prompt-cache-tests--wire-request (&key (tools "read") (texts '("a" "b" "c")) ttl)
+  "Return a Messages-shaped request with TOOLS, one message per text and a marker on the last."
+  (let ((messages (mapcar (lambda (text)
+                            (json-object "role" "user"
+                                         "content" (json-array
+                                                    (json-object "type" "text" "text" text))))
+                          texts)))
+    (setf (gethash "cache_control"
+                   (aref (json-get (first (last messages)) "content") 0))
+          (if ttl
+              (json-object "type" "ephemeral" "ttl" ttl)
+              (json-object "type" "ephemeral")))
+    (json-object "model"    "claude-test"
+                 "tools"    (json-array (json-object "name" tools))
+                 "messages" (coerce messages 'vector))))
+
+(-> test-prompt-cache-wire-plan () null)
+(defun test-prompt-cache-wire-plan ()
+  "Name the final-request fields, first changed item and markers that differ."
+  (let* ((base (provider-cache-wire-plan (prompt-cache-tests--wire-request)))
+         (code-assist
+           (provider-cache-wire-plan
+            (json-object "project" "p" "request" (prompt-cache-tests--wire-request)))))
+    (test-assert (and (equal (mapcar #'first (getf base :fields)) '("model" "tools"))
+                      (= (length (getf base :items)) 3)
+                      (equal (getf base :breakpoints) '((("messages" 2 "content" 0) nil))))
+                 "a plan fingerprints fields, items and cache markers")
+    (test-assert (equal base code-assist)
+                 "a Code Assist envelope is measured through its inner request")
+    (dolist (case '((()                              nil         nil nil "repeated requests")
+                    ((:texts ("a" "b" "c" "d"))      nil         2   t   "appended items behind a moved marker")
+                    ((:texts ("a" "x" "c"))          nil         1   nil "an edited item")
+                    ((:texts ("a" "b"))              nil         1   t   "removed items")
+                    ((:tools "write")                ("tools")   nil nil "changed tools")
+                    ((:ttl "1h")                     nil         2   t   "a new marker lifetime")))
+      (destructuring-bind (arguments fields first-changed moved-p description) case
+        (let ((change (provider-cache-wire-change
+                       base
+                       (provider-cache-wire-plan
+                        (apply #'prompt-cache-tests--wire-request arguments)))))
+          (test-assert (and (equal (getf change :fields) fields)
+                            (eql (getf change :first-changed-item) first-changed)
+                            (eq (getf change :breakpoints-moved-p) moved-p))
+                       (format nil "the change describes ~A" description)))))
+    (test-assert (null (provider-cache-wire-change nil base))
+                 "a request without a previous plan reports no change")
+    (flet ((plain (texts &key (volatile-items 0))
+             "Return the plan of a marker-free request with one message per text."
+             (provider-cache-wire-plan
+              (json-object "model"    "claude-test"
+                           "messages" (map 'vector
+                                           (lambda (text)
+                                             (json-object "role" "user" "content" text))
+                                           texts))
+              :volatile-items volatile-items)))
+      (let ((bounded (plain '("a" "b" "c") :volatile-items 1)))
+        (test-assert (and (= (getf base :prefix-items) 3)
+                          (= (getf bounded :prefix-items) 2))
+                     "a volatile tail shortens the reusable prefix")
+        (dolist (case '((("a" "b" "c" "d") nil "a new item behind the volatile tail")
+                        (("a" "b" "x")     nil "a changed volatile item")
+                        (("a" "y" "c")     1   "a changed reusable item")
+                        (("a")             1   "a prefix cut short")))
+          (destructuring-bind (texts first-changed description) case
+            (test-assert (eql (getf (provider-cache-wire-change bounded (plain texts))
+                                    :first-changed-item)
+                              first-changed)
+                         (format nil "the bounded change describes ~A" description)))))))
   nil)
 
 (-> test-prompt-cache-miss-notices () null)
@@ -415,6 +577,26 @@
                (test-assert (equal (mapcar #'terminal-span-text counts)
                                    (mapcar #'application--token-count-description '(32000 0 33000)))
                             "the renderer reports lost reuse, cache reads and input"))
+             (test-assert
+              (equal (terminal-span-text
+                      (first (last (application--prompt-cache-miss-notice
+                                    '(:kind :shrunk :lost-tokens 32000 :cached-tokens 0
+                                      :prompt-tokens 33000
+                                      :wire-change (:fields ("tools") :first-changed-item 4
+                                                    :items 9 :breakpoints-moved-p t))))))
+                     " · request tools changed, item 5 of 9 changed, cache markers moved")
+              "the notice names what changed in the request as sent")
+             (test-assert
+              (and (equal (terminal-span-text
+                           (first (last (application--prompt-cache-miss-notice
+                                         '(:kind :stalled :cached-tokens 16384
+                                           :prompt-tokens 37566
+                                           :history-growth-characters 16900
+                                           :wire-change (:fields nil :first-changed-item nil
+                                                         :items 46 :breakpoints-moved-p nil))))))
+                          " · request prefix intact")
+                   (null (application--wire-change-description nil)))
+              "a repeated reusable prefix reads as intact, and no comparison says nothing")
              (setf (application-prompt-cache-baseline application)
                    (make-instance 'prompt-cache-baseline
                                   :prompt-tokens 72000
@@ -472,7 +654,7 @@
 
 (-> test-cache-misses-command () null)
 (defun test-cache-misses-command ()
-  "Test the /cache-misses command persists and applies its preference."
+  "Test that (cache-misses) persists and applies its preference."
   (let* ((configuration (test-configuration))
          (root          (test-configuration-root configuration))
          (conversation

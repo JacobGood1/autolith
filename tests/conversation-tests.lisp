@@ -326,8 +326,6 @@
                         "compaction replaces the projection with one bridge")
            (test-assert (zerop (conversation-last-total-tokens conversation))
                         "compaction resets the tracked usage")
-           (test-assert (null (conversation-turn-state conversation))
-                        "compaction drops the provider turn state")
            (conversation-append-user-message conversation "later question")
            (let* ((reloaded    (conversation-load-by-id configuration "compact"))
                   (items       (conversation-input-items reloaded))
@@ -363,7 +361,7 @@
                   :response-id    "before-native-compact"
                   :usage          '(("total_tokens" 4321))))
            (conversation-append-native-compaction
-            conversation item :family ':codex :summary "Portable handoff.")
+            conversation (list item) :family ':codex :summary "Portable handoff.")
            (test-assert
             (and (= (length (conversation-input-items conversation)) 2)
                  (native-compaction-item-p
@@ -404,6 +402,51 @@
                        1))
                "native checkpoint replay preserves each family projection")))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
+  nil)
+
+(-> test-tool-failure-survey () null)
+(defun test-tool-failure-survey ()
+  "Pair failed tool results with their call arguments and group them by error shape."
+  (with-test-configuration (configuration)
+    (let ((conversation (conversation-create configuration)))
+      (loop for (call-id arguments output success-p)
+              in '(("read-1" "{\"byte-count\": 9000}" "byte-count must be at most 4096." nil)
+                   ("read-2" "{\"byte-count\": 12000}" "byte-count must be at most 4096." nil)
+                   ("read-3" "{\"byte-count\": 100}" "Content." t))
+            do (conversation-append-provider-item
+                conversation (agent-test-call :call-id call-id :namespace "resource" :name "read"
+                                              :arguments arguments))
+               (conversation-append-tool-result conversation call-id
+                                                :tool-name "resource.read"
+                                                :output    output
+                                                :success-p success-p))
+      (let ((failures (tool-failures configuration
+                                     :identifiers (list (conversation-identifier conversation)))))
+        (test-assert (equal '("{\"byte-count\": 9000}" "{\"byte-count\": 12000}")
+                            (mapcar (lambda (failure) (getf failure :arguments)) failures))
+                     "each failed result carries its own call's arguments, and successes are left out")
+        (let ((report (with-output-to-string (stream)
+                        (tool-failures-report failures :stream stream))))
+          (test-assert (search "2 x resource.read: byte-count must be at most #." report)
+                       "failures differing only in numbers form one group")))))
+  nil)
+
+(-> test-conversation-pending-input-identifier-order () null)
+(defun test-conversation-pending-input-identifier-order ()
+  "Keep each durable pending-input identifier once, oldest first, across reload."
+  (with-test-configuration (configuration)
+    (let ((conversation (conversation-create configuration)))
+      (dolist (identifier '("first" "second" "first" "third"))
+        (conversation-append-user-message conversation identifier
+                                          :pending-input-identifier identifier))
+      (let ((loaded (conversation-load (conversation-pathname conversation))))
+        (dolist (candidate (list conversation loaded))
+          (test-assert (equal '("first" "second" "third")
+                              (conversation-pending-input-identifiers candidate))
+                       "identifiers stay unique in first-seen order")
+          (test-assert (and (conversation-pending-input-identifier-p candidate "second")
+                            (not (conversation-pending-input-identifier-p candidate "fourth")))
+                       "membership answers without copying the identifiers")))))
   nil)
 
 (-> test-conversation-chunk-storage () null)
@@ -497,6 +540,8 @@
                         expected-last-activity)
                      (equal (conversation-pending-input-identifiers loaded)
                             '("pending-before-compaction"))
+                     (conversation-pending-input-identifier-p loaded "pending-before-compaction")
+                     (not (conversation-pending-input-identifier-p loaded "never-recorded"))
                      (= (length (conversation-user-operation-snapshot loaded)) 1)
                      (string=
                       (getf (rest (conversation-latest-goal-record loaded))
@@ -1600,6 +1645,340 @@ process without releasing the lease, exercising kernel cleanup."
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
 
+
+;;;; -- Contention Owner Diagnostics --
+
+(-> test-conversation--owner-request (lisp-worker string) list)
+(defun test-conversation--owner-request (worker form)
+  "Evaluate FORM in the owned holder, requiring a successful protocol response."
+  (let ((response (lisp-worker-request worker ':eval (list :forms (list form)))))
+    (unless (eq (getf (rest response) :status) ':ok)
+      (error "Owned holder request failed: ~A" response))
+    (getf (rest response) :values)))
+
+(-> test-conversation--call-with-diagnostic-holder (configuration string function) null)
+(defun test-conversation--call-with-diagnostic-holder (configuration identifier function)
+  "Share one real lease/endpoint holder, cooperatively releasing it on every exit."
+  (multiple-value-bind (values worker)
+      (test-conversation--worker-eval
+       configuration
+       (format nil
+               "(progn (defparameter *test-lease-owner* (let* ((c ~A) (conversation (conversation-create c :identifier ~S)) (ui (terminal-ui-create :terminal (localgroup-terminal-create))) (app (make-instance 'application :configuration c :conversation conversation :ui ui))) (setf (application-input-controller app) (make-instance 'application-input-controller :application app :main-thread (current-thread)) (application-conversation-lease app) (conversation-lease-acquire c ~S)) (conversation-append-user-message conversation ~S) (localgroup-start app :token ~S) app)) (current-process-id))"
+               (test-conversation--child-configuration-form configuration)
+               identifier identifier "Owned contention diagnostic." "owned-diagnostic-token"))
+    (unwind-protect
+         (funcall function (parse-integer (first values))
+                  (lambda (form) (test-conversation--owner-request worker form)))
+      (unwind-protect
+           (test-conversation--owner-request
+            worker "(progn (localgroup-stop *test-lease-owner*) (application-release-conversation-lease *test-lease-owner*) t)")
+        (lisp-worker-stop worker))))
+  nil)
+
+(-> test-conversation--owner-quiesced (configuration function function) null)
+(defun test-conversation--owner-quiesced (configuration request function)
+  "Call FUNCTION inside production quiescence, using bounded owned file barriers."
+  (let ((ready   (merge-pathnames "owner-quiesced" (config :state-root configuration)))
+        (release (merge-pathnames "owner-resume" (config :state-root configuration))))
+    (funcall request
+             (format nil "(progn (defparameter *test-lease-owner-thread* (make-thread (lambda () (application-call-with-localgroup-quiesced *test-lease-owner* (lambda () (with-open-file (s ~S :direction :output :if-exists :supersede) (write :ready :stream s)) (sb-sys:with-deadline (:seconds 20) (loop until (probe-file ~S) do (sleep 0.01)))))))) t)"
+                     ready release))
+    (unwind-protect
+         (progn
+           (sb-sys:with-deadline (:seconds 10)
+             (loop until (probe-file ready) do (sleep 0.01)))
+           (funcall function))
+      (with-open-file (stream release :direction ':output :if-exists ':supersede)
+        (write ':resume :stream stream))
+      (funcall request "(progn (join-thread *test-lease-owner-thread*) t)")))
+  nil)
+
+(-> test-conversation--busy-condition (configuration string) conversation-in-use)
+(defun test-conversation--busy-condition (configuration identifier)
+  "Return the real typed busy condition; unexpected acquisition is cleaned up and fails."
+  (handler-case
+      (let ((lease (conversation-lease-acquire configuration identifier)))
+        (conversation-lease-release lease)
+        (error "The owned lease was unexpectedly admitted."))
+    (conversation-in-use (condition)
+      condition)))
+
+(-> test-conversation--owner-query-cases (pathname string integer) null)
+(defun test-conversation--owner-query-cases (pathname identifier pid)
+  "Table-drive exact-record validation, non-pruning failures and one aggregate deadline."
+  (let* ((original  (uiop:read-file-string pathname))
+         (record    (let ((*read-eval* nil)) (read-from-string original)))
+         (directory (uiop:pathname-directory-pathname pathname))
+         (entries   (sort (platform-list-directory *platform* directory) #'string<))
+         (open-file (symbol-function 'platform-open-regular-file)))
+    (unwind-protect
+         (dolist (kind '(:valid :session :record-pid :response-pid :response-session :rejected :transport
+                         :malformed :trailing :trailing-eof :oversized :denied :open-race :timeout :earlier))
+           (let ((copy (copy-tree record)) (calls 0))
+             (case kind
+               (:session
+                (setf (getf (rest copy) :session-id) "another-owner"))
+               (:record-pid
+                (setf (getf (rest copy) :pid) (1+ pid))))
+             (with-open-file (stream pathname :direction ':output :if-exists ':supersede)
+               (case kind
+                 (:malformed
+                  (write-string "(" stream))
+                 (:oversized
+                  (write-string (make-string 65537 :initial-element #\Space) stream))
+                 (otherwise
+                  (write copy :stream stream)
+                  (case kind
+                    (:trailing
+                     (write-string " :extra" stream))
+                    (:trailing-eof
+                     (write-string " :eof :extra" stream))))))
+             (let ((before  (uiop:read-file-string pathname))
+                   (started (/ (get-internal-real-time) internal-time-units-per-second)))
+               (test-call-with-function-replacements
+                (list
+                 (list 'platform-open-regular-file
+                       (lambda (platform path &key follow-links-p)
+                         (when (eq kind ':denied) (error "owned permission failure"))
+                         (when (eq kind ':open-race) (error "owned capture race"))
+                         (when (eq kind ':timeout) (sleep 0.6))
+                         (funcall open-file platform path :follow-links-p follow-links-p)))
+                 (list 'daemon-call
+                       (lambda (port token operation &rest arguments)
+                         (declare (ignore port token operation arguments))
+                         (incf calls)
+                         (case kind
+                           (:transport
+                            (error "owned transport failure"))
+                           (:timeout
+                            (sleep 0.7) (sleep 1.8))
+                           (:earlier
+                            (sleep 1)))
+                         (if (eq kind ':rejected)
+                             '(:error :message "owned rejection")
+                             (list :ok :status
+                                   (list :localgroup-status :session-id (if (eq kind ':response-session) "other" identifier)
+                                         :pid               (if (eq kind ':response-pid) (1+ pid) pid)))))))
+                (lambda ()
+                  (test-assert
+                   (eq (if (eq kind ':earlier)
+                           (sb-sys:with-deadline (:seconds 0.1)
+                             (localgroup-owner-reachability pathname identifier pid))
+                           (localgroup-owner-reachability pathname identifier pid))
+                       (if (eq kind ':valid) ':reachable ':unknown))
+                   (format nil "owner query classifies ~A without guessing absence" kind))))
+               (test-assert (and (if (eq kind ':trailing-eof) (zerop calls) (<= calls 1))
+                                 (equal before (uiop:read-file-string pathname))
+                                 (equal entries (sort (platform-list-directory *platform* directory) #'string<)))
+                            "diagnostics leave every record and directory entry unchanged")
+               (when (member kind '(:timeout :earlier))
+                 (test-assert (< (- (/ (get-internal-real-time) internal-time-units-per-second) started)
+                                 (if (eq kind ':earlier) 0.6 2.5))
+                              "the aggregate deadline includes capture and transport phases")))))
+      (with-open-file (stream pathname :direction ':output :if-exists ':supersede)
+        (write-string original stream)))
+    (let ((guard (lease-acquire (make-pathname :name "registry" :type "lock" :defaults pathname))))
+      (unwind-protect
+           (test-assert (eq ':reachable (localgroup-owner-reachability pathname identifier pid))
+                        "the exact diagnostic read never waits on a held registry update lock")
+        (lease-release guard))))
+  nil)
+
+(-> test-conversation--owner-bookkeeping (configuration string) null)
+(defun test-conversation--owner-bookkeeping (configuration identifier)
+  "Exercise fork qualification and failed metadata/release bookkeeping without changing lock policy."
+  (let* ((*conversation-leases-held* (conversation--make-lease-tracking))
+         (lease                      (conversation-lease-acquire configuration identifier))
+         (parent                     (current-process-id))
+         (tracking                   *conversation-leases-held*))
+    (unwind-protect
+         (when (test-conversation--single-thread-p)
+           (with-lock-held ((conversation-lease-tracking-mutex tracking))
+             (test-assert
+              (eql 0
+                   (test-fixture-run-forked
+                    *platform*
+                    (lambda ()
+                      (handler-case
+                          (sb-sys:with-deadline (:seconds 2)
+                            ;; Leave ls-flock's inherited objects intact deliberately.
+                            (let ((condition (test-conversation--busy-condition configuration identifier)))
+                              (if (and (= parent (conversation-in-use-owner-pid condition))
+                                       (/= parent (conversation-lease-tracking-pid
+                                                   (conversation--lease-tracking))))
+                                  0 1)))
+                        (sb-sys:deadline-timeout () 1)))))
+              "a fork child discards inherited tracking before touching the inherited held mutex")))
+      (conversation-lease-release lease)))
+  (let ((*conversation-leases-held* (conversation--make-lease-tracking))
+        (resolve                    (symbol-function 'platform-truename))
+        (calls 0) (lease nil))
+    (unwind-protect
+         (progn
+           (test-call-with-function-replacements
+            (list (list 'platform-truename
+                        (lambda (platform path)
+                          (if (equal (pathname-type path) "lock")
+                              (error "owned metadata failure")
+                              (funcall resolve platform path))))
+                  (list 'platform-file-lock-owner
+                        (lambda (&rest arguments)
+                          (declare (ignore arguments))
+                          (incf calls)
+                          (error "a potentially self-held inode must not be opened")))
+                  (list 'localgroup-owner-reachability
+                        (lambda (&rest arguments)
+                          (declare (ignore arguments))
+                          (incf calls)
+                          ':unknown)))
+            (lambda ()
+              (setf lease (conversation-lease-acquire configuration identifier))
+              (let ((condition (test-conversation--busy-condition configuration identifier)))
+                (princ-to-string condition)
+                (main--startup-error-text condition)
+                (test-assert (and (conversation-lease-held-p lease)
+                                  (null (conversation-in-use-owner-pid condition))
+                                  (zerop calls))
+                             "metadata failure preserves admission and suppresses unsafe probes and queries"))))
+           (test-assert (not (test-conversation--child-can-acquire-lease-p configuration identifier))
+                        "metadata failure and condition printing preserve the real kernel lock"))
+      (test-call-with-function-replacements
+       (list (list 'call-with-file-lock
+                   (lambda (&rest arguments)
+                     (declare (ignore arguments))
+                     (error "owned release guard failure"))))
+       (lambda () (when lease (conversation-lease-release lease)))))
+    (test-assert (test-conversation--child-can-acquire-lease-p configuration identifier)
+                 "the existing release-error fallback still unlocks the kernel lease"))
+  nil)
+
+(-> test-conversation-lease-owner-diagnostic () null)
+(defun test-conversation-lease-owner-diagnostic ()
+  "Own the contention snapshot, diagnostic isolation, non-pruning and lock-preservation contracts."
+  (with-test-fixture (:posix-adapter "POSIX conversation owner diagnostics")
+    (with-test-configuration (configuration)
+      (let* ((identifier "K8vQ2mp")
+             (record     (merge-pathnames (format nil "localgroup/~A.sexp" identifier)
+                                          (config :state-root configuration))))
+        (test-conversation--call-with-diagnostic-holder
+         configuration identifier
+         (lambda (pid request)
+           (flet ((observe (expected)
+                    (let* ((condition (test-conversation--busy-condition configuration identifier))
+                           (text      (main--startup-error-text condition)))
+                      (test-assert (= pid (conversation-in-use-owner-pid condition))
+                                   "the OS snapshot names the actual launched holder")
+                      (test-assert (and (search (write-to-string pid) text)
+                                        (eq expected (localgroup-owner-reachability record identifier pid))
+                                        (if (eq expected ':reachable)
+                                            (not (search "kill " text))
+                                            (search (format nil "kill ~D" pid) text)))
+                                   "only a definitely absent record offers user-controlled stop advice"))))
+             (observe ':reachable)
+             (test-conversation--owner-query-cases record identifier pid)
+             (test-conversation--owner-quiesced
+              configuration request (lambda () (observe ':no-reachable-endpoint)))
+             (observe ':reachable))
+           (dolist (answer '((:unknown nil) (:free nil) (:held 0) (:error nil)))
+             (test-call-with-function-replacements
+              (list (list 'platform-file-lock-owner
+                          (lambda (platform path)
+                            (declare (ignore platform path))
+                            (when (eq (first answer) ':error) (error "owned syscall failure"))
+                            (values-list answer))))
+              (lambda ()
+                (let* ((condition (test-conversation--busy-condition configuration identifier))
+                       (text      (main--startup-error-text condition)))
+                  (test-assert (and (null (conversation-in-use-owner-pid condition))
+                                    (not (search "kill " text)))
+                               "unsupported, failed and free-after-busy snapshots stay unknown")))))
+           (let ((condition nil) (queries 0))
+             (test-call-with-function-replacements
+              (list (list 'localgroup-owner-reachability
+                          (lambda (&rest arguments)
+                            (declare (ignore arguments))
+                            (incf queries)
+                            ':unknown)))
+              (lambda ()
+                (setf condition (test-conversation--busy-condition configuration identifier))
+                (princ-to-string condition)
+                (test-assert (zerop queries) "acquisition and ordinary condition printing never query")
+                (let ((text (main--startup-error-text condition)))
+                  (test-assert (and (= queries 1)
+                                    (search (write-to-string pid) text)
+                                    (not (search "kill " text)))
+                               "unknown reachability retains the OS PID without absence advice"))))
+             (test-call-with-function-replacements
+              (list (list 'localgroup-owner-reachability
+                          (lambda (&rest arguments)
+                            (declare (ignore arguments))
+                            (error "owned reporter failure"))))
+              (lambda ()
+                (test-assert (equal (princ-to-string condition) (main--startup-error-text condition))
+                             "reporter errors preserve the original busy condition"))))))
+        (test-assert (test-conversation--child-can-acquire-lease-p configuration identifier)
+                     "cooperative holder cleanup permits real acquisition")
+        (let* ((*conversation-leases-held* (conversation--make-lease-tracking))
+               (lease                      (conversation-lease-acquire configuration identifier)))
+          (unwind-protect
+               (dolist (wrapper (list configuration (configuration-copy configuration)))
+                 (test-call-with-function-replacements
+                  (list (list 'localgroup-owner-reachability
+                              (lambda (&rest arguments)
+                                (declare (ignore arguments))
+                                (error "self-ownership must not query"))))
+                  (lambda ()
+                    (let ((condition (test-conversation--busy-condition wrapper identifier)))
+                      (test-assert (= (current-process-id) (conversation-in-use-owner-pid condition))
+                                   "same-process ownership spans configuration wrappers")
+                      (test-assert (not (search "kill " (main--startup-error-text condition)))
+                                   "self-reporting offers no stop command"))))
+                 (test-assert (not (test-conversation--child-can-acquire-lease-p configuration identifier))
+                              "reporting never closes another descriptor on a self-held inode"))
+            (conversation-lease-release lease)))
+        (test-assert (test-conversation--child-can-acquire-lease-p configuration identifier)
+                     "only actual release permits the independent child")
+        (test-conversation--owner-bookkeeping configuration identifier)
+        (let ((path (merge-pathnames "unlocked-file" (config :state-root configuration))))
+          (with-open-file (stream path :direction ':output) (write-string "" stream))
+          (test-assert (eq ':free (platform-file-lock-owner *platform* path))
+                       "an existing unlocked regular file is free")
+          (delete-file path)
+          (test-assert (eq ':unknown (platform-file-lock-owner *platform* path))
+                       "a missing file is unknown, not free")))))
+  nil)
+
+(-> test-conversation-lease-owner-startup-report () null)
+(defun test-conversation-lease-owner-startup-report ()
+  "Own the real pristine-resume exit classification and enriched startup transport."
+  (with-test-fixture (:posix-adapter "POSIX conversation owner diagnostics")
+    (with-test-configuration (fixture)
+      (let ((configuration
+              (apply #'configuration-copy fixture
+                     (loop for key in '(:config-root :data-root :state-root :cache-root)
+                           append (list key (merge-pathnames "autolith/" (config key fixture)))))))
+        (configuration-ensure-directories configuration)
+        (test-conversation--call-with-diagnostic-holder
+         configuration "K8vQ2mp"
+         (lambda (pid request)
+           (test-conversation--owner-quiesced
+            configuration request
+            (lambda ()
+              (multiple-value-bind (exit output)
+                  (test-run-program-with-environment
+                   (active-image-process-command configuration '("--pristine" "resume" "K8vQ2mp"))
+                   (loop for (name key) in '(("XDG_CONFIG_HOME" :config-root)
+                                             ("XDG_DATA_HOME" :data-root)
+                                             ("XDG_STATE_HOME" :state-root)
+                                             ("XDG_CACHE_HOME" :cache-root))
+                         collect (format nil "~A=~A" name
+                                         (uiop:pathname-parent-directory-pathname (config key configuration)))))
+                (test-assert (and (= exit 64)
+                                  (search (write-to-string pid) output)
+                                  (search (format nil "kill ~D" pid) output))
+                             "real pristine resume preserves exit 64 and reports actionable ownership")))))))))
+  nil)
+
 (-> test-conversation-inherited-reference () null)
 (defun test-conversation-inherited-reference ()
   "Test filtered spawn-time parent history, durable replay, and isolation."
@@ -1863,6 +2242,289 @@ process without releasing the lease, exercising kernel cleanup."
                               "after interrupted write"))
                 "the next conversation append atomically repairs its tail"))))
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
+  nil)
+
+(-> test-conversation-usage-totals () null)
+(defun test-conversation-usage-totals ()
+  "Sum provider usage as records arrive, across reload, and once for old histories."
+  (with-test-configuration (configuration)
+    (let ((conversation (conversation-create configuration)))
+      (flet ((usage (input output cached)
+               (conversation-append-provider-metadata
+                conversation
+                (list :usage (list (list "input_tokens" input)
+                                   (list "output_tokens" output)
+                                   (list "total_tokens" (+ input output))
+                                   (list "cached_input_tokens" cached))))))
+        (usage 100 10 40)
+        (usage 200 20 0)
+        (let ((expected (list 300 30 330 40 0 t)))
+          (test-assert (equal expected (conversation-usage conversation))
+                       "provider records add to the totals as they are appended")
+          (let ((loaded (conversation-load (conversation-pathname conversation))))
+            (test-assert (equal expected (conversation-usage loaded))
+                         "a reload recovers the totals without counting twice")
+            (setf (conversation-usage-totals loaded) nil)
+            (test-assert (equal expected (conversation-usage loaded))
+                         "a history without saved totals is scanned once")
+            (conversation-append-provider-metadata
+             loaded (list :usage (list (list "input_tokens" 1) (list "output_tokens" 1))))
+            (test-assert (equal (list 301 31 330 40 0 t) (conversation-usage loaded))
+                         "records after the scan keep adding to the totals"))))))
+  nil)
+
+(-> test-conversation--legacy-usage (configuration &key (:version (integer 1 2))) conversation)
+(defun test-conversation--legacy-usage (configuration &key (version 2))
+  "Create genuine pre-totals storage and reload it with unknown lifetime usage."
+  (let* ((created  (conversation-create configuration))
+         (identity (conversation-pathname created)))
+    (conversation-append-provider-metadata
+     created '(:usage (("input_tokens" 100) ("output_tokens" 20) ("total_tokens" 120))))
+    (let* ((active (conversation-log-pathname created))
+           (forms  (conversation--read-records active)))
+      (remf (rest (first forms)) :usage-totals)
+      (setf (getf (rest (first forms)) :version) version)
+      (setf (getf (rest (second forms)) :time) 100)
+      (conversation-identifier-migration--write-forms
+       (if (= version 1) identity active) forms)
+      (when (= version 1)
+        (platform-delete-directory-tree
+         *platform* (conversation-storage-directory-pathname identity)
+         :validate t :if-does-not-exist ':ignore)))
+    (conversation-load identity)))
+
+(-> test-conversation-usage-migration () null)
+(defun test-conversation-usage-migration ()
+  "Persist legacy totals with a bounded append and reuse them after reopen and rotation."
+  (dolist (version '(1 2))
+    (with-test-configuration (configuration)
+      (let* ((conversation (test-conversation--legacy-usage configuration :version version))
+             (identity     (conversation-pathname conversation))
+             (path         (conversation-log-pathname conversation))
+             (before       (platform-path-status *platform* path))
+             (map-function (symbol-function 'conversation-map-records))
+             (scans        0))
+        (test-assert (null (conversation-usage-totals conversation))
+                     "old headers do not claim complete lifetime totals")
+        (conversation-append-provider-metadata conversation '(:usage (("input_tokens" 2))))
+        (test-call-with-function-replacements
+         (list (list 'conversation-map-records
+                     (lambda (&rest arguments)
+                       (incf scans)
+                       (apply map-function arguments))))
+         (lambda ()
+           (test-assert (equal '(102 20 120 0 0 nil) (conversation-usage conversation))
+                        "the first migration includes providers appended before the scan")))
+        (test-assert (= scans 1) "migration scans history once")
+        (let ((after (platform-path-status *platform* path)))
+          (test-assert
+           (and (platform-file-status-same-object-p before after)
+                (< (- (platform-file-status-size after) (platform-file-status-size before)) 2048))
+           "migration appends a bounded checkpoint without replacing history"))
+        (test-call-with-function-replacements
+         (list (list 'conversation-map-records
+                     (lambda (&rest arguments)
+                       (declare (ignore arguments))
+                       (error "Initialized usage must not scan history."))))
+         (lambda ()
+           (let ((loaded (conversation-load identity)))
+             (test-assert (equal '(102 20 120 0 0 nil) (conversation-usage loaded))
+                          "reopening before compaction recovers the durable checkpoint")
+             (conversation-append-provider-metadata loaded '(:usage (("input_tokens" 3))))
+             (conversation-append-summary loaded "usage migration checkpoint")
+             (test-assert
+              (equal '(105 20 120 0 0 nil) (conversation-usage (conversation-load identity)))
+              "rotated headers preserve lifetime usage and subsequent providers")))))))
+  nil)
+
+(-> test-conversation-usage-concurrency () null)
+(defun test-conversation-usage-concurrency ()
+  "Coalesce overlapping status calls while allowing appends, rotation and scan interruption."
+  (dolist (outcome '(:success :error :throw))
+    (with-test-configuration (configuration)
+      (let* ((conversation   (test-conversation--legacy-usage configuration))
+             (map-function   (symbol-function 'conversation-map-records))
+             (entered        (sb-thread:make-semaphore :count 0))
+             (release        (sb-thread:make-semaphore :count 0))
+             (second-started (sb-thread:make-semaphore :count 0))
+             (scans          0)
+             (threads        nil)
+             (expected       '(107 20 120 0 0 nil)))
+        (unwind-protect
+             (test-call-with-function-replacements
+              (list
+               (list 'conversation-map-records
+                     (lambda (&rest arguments)
+                       (let ((first-p (= (incf scans) 1)))
+                         (when first-p
+                           (sb-thread:signal-semaphore entered)
+                           (unless (sb-thread:wait-on-semaphore release :timeout 10)
+                             (error "Usage scan barrier timed out.")))
+                         (prog1 (apply map-function arguments)
+                           (when first-p
+                             (case outcome
+                               (:error
+                                (error "Interrupted usage scan."))
+                               (:throw
+                                (throw 'test-usage-scan :interrupted)))))))))
+              (lambda ()
+                (push (sb-thread:make-thread
+                       (lambda ()
+                         (catch 'test-usage-scan
+                           (handler-case (conversation-usage conversation)
+                             (error () :interrupted)))))
+                      threads)
+                (test-assert (sb-thread:wait-on-semaphore entered :timeout 5)
+                             "the first status call pauses after capturing a coherent boundary")
+                (push (sb-thread:make-thread
+                       (lambda ()
+                         (sb-thread:signal-semaphore second-started)
+                         (conversation-usage conversation)))
+                      threads)
+                (test-assert (sb-thread:wait-on-semaphore second-started :timeout 5)
+                             "a second status call overlaps the first")
+                (push (sb-thread:make-thread
+                       (lambda ()
+                         (conversation-append-provider-metadata
+                          conversation '(:usage (("input_tokens" 3))))
+                         (conversation-append-summary conversation "concurrent rotation")
+                         (conversation-append-provider-metadata
+                          conversation '(:usage (("input_tokens" 4))))
+                         :appended))
+                      threads)
+                (test-assert
+                 (eq :appended (sb-thread:join-thread (first threads) :timeout 5 :default :timeout))
+                 "providers and compaction can append while the history scan is paused")
+                (sb-thread:signal-semaphore release)
+                (test-assert
+                 (equal (if (eq outcome :success) expected :interrupted)
+                        (sb-thread:join-thread (third threads) :timeout 5 :default :timeout))
+                 "the owning scan returns its result or unwinds through cleanup")
+                (test-assert
+                 (equal expected (sb-thread:join-thread (second threads) :timeout 5 :default :timeout))
+                 "the overlapping reader shares success or retries the interrupted scan")
+                (test-assert (= scans (if (eq outcome :success) 1 2))
+                             "only one scan runs at a time and unfinished scans are retryable")
+                (test-assert (and (null (conversation--usage-since conversation))
+                                  (null (conversation--usage-sources conversation)))
+                             "all scan ownership state is cleared")
+                (test-assert
+                 (equal expected
+                        (conversation-usage (conversation-load (conversation-pathname conversation))))
+                 "concurrent providers are persisted exactly once across rotation")))
+          (sb-thread:signal-semaphore release)
+          (dolist (thread threads)
+            (sb-thread:join-thread thread :timeout 5 :default :timeout))))))
+  nil)
+
+(-> test-conversation-usage-checkpoint-recovery () null)
+(defun test-conversation-usage-checkpoint-recovery ()
+  "Retry failed checkpoint writes, including partial and already-durable appends."
+  (dolist (failure '(:before :partial :after :throw-after :publication))
+    (with-test-configuration (configuration)
+      (let* ((conversation     (test-conversation--legacy-usage configuration :version 1))
+             (append-function  (symbol-function 'log-append))
+             (publish-function (symbol-function 'conversation-picker-metadata-publish))
+             (identity         (conversation-pathname conversation)))
+        (test-call-with-function-replacements
+         (list
+          (list 'log-append
+                (lambda (path record &rest arguments)
+                  (if (getf (getf (rest record) :metadata) :usage-checkpoint)
+                      (case failure
+                        (:before
+                         (error "Checkpoint write refused."))
+                        (:partial
+                         (with-open-file (stream path :direction :output :if-exists :append)
+                           (write-string "(" stream))
+                         (error "Checkpoint write interrupted."))
+                        ((:after :throw-after)
+                         (apply append-function path record arguments)
+                         (if (eq failure :after)
+                             (error "Checkpoint write reported failure after publication.")
+                             (throw 'test-usage-write :interrupted)))
+                        (t
+                         (apply append-function path record arguments)))
+                      (apply append-function path record arguments))))
+          (list 'conversation-picker-metadata-publish
+                (lambda (candidate)
+                  (if (eq failure :publication)
+                      (error "Checkpoint sidecar publication failed.")
+                      (funcall publish-function candidate)))))
+         (lambda ()
+           (test-assert
+            (eq :interrupted
+                (catch 'test-usage-write
+                  (handler-case (conversation-usage conversation)
+                    (error () :interrupted))))
+            "checkpoint failure propagates through scan cleanup")))
+        (test-assert (eq (not (null (conversation-usage-totals conversation)))
+                         (not (null (member failure '(:after :throw-after :publication)))))
+                     "only a completed durable checkpoint initializes totals")
+        (conversation-append-provider-metadata conversation '(:usage (("input_tokens" 3))))
+        (test-assert (equal '(103 20 120 0 0 nil) (conversation-usage conversation))
+                     "retry preserves providers after the failed write without double counting")
+        (test-assert
+         (equal '(103 20 120 0 0 nil) (conversation-usage (conversation-load identity)))
+         "checkpoint recovery produces a sequenced, reloadable log"))))
+  nil)
+
+(-> test-conversation-usage-invalid-counters () null)
+(defun test-conversation-usage-invalid-counters ()
+  "Normalize absent, malformed and negative provider counters before durable headers."
+  (with-test-configuration (configuration)
+    (let ((conversation (conversation-create configuration)))
+      (dolist (usage '(nil "invalid" (broken)
+                       (("input_tokens" . 9) ("total_tokens" . 12))
+                       (("input_tokens" -3) ("output_tokens" "bad") ("total_tokens" -1)
+                        ("cached_input_tokens" -2) ("cache_creation_input_tokens" "unknown"))
+                       (("input_tokens" 5) ("output_tokens" 2) ("total_tokens" 7)
+                        ("cached_input_tokens" nil) ("cache_creation_input_tokens" -1))))
+        (conversation-append-provider-metadata conversation (list :usage usage)))
+      (test-assert (equal '(5 2 7 0 0 nil) (conversation-usage conversation))
+                   "unusable cache counters do not imply known cache accounting")
+      (conversation-append-summary conversation "unknown cache accounting")
+      (test-assert
+       (equal '(5 2 7 0 0 nil)
+              (conversation-usage (conversation-load (conversation-pathname conversation))))
+       "unknown cache accounting survives compaction and reload")
+      (conversation-append-provider-metadata
+       conversation '(:usage (("cached_input_tokens" 0) ("cache_creation_input_tokens" 3))))
+      (conversation-append-summary conversation "normalized usage")
+      (test-assert
+       (equal '(5 2 7 0 3 t)
+              (conversation-usage (conversation-load (conversation-pathname conversation))))
+       "normalized counters and known cache creation survive compaction and reload")))
+  nil)
+
+(-> test-conversation-usage-stale-source () null)
+(defun test-conversation-usage-stale-source ()
+  "Reject replacing a migration source instead of publishing totals for another file."
+  (with-test-configuration (configuration)
+    (let* ((conversation (test-conversation--legacy-usage configuration))
+           (map-function (symbol-function 'conversation-map-records))
+           (path         (conversation-log-pathname conversation)))
+      (test-call-with-function-replacements
+       (list (list 'conversation-map-records
+                   (lambda (&rest arguments)
+                     (prog1 (apply map-function arguments)
+                       (conversation-identifier-migration--write-forms
+                        path (conversation--read-records path))))))
+       (lambda ()
+         (test-assert
+          (handler-case (progn (conversation-usage conversation) nil)
+            (conversation-invariant-error () t))
+          "a source replaced during the scan fails the publication guard")))
+      (test-assert (null (conversation-usage-totals conversation))
+                   "rejected source totals are not published")
+      (let ((loaded (conversation-load (conversation-pathname conversation))))
+        (test-assert (equal '(100 20 120 0 0 nil) (conversation-usage loaded))
+                     "reopening the replacement source permits a correct retry")
+        (test-assert (and (= (conversation-working-seconds loaded) 0)
+                          (= (conversation-last-activity-at loaded) 100)
+                          (= (conversation-last-activity-at
+                              (conversation-load (conversation-pathname loaded))) 100))
+                     "a migration checkpoint does not count idle time as provider work"))))
   nil)
 
 (-> test-conversation-working-seconds () null)

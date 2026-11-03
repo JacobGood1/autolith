@@ -531,9 +531,9 @@ second reports whether shutdown was prepared."
 
 (-> application-input-controller--follow-up-work-p (t) boolean)
 (defun application-input-controller--follow-up-work-p (work)
-  "Return true when WORK is an editable queued message, command, or Lisp form."
+  "Return true for editable queued messages, commands, or interactive or scheduled Lisp."
   (and (consp work)
-       (member (first work) '(:message :command :lisp) :test #'eq)
+       (member (first work) '(:message :command :lisp :native-lisp) :test #'eq)
        (consp (rest work))
        (typep (second work) '(or string user-message-input))))
 
@@ -700,7 +700,7 @@ lock."
 (defun application-input-controller--restore-work-item (form)
   "Return one validated in-memory work item restored from durable FORM."
   (when (and (listp form)
-             (member (first form) '(:message :command :lisp) :test #'eq))
+             (member (first form) '(:message :command :lisp :native-lisp) :test #'eq))
     (let ((input (application-input--restore-pending-form (second form))))
       (when input
         (list (first form) input)))))
@@ -727,11 +727,109 @@ lock."
          :identifier (copy-seq identifier)
          :content    input)))))
 
+(-> application-input-controller--native-entry-p (t) boolean)
+(defun application-input-controller--native-entry-p (form)
+  "Return true for a finite native work entry containing unevaluated source."
+  (and (proper-list-p form)
+       (= (length form) 2)
+       (eq (first form) ':native-lisp)
+       (stringp (second form))))
+
+(-> application-input-controller--restore-native-state (list string) (option list))
+(defun application-input-controller--restore-native-state (form conversation-identifier)
+  "Validate additive native metadata and decode its merged historical v2 view."
+  (block restore
+    (unless (record-check form :tag ':pending-inputs :versions '(2)
+                          :keyword-keys-p t)
+      (return-from restore nil))
+    (let* ((properties (rest form))
+           (native     (getf properties :native-work))
+           (work       (getf properties :work))
+           (active     (getf properties :active-work)))
+      (unless (and
+               (record-check
+                native :properties-p t :allow-other-keys nil :maximum-length 6
+                :fields '((:indicator :active-work :required t)
+                          (:indicator :items :required t)
+                          (:indicator :steering-promotion-prefix-count :required t)))
+               (proper-list-p work)
+               (every (lambda (entry)
+                        (and (proper-list-p entry)
+                             (= (length entry) 2)
+                             (member (first entry) '(:message :command :lisp))))
+                      work)
+               (or (null active)
+                   (and (record-check
+                         active :properties-p t :allow-other-keys nil :maximum-length 4
+                         :fields '((:indicator :identifier :required t)
+                                   (:indicator :work :required t)))
+                        (proper-list-p (getf active :work))
+                        (= (length (getf active :work)) 2)
+                        (member (first (getf active :work)) '(:message :command :lisp)))))
+        (return-from restore nil))
+      (let* ((native-active (getf native :active-work))
+             (items         (getf native :items))
+             (prefix        (getf native :steering-promotion-prefix-count))
+             (compat-prefix (getf properties :steering-promotion-prefix-count 0)))
+        (unless (and (proper-list-p items)
+                     (or native-active items)
+                     (not (and native-active active))
+                     (or (null native-active)
+                         (and (record-check
+                               native-active :properties-p t :allow-other-keys nil
+                               :maximum-length 4
+                               :fields         '((:indicator :identifier :required t)
+                                                 (:indicator :work :required t)))
+                              (non-empty-string-p (getf native-active :identifier))
+                              (application-input-controller--native-entry-p
+                               (getf native-active :work))))
+                     (typep prefix '(integer 0))
+                     (typep compat-prefix '(integer 0)))
+          (return-from restore nil))
+        (let ((total         (+ (length work) (length items)))
+              (previous      -1)
+              (native-prefix 0))
+          (unless (<= prefix total)
+            (return-from restore nil))
+          (dolist (item items)
+            (unless (and
+                     (record-check
+                      item :properties-p t :allow-other-keys nil :maximum-length 4
+                      :fields '((:indicator :position :required t)
+                                (:indicator :work :required t)))
+                     (typep (getf item :position) '(integer 0))
+                     (< previous (getf item :position) total)
+                     (application-input-controller--native-entry-p (getf item :work)))
+              (return-from restore nil))
+            (setf previous (getf item :position))
+            (when (< previous prefix)
+              (incf native-prefix)))
+          (unless (= compat-prefix (- prefix native-prefix))
+            (return-from restore nil))
+          (let ((merged
+                  (loop for position below total
+                        collect (if (and items (= position (getf (first items) :position)))
+                                    (getf (pop items) :work)
+                                    (pop work))))
+                (inline (copy-list properties)))
+            (remf inline :native-work)
+            (setf (getf inline :active-work) (or native-active active)
+                  (getf inline :work) merged
+                  (getf inline :steering-promotion-prefix-count) prefix)
+            (application-input-controller--pending-state
+             (cons ':pending-inputs inline) conversation-identifier)))))))
+
 (-> application-input-controller--pending-state
     (list string)
     (option list))
 (defun application-input-controller--pending-state (form conversation-identifier)
   "Return normalized validated pending state from durable FORM."
+  ;; Check the outer spine before any GETF, including circular extension records.
+  (unless (record-check form :tag ':pending-inputs :allow-duplicate-keys t)
+    (return-from application-input-controller--pending-state nil))
+  (when (record-property-present-p form ':native-work)
+    (return-from application-input-controller--pending-state
+      (application-input-controller--restore-native-state form conversation-identifier)))
   (when (and (listp form)
              (eq (first form) ':pending-inputs)
              (stringp (getf (rest form) :conversation-id))
@@ -893,33 +991,45 @@ lock."
 (defun application-input-controller--pending-state-form
     (state conversation-identifier)
   "Return the version-two durable form for normalized pending STATE."
-  (let ((active-work            (getf state :active-work))
-        (active-work-identifier (getf state :active-work-identifier)))
-    (list :pending-inputs
-          :version 2
-          :snapshot-identifier (getf state :snapshot-identifier)
-          :conversation-id     conversation-identifier
-          :active-work
-          (and active-work
-               active-work-identifier
-               (list :identifier active-work-identifier
-                     :work
-                     (application-input-controller--pending-work-entry-form
-                      active-work)))
-          :steering-in-flight
-          (mapcar #'application-input-controller--pending-steering-entry-form
-                  (getf state :steering-in-flight-items))
-          :steering
-          (mapcar #'application-input--pending-form
-                  (getf state :steering-items))
-          :work
-          (application-input-controller--pending-work-form
-           (getf state :work-items))
-          :vault-capture-identifiers
-          (mapcar #'copy-seq
-                  (getf state :vault-capture-identifiers))
-          :steering-promotion-prefix-count
-          (or (getf state :steering-promotion-prefix-count) 0))))
+  ;; Keep this split until snapshots shared with pre-0.67.9 images are retired.
+  (let* ((active-work            (getf state :active-work))
+         (active-work-identifier (getf state :active-work-identifier))
+         (active-form
+           (and active-work active-work-identifier
+                (list :identifier active-work-identifier
+                      :work       (application-input-controller--pending-work-entry-form active-work))))
+         (work-items             (getf state :work-items))
+         (work                   (application-input-controller--pending-work-form work-items))
+         (prefix
+           (count-if #'application-input-controller--follow-up-work-p
+                     (subseq work-items 0
+                             (or (getf state :steering-promotion-prefix-count) 0))))
+         (native-active          (and (eq (first active-work) ':native-lisp) active-form))
+         (native-items
+           (loop for entry in work for position from 0
+                 when (eq (first entry) ':native-lisp)
+                   collect (list :position position :work entry)))
+         (form
+           (list :pending-inputs      :version 2
+                 :snapshot-identifier (getf state :snapshot-identifier)
+                 :conversation-id     conversation-identifier
+                 :active-work         (unless native-active active-form)
+                 :steering-in-flight
+                 (mapcar #'application-input-controller--pending-steering-entry-form
+                         (getf state :steering-in-flight-items))
+                 :steering            (mapcar #'application-input--pending-form (getf state :steering-items))
+                 :work                (remove ':native-lisp work :key #'first)
+                 :vault-capture-identifiers
+                 (mapcar #'copy-seq (getf state :vault-capture-identifiers))
+                 :steering-promotion-prefix-count
+                 (count-if (lambda (entry) (not (eq (first entry) ':native-lisp)))
+                           (subseq work 0 prefix)))))
+    (if (or native-active native-items)
+        (append form
+                (list :native-work
+                      (list :active-work native-active :items native-items
+                            :steering-promotion-prefix-count prefix)))
+        form)))
 
 (-> application-input-controller--next-publication-generation-locked
     (application-input-controller)
@@ -3017,12 +3127,31 @@ sandbox grant is revalidated at this final authorization boundary."
 (defun application--current-user-instructions (application)
   "Return the latest durable user instructions available to APPLICATION."
   (when (slot-boundp application 'conversation)
-    (loop for item in (reverse
-                       (conversation-input-items
-                        (application-conversation application)))
-          when (and (json-object-p item)
-                    (string= (or (json-get item "role") "") "user"))
-            do (return (context--message-text item)))))
+    (let ((item (find-if (lambda (item)
+                           (and (json-object-p item)
+                                (string= (or (json-get item "role") "") "user")))
+                         (conversation-input-items (application-conversation application))
+                         :from-end t)))
+      (and item (context--message-text item)))))
+
+(defparameter *application-command-classification-limit* 256
+  "Maximum cached permission decisions under one set of user instructions.")
+
+(-> application--command-classification-cache (application (option string)) hash-table)
+(defun application--command-classification-cache (application instructions)
+  "Return APPLICATION's permission cache for INSTRUCTIONS, emptied when they changed.
+
+Decisions depend on the latest user instructions, so a new instruction makes
+every earlier decision unreachable; dropping them keeps the cache bounded by
+the commands of one instruction rather than the whole session."
+  (let ((cache (application-command-classifications application)))
+    (unless (equal instructions (application-command-classification-instructions application))
+      (clrhash cache)
+      (setf (application-command-classification-instructions application)
+            (and instructions (copy-seq instructions))))
+    (when (>= (hash-table-count cache) *application-command-classification-limit*)
+      (clrhash cache))
+    cache))
 
 (-> application--automatic-command-decision (t) keyword)
 (defun application--automatic-command-decision (decision)
@@ -3044,11 +3173,10 @@ sandbox grant is revalidated at this final authorization boundary."
       (values ':deny "no provider is available to classify operations")))
   (let* ((user-instructions
            (application--current-user-instructions application))
-         (cache  (application-command-classifications application))
+         (cache  (application--command-classification-cache application user-instructions))
          (key
-           (format nil "sandbox=~:[unavailable~;available~]~%instructions=~A~%~A~%~A"
+           (format nil "sandbox=~:[unavailable~;available~]~%~A~%~A"
                    sandbox-available-p
-                   (or user-instructions "<unavailable>")
                    command
                    (namestring directory)))
          (cached (gethash key cache)))
@@ -3634,17 +3762,20 @@ External tools cannot receive a local command sandbox grant. ASK owns the UI."
            ;; Publish active WORK after releasing the controller lock.
            (setf persist-p t)
            (return)))
-        (when (and (null (application-input-controller-follow-up-edit-index controller))
-                   (setf work (or (application-job-completions--take-work controller)
-                                  (application-job-completions--take-maintenance controller))))
+        (when (setf work
+                    (or (and (null (application-input-controller-follow-up-edit-index controller))
+                             (application-job-completions--take-work controller))
+                        (application-job-completions--take-maintenance controller)))
           (setf (application-input-controller-active-p controller) t)
           (return))
-        (let* ((cache-wait      (application-input-controller--idle-compaction-wait controller))
-               (deadline        (application-job-completions--next-time controller))
-               (completion-wait (and deadline (max 1/100 (- deadline (get-universal-time)))))
-               (handoff-wait    (and (application-localgroup-handoff-pending-p application) 1/10))
-               (waits           (remove nil (list completion-wait handoff-wait cache-wait)))
-               (wait-seconds    (and waits (apply #'min waits))))
+        (let* ((cache-wait        (application-input-controller--idle-compaction-wait controller))
+               (deadline          (application-job-completions--next-time controller))
+               (completion-wait   (and deadline (max 1/100 (- deadline (get-universal-time)))))
+               (handoff-wait      (and (application-localgroup-handoff-pending-p application) 1/10))
+               (cancellation-wait (and (application-job-completions--presentation-admissible-p controller)
+                                       (task-cancellation-scan-wait (application-agent application))))
+               (waits             (remove nil (list completion-wait handoff-wait cache-wait cancellation-wait)))
+               (wait-seconds      (and waits (apply #'min waits))))
           (when (and cache-wait (zerop cache-wait))
             (setf work (list ':idle-compaction (application-idle-compaction-episode application))
                   (application-input-controller-active-p controller) t)
@@ -4095,6 +4226,10 @@ reader stays alive in interrupt-only mode until FUNCTION returns or unwinds."
                :tool-restriction-p        t
                :goal-continuations-p      nil
                :fatal-agent-loop-errors-p nil)))
+            (:native-lisp
+             (application-input-controller--record-prompt-result
+              controller
+              (application-run-lisp-input application (second work) :interactive-p nil)))
             (:lisp
              (let ((result
                      (if (terminal-ui--async-lisp-draft-p (second work))

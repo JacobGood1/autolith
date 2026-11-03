@@ -889,11 +889,11 @@ Retain one identity per catalog tool until run end. Never replace another report
   "Keep the worst borrower outcome: error > cancelled > success.
 Equal outcomes use lexical error type/code order, independent of completion order.
 An owner's explicit terminal result always overrides these fallback candidates.
-Reports after finish are ignored with a local debug diagnostic."
+Stale reports are silently ignored."
   (when run
     (bt:with-lock-held ((telemetry-controller-lock (telemetry-run-controller run)))
       (if (or (telemetry-run-ending-p run) (not (telemetry--live-p run)))
-          (telemetry--log ':debug "Ignoring terminal report after run finish.")
+          nil
           (let* ((candidate (multiple-value-list (telemetry--terminal-outcome terminal)))
                  (previous  (telemetry-run-borrower-outcome run)))
             (when (or (null previous)
@@ -906,9 +906,11 @@ Reports after finish are ignored with a local debug diagnostic."
 (defun telemetry--outcome-order (outcome)
   "Return a stable ordering key for bounded borrower outcome metadata."
   (format nil "~D/~A/~A" (ecase (first outcome) (:success
-                                                 0) (:cancelled
-                                                     1) (:error
-                                                         2))
+                                                 0)
+                                                (:cancelled
+                                                 1)
+                                                (:error
+                                                 2))
           (or (second outcome) "") (or (third outcome) "")))
 
 (-> telemetry-finish-run ((option telemetry-run) t &optional list) null)

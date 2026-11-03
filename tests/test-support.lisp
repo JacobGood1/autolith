@@ -127,6 +127,18 @@ process-global fixture parent on exit; parallel runs need separate processes."
 (defparameter *test-codex-model* "gpt-6.1-sol"
   "The Codex model registered test cases see as *DEFAULT-MODEL*, whatever the shipped default.")
 
+(defparameter *shipped-default-model* (sb-ext:symbol-global-value '*default-model*)
+  "The default model Autolith ships, read before any case replaces it.")
+
+(defmacro with-test-default-model (&body body)
+  "Run BODY with *TEST-CODEX-MODEL* as the global *DEFAULT-MODEL*, so threads the
+case starts, which do not inherit its dynamic bindings, see it too."
+  (let ((previous (gensym "PREVIOUS")))
+    `(let ((,previous (sb-ext:symbol-global-value '*default-model*)))
+       (setf (sb-ext:symbol-global-value '*default-model*) *test-codex-model*)
+       (unwind-protect (progn ,@body)
+         (setf (sb-ext:symbol-global-value '*default-model*) ,previous)))))
+
 (-> test-configuration (&key (:site-config-root (option pathname))
                            (:telemetry-defaults-p boolean)) configuration)
 (defun test-configuration (&key site-config-root telemetry-defaults-p)
@@ -368,6 +380,14 @@ or the read-only attribute on Windows."))
 
 (defgeneric test-fixture-set-file-mode (platform pathname mode)
   (:documentation "Set PATHNAME's POSIX permission bits to MODE."))
+
+(defgeneric test-fixture-supervised-request-deadline (platform delay)
+  (:documentation "Exercise a readerless full pipe with DELAY seconds of I/O scheduling."))
+
+(defmethod test-fixture-supervised-request-deadline ((platform platform) delay)
+  "Record the Linux pipe regression as unavailable on other hosts."
+  (declare (ignore platform delay))
+  (test-withheld ':posix-adapter "Linux natural8192 supervised request"))
 
 (defgeneric test-fixture-call-with-descriptor-input (platform content function)
   (:documentation
