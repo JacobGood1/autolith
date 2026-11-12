@@ -77,6 +77,9 @@
 (defparameter *gemini-oauth-callback-timeout* 300
   "The maximum seconds to wait for the installed-app loopback callback.")
 
+(defparameter *antigravity-provider-endpoint* "agy://cli"
+  "Logical endpoint identifier for the local Antigravity CLI transport.")
+
 (-> gemini-oauth-client-id () string)
 (defun gemini-oauth-client-id ()
   "Return the configured Google installed-app OAuth client identifier."
@@ -332,6 +335,10 @@ gpt-6.1-terra is assumed to support it, like gpt-5.6-terra, until upstream lists
       (cond
         ((uiop:string-prefix-p "grok" model)
          ':grok)
+        ((or (uiop:string-prefix-p "gemini-4-" model)
+             (uiop:string-prefix-p "gemini-3.8-" model)
+             (string= model "gpt-oss-120b-medium"))
+         ':antigravity)
         ((uiop:string-prefix-p "accounts/fireworks/models/" model)
          ':fireworks)
         (t
@@ -551,6 +558,8 @@ and AUTOLITH_MISTRAL_PROVIDER_ENDPOINT overrides the Mistral family endpoint."
            *codex-responses-endpoint*)
           (:grok
            *grok-responses-endpoint*)
+          (:antigravity
+           *antigravity-provider-endpoint*)
           (:nous
            (nous-chat-completions-endpoint))
           (:fireworks

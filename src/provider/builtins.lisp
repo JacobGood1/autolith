@@ -28,6 +28,15 @@
   (declare (ignore reasoning-summaries-p))
   (gemini-code-assist-provider-create configuration))
 
+(-> provider--antigravity-registration-factory
+    (configuration &key (:reasoning-summaries-p boolean))
+    model-provider)
+(defun provider--antigravity-registration-factory
+    (configuration &key reasoning-summaries-p)
+  "Create the built-in Google Antigravity CLI provider."
+  (antigravity-provider-create configuration
+                               :reasoning-summaries-p reasoning-summaries-p))
+
 (-> provider--gemini-registration-authenticator
     (model-provider &key (:stream stream) (:open-browser-p boolean))
     string)
@@ -244,6 +253,20 @@ efforts until upstream publishes its entry.")
  :authenticator #'provider--gemini-registration-authenticator
  :endpoint      *gemini-code-assist-endpoint*
  :source        ':builtin)
+
+(register-provider
+ "antigravity"
+ :description                       "Google Antigravity CLI"
+ :family                            ':antigravity
+ :protocol                          ':custom
+ :endpoint                          *antigravity-provider-endpoint*
+ :models                            *antigravity-models*
+ :factory                           #'provider--antigravity-registration-factory
+ :authenticator                     #'antigravity-provider-authenticate
+ :model-discovery                   #'antigravity--fetch-models
+ :model-discovery-endpoint          *antigravity-provider-endpoint*
+ :model-discovery-endpoint-resolver #'antigravity-provider-endpoint
+ :source                            ':builtin)
 
 (register-provider
  "grok"

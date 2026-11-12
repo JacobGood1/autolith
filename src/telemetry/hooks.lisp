@@ -51,7 +51,7 @@
      ':openai)
     (:anthropic
      ':anthropic)
-    ((:gemini :gemini-code-assist :google)
+    ((:gemini :gemini-code-assist :google :antigravity)
      ':google)
     ((:grok :xai)
      ':xai)

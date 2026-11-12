@@ -30,7 +30,8 @@
 (setf *provider-registry-error-class* 'provider-registry-configuration-error)
 
 (defparameter *provider-name-aliases*
-  '(("codex" . "chatgpt")
+  '(("agy" . "antigravity")
+    ("codex" . "chatgpt")
     ("openai" . "chatgpt")
     ("opencode" . "opencode-go"))
   "Legacy provider names mapped to registered provider names.")

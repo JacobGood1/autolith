@@ -1890,6 +1890,10 @@
 (define-test-suite input-work
   test-input-work-payload-codec)
 
+(define-test-suite antigravity-provider
+  test-antigravity-provider-registration-and-parsing
+  #-win32 test-antigravity-provider-mock-turn-and-spillover)
+
 (define-test-suite compaction-recovery
   test-compaction-recovery-image-projection
   test-compaction-recovery-recent-images
