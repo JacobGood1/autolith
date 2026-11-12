@@ -2,12 +2,6 @@
 
 ;;;; -- Diagnosis Tests --
 
-;;; The remote-service family: a call to a service fails because the service
-;;; is down, its configured endpoint is stale, or its credentials are
-;;; rejected. Probes ping it, read its endpoint, and try to authenticate;
-;;; contracts turn their results into facts. Each scenario runs with no
-;;; provider at all.
-
 (defparameter *diagnosis-tests-repairs*
   '(("unavailable" . "service.restart")
     ("stale-endpoint" . "service.update-endpoint")
@@ -29,14 +23,47 @@
     :documentation "The repairs tried, newest first."))
   (:documentation "A remote service with one fault and the tools that probe and repair it."))
 
-(-> diagnosis-tests--world-create (configuration (option string) &key (:config-p boolean))
+(defclass diagnosis-tests--wire-named-tool (learning-tests--scripted-tool)
+  ((display
+    :initarg       :display
+    :reader        diagnosis-tests--wire-named-tool-display
+    :type          string
+    :documentation "The tool's display alias."))
+  (:documentation "A scripted tool with separate canonical and display names."))
+
+(defmethod tool-display-name ((tool diagnosis-tests--wire-named-tool))
+  "Return the scripted display name."
+  (diagnosis-tests--wire-named-tool-display tool))
+
+(-> diagnosis-tests--wire-named-tool (tool-registry string function) tool)
+(defun diagnosis-tests--wire-named-tool (registry tool respond)
+  "Register a scripted tool with TOOL as its display alias."
+  (let* ((dot      (position #\. tool))
+         (instance (make-instance 'diagnosis-tests--wire-named-tool
+                                  :namespace   (format nil "mcp__~A_0a1b2c" (subseq tool 0 dot))
+                                  :name        (format nil "~A_3d4e5f" (subseq tool (1+ dot)))
+                                  :display     tool
+                                  :description "A scripted tool with a wire name."
+                                  :parameters  (json-object "type" "object" "additionalProperties" t)
+                                  :respond     respond)))
+    (tool-registry-register registry instance)
+    instance))
+
+(-> diagnosis-tests--world-create
+    (configuration (option string) &key (:config-p boolean) (:wire-names-p boolean))
     diagnosis-tests--world)
-(defun diagnosis-tests--world-create (configuration fault &key (config-p t))
-  "Return a world under CONFIGURATION whose service has FAULT; without CONFIG-P its endpoint cannot be read."
+(defun diagnosis-tests--world-create (configuration fault &key (config-p t) wire-names-p)
+  "Return a world under CONFIGURATION whose service has FAULT; without CONFIG-P its endpoint cannot be read.
+
+With WIRE-NAMES-P, probe tools have separate canonical and display names."
   (let* ((registry (make-default-tool-registry :configuration configuration))
          (world    (make-instance 'diagnosis-tests--world :fault fault :registry registry)))
     (flet ((fault-p (name)
-             (equal (diagnosis-tests--world-fault world) name)))
+             (equal (diagnosis-tests--world-fault world) name))
+           (learning-tests--tool (registry tool respond)
+             (if wire-names-p
+                 (diagnosis-tests--wire-named-tool registry tool respond)
+                 (learning-tests--tool registry tool respond))))
       (learning-tests--tool registry "service.ping"
                             (lambda (arguments)
                               (declare (ignore arguments))
@@ -165,6 +192,144 @@
       (test-assert (zerop requests) (format nil "~A makes no provider request" label))))
   nil)
 
+(-> test-diagnosis-display-names () null)
+(defun test-diagnosis-display-names ()
+  "Test diagnosis with display and canonical names in contracts and probes."
+  (dolist (canonical-contract-p '(nil t))
+    (dolist (canonical-probe-p '(nil t))
+      (diagnosis-tests--call-with
+       "mixed probe and contract names"
+       (lambda (configuration)
+         (let* ((world      (diagnosis-tests--world-create configuration "stale-endpoint" :wire-names-p t))
+                (registry   (diagnosis-tests--world-registry world))
+                (definition (diagnosis-tests--definition)))
+           (loop for probe across (gethash "probes" definition)
+                 for (display predicate field) in '(("service.ping" "service.reachable" "reachable")
+                                                    ("service.config" "endpoint.current" "current")
+                                                    ("service.auth" "auth.accepted" "accepted"))
+                 for tool = (find display (tool-registry-tools registry)
+                                  :key #'tool-display-name :test #'string=)
+                 do (when canonical-contract-p
+                      (knowledge-define-contract
+                       configuration :id (substitute #\- #\. display)
+                       :tool             (tool-canonical-name tool)
+                       :when             (json-object "service" "?service")
+                       :observes         (vector (json-object "predicate" predicate
+                                                              "arguments" (vector "$arg.service"
+                                                                                  (format nil "$result.~A" field))))))
+                    (when canonical-probe-p
+                      (setf (gethash "tool" probe) (tool-canonical-name tool))))
+           (diagnosis-tests--diagnose configuration world definition)
+           (let ((case (first (knowledge-base-diagnosis-cases
+                               (knowledge-base-read configuration)
+                               (knowledge--workspace configuration)))))
+             (test-assert (equal (getf case :remaining) '("stale-endpoint"))
+                          (format nil "contract canonical ~A, probe canonical ~A resolves the cause"
+                                  canonical-contract-p canonical-probe-p))
+             (test-assert (and (= 2 (length (getf case :probes)))
+                               (every (lambda (probe) (getf probe :observed)) (getf case :probes)))
+                          "both probes report their recorded observations")))))))
+  nil)
+
+(-> test-diagnosis-name-collisions () null)
+(defun test-diagnosis-name-collisions ()
+  "Test canonical names take precedence and ambiguous display aliases do not dispatch."
+  (diagnosis-tests--call-with
+   "canonical name collision"
+   (lambda (configuration)
+     (let* ((world    (diagnosis-tests--world-create configuration "stale-endpoint" :wire-names-p t))
+            (registry (diagnosis-tests--world-registry world))
+            (wire     (find "service.ping" (tool-registry-tools registry)
+                            :key #'tool-display-name :test #'string=))
+            (context  (diagnosis-tests--context configuration world)))
+       (learning-tests--tool registry "service.ping"
+                             (lambda (arguments)
+                               (declare (ignore arguments))
+                               (json-object "reachable" (json-false))))
+       (knowledge--run-probe context (list :tool     (tool-canonical-name wire)
+                                          :arguments '(("service" "billing"))))
+       (test-assert (null (knowledge--established (knowledge-view-current configuration)
+                                                 '("service.reachable" "billing" "?value")))
+                    "a display contract for another canonical tool does not record facts")
+       (knowledge--run-probe context '(:tool "service.ping" :arguments (("service" "billing"))))
+       (test-assert (knowledge--established (knowledge-view-current configuration)
+                                            '("service.reachable" "billing" :false))
+                    "canonical dispatch wins over an earlier display alias"))))
+  (diagnosis-tests--call-with
+   "ambiguous display alias"
+   (lambda (configuration)
+     (let* ((world    (diagnosis-tests--world-create configuration nil :wire-names-p t))
+            (registry (diagnosis-tests--world-registry world)))
+       (tool-registry-register
+        registry (make-instance 'diagnosis-tests--wire-named-tool
+                                :namespace "other" :name "ping" :display "service.ping"
+                                :description "A second tool with the same display alias."
+                                :parameters  (tool-object-schema (json-object) nil)
+                                :respond     (lambda (arguments)
+                                               (declare (ignore arguments))
+                                               (json-object "reachable" t))))
+       (let ((probe (knowledge--run-probe
+                     (diagnosis-tests--context configuration world)
+                     '(:tool "service.ping" :arguments (("service" "billing"))))))
+         (test-assert (eq ':failed (getf probe :status))
+                      "an ambiguous display alias executes neither tool")))))
+  nil)
+
+(-> test-diagnosis-missing-probe-budget () null)
+(defun test-diagnosis-missing-probe-budget ()
+  "Test unavailable probes do not exhaust the run budget before a usable probe."
+  (diagnosis-tests--call-with
+   "missing probes"
+   (lambda (configuration)
+     (let* ((world      (diagnosis-tests--world-create configuration "unavailable"))
+            (definition (diagnosis-tests--definition))
+            (missing
+              (loop for index below 3
+                    for tool = (format nil "missing.ping~D" index)
+                    do (knowledge-define-contract
+                        configuration :id (format nil "missing-ping~D" index) :tool tool
+                        :observes (vector (json-object "predicate" "service.reachable"
+                                                       "arguments" #("$arg.service" "$result.reachable"))))
+                    collect (json-object "tool" tool "cost" 0.01
+                                         "arguments" (json-object "service" "?service")))))
+       (setf (gethash "probes" definition)
+             (concatenate 'vector missing (gethash "probes" definition)))
+       (diagnosis-tests--diagnose configuration world definition)
+       (let ((case (first (knowledge-base-diagnosis-cases
+                           (knowledge-base-read configuration)
+                           (knowledge--workspace configuration)))))
+         (test-assert (equal (getf case :remaining) '("unavailable"))
+                      "the available probe identifies the cause after three missing candidates")
+         (test-assert (equal (mapcar (lambda (probe) (getf probe :tool)) (getf case :probes))
+                             '("service.ping"))
+                      "missing candidates consume no executions")))))
+  nil)
+
+(-> test-diagnosis-single-fact-hypotheses () null)
+(defun test-diagnosis-single-fact-hypotheses ()
+  "Test probes settle hypotheses that each predict one fact the others leave open."
+  (loop for fault in '("unavailable" "stale-endpoint" "credentials")
+        do (let ((fault fault))
+             (diagnosis-tests--call-with
+              (format nil "~A from single-fact hypotheses" fault)
+              (lambda (configuration)
+                (let* ((world  (diagnosis-tests--world-create configuration fault))
+                       (report (diagnosis-tests--diagnose
+                                configuration world
+                                (json-decode "{\"parameters\": [\"service\"],
+  \"bindings\": {\"service\": \"billing\"},
+  \"hypotheses\": [
+    {\"id\": \"unavailable\", \"predicts\": [[\"service.reachable\", \"?service\", false]]},
+    {\"id\": \"stale-endpoint\", \"predicts\": [[\"endpoint.current\", \"?service\", false]]},
+    {\"id\": \"credentials\", \"predicts\": [[\"auth.accepted\", \"?service\", false]]}],
+  \"probes\": [
+    {\"tool\": \"service.ping\", \"arguments\": {\"service\": \"?service\"}},
+    {\"tool\": \"service.config\", \"arguments\": {\"service\": \"?service\"}},
+    {\"tool\": \"service.auth\", \"arguments\": {\"service\": \"?service\"}}]}"))))
+                  (test-assert (search (format nil "Diagnosis given: ~A~%" fault) report)
+                               (format nil "probes leave only ~A: ~A" fault report)))))))
+  nil)
+
 (-> test-diagnosis-predictions () null)
 (defun test-diagnosis-predictions ()
   "Test deciding predictions from facts and validating diagnoses."
@@ -263,17 +428,19 @@
   (diagnosis-tests--call-with
    "ambiguous"
    (lambda (configuration)
-     (let* ((world  (diagnosis-tests--world-create configuration "stale-endpoint" :config-p nil))
-            (report (diagnosis-tests--diagnose configuration world (diagnosis-tests--definition))))
-       (test-assert (and (search "Diagnosis remote-service is still open: stale-endpoint, credentials remain"
-                                 report)
-                         (search "service.config" report)
-                         (search "failed" report)
-                         (null (getf (first (knowledge-base-diagnosis-cases
-                                             (knowledge-base-read configuration)
-                                             (knowledge--workspace configuration)))
-                                     :repair)))
-                    "a case no available probe can settle stays open and names no repair"))))
+     (let* ((world     (diagnosis-tests--world-create configuration "stale-endpoint" :config-p nil))
+            (arguments (diagnosis-tests--definition)))
+       ;; Without service.auth, only the missing service.config could distinguish the pair.
+       (setf (gethash "probes" arguments) (subseq (gethash "probes" arguments) 0 2))
+       (diagnosis-tests--diagnose configuration world arguments)
+       (let ((case (first (knowledge-base-diagnosis-cases
+                           (knowledge-base-read configuration)
+                           (knowledge--workspace configuration)))))
+         (test-assert (and (equal (getf case :remaining) '("stale-endpoint" "credentials"))
+                           (equal (mapcar (lambda (probe) (getf probe :tool)) (getf case :probes))
+                                  '("service.ping"))
+                           (null (getf case :repair)))
+                      "a case no available probe can settle stays open and names no repair")))))
   (diagnosis-tests--call-with
    "reuse"
    (lambda (configuration)
@@ -328,17 +495,18 @@
   (diagnosis-tests--call-with
    "blocked-probe"
    (lambda (configuration)
-     (let* ((world     (diagnosis-tests--world-create configuration "unavailable"))
+     (let* ((world     (diagnosis-tests--world-create configuration "unavailable" :wire-names-p t))
             (arguments (diagnosis-tests--definition)))
        (knowledge-define-schema
         configuration (knowledge-make-schema :predicate  "probe.allowed"
                                               :arguments '((:name "service" :type :entity))))
        (knowledge-define-contract
-        configuration :id "service-ping" :tool "service.ping"
-        :when     (json-object "service" "?service")
-        :requires #(#("probe.allowed" "?service"))
-        :observes (vector (json-object "predicate" "service.reachable"
-                                       "arguments" #("$arg.service" "$result.reachable"))))
+        configuration :id "ping-precondition"
+        :tool             (tool-canonical-name
+                           (find "service.ping" (tool-registry-tools (diagnosis-tests--world-registry world))
+                                 :key #'tool-display-name :test #'string=))
+        :when             (json-object "service" "?service")
+        :requires         #(#("probe.allowed" "?service")))
        (learning-tests--tool (diagnosis-tests--world-registry world) "service.ping-fallback"
                              (lambda (arguments)
                                (declare (ignore arguments))

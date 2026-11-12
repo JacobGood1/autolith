@@ -244,6 +244,7 @@
     :type          (option integer)
     :documentation "The start sequence of the latest turn-aborted marker in memory.")
    (projection
+    :initarg       :projection
     :initform      (clinker-transcript:make-projection)
     :reader        conversation-projection
     :type          clinker-transcript:projection
@@ -319,6 +320,11 @@ not yet been told that work from the previous process is gone.")
     :type     (option (integer 0))
     :documentation
     "The user-turn count during which the resume note is being delivered.")
+   (context-usage-sample
+    :initform       nil
+    :accessor       conversation-context-usage-sample
+    :type           list
+     :documentation "Portable ordinary usage evidence, revalidated against retained history and encoded request fingerprints before reuse.")
    (last-total-tokens
     :initform      0
     :accessor      conversation-last-total-tokens
@@ -426,13 +432,14 @@ not yet been told that work from the previous process is gone.")
   (:documentation "An append-only conversation and its provider projection."))
 
 (defmethod initialize-instance
-    :after ((conversation conversation) &key input-items &allow-other-keys)
+    :after ((conversation conversation) &key (input-items nil supplied-p) &allow-other-keys)
   "Initialize CONVERSATION's provider projection and lineage key."
   (unless (conversation-prompt-cache-key conversation)
     (setf (conversation-prompt-cache-key conversation)
           (conversation-identifier conversation)))
-  (clinker-transcript:projection-replace
-   (conversation-projection conversation) input-items))
+  (when supplied-p
+    (clinker-transcript:projection-replace
+     (conversation-projection conversation) input-items)))
 
 (-> conversation-input-items (conversation) list)
 (defun conversation-input-items (conversation)
@@ -1099,14 +1106,17 @@ a crash may leave one that a later lease acquisition can reuse safely."
 
 (-> conversation-picker-revision-read (pathname) (integer 0))
 (defun conversation-picker-revision-read (conversation-pathname)
-  "Return the durable cache revision, treating malformed revisions as misses."
+  "Return the durable DATA revision shared by source writers and cache readers."
   (sexp-store:revision-read
    (conversation-picker-revision-pathname conversation-pathname)
    :tag ':conversation-picker-revision))
 
 (-> conversation-picker-revision-write (pathname (integer 0)) (integer 0))
 (defun conversation-picker-revision-write (conversation-pathname revision)
-  "Publish the cache revision before mutating conversation data."
+  "Publish DATA invalidation before source mutation under the shared source lock.
+
+Revisions coordinate source writes and are not regenerable payload caches. A
+failed invalidation prevents the source mutation; cache publication is optional."
   (sexp-store:revision-write
    (conversation-picker-revision-pathname conversation-pathname)
    revision :tag ':conversation-picker-revision))
@@ -1268,7 +1278,7 @@ a crash may leave one that a later lease acquisition can reuse safely."
 
 (-> conversation-picker-search-revision-read (pathname) (integer 0))
 (defun conversation-picker-search-revision-read (conversation-pathname)
-  "Return the durable cache revision, treating malformed revisions as misses."
+  "Return the durable DATA search revision shared with source writers."
   (sexp-store:revision-read
    (conversation-picker-search-revision-pathname conversation-pathname)
    :tag ':conversation-picker-search-revision))
@@ -1277,7 +1287,9 @@ a crash may leave one that a later lease acquisition can reuse safely."
     (pathname (integer 0))
     (integer 0))
 (defun conversation-picker-search-revision-write (conversation-pathname revision)
-  "Publish the cache revision before mutating conversation data."
+  "Publish DATA search invalidation before source mutation under the source lock.
+
+The revision is durable source coordination, not a regenerable search payload."
   (sexp-store:revision-write
    (conversation-picker-search-revision-pathname conversation-pathname)
    revision :tag ':conversation-picker-search-revision))
@@ -1386,9 +1398,11 @@ a crash may leave one that a later lease acquisition can reuse safely."
     (configuration &key identifier prompt-cache-key storage-root created-at)
   "Create an in-memory conversation that persists under optional STORAGE-ROOT."
   (let* ((created-at       (or created-at (get-universal-time)))
-         (root             (uiop:ensure-directory-pathname
-                            (or storage-root
-                                (configuration-conversation-root configuration))))
+         (root             (conversation-cache-register-root
+                            (uiop:ensure-directory-pathname
+                             (or storage-root
+                                 (configuration-conversation-root configuration)))
+                            (config :cache-root configuration)))
          (conversation-id
            (conversation-identifier-validate-path-component
             (or identifier
@@ -1523,7 +1537,9 @@ this append's original EOF, including when publication failed after the write."
                                          (rest record)))
            (picker-search-message (conversation--record-preview sequenced)))
       (when (conversation--compaction-record-p sequenced)
-        (conversation-input-history--ensure-current conversation))
+        ;; Retired source segments remain authoritative if the cache is unavailable.
+        ; mallet:suppress no-ignore-errors -- pre-warming input history must not prevent durable compaction
+        (ignore-errors (conversation-input-history--ensure-current conversation)))
       ;; Invalidate under the shared source lock before changing durable bytes.
       ;; Cache reconstruction holds this same lock through publication.
       (when picker-search-message
@@ -1816,10 +1832,13 @@ this append's original EOF, including when publication failed after the write."
      :handoff-families (conversation-portable-handoff-families conversation))))
 
 (-> conversation-compaction-summary-view
-    (conversation list &optional (option keyword))
+    (conversation (or list clinker-transcript:projection) &optional (option keyword))
     conversation)
 (defun conversation-compaction-summary-view (conversation items &optional family)
-  "Return a detached request view, preserving original families unless FAMILY is supplied."
+  "Return a request view of ITEMS or an already detached projection.
+
+Preserve original families unless FAMILY is supplied. A supplied projection
+already owns its metadata and is installed without an additional remap."
   (let ((view
           (make-instance
            'conversation
@@ -1834,12 +1853,15 @@ this append's original EOF, including when publication failed after the write."
            :model-provider   (conversation-model-provider conversation)
            :reasoning-effort (conversation-reasoning-effort conversation)
            :next-sequence    (conversation-next-sequence conversation)
-           :input-items      (copy-list items))))
-    (if family
-        (dolist (item items)
-          (setf (gethash item (conversation-input-item-families view)) family))
-        (conversation-compaction--copy-metadata
-         (conversation-projection conversation) (conversation-projection view) items))
+           :projection       (if (typep items 'clinker-transcript:projection)
+                                 items
+                                 (clinker-transcript:make-projection :items items)))))
+    (cond (family
+           (dolist (item (conversation-input-items view))
+             (setf (gethash item (conversation-input-item-families view)) family)))
+          ((not (typep items 'clinker-transcript:projection))
+           (conversation-compaction--copy-metadata
+            (conversation-projection conversation) (conversation-projection view) items)))
     view))
 
 (defparameter *conversation-inherited-reference-boundary*
@@ -2788,17 +2810,18 @@ test one."
   (or (conversation-picker-search-read pathname)
       (when (conversation-picker-metadata-find pathname)
         (or (conversation-picker-search-read pathname)
-            (progn
-              ; mallet:suppress no-ignore-errors -- a failed index rebuild falls back to rereading the sidecar
+            (let ((index nil))
+              ; mallet:suppress no-ignore-errors -- return the scanned index even when its cache publication fails
               (ignore-errors
                 (sexp-store:sidecar-rebuild
                  (conversation-picker-search-pathname pathname)
                  :lock-pathname (conversation-picker-source-lock-pathname pathname)
-                 :build         (lambda () (conversation-picker-search-scan pathname))
+                 :build         (lambda ()
+                                  (setf index (conversation-picker-search-scan pathname)))
                  :encode        #'conversation-picker-search-index-record
                  :source-token  (lambda () (conversation-picker-search-revision-read pathname))
                  :value-token   #'conversation-picker-search-index-source-revision))
-              (conversation-picker-search-read pathname))))))
+              index)))))
 
 (-> conversation-picker-search-close (conversation) null)
 (defun conversation-picker-search-close (conversation)
@@ -2898,6 +2921,58 @@ later picker searches read it without scanning the log."
   (:documentation "Project KIND-specific record PROPERTIES into CONVERSATION.")
   (:method ((kind t) conversation properties)
     nil))
+
+(-> conversation--invalidate-context-usage (conversation keyword) null)
+(defun conversation--invalidate-context-usage (conversation kind)
+  "Discard measured context evidence when KIND replaces its coverage or reports new usage."
+  (when (member kind '(:summary :native-compaction :context-adoption :configuration :precompaction :provider))
+    (setf (conversation-context-usage-sample conversation) nil))
+  nil)
+
+(defmethod conversation-append-record :after ((conversation conversation) (record list))
+  "Invalidate measured coverage consistently for live appends and durable replay."
+  (conversation--invalidate-context-usage conversation (first record)))
+
+(defmethod conversation--project-record :before (kind conversation properties)
+  "Invalidate earlier measured coverage before projecting a durable change."
+  (declare (ignore properties))
+  (conversation--invalidate-context-usage conversation kind))
+
+(-> conversation--context-fingerprint-p (t) boolean)
+(defun conversation--context-fingerprint-p (value)
+  "Recognize a portable SHA-256 digest and serialized character count."
+  (and (typep value '(cons string (cons (integer 0) null)))
+       (= 64 (length (first value)))
+       (every (lambda (character) (digit-char-p character 16)) (first value))
+       t))
+
+(-> conversation-context-usage-sample-p (t) boolean)
+(defun conversation-context-usage-sample-p (sample)
+  "Validate bounded fingerprint-only measured context evidence loaded from storage."
+  (and (proper-list-p sample)
+       (= 16 (length sample))
+       (loop for tail on sample by (partial #'nthcdr 2)
+             always (keywordp (first tail)))
+       (eql 1 (getf sample :format))
+       (typep (getf sample :tokens) '(integer 1))
+       (typep (getf sample :history-count) '(integer 0))
+       (typep (getf sample :wire-count) '(integer 0))
+       (every #'conversation--context-fingerprint-p
+              (list (getf sample :soft-header) (getf sample :history-digest)
+                    (getf sample :wire-digest)))
+       (proper-list-p (getf sample :wire-fields))
+       (every (lambda (field)
+                (and (consp field) (stringp (first field))
+                     (conversation--context-fingerprint-p (rest field))))
+              (getf sample :wire-fields))
+       t))
+
+(defmethod conversation--project-record
+    ((kind (eql :context-usage)) conversation properties)
+  "Restore portable evidence without treating its historical token count as verified."
+  (let ((sample (getf properties :sample)))
+    (setf (conversation-context-usage-sample conversation)
+          (when (conversation-context-usage-sample-p sample) sample))))
 
 (defmethod conversation--project-record
     ((kind (eql :message)) conversation properties)
@@ -3516,22 +3591,9 @@ later picker searches read it without scanning the log."
 (-> conversation-list (configuration) list)
 (defun conversation-list (configuration)
   "Return non-empty stable conversation identities, newest first."
-  (let ((root       (configuration-conversation-root configuration))
-        (identities nil)
-        (summaries  nil))
-    (when (uiop:directory-exists-p root)
-      (dolist (pathname (uiop:directory-files root "*.sexp"))
-        (pushnew pathname identities :test #'equal))
-      (dolist (directory (uiop:subdirectories root))
-        (let ((identifier (first (last (pathname-directory directory)))))
-          (when (stringp identifier)
-            (pushnew
-             (merge-pathnames
-              (make-pathname :name identifier :type "sexp")
-              root)
-             identities
-             :test #'equal)))))
-    (dolist (identity identities)
+  (let ((summaries nil))
+    (dolist (identity (conversation-storage-identities
+                       (configuration-conversation-root configuration)))
       (let ((active (conversation-storage-active-pathname identity)))
         (when (and active
                    (conversation--active-pathname-non-empty-p active))

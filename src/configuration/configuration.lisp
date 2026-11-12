@@ -2,10 +2,6 @@
 
 ;;;; -- Configuration Access --
 
-;; The setting protocol, the configuration object, and CONFIG come from
-;; setinka. Autolith defines its setting kinds and settings below, persists
-;; durable values through the preferences store, and keeps its constructors,
-;; which name validation deferral after the provider registry it waits for.
 
 ;;;; -- Setting Kinds Specific to Autolith --
 
@@ -45,6 +41,23 @@
   ()
   (:default-initargs :type '(option pathname))
   (:documentation "An optional absolute file pathname; empty text means none."))
+
+(defclass continuation-limit-setting (setting)
+  ()
+  (:default-initargs :type '(or (integer 1) (eql :unlimited)))
+  (:documentation "A positive automatic continuation count or the unlimited keyword."))
+
+(defmethod setting-coerce ((setting continuation-limit-setting) (value string) configuration)
+  "Read a positive count or the case-insensitive unlimited token."
+  (declare (ignore configuration))
+  (let ((text (string-trim '(#\Space #\Tab #\Newline #\Return) value)))
+    (if (string-equal text "unlimited")
+        ':unlimited
+        (handler-case (parse-integer text)
+          (parse-error ()
+            (setting-reject setting value
+                            "~A must be a positive integer or unlimited, not ~S."
+                            (setting-label setting) value))))))
 
 (defmethod setting-coerce ((setting web-search-mode-setting) (value string) configuration)
   "Read the mode name in lower case."
@@ -112,6 +125,35 @@ exist yet, and is only put in directory form."
   nil)
 
 
+;;;; -- Temporary Legacy XDG Choices --
+
+(defparameter *configuration-legacy-xdg-root-choices*
+  (make-hash-table :test #'eq :weakness ':key)
+  "Compatibility choices keyed by configuration identity; remove before 0.68.0.
+Values contain only root kinds and pathnames, never configurations. New runtime
+configurations cannot inherit choices made while building a saved image.")
+
+(defparameter *configuration-legacy-xdg-root-lock*
+  (make-recursive-lock "configuration legacy XDG choices")
+  "Serialize compatibility selection, allowing condition handlers to read other roots.
+Remove this temporary lock before 0.68.0.")
+
+(-> configuration--legacy-xdg-root (configuration platform-root-kind) pathname)
+(defun configuration--legacy-xdg-root (configuration kind)
+  "Remember compatibility choices for this configuration until 0.68.0.
+Ordinary native defaults remain lazy and follow the current environment."
+  (with-recursive-lock-held (*configuration-legacy-xdg-root-lock*)
+    (let ((choice (assoc kind (gethash configuration *configuration-legacy-xdg-root-choices*))))
+      (if choice
+          (rest choice)
+          (let* ((*legacy-xdg-root-choice-p* nil)
+                 (root                       (platform-application-root *platform* kind)))
+            (when *legacy-xdg-root-choice-p*
+              (push (cons kind root)
+                    (gethash configuration *configuration-legacy-xdg-root-choices*)))
+            root)))))
+
+
 ;;;; -- Settings --
 
 (define-setting :source-root (directory-setting)
@@ -138,8 +180,7 @@ exist yet, and is only put in directory form."
   :documentation             "The root for user-editable Autolith configuration."
   :visible-p                 nil
   :default                   (lambda (configuration)
-                               (declare (ignore configuration))
-                               (platform-application-root *platform* ':config)))
+                               (configuration--legacy-xdg-root configuration ':config)))
 
 (define-setting :site-config-root (site-config-directory-setting)
   :label                          "Site config root"
@@ -155,8 +196,7 @@ exist yet, and is only put in directory form."
   :documentation           "The root for durable user data such as conversations."
   :visible-p               nil
   :default                 (lambda (configuration)
-                             (declare (ignore configuration))
-                             (platform-application-root *platform* ':data)))
+                             (configuration--legacy-xdg-root configuration ':data)))
 
 (define-setting :active-image-core (absolute-file-setting)
   :label                           "Active image core"
@@ -174,8 +214,7 @@ exist yet, and is only put in directory form."
   :documentation            "The root for mutable runtime state such as queues and journals."
   :visible-p                nil
   :default                  (lambda (configuration)
-                              (declare (ignore configuration))
-                              (platform-application-root *platform* ':state)))
+                              (configuration--legacy-xdg-root configuration ':state)))
 
 (define-setting :cache-root (directory-setting)
   :label                    "Cache root"
@@ -183,8 +222,7 @@ exist yet, and is only put in directory form."
   :documentation            "The root for replaceable caches and temporary artifacts."
   :visible-p                nil
   :default                  (lambda (configuration)
-                              (declare (ignore configuration))
-                              (platform-application-root *platform* ':cache)))
+                              (configuration--legacy-xdg-root configuration ':cache)))
 
 (define-setting :codex-auth-path (pathname-setting)
   :label                         "Codex auth file"
@@ -216,6 +254,14 @@ exist yet, and is only put in directory form."
   :visible-p                                nil
   :default                                  nil)
 
+(define-setting :saved-model-selection-notice (string-setting)
+  :label                                      "Saved model selection notice"
+  :group                                      :model
+  :documentation                              "Pending startup notice after dropping an unavailable saved selection."
+  :scope                                      :session
+  :visible-p                                  nil
+  :default                                    "")
+
 (define-setting :model-provider (string-setting)
   :label                        "Model provider"
   :group                        :model
@@ -223,6 +269,8 @@ exist yet, and is only put in directory form."
   :scope                        :durable
   :visible-p                    nil
   :environment                  "AUTOLITH_MODEL_PROVIDER"
+  :deferrable-p                 t
+  :validator                    'configuration--model-provider-problem
   :default                      "")
 
 (define-setting :model (choice-setting)
@@ -406,7 +454,7 @@ exist yet, and is only put in directory form."
 (define-setting :knowledge-mode (choice-setting)
   :label                        "Structured knowledge"
   :group                        :behavior
-  :documentation                "Whether facts and rules are used (active), only recorded from observations (passive), or neither (off). Passive and off leave model requests exactly as without them."
+  :documentation                "Use facts and rules (active), record observations without using them (passive), or disable knowledge (off). No knowledge is added to model requests in passive or off mode."
   :type                         'non-empty-string
   :scope                        :durable
   :environment                  "AUTOLITH_KNOWLEDGE"
@@ -418,7 +466,7 @@ exist yet, and is only put in directory form."
 (define-setting :diagnosis-p (boolean-setting)
   :label                     "Diagnostic probes"
   :group                     :behavior
-  :documentation             "Whether the model may test hypotheses about a failure with probe tool calls (diagnosis.run). It needs active structured knowledge."
+  :documentation             "Whether the model may test failure hypotheses with diagnosis.run. Requires active structured knowledge."
   :scope                     :durable
   :environment               "AUTOLITH_DIAGNOSIS"
   :default                   t)
@@ -442,16 +490,23 @@ exist yet, and is only put in directory form."
 (define-setting :cost-limit (number-setting)
   :label                    "Cost limit"
   :group                    :behavior
-  :documentation            "US dollars of reported and estimated request cost after which this process refuses new model requests; zero disables the limit."
+  :documentation            "Cumulative request cost in US dollars at which this process refuses new model requests; zero disables the limit. Includes reported and estimated costs."
   :type                     '(real 0)
   :scope                    :durable
   :minimum                  0
   :default                  0)
 
+(define-setting :goal-continuation-limit (continuation-limit-setting)
+  :label                                 "Goal continuation limit"
+  :group                                 :behavior
+  :documentation                         "Automatic lightweight goal continuation turns allowed between user messages; unlimited removes the cap."
+  :scope                                 :durable
+  :default                               8)
+
 (define-setting :prompt-cache-ttl (choice-setting)
   :label                          "Cache lifetime"
   :group                          :behavior
-  :documentation                  "The prompt-cache lifetime requested from Claude routes that take one: 5m, or 1h at twice the cache-write price."
+  :documentation                  "The cache lifetime requested for supported Claude routes: 5m, or 1h at twice the cache-write price."
   :type                           'non-empty-string
   :scope                          :durable
   :options                        (lambda (configuration)
@@ -493,7 +548,7 @@ exist yet, and is only put in directory form."
 (define-setting :activity-line-p (boolean-setting)
   :label                         "Activity line"
   :group                         :terminal
-  :documentation                 "Whether a working turn shows what Autolith is doing, such as pondering, on its own line under the modeline."
+  :documentation                 "Whether to show turn activity, such as pondering, below the modeline."
   :scope                         :durable
   :default                       t)
 
@@ -696,16 +751,15 @@ exist yet, and is only put in directory form."
 
 (-> make-configuration (&rest t) configuration)
 (defun make-configuration (&rest overrides &key (provider-validation-p t) &allow-other-keys)
-  "Return a configuration holding only OVERRIDES over the setting defaults.
+  "Return a configuration with OVERRIDES applied to setting defaults.
 
-Neither the environment nor the preferences file is consulted, which makes
-the result deterministic for tests and child agents. Overrides apply in
-setting definition order, so a model override precedes its reasoning effort.
-PROVIDER-VALIDATION-P NIL defers model checks until the provider registry is
-known."
-  (setinka:make-configuration
-   :overrides             (configuration--overrides overrides '(:provider-validation-p))
-   :validation-deferred-p (not provider-validation-p)))
+Ignore the environment and preferences file. Apply overrides in setting
+order, with the model before its reasoning effort. PROVIDER-VALIDATION-P NIL
+defers model checks until the provider registry is available."
+  (let ((*legacy-xdg-root-bypass* (configuration--legacy-xdg-root-bypass overrides)))
+    (setinka:make-configuration
+     :overrides             (configuration--overrides overrides '(:provider-validation-p))
+     :validation-deferred-p (not provider-validation-p))))
 
 (-> configuration-copy
     (configuration &rest t &key (:provider-validation-p t) &allow-other-keys)
@@ -717,13 +771,13 @@ known."
      &allow-other-keys)
   "Return a copy of CONFIGURATION with OVERRIDES applied in setting order.
 
-PROVIDER-VALIDATION-P defaults to the original's; passing NIL lets a copy name
-a model the registry does not serve. Listeners stay with the original; a child
-or frame reacts to its own changes."
-  (setinka:configuration-copy
-   configuration
-   :overrides             (configuration--overrides overrides '(:provider-validation-p) configuration)
-   :validation-deferred-p (not provider-validation-p)))
+PROVIDER-VALIDATION-P defaults to the original value; NIL defers model checks.
+Change listeners are not copied."
+  (let ((*legacy-xdg-root-bypass* (configuration--legacy-xdg-root-bypass overrides)))
+    (setinka:configuration-copy
+     configuration
+     :overrides             (configuration--overrides overrides '(:provider-validation-p) configuration)
+     :validation-deferred-p (not provider-validation-p))))
 
 (-> configuration-create (&rest t) configuration)
 (defun configuration-create
@@ -736,11 +790,30 @@ then its default. A durable value that no longer validates is dropped rather
 than applied. DEFER-PROVIDER-VALIDATION-P leaves model checks to
 CONFIGURATION-VALIDATE-DEFERRED once executable user initialization has
 registered providers. DURABLE-P NIL skips the preferences file."
-  (setinka:configuration-load
-   :overrides             (configuration--overrides
-                           overrides '(:defer-provider-validation-p :durable-p))
-   :validation-deferred-p defer-provider-validation-p
-   :durable-p             durable-p))
+  (let ((*legacy-xdg-root-bypass* (configuration--legacy-xdg-root-bypass overrides)))
+    (setinka:configuration-load
+     :overrides             (configuration--overrides
+                             overrides '(:defer-provider-validation-p :durable-p))
+     :validation-deferred-p defer-provider-validation-p
+     :durable-p             durable-p)))
+
+(-> configuration--legacy-xdg-root-bypass (list) list)
+(defun configuration--legacy-xdg-root-bypass (overrides)
+  "Bypass legacy XDG selection for explicitly supplied roots until removal at 0.68.0.
+Setinka evaluates an old default before storing an override, even during construction."
+  (append
+   (loop for tail on overrides by (partial #'nthcdr 2)
+         for variable = (case (first tail)
+                          (:config-root
+                           "XDG_CONFIG_HOME")
+                          (:data-root
+                           "XDG_DATA_HOME")
+                          (:state-root
+                           "XDG_STATE_HOME")
+                          (:cache-root
+                           "XDG_CACHE_HOME"))
+         when variable collect variable)
+   *legacy-xdg-root-bypass*))
 
 (-> configuration--overrides (list list &optional (option configuration)) list)
 (defun configuration--overrides (arguments options &optional configuration)
@@ -855,23 +928,29 @@ selects its own registration, rather than inheriting the previous provider."
                :stage              ':validation
                :cause              condition)))))
 
-(-> configuration-ensure-directories (configuration) configuration)
-(defun configuration-ensure-directories (configuration)
-  "Create CONFIGURATION's private config, data, state, and cache directories."
-  (dolist (directory (list (config :config-root configuration)
-                           (config :data-root configuration)
-                           (config :state-root configuration)
-                           (config :cache-root configuration)))
+(-> configuration-ensure-root-directory (configuration keyword) pathname)
+(defun configuration-ensure-root-directory (configuration root)
+  "Create CONFIGURATION's ROOT privately, preserving an existing directory's mode."
+  (let ((directory (config root configuration)))
     (multiple-value-bind (pathname created-p)
         (ensure-directories-exist directory)
       (when created-p
-        (platform-make-private *platform* pathname))))
+        (platform-make-private *platform* pathname)))
+    directory))
+
+(-> configuration-ensure-directories (configuration) configuration)
+(defun configuration-ensure-directories (configuration)
+  "Create CONFIGURATION's private config, data, state, and cache directories."
+  (dolist (root '(:config-root :data-root :state-root :cache-root))
+    (configuration-ensure-root-directory configuration root))
   configuration)
 
 (-> configuration-conversation-root (configuration) pathname)
 (defun configuration-conversation-root (configuration)
-  "Return the directory containing conversation identities and chunk logs."
-  (merge-pathnames "conversations/" (config :data-root configuration)))
+  "Return conversation storage and register its independently configured cache root."
+  (conversation-cache-register-root
+   (merge-pathnames "conversations/" (config :data-root configuration))
+   (config :cache-root configuration)))
 
 (-> configuration-inference-root (configuration) pathname)
 (defun configuration-inference-root (configuration)
@@ -939,8 +1018,8 @@ selects its own registration, rather than inheriting the previous provider."
 
 (-> configuration-preferences-path (configuration) pathname)
 (defun configuration-preferences-path (configuration)
-  "Return the atomic global preferences pathname."
-  (merge-pathnames "preferences.sexp" (config :state-root configuration)))
+  "Return the atomic user configuration preferences pathname."
+  (merge-pathnames "preferences.sexp" (config :config-root configuration)))
 
 (-> configuration-project-adaptation-offers-path (configuration) pathname)
 (defun configuration-project-adaptation-offers-path (configuration)
@@ -1025,10 +1104,15 @@ selects its own registration, rather than inheriting the previous provider."
   "Return Autolith's private OpenCode API key credential pathname."
   (merge-pathnames "opencode-auth.sexp" (config :state-root configuration)))
 
+(-> configuration-opencode-zen-auth-path (configuration) pathname)
+(defun configuration-opencode-zen-auth-path (configuration)
+  "Return Autolith's private OpenCode Zen API key credential pathname."
+  (merge-pathnames "opencode-zen-auth.sexp" (config :state-root configuration)))
+
 (-> configuration-provider-model-cache-path (configuration) pathname)
 (defun configuration-provider-model-cache-path (configuration)
   "Return the private cache of successful provider model discovery results."
-  (merge-pathnames "provider-models.sexp" (config :state-root configuration)))
+  (merge-pathnames "provider-models.sexp" (config :cache-root configuration)))
 
 (-> configuration-journal-path (configuration) pathname)
 (defun configuration-journal-path (configuration)
@@ -1083,6 +1167,16 @@ Its octets come from ironclad's operating-system random source on every host."
             (coerce (subseq octets 8 10) 'list)
             (coerce (subseq octets 10 16) 'list))))
 
+(-> make-user-identifier (&key (:namespace string) (:occupied-p (option function))) string)
+(defun make-user-identifier (&key (namespace "autolith") occupied-p)
+  "Return a short identifier for an entity that users can address.
+
+The idsmall reservation protocol supplies collision avoidance within the
+namespace while opaque protocol identifiers continue using MAKE-IDENTIFIER."
+  (identifier-generate :timestamp  (get-universal-time)
+                       :namespace  namespace
+                       :occupied-p occupied-p))
+
 (-> configuration--resolve-site-config-root ((option pathname)) (option pathname))
 (defun configuration--resolve-site-config-root (site-config-root)
   "Return SITE-CONFIG-ROOT as an existing canonical absolute directory."
@@ -1115,3 +1209,39 @@ Its octets come from ironclad's operating-system random source on every host."
   "Return the site-authored Lisp initialization pathname, when configured."
   (let ((root (config :site-config-root configuration)))
     (and root (merge-pathnames "init.lisp" root))))
+
+(define-condition identifier-ambiguity (error)
+  ((reference :initarg :reference :reader identifier-ambiguity-reference
+              :documentation "The ambiguous short reference.")
+   (identifiers :initarg :identifiers :reader identifier-ambiguity-identifiers
+                :documentation "The matching persistent identities."))
+  (:documentation "A short reference names more than one persistent entity.")
+  (:report (lambda (condition stream)
+             (format stream "Identifier ~S is ambiguous: ~{~A~^, ~}."
+                     (identifier-ambiguity-reference condition)
+                     (identifier-ambiguity-identifiers condition)))))
+
+(-> identifier-select (string list &key (:key function)) t)
+(defun identifier-select (reference entities &key (key #'identity))
+  "Select an exact identity first, otherwise a unique nonempty prefix."
+  (or (find reference entities :key key :test #'string=)
+      (when (plusp (length reference))
+        (let ((matches (remove-if-not
+                        (lambda (entity)
+                          (uiop:string-prefix-p reference (funcall key entity)))
+                        entities)))
+          (when (rest matches)
+            (error 'identifier-ambiguity :reference reference
+                   :identifiers                     (mapcar key matches)))
+          (first matches)))))
+
+(-> identifier-reference (string list &key (:minimum-length (integer 1 *))) string)
+(defun identifier-reference (identifier identifiers &key (minimum-length 7))
+  "Return the shortest distinguishing prefix at least MINIMUM-LENGTH long."
+  (loop for end from (min minimum-length (length identifier)) to (length identifier)
+        for prefix = (subseq identifier 0 end)
+        when (handler-case
+                 (equal identifier (identifier-select prefix identifiers))
+               (identifier-ambiguity () nil))
+          return prefix
+        finally (return identifier)))

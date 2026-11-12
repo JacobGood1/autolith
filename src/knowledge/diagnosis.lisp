@@ -2,35 +2,14 @@
 
 ;;;; -- Diagnosis --
 
-;;; A diagnosis says what may be wrong and how to find out:
-;;;
-;;;   (:diagnosis :id "remote-service" :parameters ("?service")
-;;;    :hypotheses ((:id "unavailable"
-;;;                  :predicts (("service.reachable" "?service" :false))
-;;;                  :repair "Restart the service.")
-;;;                 (:id "stale-endpoint"
-;;;                  :predicts (("service.reachable" "?service" :true)
-;;;                             ("endpoint.current" "?service" :false))))
-;;;    :probes ((:tool "service.ping" :arguments (("service" "?service")) :cost 1)))
-;;;
-;;; Each hypothesis predicts facts. A probe is a tool call whose action
-;;; contracts observe facts from its result. Running a diagnosis first checks
-;;; the predictions against facts already known, then repeatedly runs the
-;;; probe that tells apart the most pairs of remaining hypotheses per unit of
-;;; cost, at most three, until one hypothesis remains or no probe can tell the
-;;; rest apart. A hypothesis is eliminated only when a fact contradicts one of
-;;; its predictions; a prediction nothing observed stays open. Probes run as
-;;; ordinary tool calls inside one step, so no model request falls between
-;;; them, and every case is recorded with the facts that decided it.
-
 (defparameter *knowledge-diagnosis-hypothesis-limit* 4
-  "The most hypotheses one diagnosis weighs.")
+  "Maximum hypotheses per diagnosis.")
 
 (defparameter *knowledge-diagnosis-probe-limit* 8
-  "The most probes one diagnosis lists.")
+  "Maximum probes per diagnosis.")
 
 (defparameter *knowledge-diagnosis-run-limit* 3
-  "The most probes one case runs before reporting what remains open.")
+  "Maximum probes per case.")
 
 
 ;;;; -- Validation --
@@ -225,12 +204,11 @@ Return its ID and whether the definition changed."
 (defun knowledge-prediction-status (view prediction)
   "Return whether ground PREDICTION is :CONFIRMED, :CONTRADICTED, or :UNKNOWN in VIEW.
 
-The second value is the fact that decided it. Only admissible facts decide:
-undisputed observations or the user's statements, never predictions,
-assumptions, or conflicted facts. A positive prediction is contradicted by its
-explicit negation or, for a keyed predicate, by a fact giving its key another
-value; a negated one is contradicted by the fact it denies. Absence of a fact
-never contradicts."
+Return the deciding fact as the second value. Use only undisputed observations
+or user statements, excluding predictions, assumptions, and conflicted facts.
+A positive prediction is contradicted by an explicit negation or a different
+value for the same predicate key. A negated prediction is contradicted by the
+fact it denies. Missing facts do not contradict predictions."
   (if (knowledge-negation-p prediction)
       (let ((denied    (first (knowledge--established view (second prediction))))
             (confirmed (first (knowledge--established view prediction))))
@@ -359,7 +337,7 @@ one hypothesis remains and names one, and :OPEN when several remain."
                view)))
       (loop for view = (weigh)
             while (and (rest hypotheses) (< (length ran) *knowledge-diagnosis-run-limit*))
-            do (let ((probe (knowledge--best-probe configuration view
+            do (let ((probe (knowledge--best-probe context view
                                                    :hypotheses hypotheses
                                                    :probes     available)))
                  (unless probe
@@ -408,17 +386,26 @@ one hypothesis remains and names one, and :OPEN when several remain."
 
 ;;;; -- Private Functions --
 
-(-> knowledge--probe-observations (configuration list) list)
-(defun knowledge--probe-observations (configuration probe)
+(-> knowledge--probe-contracts (tool-context list) list)
+(defun knowledge--probe-contracts (context probe)
+  "Return contract matches for PROBE's resolved tool, or NIL if unavailable."
+  (let* ((registry (tool-context-registry context))
+         (tool     (tool-registry-resolve registry (getf probe :tool))))
+    (when tool
+      (tool-contracts-for-call (tool-context-configuration context) tool
+                              (knowledge--probe-arguments probe) :registry registry))))
+
+(-> knowledge--probe-observations (tool-context list) list)
+(defun knowledge--probe-observations (context probe)
   "Return (PREDICATE VALUE...) for each fact PROBE's contracts observe.
 
 Values known before the call are read by the predicate's schema; values the
 result will supply are NIL."
-  (let* ((arguments (knowledge--probe-arguments probe))
-         (base      (knowledge-base-read configuration))
-         (workspace (knowledge--workspace configuration)))
-    (loop for (contract environment) in (knowledge-contracts-for-call
-                                         configuration (getf probe :tool) arguments)
+  (let* ((configuration (tool-context-configuration context))
+         (arguments     (knowledge--probe-arguments probe))
+         (base          (knowledge-base-read configuration))
+         (workspace     (knowledge--workspace configuration)))
+    (loop for (contract environment) in (knowledge--probe-contracts context probe)
           append (loop for observation in (getf (rest contract) :observes)
                        for schema = (knowledge-base-schema base (getf observation :predicate)
                                                            :workspace workspace)
@@ -486,33 +473,48 @@ The key arguments are OBSERVATION's; every other argument is a variable."
                     (nth-value 1 (knowledge--unify key-pattern atom nil)))))
            (getf hypothesis :predicts)))
 
-(-> knowledge--probe-admissible-p (configuration list) boolean)
-(defun knowledge--probe-admissible-p (configuration probe)
+(-> knowledge--pair-separation (list list list) rational)
+(defun knowledge--pair-separation (left right key-pattern)
+  "Return a probe-ranking weight for LEFT and RIGHT at KEY-PATTERN.
+
+Use 1 when both hypotheses have different prediction forms, 1/4 when only
+one has a prediction, and 0 when their predictions are equal or both absent.
+These weights rank probes; they are not outcome probabilities."
+  (let ((left-prediction  (knowledge--prediction-about left key-pattern))
+        (right-prediction (knowledge--prediction-about right key-pattern)))
+    (cond
+      ((and left-prediction right-prediction)
+       (if (equal left-prediction right-prediction) 0 1))
+      ((or left-prediction right-prediction)
+       1/4)
+      (t
+       0))))
+
+(-> knowledge--probe-admissible-p (tool-context list) boolean)
+(defun knowledge--probe-admissible-p (context probe)
   "Return true when PROBE's contracted requirements permit its call now."
   (handler-case
       (not (knowledge-contract-refusal
-            configuration
-            (knowledge-contracts-for-call configuration (getf probe :tool)
-                                          (knowledge--probe-arguments probe))))
+            (tool-context-configuration context)
+            (knowledge--probe-contracts context probe)))
     (knowledge-error ()
       nil)))
 
 (-> knowledge--best-probe
-    (configuration knowledge-view &key (:hypotheses list) (:probes list)) (option list))
-(defun knowledge--best-probe (configuration view &key hypotheses probes)
-  "Return the probe telling apart the most pairs of HYPOTHESES per unit of cost, or NIL.
+    (tool-context knowledge-view &key (:hypotheses list) (:probes list)) (option list))
+(defun knowledge--best-probe (context view &key hypotheses probes)
+  "Return the eligible probe with the highest positive score per unit cost, or NIL.
 
-A pair is told apart when the two hypotheses predict differently about a fact
-the probe observes. A fact already known tells nothing new, so a probe only
-observing known facts is not run. Probes whose contracts refuse the call are
-ineligible before consuming the bounded execution budget."
+For each hypothesis pair, use its largest `knowledge--pair-separation' weight
+across the probe's unknown observations. Sum these weights and divide by cost.
+Skip unavailable tools, known observations, and calls refused by contracts."
   (let ((best       nil)
         (best-score 0))
     (dolist (probe (remove-if-not (lambda (candidate)
-                                   (knowledge--probe-admissible-p configuration candidate))
+                                   (knowledge--probe-admissible-p context candidate))
                                 probes))
       (let* ((keys  (loop for observation in (handler-case
-                                                 (knowledge--probe-observations configuration probe)
+                                                 (knowledge--probe-observations context probe)
                                                (knowledge-error ()
                                                  nil))
                           for key = (knowledge--observation-key view observation)
@@ -520,11 +522,8 @@ ineligible before consuming the bounded execution budget."
                             collect key))
              (pairs (loop for (left . others) on hypotheses
                           sum (loop for right in others
-                                    count (some (lambda (key)
-                                                  (let ((a (knowledge--prediction-about left key))
-                                                        (b (knowledge--prediction-about right key)))
-                                                    (and a b (not (equal a b)))))
-                                                keys))))
+                                    sum (loop for key in keys
+                                              maximize (knowledge--pair-separation left right key)))))
              (score (/ pairs (getf probe :cost))))
         (when (> score best-score)
           (setf best probe
@@ -535,8 +534,7 @@ ineligible before consuming the bounded execution budget."
 (defun knowledge--run-probe (context probe)
   "Run PROBE through CONTEXT's tool registry and return what it observed."
   (let* ((arguments     (knowledge--probe-arguments probe))
-         (tool          (find (getf probe :tool) (tool-registry-tools (tool-context-registry context))
-                              :key #'tool-canonical-name :test #'string=))
+         (tool          (tool-registry-resolve (tool-context-registry context) (getf probe :tool)))
          (result        (if tool
                             (tool-registry-execute-call
                              (tool-context-registry context)
@@ -546,7 +544,8 @@ ineligible before consuming the bounded execution budget."
                                           "name" (tool-name tool)
                                           "arguments" (json-encode arguments))
                              context)
-                            (tool-failure (format nil "Tool ~A is not available here." (getf probe :tool)))))
+                            (tool-failure (format nil "Tool ~A is unavailable or its display name is ambiguous."
+                                                  (getf probe :tool)))))
          (configuration (tool-context-configuration context))
          (view          (knowledge-view-current configuration)))
     (list :tool           (getf probe :tool)
@@ -554,8 +553,7 @@ ineligible before consuming the bounded execution budget."
           :status         (if (tool-result-success-p result) ':ok ':failed)
           :observed       (and (tool-result-success-p result)
                                (loop for observation in (handler-case
-                                                            (knowledge--probe-observations configuration
-                                                                                           probe)
+                                                            (knowledge--probe-observations context probe)
                                                           (knowledge-error ()
                                                             nil))
                                      for key = (knowledge--observation-key view observation)

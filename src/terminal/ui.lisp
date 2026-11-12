@@ -445,7 +445,9 @@ fill a row. A background-filled row ends with a reset."
             (when styled-p
               (lambda (role text)
                 (let ((sequence (terminal-style-sequence role))
-                      (linked   (ansi-link-urls text)))
+                      (linked   (if (eq role ':link)
+                                    text
+                                    (ansi-link-urls text))))
                   (if (or sequence fill)
                       (concatenate 'string
                                    (or fill "")
@@ -457,29 +459,6 @@ fill a row. A background-filled row ends with a reset."
     (if fill
         (concatenate 'string rendered *terminal-style-reset*)
         rendered)))
-
-(-> terminal-ui--lisp-draft-p (string) boolean)
-(defun terminal-ui--lisp-draft-p (text)
-  "Return true when TEXT begins with explicit Common Lisp input."
-  (and (plusp (length text))
-       (char= #\( (char text 0))))
-
-(-> terminal-ui--async-lisp-prefix-length (string) (option (integer 2)))
-(defun terminal-ui--async-lisp-prefix-length (text)
-  "Return the length of TEXT's async Lisp prefix, or NIL when absent."
-  (when (and (> (length text) 1)
-             (char= #\? (char text 0))
-             (find (char text 1) '(#\Space #\Tab #\Newline #\Return #\Page)))
-    (or (position-if-not
-         (lambda (character)
-           (find character '(#\Space #\Tab #\Newline #\Return #\Page)))
-         text :start 1)
-        (length text))))
-
-(-> terminal-ui--async-lisp-draft-p (string) boolean)
-(defun terminal-ui--async-lisp-draft-p (text)
-  "Return true when TEXT begins with a question-mark Lisp draft prefix."
-  (not (null (terminal-ui--async-lisp-prefix-length text))))
 
 (-> terminal-ui--prompt-spans (string boolean boolean) (values string list))
 (defun terminal-ui--prompt-spans (prompt lisp-draft-p async-lisp-draft-p)
@@ -521,11 +500,11 @@ the draft is exact."
          (explicit-lisp-p    (terminal-ui-lisp-input-p ui))
          (async-prefix-length
            (and (not explicit-lisp-p)
-                (terminal-ui--async-lisp-prefix-length raw-content)))
+                (input-async-lisp-prefix-length raw-content)))
          (async-lisp-draft-p (not (null async-prefix-length)))
          (lisp-draft-p
            (not (null (or explicit-lisp-p
-                          (terminal-ui--lisp-draft-p raw-content)))))
+                          (input-lisp-p raw-content)))))
          (key                (list raw-content (line-editor-cursor editor)
                                    (terminal-columns (terminal-ui-terminal ui))
                                    lisp-draft-p async-lisp-draft-p
@@ -551,7 +530,7 @@ the draft is exact."
          (raw-content     (line-editor-text editor))
          (async-prefix-length
            (and async-lisp-draft-p
-                (terminal-ui--async-lisp-prefix-length raw-content)))
+                (input-async-lisp-prefix-length raw-content)))
          (display-content (if async-prefix-length
                               (subseq raw-content async-prefix-length)
                               raw-content))
@@ -1197,6 +1176,35 @@ its parenthesis open, and are dropped once the name closes it itself."
             (list (terminal-span ':dim assignment))))
          row-width)))))
 
+(-> terminal-ui--job-cancel-text (string) string)
+(defun terminal-ui--job-cancel-text (identifier)
+  "Return the displayed job.cancel call for IDENTIFIER."
+  (format nil "(job.cancel :id ~A)" identifier))
+
+(-> terminal-ui--job-cancel-widget (list t) list)
+(defun terminal-ui--job-cancel-widget (spans identifier)
+  "Highlight fully visible cancellation calls and insert the complete quoted call."
+  (let ((text (and (stringp identifier) (terminal-ui--job-cancel-text identifier))))
+    (if (null text)
+        spans
+        (loop for span in spans
+              for content = (and (not (termdown:widget-p span)) (terminal-span-text span))
+              for position = (and content (search text content :from-end t))
+              if (and position (= (+ position (length text)) (length content)))
+                append
+                (cons
+                 (terminal-span (terminal-span-style span) (subseq content 0 position))
+                 (let ((action (list ':insert (format nil "(job.cancel :id ~S)" identifier))))
+                   (mapcar (lambda (token)
+                             (termdown:make-widget (terminal-span-style token)
+                                                  (terminal-span-text token)
+                                                  action))
+                           (or (syntax--highlight-spans
+                                text :language *application-common-lisp-language*)
+                               (list (terminal-span ':code text))))))
+              else
+                collect span))))
+
 (-> terminal-ui--command-activity-row-at
     (list real integer &key (:identity-width integer) (:tool-width integer))
     list)
@@ -1228,20 +1236,35 @@ its parenthesis open, and are dropped once the name closes it itself."
              ':command-tool
              (layout-fit-text (getf activity :tool) tool-width))
             (terminal-span ':dim " · ")))
+         (cancel-text
+           (when (member (getf activity :state) '(:queued :running))
+             (terminal-ui--job-cancel-text (getf activity :id))))
+         (cancel-spans
+           (when (and cancel-text
+                      (<= (+ (terminal--spans-width prefix)
+                             (terminal--spans-width state-spans)
+                             (terminal--spans-width
+                              (list (terminal-span ':dim cancel-text))) 3)
+                          row-width))
+             (list (terminal-span ':dim (format nil " · ~A" cancel-text)))))
          (description-width
            (max 0
                 (- row-width
                    (terminal--spans-width prefix)
-                   (terminal--spans-width state-spans)))))
-    (terminal--clip-spans
-     (append
-      prefix
-      (list
-       (terminal-span
-        ':plain
-        (layout-fit-text (getf activity :description) description-width)))
-      state-spans)
-     row-width)))
+                   (terminal--spans-width state-spans)
+                   (terminal--spans-width cancel-spans)))))
+    (terminal-ui--job-cancel-widget
+     (terminal--clip-spans
+      (append
+       prefix
+       (list
+        (terminal-span
+         ':plain
+         (layout-fit-text (getf activity :description) description-width)))
+       state-spans
+       cancel-spans)
+      row-width)
+     (getf activity :id))))
 
 (-> terminal-ui--command-presentation-activities (terminal-ui) list)
 (defun terminal-ui--command-presentation-activities (ui)

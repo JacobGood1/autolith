@@ -161,22 +161,38 @@ quiescing, because both touch the private history repository."
     generation)
 (defun generation-create-record (configuration &key git-commit mutation-checker)
   "Create a pending generation record with immutable artifact paths."
-  (let* ((identifier (make-identifier))
+  (let* ((identifier (generation--allocate-identifier configuration))
          (metadata   (generation--metadata configuration identifier
                                            :git-commit       git-commit
                                            :mutation-checker mutation-checker))
          (directory  (merge-pathnames (format nil "~A/" identifier)
                                       (generation-root configuration))))
-    (make-instance 'generation
-                   :identifier        identifier
-                   :directory         directory
-                   :core-pathname     (merge-pathnames "autolith.core" directory)
-                   :temporary-core-pathname
-                   (merge-pathnames ".autolith.core.tmp" directory)
-                   :manifest-pathname (merge-pathnames "manifest.sexp" directory)
-                   :metadata          metadata
-                   :created-at        (get-universal-time)
-                   :status            ':pending)))
+     (make-instance 'generation
+                    :identifier        identifier
+                    :directory         directory
+                    :core-pathname     (merge-pathnames "autolith.core" directory)
+                    :temporary-core-pathname
+                    (merge-pathnames ".autolith.core.tmp" directory)
+                    :manifest-pathname (merge-pathnames "manifest.sexp" directory)
+                    :metadata          metadata
+                    :created-at        (get-universal-time)
+                    :status            ':pending)))
+
+(-> generation--allocate-identifier (configuration) string)
+(defun generation--allocate-identifier (configuration)
+  "Reserve an artifact directory against retained and pending generation identities."
+  (let ((root (generation-root configuration)))
+    (ensure-directories-exist (merge-pathnames "identifiers.lock" root))
+    (call-with-file-lock
+     (merge-pathnames "identifiers.lock" root)
+     (lambda ()
+       (let* ((identifier
+                (make-user-identifier
+                 :occupied-p (lambda (candidate)
+                               (probe-file (merge-pathnames (format nil "~A/" candidate) root)))))
+              (directory (merge-pathnames (format nil "~A/" identifier) root)))
+         (ensure-directories-exist (merge-pathnames "manifest.sexp" directory))
+         identifier)))))
 
 (-> generation--translate (t) t)
 (defun generation--translate (condition)
@@ -223,11 +239,55 @@ structured type and message survive the round trip."
   "Return valid retained generations newest first."
   (sbcl-generations:generation-list (generation-store-for configuration)))
 
+(-> generation-health (generation) list)
+(defun generation-health (generation)
+  "Return the library's compatibility verdict, reason and structured cause."
+  (multiple-value-bind (compatible reason reason-code)
+      (generation-compatible-p generation)
+    (list :compatible compatible :reason reason :reason-code reason-code)))
+
+(-> generation-health-summary (configuration) list)
+(defun generation-health-summary (configuration)
+  "Return retained generations, compatible counts and selected/fallback health."
+  (let* ((generations     (generation-list configuration))
+         (compatible      (remove-if-not #'generation-compatible-p generations))
+         (selected        (generation-selected configuration))
+         (selected-health (and selected (generation-health selected))))
+    (list :generations     generations
+          :retained        (length generations)
+          :compatible      (length compatible)
+          :selected        selected
+          :selected-health selected-health
+          :fallback        (unless (getf selected-health :compatible)
+                             (first compatible)))))
+
+(-> generation-health-warning (list) (option string))
+(defun generation-health-warning (summary)
+  "Explain unavailable rollback or a stale selection in SUMMARY, or return NIL."
+  (let* ((selected-health    (getf summary :selected-health))
+         (invalid-selected-p (and selected-health
+                                  (not (getf selected-health :compatible)))))
+    (when (or invalid-selected-p
+              (and (plusp (getf summary :retained))
+                   (zerop (getf summary :compatible))))
+      (with-output-to-string (stream)
+        (when invalid-selected-p
+          (format stream "Selected checkpoint is unavailable: ~A "
+                  (getf selected-health :reason)))
+        (let ((fallback (getf summary :fallback)))
+          (if fallback
+              (format stream "Compatible fallback: ~A. "
+                      (generation-identifier fallback))
+              (write-string "Rollback is unavailable: no compatible retained checkpoint. "
+                            stream)))
+        (write-string "Run (checkpoint) from a clean source checkout to create a compatible checkpoint."
+                      stream)))))
+
 (-> generation-find (configuration string) (option generation))
 (defun generation-find (configuration identifier)
-  "Return retained generation IDENTIFIER, or NIL when it is unknown."
-  (sbcl-generations:generation-find (generation-store-for configuration)
-                                    identifier))
+  "Return an exact or uniquely prefixed retained generation."
+  (identifier-select identifier (generation-list configuration)
+                     :key #'generation-identifier))
 
 (-> generation-select (configuration generation) generation)
 (defun generation-select (configuration generation)
@@ -260,7 +320,8 @@ structured type and message survive the round trip."
   (handler-case
       (sbcl-generations:generation-request-rollback
        (generation-store-for configuration)
-       identifier)
+       (let ((generation (generation-find configuration identifier)))
+         (if generation (generation-identifier generation) identifier)))
     (sbcl-generations:rollback-requested (condition)
       (error 'rollback-requested
              :message
@@ -275,27 +336,31 @@ structured type and message survive the round trip."
 
 (-> generation-render-list (configuration) string)
 (defun generation-render-list (configuration)
-  "Return a concise model-visible list of retained generations."
-  (let ((generations (generation-list configuration)))
-    (if generations
-        (with-output-to-string (stream)
-          (dolist (generation generations)
-            (format stream
-                    "~A  ~A  source ~A~%  image ~A~%  history ~A~%  replay ~A~%"
-                    (generation-identifier generation)
-                    (if (generation-compatible-p generation)
-                        "compatible"
-                        "incompatible")
-                    (generation-git-commit generation)
-                    (or (generation-image-commit-identifier generation)
-                        "base")
-                    (or (generation-mutation-history-commit generation)
-                        "unavailable")
-                    (if (generation-reconstruction-pathname generation)
-                        (namestring
-                         (generation-reconstruction-pathname generation))
-                        "unavailable for legacy generation"))))
-        "No retained generations exist.")))
+  "Return retained checkpoint health, identities and rollback availability."
+  (let* ((summary     (generation-health-summary configuration))
+         (generations (getf summary :generations))
+         (warning     (generation-health-warning summary)))
+    (with-output-to-string (stream)
+      (format stream "Retained ~D; compatible ~D; rollback ~:[unavailable~;available~].~%"
+              (getf summary :retained)
+              (getf summary :compatible)
+              (plusp (getf summary :compatible)))
+      (when warning
+        (format stream "Warning: ~A~%" warning))
+      (dolist (generation generations)
+        (let ((health (generation-health generation)))
+          (format stream
+                  "~A  ~A  source ~A~%  image ~A~%  history ~A~%  replay ~A~%"
+                  (generation-identifier generation)
+                  (if (getf health :compatible)
+                      "compatible"
+                      (format nil "incompatible (~A)" (getf health :reason)))
+                  (generation-git-commit generation)
+                  (or (generation-image-commit-identifier generation) "base")
+                  (or (generation-mutation-history-commit generation) "unavailable")
+                  (if (generation-reconstruction-pathname generation)
+                      (namestring (generation-reconstruction-pathname generation))
+                      "unavailable for legacy generation")))))))
 
 
 ;;;; -- Checkpoint Backend --
@@ -446,7 +511,7 @@ quiescence, metadata, and probe hooks."
                    #'make-checkpoint-backend)
        :store               (generation-store-for configuration)
        :toplevel-function   #'checkpoint-resume-main
-       :identifier-function #'make-identifier
+       :identifier-function (lambda () (generation--allocate-identifier configuration))
        :probe-runner        (generation-core-probe-runner-create)
        :around-function
        (lambda (thunk)

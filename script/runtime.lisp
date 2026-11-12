@@ -2,13 +2,6 @@
 
 ;;; Runtime provisioning shared by the PowerShell launchers.
 
-;;; bin/autolith-runtime.ps1 selects an SBCL that satisfies sbcl.version and
-;;; runs this script in it. The script mirrors the rest of bin/autolith-runtime:
-;;; it records the runtime command for later launches, installs the matching
-;;; SBCL source tree when asked, exports AUTOLITH_SBCL and
-;;; AUTOLITH_SBCL_SOURCE_ROOT, and then loads the requested Lisp entry point
-;;; with the remaining arguments as its command line.
-;;;
 ;;; Usage: sbcl --script script/runtime.lisp [--install] --script PATH [ARGUMENT...]
 
 (require :asdf)
@@ -268,16 +261,15 @@
                                                   :identity-pathname identity-pathname
                                                   :version           version
                                                   :expected-sha256   expected-sha256)))
-        ;; Only the pinned release has a verified source archive. A newer
-        ;; SBCL still satisfies the minimum, so it runs Autolith; workers
-        ;; then report that matching implementation source is unavailable.
+        ;; Install only source archives listed in the checksum table. Other
+        ;; compatible runtimes can use an explicit matching source tree.
         (if expected-sha256
             (runtime-install-source runtime-root managed-source
                                     :identity-pathname identity-pathname
                                     :version           version
                                     :expected-sha256   expected-sha256)
             (format *error-output*
-                    "~&SBCL ~A has no tracked source archive; implementation source stays unavailable to Lisp workers until the release pinned in sbcl.version is used.~%"
+                    "~&SBCL ~A has no tracked source archive; continuing without managed implementation sources.~%"
                     version)))
       (autolith-script-setenv "AUTOLITH_SBCL" runtime-command)
       (let ((source (or (runtime-configured-source version)

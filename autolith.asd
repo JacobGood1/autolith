@@ -1,12 +1,5 @@
 ;;;; -- Autolith Systems --
 
-;;; Compiling a file proclaims its -> declarations while its classes are still
-;;; placeholders, so loading the file into the same image proclaims them again
-;;; and SBCL reports that each declaration over a class from that file differs
-;;; from itself. Loading Autolith's own files muffles that report. A genuine
-;;; disagreement needs two declarations of one function, which the source
-;;; checks refuse, and still warns when it is compiled.
-
 (defclass autolith-source-file (asdf:cl-source-file)
   ()
   (:documentation "An Autolith source file, loaded without SBCL's self-redeclaration reports."))
@@ -147,6 +140,7 @@
                                           (:file "conversation/input-history")
                                           (:file "conversation/compaction")
                                           (:file "conversation/compaction-tail")
+                                          (:file "conversation/compaction-recovery")
                                           (:file "conversation/precompaction")
                                           (:file "conversation/async-lisp")
                                           (:file "state/memory-sources")
@@ -223,6 +217,7 @@
                                           (:file "tools/lisp-paren-check")
                                           (:file "resource/workspace-file")
                                           (:file "resource/workspace-changes")
+                                          (:file "resource/edit-proposals")
                                           (:file "lsp/configuration")
                                           (:file "lsp/tools")
                                           (:file "lsp/semantic-proposals")
@@ -291,6 +286,7 @@
                                           (:file "terminal/stream")
                                           (:file "localgroup/terminal")
                                           (:file "terminal/path-completion")
+                                          (:file "application/input-work")
                                           (:file "terminal/ui")
                                           (:file "terminal/clipboard")
                                           (:file "terminal/fullscreen")
@@ -359,6 +355,9 @@
                                           (:file "localgroup/handoff")
                                           (:file "localgroup/checkpoint")
                                           (:file "localgroup/client")
+                                          (:file "state/usage")
+                                          (:file "terminal/usage")
+                                          (:file "startup/usage")
                                           (:file "application/onboarding")
                                           (:file "state/data-transfer")
                                           (:file "state/data-transfer-collect")
@@ -437,6 +436,9 @@
                                           (:file "papercut-tests")
                                           (:file "update-tests")
                                           (:file "agenda-tests")
+                                          (:file "platform-usage-tests")
+                                          (:file "usage-tests")
+                                          (:file "usage-display-tests")
                                           (:file "preferences-tests")
                                           (:file "prompt-cache-tests")
                                           (:file "idle-compaction-tests")
@@ -463,6 +465,7 @@
                                           (:file "application-command-tests")
                                           (:file "project-adaptation-tests")
                                           (:file "conversation-identifier-tests")
+                                          (:file "user-identifier-tests")
                                           (:file "conversation-tests")
                                           (:file "precompaction-tests")
                                           (:file "compaction-tail-tests")
@@ -512,6 +515,7 @@
                                           (:file "agent-tests")
                                           (:file "context-admission-tests")
                                           (:file "compaction-acceptance-tests")
+                                          (:file "compaction-recovery-tests")
                                           (:file "cache-review-tests")
                                           (:file "inference-tests")
                                           (:file "nooa-autolith-extension-tests")
@@ -555,6 +559,7 @@
                                           (:file "application-tests")
                                           (:file "application-tool-outcome-tests")
                                           (:file "application-tool-outcome-history-tests")
+                                          (:file "input-work-tests")
                                           (:file "pending-native-work-tests")
                                           (:file "provider-model-selection-tests")
                                           (:file "onboarding-source-tests")

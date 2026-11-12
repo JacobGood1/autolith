@@ -3,7 +3,7 @@
 ;;;; -- Active Image Inspection --
 
 (defvar *exploratory-definitions* (make-hash-table :test #'equal)
-  "Complete source forms installed exploratorily in the active image.")
+  "Complete source forms installed in the active image for trial.")
 
 (defvar *exploratory-undo-actions* (make-hash-table :test #'equal)
   "Exact in-memory undo actions for this process's pending mutations.")
@@ -132,13 +132,17 @@ symbol itself."
 (-> self-repair--journal-context (configuration (option string)) list)
 (defun self-repair--journal-context (configuration identifier)
   "Return durable telemetry context for the exact journal IDENTIFIER."
-  (when identifier
-    (loop for record in (reverse (mutation-journal-read-records configuration))
-          for properties = (rest record)
-          when (and (or (equal identifier (getf properties :id))
-                        (equal identifier (getf properties :mutation)))
-                    (getf properties :repair-context))
-            return (copy-list (getf properties :repair-context)))))
+  (let ((context nil))
+    (when identifier
+      (mutation-journal-query
+       configuration
+       (lambda (record)
+         (let ((properties (rest record)))
+           (when (and (or (equal identifier (getf properties :id))
+                          (equal identifier (getf properties :mutation)))
+                      (getf properties :repair-context))
+             (setf context (copy-list (getf properties :repair-context))))))))
+    context))
 
 (defmethod tool-execute :around ((tool mutable-self-tool)
                                  (context tool-context)
@@ -241,27 +245,75 @@ symbol itself."
 
 ;;;; -- Exploratory Evaluation --
 
-(-> self-capture-evaluation (function) (values list string))
+(defparameter *self-evaluation-character-limit* 12000
+  "The retained character budget for output, values, and assembled self results.")
+
+(-> self--captured-text (bounded-output-stream) string)
+(defun self--captured-text (stream)
+  "Return STREAM's prefix with an explicit notice when characters were discarded."
+  (let ((text (bounded-output-stream-text stream)))
+    (if (bounded-output-stream-truncated-p stream)
+        (concatenate 'string text (string #\Newline) "[truncated]")
+        text)))
+
+(-> self-capture-evaluation (function) (values list string list))
 (defun self-capture-evaluation (function)
-  "Call FUNCTION in the active image while capturing output and rendered values."
-  (let ((result-values nil))
-    (let ((output
-            (with-output-to-string (stream)
-              (let ((*standard-output* stream)
-                    (*error-output*    stream)
-                    (*trace-output*    stream)
-                    (*package*         (find-package '#:autolith)))
-                (setf result-values
-                      (multiple-value-list (funcall function)))))))
-      (values (mapcar #'sbcl-worker-render-value result-values) output))))
+  "Call FUNCTION with bounded output and value rendering.
+
+Return rendered values, captured output, and truncation metadata. Values share
+one character budget; output has a separate budget. Printer traversal settings
+match worker rendering. Conditions and nonlocal exits propagate unchanged."
+  (let* ((stream             (bounded-output-stream-create *self-evaluation-character-limit*))
+         (result-values
+           (let ((*standard-output* stream)
+                 (*error-output*    stream)
+                 (*trace-output*    stream)
+                 (*package*         (find-package '#:autolith)))
+             (multiple-value-list (funcall function))))
+         (remaining          *self-evaluation-character-limit*)
+         (values-truncated-p nil)
+         (rendered-values
+           (loop for value in result-values
+                 for value-stream = (bounded-output-stream-create remaining)
+                 collect (progn
+                           (let ((*print-pretty* nil))
+                             (write value :stream value-stream :readably nil
+                                    :circle t :level 10 :length 100))
+                           (let* ((text        (bounded-output-stream-text value-stream))
+                                  (truncated-p (bounded-output-stream-truncated-p value-stream))
+                                  (marker      (if truncated-p
+                                                  (concatenate 'string (string #\Newline)
+                                                               "[truncated]")
+                                                  ""))
+                                  (available   remaining)
+                                  (marker-p    (and truncated-p
+                                                    (>= available (length marker))))
+                                  (text-limit  (if marker-p
+                                                   (- available (length marker))
+                                                   available))
+                                  (retained    (subseq text 0 (min (length text)
+                                                                   (max 0 text-limit))))
+                                  (rendered    (if marker-p
+                                                   (concatenate 'string retained marker)
+                                                   retained)))
+                             (decf remaining (length rendered))
+                             (when truncated-p
+                               (setf values-truncated-p t))
+                             rendered)))))
+    (values rendered-values
+            (self--captured-text stream)
+            (list :character-limit    *self-evaluation-character-limit*
+                  :output-truncated-p (bounded-output-stream-truncated-p stream)
+                  :values-truncated-p values-truncated-p))))
 
 (-> self-evaluation-result (list string) string)
 (defun self-evaluation-result (result-values output)
-  "Render active-image RESULT-VALUES and captured OUTPUT for a tool result."
-  (with-output-to-string (stream)
+  "Render RESULT-VALUES and OUTPUT within the self result character budget."
+  (let ((stream (bounded-output-stream-create *self-evaluation-character-limit*)))
     (when (non-empty-string-p output)
       (format stream "Output:~%~A~%" output))
-    (format stream "Values:~%~{~A~%~}" result-values)))
+    (format stream "Values:~%~{~A~%~}" result-values)
+    (self--captured-text stream)))
 
 
 ;;;; -- Restart Selection --
@@ -285,11 +337,10 @@ symbol itself."
 (defun self-call-with-restarts (thunk &key restart-name restart-value-source)
   "Call THUNK, invoking the chosen restart or describing the available ones.
 
-With RESTART-NAME, the first matching non-ABORT restart is invoked while the
-signaling operation is still live, optionally passing the evaluated
-RESTART-VALUE-SOURCE. Without a match, a condition that offers selectable
-restarts becomes a SELF-CORRECTABLE-ERROR whose report teaches the retry
-protocol."
+Invoke the first matching non-ABORT restart named by RESTART-NAME while the
+signaling operation is live, passing the evaluated RESTART-VALUE-SOURCE when
+supplied. If a condition offers selectable restarts but none matches, signal
+SELF-CORRECTABLE-ERROR with the available choices and retry instructions."
   (handler-case
       (call-with-restart-choice
        thunk
@@ -1027,10 +1078,8 @@ A failed read is remembered and signaled again for every later lookup."
 
 (-> self-source--component-pathnames (t) list)
 (defun self-source--component-pathnames (component)
-  "Return every existing Common Lisp source file beneath ASDF COMPONENT.
-
-A component whose :IF-FEATURE this image lacks is not part of the system here,
-and its file may not even read on this host, so it contributes nothing."
+  "Return existing Common Lisp source files beneath ASDF COMPONENT.
+Exclude components whose :IF-FEATURE expression is false on this host."
   (let ((feature (asdf/component:component-if-feature component)))
     (cond ((and feature (not (uiop:featurep feature)))
            nil)

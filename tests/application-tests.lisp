@@ -552,19 +552,50 @@
                           :current-tag (format nil "v~A" *autolith-version*)))
          (release-availability
            (make-instance 'update-availability :tag tag :method ':release)))
-    (labels ((make-application (events)
-               "Return a release application scripted with EVENTS."
+    (labels ((make-application (events &key (terminal
+                                             (make-instance 'scripted-terminal
+                                                            :columns 72
+                                                            :events  events)))
+               "Return a release application scripted with EVENTS or using TERMINAL."
                (make-instance
                 'application
                 :configuration           configuration
                 :installation-provenance release-provenance
                 :update-availability     release-availability
-                :ui                      (terminal-ui-create
-                                          :terminal (make-instance 'scripted-terminal
-                                                                   :columns 72
-                                                                   :events  events)))))
+                :ui                      (terminal-ui-create :terminal terminal))))
       (unwind-protect
            (progn
+             (let* ((application
+                      (make-application
+                       nil :terminal (stream-terminal-create
+                                      :input-stream          (make-string-input-stream "")
+                                      :output-stream         (make-string-output-stream)
+                                      :input-file-descriptor -1)))
+                    (ui         (application-ui application))
+                    (selections 0))
+               (test-call-with-function-replacements
+                (list
+                 (list 'terminal-ui-select
+                       (lambda (&rest arguments)
+                         (declare (ignore arguments))
+                         (incf selections)
+                         "Skip this version")))
+                (lambda ()
+                  (with-terminal-ui (active-ui ui)
+                    (test-assert
+                     (and (terminal-started-p (terminal-ui-terminal ui))
+                          (not (terminal-interactive-p (terminal-ui-terminal ui))))
+                     "an unattended startup uses an active noninteractive terminal")
+                    (application--offer-startup-update application))))
+               (test-assert (zerop selections)
+                            "an unattended startup never enters the update picker")
+               (test-assert
+                (eq (application-update-availability application) release-availability)
+                "an unattended startup retains the cached release for explicit updates")
+               (test-assert
+                (null (update-state-dismissed-tag (update-state-load configuration)))
+                "an unattended startup does not dismiss a release without a choice"))
+
              (let* ((application (make-application (list :submit)))
                     (ui          (application-ui application))
                     (notice      (application--update-notice application))
@@ -1198,6 +1229,33 @@
         (when controller
           (ignore-errors (application-input-controller-stop controller)))
         (ignore-errors (terminal-ui-stop ui)))))
+  nil)
+
+(-> test-detach-control-event-dispatch () null)
+(defun test-detach-control-event-dispatch ()
+  "Dispatch Ctrl-Z's semantic detach event through the normal command path."
+  (dolist (active-p '(nil t))
+    (let* ((terminal    (make-instance 'recording-terminal :columns 80))
+           (ui          (terminal-ui-create :terminal terminal))
+           (application (make-instance 'application :ui ui))
+           (controller  (make-instance 'application-input-controller
+                                       :application application
+                                       :main-thread (current-thread)))
+           (called      nil))
+      (setf (application-input-controller application) controller
+            (application-input-controller-active-p controller) active-p)
+      (test-call-with-function-replacements
+       (list
+        (list 'application-command
+              (lambda (received input &key interactive-p)
+                (declare (ignore interactive-p))
+                (setf called (list received input))
+                ':continue)))
+       (lambda ()
+         (application-input-controller--process-event controller ':detach)))
+      (test-assert (equal called (list application "/detach"))
+                   "Ctrl-Z dispatches the existing detach command while idle and active")
+      (terminal-ui-stop ui)))
   nil)
 
 (-> test-active-turn-interrupt-events () null)
@@ -1863,8 +1921,6 @@
                 (next-turn-finished-observed-p    nil)
                 (producer-condition               nil)
                 (producer                         nil))
-           ;; A fresh test-worker cache may need to compile the native syntax
-           ;; highlighter. Finish presentation setup before the bounded gate wait.
            (application-tool-call-entry tool application
                                         (agent-test-call :name "gate"))
            (tool-registry-register registry tool)
@@ -2533,7 +2589,7 @@
                                        (equal (termdown:widget-action widget) action))
                                      widgets)
                               (string= (terminal--spans-text widgets)
-                                       (application--job-cancel-text identifier))
+                                       (terminal-ui--job-cancel-text identifier))
                               (terminal-ui--compact-handoff-group entry))
                          "a running handoff highlights every clickable cancellation token"))
                       (test-assert
@@ -4104,11 +4160,18 @@
            (setf (conversation-last-total-tokens conversation) 262500)
            (application-refresh-context-meter application)
            (test-assert
-             (and (= (terminal-ui-context-used ui) 262500)
-                  (not (terminal-ui-context-estimated-p ui))
-                  (= (terminal-ui-context-window ui) 272000)
-                  (= (terminal-ui-context-compaction-limit ui) 217600))
-            "application refresh projects current provider usage into the idle meter")
+            (and (< (terminal-ui-context-used ui) 262500)
+                 (terminal-ui-context-estimated-p ui)
+                 (= (terminal-ui-context-window ui) 272000)
+                 (= (terminal-ui-context-compaction-limit ui) 217600))
+            "application refresh estimates unverified provider usage for the idle meter")
+           (setf (conversation-resumed-p conversation) t)
+           (application-refresh-context-meter application)
+           (test-assert
+            (and (< (terminal-ui-context-used ui) 262500)
+                 (terminal-ui-context-estimated-p ui))
+            "resumed historical usage is not trusted by the current context meter")
+           (setf (conversation-resumed-p conversation) nil)
            (test-assert
             (search (config :model configuration)
                     (terminal-ui--raw-spans-text
@@ -4119,8 +4182,9 @@
                     (callback-agent-observer-status-callback observer)))
              (setf (conversation-last-total-tokens conversation) 525000)
              (funcall send-status :provider-request-completed nil)
-             (test-assert (= (terminal-ui-context-used ui) 525000)
-                          "provider completion refreshes the context meter")
+             (test-assert (and (< (terminal-ui-context-used ui) 525000)
+                               (terminal-ui-context-estimated-p ui))
+                          "provider completion does not trust an unverified usage report")
              (setf (conversation-last-total-tokens conversation) 262500)
              (funcall send-status :compaction-started nil)
              (test-assert
@@ -4147,9 +4211,10 @@
              (conversation-append-provider-metadata
               conversation (list :usage '(("total_tokens" 24000))))
              (funcall send-status :provider-request-completed nil)
-             (test-assert (and (= (terminal-ui-context-used ui) 24000)
-                               (not (terminal-ui-context-estimated-p ui)))
-                          "the next provider report replaces the compacted prompt estimate")
+             (test-assert (and (plusp (terminal-ui-context-used ui))
+                               (< (terminal-ui-context-used ui) 24000)
+                               (terminal-ui-context-estimated-p ui))
+                          "an unverified provider report cannot replace the retained-context estimate")
              (funcall send-status :compaction-started nil)
              (funcall send-status :turn-completed nil)
              (test-assert (and (not (terminal-ui-compacting-p ui))
@@ -6469,8 +6534,6 @@
               "failed inherited configuration restores the prior runtime")))
       (when pool
         (lisp-worker-pool-stop-all pool))
-      ;; A workspace switch installs a replacement registry owning task
-      ;; threads. Leaving them alive breaks a later test that forks.
       (when closable-application
         (ignore-errors
           (tool-registry-close-runtime-state
@@ -7409,9 +7472,6 @@
                  (job-pool-lifecycle-state (task-orchestrator-pool old-orchestrator))
                  ':open)
                 (if (eq operation ':working-directory)
-                    ;; Workspace switches quiesce the old runtime before
-                    ;; preparing a replacement, so a retirement failure never
-                    ;; creates or closes the candidate registry.
                     (and
                      (eq
                       (job-pool-lifecycle-state (task-orchestrator-pool new-orchestrator))
@@ -7916,6 +7976,87 @@
          (replacement-orchestrator nil))
     (unwind-protect
          (progn
+           (let ((definitions
+                   (list definition
+                         (task-agent-definition-create
+                          :name "forced" :description "Force blocking."
+                          :instructions "Return before the parent continues."
+                          :blocking-p t :source ':test)))
+                 (compact-p (application-compact-view-p application)))
+             (unwind-protect
+                (test-call-with-function-replacements
+                 (list (list 'task-discover-agents
+                             (lambda (configuration)
+                               (declare (ignore configuration))
+                               (values definitions nil))))
+                 (lambda ()
+                    (dolist (case
+                             (list
+                              (list (json-object "task" "Default request") ':detached)
+                              (list (json-object "task" "Explicit detached"
+                                                 "blocking" (json-false)) ':detached)
+                              (list (json-object "task" "Explicit blocking"
+                                                 "blocking" t) ':synchronous)
+                              (list (json-object "task" "Legacy detached"
+                                                 "async" t) ':detached)
+                              (list (json-object "task" "Legacy blocking"
+                                                 "async" (json-false)) ':synchronous)
+                              (list (json-object "task" "Forced blocking"
+                                                 "agent" "forced"
+                                                 "blocking" (json-false)) ':synchronous)
+                              (list (json-object "blocking" t
+                                                 "tasks" (vector
+                                                          (json-object "task" "Inherited blocking")))
+                                    ':synchronous)
+                              (list (json-object "blocking" t
+                                                 "context" "Shared context"
+                                                 "tasks" (vector
+                                                          (json-object "task" "Item override"
+                                                                       "context" "Item context"
+                                                                       "blocking" (json-false))))
+                                    ':detached)))
+                      (let* ((arguments (first case))
+                             (mode      (second case))
+                             (item      (first (task-normalize-arguments
+                                                arguments :definitions definitions)))
+                             (call      (json-object
+                                         "type" "function_call" "namespace" "task" "name" "run"
+                                         "arguments" (json-encode arguments))))
+                        (test-assert (eq mode (getf item :mode))
+                                     "normalized requests include effective role blocking")
+                        (setf (application-compact-view-p application) nil)
+                        (dolist (restored-call (list call (json-decode (json-encode call))))
+                          (let ((text (test-terminal-row-text
+                                       (response-item-entry application restored-call))))
+                            (test-assert
+                             (and (search (application--task-run-mode-label mode) text)
+                                  (search (getf item :task) text)
+                                  (not (search "invalid" text)))
+                             "live and restored transcript modes match execution descriptions")))
+                        (setf (application-compact-view-p application) t)
+                        (test-assert
+                         (search (getf item :task)
+                                 (test-terminal-row-text
+                                  (response-item-entry application call)))
+                         "compact task layout consumes normalized assignments")))
+                    (dolist (arguments
+                             (list (json-object "task" "Conflicting mode" "blocking" t "async" t)
+                                   (json-object "task" "Invalid context" "context" 7)
+                                   (json-object "tasks" #())
+                                   (json-object "task" "Invalid policy"
+                                                "completion-policy" "invalid")
+                                   (json-object "tasks"
+                                                (vector (json-object "task" "Invalid item policy"
+                                                                     "completion-policy" "invalid")))))
+                      (let ((call (json-object "type" "function_call" "namespace" "task"
+                                               "name" "run" "arguments" (json-encode arguments))))
+                        (dolist (restored-call (list call (json-decode (json-encode call))))
+                          (test-assert
+                           (search "invalid task request"
+                                   (test-terminal-row-text
+                                    (response-item-entry application restored-call)))
+                           "live and restored presentations use execution's request validation"))))))
+               (setf (application-compact-view-p application) compact-p)))
            (application-connect-task-presentation application)
            (application-connect-task-presentation application)
            (test-assert
@@ -8881,7 +9022,7 @@
            (setf (application-goal application)
                  (list :objective     "endless"
                        :status        ':active
-                       :continuations *application-goal-continuation-limit*
+                       :continuations (application-goal-continuation-limit application)
                        :created-at    (get-universal-time)))
            (recording-terminal-reset terminal)
            (application--run-goal-continuations application)
@@ -8997,8 +9138,6 @@
                      (string= (getf (rest form) :snapshot-identifier)
                               snapshot-identifier))
                 "one pending collection keeps a stable snapshot identifier"))
-             ;; Simulate a crash after the first append but before its observer
-             ;; acknowledgement updates the pending snapshot.
              (conversation-append-user-message
               conversation
               (agent-steering-input-content first-entry)
@@ -9022,8 +9161,6 @@
             "restored active work dispatches before queued follow-ups")
            (let ((active-identifier
                    (application-input-controller-active-work-identifier restored)))
-             ;; Simulate the corresponding active-message append before its
-             ;; acknowledgement callback can publish the cleared snapshot.
              (conversation-append-user-message
               conversation
               "active turn"
@@ -9042,8 +9179,6 @@
             (null (application-input-controller--state
                    restored-after-append :steering-items))
             "steering becomes ordinary ordered work when its old turn is durable")
-           ;; Reproduce a publisher delayed until ordinary shutdown has persisted
-           ;; and cleared the process-local queues.
            (application-input-controller--prepare-shutdown
             restored-after-append ':interrupt)
            (application-input-controller--publish-counts restored-after-append)
@@ -9773,4 +9908,369 @@
       (application-disconnect-task-presentation application)
       (tool-registry-close-runtime-state registry)
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
+  nil)
+
+(-> test-provider-exhaustion-presentation () null)
+(defun test-provider-exhaustion-presentation ()
+  "Test exhausted retries present the count and provider reason immediately."
+  (with-test-configuration (configuration)
+    (let* ((terminal    (make-instance 'recording-terminal :columns 100))
+           (application
+             (make-instance 'application
+                            :configuration configuration
+                            :conversation  (conversation-create configuration :identifier "exhaustion")
+                            :ui            (terminal-ui-create :terminal terminal)))
+           (observer    (application-agent-observer application))
+           (send-status (callback-agent-observer-status-callback observer)))
+      (unwind-protect
+           (progn
+             (terminal-ui-start (application-ui application))
+             (funcall send-status :provider-request-started nil)
+             (recording-terminal-reset terminal)
+             (funcall send-status :provider-retries-exhausted
+                      (list :attempts 7 :code "service_unavailable_error"))
+             (let ((output (recording-terminal-output terminal)))
+               (test-assert (and (search "7" output)
+                                 (search "service_unavailable_error" output))
+                            "retry exhaustion visibly includes attempts and reason"))
+             (recording-terminal-reset terminal)
+             (funcall send-status :provider-request-started nil)
+             (test-assert (not (search "service_unavailable_error"
+                                      (recording-terminal-output terminal)))
+                          "a later request does not inherit an exhaustion notice"))
+        (terminal-ui-stop (application-ui application)))))
+  nil)
+
+(-> test-application-goal-continuation-limits () null)
+(defun test-application-goal-continuation-limits ()
+  "Use a nondefault cap and keep unlimited counters observational."
+  (with-test-configuration (configuration)
+    (let* ((application (mission-test--application configuration))
+           (calls       0))
+      (unwind-protect
+           (test-call-with-function-replacements
+            (list (list 'application--run-turn
+                        (lambda (candidate &rest arguments)
+                          (declare (ignore arguments))
+                          (incf calls)
+                          (setf (getf (application-goal candidate) :status) ':complete)
+                          nil)))
+            (lambda ()
+              (setf (config :goal-continuation-limit configuration) 2)
+              (setf (application-goal application)
+                    (list :objective "bounded" :status ':active :continuations 2))
+              (application--run-goal-continuations application)
+              (test-assert (zerop calls) "a configured cap of two admits no third turn")
+              (test-assert (eq (getf (application-goal application) :status) ':paused)
+                           "the loop pauses at the configured cap")
+              (setf (config :goal-continuation-limit configuration) ':unlimited)
+              (setf calls 0
+                    (application-goal application)
+                    (list :objective "unlimited" :status ':active :continuations 50))
+              (application--run-goal-continuations application)
+              (test-assert (= calls 1) "unlimited permits one bounded fake turn past the old cap")
+              (test-assert (= 51 (getf (application-goal application) :continuations))
+                           "unlimited still records the continuation count")
+              (test-assert (eq (getf (application-goal application) :status) ':complete)
+                           "the fake turn can complete an unlimited goal")))
+        (terminal-ui-stop (application-ui application)))))
+  nil)
+
+(-> test-goal-queued-input-boundary () null)
+(defun test-goal-queued-input-boundary ()
+  "Admit a queued goal clear before the next automatic continuation."
+  (with-test-configuration (configuration)
+    (let* ((terminal   (make-instance 'recording-terminal :columns 60))
+           (application
+             (make-instance 'application :configuration configuration
+                            :conversation               (conversation-create configuration
+                                                                             :identifier "queued-goal")
+                            :tool-registry              (make-default-tool-registry)
+                            :worker                     nil
+                            :ui                         (terminal-ui-create :terminal terminal)))
+           (controller (application-input-controller-create
+                        application :load-pending-p nil
+                        :pending-persistence-enabled-p nil :start-reader-p nil))
+           (turns      0))
+      (unwind-protect
+           (progn
+             (setf (application-goal application)
+                   (list :objective "keep working" :status :active
+                         :continuations 0 :created-at (get-universal-time)))
+             (test-call-with-function-replacements
+              (list
+               (list 'application--run-turn
+                     (lambda (app content &rest arguments)
+                       (declare (ignore app content arguments))
+                       (incf turns)
+                       (when (= turns 3)
+                         (application-input-controller--enqueue
+                          controller :lisp "(goal :clear)"))
+                       (when (> turns 12)
+                         (error "Continuation test exceeded its fail-safe"))
+                       nil)))
+              (lambda ()
+                (application-input-controller--enqueue controller :message "start")
+                (application-input-controller--run-work
+                 controller (application-input-controller--next-work controller))
+                (test-assert (= turns 3)
+                             "queued clear yields at the next turn boundary")
+                (test-assert (eq (getf (application-goal application) :status) :active)
+                             "queued input precedes the numeric cap pause")
+                (application-input-controller--finish-work controller)
+                (let ((work (application-input-controller-take-queued-work controller)))
+                  (test-assert (equal work '(:lisp "(goal :clear)"))
+                               "the controller admits the queued Lisp form")
+                  (application-input-controller--run-work controller work))
+                (test-assert (null (application-goal application))
+                             "the queued form executes through the controller"))))
+        (terminal-ui-stop (application-ui application)))))
+  nil)
+
+(-> goal-input-test--call (function) null)
+(defun goal-input-test--call (function)
+  "Call FUNCTION with an isolated goal application and input controller."
+  (with-test-configuration (configuration)
+    (let* ((terminal   (make-instance 'recording-terminal :columns 60))
+           (application
+             (make-instance 'application :configuration configuration
+                            :conversation               (conversation-create configuration
+                                                                             :identifier "goal-input")
+                            :tool-registry              (make-default-tool-registry)
+                            :worker nil :ui (terminal-ui-create :terminal terminal)))
+           (controller (application-input-controller-create
+                        application :load-pending-p nil
+                        :pending-persistence-enabled-p nil :start-reader-p nil)))
+      (unwind-protect
+           (progn
+             (setf (application-goal application)
+                   (list :objective "keep working" :status :active
+                         :continuations 0 :created-at (get-universal-time)))
+             (funcall function application controller))
+        (terminal-ui-stop (application-ui application)))))
+  nil)
+
+(-> test-goal-queued-unlimited-clear () null)
+(defun test-goal-queued-unlimited-clear ()
+  "Bound an unlimited goal by admitting a queued Lisp clear."
+  (goal-input-test--call
+   (lambda (application controller)
+     (setf (config :goal-continuation-limit (application-configuration application))
+           :unlimited)
+     (let ((turns 0))
+       (test-call-with-function-replacements
+        (list (list 'application--run-turn
+                    (lambda (app &rest arguments)
+                      (declare (ignore app arguments))
+                      (incf turns)
+                      (when (= turns 3)
+                        (application-input-controller--enqueue
+                         controller :lisp "(goal :clear)"))
+                      (when (> turns 6) (error "Unlimited test exceeded fail-safe"))
+                      nil)))
+        (lambda ()
+          (application-input-controller--enqueue controller :message "start")
+          (application-input-controller--run-work
+           controller (application-input-controller--next-work controller))
+          (test-assert (= turns 3) "unlimited yields after the third turn")
+          (application-input-controller--finish-work controller)
+          (application-input-controller--run-work
+           controller (application-input-controller-take-queued-work controller))
+          (test-assert (null (application-goal application))
+                       "queued clear stops an unlimited goal"))))))
+  nil)
+
+(-> test-goal-queued-input-fifo-budget () null)
+(defun test-goal-queued-input-fifo-budget ()
+  "Admit mixed input in FIFO order and reset only when a message is admitted."
+  (goal-input-test--call
+   (lambda (application controller)
+     (setf (config :goal-continuation-limit (application-configuration application)) 2)
+     (let ((turns 0) (fresh-count nil))
+       (test-call-with-function-replacements
+        (list (list 'application--run-turn
+                    (lambda (app content &rest arguments)
+                      (declare (ignore arguments))
+                      (incf turns)
+                      (when (equal content "fresh")
+                        (setf fresh-count (getf (application-goal app) :continuations)))
+                      (when (= turns 3)
+                        (dolist (work '((:lisp "(+ 1 1)") (:message "fresh")
+                                        (:native-lisp "(+ 2 2)") (:command "/goal clear")))
+                          (application-input-controller--enqueue
+                           controller (first work) (second work))))
+                      (when (> turns 7) (error "FIFO test exceeded fail-safe"))
+                      nil)))
+        (lambda ()
+          (application-input-controller--enqueue controller :message "start")
+          (application-input-controller--run-work
+           controller (application-input-controller--next-work controller))
+          (test-assert (= 2 (getf (application-goal application) :continuations))
+                       "enqueuing a message does not reset the budget")
+          (dolist (kind '(:lisp :message :native-lisp :command))
+            (application-input-controller--finish-work controller)
+            (let ((work (application-input-controller-take-queued-work controller)))
+              (test-assert (eq (first work) kind) "mixed input keeps FIFO order")
+              (application-input-controller--run-work controller work)
+              (when (eq kind :lisp)
+                (test-assert (= 2 (getf (application-goal application) :continuations))
+                             "Lisp preserves the per-message count"))))
+          (test-assert (eql fresh-count 0) "admitting the message resets the count")
+          (test-assert (= turns 4) "no automatic turn overtakes queued input")
+          (test-assert (null (application-goal application)) "the final command clears the goal"))))))
+  nil)
+
+(-> test-goal-queued-form-resumes () null)
+(defun test-goal-queued-form-resumes ()
+  "Continue after a non-clearing form with the unused numeric budget."
+  (goal-input-test--call
+   (lambda (application controller)
+     (setf (config :goal-continuation-limit (application-configuration application)) 4)
+     (let ((turns 0))
+       (test-call-with-function-replacements
+        (list (list 'application--run-turn
+                    (lambda (app &rest arguments)
+                      (declare (ignore app arguments))
+                      (incf turns)
+                      (when (= turns 3)
+                        (application-input-controller--enqueue controller :lisp "(+ 1 1)"))
+                      (when (> turns 7) (error "Resume test exceeded fail-safe"))
+                      nil)))
+        (lambda ()
+          (application-input-controller--enqueue controller :message "start")
+          (application-input-controller--run-work
+           controller (application-input-controller--next-work controller))
+          (test-assert (= turns 3) "the non-clearing form is admitted at the boundary")
+          (application-input-controller--finish-work controller)
+          (application-input-controller--run-work
+           controller (application-input-controller-take-queued-work controller))
+          (test-assert (= turns 5) "the goal resumes using only the unused budget")
+          (test-assert (= 4 (getf (application-goal application) :continuations))
+                       "the form does not reset the numeric count")
+          (test-assert (eq :paused (getf (application-goal application) :status))
+                       "the empty queue reaches the existing numeric cap"))))))
+  nil)
+
+(-> test-goal-interrupted-input-does-not-resume () null)
+(defun test-goal-interrupted-input-does-not-resume ()
+  "Keep an interrupted goal idle after unrelated command and Lisp input."
+  (dolist (work '((:lisp "(status)") (:native-lisp "(+ 1 1)")
+                  (:command "/status")))
+    (goal-input-test--call
+     (lambda (application controller)
+       (let ((turns 0))
+         (test-call-with-function-replacements
+          (list (list 'application--run-turn
+                      (lambda (app &rest arguments)
+                        (declare (ignore app arguments))
+                        (incf turns)
+                        (when (= turns 1)
+                          (test-assert
+                           (application-input-controller--request-active-turn-cancellation
+                            controller :pause-queued-work-p t)
+                           "the active turn accepts cancellation")
+                          (when (application-input-controller--consume-turn-cancellation-delivery-p
+                                 controller)
+                            (error (make-condition 'application-turn-cancelled))))
+                        nil)))
+          (lambda ()
+            (application-input-controller--enqueue controller :message "start")
+            (handler-case
+                (unwind-protect
+                     (application-input-controller--run-work
+                      controller (application-input-controller--next-work controller))
+                  (application-input-controller--finish-work controller))
+              (application-turn-cancelled ()
+                (conversation--repair-incomplete-tool-calls
+                 (application-conversation application))))
+            (test-assert (not (application-input-controller-active-p controller))
+                         "the cancelled turn finished")
+            (test-assert (not (application-input-controller-turn-cancellation-p controller))
+                         "the controller cleared transient cancellation state")
+            (test-assert (eq :active (getf (application-goal application) :status))
+                         "cancelling a turn does not change the durable goal")
+            (application-input-controller--enqueue controller (first work) (second work))
+            (application-input-controller--run-work
+             controller (application-input-controller--next-work controller))
+            (test-assert (= turns 1)
+                         "unrelated input does not authorize another provider turn")))))))
+  nil)
+
+(-> test-goal-deferred-input-ownership () null)
+(defun test-goal-deferred-input-ownership ()
+  "Revoke yielded continuation authority when its input or session changes."
+  (dolist (change '(:cancel :replace-goal :record-change :switch-conversation :replace-input))
+    (goal-input-test--call
+     (lambda (application controller)
+       (let ((turns 0))
+         (test-call-with-function-replacements
+          (list (list 'application--run-turn
+                      (lambda (app &rest arguments)
+                        (declare (ignore app arguments))
+                        (incf turns)
+                        (when (= turns 1)
+                          (application-input-controller--enqueue controller :native-lisp "(+ 1 1)"))
+                        nil)))
+          (lambda ()
+            (application-input-controller--enqueue controller :message "start")
+            (application-input-controller--run-work
+             controller (application-input-controller--next-work controller))
+            (test-assert (= turns 1) "the goal yields to queued input")
+            (case change
+              (:cancel
+               (test-assert
+                (application-input-controller--request-active-turn-cancellation
+                 controller :pause-queued-work-p nil)
+                "cancellation is accepted before the yielded work finishes")
+               (application-input-controller--consume-turn-cancellation-delivery-p controller))
+              (:replace-goal
+               (setf (application-goal application) (copy-tree (application-goal application))))
+              (:record-change
+               (setf (getf (application-goal application) :status) ':paused)
+               (application--record-goal application)
+               (setf (getf (application-goal application) :status) ':active))
+              (:switch-conversation
+               (let ((original (application-conversation application)))
+                 (setf (application-conversation application)
+                       (conversation-create (application-configuration application)
+                                            :identifier "other-goal-input")
+                       (application-conversation application) original))))
+            (application-input-controller--finish-work controller)
+            (let ((work (application-input-controller-take-queued-work controller)))
+              (when (eq change ':replace-input)
+                (application-input-controller--finish-work controller)
+                (application-input-controller--enqueue controller :native-lisp "(+ 1 1)")
+                (setf work (application-input-controller--next-work controller)))
+              (application-input-controller--run-work controller work))
+            (test-assert (= turns 1)
+                         (format nil "~A revokes deferred model-turn authority" change))))))))
+  nil)
+
+(-> test-goal-explicit-resume-yields-to-input () null)
+(defun test-goal-explicit-resume-yields-to-input ()
+  "Retain a fresh deferral created while executing an explicit resume command."
+  (goal-input-test--call
+   (lambda (application controller)
+     (setf (config :goal-continuation-limit (application-configuration application)) 2
+           (getf (application-goal application) :status) ':paused)
+     (let ((turns 0))
+       (test-call-with-function-replacements
+        (list (list 'application--run-turn
+                    (lambda (app &rest arguments)
+                      (declare (ignore app arguments))
+                      (incf turns)
+                      (when (= turns 1)
+                        (application-input-controller--enqueue controller :native-lisp "(+ 1 1)"))
+                      nil)))
+        (lambda ()
+          (application-input-controller--enqueue controller :lisp "(goal :resume)")
+          (application-input-controller--run-work
+           controller (application-input-controller--next-work controller))
+          (test-assert (= turns 1) "explicit resume yields to the next input")
+          (application-input-controller--finish-work controller)
+          (application-input-controller--run-work
+           controller (application-input-controller-take-queued-work controller))
+          (test-assert (= turns 3) "the yielded input resumes the explicit goal work")
+          (test-assert (eq :paused (getf (application-goal application) :status))
+                       "the resumed loop observes its numeric cap"))))))
   nil)

@@ -46,7 +46,7 @@
 (define-setting :telemetry-enabled-p (boolean-setting)
   :label "Telemetry enabled" :group :telemetry :scope :durable :default t
   :environment                       "AUTOLITH_TELEMETRY"
-  :documentation                     "Export bounded numerical metadata and fetch the public models.dev catalog by default. Disable to stop telemetry and its catalog refresh; an explicit saved opt-out is preserved.")
+  :documentation                     "Send bounded numerical metadata and refresh the public models.dev catalog by default. Disable to stop both. A saved opt-out takes precedence.")
 
 (define-setting :telemetry-diagnostics-p (boolean-setting)
   :label "Diagnostic consent" :group :telemetry :scope :durable :default nil
@@ -67,7 +67,7 @@
                                                                  (and (consp entry) (stringp (first entry))
                                                                       (telemetry--alias-p (rest entry)))) value))
                                              "Use an association list of local model names and public aliases."))
-  :documentation                         "Trusted local-name to public-alias pairs override exact cached models.dev membership. Unlisted names export after deterministic identifier redaction and sanitization with a false known flag; absent names are omitted.")
+  :documentation                         "Trusted local-name to public-alias pairs override exact cached models.dev membership. Unlisted names export as fixed categories with a false known flag; absent names are omitted.")
 
 (define-setting :telemetry-model-directory (absolute-file-setting)
   :label "Redaction model directory" :group :telemetry :scope :process

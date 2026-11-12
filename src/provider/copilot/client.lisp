@@ -6,11 +6,11 @@
   "Whether explicit Copilot authentication may enable unconfigured models.")
 
 (defparameter *copilot-auto-request* nil
-  "The wire adapter and Auto token dynamically owned by one request only.")
+  "The wire adapter and Auto token, dynamically bound for one request.")
 
 (-> copilot--catalog-path (configuration) pathname)
 (defun copilot--catalog-path (configuration)
-  "Return the private route catalog accompanying the shared model cache."
+  "Return the path to the private route catalog."
   (merge-pathnames "copilot-models.sexp" (config :cache-root configuration)))
 
 (-> copilot--enable-model (string string string) boolean)
@@ -317,9 +317,12 @@
   "Partition account catalogs by the configured GitHub host."
   (format nil "https://api.~A/copilot/models" (copilot--domain)))
 
+;; Shared request admission uses this default endpoint as configuration metadata.
+;; Wire requests resolve their account-specific host and protocol from credentials.
 (register-provider
  "copilot" :description             "GitHub Copilot subscription"
  :family ':copilot :protocol ':custom
+ :endpoint                          "https://api.individual.githubcopilot.com/chat/completions"
  :factory #'copilot-provider-create :authenticator #'copilot-provider-authenticate
  :model-discovery                   #'copilot--fetch-models
  :model-discovery-endpoint          "https://api.individual.githubcopilot.com/models"

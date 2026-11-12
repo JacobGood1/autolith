@@ -18,7 +18,7 @@
 ;;;; -- Memory Resources --
 
 (defparameter *memory-resource-maximum-observations* 16
-  "The transient memory observations retained by one conversation.")
+  "The maximum number of memory observations retained per conversation.")
 
 (defparameter *memory-resource-excerpt-limit* 240
   "The maximum memory-body characters shown for one collection entry.")
@@ -89,16 +89,16 @@
                                          (resource-observation-metadata observation))))
 
 (defmethod resource-observation-state-class ((resource memory-resource))
-  "Record memory observations under the memory state family."
+  "Return the memory observation-state class."
   (declare (ignore resource))
   'memory-observation-state)
 
 (defmethod resource-item-identity ((resource memory-resource))
-  "Compare memory observations by collection or stable identifier."
+  "Return the resource's collection name or stable memory identifier."
   (memory-resource-identifier resource))
 
 (defmethod resource-observation-identity ((observation memory-observation))
-  "Compare memory observations by collection or stable identifier."
+  "Return the observation's collection name or stable memory identifier."
   (memory-observation-identifier observation))
 
 (defmethod resource-observation-state-maximum ((state memory-observation-state))
@@ -135,7 +135,7 @@
 
 (defmethod resource-resolver-read-documentation ((resolver memory-resolver))
   "Document memory: reads, with structured knowledge views when they are offered."
-  (format nil "memory: exposes revisioned persistent memories, always read in full: memory:relevant, memory:all, or a canonical memory:id/<percent-encoded-stable-id> URI.~:[~; Structured knowledge: memory:facts lists facts holding now (query and max-results narrow it), memory:claim/<id> explains why one holds, memory:predicates, memory:rules, memory:methods, and memory:contracts list the vocabulary, rules, task methods, and tool contracts, memory:procedures lists learned procedures procedure.run makes, memory:recipes lists starter vocabularies for common work, and memory:changes reports what changed since this conversation last read it.~]"
+  (format nil "memory: exposes revisioned persistent memories, always read in full: memory:relevant, memory:all, or a canonical memory:id/<percent-encoded-stable-id> URI.~:[~; Structured knowledge: memory:facts lists facts holding now (query and max-results narrow it), memory:claim/<id> explains why one holds, memory:predicates, memory:rules, memory:methods, and memory:contracts list the vocabulary, rules, task methods, and tool contracts, memory:procedures lists learned procedures, memory:recipes lists starter vocabularies for common work, and memory:changes reports what changed since this conversation last read it.~]"
           (memory-resolver-knowledge-p resolver)))
 
 (defmethod resource-resolver-edit-documentation ((resolver memory-resolver))
@@ -145,11 +145,13 @@
 
 (defmethod resource-resolver-resolve
     ((resolver memory-resolver) identifier (context tool-context))
-  "Resolve reserved collections or one canonical or compatible exact identifier."
-  (declare (ignore context))
-  (let ((visibility (memory-resource--collection-visibility identifier))
-        (knowledge  (and (memory-resolver-knowledge-p resolver)
-                         (memory-knowledge-resolve identifier))))
+  "Resolve reserved collections, exact identifiers, and unique idsmall references."
+  (let* ((visibility (memory-resource--collection-visibility identifier))
+         (knowledge  (and (memory-resolver-knowledge-p resolver)
+                          (memory-knowledge-resolve identifier)))
+         (item-id    (and (uiop:string-prefix-p "id/" identifier)
+                          (resource-item-decode-identifier
+                           "memory" "memory" (subseq identifier (length "id/"))))))
     (cond
       (knowledge
        knowledge)
@@ -158,11 +160,21 @@
                       :uri        (format nil "memory:~A" identifier)
                       :identifier identifier
                       :visibility visibility))
-      ((uiop:string-prefix-p "id/" identifier)
-       (memory-resource--make-item
-        (resource-item-decode-identifier
-         "memory" "memory"
-         (subseq identifier (length "id/")))))
+      (item-id
+       (multiple-value-bind (memory status matches)
+           (memory-resolve (tool-context-configuration context) item-id)
+         (case status
+           (:found
+            (memory-resource--make-item (memory-identifier memory)))
+           (:ambiguous
+            (error 'tool-error
+                   :message   (format nil "Memory reference ~A is ambiguous: ~{~A~^, ~}."
+                                     item-id (mapcar (lambda (match)
+                                                       (memory--disambiguation-reference match matches))
+                                                     matches))
+                   :tool-name "resource.read"))
+           (otherwise
+            (memory-resource--make-item item-id)))))
       (t
        (memory-resource--make-item identifier)))))
 

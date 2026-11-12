@@ -54,8 +54,8 @@ Source precedence, source recording, and value rejection belong to setinka."
        (let ((pathname (configuration-preferences-path configuration)))
          (test-assert
           (equal pathname
-                 (merge-pathnames "preferences.sexp" (config :state-root configuration)))
-          "global preferences live under the state root")
+                 (merge-pathnames "preferences.sexp" (config :config-root configuration)))
+          "global preferences live under the config root")
          (let ((created (preferences-tests--create configuration)))
            (dolist (case '((:reasoning-traces-p nil) (:compact-view-p t)
                            (:turn-timestamps-p nil) (:cache-miss-notices-p nil)
@@ -158,3 +158,408 @@ Source precedence, source recording, and value rejection belong to setinka."
                                '(:compact-view-p nil))
                         "the next store replaces a damaged file"))
         nil)))))
+
+(-> test-preferences-xdg-migration () null)
+(defun test-preferences-xdg-migration ()
+  "Move durable choices once, preserving unknown keys and existing config values."
+  (preferences-tests--without-model-environment
+   (lambda ()
+     (with-test-configuration (configuration)
+       (let* ((legacy (merge-pathnames "preferences.sexp" (config :state-root configuration)))
+              (target (configuration-preferences-path configuration))
+              (old    '(:preferences :version 8 :model "gpt-5.6-luna"
+                        :compact-view-p nil :telemetry-enabled-p nil :future-key 7)))
+         (snapshot-write legacy old)
+         (let ((created (preferences-tests--create configuration)))
+           (test-assert (and (string= (config :model created) "gpt-5.6-luna")
+                             (not (config :compact-view-p created))
+                             (not (config :telemetry-enabled-p created)))
+                        "upgrade loads model, presentation and telemetry choices")
+           (test-assert (equal (snapshot-read target) old)
+                        "migration retains unknown configuration keys")
+           (test-assert (not (probe-file legacy))
+                        "successful migration consumes the legacy preferences")
+           (setf (config :turn-timestamps-p created) t)
+           (test-assert (and (getf (preferences-tests--file-plist configuration) :turn-timestamps-p)
+                             (not (probe-file legacy)))
+                        "later changes write only to config"))
+         (snapshot-write legacy '(:preferences :version 8 :model "stale"))
+         (test-assert (string= (config :model (preferences-tests--create configuration)) "gpt-5.6-luna")
+                      "existing config preferences take precedence over old state")
+         (test-assert (= (getf (preferences-tests--file-plist configuration) :future-key) 7)
+                      "repeated startup preserves migrated unknown values")
+         (test-assert (not (probe-file legacy)) "a superseded source is consumed too")
+         (delete-file target)
+         (test-assert (null (preferences-load-values configuration))
+                      "deleting config cannot resurrect legacy preferences")
+         (test-assert (not (probe-file target)) "a completed migration is not repeated")))))
+  nil)
+
+(-> test-preferences-xdg-migration-failure () null)
+(defun test-preferences-xdg-migration-failure ()
+  "Keep loading and saving the original when config creation or publication fails."
+  (dolist (stage '(:root-creation :publication))
+    (with-test-configuration (configuration)
+      (let* ((legacy         (merge-pathnames "preferences.sexp" (config :state-root configuration)))
+             (target         (configuration-preferences-path configuration))
+             (original-store (symbol-function 'preferences--store))
+             (original-root  (symbol-function 'configuration-ensure-root-directory))
+             (warnings       0))
+        (snapshot-write legacy '(:preferences :version 8 :future-key 7 :compact-view-p nil))
+        (test-call-with-function-replacements
+         (list (list 'preferences--store
+                     (lambda (configuration &rest options &key (pathname target) &allow-other-keys)
+                       (if (and (eq stage ':publication) (equal pathname target))
+                           (error 'file-error :pathname target)
+                           (apply original-store configuration options))))
+               (list 'configuration-ensure-root-directory
+                     (lambda (configuration root)
+                       (if (and (eq stage ':root-creation) (eq root ':config-root))
+                           (error 'file-error :pathname (config root configuration))
+                           (funcall original-root configuration root)))))
+         (lambda ()
+           (handler-bind ((preferences-migration-warning
+                            (lambda (condition)
+                              (incf warnings)
+                              (test-assert (and (equal (preferences-migration-warning-source condition) legacy)
+                                                (equal (preferences-migration-warning-target condition) target))
+                                           "migration warnings identify retained and desired files")
+                              (muffle-warning condition))))
+             (test-assert (= (getf (preferences-load-values configuration) :future-key) 7)
+                          "failed migration loads the retained values")
+             (preferences-store configuration :turn-timestamps-p t)
+             (test-assert (getf (preferences--form->plist (snapshot-read legacy)) :turn-timestamps-p)
+                          "failed migration saves changes to the original file"))))
+        (test-assert (and (= warnings 2) (not (probe-file target)))
+                     "failed publication warns and does not create an empty replacement")
+        (test-assert (getf (preferences-load-values configuration) :turn-timestamps-p)
+                     "a later successful migration carries forward fallback writes")
+        (test-assert (and (probe-file target) (not (probe-file legacy)))
+                     "a later startup completes the move"))))
+  nil)
+
+(-> test-preferences-xdg-malformed-legacy () null)
+(defun test-preferences-xdg-malformed-legacy ()
+  "Preserve malformed legacy bytes and permit an explicit fresh configuration choice."
+  (with-test-configuration (configuration)
+    (let ((legacy (merge-pathnames "preferences.sexp" (config :state-root configuration)))
+          (target (configuration-preferences-path configuration)))
+      (ensure-directories-exist legacy)
+      (with-open-file (stream legacy :direction ':output :external-format ':utf-8)
+        (write-string "(:preferences :version 8 :model" stream))
+      (let ((bytes (uiop:read-file-string legacy)))
+        (test-assert (preferences-tests--warned-p (lambda () (preferences-load-values configuration)))
+                     "malformed legacy preferences are reported")
+        (test-assert (and (not (probe-file target)) (string= bytes (uiop:read-file-string legacy)))
+                     "a failed legacy read leaves the original untouched")
+        (preferences-store configuration :compact-view-p nil)
+        (test-assert (equal (preferences-tests--file-plist configuration) '(:compact-view-p nil))
+                     "an explicit choice can start a fresh config file")
+        (test-assert (not (probe-file legacy))
+                     "an explicit fresh choice completes migration without stale fallback"))))
+  nil)
+
+(-> test-preferences-xdg-migration-cleanup () null)
+(defun test-preferences-xdg-migration-cleanup ()
+  "Retry interrupted source removal without reimporting stale preferences."
+  (with-test-configuration (configuration)
+    (let* ((legacy            (merge-pathnames "preferences.sexp" (config :state-root configuration)))
+           (target            (configuration-preferences-path configuration))
+           (original-transact (symbol-function 'sexp-store:store-transact))
+           (warnings          0))
+      (snapshot-write legacy '(:preferences :version 8 :future-key 7))
+      (test-call-with-function-replacements
+       (list (list 'sexp-store:store-transact
+                   (lambda (store update &key publish)
+                     (funcall original-transact store update
+                              :publish (lambda (committed)
+                                         (declare (ignore committed))
+                                         (when publish
+                                           (error 'file-error :pathname legacy)))))))
+       (lambda ()
+         (handler-bind ((preferences-migration-warning
+                          (lambda (condition)
+                            (incf warnings)
+                            (muffle-warning condition))))
+           (test-assert (= (getf (preferences-load-values configuration) :future-key) 7)
+                        "published preferences are usable after interrupted removal")
+           (preferences-store configuration :future-key 9))))
+      (test-assert (and (= warnings 2) (probe-file legacy) (probe-file target))
+                   "cleanup failure preserves the source and reports each retry")
+      (test-assert (= (getf (preferences-load-values configuration) :future-key) 9)
+                   "cleanup retry keeps changes made after publication")
+      (test-assert (not (probe-file legacy)) "retry removes the old file")
+      (delete-file target)
+      (test-assert (null (preferences-load-values configuration))
+                   "cache or config removal cannot repeat the import")))
+  (with-test-configuration (configuration)
+    (setf configuration (configuration-copy configuration :config-root (config :state-root configuration)))
+    (preferences-store configuration :future-key 7)
+    (test-assert (= (getf (preferences-load-values configuration) :future-key) 7)
+                 "identical roots do not delete preferences or reacquire the same lock"))
+  nil)
+
+(-> test-xdg-file-migration-concurrent () null)
+(defun test-xdg-file-migration-concurrent ()
+  "Serialize competing migration readers and return the published data to all."
+  (dolist (kind '(:preferences :provider-cache))
+    (with-test-configuration (configuration)
+      (let* ((preferences-p (eq kind ':preferences))
+             (legacy        (merge-pathnames (if preferences-p "preferences.sexp" "provider-models.sexp")
+                                             (config :state-root configuration)))
+             (reader        (if preferences-p #'preferences-load-values #'provider--read-model-cache))
+             (expected      (if preferences-p '(:future-key 7) '(:models :version 1)))
+             (threads       nil))
+        (snapshot-write legacy (if preferences-p
+                                   (preferences--plist->form expected)
+                                   expected))
+        (call-with-file-lock
+         (make-pathname :type "lock" :defaults legacy)
+         (lambda ()
+           (setf threads
+                 (loop repeat 8
+                       collect (bt:make-thread
+                                (lambda ()
+                                  (handler-case (funcall reader configuration)
+                                    (error (condition) condition)))
+                                :name "XDG file migration reader")))))
+        (test-assert (every (lambda (result) (equal result expected))
+                            (mapcar #'bt:join-thread threads))
+                     "all competing readers get the same complete data")
+        (test-assert (not (probe-file legacy)) "only the new location exists after the move"))))
+  nil)
+
+(-> test-preferences-xdg-fallback-handoff () null)
+(defun test-preferences-xdg-fallback-handoff ()
+  "Follow a competing completed migration before using a selected fallback file."
+  (dolist (operation '(:read :write))
+    (with-test-configuration (configuration)
+      (let* ((legacy (merge-pathnames "preferences.sexp" (config :state-root configuration)))
+             (target (configuration-preferences-path configuration))
+             (result nil))
+        (snapshot-write legacy (preferences--plist->form '(:future-key 7)))
+        (test-call-with-function-replacements
+         (list (list 'preferences--migrate-legacy
+                     (lambda (configuration &key recover-read-error)
+                       (declare (ignore configuration recover-read-error))
+                       ;; A competing migrator finishes after this caller selects fallback.
+                       (snapshot-write target (preferences--plist->form '(:future-key 7)))
+                       (delete-file legacy)
+                       legacy)))
+         (lambda ()
+           (setf result (if (eq operation ':read)
+                            (preferences-load-values configuration)
+                            (preferences-store configuration :new-key 9)))))
+        (if (eq operation ':read)
+            (test-assert (equal result '(:future-key 7))
+                         "a delayed fallback reader follows the published file")
+            (test-assert (= (getf (preferences-load-values configuration) :new-key) 9)
+                         "a delayed fallback writer merges into the published file"))
+        (test-assert (= (getf (preferences-load-values configuration) :future-key) 7)
+                     "concurrent publication preserves unknown keys")
+        (test-assert (not (probe-file legacy)) "fallback cannot recreate the consumed file"))))
+  nil)
+
+(-> test-legacy-xdg-migration-removal () null)
+(defun test-legacy-xdg-migration-removal ()
+  "Require removal of temporary XDG compatibility code at the 0.68.0 boundary."
+  (test-assert (version< *autolith-version* "0.68.0")
+               "At 0.68.0 remove legacy XDG root selection and choice caches, preferences/model-cache migration and conversation-cache legacy sidecars, then remove this test.")
+  nil)
+
+(-> test-preferences-unavailable-provider-selection () null)
+(defun test-preferences-unavailable-provider-selection ()
+  "Drop durable unavailable model/provider pairs during deferred startup validation."
+  (preferences-tests--without-model-environment
+   (lambda ()
+     (with-test-environment (("AUTOLITH_MODEL_PROVIDER" nil))
+       (provider-selection-tests--with-providers
+        (lambda ()
+          (dolist (provider '("occ-dead" "selection-a"))
+            (with-test-configuration (configuration)
+              (snapshot-write (configuration-preferences-path configuration)
+                              (list :preferences :version 8
+                                    :model "dead-model" :model-provider provider))
+              (let ((created (preferences-tests--create
+                              configuration :defer-provider-validation-p t)))
+                (test-assert
+                 (handler-case
+                     (progn (provider-bootstrap-configuration created) t)
+                   (model-selection-error () nil))
+                 "unavailable durable selections do not abort startup")
+                (test-assert (string= (config :model created) *default-model*)
+                             "the default model replaces an unavailable saved model")
+                (test-assert (configuration-model-registration created)
+                             "the fallback pair resolves to a registered provider")
+                (test-assert (non-empty-string-p (config :saved-model-selection-notice created))
+                             "bootstrap records a visible dropped-selection notice")
+                (test-assert (string= (config :model-provider created) "")
+                             "the stale provider is dropped with its saved model")))))))))
+  nil)
+
+(-> test-preferences-provider-selection-restoration () null)
+(defun test-preferences-provider-selection-restoration ()
+  "Recover per launch without overwriting preferences needed after re-registration."
+  (preferences-tests--without-model-environment
+   (lambda ()
+     (with-test-environment (("AUTOLITH_MODEL_PROVIDER" nil))
+       (provider-selection-tests--with-providers
+        (lambda ()
+          (with-test-configuration (configuration)
+            (let ((saved '(:preferences :version 8 :model "restored-model"
+                           :model-provider "restored-provider" :future-key 17)))
+              (snapshot-write (configuration-preferences-path configuration) saved)
+              (dotimes (launch 2)
+                (declare (ignorable launch))
+                (let ((created (provider-bootstrap-configuration
+                                (preferences-tests--create
+                                 configuration :defer-provider-validation-p t))))
+                  (test-assert (configuration-model-registration created)
+                               "each unavailable launch uses a registered fallback")
+                  (test-assert (non-empty-string-p (config :saved-model-selection-notice created))
+                               "a fresh startup reports recovery again")
+                  (test-assert (equal saved (snapshot-read
+                                             (configuration-preferences-path configuration)))
+                               "recovery leaves the durable selection and unrelated keys intact")))
+              (register-provider "restored-provider" :family ':codex
+                                 :models                     '("restored-model")
+                                 :factory                    #'provider-selection-tests--factory)
+              (let ((created (provider-bootstrap-configuration
+                              (preferences-tests--create
+                               configuration :defer-provider-validation-p t))))
+                (test-assert (and (string= (config :model created) "restored-model")
+                                  (string= (provider-registration-name
+                                            (configuration-model-registration created))
+                                           "restored-provider"))
+                             "re-registering the provider restores the exact saved selection")
+                (test-assert (not (non-empty-string-p
+                                   (config :saved-model-selection-notice created)))
+                             "a restored selection needs no recovery notice")))))))))
+  nil)
+
+(-> test-preferences-mixed-provider-selection () null)
+(defun test-preferences-mixed-provider-selection ()
+  "Validate recovered defaults and precedence using only local registrations."
+  (preferences-tests--without-model-environment
+   (lambda ()
+     (provider-selection-tests--with-providers
+      (lambda ()
+        (dolist (case '(("dead-model" nil nil (:model-provider "selection-a") nil)
+                        ("dead-model" nil "selection-a" nil nil)
+                        ("dead-model" nil nil (:model-provider "chatgpt") "chatgpt")
+                        ("dead-model" nil "chatgpt" nil "chatgpt")
+                        ("shared" nil "selection-b" (:model-provider "selection-a") "selection-a")
+                        ("shared" nil "selection-a" nil "selection-a")
+                        ("dead-model" "shared" "selection-b" (:model-provider "selection-a") "selection-a")
+                        ("dead-model" "dead-model" "occ-dead"
+                         (:model "shared" :model-provider "selection-a") "selection-a")
+                        ("shared" "dead-model" "selection-a" nil nil)
+                        ("shared" nil "selection-a" (:model "dead-model") nil)
+                        ("shared" nil "occ-dead" nil nil)))
+          (destructuring-bind (saved-model environment-model environment-provider overrides expected) case
+            (with-test-configuration (configuration)
+              (snapshot-write (configuration-preferences-path configuration)
+                              (list :preferences :version 8 :model saved-model
+                                    :model-provider "occ-dead"))
+              (with-test-environment (("AUTOLITH_MODEL" environment-model)
+                                      ("AUTOLITH_MODEL_PROVIDER" environment-provider))
+                (let* ((created (apply #'preferences-tests--create configuration
+                                       :defer-provider-validation-p t overrides))
+                       (failure (handler-case
+                                    (progn
+                                      (setf created (provider-bootstrap-configuration created))
+                                      nil)
+                                  (setting-invalid (condition) condition))))
+                  (if expected
+                      (progn
+                        (test-assert (null failure) "the winning mixed-source pair is valid")
+                        (test-assert (and (string= (config :model created)
+                                                  (if (string= expected "chatgpt")
+                                                      *default-model* "shared"))
+                                          (string= (config :model-provider created) expected)
+                                          (string= (provider-registration-name
+                                                    (configuration-model-registration created))
+                                                   expected))
+                                     "CLI overrides environment, which overrides the saved pair"))
+                      (test-assert (typep failure 'setting-invalid)
+                                   "an unusable explicit selection fails before provider construction")))))))))))
+  nil)
+
+(-> test-preferences-provider-selection-controls () null)
+(defun test-preferences-provider-selection-controls ()
+  "Preserve valid saved pairs and reject explicit invalid selections."
+  (preferences-tests--without-model-environment
+   (lambda ()
+     (with-test-environment (("AUTOLITH_MODEL_PROVIDER" nil))
+       (provider-selection-tests--with-providers
+        (lambda ()
+          (with-test-configuration (configuration)
+            (snapshot-write (configuration-preferences-path configuration)
+                            '(:preferences :version 8 :model "shared"
+                              :model-provider "selection-a"))
+            (let ((created (provider-bootstrap-configuration
+                            (preferences-tests--create
+                             configuration :defer-provider-validation-p t))))
+              (test-assert (and (string= (config :model created) "shared")
+                                (string= (config :model-provider created) "selection-a")
+                                (configuration-model-registration created))
+                           "a valid saved provider retains its exact model")
+              (test-assert (not (non-empty-string-p
+                                 (config :saved-model-selection-notice created)))
+                           "valid saved selections need no recovery notice"))
+            (dolist (overrides '((:model "dead-model" :model-provider "occ-dead")
+                                 (:model "dead-model" :model-provider "selection-a")))
+              (test-assert
+               (handler-case
+                   (progn (provider-bootstrap-configuration
+                           (apply #'preferences-tests--create configuration
+                                  :defer-provider-validation-p t overrides))
+                          nil)
+                 (setting-invalid () t)
+                 (configuration-error () t))
+               "invalid explicit launch choices fail instead of falling back"))
+            (with-test-environment (("AUTOLITH_MODEL" "dead-model")
+                                    ("AUTOLITH_MODEL_PROVIDER" "occ-dead"))
+              (test-assert
+               (handler-case
+                   (progn (provider-bootstrap-configuration
+                           (preferences-tests--create
+                            configuration :defer-provider-validation-p t))
+                          nil)
+                 (setting-invalid () t))
+               "invalid environment choices fail instead of falling back")
+              (let ((created (provider-bootstrap-configuration
+                              (preferences-tests--create
+                               configuration :model "shared" :model-provider "selection-a"
+                               :defer-provider-validation-p t))))
+                (test-assert (and (string= (config :model created) "shared")
+                                  (string= (config :model-provider created) "selection-a"))
+                             "explicit launch choices take precedence over environment")))))))))
+  nil)
+
+(-> test-preferences-provider-aliases () null)
+(defun test-preferences-provider-aliases ()
+  "Accept legacy provider aliases from both durable and environment selections."
+  (preferences-tests--without-model-environment
+   (lambda ()
+     (dolist (alias '("codex" "openai"))
+       (dolist (source '(:durable :environment))
+         (with-test-configuration (configuration)
+           (snapshot-write (configuration-preferences-path configuration)
+                           (list :preferences :version 8 :model *default-model*
+                                 :model-provider alias))
+           (with-test-environment (("AUTOLITH_MODEL_PROVIDER"
+                                    (and (eq source ':environment) alias)))
+             (let ((created (preferences-tests--create
+                             configuration :defer-provider-validation-p t)))
+               (test-assert
+                (handler-case (progn (provider-bootstrap-configuration created) t)
+                  (setting-invalid () nil))
+                "valid legacy aliases do not fail deferred validation")
+               (test-assert
+                (and (string= (config :model-provider created) alias)
+                     (configuration-model-registration created)
+                     (not (non-empty-string-p
+                           (config :saved-model-selection-notice created))))
+                "valid aliases retain their selection without a recovery notice"))))))))
+  nil)

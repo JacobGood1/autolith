@@ -41,14 +41,10 @@
 (-> conversation-compaction--copy-metadata
     (clinker-transcript:projection clinker-transcript:projection list) null)
 (defun conversation-compaction--copy-metadata (source target items)
-  "Copy family and portable-handoff metadata for ITEMS from SOURCE to TARGET."
-    (dolist (key '(:family :handoff-family :checkpoint-summary))
-     (let ((from (clinker-transcript:projection-metadata-table source key))
-           (to   (clinker-transcript:projection-metadata-table target key)))
-       (dolist (item items)
-         (multiple-value-bind (value present-p) (gethash item from)
-           (when present-p
-             (setf (gethash item to) value))))))
+  "Copy all named metadata for retained EQ ITEMS from SOURCE to TARGET."
+  (let ((remap (make-hash-table :test #'eq)))
+    (dolist (item items) (setf (gethash item remap) item))
+    (clinker-transcript:projection-copy-metadata source target :remap remap))
   nil)
 
 (-> conversation-compaction-capture (conversation) conversation-compaction)
@@ -178,26 +174,26 @@ boundary, including arrivals encoded in CARRY-FORWARD, as required by chunks."
 
 (-> conversation-append-summary
     (conversation string &key (:compaction (option conversation-compaction))
-                              (:unfinished-work list) (:validate-projection (option function)))
+                              (:unfinished-work list) (:validate-projection (option function)) (:recovery list))
     list)
 (defun conversation-append-summary
-    (conversation content &key compaction unfinished-work validate-projection)
+    (conversation content &key compaction unfinished-work validate-projection recovery)
   "Persist CONTENT with captured protocol context and arrivals as one checkpoint."
   (conversation-compaction--publish
    conversation
    :compaction          (or compaction (conversation-compaction-capture conversation))
    :replacement-items   (list (conversation-summary-item content))
-   :record              (list :summary :content content)
+   :record              (list :summary :content content :recovery recovery)
    :unfinished-work     unfinished-work
    :validate-projection validate-projection))
 
 (-> conversation-append-native-compaction
     (conversation (or list json-object) &key (:family keyword) (:summary string)
                              (:compaction (option conversation-compaction))
-                             (:unfinished-work list) (:validate-projection (option function)))
+                             (:unfinished-work list) (:validate-projection (option function)) (:recovery list))
     list)
 (defun conversation-append-native-compaction
-    (conversation window &key family summary compaction unfinished-work validate-projection)
+    (conversation window &key family summary compaction unfinished-work validate-projection recovery)
   "Persist native WINDOW, portable SUMMARY, and carry-forward state atomically."
   (when (json-object-p window)
     (setf window (list window)))
@@ -217,7 +213,7 @@ boundary, including arrivals encoded in CARRY-FORWARD, as required by chunks."
    :replacement-items   (append window (list (conversation-summary-item summary)))
    :record              (list :native-compaction :family family
                               :wire-json         (json-encode (coerce window 'vector))
-                              :summary           summary)
+                              :summary           summary :recovery recovery)
    :unfinished-work     unfinished-work
    :validate-projection validate-projection))
 

@@ -17,7 +17,7 @@
                               (conversation-identifier conversation)
                               (and (consp form) (getf (rest form) :conversation-id)))))
           (unless (and complete-p (stringp identifier)
-                       (application-input-controller--pending-state form identifier))
+                       (input-state-from-form form identifier))
             (error 'agentcomms:acp-state-error
                    :message "Pending input storage needs recovery in the terminal interface."))))))
   nil)
@@ -82,12 +82,12 @@
 
 (-> acp-extension-steer (acp-session hash-table) hash-table)
 (defun acp-extension-steer (session params)
-  "Submit primary prose for the next safe boundary, promoting late input natively."
+  "Submit steering input at the next safe boundary, or queue it for the next turn."
   (acp-input--submit session params t))
 
 (-> acp-extension-queue (acp-session hash-table) hash-table)
 (defun acp-extension-queue (session params)
-  "Append a primary prose prompt to the native follow-up FIFO."
+  "Append a prompt to the follow-up queue."
   (acp-input--submit session params nil))
 
 (-> acp-input--pending-p (acp-session) boolean)

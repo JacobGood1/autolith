@@ -2,12 +2,6 @@
 
 ;;;; -- Platform Adapter Protocol --
 
-;;; Autolith keeps every operating-system dependency behind this protocol.
-;;; The generic functions below are the contract; platform-posix.lisp and
-;;; platform-win32.lisp implement it, and autolith.asd loads exactly one of
-;;; them for the host. Callers pass *PLATFORM* and never use host reader
-;;; conditionals themselves.
-
 (defclass platform ()
   ()
   (:documentation
@@ -15,6 +9,15 @@
 
 (defvar *platform* nil
   "The host platform adapter installed by the loaded implementation file.")
+
+(defparameter *legacy-xdg-root-bypass* nil
+  "XDG variables whose legacy bridge is bypassed while applying explicit root settings.
+Setinka evaluates the old default before storing an override. Remove this temporary
+constructor binding together with the legacy root bridge before 0.68.0.")
+
+(defparameter *legacy-xdg-root-choice-p* nil
+  "Dynamically report a compatibility root choice to its configuration default.
+Remove this temporary selection marker before 0.68.0.")
 
 (deftype platform-file-kind ()
   "The filesystem object kinds a platform file status distinguishes."
@@ -79,6 +82,18 @@
 
 
 ;;;; -- Capabilities and Processes --
+
+
+(defgeneric platform-process-resident-bytes (platform process-id)
+  (:documentation
+   "Return current resident octets for positive PROCESS-ID, or NIL if unavailable.
+A measured zero is distinct from an unavailable or disappeared process."))
+
+(defgeneric platform-process-parent-snapshot (platform)
+  (:documentation
+   "Return two values: an alist of (PID . PARENT-PID) and availability.
+An available empty snapshot returns NIL and T. Failed snapshots return NIL and
+NIL; process creation, exit and reparenting can race with this observation."))
 
 (defgeneric platform-supports-p (platform capability)
   (:documentation
@@ -294,9 +309,11 @@ unless READ-ONLY-P, owner-writable. Signal PLATFORM-ERROR with operation
 
 (defgeneric platform-make-read-only (platform pathname)
   (:documentation
-   "Make PATHNAME readable by everyone who can reach it and writable by nobody.
+   "Apply the host's read-only file permissions to PATHNAME.
 
-Signal PLATFORM-ERROR with operation :PROTECT when the change cannot be applied."))
+POSIX uses mode 0444; Windows withholds owner write access and keeps the file
+private. Signal PLATFORM-ERROR with operation :PROTECT when the change cannot
+be applied."))
 
 (defgeneric platform-file-uri-pathname (platform decoded-path)
   (:documentation "Parse a decoded local file-URI path using the host's pathname syntax."))
@@ -448,18 +465,20 @@ validate that URL is an http or https URL before asking."))
   (:documentation
    "Return the argv that runs the repository check for SOURCE-ROOT on this host."))
 
-(defgeneric platform-call-with-command-sandbox (platform workspace function &key writable-roots)
+(defgeneric platform-call-with-command-sandbox (platform workspace function &key writable-roots read-roots)
   (:documentation
    "Call FUNCTION with a workspace sandbox policy and optional child environment.
 
 Own temporary scopes and serialize overlapping host ACL changes until FUNCTION
 returns or unwinds. Nonempty WRITABLE-ROOTS replace the default workspace write
-scope with explicit owned directories. FUNCTION accepts POLICY and ENVIRONMENT
-and must wait for its command and descendants before returning."))
+scope with explicit owned directories. READ-ROOTS add existing read-only directories
+on hosts that confine reads. FUNCTION accepts POLICY and ENVIRONMENT and must wait
+for its command and descendants before returning."))
 
 (defmethod platform-call-with-command-sandbox ((platform platform) workspace function
-                                               &key writable-roots)
+                                               &key writable-roots read-roots)
   "Use explicit POSIX write scopes and private scratch space for owned operations."
+  (declare (ignore read-roots))
   (if writable-roots
       (let ((temporary (platform-make-temporary-directory
                         platform (uiop:temporary-directory) "autolith-command-")))
@@ -508,13 +527,9 @@ nothing is listening there, and PLATFORM-CAPABILITY-UNAVAILABLE without the
 
 ;;;; -- Shared File Methods --
 
-;;; File status, opening, listing, publication, and link resolution are the
-;;; same protocol on every host through ls-compat, whose POSIX and Win32
-;;; backends carry the host differences. Each adapter inherits these methods.
-
 (-> platform--file-status (file-information) platform-file-status)
 (defun platform--file-status (information)
-  "Return the platform file status ls-compat observation INFORMATION describes."
+  "Convert ls-compat INFORMATION to a platform file status."
   (make-instance 'platform-file-status
                  :kind              (file-information-kind information)
                  :identity          (file-information-identity information)
@@ -620,7 +635,8 @@ owns the response stream and must bound its body before allocating it."))
   "Open the streaming Dexador response without ambient authentication or proxies."
   (declare (ignore platform))
   (dex:request source :method ':get
-                     :headers '(("Accept" . "application/json"))
+                     :headers '(("Accept" . "application/json")
+                                ("Accept-Encoding" . "gzip"))
                      :max-redirects 0 :connect-timeout 3 :read-timeout 3
                      :keep-alive nil :use-connection-pool nil :want-stream t :force-binary t
                      :proxy nil :insecure nil :verbose nil))

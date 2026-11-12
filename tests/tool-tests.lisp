@@ -431,6 +431,49 @@
                         "unknown provider calls produce a correlated tool failure")
            (test-assert (eq (tool-result-error-code result) ':invalid-arguments)
                         "Invalid tool calls carry a stable failure category.")
+           (dolist (correction-p '(nil t))
+             (let* ((probe-registry (make-instance 'tool-registry))
+                    (executed-p     nil)
+                    (received       nil)
+                    (schema         (tool-object-schema
+                                     (json-object "path" (tool-string-property "Path")) '("path"))))
+               (tool-registry-register
+                probe-registry
+                (make-instance 'tool :namespace "probe" :name "contract"
+                                    :description "Exercise argument mechanics projection."
+                                    :parameters schema :correction-metadata-p correction-p))
+               (test-call-with-function-replacements
+                (list (list 'tool-execute-with-contracts
+                            (lambda (tool context arguments)
+                              (declare (ignore tool context))
+                              (setf executed-p t received arguments)
+                              (tool-success "executed"))))
+                (lambda ()
+                  (let* ((result  (tool-registry-execute-call
+                                   probe-registry
+                                   (json-object "namespace" "probe" "name" "contract"
+                                                "arguments" "{\"pah\":\"workspace:probe\"}") context))
+                         (content (tool-result-content result))
+                         (retry   (json-decode (subseq content (position #\{ content)))))
+                    (test-assert (and (not executed-p)
+                                      (eq (tool-result-error-code result) ':unknown-arguments))
+                                 "argument mechanics rejects before dispatch")
+                    (test-assert (and (equal (json-get retry "namespace") "probe")
+                                      (equal (json-get retry "name") "contract")
+                                      (equal (json-get (json-get retry "arguments") "path") "workspace:probe"))
+                                 "mechanics retry carries tool identity and supplied value"))
+                  (let ((result (tool-registry-execute-call
+                                 probe-registry
+                                 (json-object "namespace" "probe" "name" "contract"
+                                              "arguments" "{\"path\":\"workspace:probe\",\"corrects_previous\":false}") context)))
+                    (test-assert (eq executed-p correction-p)
+                                 "correction metadata is permitted only for opted-in tools")
+                    (if correction-p
+                        (test-assert (and (tool-result-success-p result)
+                                          (not (nth-value 1 (gethash "corrects_previous" received))))
+                                     "opted-in correction metadata is consumed before dispatch")
+                        (test-assert (eq (tool-result-error-code result) ':unknown-arguments)
+                                     "ordinary closed schemas reject correction metadata")))))))
            (test-assert (eq (tool-result-error-code (tool-failure "private report")) ':tool-failure)
                         "Every directly returned failure receives a content-independent fallback code.")
            (let* ((commands
@@ -857,8 +900,6 @@
                         (tool-execute tool full-access (json-object "path" sibling-native)))
                        (= (length requests) 1))
                   "lisp.paren-check checks an approved file outside the workspace")
-                 ;; An agent turn binds the readable roots to its workspace and
-                 ;; source, as a recovery session's worktree does.
                  (let ((*workspace-tool-readable-roots* (list workspace)))
                    (dolist (target (list sibling-native
                                          (uiop:native-namestring

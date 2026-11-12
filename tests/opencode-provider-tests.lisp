@@ -135,11 +135,28 @@
                      "environment-key-a")
             "the environment key takes precedence over the saved key")
            (platform-setenv "OPENCODE_API_KEY" "")
+           (let* ((credentials (credential-manager-load manager))
+                  (secrets     (cl-rfc8628:oauth-credentials-secret-values credentials)))
+             (test-assert
+              (string= (oauth-credentials-access-token credentials) "saved-opencode-key")
+              "the saved interactive key is the environment fallback")
+             (test-assert
+              (string= (oauth-credentials-account-id credentials) "api-key/opencode")
+              "legacy and environment keys identify the same synthetic account")
+             (test-assert
+              (equal (oauth-credentials-source-path credentials)
+                     (configuration-opencode-auth-path configuration))
+              "normalizing a legacy account preserves its credential source")
+             (test-assert
+              (string= (cl-rfc8628:redact-exact-string-values
+                        "opencode saved-opencode-key" secrets "[redacted]")
+                       "opencode [redacted]")
+              "request redaction removes the actual key without corrupting provider text"))
+           (platform-setenv "OPENCODE_API_KEY" "environment-key-b")
            (test-assert
-            (string= (oauth-credentials-access-token
-                      (credential-manager-load manager))
-                     "saved-opencode-key")
-            "the saved interactive key is the environment fallback"))
+            (string= (oauth-credentials-access-token (credential-manager-load manager))
+                     "environment-key-b")
+            "the same account can return from the saved key to the environment"))
       (opencode-provider-test--restore-environment "OPENCODE_API_KEY" saved)
       (platform-delete-directory-tree *platform* root :validate t :if-does-not-exist ':ignore)))
   nil)
@@ -181,7 +198,7 @@
                  manager
                  :stream (make-string-output-stream)
                  :input  *standard-input*)
-                "OpenCode authentication was saved by Autolith.")
+                "OpenCode Go authentication was saved by Autolith.")
                "OpenCode login reports successful private persistence"))
             (setf stored
                   (credential-source-load
@@ -193,7 +210,7 @@
           (not (secret-use-active-p)))
      "OpenCode reads and saves the key only inside secret-use scope")
     (test-assert
-     (and (string= observed-provider "OpenCode")
+     (and (string= observed-provider "OpenCode Go")
           (= observed-descriptor 23)
           (search "OPENCODE_API_KEY overrides the stored key" observed-note))
      "OpenCode uses the shared hidden prompt and forwards its input descriptor")
@@ -411,7 +428,7 @@
          (observed-url          nil)
          (observed-headers      nil)
          (body
-           "{\"data\":[{\"id\":\"gpt-5.6-luna\"},{\"id\":\"grok-4.5\"},{\"id\":\"kimi-k3\"}]}"))
+           "{\"data\":[{\"id\":\"gpt-5.6-luna\",\"limit\":{\"context\":1000000}},{\"id\":\"grok-4.5\"},{\"id\":\"kimi-k3\"}]}"))
     (unwind-protect
          (progn
            (platform-setenv *opencode-environment-variable* "synthetic-opencode-key")
@@ -441,6 +458,10 @@
               (member model (provider-model-identifiers) :test #'string=)
               (format nil "OpenCode discovery publishes namespaced model ~A" model)))
            (test-assert
+            (eql (provider-model-context-window-for "opencode/gpt-5.6-luna")
+                 1000000)
+            "OpenCode discovery propagates the nested context limit")
+           (test-assert
             (and
              (string= (provider-registration-name
                        (provider-registration-for-model "gpt-5.6-luna"))
@@ -451,7 +472,7 @@
              (string= (provider-registration-name
                        (provider-registration-for-model
                         "opencode/gpt-5.6-luna"))
-                      "opencode"))
+                      "opencode-go"))
             "OpenCode discovery cannot steal colliding built-in model names")
            (let ((items
                    (application--model-items
@@ -459,19 +480,19 @@
              (dolist (model '("opencode/gpt-5.6-luna" "opencode/grok-4.5"))
                (let ((item (find model items :key (lambda (item) (getf item :model))
                                             :test #'string=)))
-                 (test-assert (and item (equal (getf item :provider) "opencode"))
+                  (test-assert (and item (equal (getf item :provider) "opencode-go"))
                               "/models offers dynamic OpenCode models with their provider identity")
                  (when item
                    (multiple-value-bind (identifier registration)
                        (provider-resolve-model (getf item :name))
                      (test-assert
                       (and (equal identifier model)
-                           (equal (provider-registration-name registration) "opencode"))
+                           (equal (provider-registration-name registration) "opencode-go"))
                       "offered OpenCode selections retain the adapter's namespaced catalog ID"))))))
-           (let* ((entries
-                    (getf (rest (provider--read-model-cache configuration)) :providers))
+           (let* ((cache   (provider--read-model-cache configuration))
+                  (entries (getf (rest cache) :providers))
                   (entry
-                    (find "opencode" entries
+                    (find "opencode-go" entries
                           :key  (lambda (candidate)
                                   (getf candidate :provider-name))
                           :test #'string=))
@@ -483,10 +504,18 @@
                     (lambda (model)
                       (uiop:string-prefix-p *opencode-model-prefix* model))
                     models))
-              "the provider cache persists only namespaced OpenCode models"))
+              "the provider cache persists only namespaced OpenCode models")
+             (setf (getf entry :provider-name) "opencode")
+             (provider--write-model-cache configuration cache)
+             (provider--registry-restore registry-snapshot)
+             (provider-load-model-cache configuration)
+             (test-assert (not (provider-model-for "opencode/gpt-5.6-luna"))
+                          "The old mixed-tier provider cache cannot populate Go.")
+             (setf (getf entry :provider-name) "opencode-go")
+             (provider--write-model-cache configuration cache))
            (register-provider
-            "opencode"
-            :description                       "OpenCode (zen/go)"
+            "opencode-go"
+            :description                       "OpenCode Go"
             :family                            ':opencode
             :protocol                          ':chat-completions
             :endpoint                          *opencode-chat-completions-endpoint*
@@ -599,4 +628,227 @@
                    *opencode-models-endpoint*)
           (functionp (provider-registration-model-discovery registration)))
      "OpenCode registers its family, endpoints, and discovery callback"))
+  nil)
+
+(-> opencode-provider-test--tiers () null)
+(defun opencode-provider-test--tiers ()
+  "Exercise independent credentials, request namespaces and transports for both tiers."
+  (with-test-configuration (configuration)
+    (let* ((snapshot  (provider--registry-snapshot))
+           (variables '("OPENCODE_API_KEY" "OPENCODE_ZEN_API_KEY"
+                        "AUTOLITH_OPENCODE_PROVIDER_ENDPOINT"
+                        "AUTOLITH_OPENCODE_ZEN_PROVIDER_ENDPOINT"))
+           (saved     (mapcar #'uiop:getenv variables)))
+      (unwind-protect
+           (progn
+             (platform-setenv "OPENCODE_API_KEY" "synthetic-go-key")
+             (platform-setenv "OPENCODE_ZEN_API_KEY" "synthetic-zen-key")
+             (platform-setenv "AUTOLITH_OPENCODE_PROVIDER_ENDPOINT" "https://go.invalid/chat/completions")
+             (platform-setenv "AUTOLITH_OPENCODE_ZEN_PROVIDER_ENDPOINT" "https://zen.invalid/chat/completions")
+             (dolist (tier '(("opencode-go" "opencode/" "https://go.invalid/chat/completions"
+                              "synthetic-go-key" :opencode)
+                             ("opencode-zen" "opencode-zen/" "https://zen.invalid/chat/completions"
+                              "synthetic-zen-key" :opencode-zen)))
+               (destructuring-bind (name prefix endpoint key family) tier
+                 (let* ((registration (provider-registration-find name))
+                        (model        (concatenate 'string prefix "deepseek-v4.1-flash")))
+                   (register-provider name :models (list model)
+                                      :family      family
+                                      :endpoint    (provider-registration-endpoint registration)
+                                      :factory     (provider-registration-factory registration)
+                                      :source      ':runtime)
+                   (let* ((selected     (configuration-copy configuration :model model :model-provider name))
+                          (provider     (provider-create selected))
+                          (manager      (provider-credential-manager provider))
+                          (credentials  (credential-manager-load manager))
+                          (conversation (conversation-create selected))
+                          (observed-url nil))
+                     (test-assert (string= (oauth-credentials-access-token credentials) key)
+                                  "Each tier bootstraps only its own environment key.")
+                     (test-assert (equal (config :provider-endpoint selected) endpoint)
+                                  "Tier endpoint overrides are independent.")
+                     (test-call-with-function-replacements
+                      (list (list 'dexador:post
+                                  (lambda (url &rest arguments)
+                                    (declare (ignore arguments))
+                                    (setf observed-url url)
+                                    (values (make-string-input-stream "") 200 nil nil))))
+                      (lambda ()
+                        (multiple-value-bind (request delivery)
+                            (provider-request-object provider conversation #())
+                          (declare (ignore delivery))
+                          (test-assert (string= (json-get request "model") "deepseek-v4.1-flash")
+                                       "The Chat Completions request strips only its tier namespace.")
+                          (provider-open-response-stream provider request
+                                                         :credentials  credentials
+                                                         :conversation conversation))))
+                     (test-assert (string= observed-url endpoint)
+                                  "Each transport sends requests to its selected tier.")
+                     (test-assert
+                      (handler-case
+                          (progn (opencode--wire-model-name
+                                  (concatenate 'string (if (eq family ':opencode)
+                                                           "opencode-zen/" "opencode/")
+                                               "deepseek-v4.1-flash") family)
+                                 nil)
+                        (configuration-error () t))
+                      "A tier rejects the other namespace instead of rerouting it.")))))
+             (let ((go  (opencode-credential-manager-create configuration))
+                   (zen (opencode-zen-credential-manager-create configuration)))
+              (test-call-with-function-replacements
+               (list (list 'api-key-read-hidden
+                           (lambda (label &rest arguments)
+                             (declare (ignore arguments))
+                             (if (string= label "OpenCode Go") "saved-go-key" "saved-zen-key"))))
+               (lambda ()
+                 (opencode-api-key-login go :stream (make-broadcast-stream))
+                 (opencode-zen-api-key-login zen :stream (make-broadcast-stream))))
+              (test-assert
+               (and (string= (oauth-credentials-access-token
+                              (credential-source-load (credential-manager-primary-source go)))
+                             "saved-go-key")
+                    (string= (oauth-credentials-access-token
+                              (credential-source-load (credential-manager-primary-source zen)))
+                             "saved-zen-key"))
+               "Logging into either tier persists its own key without replacing the other.")))
+        (loop for name in variables for value in saved
+              do (opencode-provider-test--restore-environment name value))
+        (provider--registry-restore snapshot))))
+  nil)
+
+(-> opencode-provider-test--startup-upgrade () null)
+(defun opencode-provider-test--startup-upgrade ()
+  "Keep an exact durable Go selection offline without trusting old tier metadata."
+  (let ((registry-snapshot (provider--registry-snapshot)))
+    (unwind-protect
+         (with-test-environment (("AUTOLITH_MODEL" nil)
+                                 ("AUTOLITH_MODEL_PROVIDER" nil)
+                                 ("AUTOLITH_REASONING_EFFORT" nil)
+                                 ("OPENCODE_API_KEY" "synthetic-upgrade-key"))
+           (dolist (endpoint '(nil "https://go.invalid/v1/models"))
+             (with-test-environment (("AUTOLITH_OPENCODE_MODELS_ENDPOINT" endpoint))
+              (dolist (fresh-id '("upgrade-model" "replacement-model"))
+               (with-test-configuration (configuration)
+                 (let* ((model  "opencode/upgrade-model")
+                        (legacy (list :provider-model-cache :version 3
+                                      :providers
+                                      (list (list :provider-name      "opencode"
+                                                  :discovery-endpoint "https://old.invalid/models"
+                                                  :models
+                                                  (list (list :name model :context-window 200000
+                                                              :description "Untrusted Zen metadata")
+                                                        '(:name "opencode/zen-only-free")))))))
+                   (labels ((startup (&rest overrides)
+                              "Bootstrap preferences after resetting process-local metadata."
+                              (provider--registry-restore registry-snapshot)
+                              (register-provider "upgrade-model-collision"
+                                                 :models  (list model)
+                                                 :factory (provider-registration-factory
+                                                           (provider-registration-find "opencode-go"))
+                                                 :source  ':runtime)
+                              (provider-bootstrap-configuration
+                               (apply #'preferences-tests--create configuration
+                                      :defer-provider-validation-p t overrides))))
+                     (snapshot-write (configuration-preferences-path configuration)
+                                     (list :preferences :version 8 :model model
+                                           :model-provider "opencode"))
+                     (provider--write-model-cache configuration legacy)
+                    (let* ((created  (startup))
+                           (metadata (provider-model-for model :provider "opencode-go")))
+                      (test-assert (eq *provider-cache-selection-hint-model* metadata)
+                                   "the upgrade hint belongs to Go despite another provider's exact ID")
+                      (test-assert (equal (config :model created) model)
+                                   "offline startup keeps the exact durable model")
+                      (test-assert
+                       (equal (provider-registration-name
+                               (configuration-model-registration created)) "opencode-go")
+                       "the legacy provider selection routes to Go")
+                      (test-assert
+                       (and metadata (not (provider-model-context-window-specified-p metadata))
+                            (not (equal (provider-model-description metadata)
+                                        "Untrusted Zen metadata")))
+                       "the selection hint carries no old context or description")
+                      (test-assert (not (provider-model-for "opencode/zen-only-free"))
+                                   "the hint does not import other legacy models")
+                      (test-assert
+                       (null (provider-registration-models
+                              (provider-registration-find "opencode-zen")))
+                       "the hint grants no Zen membership")
+                      (let ((*model-catalog-fetch-function*
+                              (lambda (context)
+                                (declare (ignore context))
+                                (error 'simple-error :format-control "offline"))))
+                        (test-call-with-function-replacements
+                         (list (list 'dexador:get
+                                     (lambda (&rest arguments)
+                                       (declare (ignore arguments))
+                                       (error 'simple-error :format-control "offline"))))
+                         (lambda ()
+                           (test-assert
+                            (provider-refresh-models created :provider-name "opencode-go")
+                            "offline refresh reports its discovery failure"))))
+                      (test-assert
+                       (and (provider-model-for model :provider "opencode-go")
+                            (equal (config :model (startup)) model))
+                       "failed refresh and another startup retain the saved selection")
+                      (test-assert (equal legacy (provider--read-model-cache configuration))
+                                   "startup hints never become successful cache metadata"))
+                    (test-assert
+                     (handler-case (progn (startup :model model :model-provider "opencode") nil)
+                       (setting-invalid () t))
+                     "explicit launch overrides do not acquire legacy hints")
+                    (provider--registry-restore registry-snapshot)
+                    (let ((created (startup)))
+                      (if endpoint
+                          (test-call-with-function-replacements
+                           (list (list 'dexador:get
+                                       (lambda (&rest arguments)
+                                         (declare (ignore arguments))
+                                         (values (format nil "{\"data\":[{\"id\":\"~A\",\"context_window\":1000000}]}" fresh-id)
+                                                 200 nil nil))))
+                           (lambda ()
+                             (test-assert
+                              (null (provider-refresh-models created :provider-name "opencode-go"))
+                              "tier-specific account discovery replaces the hint")))
+                          (let ((*model-catalog-fetch-function*
+                                  (lambda (context)
+                                    (declare (ignore context))
+                                   (format nil "{\"opencode-go\":{\"models\":{\"~A\":{\"id\":\"~A\",\"tool_call\":true,\"modalities\":{\"output\":[\"text\"]},\"limit\":{\"context\":1000000}}}}}" fresh-id fresh-id))))
+                            (test-assert
+                             (null (provider-refresh-models created :provider-name "opencode-go"))
+                             "the Go catalog replaces the hint")))
+                     (test-assert
+                      (= (provider-model-context-window
+                          (provider-model-for (concatenate 'string "opencode/" fresh-id)
+                                              :provider "opencode-go"))
+                         1000000)
+                      "fresh Go metadata replaces the unspecified context despite another provider's exact ID")
+                     (test-assert
+                      (eq (not (null (provider-model-for model :provider "opencode-go")))
+                          (equal fresh-id "upgrade-model"))
+                      "authoritative Go metadata retires unsupported hints despite another provider's exact ID")
+                     (let ((reloaded (startup)))
+                       (test-assert
+                        (eq (and (equal (config :model reloaded) model)
+                                 (equal (provider-registration-name
+                                         (configuration-model-registration reloaded))
+                                        "opencode-go"))
+                            (equal fresh-id "upgrade-model"))
+                        "a later startup validates the saved selection against fresh Go metadata")))
+                     ;; A valid empty Go discovery result is authoritative too.
+                    (when endpoint
+                      (provider--write-model-cache
+                       configuration
+                       (list :provider-model-cache :version 3
+                             :providers            (cons (list :provider-name "opencode-go"
+                                                               :discovery-endpoint endpoint :models nil)
+                                                         (getf (rest legacy) :providers))))
+                     (let ((reloaded (startup)))
+                       (test-assert
+                        (not (and (equal (config :model reloaded) model)
+                                  (equal (provider-registration-name
+                                          (configuration-model-registration reloaded))
+                                         "opencode-go")))
+                        "authoritative unsupported models use normal durable fallback"))))))))))
+      (provider--registry-restore registry-snapshot)))
   nil)

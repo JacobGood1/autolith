@@ -231,7 +231,7 @@
 
 (-> tool-namespace-description (tool-registry string) string)
 (defun tool-namespace-description (registry namespace)
-  "Return the model-visible description NAMESPACE registered in REGISTRY."
+  "Return REGISTRY's model-visible description of NAMESPACE."
   (or (gethash namespace (tool-registry-namespace-descriptions registry))
       (if (uiop:string-prefix-p "mcp__" namespace)
           "Tools supplied by one configured external MCP server."
@@ -239,7 +239,7 @@
 
 (-> tool-provider-schema (tool) json-object)
 (defun tool-provider-schema (tool)
-  "Return TOOL in the Responses API namespaced function schema."
+  "Return TOOL's namespaced function schema for the Responses API."
   (json-object
    "type" "function"
    "name" (tool-name tool)
@@ -392,7 +392,7 @@
     :initform      nil
     :reader        tool-result-denied-p
     :type          boolean
-    :documentation "True when this terminal failure refused user or policy authority.")
+    :documentation "True when this terminal failure reports a user or policy authorization denial.")
    (error-code
     :initarg       :error-code
     :initform      nil
@@ -413,7 +413,7 @@
     (setf (slot-value result 'error-code) ':tool-failure)))
 
 (defgeneric tool-result-details (result)
-  (:documentation "Return RESULT's machine-readable details, or NIL when plain.")
+  (:documentation "Return RESULT's machine-readable details, or NIL if it has none.")
   (:method ((result tool-result))
     nil))
 
@@ -435,11 +435,11 @@
     (nreverse normalized)))
 
 (defvar *tool-result-overflow-function* nil
-  "Function durably spilling one complete oversized tool result, or NIL.
+  "Function that durably stores a complete oversized tool result, or NIL.
 
-Bound per dispatched call. It receives the full result text and returns
-a resource URI where the complete text stays readable, or NIL when
-spilling is unavailable, in which case the tail is discarded as before.")
+Bound per dispatched call. The function receives the full result text and
+returns a resource URI where the complete text can be read, or NIL if storage
+is unavailable. Without a URI, the result's tail is discarded.")
 
 (-> tool-success
     (t &key (:image-attachments list) (:content-blocks list))
@@ -532,8 +532,8 @@ what the call did."
 
 (defgeneric tool-failure-summary (tool content)
   (:documentation
-   "Return the part of TOOL's failure CONTENT a person needs, the cause rather than
-what the model receives to act on it."))
+   "Return the cause of TOOL's failure from CONTENT for display to a person,
+omitting details meant only to help the model act on the failure."))
 
 (defmethod tool-failure-summary (tool content)
   "Show a failure's complete content."
@@ -831,10 +831,9 @@ A missing file's failure also carries its observation for resource.edit."
 
 (-> resource-tool--resolve (resource-tool tool-context json-object) resource)
 (defun resource-tool--resolve (tool context arguments)
-  "Resolve TOOL's resource URI, absolute native path, or scheme-less relative path under CONTEXT.
+  "Resolve the URI or path in ARGUMENTS through TOOL's resource registry under CONTEXT.
 
-A relative path names a workspace file, as it would in a shell, so it is read
-as workspace:PATH instead of failing for want of a scheme."
+Absolute native paths and scheme-less relative paths resolve as workspace:PATH."
   (let* ((uri (tool-argument arguments "uri" :required t))
          (identity
            (cond
@@ -858,11 +857,7 @@ so direct adapter calls never accumulate notes in the global value.")
 
 (-> resource-tool-note (string &rest t) null)
 (defun resource-tool-note (control &rest arguments)
-  "Record a note, formatted from CONTROL and ARGUMENTS, for the current resource tool result.
-
-Resource tools accept natural requests that exceed a limit or name an
-unsupported option, and say what they did, so the model need not retry a
-failed call."
+  "Record a note, formatted from CONTROL and ARGUMENTS, for the current resource tool result."
   (when (listp *resource-tool-notes*)
     (push (apply #'format nil control arguments) *resource-tool-notes*))
   nil)
@@ -1126,6 +1121,17 @@ RETAIN lists runtime identities another registry shares and still owns."
   (ordered-map-get (tool-registry-tool-map registry)
                    (format nil "~A.~A" namespace name)))
 
+(-> tool-registry-resolve (tool-registry string) (option tool))
+(defun tool-registry-resolve (registry name)
+  "Resolve NAME as a canonical name or a unique display alias in REGISTRY.
+
+Canonical names take precedence. Return NIL for a missing or ambiguous alias."
+  (or (ordered-map-get (tool-registry-tool-map registry) name)
+      (let ((matches (remove-if-not
+                      (lambda (tool) (string= name (tool-display-name tool)))
+                      (tool-registry-tools registry))))
+        (and (null (rest matches)) (first matches)))))
+
 (-> tool-context-execution-runtime (tool-context) t)
 (defun tool-context-execution-runtime (context)
   "Return CONTEXT's shared inspectable execution runtime, or NIL when absent."
@@ -1223,42 +1229,38 @@ nested workers and accepts only compact, content-free phase descriptions."))
   "Return the dotted or bare canonical name carried by function CALL."
   (cl-llm-provider-api:provider-call-canonical-name call))
 
-(-> tool--missing-required-names (tool json-object) list)
-(defun tool--missing-required-names (tool arguments)
-  "Return one unsatisfied required-name group for TOOL and ARGUMENTS."
-  (cl-llm-provider-api:provider-schema-missing-required-names
-   (tool-parameters tool) arguments))
-
-(-> tool--missing-arguments-result (tool json-object list) tool-result)
-(defun tool--missing-arguments-result (tool arguments missing-names)
-  "Return a mechanics result with a concrete retry skeleton for MISSING-NAMES."
-  (let* ((one-of-p           (eq (first missing-names) ':one-of))
-         (names              (if one-of-p (rest missing-names) missing-names))
-         (skeleton-names     (if one-of-p (list (first names)) names))
-         (skeleton-arguments (json-object))
-         (properties         (json-get (tool-parameters tool) "properties")))
-    (maphash
-     (lambda (name value)
-       (setf (gethash name skeleton-arguments) value))
-     arguments)
-    (dolist (name skeleton-names)
-      (setf (gethash name skeleton-arguments)
-            (cl-llm-provider-api:provider-schema-argument-placeholder
-             (and (json-object-p properties)
-                  (json-get properties name)))))
-    (tool-mechanics
-     (format nil
-             (if one-of-p
-                 "Tool ~A was not executed because exactly one of ~{~A~^ or ~} is required.~%Call skeleton: ~A"
-                 "Tool ~A was not executed because required arguments are missing: ~{~A~^, ~}.~%Call skeleton: ~A")
-             (tool-canonical-name tool)
-             names
-             (json-encode
-              (json-object
-               "namespace" (tool-namespace tool)
-               "name" (tool-name tool)
-               "arguments" skeleton-arguments)))
-     :code ':missing-required-arguments)))
+(-> tool--argument-problem (tool json-object) (option tool-result))
+(defun tool--argument-problem (tool arguments)
+  "Project a provider argument diagnostic into a tool mechanics result."
+  (let* ((schema (tool-parameters tool))
+         (diagnostic
+           (cl-llm-provider-api:provider-schema-argument-diagnostic
+            schema arguments
+            :allowed-extra-names (when (tool-correction-metadata-p tool)
+                                   '("corrects_previous")))))
+    (when diagnostic
+      (let* ((code        (cl-llm-provider-api:provider-argument-diagnostic-code diagnostic))
+             (names       (cl-llm-provider-api:provider-argument-diagnostic-names diagnostic))
+             (suggestions (cl-llm-provider-api:provider-argument-diagnostic-suggestions diagnostic))
+             (reports     (if (eq code ':unknown-arguments)
+                              (mapcar (lambda (name)
+                                        (let ((suggestion (rest (assoc name suggestions :test #'equal))))
+                                          (if suggestion
+                                              (format nil "~A (did you mean ~A?)" name suggestion)
+                                              name))) names)
+                              names))
+             (retry       (cl-llm-provider-api:provider-schema-argument-retry schema arguments diagnostic)))
+        (tool-mechanics
+         (format nil "Tool ~A was not executed because ~A: ~{~A~^, ~}.~%Call skeleton: ~A"
+                 (tool-canonical-name tool)
+                 (if (eq code ':unknown-arguments)
+                     "it received unknown arguments"
+                     "required arguments are missing")
+                 reports
+                 (json-encode (json-object "namespace" (tool-namespace tool)
+                                           "name" (tool-name tool)
+                                           "arguments" retry)))
+         :code code)))))
 
 (-> tool-registry-execute-call
     (tool-registry json-object tool-context)
@@ -1315,11 +1317,9 @@ signals with the candidate canonical names."
                        :message   (format nil "Arguments for ~A are not a JSON object."
                                           canonical-name)
                        :tool-name canonical-name))
-              (let ((missing-names
-                      (tool--missing-required-names tool arguments)))
-                (if missing-names
-                    (tool--missing-arguments-result
-                     tool arguments missing-names)
+              (let ((problem (tool--argument-problem tool arguments)))
+                (if problem
+                    problem
                     (progn
                       (when (tool-correction-metadata-p tool)
                         (multiple-value-bind (value present-p) (gethash "corrects_previous" arguments)

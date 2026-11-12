@@ -2,9 +2,11 @@
 
 ;;;; -- Completion-Driven Primary Turns --
 
-(-> application-job-completions--notice-admissible-p (application list) boolean)
-(defun application-job-completions--notice-admissible-p (application notice)
-  "Require the notice's exact conversation and current, unspent goal authority."
+(-> application-job-completions--notice-admissible-p
+    (application list &key (:ignore-reservations-p boolean)) boolean)
+(defun application-job-completions--notice-admissible-p
+    (application notice &key ignore-reservations-p)
+  "Require exact ownership and unspent authority, optionally ignoring temporary reservations."
   (let* ((goal       (application-goal application))
          (mission-id (getf notice :mission-id)))
     (not
@@ -17,16 +19,23 @@
               (and (mission-goal-p goal)
                    (equal mission-id (getf goal :completion-id))
                    (eq (getf goal :status) ':active)
-                   (zerop (getf goal :unknown-usage 0))
+                   (not (mission--unknown-usage-blocks-p goal))
                    (< (getf goal :turns-used) (getf goal :turn-limit))
-                   (< (+ (getf goal :tokens-used) (getf goal :tokens-reserved 0))
-                      (getf goal :token-limit))
+                   (< (getf goal :tokens-used) (getf goal :token-limit))
+                   (or ignore-reservations-p
+                       (< (+ (getf goal :tokens-used) (getf goal :tokens-reserved 0))
+                          (getf goal :token-limit)))
                    (> (getf goal :deadline) (get-universal-time))))
              ((mission-goal-p goal)
               (not (eq (getf goal :status) ':active)))
              (goal
-              (and (eq (getf goal :status) ':active)
-                   (< (getf goal :continuations 0) *application-goal-continuation-limit*)))
+              (case (getf goal :status)
+                (:active
+                 (not (application--goal-continuations-exhausted-p application goal)))
+                (:complete
+                 t)
+                (t
+                 nil)))
              (t
               t)))))))
 
@@ -34,9 +43,9 @@
 (defun application-job-completions-awaited-p (application)
   "Return true while a pending result or unfinished job will wake APPLICATION.
 
-Goal continuations defer to that wakeup instead of urging the model on while
-its own jobs run; the completion turn resumes the goal afterwards. Without a
-connected wakeup nothing would resume it, so nothing is awaited."
+Goal continuations defer while a pending result or unfinished job is expected to
+trigger a completion turn. That turn resumes the goal. Without a connected
+wakeup, no completion turn is expected."
   (let ((agent (and (slot-boundp application 'agent) (application-agent application))))
     (flet ((admissible-p (notice)
              (application-job-completions--notice-admissible-p application notice)))
@@ -125,16 +134,142 @@ snapshot cannot change the meaning of an already finalized transcript entry."
 (-> application-job-completions--next-time
     (application-input-controller) (option integer))
 (defun application-job-completions--next-time (controller)
-  "Return an admitted batch deadline, or NIL when automatic work must wait."
+  "Return the next inference or display batch deadline while the controller is safe."
   (when (application-job-completions--controller-admissible-p controller)
     (let* ((application (application-input-controller-application controller))
            (agent       (application-agent application))
            (notices     (remove-if-not
                          (lambda (notice)
-                           (application-job-completions--notice-admissible-p application notice))
+                            (or (application-job-completions--notice-admissible-p application notice)
+                                (application-job-completions--terminal-notice-p application notice :ready-p nil)))
                          (task-completion-pending agent :continuation-only-p t))))
       (when notices
         (reduce #'min notices :key (lambda (notice) (getf notice :ready-at)))))))
+
+(-> application-job-completions--terminal-notice-p (application list &key (:ready-p boolean)) boolean)
+(defun application-job-completions--terminal-notice-p (application notice &key (ready-p t))
+  "Select owned terminal outcomes that cannot authorize automatic inference."
+  (not
+   (null
+    (and (equal (getf notice :owner-conversation)
+                (conversation-identifier (application-conversation application)))
+         (eq (getf notice :completion-policy) ':continue)
+         (member (getf notice :state) '(:completed :failed :aborted))
+         (or (not ready-p) (<= (getf notice :ready-at) (get-universal-time)))
+         (not (task-completion--delivered-p (application-conversation application) (getf notice :id)))
+         (not (application-job-completions--notice-admissible-p
+               application notice :ignore-reservations-p t))))))
+
+(-> application-job-completions--no-resume-reason (application list) string)
+(defun application-job-completions--no-resume-reason (application notice)
+  "Explain the current restriction and a valid next action without changing authority."
+  (let* ((goal       (application-goal application))
+         (status     (getf goal :status))
+         (mission-id (getf notice :mission-id))
+         (new-budget "Start a new mission with (mission :start SPECIFICATION).")
+         (review     "Review the result and decide separate work explicitly."))
+    (multiple-value-bind (reason action)
+        (cond
+          ((and mission-id
+                (or (not (mission-goal-p goal))
+                    (not (equal mission-id (getf goal :completion-id)))))
+           (values "the result belongs to a previous mission" review))
+          ((and (mission-goal-p goal) (not mission-id) (eq status ':active))
+           (values "the result is not part of the active mission" review))
+          ((and (mission-goal-p goal) (mission--unknown-usage-blocks-p goal))
+           (values (format nil "the mission is ~A with unknown token usage" status) new-budget))
+          ((and (mission-goal-p goal) (<= (getf goal :deadline) (get-universal-time)))
+           (values (format nil "the mission is ~A and its deadline has passed" status) new-budget))
+          ((and (mission-goal-p goal) (>= (getf goal :turns-used) (getf goal :turn-limit)))
+           (values (format nil "the mission is ~A and used ~D of ~D turns"
+                           status (getf goal :turns-used) (getf goal :turn-limit))
+                   new-budget))
+          ((and (mission-goal-p goal)
+                (>= (+ (getf goal :tokens-used) (getf goal :tokens-reserved 0))
+                    (getf goal :token-limit)))
+           (values (format nil "the mission is ~A and used or reserved ~D of ~D tokens"
+                           status (+ (getf goal :tokens-used) (getf goal :tokens-reserved 0))
+                           (getf goal :token-limit))
+                   new-budget))
+          ((and (mission-goal-p goal) (eq status ':blocked))
+           (values "the mission is blocked"
+                   "Review the result and resolve the stated blocker, then use (mission :resume)."))
+          ((and (mission-goal-p goal) (eq status ':paused))
+           (values "the mission is paused" "Use (mission :resume) to continue the mission."))
+          ((and (mission-goal-p goal) (not (eq status ':active)))
+           (values (format nil "the mission is ~A" status) new-budget))
+          ((mission-goal-p goal)
+           (values (format nil "the mission is ~A" status) review))
+          ((eq status ':complete)
+           (values "the session goal is complete" "Set new work with (goal \"OBJECTIVE\")."))
+          ((eq status ':paused)
+           (values "the session goal is paused" "Use (goal :resume) to continue the goal."))
+          ((and goal (not (eq status ':active)))
+           (values (format nil "the session goal is ~A" status) review))
+          ((and goal (application--goal-continuations-exhausted-p application goal))
+           (let ((limit (application-goal-continuation-limit application)))
+             (values (format nil "the session goal used ~D of ~D automatic continuations (effective limit ~D)"
+                             (getf goal :continuations 0) limit limit)
+                     (format nil "Send a message to reset the count, or raise the limit with ~
+                                  (settings :goal-continuation-limit ~D)."
+                             (* 2 limit)))))
+          (t
+           (values "the result is not eligible for automatic continuation" review)))
+      (format nil "No automatic continuation: ~A. ~A" reason action))))
+
+(-> application-job-completions--present-terminal (application list) null)
+(defun application-job-completions--present-terminal (application notices)
+  "Present only newly delivered records, using their existing replay identities."
+  (let* ((conversation (application-conversation application))
+         (records      (conversation-records-newest conversation *task-completion-batch-limit*)))
+    (dolist (notice notices)
+      (let* ((receipt (task-completion--receipt (getf notice :id)))
+             (record  (find receipt records :test #'equal
+                            :key                  (lambda (entry) (getf (rest entry) :pending-input-identifier))))
+             (reason  (application-job-completions--no-resume-reason application notice)))
+        (when record
+          (application-present
+           application
+           (append
+            (if (application-ui application)
+                (application--job-completion-entry application (rest record))
+                (list (terminal-span ':notice
+                                     (format nil "Job ~A: ~A.~%" (getf notice :job-id) (getf notice :outcome)))))
+            (list (terminal-span ':plain (string #\Newline))
+                  (terminal-span ':notice reason)))
+           :identifier (application--record-presentation-identifier application record))))))
+  nil)
+
+(-> application-job-completions--deliver-terminal (application-input-controller list) null)
+(defun application-job-completions--deliver-terminal (controller ticket)
+  "Recheck terminal consumption and presentation under controller/session authority."
+  (let* ((application (application-input-controller-application controller))
+         (agent       (application-agent application))
+         (session     (application-localgroup-session application)))
+    (flet ((guard (deliver)
+             (flet ((consume ()
+                      (when (and (application-job-completions--presentation-admissible-p
+                                  controller :session-locked-p t)
+                                 (null (application-input-controller-follow-up-edit-index controller))
+                                 (application-input-controller-pending-persistence-enabled-p controller)
+                                 (equal (getf ticket :conversation)
+                                        (conversation-identifier (application-conversation application)))
+                                 (getf ticket :events)
+                                 (every (lambda (identifier)
+                                          (let ((notice (find identifier (task-completion-pending agent)
+                                                              :key  (lambda (entry) (getf entry :id))
+                                                              :test #'equal)))
+                                            (and notice
+                                                 (application-job-completions--terminal-notice-p application notice))))
+                                        (getf ticket :events)))
+                        (application-job-completions--present-terminal application (funcall deliver)))))
+               (with-lock-held ((application-input-controller-lock controller))
+                 (if session
+                     (with-lock-held ((image-daemon:daemon-runtime-lock session))
+                       (consume))
+                     (consume))))))
+      (task-completion-deliver agent :identifiers (getf ticket :events) :call-with-delivery #'guard)))
+  nil)
 
 (-> application-job-completions--take-maintenance
     (application-input-controller) (option list))
@@ -152,10 +287,21 @@ snapshot cannot change the meaning of an already finalized transcript entry."
   (when (application-job-completions--controller-admissible-p controller)
     (let* ((application (application-input-controller-application controller))
            (agent       (application-agent application)))
+      (let ((notices (remove-if-not
+                      (lambda (notice) (application-job-completions--terminal-notice-p application notice))
+                      (task-completion-pending agent :continuation-only-p t))))
+        (when notices
+          (return-from application-job-completions--take-maintenance
+            (list ':job-completion-maintenance
+                  (list :conversation      (conversation-identifier (application-conversation application))
+                        :terminal-notice-p t
+                        :events            (mapcar (lambda (notice) (getf notice :id))
+                                                   (subseq notices 0 (min (length notices) *task-completion-batch-limit*))))))))
       (when (task-completion-maintenance-needed-p agent)
         (let ((notices (remove-if
                         (lambda (notice)
-                          (application-job-completions--notice-admissible-p application notice))
+                          (application-job-completions--notice-admissible-p
+                           application notice :ignore-reservations-p t))
                         (task-completion-pending agent))))
           (when notices
             (list ':job-completion-maintenance
@@ -199,6 +345,9 @@ as ordinary controller admission, without recursively locking the session."
 (-> application-job-completions-maintain (application-input-controller list) null)
 (defun application-job-completions-maintain (controller ticket)
   "Recheck a bounded maintenance ticket and free receipt-backed capacity without a provider turn."
+  (when (getf ticket :terminal-notice-p)
+    (return-from application-job-completions-maintain
+      (application-job-completions--deliver-terminal controller ticket)))
   (let* ((application (application-input-controller-application controller))
          (agent       (application-agent application))
          (admitted-p
@@ -215,7 +364,8 @@ as ordinary controller admission, without recursively locking the session."
               (loop for notice in (task-completion-pending agent)
                     when (and (not (eq (getf notice :kind) ':cancellation-warning))
                               (member (getf notice :id) (getf ticket :events) :test #'equal)
-                              (not (application-job-completions--notice-admissible-p application notice)))
+                              (not (application-job-completions--notice-admissible-p
+                                    application notice :ignore-reservations-p t)))
                       collect (getf notice :id))))
         (when identifiers
           (task-completion-deliver agent :identifiers identifiers)))
@@ -271,7 +421,9 @@ as ordinary controller admission, without recursively locking the session."
                       (task-completion-deliver
                        agent :identifiers (mapcar (lambda (notice) (getf notice :id)) notices))))
         (let ((goal (application-goal application)))
-          (when (and goal (or (not (mission-goal-p goal)) mission-authorized-p))
+          (when (and goal (if (mission-goal-p goal)
+                             mission-authorized-p
+                             (eq (getf goal :status) ':active)))
             (incf (getf goal :continuations 0))
             (application--record-goal application)))
         (application-input-controller-call-with-primary-steering

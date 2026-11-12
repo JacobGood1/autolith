@@ -38,7 +38,9 @@
 
 (define-condition mission-error (autolith-error)
   ((reason :initarg :reason :reader mission-error-reason
-           :documentation "Machine-readable reason for a rejected mission operation."))
+           :documentation "Machine-readable reason for a rejected mission operation.")
+   (cause :initarg :cause :initform nil :reader mission-error-cause
+          :documentation "Ephemeral terminal condition from supervised execution, never reconstructed from text."))
   (:documentation "A mission cannot admit work or validate its acceptance policy."))
 
 (defmethod tool-failure-code ((condition mission-error))
@@ -167,7 +169,7 @@
 
 (-> mission-task-job-unknown-usage (task-job) unsigned-byte)
 (defun mission-task-job-unknown-usage (child)
-  "Read CHILD's durable UNKNOWN audit, including reservation-settled requests."
+  "Read CHILD's durable unknown-usage count, including requests settled against reservations."
   (getf (mission-task-job-accounting-summary child) :unknown-usage))
 
 (-> mission--present-terminal-notice (mission-context keyword t) null)
@@ -237,8 +239,8 @@
 
 (-> mission--admit (mission-context &key (:inference-p boolean) (:new-work-p boolean)) null)
 (defun mission--admit (context &key (inference-p t) new-work-p)
-  "Admit active work or bounded continuation of an already started quarantined child.
-NEW-WORK-P always requires an active mission. Hard budgets apply to both paths."
+  "Admit work in an active mission or let an admitted child finish during quarantine.
+NEW-WORK-P requires an active mission. Hard budgets apply to both paths."
   (let* ((goal        (mission-context-goal context))
          (application (mission-context-application context)))
     (unless (eq goal (application-goal application))
@@ -248,7 +250,7 @@ NEW-WORK-P always requires an active mission. Hard budgets apply to both paths."
                      (mission--operation-draining-p context *mission-admitted-operation*)))
       (mission--reject (getf goal :status) "The mission is not active."))
     (when (and (eq (getf goal :status) ':active)
-               (plusp (getf goal :unknown-usage 0))
+               (mission--unknown-usage-blocks-p goal)
                (or inference-p new-work-p))
       (mission--reject ':mission-usage-quarantine
                        "Mission usage is unknown; inference and new work require explicit spending authority."))
@@ -266,19 +268,24 @@ NEW-WORK-P always requires an active mission. Hard budgets apply to both paths."
 
 (-> mission--supervise (mission-context string function &key (:timeout integer)) t)
 (defun mission--supervise (context name function &key timeout)
-  "Run FUNCTION inline through cl-jobpond under the mission's remaining deadline.
-The calling thread preserves provider bindings and authorization callbacks."
-  (let* ((milliseconds (mission--remaining-milliseconds context))
-         (pool         (make-job-pool :name name :maximum-concurrency 1
-                                      :maximum-batch-size 1 :maximum-live-jobs 1
-                                      :maximum-runtime-milliseconds
-                                      (max 1 (if timeout (min milliseconds timeout) milliseconds))
-                                      :terminal-retention-limit 1 :start-threads-p nil))
-         (job          (first (job-pool-submit-batch
-                               pool (list (list :name name :inline-only-p t
-                                                :function (lambda (job)
-                                                            (job-check-cancellation job)
-                                                            (funcall function))))))))
+  "Run FUNCTION inline through cl-jobpond within the mission's remaining time,
+preserving the calling thread's provider bindings and authorization callbacks."
+  (let* ((terminal-condition nil)
+         (milliseconds       (mission--remaining-milliseconds context))
+         (pool               (make-job-pool :name name :maximum-concurrency 1
+                                            :maximum-batch-size 1 :maximum-live-jobs 1
+                                            :maximum-runtime-milliseconds
+                                            (max 1 (if timeout (min milliseconds timeout) milliseconds))
+                                            :terminal-retention-limit 1 :start-threads-p nil))
+         (job                (first (job-pool-submit-batch
+                                     pool (list (list :name name :inline-only-p t
+                                                      :parent-job cl-jobpond::*current-job*
+                                                      :function   (lambda (job)
+                                                                    (job-check-cancellation job)
+                                                                    (handler-case (funcall function)
+                                                                      (serious-condition (condition)
+                                                                        (setf terminal-condition condition)
+                                                                        (error condition))))))))))
     (unwind-protect
          (progn
            (with-recursive-lock-held ((mission-context-lock context))
@@ -301,9 +308,10 @@ The calling thread preserves provider bindings and authorization callbacks."
                      (mission--transition context ':exhausted "Mission operation reached its wall-clock deadline.")
                      (mission--reject ':exhausted "Mission operation reached its deadline."))))
               (t
-               (mission--reject (getf snapshot :state)
-                                (or (getf snapshot :condition-report)
-                                    "Mission operation did not complete."))))))
+               (error 'mission-error :reason  (getf snapshot :state)
+                                     :cause   terminal-condition
+                                     :message (or (getf snapshot :condition-report)
+                                                  "Mission operation did not complete."))))))
       (with-recursive-lock-held ((mission-context-lock context))
         (setf (mission-context-jobs context)
               (remove job (mission-context-jobs context)))
@@ -312,7 +320,7 @@ The calling thread preserves provider bindings and authorization callbacks."
 
 (-> mission--conversation-context (conversation) (option mission-context))
 (defun mission--conversation-context (conversation)
-  "Prefer primary work's admitted identity over a replacement conversation mission."
+  "Prefer the mission context admitted for primary work over the conversation's replacement context."
   (let* ((context     (mission-context-find conversation))
          (application (and context (mission-context-application context)))
          (agent       (and application (application-agent application))))
@@ -343,6 +351,12 @@ The calling thread preserves provider bindings and authorization callbacks."
                                  :function #'call-next-method :usage-function #'second)
         (call-next-method))))
 
+(-> mission--unknown-usage-blocks-p (list) boolean)
+(defun mission--unknown-usage-blocks-p (goal)
+  "Require a new budget for unknown usage unless GOAL's unknown-usage policy is :record."
+  (and (plusp (getf goal :unknown-usage 0))
+       (not (eq (getf goal :unknown-usage-policy) ':record))))
+
 (-> mission--validate-specification (list) list)
 (defun mission--validate-specification (specification)
   "Validate user acceptance policy and return a new durable goal."
@@ -350,7 +364,9 @@ The calling thread preserves provider bindings and authorization callbacks."
                (consp (getf specification :criteria))
                (every (lambda (key) (typep (getf specification key) '(integer 1)))
                       '(:turn-limit :token-limit :wall-seconds)))
-    (mission--reject ':invalid "A mission requires objective, criteria and positive turn-limit, token-limit and wall-seconds."))
+    (mission--reject ':invalid "A mission requires an objective, criteria, and positive values for turn-limit, token-limit and wall-seconds."))
+  (unless (member (getf specification :unknown-usage-policy ':block) '(:block :record))
+    (mission--reject ':invalid "Unknown usage policy must be :block or :record."))
   (let* ((gates                 (mapcar #'mission-gate-normalize (getf specification :gates)))
          (gate-identifiers      (mapcar (lambda (gate) (getf gate :id)) gates))
          (criteria              (loop for criterion in (getf specification :criteria)
@@ -366,15 +382,16 @@ The calling thread preserves provider bindings and authorization callbacks."
                    (every (lambda (id) (member id gate-identifiers :test #'equal))
                           (getf criterion :gates))
                    (not (member (getf criterion :id) criterion-identifiers :test #'equal)))
-        (mission--reject ':invalid "Criteria require unique IDs, descriptions and existing gate IDs."))
+        (mission--reject ':invalid "Each criterion requires a unique ID and a description. Any gate IDs must refer to existing gates."))
       (push (getf criterion :id) criterion-identifiers))
     (unless (= (length gate-identifiers) (length (remove-duplicates gate-identifiers :test #'equal)))
       (mission--reject ':invalid "Gate IDs must be unique."))
     (list :kind ':mission :version 1 :objective (getf specification :objective)
           :status ':active :continuations 0 :created-at (get-universal-time)
-          :deadline    (+ (get-universal-time) (getf specification :wall-seconds))
-          :turn-limit  (getf specification :turn-limit)
-          :token-limit (getf specification :token-limit)
+          :deadline             (+ (get-universal-time) (getf specification :wall-seconds))
+          :turn-limit           (getf specification :turn-limit)
+          :token-limit          (getf specification :token-limit)
+          :unknown-usage-policy (getf specification :unknown-usage-policy ':block)
           :turns-used 0 :tokens-used 0 :tokens-reserved 0 :unknown-usage 0 :requests-outstanding 0
           :unknown-usage-by-child nil :reservation-charged-tokens 0 :reservation-charges-by-child nil
           :model-complete-p nil :criteria criteria :gates gates :evidence nil)))
@@ -429,8 +446,8 @@ The calling thread preserves provider bindings and authorization callbacks."
     (unless (and context (mission-goal-p goal)
                  (member (getf goal :status) '(:paused :blocked)))
       (mission--reject ':invalid "Only paused or blocked missions can resume."))
-    (when (plusp (getf goal :unknown-usage))
-      (mission--reject ':unknown-usage "Unknown token usage requires a new mission budget, not resume."))
+    (when (mission--unknown-usage-blocks-p goal)
+      (mission--reject ':unknown-usage "Cannot resume: unknown token usage requires a new mission budget."))
     (mission--transition context ':active "User resumed the mission without resetting budgets.")
     (mission--admit context :inference-p nil))
   nil)
@@ -463,9 +480,15 @@ The calling thread preserves provider bindings and authorization callbacks."
               (setf (getf gate :status) ':failed
                     (getf gate :fingerprint) nil
                     (getf gate :evidence) "Interrupted gate execution; no passing evidence recorded.")))
+          (when (and (plusp outstanding)
+                     (not (mission--unknown-usage-blocks-p goal)))
+            (mission--evidence context ':unknown-usage
+                               (format nil "~D interrupted inference request~:P had no reported usage; recorded by mission policy."
+                                       outstanding)))
           (cond
             ((and (member (getf goal :status) '(:active :paused :blocked))
-                  (plusp outstanding))
+                  (plusp outstanding)
+                  (mission--unknown-usage-blocks-p goal))
              (mission--transition context ':blocked
                                   "Interrupted inference has unknown token usage; resume requires a new budget."))
             ((and (member (getf goal :status) '(:active :paused :blocked))
@@ -492,8 +515,8 @@ A quarantined child with live admitted identity may finish its bounded task."
 
 (-> mission--stopped-tool-result ((option mission-context)) tool-result)
 (defun mission--stopped-tool-result (context)
-  "Explain a refused tool using only allowlisted exact-context state.
-Report identity relative to the guarded goal, never arbitrary goal evidence."
+  "Explain a tool refusal using only allowlisted state from the associated mission context.
+Report whether the guarded goal is current or replaced; omit arbitrary goal evidence."
   (if (null context)
       (tool-failure "Mission work stopped; its associated context is unavailable. No tool ran."
                     :code ':mission-stopped)
@@ -524,7 +547,7 @@ Report identity relative to the guarded goal, never arbitrary goal evidence."
                             ((eq (getf goal :status) ':cancelled)
                              ':mission-cancelled)
                             ((and (eq (getf goal :status) ':blocked)
-                                  (integerp unknown) (plusp unknown))
+                                  (integerp unknown) (mission--unknown-usage-blocks-p goal))
                              ':mission-usage-quarantine)
                             (t
                              ':mission-stopped)))
@@ -614,6 +637,55 @@ Report identity relative to the guarded goal, never arbitrary goal evidence."
     (with-lock-held (*mission-contexts-lock*)
       (setf (gethash identity *mission-contexts*) context)))
   nil)
+
+(defparameter *mission-native-compaction-view* nil
+  "Exact detached native request view and owning context during compaction dispatch.")
+
+(-> mission-call-with-request-view ((option mission-context) conversation function) t)
+(defun mission-call-with-request-view (context view function)
+  "Bind a fresh VIEW to CONTEXT during FUNCTION without replacing an existing owner."
+  (let ((introduced-p nil))
+    (unwind-protect
+         (progn
+           (when context
+             (with-lock-held (*mission-contexts-lock*)
+               (unless (gethash view *mission-contexts*)
+                 (setf (gethash view *mission-contexts*) context
+                       introduced-p t))))
+           (funcall function))
+      (when introduced-p
+        (with-lock-held (*mission-contexts-lock*)
+          (when (eq context (gethash view *mission-contexts*))
+            (remhash view *mission-contexts*)))))))
+
+(-> mission-request-view-context (conversation) (option mission-context))
+(defun mission-request-view-context (conversation)
+  "Return CONVERSATION's exact context only when its current request is mission work."
+  (let ((context (mission--conversation-context conversation)))
+    (and context (mission--request-owned-p context conversation) context)))
+
+(-> mission-call-with-native-compaction-view ((option mission-context) conversation function) t)
+(defun mission-call-with-native-compaction-view (context view function)
+  "Capture VIEW's owner for actual native attempts, leaving unsupported probes unowned."
+  (let ((*mission-native-compaction-view* (cons view context)))
+    (funcall function)))
+
+;; Specialize the native backend so the telemetry MODEL-PROVIDER wrapper composes.
+(defmethod provider-attempt-native-compaction :around
+    ((provider codex-subscription-provider) (conversation conversation)
+     &key tool-namespaces force-refresh event-callback)
+  "Account for detached native views when native compaction is attempted, not during unsupported capability probes."
+  (declare (ignore tool-namespaces force-refresh event-callback))
+  (let ((context (and (eq conversation (first *mission-native-compaction-view*))
+                      (rest *mission-native-compaction-view*))))
+    ;; Already bound conversations are accounted for by the outer native generic.
+    (if (and context (not (mission-context-find conversation)))
+        (mission-call-with-request-view
+         context conversation
+         (lambda ()
+           (mission-review--account context conversation
+                                    :function #'call-next-method :usage-function #'second)))
+        (call-next-method))))
 
 (-> mission--agent-context (agent) (option mission-context))
 (defun mission--agent-context (agent)

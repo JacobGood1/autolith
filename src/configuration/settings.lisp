@@ -177,16 +177,13 @@
   "https://api.anthropic.com/v1/messages"
   "The Anthropic Messages API endpoint.")
 
-;; The public OpenCode Chat Completions API, verified on 2026-08-12: the
-;; endpoint accepts the standard streaming OpenAI Chat Completions dialect
-;; with function tools and dynamic model discovery.
 (defparameter *opencode-chat-completions-endpoint*
-  "https://opencode.ai/zen/go/v1/chat/completions"
-  "The OpenCode Chat Completions API endpoint.")
+  "https://opencode.ai/inference/go/openai/v1/chat/completions"
+  "The OpenCode Go Chat Completions API endpoint.")
 
 (defparameter *opencode-models-endpoint*
-  "https://opencode.ai/zen/go/v1/models"
-  "The OpenCode models endpoint used for dynamic model discovery.")
+  "https://opencode.ai/inference/go/openai/v1/models"
+  "The OpenCode Go models endpoint used for dynamic model discovery.")
 
 (defparameter *opencode-models-environment-variable*
   "AUTOLITH_OPENCODE_MODELS_ENDPOINT"
@@ -199,6 +196,22 @@
     (if (non-empty-string-p override)
         override
         *opencode-models-endpoint*)))
+
+(defparameter *opencode-zen-chat-completions-endpoint*
+  "https://opencode.ai/inference/openai/v1/chat/completions"
+  "The OpenCode Zen Chat Completions API endpoint.")
+
+(defparameter *opencode-zen-models-endpoint*
+  "https://opencode.ai/inference/openai/v1/models"
+  "The OpenCode Zen models endpoint used for dynamic model discovery.")
+
+(-> opencode-zen-models-endpoint () string)
+(defun opencode-zen-models-endpoint ()
+  "Return the configured OpenCode Zen models endpoint."
+  (let ((override (uiop:getenv "AUTOLITH_OPENCODE_ZEN_MODELS_ENDPOINT")))
+    (if (non-empty-string-p override)
+        override
+        *opencode-zen-models-endpoint*)))
 
 ;; The public OpenRouter Chat Completions API, verified on 2026-08-24: the
 ;; endpoint accepts streaming text, function tools, normalized reasoning
@@ -286,9 +299,9 @@ gpt-6.1-terra follows gpt-5.6-terra until upstream publishes its entry.")
 (defparameter *codex-fast-mode-models*
   '("gpt-6.1-sol" "gpt-6.1-terra" "gpt-6-astra" "gpt-6-sol" "gpt-6-luna"
     "gpt-5.6-sol" "gpt-5.6-luna" "gpt-5.6-terra")
-  "Codex model identifiers verified to support the Fast service tier.
+  "Codex model identifiers for which Autolith offers the Fast service tier.
 
-gpt-6.1-terra is assumed to, like gpt-5.6-terra, until upstream lists it.")
+gpt-6.1-terra is assumed to support it, like gpt-5.6-terra, until upstream lists it.")
 
 ;; GPT window sizes read from the live Codex model catalog on 2026-07-19 and
 ;; confirmed in Codex reference commit 444da310e108da16aaeb18fd790b0ac464f08aca.
@@ -339,15 +352,26 @@ gpt-6.1-terra is assumed to, like gpt-5.6-terra, until upstream lists it.")
       (not (null (provider-registration-for-model model)))
       (not (null (member model *supported-models* :test #'string=)))))
 
+(-> configuration--model-provider-problem (string t) (option string))
+(defun configuration--model-provider-problem (provider configuration)
+  "Return why PROVIDER is unavailable after executable initialization."
+  (declare (ignore configuration))
+  (when (and (non-empty-string-p provider) (fboundp 'provider-registration-find)
+             (not (provider-registration-find (provider--canonical-name provider))))
+    (format nil "Unknown provider ~S." provider)))
+
 (-> configuration--model-problem (string t) (option string))
 (defun configuration--model-problem (model configuration)
   "Return why MODEL is unavailable in CONFIGURATION's selected provider."
-  (let ((provider (config :model-provider configuration)))
-    (unless (if (and (non-empty-string-p provider) (fboundp 'provider-resolve-model))
-                (nth-value 1 (provider-resolve-model model :provider provider))
-                (configuration--model-supported-p model))
-      (format nil "Unsupported model ~S. The choices are ~{~A~^, ~}."
-              model *supported-models*))))
+  (handler-case
+      (let ((provider (config :model-provider configuration)))
+        (unless (if (and (non-empty-string-p provider) (fboundp 'provider-resolve-model))
+                    (nth-value 1 (provider-resolve-model model :provider provider))
+                    (configuration--model-supported-p model))
+          (format nil "Unsupported model ~S. The choices are ~{~A~^, ~}."
+                  model *supported-models*)))
+    (model-selection-error (condition)
+      (autolith-error-message condition))))
 
 (-> configuration--reasoning-effort-problem (string t) (option string))
 (defun configuration--reasoning-effort-problem (effort configuration)
@@ -510,6 +534,9 @@ and AUTOLITH_MISTRAL_PROVIDER_ENDPOINT overrides the Mistral family endpoint."
               (uiop:getenv "AUTOLITH_FIREWORKS_PROVIDER_ENDPOINT"))
              (:opencode
               (uiop:getenv "AUTOLITH_OPENCODE_PROVIDER_ENDPOINT"))
+
+             (:opencode-zen
+              (uiop:getenv "AUTOLITH_OPENCODE_ZEN_PROVIDER_ENDPOINT"))
              (:openrouter
               (uiop:getenv "AUTOLITH_OPENROUTER_PROVIDER_ENDPOINT"))
              (:mistral
@@ -530,6 +557,9 @@ and AUTOLITH_MISTRAL_PROVIDER_ENDPOINT overrides the Mistral family endpoint."
            *fireworks-responses-endpoint*)
           (:opencode
            *opencode-chat-completions-endpoint*)
+
+          (:opencode-zen
+           *opencode-zen-chat-completions-endpoint*)
           (:openrouter
            *openrouter-chat-completions-endpoint*)
           (:mistral

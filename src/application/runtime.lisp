@@ -62,6 +62,11 @@ Clicking the rendered call's header inserts it into the composer.")
     :accessor      application-goal
     :type          list
     :documentation "The session goal plist holding objective, status, and continuations.")
+   (deferred-goal-continuation
+    :initform      nil
+    :accessor      application-deferred-goal-continuation
+    :type          list
+    :documentation "Transient authority to resume the goal that yielded to queued input.")
    (context-estimate-cache
     :initform      nil
     :accessor      application-context-estimate-cache
@@ -686,10 +691,10 @@ exchange without scrolling through reasoning and tool activity.")
 (defun application--create-tool-registry (configuration &key shared-mcp-manager)
   "Create one complete registry and close its base runtimes on later failure.
 
-The registry binds SHARED-MCP-MANAGER instead of connecting its servers again
-when that manager still serves CONFIGURATION. The second value lists the shared
-runtimes the registry did not create, which its owner must neither close nor
-lose: an empty list, or SHARED-MCP-MANAGER alone."
+When SHARED-MCP-MANAGER serves CONFIGURATION, the registry reuses it rather than
+reconnecting its servers. The second value lists shared runtimes the registry did
+not create: either an empty list or SHARED-MCP-MANAGER alone. The registry's owner
+must neither close nor lose those shared runtimes."
   (let ((registry    nil)
         (retained    nil)
         (completed-p nil))
@@ -795,10 +800,10 @@ lose: an empty list, or SHARED-MCP-MANAGER alone."
     (values nil &optional))
 (defun application--raise-runtime-replacement-error
     (&key operation stage cause rollback-causes)
-  "Signal a structured runtime replacement failure for OPERATION and STAGE.
+  "Signal a structured runtime replacement error for OPERATION and STAGE.
 
-The message ends with CAUSE's report, so the user sees why the replacement
-failed, such as another live session owning the conversation."
+The message includes CAUSE's report, for example that another live session owns
+the conversation. A warning follows if the previous runtime was not fully restored."
   (error
    'application-runtime-replacement-error
    :message
@@ -1500,6 +1505,7 @@ changes also invalidate the cache. External files are sampled at these boundarie
         (conversation  (application-conversation application)))
     (list configuration
           (loop for setting in '(:working-directory :source-root :immutable-p
+                                 :model :model-provider :provider-endpoint :reasoning-effort
                                  :relax-p :web-search-mode :simple-technical-english-p)
                 collect (config setting configuration))
           conversation
@@ -1515,32 +1521,29 @@ changes also invalidate the cache. External files are sampled at these boundarie
 
 (-> application-context-usage (application) (values (integer 0) boolean))
 (defun application-context-usage (application)
-  "Return reported context usage, otherwise a cached portable estimate."
-  (let* ((conversation (application-conversation application))
-         (reported     (conversation-last-total-tokens conversation)))
-    (when (plusp reported)
-      (return-from application-context-usage (values reported nil)))
-    (let* ((configuration (application-configuration application))
-           (provider      (and (slot-boundp application 'provider)
-                               (application-provider application)))
-           (family        (if provider
-                              (provider-family provider)
-                              (model-family (config :model configuration)
-                                            (config :model-provider configuration))))
-           (key           (application--context-estimate-key application family))
-           (cached        (application-context-estimate-cache application)))
-      (unless (equal key (first cached))
-        (setf cached
-              (list key
-                    (context-estimate-known-tokens
-                     configuration conversation
-                     :hurry-up-p (application-hurry-up-p application)
-                     :family     family
-                     :tool-registry
-                     (and (slot-boundp application 'tool-registry)
-                          (application-tool-registry application))))
-              (application-context-estimate-cache application) cached))
-      (values (second cached) t))))
+  "Return current compaction accounting, including evidence added since the last response."
+  (let* ((configuration (application-configuration application))
+         (provider      (and (slot-boundp application 'provider)
+                             (application-provider application)))
+         (family        (if provider
+                            (provider-family provider)
+                            (model-family (config :model configuration)
+                                          (config :model-provider configuration))))
+         (key           (application--context-estimate-key application family))
+         (cached        (application-context-estimate-cache application)))
+    (unless (equal key (first cached))
+      (setf cached
+            (list key
+                  (context-estimate-known-tokens
+                   configuration (application-conversation application)
+                   :hurry-up-p (application-hurry-up-p application)
+                   :family     family
+                   :provider   provider
+                   :tool-registry
+                   (and (slot-boundp application 'tool-registry)
+                        (application-tool-registry application))))
+            (application-context-estimate-cache application) cached))
+    (values (second cached) t)))
 
 (-> application-refresh-context-meter (application) null)
 (defun application-refresh-context-meter (application)
@@ -1594,13 +1597,11 @@ changes also invalidate the cache. External files are sampled at these boundarie
 
 (-> application--agent-adopt-runtime (application agent) null)
 (defun application--agent-adopt-runtime (application agent)
-  "Let running AGENT adopt APPLICATION's replaced runtime at a safe boundary.
+  "Update running AGENT from APPLICATION between provider requests.
 
-Boundary-applied commands install a fresh configuration, provider, or tool
-registry on APPLICATION while AGENT still executes the current turn. Adoption
-between provider requests lets the change reach the very next request. The
-running turn owns its conversation, so adoption is skipped entirely when a
-command replaced the active conversation."
+Commands may replace APPLICATION's configuration, provider, or tool registry
+during a turn. These changes take effect on the next request only if AGENT
+still uses APPLICATION's active conversation."
   (when (eq (agent-conversation agent)
             (application-conversation application))
     (let ((configuration (application-configuration application))
@@ -1619,11 +1620,11 @@ command replaced the active conversation."
     (values model-provider tool-registry agent list))
 (defun application--prepare-runtime-replacement
     (application configuration conversation &key share-mcp-p)
-  "Prepare a fresh provider, registry, and agent without touching APPLICATION.
+  "Prepare a new provider, registry, and agent without changing APPLICATION.
 
-With SHARE-MCP-P, the new registry shares the current registry's MCP manager
-when it still serves CONFIGURATION. The fourth value lists such shared
-runtimes, which the replacement must retain while retiring the old registry."
+With SHARE-MCP-P, reuse the current registry's MCP manager if the manager still
+serves CONFIGURATION. The fourth value lists shared runtimes to retain when
+retiring the old registry."
   (let ((registry    nil)
         (retained    nil)
         (completed-p nil))
@@ -2652,15 +2653,15 @@ has no faithful invocation."
        (when (application--tool-result-visible-p application record)
          (application-tool-result-entry tool application record))))
     (:summary
-     (application--compaction-rule application))
+     (application--compaction-rule application :recovery (getf (rest record) :recovery)))
     (otherwise
      nil)))
 
 (defparameter *application-compaction-label* " CONTEXT COMPACTED "
   "The label centered in the transcript rule marking a context compaction.")
 
-(-> application--compaction-rule (application) terminal-styled-text)
-(defun application--compaction-rule (application)
+(-> application--compaction-rule (application &key (:recovery list)) terminal-styled-text)
+(defun application--compaction-rule (application &key recovery)
   "Return a transcript-wide cut line announcing that earlier context was compacted.
 
 The rule is laid out once at the current terminal width, like other transcript
@@ -2671,9 +2672,13 @@ rows."
                           (terminal-ui-terminal (application-ui application))))))
          (left  (floor (- width (length label)) 2))
          (right (- width (length label) left)))
-    (list (terminal-span ':success (make-string left :initial-element #\━))
-          (terminal-span ':failure label)
-          (terminal-span ':success (make-string right :initial-element #\━)))))
+    (append
+     (list (terminal-span ':success (make-string left :initial-element #\━))
+           (terminal-span ':failure label)
+           (terminal-span ':success (make-string right :initial-element #\━)))
+     (when recovery
+       (list (terminal-span ':notice
+                            (format nil "~%~A" (compaction-recovery-notice recovery))))))))
 
 (-> application--command-presentation-entry
     (application-command-invocation (or string list))
@@ -3402,8 +3407,16 @@ A fullscreen transcript evicts its oldest output; those records page in again."
 
 ;;;; -- Session Goal --
 
-(defparameter *application-goal-continuation-limit* 8
-  "The automatic goal continuation turns allowed per user message.")
+(-> application-goal-continuation-limit (application) (or (integer 1) (eql :unlimited)))
+(defun application-goal-continuation-limit (application)
+  "Return APPLICATION's durable lightweight goal continuation limit."
+  (config :goal-continuation-limit (application-configuration application)))
+
+(-> application--goal-continuations-exhausted-p (application list) boolean)
+(defun application--goal-continuations-exhausted-p (application goal)
+  "Return true when GOAL has reached APPLICATION's numeric continuation cap."
+  (let ((limit (application-goal-continuation-limit application)))
+    (and (integerp limit) (>= (getf goal :continuations 0) limit))))
 
 (defparameter *application-goal-continuation-prompt*
   "Continue working toward the session goal."
@@ -3420,9 +3433,37 @@ A fullscreen transcript evicts its oldest output; those records page in again."
 (defparameter *application-goal-complete-marker* "[GOAL-COMPLETE]"
   "The literal marker the model includes once the goal is met.")
 
+(defmethod (setf application-goal) :after (value (application application))
+  "Discard deferred continuation authority when replacing the goal."
+  (declare (ignore value))
+  (setf (application-deferred-goal-continuation application) nil))
+
+(defmethod (setf application-conversation) :after (value (application application))
+  "Discard deferred continuation authority when switching conversations."
+  (declare (ignore value))
+  (setf (application-deferred-goal-continuation application) nil))
+
+(-> application--take-deferred-goal-continuation-p (application list) boolean)
+(defun application--take-deferred-goal-continuation-p (application work)
+  "Consume authority for WORK only in the unchanged goal and conversation that yielded."
+  (let ((controller (application-input-controller application)))
+    (when controller
+      (with-lock-held ((application-input-controller-lock controller))
+        (let ((authority (application-deferred-goal-continuation application)))
+          (when (and authority (eq (fourth authority) work))
+            (setf (application-deferred-goal-continuation application) nil)
+            (and (not (application-input-controller-stopping-p controller))
+                 (not (application-input-controller-turn-cancellation-p controller))
+                 (eq (first authority) (application-goal application))
+                 (eq (second authority) (application-conversation application))
+                 (equal (third authority) (application-goal application))
+                 (eq (getf (application-goal application) :status) ':active)
+                 t)))))))
+
 (-> application--record-goal (application) null)
 (defun application--record-goal (application)
   "Append APPLICATION's current goal state to the durable conversation."
+  (setf (application-deferred-goal-continuation application) nil)
   (let ((goal (application-goal application)))
     (conversation-append-record
      (application-conversation application)
@@ -3702,9 +3743,11 @@ does turning the activity line setting off."
             (sanitize-text name :single-line-p t)))))))
 
 (-> application--related-memories-notice
-    ((integer 0) &key (:stale (integer 0)) (:unverified (integer 0)) (:facts (integer 0)))
+    ((integer 0) &key (:stale (integer 0)) (:unverified (integer 0))
+                  (:facts (integer 0)) (:ids list))
     string)
-(defun application--related-memories-notice (count &key (stale 0) (unverified 0) (facts 0))
+(defun application--related-memories-notice
+    (count &key (stale 0) (unverified 0) (facts 0) (ids nil))
   "Return the notice for COUNT offered memories and FACTS offered facts.
 
 STALE and UNVERIFIED count memories whose evidence changed or could not be
@@ -3712,7 +3755,8 @@ checked."
   (format nil "@ ~{~A~^ · ~}"
           (remove nil
                   (list (when (plusp count)
-                          (format nil "~D relevant memor~:@P exist~:[~;s~]" count (= count 1)))
+                          (format nil "~D relevant memor~:@P exist~:[~;s~]~@[ (~{~A~^, ~})~]"
+                                  count (= count 1) ids))
                         (when (plusp stale)
                           (format nil "~D stale" stale))
                         (when (plusp unverified)
@@ -3811,8 +3855,6 @@ checked."
                            stream-started-at (get-universal-time)
                            stream-renderer (application--markdown-renderer
                                             application))
-                     ;; The streaming text shows the response arriving, so the
-                     ;; phase only times the modeline.
                      (application-set-activity application "receiving response"
                                                :label-p nil)
                      (if (application--repl-transcript-p application)
@@ -3930,7 +3972,8 @@ checked."
                        (getf details :count)
                        :stale      (getf details :stale 0)
                        :unverified (getf details :unverified 0)
-                       :facts      (getf details :facts 0)))))
+                       :facts      (getf details :facts 0)
+                       :ids        (getf details :ids)))))
               (setf related-memories-shown-p t)))
            (:knowledge-changes
             (application-present
@@ -3980,6 +4023,16 @@ checked."
             (application-note-prompt-cache-request-started application)
             (application-publish-recovery-session application)
             (application-set-activity application activity-label))
+           (:provider-retries-exhausted
+            (stream-flush)
+            (application-set-activity application nil)
+            (application-present
+             application
+             (list (terminal-span
+                    ':failure
+                    (format nil "∙ provider retries exhausted after ~D attempts (~A)"
+                            (getf details :attempts)
+                            (or (getf details :code) "transient provider error"))))))
            (:provider-retrying
             (let ((partial-output-p
                     (or stream-open-p
@@ -4248,6 +4301,20 @@ model's calls in a turn."
                                   (format nil "  ~A" (getf goal :objective)))))))))
   nil)
 
+(-> application-present-context-refusal (application provider-context-budget-error) null)
+(defun application-present-context-refusal (application condition)
+  "Persist a local context refusal as informational output, without a failed provider turn."
+  (application-side-status-present
+   application "context admission"
+   (list (terminal-span
+          ':hint
+          (format nil
+                  "Context admission refused: approximately ~D input tokens plus ~D output tokens exceed the ~D-token model window. Reduce context before retrying."
+                  (provider-context-budget-error-estimated-input-tokens condition)
+                  (provider-context-budget-error-output-reserve condition)
+                  (provider-context-budget-error-context-window condition)))))
+  nil)
+
 (-> application--run-turn
     (application (or string user-message-input)
      &key (:continuation-p boolean)
@@ -4260,7 +4327,7 @@ model's calls in a turn."
           (:tool-allowlist (option list))
           (:tool-restriction-p boolean)
           (:operation-request (option list)))
-    null)
+    (values null t))
 (defun application--run-turn
     (application content
      &key continuation-p steering-function steering-persisted-function
@@ -4270,43 +4337,51 @@ model's calls in a turn."
   "Persist and run one model turn for CONTENT while retaining editable input.
 
 With OPERATION-REQUEST, CONTENT was generated by a user operation: it runs as
-an automatic message shown by the request's notice instead of its text."
-  (let ((ui (application-ui application)))
+an automatic message shown by the request's notice instead of its text.
+Return NIL and the terminal provider result, or :FAILED for a local context
+refusal, as a secondary value."
+  (let ((ui (application-ui application)) (turn-result nil))
     (unwind-protect
          (progn
-            (application-set-activity application (application-thinking-label))
-            (let ((result
-                    (agent-run-user-turn
-                     (application-agent application)
-                     content
-                     :observer                  (application-agent-observer
-                                                 application
-                                                 :steering-function  steering-function
-                                                 :steering-persisted-function
-                                                 steering-persisted-function
-                                                 :user-message-persisted-function
-                                                 user-message-persisted-function
-                                                 :pending-operations-function
-                                                 pending-operations-function
-                                                 :user-message-input content
-                                                 :continuation-p     continuation-p
-                                                 :operation-request  operation-request)
-                      :goal-context             (application-goal-context application)
-                      :tools-p                  tools-p
-                      :tool-allowlist           tool-allowlist
-                      :tool-restriction-p       tool-restriction-p
-                      :pending-input-identifier pending-input-identifier
-                      :automatic-p              (or continuation-p (not (null operation-request)))
-                      :operation-request        operation-request)))
+           (application-set-activity application (application-thinking-label))
+           (handler-case
+               (agent-run-user-turn
+                (application-agent application)
+                content
+                :observer                 (application-agent-observer
+                                            application
+                                            :steering-function  steering-function
+                                            :steering-persisted-function
+                                            steering-persisted-function
+                                            :user-message-persisted-function
+                                            user-message-persisted-function
+                                            :pending-operations-function
+                                            pending-operations-function
+                                            :user-message-input content
+                                            :continuation-p     continuation-p
+                                            :operation-request  operation-request)
+                :goal-context             (application-goal-context application)
+                :tools-p                  tools-p
+                :tool-allowlist           tool-allowlist
+                :tool-restriction-p       tool-restriction-p
+                :pending-input-identifier pending-input-identifier
+                :automatic-p              (or continuation-p (not (null operation-request)))
+                :operation-request        operation-request)
+             (provider-context-budget-error (condition)
+               (application-present-context-refusal application condition)
+               (setf turn-result ':failed))
+             (:no-error (&optional result &rest secondary-values)
+               (declare (ignore secondary-values))
+               (setf turn-result result)
                (application--note-goal-turn application result)
                (unless (or continuation-p operation-request)
-                 (application--maybe-refresh-conversation-title application))))
+                 (application--maybe-refresh-conversation-title application)))))
       (terminal-ui-set-compacting ui nil)
       (terminal-ui-set-preview-rows ui nil)
       (application-set-activity application nil)
       (terminal-ui-stream-update ui :tail nil)
-      (application-render-records application)))
-  nil)
+      (application-render-records application))
+    (values nil turn-result)))
 
 (-> application--run-goal-continuations
     (application
@@ -4319,15 +4394,33 @@ an automatic message shown by the request's notice instead of its text."
                       pending-operations-function)
   "Run bounded automatic continuation turns while the session goal is active.
 
-The turns stop, leaving the goal active, while a job whose completion will
-wake the model is still queued, running or undelivered."
+The goal stays active, but continuation turns stop while a job that will wake
+the model is queued or running, or its completion notice awaits delivery."
+  (setf (application-deferred-goal-continuation application) nil)
   (loop
     (let ((goal (application-goal application)))
       (unless (and goal (eq (getf goal :status) ':active))
         (return))
+
+      ;; Return to the controller before pausing or starting another turn.
+      (let ((controller (application-input-controller application)))
+        (when controller
+          (with-lock-held ((application-input-controller-lock controller))
+            (when (or (application-input-controller-stopping-p controller)
+                      (application-input-controller-turn-cancellation-p controller))
+              (return))))
+        (when (and controller
+                   (application-input-controller-goal-input-pending-p controller))
+          (with-lock-held ((application-input-controller-lock controller))
+            (unless (or (application-input-controller-stopping-p controller)
+                        (application-input-controller-turn-cancellation-p controller))
+              (setf (application-deferred-goal-continuation application)
+                    (list goal (application-conversation application) (copy-tree goal)
+                          (first (deque->list
+                                  (application-input-controller-work-items controller)))))))
+          (return)))
       (when (and (not (mission-goal-p goal))
-                 (>= (getf goal :continuations)
-                     *application-goal-continuation-limit*))
+                 (application--goal-continuations-exhausted-p application goal))
         (setf (getf (application-goal application) :status) ':paused)
         (application--record-goal application)
         (application-present
@@ -4335,21 +4428,22 @@ wake the model is still queued, running or undelivered."
          (format nil
                  "The goal paused after ~D automatic continuations. ~
                   Use (goal :resume) or send a message to keep going."
-                 *application-goal-continuation-limit*))
+                 (application-goal-continuation-limit application)))
         (return))
       ;; A running job's completion wakes the model and resumes the goal.
       (when (application-job-completions-awaited-p application)
         (return))
       (incf (getf (application-goal application) :continuations))
       (application--record-goal application)
-      (application--run-turn application
-                             *application-goal-continuation-prompt*
-                             :continuation-p    t
-                             :steering-function steering-function
-                             :steering-persisted-function
-                             steering-persisted-function
-                             :pending-operations-function
-                             pending-operations-function)))
+      (when (eq ':failed
+                (nth-value 1
+                           (application--run-turn
+                            application *application-goal-continuation-prompt*
+                            :continuation-p              t
+                            :steering-function           steering-function
+                            :steering-persisted-function steering-persisted-function
+                            :pending-operations-function pending-operations-function)))
+        (return))))
   nil)
 
 (-> application-run-message
@@ -4372,33 +4466,30 @@ wake the model is still queued, running or undelivered."
           tool-allowlist (tool-restriction-p nil) (goal-continuations-p t))
   "Run one user turn for CONTENT with optional tools and goal continuations.
 
-A turn without explicit steering hooks still consumes terminal steering
-through the input controller, so command-driven messages steer instead
-of quietly queueing prose as follow-up work."
+When an input controller is present and no steering function is supplied, use
+the controller's steering hooks for command-driven messages."
   (let ((goal (application-goal application)))
     (when (and goal (eq (getf goal :status) ':active))
       (setf (getf (application-goal application) :continuations) 0)))
   (flet ((run (steering-function steering-persisted-function)
-           (application--run-turn application
-                                  content
-                                  :steering-function  steering-function
-                                  :steering-persisted-function
-                                  steering-persisted-function
-                                  :user-message-persisted-function
-                                  user-message-persisted-function
-                                  :pending-operations-function
-                                  pending-operations-function
-                                  :pending-input-identifier
-                                  pending-input-identifier
-                                  :tools-p            tools-p
-                                  :tool-allowlist     tool-allowlist
-                                  :tool-restriction-p tool-restriction-p)
-           (when goal-continuations-p
-             (application--run-goal-continuations
-              application
-              :steering-function           steering-function
-              :steering-persisted-function steering-persisted-function
-              :pending-operations-function pending-operations-function))))
+           (let ((result
+                   (nth-value 1
+                              (application--run-turn
+                               application content
+                               :steering-function               steering-function
+                               :steering-persisted-function     steering-persisted-function
+                               :user-message-persisted-function user-message-persisted-function
+                               :pending-operations-function     pending-operations-function
+                               :pending-input-identifier        pending-input-identifier
+                               :tools-p                         tools-p
+                               :tool-allowlist                  tool-allowlist
+                               :tool-restriction-p              tool-restriction-p))))
+             (when (and goal-continuations-p (not (eq result ':failed)))
+               (application--run-goal-continuations
+                application
+                :steering-function           steering-function
+                :steering-persisted-function steering-persisted-function
+                :pending-operations-function pending-operations-function)))))
     (let ((controller (application-input-controller application)))
       (if (and controller (null steering-function))
           (application-input-controller-call-with-primary-steering

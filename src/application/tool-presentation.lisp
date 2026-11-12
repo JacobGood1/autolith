@@ -40,9 +40,8 @@
     (application text &key (limit *application-tool-output-lines*) json-p)
   "Format self-identifying code output without reading Lisp or accessing files.
 
-JSON-P also recognizes complete JSON captures, which otherwise retain the
-recursive field layout of the generic result presenter. Shell output is not
-assumed to be shell source."
+With JSON-P, render complete JSON captures as source rather than nested fields.
+Shell output is not assumed to be shell source."
   (let ((trimmed (string-left-trim '(#\Space #\Tab #\Newline #\Return) text)))
     (or (application--fenced-output-rows application text limit)
         (when (uiop:string-prefix-p "(:" trimmed)
@@ -118,9 +117,9 @@ assumed to be shell source."
 (defun application--lisp-key-token (name)
   "Return a reader-safe local call key naming JSON property NAME exactly.
 
-The reader upcases plain keywords and the local call boundary lowercases them
-again, so a name with uppercase letters is escaped when it also has lowercase
-ones and written as a string when it has none."
+Plain keywords are upcased by the reader and lowercased at the local call
+boundary. Escape mixed-case names; use strings for names with uppercase
+letters but no lowercase letters."
   (cond
     ((notany #'upper-case-p name)
      (format nil ":~A" (application--lisp-symbol-token name)))
@@ -810,129 +809,6 @@ structural discriminator as a readable heading instead."
         (error ()
           nil)))))
 
-(-> application--task-run-explicit-mode
-    (json-object)
-    (values keyword boolean))
-(defun application--task-run-explicit-mode (object)
-  "Return OBJECT's explicit task mode and whether it was supplied."
-  (multiple-value-bind (value present-p)
-      (gethash "async" object)
-    (values
-     (cond
-       ((not present-p)
-        ':synchronous)
-       ((eq value t)
-        ':detached)
-       ((json-false-p value)
-        ':synchronous)
-       (t
-        ':invalid))
-     present-p)))
-
-(-> application--task-run-mode
-    (json-object keyword boolean)
-    keyword)
-(defun application--task-run-mode
-    (object inherited-mode inherited-mode-p)
-  "Return OBJECT's explicit mode or its inherited batch mode."
-  (multiple-value-bind (mode present-p)
-      (application--task-run-explicit-mode object)
-    (if present-p
-        mode
-        (if inherited-mode-p inherited-mode ':synchronous))))
-
-(-> application--task-run-prose
-    (json-object string &key (:required boolean))
-    (option string))
-(defun application--task-run-prose (object field &key required)
-  "Return repaired prose FIELD from OBJECT with readable invalid placeholders."
-  (multiple-value-bind (value present-p)
-      (gethash field object)
-    (cond
-      ((and present-p (stringp value))
-       (let ((repaired (task--repair-prose value)))
-         (if (non-empty-string-p repaired)
-             repaired
-             (and required
-                  (format nil "(missing ~A)" field)))))
-      (present-p
-       (format nil "(invalid ~A)" field))
-      (required
-       (format nil "(missing ~A)" field))
-      (t
-       nil))))
-
-(-> application--task-run-items
-    (json-object)
-    (values list boolean boolean))
-(defun application--task-run-items (arguments)
-  "Return raw task items, batch mode, and malformed-batch status."
-  (multiple-value-bind (tasks present-p)
-      (gethash "tasks" arguments)
-    (cond
-      ((not present-p)
-       (values (list arguments) nil nil))
-      ((and (vectorp tasks)
-            (not (stringp tasks))
-            (plusp (length tasks)))
-       (values (coerce tasks 'list) t nil))
-      (t
-       (values nil t t)))))
-
-(-> application--task-run-item
-    (t &key (:index integer)
-            (:inherited-mode keyword)
-            (:inherited-mode-p boolean)
-            (:include-context-p boolean))
-    list)
-(defun application--task-run-item
-    (item &key (index 1) (inherited-mode ':synchronous)
-          inherited-mode-p include-context-p)
-  "Return one best-effort presentation record for raw task ITEM."
-  (if (not (json-object-p item))
-      (list :index      index
-            :name       nil
-            :role       "(invalid role)"
-            :mode       ':invalid
-            :assignment "(invalid task definition)"
-            :context    nil
-            :invalid-p  t)
-      (let* ((name-value (json-get item "name"))
-             (role-value (json-get item "agent"))
-             (name
-               (cond
-                 ((null name-value)
-                  nil)
-                 ((non-empty-string-p name-value)
-                  name-value)
-                 (t
-                  "(invalid name)")))
-             (role
-               (cond
-                 ((null role-value)
-                  "task")
-                 ((non-empty-string-p role-value)
-                  (string-downcase role-value))
-                 (t
-                  "(invalid role)"))))
-        (list :index      index
-              :name       name
-              :role       role
-              :mode       (application--task-run-mode
-                           item inherited-mode inherited-mode-p)
-              :assignment (application--task-run-prose
-                           item "task" :required t)
-              :context    (and include-context-p
-                               (application--task-run-prose item "context"))
-              :invalid-p  nil))))
-
-(-> application--task-run-shared-context
-    (json-object boolean)
-    (option string))
-(defun application--task-run-shared-context (arguments batch-p)
-  "Return top-level context, requiring it only for a task batch."
-  (application--task-run-prose arguments "context" :required batch-p))
-
 (-> application--task-run-summary-text (string) string)
 (defun application--task-run-summary-text (text)
   "Return TEXT as one sanitized whitespace-normalized summary line."
@@ -998,17 +874,6 @@ structural discriminator as a readable heading instead."
           ':dim
           (format nil "~A… +~D more row~:P" indent omitted))))))))
 
-(-> application--task-run-context-rows
-    (application (option string) &key (:label string))
-    list)
-(defun application--task-run-context-rows
-    (application context &key (label "context"))
-  "Return a labeled readable task CONTEXT section when one exists."
-  (when context
-    (append
-     (list (application--tool-section-row label))
-     (application--task-run-prose-rows application context))))
-
 (-> application--task-run-mode-label (keyword) string)
 (defun application--task-run-mode-label (mode)
   "Return one readable presentation label for task MODE."
@@ -1016,9 +881,7 @@ structural discriminator as a readable heading instead."
     (:detached
      "detached")
     (:synchronous
-     "synchronous")
-    (:invalid
-     "(invalid mode)")))
+     "synchronous")))
 
 (-> application--task-run-compact-context-row
     (application string)
@@ -1049,16 +912,14 @@ structural discriminator as a readable heading instead."
                  (list
                   (princ-to-string (getf item :index))
                   (or (getf item :name) "(unnamed)")
-                  (getf item :role)
+                  (getf item :agent)
                   (case (getf item :mode)
                     (:detached
                      "detached")
-                    (:invalid
-                     "invalid")
                     (otherwise
                      ""))
                   (application--task-run-summary-text
-                   (getf item :assignment)))))
+                   (getf item :task)))))
          (columns
            (terminal-columns
             (terminal-ui-terminal (application-ui application))))
@@ -1112,7 +973,7 @@ structural discriminator as a readable heading instead."
       application
       (list
        (list :label "role"
-             :value (getf item :role)
+             :value (getf item :agent)
              :style ':agent-role)
        (list :label "mode"
              :value (application--task-run-mode-label
@@ -1126,66 +987,28 @@ structural discriminator as a readable heading instead."
      (list (application--tool-section-row "assignment"))
      (application--task-run-prose-rows
       application
-      (getf item :assignment)))))
+      (getf item :task)))))
 
 (-> application--task-run-rows
     (application json-object)
     list)
 (defun application--task-run-rows (application arguments)
-  "Return compact or expanded structured rows for task.run ARGUMENTS."
-  (multiple-value-bind (raw-items batch-p malformed-batch-p)
-      (application--task-run-items arguments)
-    (let* ((shared-context
-             (application--task-run-shared-context arguments batch-p))
-           (item-limit (max 1 *task-maximum-batch-size*))
-           (visible-raw-items
-             (subseq raw-items 0 (min item-limit (length raw-items))))
-           (omitted-items
-             (- (length raw-items) (length visible-raw-items))))
-      (multiple-value-bind (inherited-mode inherited-mode-p)
-          (application--task-run-explicit-mode arguments)
-        (let ((items
-                (loop for raw-item in visible-raw-items
-                      for index from 1
-                      collect
-                      (application--task-run-item
-                       raw-item
-                       :index             index
-                       :inherited-mode    inherited-mode
-                       :inherited-mode-p  (and batch-p inherited-mode-p)
-                       :include-context-p batch-p))))
-          (append
-           (application--task-run-context-rows
-            application shared-context)
-           (when (and shared-context
-                      (or malformed-batch-p items))
-             (list nil))
-           (cond
-             (malformed-batch-p
-              (list (application--tool-section-row
-                     "invalid task batch")))
-             ((application-compact-view-p application)
-              (append
-               (when batch-p
-                 (list
-                  (application--tool-section-row
-                   (format nil "tasks · ~D" (length raw-items)))))
-               (application--task-run-compact-item-rows
-                application items)))
-             (t
-              (loop for item in items
-                    for first-p = t then nil
-                    append
-                    (append
-                     (unless first-p (list nil))
-                     (application--task-run-expanded-item-rows
-                      application item)))))
-           (when (plusp omitted-items)
-             (list
-              (list
-               (terminal-span
-                ':dim
-                (format nil "… +~D more task~:P" omitted-items)))))))))))
+  "Lay out the same normalized descriptions used to execute task.run."
+  (handler-case
+      (let* ((definitions
+               (task-discover-agents (application-configuration application)))
+             (items (task-normalize-arguments arguments :definitions definitions)))
+        (if (application-compact-view-p application)
+            (application--task-run-compact-item-rows application items)
+            (loop for item in items
+                  for first-p = t then nil
+                  append (append
+                          (unless first-p (list nil))
+                          (application--task-run-expanded-item-rows
+                           application item)))))
+    (tool-error (condition)
+      (list (application--tool-section-row
+             (format nil "invalid task request: ~A" condition))))))
 
 (defmethod application-tool-call-entry
     ((tool task-run-tool) (application application) (call hash-table))
@@ -1274,11 +1097,10 @@ structural discriminator as a readable heading instead."
     (option string))
 (defun application--workspace-resource-observed-text
     (application uri revision &key start-line end-line)
-  "Return visible observed workspace lines for URI and REVISION, or NIL.
+  "Return observed workspace lines for URI and REVISION, or NIL.
 
-The transcript never reads the current file as a revision-gated preimage. It
-uses only the exact transient observation and only ranges already shown to the
-model."
+Use only the exact transient observation and ranges already shown to the model.
+Never read the current file as a revision-gated preimage."
   (block nil
     (unless (and (slot-boundp application 'conversation)
                  (non-empty-string-p revision)
@@ -1909,10 +1731,9 @@ OPERATION's own declared target line so they stay numbered."
 
 (-> application--structured-output-value (string) (values t boolean))
 (defun application--structured-output-value (output)
-  "Decode a JSON object or array OUTPUT for transcript presentation.
+  "Decode OUTPUT as a complete JSON object or array for transcript display.
 
-Only complete object and array documents opt into this path.  Other output
-remains ordinary bounded tool text, including malformed untrusted JSON."
+Treat other output, including malformed untrusted JSON, as bounded tool text."
   (let ((trimmed (string-trim '(#\Space #\Tab #\Newline #\Return) output)))
     (if (and (plusp (length trimmed))
              (member (char trimmed 0) '(#\{ #\[))
@@ -2201,7 +2022,7 @@ re-emitting untrusted serialized JSON."
                          "cancelled")
                         (otherwise
                          "background handoff"))))
-    (application--job-cancel-widget
+    (terminal-ui--job-cancel-widget
      (application--tool-entry
       application
       :style  (if (eq state ':failed) ':failure ':notice)
@@ -2210,7 +2031,7 @@ re-emitting untrusted serialized JSON."
                        application (getf (rest record) :tool)))
       :detail (format nil "~A · ~A" status
                       (if (member state '(:queued :running))
-                          (application--job-cancel-text (getf job :id))
+                          (terminal-ui--job-cancel-text (getf job :id))
                           (getf job :id)))
       :rows   (unless (application-compact-view-p application)
                (application--tool-field-rows
@@ -2223,38 +2044,6 @@ re-emitting untrusted serialized JSON."
                    (list (list :label "handoff"
                                :value "blocking wait expired")))))))
      (getf job :id))))
-
-(-> application--job-cancel-text (string) string)
-(defun application--job-cancel-text (identifier)
-  "Return the job.cancel call shown for IDENTIFIER, its id unquoted like other calls."
-  (format nil "(job.cancel :id ~A)" identifier))
-
-(-> application--job-cancel-widget (list t) list)
-(defun application--job-cancel-widget (spans identifier)
-  "Highlight the complete job.cancel call and make every token insert its readable form.
-
-Only a call shown in full becomes clickable; a detail cut at the terminal edge
-stays plain. The header stays an ordinary span, so the entry keeps its group."
-  (let ((text (and (stringp identifier) (application--job-cancel-text identifier))))
-    (if (null text)
-        spans
-        (loop for span in spans
-              for content = (and (not (termdown:widget-p span)) (terminal-span-text span))
-              for position = (and content (search text content :from-end t))
-              if (and position (= (+ position (length text)) (length content)))
-                append
-                (cons
-                 (terminal-span (terminal-span-style span) (subseq content 0 position))
-                 (let ((action (list ':insert (format nil "(job.cancel :id ~S)" identifier))))
-                   (mapcar (lambda (token)
-                             (termdown:make-widget (terminal-span-style token)
-                                                  (terminal-span-text token)
-                                                  action))
-                           (or (syntax--highlight-spans
-                                text :language *application-common-lisp-language*)
-                               (list (terminal-span ':code text))))))
-              else
-                collect span))))
 
 (defmethod application-tool-result-entry :around
     (tool (application application) record)
@@ -2296,10 +2085,9 @@ stays plain. The header stays an ordinary span, so the entry keeps its group."
 
 (defmethod application-tool-result-entry
     ((tool papercut-report-tool) (application application) record)
-  "Present a successful papercut report as a prominent persistent alert.
+  "Show successful papercut reports as prominent persistent alerts.
 
-A report that only repeated an active papercut is presented as such, so the
-user sees the existing report rather than a new one."
+Mark reports that repeat an active papercut as already reported."
   (if (application--tool-result-success-p record)
       (let* ((output     (or (getf (rest record) :output) ""))
              (identifier (application--papercut-result-identifier output))

@@ -6,7 +6,7 @@
     (configuration &key (:reasoning-summaries-p boolean))
     model-provider)
 (defun provider--codex-registration-factory (configuration &key reasoning-summaries-p)
-  "Create the built-in ChatGPT provider from registry metadata."
+  "Create the built-in ChatGPT provider."
   (provider-family-create ':codex
                            configuration
                            :reasoning-summaries-p reasoning-summaries-p))
@@ -15,7 +15,7 @@
     (configuration &key (:reasoning-summaries-p boolean))
     model-provider)
 (defun provider--grok-registration-factory (configuration &key reasoning-summaries-p)
-  "Create the built-in Grok provider from registry metadata."
+  "Create the built-in Grok provider."
   (declare (ignore reasoning-summaries-p))
   (provider-family-create ':grok configuration))
 
@@ -44,7 +44,7 @@
     model-provider)
 (defun provider--nous-registration-factory
     (configuration &key reasoning-summaries-p)
-  "Create the built-in Nous Research provider from registry metadata."
+  "Create the built-in Nous Research provider."
   (declare (ignore reasoning-summaries-p))
   (provider-family-create ':nous configuration))
 
@@ -63,7 +63,7 @@
     model-provider)
 (defun provider--fireworks-registration-factory
     (configuration &key reasoning-summaries-p)
-  "Create the built-in Fireworks provider from registry metadata."
+  "Create the built-in Fireworks provider."
   (declare (ignore reasoning-summaries-p))
   (provider-family-create ':fireworks configuration))
 
@@ -72,9 +72,17 @@
     model-provider)
 (defun provider--opencode-registration-factory
     (configuration &key reasoning-summaries-p)
-  "Create the built-in OpenCode provider from registry metadata."
+  "Create the built-in OpenCode provider."
   (declare (ignore reasoning-summaries-p))
   (provider-family-create ':opencode configuration))
+
+(-> provider--opencode-zen-registration-factory
+    (configuration &key (:reasoning-summaries-p boolean)) model-provider)
+(defun provider--opencode-zen-registration-factory
+    (configuration &key reasoning-summaries-p)
+  "Create the built-in OpenCode Zen provider."
+  (provider-family-create ':opencode-zen configuration
+                          :reasoning-summaries-p reasoning-summaries-p))
 
 (-> provider--opencode-registration-authenticator
     (model-provider &key (:stream stream) (:open-browser-p boolean))
@@ -83,15 +91,20 @@
     (provider &key stream open-browser-p)
   "Prompt for and save the built-in OpenCode provider's API key."
   (declare (ignore open-browser-p))
-  (opencode-api-key-login (provider-credential-manager provider)
-                          :stream (or stream *standard-output*)))
+  (funcall (ecase (provider-family provider)
+             (:opencode
+              #'opencode-api-key-login)
+             (:opencode-zen
+              #'opencode-zen-api-key-login))
+           (provider-credential-manager provider)
+           :stream (or stream *standard-output*)))
 
 (-> provider--openrouter-registration-factory
     (configuration &key (:reasoning-summaries-p boolean))
     model-provider)
 (defun provider--openrouter-registration-factory
     (configuration &key reasoning-summaries-p)
-  "Create the built-in OpenRouter provider from registry metadata."
+  "Create the built-in OpenRouter provider."
   (declare (ignore reasoning-summaries-p))
   (provider-family-create ':openrouter configuration))
 
@@ -110,7 +123,7 @@
     model-provider)
 (defun provider--mistral-registration-factory
     (configuration &key reasoning-summaries-p)
-  "Create the built-in Mistral provider from registry metadata."
+  "Create the built-in Mistral provider."
   (declare (ignore reasoning-summaries-p))
   (provider-family-create ':mistral configuration))
 
@@ -139,7 +152,7 @@
     model-provider)
 (defun provider--anthropic-registration-factory
     (configuration &key reasoning-summaries-p)
-  "Create the built-in Anthropic provider from registry metadata."
+  "Create the built-in Anthropic provider."
   (declare (ignore reasoning-summaries-p))
   (provider-family-create ':anthropic configuration))
 
@@ -290,8 +303,8 @@ efforts until upstream publishes its entry.")
  :source        ':builtin)
 
 (register-provider
- "opencode"
- :description                       "OpenCode (zen/go)"
+ "opencode-go"
+ :description                       "OpenCode Go"
  :family                            ':opencode
  :protocol                          ':chat-completions
  :endpoint                          *opencode-chat-completions-endpoint*
@@ -300,6 +313,20 @@ efforts until upstream publishes its entry.")
  :model-discovery                   #'opencode--fetch-models
  :model-discovery-endpoint          *opencode-models-endpoint*
  :model-discovery-endpoint-resolver #'opencode-models-endpoint
+ :source                            ':builtin)
+
+
+(register-provider
+ "opencode-zen"
+ :description                       "OpenCode Zen (pay-per-token)"
+ :family                            ':opencode-zen
+ :protocol                          ':chat-completions
+ :endpoint                          *opencode-zen-chat-completions-endpoint*
+ :factory                           #'provider--opencode-zen-registration-factory
+ :authenticator                     #'provider--opencode-registration-authenticator
+ :model-discovery                   #'opencode-zen--fetch-models
+ :model-discovery-endpoint          *opencode-zen-models-endpoint*
+ :model-discovery-endpoint-resolver #'opencode-zen-models-endpoint
  :source                            ':builtin)
 
 (register-provider

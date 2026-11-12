@@ -142,9 +142,9 @@ The primary blocking field and legacy inverse async field are mutually exclusive
            object :tool-name "task.run" :default top-completion-policy)
           :async     (not blocking-p))))
 
-(-> task-normalize-arguments (hash-table) list)
-(defun task-normalize-arguments (arguments)
-  "Validate TASK.RUN ARGUMENTS and return ordinary normalized item plists."
+(-> task-normalize-arguments (hash-table &key (:definitions list)) list)
+(defun task-normalize-arguments (arguments &key definitions)
+  "Return the validated task descriptions shared by execution and presentation."
   (task--validate-json-fields
    arguments '("name" "agent" "task" "context" "blocking" "async" "tasks" "isolation"
                "completion-policy")
@@ -215,7 +215,16 @@ The primary blocking field and legacy inverse async field are mutually exclusive
                                name)
                        :tool-name "task.run"))
               (setf (gethash key names) t))))))
-    items))
+    (loop for item in items
+          for index from 1
+          for definition = (task-find-agent-definition definitions (getf item :agent))
+          collect (append item
+                          (list :index index
+                                :mode  (if (or (getf item :blocking)
+                                               (and definition
+                                                    (task-agent-definition-blocking-p definition)))
+                                           ':synchronous
+                                           ':detached))))))
 
 (-> task--resolve-items
     (agent task-orchestrator list
@@ -270,8 +279,7 @@ The primary blocking field and legacy inverse async field are mutually exclusive
                           :tool-name "task.run"))))
            (task-agent-definition-validate-tools-available definition registry)
            (list :item item :definition definition :detached
-                 (and (not (getf item :blocking))
-                      (not (task-agent-definition-blocking-p definition)))))))
+                  (eq (getf item :mode) ':detached)))))
      items)))
 
 (-> task-tool-result
@@ -636,6 +644,9 @@ CACHE, when supplied, belongs to one caller snapshot, including negative reads."
            :owner               (getf snapshot :owner)
            :completion-policy   (getf snapshot :completion-policy)
            :result              result-record
+           :cleanup-descendants (getf snapshot :cleanup-descendants)
+           :cleanup-worktree    (getf snapshot :cleanup-worktree)
+           :cleanup-tool-waves  (getf snapshot :cleanup-tool-waves)
            :cancellation-reason (getf snapshot :cancellation-reason))
      (when include-progress-p
        (list
@@ -710,6 +721,7 @@ CACHE, when supplied, belongs to one caller snapshot, including negative reads."
                       :details     (getf result :details)
                       :shell-logs  (getf result :shell-logs)
                       :duration-ms (getf result :duration-ms)))
+           :cleanup             (getf snapshot :cleanup)
            :cancellation-reason (getf snapshot :cancellation-reason)
            :condition-report    (getf snapshot :condition-report))
      (when include-progress-p
@@ -1073,7 +1085,7 @@ poll a job whose completion will wake it."
         (task-discover-agents (agent-configuration parent))
       (let* ((orchestrator
               (task-orchestrator-refresh (task-run-tool-orchestrator tool)))
-             (items       (task-normalize-arguments arguments))
+             (items       (task-normalize-arguments arguments :definitions definitions))
              (resolved
               (task--resolve-items
                parent orchestrator definitions

@@ -141,17 +141,13 @@
              (unless (and (vectorp approved) (not (stringp approved)) (every #'stringp approved))
                (lsp-semantic--fail "Approved annotation IDs must be an array of strings."))
              (let ((results (lsp-semantic--apply context entry approved)))
-               ;; Consume only on success. Recoverable transaction errors retain the choice.
-               (setf (gethash (tool-context-conversation context) (lsp-semantic-state-entries state))
-                     (remove entry (gethash (tool-context-conversation context)
-                                            (lsp-semantic-state-entries state))))
                (json-object "applied" t "resources" (length results)))))
           (t
            (lsp-semantic--fail "Unknown semantic operation."))))))))
 
 (-> lsp-register-semantic-tools (tool-registry lsp-manager) tool-registry)
 (defun lsp-register-semantic-tools (registry manager)
-  "Register semantic operations on the existing shared language server manager."
+  "Register semantic operations in REGISTRY using the shared language server MANAGER."
   (tool-registry-register
    registry
    (make-instance

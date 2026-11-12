@@ -14,10 +14,17 @@
     };
   };
 
+  nixConfig = {
+    extra-substituters = [
+      "https://symbolics.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "symbolics.cachix.org-1:Wdgpxequ4fzP4FAckIf4MqMG9OpNxWz6CttNwiGf4AI="
+    ];
+  };
+
   outputs = inputs:
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
-      # Nix builds run on Linux x86-64 (the packaged release target) and on
-      # macOS arm64. nix/package.nix asserts the same platform set.
       systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
 
       perSystem = { pkgs, ... }:
@@ -65,9 +72,11 @@
                 pkgs.gnugrep
               ];
             } ''
+              umask 022
               export HOME="$TMPDIR/home"
               export XDG_CONFIG_HOME="$TMPDIR/config"
               export XDG_DATA_HOME="$TMPDIR/data"
+              export XDG_CACHE_HOME="$TMPDIR/cache"
               export XDG_STATE_HOME="$TMPDIR/state"
               mkdir -p "$HOME" "$XDG_STATE_HOME/autolith"
               printf '%s\n' preserved > "$XDG_STATE_HOME/autolith/private-state"
@@ -92,6 +101,9 @@
                 printf '%s\n' old > "$old_identity/$artifact"
               done
 
+              legacy_cache="$XDG_DATA_HOME/autolith/nix/asdf-cache/old-package"
+              mkdir -p "$legacy_cache"
+              printf '%s\n' legacy > "$legacy_cache/fixture.fasl"
               image_directory="$XDG_DATA_HOME/autolith/nix/images/${imageIdentity}"
               mkdir -p "$image_directory/active" "$image_directory/recovery"
               printf '%s\n' "${autolith.imageIdentity}" > \
@@ -105,6 +117,7 @@
               printf '%s\n' '(:RECOVERY-IMAGE :VERSION 2)' > \
                 "$image_directory/recovery/manifest.sexp"
 
+              chmod 750 "$XDG_DATA_HOME/autolith" "$XDG_STATE_HOME/autolith"
               first_output="$TMPDIR/first-output"
               concurrent_output="$TMPDIR/concurrent-output"
               second_output="$TMPDIR/second-output"
@@ -123,6 +136,13 @@
               test "$(cat "$first_output" "$concurrent_output" | \
                 grep -c 'Installed pristine recovery image')" = 1
 
+              cache_directory="$XDG_CACHE_HOME/autolith/nix/asdf-cache/${imageIdentity}"
+              test -d "$cache_directory"
+              test -n "$(find "$cache_directory" -name '*.fasl' -print -quit)"
+              test "$(stat -c %a "$XDG_CACHE_HOME/autolith")" = 700
+              test "$(cat "$legacy_cache/fixture.fasl")" = legacy
+              test ! -e "$XDG_DATA_HOME/autolith/nix/asdf-cache/${imageIdentity}"
+              chmod 750 "$XDG_CACHE_HOME/autolith"
               test "$(cat "$image_directory/identity")" = "${autolith.imageIdentity}"
               for artifact in \
                 active/autolith-active.core active/manifest.sexp \
@@ -135,6 +155,8 @@
               test -d "$old_identity"
               test -f "$XDG_DATA_HOME/autolith/nix/active/autolith-active.core"
               test "$(cat "$XDG_STATE_HOME/autolith/private-state")" = preserved
+              test "$(stat -c %a "$XDG_DATA_HOME/autolith")" = 750
+              test "$(stat -c %a "$XDG_STATE_HOME/autolith")" = 750
               test -d "$runtime_root/source"
               test ! -L "$runtime_root/source"
               test -e "$runtime_root/source/generate-version.sh"
@@ -156,15 +178,27 @@
                 "$image_directory/recovery/autolith-recovery.core" | cut -d ' ' -f 1)"
               ! grep -F 'Installed preloaded active image' "$second_output"
               ! grep -F 'Installed pristine recovery image' "$second_output"
+              test "$(stat -c %a "$XDG_CACHE_HOME/autolith")" = 750
+
+              HOME="$TMPDIR/unset-cache-home" env -u XDG_CACHE_HOME \
+                autolith --version > "$TMPDIR/unset-cache-output"
+              test -d "$TMPDIR/unset-cache-home/.cache/autolith/nix/asdf-cache/${imageIdentity}"
+              test "$(stat -c %a "$TMPDIR/unset-cache-home/.cache/autolith")" = 700
 
               # Relative XDG bases are invalid and must use the HOME fallback.
               fallback_output="$TMPDIR/fallback-output"
-              XDG_DATA_HOME=relative/data autolith --version > "$fallback_output"
+              XDG_DATA_HOME=relative/data XDG_STATE_HOME=relative/state \
+                XDG_CACHE_HOME=relative/cache autolith --version > "$fallback_output"
               test "$(tail -n 1 "$fallback_output")" = \
                 "autolith version ${autolith.autolithSystem.version}"
               fallback_image="$HOME/.local/share/autolith/nix/images/${imageIdentity}"
               test -f "$fallback_image/active/autolith-active.core"
               test ! -e "$TMPDIR/relative/data/autolith/nix"
+              test "$(stat -c %a "$HOME/.local/share/autolith")" = 700
+              test "$(stat -c %a "$HOME/.local/state/autolith")" = 700
+              test -d "$HOME/.cache/autolith/nix/asdf-cache/${imageIdentity}"
+              test "$(stat -c %a "$HOME/.cache/autolith")" = 700
+              test ! -e "$TMPDIR/relative/cache/autolith/nix"
 
               # A second package identity sharing the same XDG roots must build
               # and select its own complete pair without touching package A or
@@ -203,8 +237,6 @@
               touch "$out"
             '';
 
-            # The test runtime's ASDF environment describes the test variant, so
-            # the packaged launcher must start without inheriting it.
             acp-startup = pkgs.runCommand "autolith-acp-startup-check" {} ''
               export HOME="$TMPDIR/home"
               export XDG_CONFIG_HOME="$TMPDIR/config"

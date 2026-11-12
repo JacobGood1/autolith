@@ -613,7 +613,8 @@ retries stay auditable next to the request they belong to."
         (list :count      (memory-context-event-count event)
               :stale      (memory-context-event-stale-count event)
               :unverified (memory-context-event-unverified-count event)
-              :facts      (memory-context-event-fact-count event))))
+              :facts      (memory-context-event-fact-count event)
+              :ids        (copy-list (memory-context-event-identifiers event)))))
       (knowledge-change-event
        (agent-observer-status
         observer :knowledge-changes
@@ -627,6 +628,12 @@ retries stay auditable next to the request they belong to."
         observer :procedure-offers
         (list :names     (procedure-offer-event-names event)
               :related-p (procedure-offer-event-related-p event))))
+      (provider-retries-exhausted-event
+       (agent-observer-status
+        observer :provider-retries-exhausted
+        (list :attempts (provider-attempt-failed-event-attempt event)
+              :code     (provider-error-code
+                         (provider-attempt-failed-event-condition event)))))
       (provider-attempt-failed-event
        (let ((details
                (list :request-number request-number
@@ -1212,6 +1219,72 @@ worker results become explicit unknown outcomes so provider history stays valid.
             (*mission-admitted-operation* mission-admitted-operation))
         (funcall function)))))
 
+(defvar *agent-tool-wave-pools* (make-hash-table :test #'eq)
+  "Tool wave pools retained until their workers have actually stopped.")
+
+(defvar *agent-tool-wave-pool-lock* (make-lock "Autolith tool wave ownership")
+  "Protect the retained wave registry, never held during pool shutdown.")
+
+(-> agent--make-tool-wave-pool (integer) job-pool)
+(defun agent--make-tool-wave-pool (count)
+  "Create and register a wave before cancellation can unwind its owner."
+  (sb-sys:without-interrupts
+    (let ((pool (make-job-pool
+                 :name                     "Autolith tool wave"
+                 :maximum-concurrency      (min count *agent-maximum-concurrent-tool-workers*)
+                 :maximum-batch-size count :maximum-live-jobs count
+                 :terminal-retention-limit count)))
+      (with-lock-held (*agent-tool-wave-pool-lock*)
+        (setf (gethash pool *agent-tool-wave-pools*)
+              (list :parent cl-jobpond::*current-job* :closing-p nil)))
+      pool)))
+
+(-> agent--close-tool-wave-pool (job-pool) null)
+(defun agent--close-tool-wave-pool (pool)
+  "Bound shutdown while retaining every unfinished wave in the ownership registry."
+  (sb-sys:without-interrupts
+    (with-lock-held (*agent-tool-wave-pool-lock*)
+      (setf (getf (gethash pool *agent-tool-wave-pools*) :closing-p) t)))
+  (when (job-pool-close pool)
+    (with-lock-held (*agent-tool-wave-pool-lock*)
+      (remhash pool *agent-tool-wave-pools*)))
+  nil)
+
+(-> agent-tool-wave-cleanup-snapshot (job) list)
+(defun agent-tool-wave-cleanup-snapshot (ancestor)
+  "Inspect ANCESTOR's wave descendants and retire settled pools without waiting."
+  (let ((entries
+          (with-lock-held (*agent-tool-wave-pool-lock*)
+            (loop for pool being the hash-keys of *agent-tool-wave-pools*
+                    using (hash-value record)
+                  for parent = (getf record :parent)
+                  when (and parent
+                            (equal (cl-jobpond:job-root-identifier parent)
+                                   (cl-jobpond:job-root-identifier ancestor))
+                            (or (eq parent ancestor)
+                                (member (job-identifier ancestor)
+                                        (job-owner-identifiers parent) :test #'equal)))
+                    collect (cons pool (copy-list record))))))
+    (loop for (pool . record) in entries
+          for closed-p =
+          (and (getf record :closing-p)
+               (let ((cl-jobpond:*shutdown-timeout-seconds* 0))
+                 (job-pool-close pool)))
+          if closed-p
+          do (with-lock-held (*agent-tool-wave-pool-lock*)
+               (remhash pool *agent-tool-wave-pools*))
+          else
+            collect
+            (list :state     (cl-jobpond:job-pool-lifecycle-state pool)
+                  :closing-p (getf record :closing-p)
+                  :jobs
+                  (loop for job in (cl-jobpond:job-pool-list-jobs pool)
+                        for snapshot = (job-snapshot job)
+                        collect (list :id                  (job-identifier job)
+                                      :state               (getf snapshot :state)
+                                      :cancellation-reason (getf snapshot :cancellation-reason)
+                                      :condition-report    (getf snapshot :condition-report)))))))
+
 (-> agent--run-tool-wave
     (agent list &key (:observer agent-observer) (:tool-round integer)
                      (:tool-restriction-p boolean))
@@ -1237,70 +1310,45 @@ worker results become explicit unknown outcomes so provider history stays valid.
                                         :observer           observer
                                         :tool-restriction-p tool-restriction-p
                                         :record-timings-p   t))
-        (let ((next-index                0)
-              (claim-lock                (make-lock "Autolith tool wave claims"))
-              (threads                   nil)
-              (thread-creation-condition nil)
-              (thread-join-condition     nil))
-          (flet ((work ()
-                   (loop
-                     (let ((index
-                             (with-lock-held (claim-lock)
-                               (when (< next-index count)
-                                 (prog1 next-index
-                                   (incf next-index))))))
-                       (unless index
-                         (return))
-                       (setf (aref executions index)
-                             (agent--execute-tool-plan
-                              agent
-                              (nth index plans)
-                              :observer           observer
-                              :tool-restriction-p tool-restriction-p
-                              :record-timings-p   record-timings-p))))))
-            (unwind-protect
-                 (progn
-                   (loop repeat
-                           (min count *agent-maximum-concurrent-tool-workers*)
-                         while (null thread-creation-condition)
-                         do
-                           (handler-case
-                               (push
-                                 (make-thread
-                                  (agent--tool-thread-function #'work)
-                                  :name "autolith-tool-call")
-                                threads)
-                             (serious-condition (condition)
-                               (setf thread-creation-condition condition))))
-                   (when thread-creation-condition
-                     (work))
-                   (handler-case
-                       (mapc #'join-thread threads)
-                     (serious-condition (condition)
-                       (setf thread-join-condition condition))))
-              (mapc (lambda (thread)
-                      (when (thread-alive-p thread)
-                        (handler-case
-                            (join-thread thread)
-                          (serious-condition ()
-                            nil))))
-                    threads))
-            (when thread-join-condition
-              (loop for execution across executions
-                    when (and (null (getf execution :result))
-                              (null (getf execution :condition)))
-                      do (setf (getf execution :condition)
-                               thread-join-condition)))
-            (when thread-creation-condition
-              (agent--complete-tool-executions agent (coerce executions 'list)
-                                               :observer   observer
-                                               :tool-round tool-round)
-              (error thread-creation-condition))
-            (when thread-join-condition
-              (agent--complete-tool-executions agent (coerce executions 'list)
-                                               :observer   observer
-                                               :tool-round tool-round)
-              (error thread-join-condition)))))
+        (let* ((pool        nil)
+               (jobs        nil)
+               (completed-p nil))
+          (unwind-protect
+               (progn
+                 (sb-sys:without-interrupts
+                   (setf pool (agent--make-tool-wave-pool count)))
+                 (setf jobs
+                       (job-pool-submit-batch
+                        pool
+                        (loop for plan in plans
+                              for index from 0
+                              collect
+                              (let* ((plan  plan)
+                                     (index index)
+                                     (function
+                                       (agent--tool-thread-function
+                                        (lambda ()
+                                          (setf (aref executions index)
+                                                (agent--execute-tool-plan
+                                                 agent plan
+                                                 :observer           observer
+                                                 :tool-restriction-p tool-restriction-p
+                                                 :record-timings-p   record-timings-p))))))
+                                (list :parent-job cl-jobpond::*current-job*
+                                      :function   (lambda (job)
+                                                    (job-check-cancellation job)
+                                                    (funcall function)))))))
+                 (dolist (job jobs)
+                   (job-await job)
+                   (unless (eq (job-state job) ':completed)
+                     (job-check-cancellation job)))
+                 (setf completed-p t))
+            (when pool
+              (unwind-protect
+                   (unless completed-p
+                     (dolist (job jobs)
+                       (job-cancel job :reason ':wave-cancelled :cascade-p t)))
+                (agent--close-tool-wave-pool pool))))))
     (agent--complete-tool-executions agent (coerce executions 'list)
                                      :observer   observer
                                      :tool-round tool-round))
@@ -1449,11 +1497,12 @@ tool registry reaches the very next provider request."
    "Return true when AGENT's conversation should compact before continuing."))
 
 (defmethod agent-should-compact-p ((agent agent))
-  "Compare fresh known input with the soft compaction threshold, independently of paid usage."
+  "Compare current matched input accounting with the soft compaction threshold."
   (>= (context-estimate-known-tokens
        (agent-configuration agent) (agent-conversation agent)
        :tool-registry (agent-tool-registry agent)
        :hurry-up-p    (agent-hurry-up-p agent)
+       :provider      (agent-provider agent)
        :family        (provider-family (agent-provider agent)))
       (configuration-compaction-token-limit (agent-configuration agent))))
 
@@ -1644,15 +1693,26 @@ continues."
   (let ((metadata (provider-result-metadata result)))
     (and metadata (provider-response-metadata-reasoning-context metadata))))
 
+(-> agent--check-request-budget (agent (integer 0)) null)
+(defun agent--check-request-budget (agent request-number)
+  "Refuse another request when AGENT's turn has used its request budget."
+  (when (>= request-number *agent-maximum-provider-requests-per-turn*)
+    (error 'agent-loop-error
+           :message         (format nil "The turn reached its ~D provider-request safety limit."
+                                    *agent-maximum-provider-requests-per-turn*)
+           :conversation-id (conversation-identifier (agent-conversation agent))
+           :request-number  request-number))
+  nil)
+
 (-> agent--prepare-provider-request (agent) (integer 0))
 (defun agent--prepare-provider-request (agent)
-  "Prune cold-cache history before capturing any request for AGENT."
+  "Bound cold-cache history for AGENT; a retention estimate alone never rewrites it."
   (let ((provider      (agent-provider agent))
         (configuration (agent-configuration agent)))
     (conversation-prepare-provider-request
      (agent-conversation agent)
      :identity     (list (provider-family provider) (config :model configuration))
-     :idle-seconds (provider-prompt-cache-retention-seconds provider configuration))))
+     :idle-seconds (provider-prompt-cache-lifetime-seconds provider configuration))))
 
 (-> agent--request-tool-choice (boolean boolean (integer 0)) (member :auto :none))
 (defun agent--request-tool-choice (tools-p tool-restriction-p tool-rounds)
@@ -1717,10 +1777,18 @@ durable summary remains a handoff for another provider family.
 Each completed provider request is metered before response validation. Capture
 the durable cutoff before native or portable requests and retain arrivals at
 publication. Return issued request count and optional next-request details."
+  (agent--check-request-budget agent request-number)
   (agent--prepare-provider-request agent)
   (let* ((conversation                 (agent-conversation agent))
          (compaction                   (conversation-compaction-capture conversation))
          (captured-view                (conversation-compaction-view compaction))
+         (request-context              (mission-request-view-context conversation))
+         (recovery
+           (make-compaction-recovery
+            (lambda (details)
+              (conversation-append-provider-metadata
+               conversation (list :compaction-recovery details))
+              (agent-observer-status observer :compaction-recovery details))))
          (unfinished-work              nil)
          (*request-context-hurry-up-p* (agent-hurry-up-p agent))
          (issued                       0)
@@ -1734,34 +1802,42 @@ publication. Return issued request count and optional next-request details."
     (setf unfinished-work (task-unfinished-work-snapshot agent))
     (let* ((*provider-hosted-tools-enabled-p* (not tool-restriction-p))
            (provider                          (agent-provider agent))
+           (native-tools
+             (if (not tools-p)
+                 #()
+                 (if tool-restriction-p
+                     (tool-registry-provider-schemas
+                      (agent-tool-registry agent) :canonical-names tool-allowlist)
+                     (tool-registry-provider-schemas (agent-tool-registry agent)))))
            (native-window
              (multiple-value-bind (window usage)
-                 (provider-native-compact-conversation
-                  provider
-                  captured-view
-                    :tool-namespaces
-                    (if (not tools-p)
-                        #()
-                        (if tool-restriction-p
-                            (tool-registry-provider-schemas
-                             (agent-tool-registry agent)
-                             :canonical-names tool-allowlist)
-                            (tool-registry-provider-schemas
-                             (agent-tool-registry agent))))
-                  :event-callback
-                  (lambda (event)
-                    (if (typep event 'native-compaction-completed-event)
-                        (progn
-                          (setf native-request-accounted-p t
-                                native-usage (native-compaction-completed-event-usage event))
-                          (incf issued)
-                          (agent--note-compaction-request
-                           agent observer
-                           :request-number (+ request-number issued)
-                           :kind           ':native
-                           :usage          native-usage
-                           :response-id    (native-compaction-completed-event-response-id event)))
-                        (agent-observer-status observer :provider-progress nil))))
+                  (values-list
+                   (compaction-recovery-call
+                    recovery provider captured-view :dispatch
+                    (lambda (candidate)
+                      (agent--check-request-budget agent (+ request-number issued))
+                      (multiple-value-list
+                       (mission-call-with-native-compaction-view
+                        request-context candidate
+                        (lambda ()
+                          (provider-native-compact-conversation
+                           provider candidate :tool-namespaces native-tools
+                           :event-callback
+                           (lambda (event)
+                             (if (typep event 'native-compaction-completed-event)
+                                 (progn
+                                   (setf native-request-accounted-p t
+                                         native-usage (native-compaction-completed-event-usage event))
+                                   (incf issued)
+                                   (agent--note-compaction-request
+                                    agent observer :request-number (+ request-number issued)
+                                    :kind ':native :usage native-usage
+                                    :response-id                   (native-compaction-completed-event-response-id event)))
+                                 (agent-observer-status observer :provider-progress nil))))))))
+                    :preflight (lambda (candidate)
+                                (provider-check-request-context
+                                 provider (provider-native-compaction-request-object provider candidate native-tools)))
+                    :native-p  t))
                  (unless native-request-accounted-p
                    (setf native-usage usage))
                  (agent--native-compaction-window window)))
@@ -1790,16 +1866,27 @@ publication. Return issued request count and optional next-request details."
            :usage          native-usage))
       (loop for attempt from 1 to *agent-compaction-maximum-summary-requests*
             for result =
-              (let ((*telemetry-request-role* ':compaction))
-                (provider-stream-turn
-                 provider
-                 summary-conversation
-                 :tool-namespaces #()
-                 :event-callback
-                 (lambda (event)
-                   (declare (ignore event))
-                   (agent-observer-status observer :provider-progress nil))
-                 :compaction-p    t))
+                (let ((*telemetry-request-role* ':compaction))
+                  (multiple-value-bind (result candidate)
+                      (compaction-recovery-call
+                       recovery provider summary-conversation :dispatch
+                       (lambda (candidate)
+                         (agent--check-request-budget agent (+ request-number issued))
+                         (mission-call-with-request-view
+                          request-context candidate
+                          (lambda ()
+                            (provider-stream-turn
+                             provider candidate :tool-namespaces #()
+                             :event-callback
+                             (lambda (event)
+                               (declare (ignore event))
+                               (agent-observer-status observer :provider-progress nil))
+                             :compaction-p                       t))))
+                       :preflight (lambda (candidate)
+                                   (provider-check-request-context
+                                    provider (provider-request-object provider candidate #() :compaction-p t))))
+                    (setf summary-conversation candidate)
+                    result))
             do (incf issued)
                (push result summary-results)
                ;; Every completed paid request is accounted for before its
@@ -1850,7 +1937,8 @@ publication. Return issued request count and optional next-request details."
                conversation native-window
                :family          (provider-family provider)
                :summary         summary
-               :compaction      compaction
+               :compaction      (compaction-recovery-publication recovery compaction)
+               :recovery        (compaction-recovery-audit recovery :completed)
                :unfinished-work unfinished-work
                :validate-projection
                (lambda (candidate)
@@ -1863,7 +1951,8 @@ publication. Return issued request count and optional next-request details."
                   :tool-restriction-p    tool-restriction-p
                   :tool-allowlist        tool-allowlist)))
               (conversation-append-summary
-               conversation summary :compaction compaction
+               conversation summary :compaction (compaction-recovery-publication recovery compaction)
+               :recovery                        (compaction-recovery-audit recovery :completed)
                :unfinished-work                 unfinished-work
                :validate-projection
                (lambda (candidate)
@@ -1907,16 +1996,8 @@ loop, so compaction ahead of the user message shares the turn's budget."
           (maximum-output-tokens        nil)
           (next-request-details         nil))
      (declare (special *task-unfinished-work-agent*))
-     (loop
-       (when (>= request-number *agent-maximum-provider-requests-per-turn*)
-         (error 'agent-loop-error
-                :message
-                (format nil
-                        "The turn reached its ~D provider-request safety limit."
-                        *agent-maximum-provider-requests-per-turn*)
-                :conversation-id
-                (conversation-identifier (agent-conversation agent))
-                :request-number request-number))
+     (loop for recovery-used-p = nil
+           do (agent--check-request-budget agent request-number)
        (when (and tools-p (not tool-restriction-p))
          (mcp-tool-registry-refresh
           (agent-tool-registry agent)
@@ -1928,6 +2009,7 @@ loop, so compaction ahead of the user message shares the turn's budget."
           :request-number (1+ request-number))
          (setf first-request-p nil))
        (when (agent-should-compact-p agent)
+         (setf recovery-used-p t)
          (multiple-value-bind (compaction-requests details)
              (agent-compact-conversation
               agent observer
@@ -1940,23 +2022,7 @@ loop, so compaction ahead of the user message shares the turn's budget."
               :next-request-tool-rounds    tool-rounds)
            (incf request-number compaction-requests)
            (setf next-request-details details)))
-       (agent--prepare-provider-request agent)
-       (incf request-number)
-       (let ((output-limit
-               (if (and next-request-details
-                        (getf next-request-details :announced-p))
-                   (getf next-request-details :maximum-output-tokens)
-                   (agent-observer-status
-                    observer
-                    :provider-request-started
-                    (list :request-number request-number
-                            :tool-rounds  tool-rounds)))))
-         (setf next-request-details nil
-               maximum-output-tokens
-               (and (integerp output-limit)
-                    (plusp output-limit)
-                    output-limit)))
-       (let* ((conversation (agent-conversation agent))
+       (let* ((conversation    (agent-conversation agent))
               (tool-calls-p
                 (and tools-p
                      (eq (agent--request-tool-choice tools-p tool-restriction-p tool-rounds)
@@ -1974,43 +2040,81 @@ loop, so compaction ahead of the user message shares the turn's budget."
                   (t
                    (tool-registry-provider-schemas
                     (agent-tool-registry agent)))))
-              (cache-prefix nil)
+              (cache-prefix    nil)
+              (context-request nil)
               (result
-                (handler-case
-                    (let ((*provider-hosted-tools-enabled-p*
-                             (not tool-restriction-p))
-                          (*provider-tool-choice*
-                             (agent--request-tool-choice tools-p tool-restriction-p tool-rounds))
-                          (*provider-maximum-output-tokens* maximum-output-tokens)
-                          (*provider-cache-request-prefix*  nil)
-                          (*provider-cache-prefix-function*
-                            (lambda (prefix) (setf cache-prefix prefix)))
-                          (*request-context-hurry-up-p*
-                            (agent-hurry-up-p agent))
-                          (*context-request-contributions*
-                           (and
-                            tools-p
-                            (not tool-restriction-p)
-                            (mcp-tool-registry-context-contributions
-                             (agent-tool-registry agent)))))
-                      (provider-stream-turn
-                       (agent-provider agent)
+                (loop
+                  (agent--check-request-budget agent request-number)
+                  (agent--prepare-provider-request agent)
+                  (incf request-number)
+                  (let ((output-limit
+                          (if (and next-request-details (getf next-request-details :announced-p))
+                              (getf next-request-details :maximum-output-tokens)
+                              (agent-observer-status
+                               observer :provider-request-started
+                               (list :request-number request-number :tool-rounds tool-rounds)))))
+                    (setf next-request-details  nil
+                          maximum-output-tokens (and (integerp output-limit)
+                                                     (plusp output-limit) output-limit)
+                          cache-prefix          nil))
+                  (handler-case
+                      (return
+                        (let* ((context-request
+                                 (setf context-request
+                                       (provider-context-request-create
+                                        (agent-provider agent) conversation
+                                        (tool-registry-provider-schemas (agent-tool-registry agent)))))
+                               (*provider-context-request*       context-request)
+                               (*provider-hosted-tools-enabled-p*
+                                 (not tool-restriction-p))
+                               (*provider-tool-choice*
+                                 (agent--request-tool-choice tools-p tool-restriction-p tool-rounds))
+                               (*provider-maximum-output-tokens* maximum-output-tokens)
+                               (*provider-cache-request-prefix*  nil)
+                               (*provider-cache-prefix-function*
+                                 (lambda (prefix) (setf cache-prefix prefix)))
+                               (*request-context-hurry-up-p*
+                                 (agent-hurry-up-p agent))
+                               (*context-request-contributions*
+                                 (and tools-p
+                                      (not tool-restriction-p)
+                                      (mcp-tool-registry-context-contributions
+                                       (agent-tool-registry agent)))))
+                          (provider-stream-turn
+                           (agent-provider agent)
+                           conversation
+                           :tool-namespaces tool-namespaces
+                           :event-callback
+                           (agent--provider-event-callback
+                            observer
+                            :conversation   conversation
+                            :request-number request-number)
+                           :goal-context    goal-context)))
+                    (provider-context-budget-error (condition)
+                      ;; Mission supervision and zero-usage settlement have unwound.
+                      (when recovery-used-p (error condition))
+                      (setf recovery-used-p t)
+                      (agent--check-request-budget agent request-number)
+                      (multiple-value-bind (compaction-requests details)
+                          (agent-compact-conversation
+                           agent observer
+                           :tool-allowlist              tool-allowlist
+                           :tool-restriction-p          tool-restriction-p
+                           :tools-p                     tools-p
+                           :goal-context                goal-context
+                           :request-number              request-number
+                           :next-request-status-details t
+                           :next-request-tool-rounds    tool-rounds)
+                        (incf request-number compaction-requests)
+                        (setf next-request-details details)))
+                    (provider-error (condition)
+                      (conversation-append-provider-metadata
                        conversation
-                       :tool-namespaces tool-namespaces
-                       :event-callback
-                       (agent--provider-event-callback
-                        observer
-                        :conversation   conversation
-                        :request-number request-number)
-                       :goal-context    goal-context))
-                  (provider-error (condition)
-                    (conversation-append-provider-metadata
-                     conversation
-                     (list :request-number request-number
-                           :failure
-                           (agent--provider-error-metadata condition)))
-                    (error condition))))
-              (calls        (provider-result-tool-calls result))
+                       (list :request-number request-number
+                             :failure
+                             (agent--provider-error-metadata condition)))
+                      (error condition)))))
+              (calls           (provider-result-tool-calls result))
               (completion-details
                 (list :request-number    request-number
                       :response-id       (provider-result-response-id result)
@@ -2053,6 +2157,7 @@ loop, so compaction ahead of the user message shares the turn's budget."
             result
             :request-number request-number
             :call-plans     call-plans)
+           (provider-context-note-response context-request result)
            (agent--answer-tool-searches
             agent result tool-namespaces :request-number request-number)
            (agent--note-persisted-assistant-response

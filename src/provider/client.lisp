@@ -2,6 +2,11 @@
 
 ;;;; -- Provider Protocol --
 
+(setf *provider-retryable-event-error-codes*
+      (union '("service_unavailable_error" "overloaded_error" "rate_limit_error")
+             *provider-retryable-event-error-codes*
+             :test #'string-equal))
+
 (defclass session-preserving-provider-mixin ()
   ()
   (:documentation
@@ -24,7 +29,7 @@
   (:documentation "A direct ChatGPT subscription client for the Codex Responses service."))
 
 (defmethod provider-account-label ((provider codex-subscription-provider))
-  "Name the ChatGPT account service in user-visible failures."
+  "Return the ChatGPT service name for user-visible errors."
   (declare (ignore provider))
   "ChatGPT")
 
@@ -37,7 +42,7 @@
 
 (-> provider--parse-authentication-method ((option string)) (option keyword))
 (defun provider--parse-authentication-method (text)
-  "Decode authentication method TEXT at a command-line or slash boundary."
+  "Parse authentication method TEXT from command-line or slash-command input."
   (cond
     ((null text)
      nil)
@@ -51,7 +56,7 @@
 
 (-> provider--authentication-method (model-provider t) keyword)
 (defun provider--authentication-method (provider method)
-  "Validate native METHOD for PROVIDER and supply the browser default."
+  "Validate METHOD for PROVIDER, defaulting to browser authentication."
   (unless (member method '(nil :browser :device-code))
     (error 'authentication-error
            :message "Authentication method must be :browser or :device-code."))
@@ -314,7 +319,7 @@ credentials and model metadata independently of their cached wire routes."
 
 (defgeneric provider-authenticated-model (configuration provider)
   (:documentation
-   "Return a provider-specific model selection after login, or NIL to keep it."))
+   "Return the model to use after login, or NIL to keep the current model."))
 
 (defmethod provider-authenticated-model
     ((configuration configuration) (provider model-provider))
@@ -733,7 +738,7 @@ and codes follow the Codex reference at commit 6f51c65958."
 
 (defmethod provider-signal-transport-failure :around
     ((provider subscription-provider) (condition http-request-failed))
-  "Preserve detached401 details before either shared or Codex normalization."
+  "Preserve detached HTTP 401 details before shared or Codex normalization."
   (if (= (dexador.error:response-status condition) 401)
       (let ((headers (provider--sanitize-wire-value
                       (dexador.error:response-headers condition))))
@@ -775,10 +780,6 @@ and codes follow the Codex reference at commit 6f51c65958."
 
 
 ;;;; -- SSE Decoding --
-
-;;; Bounded SSE decoding and the per-line inactivity deadline live in
-;;; cl-llm-provider-api. Autolith installs the deadline reader and names its
-;;; condition class for stream size violations.
 
 (setf *sse-read-line-function* #'sse-read-line-within-inactivity-deadline)
 (setf *stream-limit-error-class* 'response-stream-limit-error)
@@ -946,11 +947,11 @@ are request-scoped and included in transport and result redaction."))
 
 (defmethod cl-llm-provider-api:provider-api-error-message
     ((condition provider--authentication-failure))
-  "Read the actionable authentication report including available provider details."
+  "Return the authentication error message, including any provider details."
   (autolith-error-message condition))
 
 (defmethod provider-error-response-id ((condition provider--authentication-failure))
-  "No response object was returned on HTTP401."
+  "No response object was returned on HTTP 401."
   (declare (ignore condition))
   nil)
 
@@ -990,6 +991,10 @@ are request-scoped and included in transport and result redaction."))
                     :code       code
                     :request-id request-id)))
 
+(defclass provider-retries-exhausted-event (provider-attempt-failed-event)
+  ()
+  (:documentation "The final failed attempt after the transient retry budget was spent."))
+
 (-> provider--call-with-bounded-retries
     (subscription-provider function function)
     t)
@@ -998,22 +1003,57 @@ are request-scoped and included in transport and result redaction."))
   "Call ATTEMPT-FUNCTION with bounded authentication and persistent transport recovery.
 
 ATTEMPT-FUNCTION receives the credential refresh flag and the event callback
-each attempt must stream through."
-  (labels ((attempt-with-authentication (event-callback)
-             "Run one logical request with bounded credential recovery."
-             (let* ((manager       (provider-credential-manager provider))
-                    (refreshable-p (credential-manager-refreshable-p manager)))
-               (call-with-credential-refresh
-                (lambda (force-refresh)
-                  (provider--call-with-transport-normalization
-                   (lambda ()
-                     (funcall attempt-function force-refresh event-callback))))
-                :refreshable-p refreshable-p
-                :exhausted-function
-                (lambda (condition)
-                  (error (provider--authentication-condition
-                          provider condition :refreshable-p refreshable-p)))))))
-    (call-with-streaming-retries #'attempt-with-authentication event-callback)))
+each attempt must stream through. Report exhaustion without replacing the
+original condition or weakening the streaming safety limit."
+  (let ((last-failure       nil)
+        (retryable-failures 0)
+        (maximum-retries    *provider-maximum-transient-retries*))
+    (labels ((observe (event)
+               "Retain the current request's last failure before forwarding EVENT."
+               (when (typep event 'provider-attempt-failed-event)
+                 (setf last-failure event)
+                 (when (provider-attempt-failed-event-retryable-p event)
+                   (incf retryable-failures)))
+               (funcall event-callback event))
+
+             (attempt-with-authentication (event-callback)
+               "Run one logical request with bounded credential recovery."
+               (let* ((manager       (provider-credential-manager provider))
+                      (refreshable-p (credential-manager-refreshable-p manager)))
+                 (call-with-credential-refresh
+                  (lambda (force-refresh)
+                    (provider--call-with-transport-normalization
+                     (lambda ()
+                       (funcall attempt-function force-refresh event-callback))))
+                  :refreshable-p refreshable-p
+                  :exhausted-function
+                  (lambda (condition)
+                    (error (provider--authentication-condition
+                            provider condition :refreshable-p refreshable-p)))))))
+      (if *provider-compaction-recovery-permit*
+          ;; A recovery permit authorizes one dispatch, never an authentication or
+          ;; streaming retry. Preserve the original unrelated failure for the caller.
+          (provider--call-with-transport-normalization
+           (lambda () (funcall attempt-function nil event-callback)))
+          (handler-case
+              (call-with-streaming-retries #'attempt-with-authentication #'observe
+                                          :maximum-retries maximum-retries)
+            (provider-retryable-error (condition)
+              ;; The same final attempt must escape the ladder. A callback failure,
+              ;; cancellation, or streaming safety stop is not transient exhaustion.
+              (when (and last-failure
+                         (eq condition (provider-attempt-failed-event-condition last-failure))
+                         (> retryable-failures maximum-retries))
+                (funcall event-callback
+                         (make-instance 'provider-retries-exhausted-event
+                                        :attempt     (provider-attempt-failed-event-attempt last-failure)
+                                        :elapsed-seconds
+                                        (provider-attempt-failed-event-elapsed-seconds last-failure)
+                                        :output-received-p
+                                        (provider-attempt-failed-event-output-received-p last-failure)
+                                        :retryable-p t
+                                        :condition   condition)))
+              (error condition)))))))
 
 (defmethod provider-stream-turn
     ((provider subscription-provider)
@@ -1209,26 +1249,39 @@ success body cannot be decoded. Unknown usage and response IDs remain NIL."
            (*provider-active-credential-redaction-marker*
              (safe-redaction-marker
               *provider-credential-redaction-marker*
-              *provider-active-credential-values*)))
+              *provider-active-credential-values*))
+           (native-recovery-permit
+             (and (eq :ready (third *provider-compaction-recovery-permit*))
+                  *provider-compaction-recovery-permit*)))
       (handler-case
-          (let ((request
-                  (provider-native-compaction-request-object
-                   provider conversation tool-namespaces)))
-            (multiple-value-bind (body status raw-headers)
-                (provider--open-native-compaction
-                 provider request :credentials credentials :conversation conversation)
-              (let ((headers (provider--sanitize-wire-value raw-headers)))
-                (provider-note-response-headers provider headers)
-                (unless (= status 200)
-                  (provider--codex-signal-status-failure
-                   provider status :headers headers :raw-body body))
-                (provider--decode-native-compaction-response
-                 provider body :status status :headers headers
-                 :event-callback event-callback))))
-        (dexador.error:http-request-unauthorized (condition)
-          (provider-signal-http-failure provider condition))
-        (http-request-failed (condition)
-          (provider-signal-transport-failure provider condition))))))
+          (handler-case
+              (let ((request
+                      (provider-native-compaction-request-object
+                       provider conversation tool-namespaces)))
+                (multiple-value-bind (body status raw-headers)
+                    (provider--open-native-compaction
+                     provider request :credentials credentials :conversation conversation)
+                  (let ((headers (provider--sanitize-wire-value raw-headers)))
+                    (provider-note-response-headers provider headers)
+                    (unless (= status 200)
+                      (provider--codex-signal-status-failure
+                       provider status :headers headers :raw-body body))
+                    (provider--decode-native-compaction-response
+                     provider body :status status :headers headers
+                     :event-callback event-callback))))
+            ;; Normalized Dexador conditions must reach the attempt's classifier.
+            (dexador.error:http-request-unauthorized (condition)
+              (provider-signal-http-failure provider condition))
+            (http-request-failed (condition)
+              (provider-signal-transport-failure provider condition)))
+        (provider-error (condition)
+          ;; Classify inside the attempt, before mission supervision wraps failures.
+          (if (provider--native-compaction-unavailable-p condition)
+              (progn
+                (when native-recovery-permit
+                  (provider-handoff-unsupported-native-permit provider))
+                (values nil (json-object "input_tokens" 0 "output_tokens" 0)))
+              (error condition)))))))
 
 (-> provider--native-compaction-unavailable-p (provider-error) boolean)
 (defun provider--native-compaction-unavailable-p (condition)

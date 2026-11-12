@@ -2,12 +2,6 @@
 
 ;;;; -- Win32 Platform Adapter --
 
-;;; This file implements the platform protocol for Windows 10 and 11 on
-;;; x86-64. It binds the wide kernel32 and advapi32 entry points it needs
-;;; with SB-ALIEN and never touches SBCL's internal SB-WIN32 package, so an
-;;; SBCL upgrade cannot change its behaviour silently. Descriptors are
-;;; HANDLE values, which is also what SBCL's Windows fd-streams report.
-
 (defclass win32-platform (platform)
   ()
   (:documentation "The adapter for Windows hosts built on the Win32 API."))
@@ -100,6 +94,81 @@
   (name win32-wide-string) (security (* t)))
 (win32--define win32--open-process "OpenProcess" win32-handle
   (access win32-dword) (inherit win32-bool) (process-id win32-dword))
+
+
+;;; Process observation structures use the native Windows x64 ABI.
+(sb-alien:define-alien-type win32-process-memory-counters
+    (sb-alien:struct win32-process-memory-counters
+      (cb win32-dword)
+      (page-fault-count win32-dword)
+      (peak-working-set-size (sb-alien:unsigned 64))
+      (working-set-size (sb-alien:unsigned 64))
+      (quota-peak-paged-pool-usage (sb-alien:unsigned 64))
+      (quota-paged-pool-usage (sb-alien:unsigned 64))
+      (quota-peak-non-paged-pool-usage (sb-alien:unsigned 64))
+      (quota-non-paged-pool-usage (sb-alien:unsigned 64))
+      (pagefile-usage (sb-alien:unsigned 64))
+      (peak-pagefile-usage (sb-alien:unsigned 64))))
+
+(sb-alien:define-alien-type win32-process-entry
+    (sb-alien:struct win32-process-entry
+      (size win32-dword)
+      (usage win32-dword)
+      (process-id win32-dword)
+      (default-heap-id (sb-alien:unsigned 64))
+      (module-id win32-dword)
+      (threads win32-dword)
+      (parent-process-id win32-dword)
+      (priority-base (sb-alien:signed 32))
+      (flags win32-dword)
+      (executable (array (sb-alien:unsigned 16) 260))))
+
+(win32--define win32--get-process-memory-info "K32GetProcessMemoryInfo" win32-bool
+  (process win32-handle) (counters (* win32-process-memory-counters))
+  (size win32-dword))
+(win32--define win32--create-process-snapshot "CreateToolhelp32Snapshot" win32-handle
+  (flags win32-dword) (process-id win32-dword))
+(win32--define win32--process-first "Process32FirstW" win32-bool
+  (snapshot win32-handle) (entry (* win32-process-entry)))
+(win32--define win32--process-next "Process32NextW" win32-bool
+  (snapshot win32-handle) (entry (* win32-process-entry)))
+
+(defmethod platform-process-resident-bytes ((platform win32-platform) process-id)
+  "Return native WorkingSetSize in bytes, or NIL when the process cannot be queried."
+  (when (typep process-id '(integer 1 4294967295))
+    (let ((handle (win32--open-process #x1000 0 process-id)))
+      (unless (zerop handle)
+        (unwind-protect
+             (sb-alien:with-alien ((counters win32-process-memory-counters))
+               (let ((size (sb-alien:alien-size win32-process-memory-counters :bytes)))
+                 (setf (sb-alien:slot counters 'cb) size)
+                 (unless (zerop (win32--get-process-memory-info
+                                 handle (sb-alien:addr counters) size))
+                   (sb-alien:slot counters 'working-set-size))))
+          (win32--close-handle handle))))))
+
+(defmethod platform-process-parent-snapshot ((platform win32-platform))
+  "Return a native Toolhelp PID/PPID snapshot and whether enumeration completed."
+  (let ((handle (win32--create-process-snapshot #x2 0)))
+    (if (= handle -1)
+        (values nil nil)
+        (unwind-protect
+             (sb-alien:with-alien ((entry win32-process-entry))
+               (setf (sb-alien:slot entry 'size)
+                     (sb-alien:alien-size win32-process-entry :bytes))
+               (let ((parents nil))
+                 (if (zerop (win32--process-first handle (sb-alien:addr entry)))
+                     (values nil (= (win32--get-last-error) 18))
+                     (loop
+                       (push (cons (sb-alien:slot entry 'process-id)
+                                   (sb-alien:slot entry 'parent-process-id))
+                             parents)
+                       (when (zerop (win32--process-next handle (sb-alien:addr entry)))
+                         (return (if (= (win32--get-last-error) 18)
+                                     (values (nreverse parents) t)
+                                     (values nil nil))))))))
+          (win32--close-handle handle)))))
+
 (win32--define win32--terminate-process "TerminateProcess" win32-bool
   (handle win32-handle) (code win32-dword))
 (win32--define win32--get-current-process "GetCurrentProcess" win32-handle)
@@ -288,10 +357,8 @@
 
 (-> win32--namestring (pathname) string)
 (defun win32--namestring (pathname)
-  "Return PATHNAME as the native namestring the wide entry points expect.
-
-A directory pathname loses its trailing separator, since object handles are
-opened by the directory's own name."
+  "Return PATHNAME's native namestring without a trailing directory separator.
+Keep the separator on drive roots."
   (let ((native (uiop:native-namestring pathname)))
     (if (and (> (length native) 3)
              (char= (char native (1- (length native))) #\\))
@@ -440,7 +507,7 @@ opened by the directory's own name."
 
 (-> win32--job-kill-on-close (integer t) null)
 (defun win32--job-kill-on-close (job enabled-p)
-  "Make JOB die with its launch owner until ownership is explicitly released."
+  "Enable or disable termination of JOB when its last handle is closed."
   (sb-alien:with-alien ((limits (sb-alien:array (sb-alien:unsigned 8) 144)))
     (let ((sap (sb-alien:alien-sap limits)))
       (dotimes (index 144) (setf (sb-sys:sap-ref-8 sap index) 0))
@@ -451,11 +518,9 @@ opened by the directory's own name."
 (defmethod platform-launch-detached-process
     ((platform win32-platform) arguments
      &key directory output ticket)
-  "Create a suspended replacement, assign its entire tree, then release it.
-
-The suspended initial thread is the Windows startup gate. The job owns every
-child before any user code runs. Kill-on-close covers abandonment; a successful
-handoff explicitly releases ownership without terminating the detached session."
+  "Create a suspended process and assign it to a job before running user code.
+Terminate the job on abandonment. After a successful handoff, release
+ownership without terminating the detached session."
   (declare (ignore platform))
   (let ((launcher-pid-pathname
           (and ticket
@@ -1083,14 +1148,14 @@ System application directories are available through AppContainer's system acces
         (win32--release-mutex mutex))
       (win32--close-handle mutex))))
 
-(-> win32--sandbox-read-roots (win32-platform pathname) list)
-(defun win32--sandbox-read-roots (platform workspace)
-  "Return configured tool roots outside WORKSPACE and the AppContainer system surface."
+(-> win32--sandbox-read-roots (win32-platform pathname &key (:read-roots list)) list)
+(defun win32--sandbox-read-roots (platform workspace &key read-roots)
+  "Return explicit and configured read scopes outside WORKSPACE and system roots."
   (let ((system-roots
           (remove nil (mapcar #'win32--absolute-environment-directory
                               '("SystemRoot" "ProgramFiles" "ProgramFiles(x86)")))))
     (remove-duplicates
-     (loop for value in *win32-sandbox-read-roots*
+     (loop for value in (append read-roots *win32-sandbox-read-roots*)
            for path = (and (or (pathnamep value) (non-empty-string-p value))
                            (uiop:ensure-directory-pathname
                              (if (pathnamep value) value
@@ -1118,7 +1183,7 @@ System application directories are available through AppContainer's system acces
       (sb-ext:posix-environ)))))
 
 (defmethod platform-call-with-command-sandbox ((platform win32-platform) workspace function
-                                               &key writable-roots)
+                                               &key writable-roots read-roots)
   "Run FUNCTION with explicit workspace/tool scopes and a private Windows scratch directory."
   (unless (sandbox-supported-p ':network-isolated)
     (win32--unavailable ':command-sandbox
@@ -1136,7 +1201,8 @@ System application directories are available through AppContainer's system acces
                                                     '(".agents" ".codex")
                                                     '(".git" ".agents" ".codex"))
                       :read-roots               (append (list workspace)
-                                                        (win32--sandbox-read-roots platform workspace)))
+                                                        (win32--sandbox-read-roots
+                                                         platform workspace :read-roots read-roots)))
                      (win32--sandbox-environment temporary))
          (platform-delete-directory-tree platform temporary
                                          :validate t :if-does-not-exist ':ignore))))))

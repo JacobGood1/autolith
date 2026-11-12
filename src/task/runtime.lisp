@@ -383,7 +383,9 @@ identifier is what an agent uses to refer to its own children."
           (task-closed-p
             (job-pool-close (task-orchestrator-pool orchestrator))))
       (task-completion-close orchestrator)
-      (and execution-closed-p task-closed-p))))
+      (when (and execution-closed-p task-closed-p)
+        (task-orchestrator-maintain-artifacts orchestrator)
+        t))))
 
 (-> task-orchestrator-detach (task-orchestrator) null)
 (defun task-orchestrator-detach (orchestrator)
@@ -472,76 +474,13 @@ under the progress lock before releasing it to other threads."
 
 (-> task-progress--usage-summary (t) list)
 (defun task-progress--usage-summary (usage)
-  "Project numeric token counters without traversing provider attribution.
-
-Inspect at most 64 fields per object. The fixed schema bounds nesting and
-retained fields, including when reading progress kept by an older image."
-  (labels ((field (object name)
-             "Read NAME from a JSON object or bounded portable association list."
-             (if (json-object-p object)
-                 (json-get object name)
-                 (loop for tail = object then (rest tail)
-                       for entry = (and (consp tail) (first tail))
-                       repeat 64
-                       while (consp tail)
-                       when (and (consp entry)
-                                 (equal name (first entry))
-                                 (consp (rest entry))
-                                 (null (nthcdr 2 entry)))
-                         return (second entry))))
-
-           (project (object schema)
-             "Copy only SCHEMA's numeric leaves from OBJECT."
-             (loop for (name . nested) in schema
-                   for value = (field object name)
-                   for retained = (if nested
-                                      (project value nested)
-                                      (and (typep value '(integer 0)) value))
-                   when retained
-                     collect (list (copy-seq name) retained))))
-    (project usage
-             '(("input_tokens")
-               ("output_tokens")
-               ("total_tokens")
-               ("cached_input_tokens")
-               ("cache_creation_input_tokens")
-               ("reasoning_tokens")
-               ("prompt_tokens")
-               ("completion_tokens")
-               ("cache_read_input_tokens")
-               ("prompt_cache_hit_tokens")
-               ("prompt_cache_miss_tokens")
-               ("input_tokens_details" ("cached_tokens") ("cache_write_tokens")
-                                       ("audio_tokens") ("text_tokens") ("image_tokens"))
-               ("prompt_tokens_details" ("cached_tokens") ("cache_write_tokens")
-                                        ("audio_tokens") ("text_tokens") ("image_tokens"))
-               ("output_tokens_details" ("reasoning_tokens") ("audio_tokens")
-                                        ("accepted_prediction_tokens")
-                                        ("rejected_prediction_tokens") ("text_tokens"))
-               ("completion_tokens_details" ("reasoning_tokens") ("audio_tokens")
-                                            ("accepted_prediction_tokens")
-                                            ("rejected_prediction_tokens") ("text_tokens"))
-               ("cache_creation" ("ephemeral_5m_input_tokens")
-                                 ("ephemeral_1h_input_tokens"))))))
+  "Return a detached bounded provider-counter snapshot of USAGE."
+  (cl-llm-provider-api:provider-usage-snapshot usage))
 
 (-> task-progress--merge-usage (t t) list)
 (defun task-progress--merge-usage (aggregate usage)
-  "Sum bounded numeric USAGE counters into a fresh projection of AGGREGATE."
-  (labels ((merge-counters (left right)
-             "Merge already projected counter objects without retaining metadata."
-             (dolist (entry right left)
-               (let* ((name     (first entry))
-                      (value    (second entry))
-                      (existing (assoc name left :test #'string=)))
-                 (if existing
-                     (setf (second existing)
-                           (let ((old-value (second existing)))
-                             (if (and (integerp old-value) (integerp value))
-                                 (+ old-value value)
-                                 (merge-counters old-value value))))
-                     (setf left (append left (list entry))))))))
-    (merge-counters (task-progress--usage-summary aggregate)
-                    (task-progress--usage-summary usage))))
+  "Sum one provider observation into a detached counter aggregate."
+  (cl-llm-provider-api:provider-usage-merge aggregate usage))
 
 (-> task-progress--event-usage (t) list)
 (defun task-progress--event-usage (usage)
@@ -665,42 +604,39 @@ for JOB's next verbal response."
         (return (values nil ':empty)))
       (when (> characters *task-steering-maximum-characters*)
         (return (values nil ':content-too-large)))
-      (with-lock-held ((cl-jobpond::job--lock job))
-        (unless (eq (job-state job) ':running)
-          (return (values nil ':not-running)))
-        (when (or (job-cancellation-reason job)
-                  (cl-jobpond::job--publication-claimed-p job))
-          (return (values nil ':closing)))
-        (with-lock-held ((task-job-steering-lock job))
-          (when (task-job-steering-closed-p job)
-            (return (values nil ':closed)))
-          (let ((count
-                  (+ (deque-count (task-job-steering-items job))
-                     (deque-count (task-job-steering-in-flight-items job))))
-                (retained-characters
-                  (+ (deque-total-weight (task-job-steering-items job))
-                     (deque-total-weight
-                      (task-job-steering-in-flight-items job)))))
-            (when (or (>= count *task-steering-maximum-items*)
-                      (and promote-response-p
-                           (>= (+ (deque-count
-                                   (task-job-response-promotion-pending-identifiers job))
-                                  (deque-count
-                                   (task-job-response-promotion-identifiers job)))
-                               *task-response-promotion-maximum-items*))
-                      (> (+ retained-characters characters)
-                         *task-steering-maximum-total-characters*))
-              (return (values nil ':full))))
-          (let ((entry
-                  (agent-steering-input-create
-                   :identifier (make-identifier)
-                   :content    copy)))
-            (deque-push-back (task-job-steering-items job) entry)
-            (when promote-response-p
-              (deque-push-back
-               (task-job-response-promotion-pending-identifiers job)
-               (agent-steering-input-identifier entry)))
-            (values entry ':accepted)))))))
+      (cl-jobpond:job-call-with-admission
+       job
+       (lambda ()
+         (with-lock-held ((task-job-steering-lock job))
+           (when (task-job-steering-closed-p job)
+             (return (values nil ':closed)))
+           (let ((count
+                   (+ (deque-count (task-job-steering-items job))
+                      (deque-count (task-job-steering-in-flight-items job))))
+                 (retained-characters
+                   (+ (deque-total-weight (task-job-steering-items job))
+                      (deque-total-weight
+                       (task-job-steering-in-flight-items job)))))
+             (when (or (>= count *task-steering-maximum-items*)
+                       (and promote-response-p
+                            (>= (+ (deque-count
+                                    (task-job-response-promotion-pending-identifiers job))
+                                   (deque-count
+                                    (task-job-response-promotion-identifiers job)))
+                                *task-response-promotion-maximum-items*))
+                       (> (+ retained-characters characters)
+                          *task-steering-maximum-total-characters*))
+               (return (values nil ':full))))
+           (let ((entry
+                   (agent-steering-input-create
+                    :identifier (make-user-identifier)
+                    :content    copy)))
+             (deque-push-back (task-job-steering-items job) entry)
+             (when promote-response-p
+               (deque-push-back
+                (task-job-response-promotion-pending-identifiers job)
+                (agent-steering-input-identifier entry)))
+             (values entry ':accepted))))))))
 
 (-> task-job-take-steering (task-job) list)
 (defun task-job-take-steering (job)
@@ -875,6 +811,7 @@ The lifecycle fields are read once through the pool snapshot so they cannot mix
 values from either side of a terminal transition."
   (let* ((snapshot (job-snapshot job))
          (result   (task-job--copy-result (getf snapshot :result)))
+         (waves    (agent-tool-wave-cleanup-snapshot job))
          (agent-name
            (with-lock-held ((cl-jobpond::job--lock job))
              (task-job-agent-name job))))
@@ -894,6 +831,22 @@ values from either side of a terminal transition."
           (task-progress--snapshot job
                                    :result   result
                                    :ended-at (getf snapshot :ended-at))
+          :cleanup-worktree     (task-worktree-cleanup-snapshot :job job)
+          :cleanup-tool-waves   waves
+          :cleanup-descendants
+          (append
+           (loop for execution in
+                 (job-pool-descendant-jobs
+                  (task-orchestrator-execution-pool (task-job-orchestrator job))
+                  (job-identifier job))
+                 when (job-cancellation-requested-p execution)
+                   collect (session-job-identifier execution))
+           (loop for wave in waves
+                 append (loop for execution in (getf wave :jobs)
+                             when (and (getf execution :cancellation-reason)
+                                       (not (member (getf execution :state)
+                                                    '(:completed :failed :aborted))))
+                                collect (getf execution :id))))
           :result               result
           :cancellation-reason  (getf snapshot :cancellation-reason)
           :condition-report     (getf snapshot :condition-report))))
@@ -922,6 +875,10 @@ values from either side of a terminal transition."
           :summary             (tool-execution-job-summary job)
           :progress
           (list :duration-ms (getf progress :duration-milliseconds))
+          :cleanup
+          (with-lock-held ((cl-jobpond::job--lock job))
+            (when (tool-execution-job-cleanup-condition job)
+              (list :status ':native-cleanup :owner (session-job-identifier job))))
           :result              (copy-tree (getf snapshot :result))
           :cancellation-reason (getf snapshot :cancellation-reason)
           :condition-report    (getf snapshot :condition-report))))
@@ -1099,15 +1056,19 @@ task.run reports both identifiers, and models pass either one."
    "Cancel session JOB and return whether it was accepted plus descendant IDs."))
 
 (defmethod session-job-cancel ((job session-job) reason)
-  "Cancel JOB and every retained descendant in its own pool."
+  "Cancel JOB's linked subtree across pools before terminal publication."
   (multiple-value-bind (accepted-p cascaded)
       (job-cancel job :reason reason :cascade-p t)
     (when accepted-p
       (session-job-note-cancellation job reason))
     (dolist (descendant cascaded)
-      (session-job-note-cancellation descendant reason))
-    (values accepted-p
-            (sort (mapcar #'session-job-identifier cascaded) #'string<))))
+      (when (typep descendant 'session-job)
+        (session-job-note-cancellation descendant reason)))
+    (values (not (null accepted-p))
+            (sort (loop for descendant in cascaded
+                        when (typep descendant 'session-job)
+                          collect (session-job-identifier descendant))
+                  #'string<))))
 
 (-> task-job--subtree-identifiers (task-job) list)
 (defun task-job--subtree-identifiers (job)
@@ -1121,37 +1082,6 @@ task.run reports both identifiers, and models pass either one."
                            (job-owner-identifiers candidate)
                            :test #'string=))
             collect (job-identifier candidate))))
-
-(defmethod session-job-cancel ((job task-job) reason)
-  "Cancel task JOB and accepted tool executions owned by its task subtree."
-  (multiple-value-bind (accepted-p cancelled-descendants)
-      (call-next-method)
-    (when accepted-p
-      (let ((task-identifiers (task-job--subtree-identifiers job)))
-        (dolist (candidate
-                 (job-pool-list-jobs
-                  (task-orchestrator-execution-pool
-                   (task-job-orchestrator job))))
-          (when (some (lambda (identifier)
-                        (member identifier
-                                (job-owner-identifiers candidate)
-                                :test #'string=))
-                      task-identifiers)
-            (multiple-value-bind (cancelled-p cascaded)
-                (job-cancel candidate :reason reason :cascade-p t)
-              (when cancelled-p
-                (session-job-note-cancellation candidate reason))
-              (dolist (descendant cascaded)
-                (session-job-note-cancellation descendant reason))
-              (when cancelled-p
-                (push (session-job-identifier candidate)
-                      cancelled-descendants))
-              (dolist (descendant cascaded)
-                (push (session-job-identifier descendant)
-                      cancelled-descendants)))))))
-    (values accepted-p
-            (sort (remove-duplicates cancelled-descendants :test #'string=)
-                  #'string<))))
 
 (-> task-job-cancel (task-job keyword) (values boolean list))
 (defun task-job-cancel (job reason)

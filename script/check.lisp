@@ -196,8 +196,6 @@ that is running this check, since the launcher is a Bash script."
   "Kill PROCESS's process group where the host has process groups."
   #-win32
   (let ((pid (uiop:process-info-pid process)))
-    ;; SBCL gives noninteractive children a separate process group on both
-    ;; Linux and macOS. UIOP's terminate-process only signals the leader.
     (handler-case (sb-posix:kill (- pid) sb-posix:sigkill)
       (sb-posix:syscall-error (condition)
         (unless (= (sb-posix:syscall-errno condition) sb-posix:esrch)
@@ -353,8 +351,6 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
                            :label       (format nil "Test worker ~D" index)
                            :names names :result-path result
                            :output      (merge-pathnames "output.log" directory)
-                           ;; Give default-root configurations private preferences,
-                           ;; state and model caches. Share data for the runtime launcher.
                            :environment (check--environment-with
                                          (append
                                           (list (format nil "XDG_CONFIG_HOME=~Aconfig/" directory)
@@ -391,6 +387,25 @@ that start fresh Autolith processes. Private XDG roots isolate user preferences.
              (when (or (check-process-problem entry) (not (zerop (check-process-status entry))))
                (setf successful-p nil)
                (check--print-process-log entry)))
+           (let* ((reported-names (remove-duplicates
+                                    (loop for result in (reverse results)
+                                          append (mapcar #'first (getf result :timings)))
+                                    :test #'string=))
+                  (missing-names  (set-difference (mapcar #'string-downcase cases)
+                                                  reported-names :test #'string=))
+                  (invalid-shards (loop for entry in entries
+                                        when (check-process-problem entry)
+                                          collect (check-process-label entry))))
+             (format t "~&Coverage: assigned ~D cases in ~D shards; validated reported ~D cases in ~D shards.~%"
+                     (length cases) (length entries) (length reported-names) (length results))
+             (when (or missing-names invalid-shards)
+               (format t "Coverage gaps: ~D missing cases, ~D invalid shards.~%"
+                       (length missing-names) (length invalid-shards))
+               (when missing-names
+                 (format t "Missing cases: ~{~A~^, ~}~%" missing-names))
+               (when invalid-shards
+                 (format t "Invalid shards: ~{~A~^, ~}~%" invalid-shards)))
+             (finish-output))
            (let* ((timings   (loop for result in results append (getf result :timings)))
                   (aggregate (list :version  1
                                    :cases    (loop for result in results sum (getf result :cases))

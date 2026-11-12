@@ -114,6 +114,16 @@
   (setf (recording-terminal-chunks terminal) nil)
   terminal)
 
+(-> test-terminal-control-z-decodes-as-detach () null)
+(defun test-terminal-control-z-decodes-as-detach ()
+  "Decode the terminal's Ctrl-Z byte as the semantic detach event."
+  (test-assert
+   (eq ':detach
+       (terminal--decode-editing-event
+        (make-string-input-stream (string (code-char 26)))))
+   "Ctrl-Z is decoded without invoking terminal suspend")
+  nil)
+
 (-> terminal-tests--substring-count (string string) (integer 0))
 (defun terminal-tests--substring-count (needle haystack)
   "Return the number of non-overlapping NEEDLE occurrences in HAYSTACK."
@@ -801,22 +811,22 @@
   "Test async Lisp prompt classification and rendered editor mapping."
   (let ((whitespace (format nil "?~C~C~C~C~Cvalue"
                             #\Space #\Tab #\Newline #\Return #\Page)))
-    (test-assert (= (terminal-ui--async-lisp-prefix-length "? ") 2)
+    (test-assert (= (input-async-lisp-prefix-length "? ") 2)
                  "a question mark followed by a space is an async Lisp prefix")
-    (test-assert (= (terminal-ui--async-lisp-prefix-length whitespace) 6)
+    (test-assert (= (input-async-lisp-prefix-length whitespace) 6)
                  "all supported Lisp whitespace extends the async prefix")
     (dolist (text '("" "?" "??" "?foo" "?x foo"))
-      (test-assert (null (terminal-ui--async-lisp-prefix-length text))
+      (test-assert (null (input-async-lisp-prefix-length text))
                    (format nil "~S is ordinary chat input" text)))
     (dolist (text (list "? " whitespace))
-      (test-assert (terminal-ui--async-lisp-draft-p text)
+      (test-assert (input-async-lisp-p text)
                    "supported async Lisp prefixes classify as async drafts"))
     (dolist (text '("" "?" "??" "?foo" "?x foo"))
-      (test-assert (not (terminal-ui--async-lisp-draft-p text))
+      (test-assert (not (input-async-lisp-p text))
                    (format nil "~S is not an async Lisp draft" text))))
-  (test-assert (terminal-ui--lisp-draft-p "(form")
+  (test-assert (input-lisp-p "(form")
                "ordinary Lisp drafts retain their opening-parenthesis semantics")
-  (test-assert (not (terminal-ui--lisp-draft-p "? (form"))
+  (test-assert (not (input-lisp-p "? (form"))
                "question-mark drafts do not alter ordinary Lisp classification")
   (let* ((terminal (make-instance 'recording-terminal :columns 40))
          (ui       (terminal-ui-create :terminal terminal :prompt "❯ ")))
@@ -1526,6 +1536,28 @@
                       (terminal-ui-command-activities active-ui))
               '("exec:1" "exec:2"))
        "command rows retain scheduler creation order")
+      (dolist (state '(:queued :running :completed))
+        (dolist (width '(16 45 90 120))
+          (let* ((activity (copy-list
+                            (find "exec:1" commands :test #'string=
+                                  :key                    (lambda (command) (getf command :id)))))
+                 (row      (progn
+                             (setf (getf activity :state) state)
+                             (terminal-ui--command-activity-row-at
+                              activity clock width :identity-width 6 :tool-width 9)))
+                 (widgets  (remove-if-not #'termdown:widget-p row)))
+            (test-assert (<= (terminal--spans-width row) width)
+                         "cancellation actions fit the command row budget")
+            (if (and (member state '(:queued :running)) (>= width 90))
+                (test-assert
+                 (and widgets
+                      (every (lambda (widget)
+                               (equal (termdown:widget-action widget)
+                                      '(:insert "(job.cancel :id \"exec:1\")")))
+                             widgets))
+                 "every cancellation token inserts a complete executable call")
+                (test-assert (null widgets)
+                             "completed and narrow rows omit cancellation actions")))))
       (test-assert (terminal-ui-refresh-status active-ui)
                    "the reader paints changed command state immediately")
       (multiple-value-bind (text display cursor)

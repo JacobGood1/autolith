@@ -506,12 +506,10 @@
 
 (-> test-task-admission-cancellation-barrier () null)
 (defun test-task-admission-cancellation-barrier ()
-  "Test that a child admitted after a cascade scanned is still stopped.
+  "Refuse admission racing cancellation at the shared ownership boundary.
 
-Admission no longer holds the parent's lifecycle lock, so a child can be admitted
-after a cascading cancellation has already walked the subtree. What closes that
-window is the ancestry check a child makes before it runs, and this exercises
-exactly that race."
+Pause after Autolith's courtesy check, then cancel before pool admission. The
+pool must reject the cancelled parent without creating a descendant."
   (let* ((configuration (test-configuration))
          (root          (test-configuration-root configuration))
          (definition
@@ -597,38 +595,23 @@ exactly that race."
                      (test-assert
                       (and cancel-accepted-p
                            (null cancelled-descendants)
-                           (eq (job-state parent) :aborted))
-                      "cancellation completes its subtree scan before admission")
+                           (job-cancellation-requested-p parent))
+                      "cancellation marks the parent before admission resumes")
                      (with-lock-held (pause-lock)
                        (setf release-admission-p t)
                        (task--condition-broadcast pause-condition))
                      (join-thread admission-thread)
                      (setf admission-thread nil)
-                     (let ((child (first admitted)))
-                       (test-assert
-                        (and (null admission-failure)
-                             (= (length admitted) 1)
-                             (member
-                              (job-identifier parent)
-                              (job-owner-identifiers child)
-                              :test #'string=))
-                        "a child can be admitted after the cascade has scanned")
-                       (test-assert
-                        (task-tests--wait-until
-                         (lambda () (job-terminal-p child))
-                         5)
-                        "a child admitted after the cascade still terminalizes")
-                       (test-assert
-                        (and (eq (job-state child) :aborted)
-                             (search "with its parent"
-                                     (or (getf (job-result child) :error) "")))
-                        "its cancelled ancestor stops it before it does any work")
-                       (test-assert
-                        (task-tests--wait-until
-                         (lambda ()
+                     (test-assert
+                      (and (typep admission-failure 'cl-jobpond:job-aborted)
+                           (null admitted))
+                      "pool admission refuses a parent cancelled after the courtesy check")
+                     (test-assert
+                      (and (nth-value 1 (job-await parent :timeout-seconds 2))
+                           (eq (job-state parent) ':aborted)
+                           (= (length (task-orchestrator-list-jobs orchestrator)) 1)
                            (zerop (task-orchestrator-live-count orchestrator)))
-                         5)
-                        "the raced admission leaks no live capacity"))))
+                      "the refused admission creates no child or live capacity")))
                (with-lock-held (pause-lock)
                  (setf release-admission-p t)
                  (task--condition-broadcast pause-condition))
@@ -661,7 +644,8 @@ exactly that race."
                   t))
               "admission loses atomically when parent cancellation wins")
              (test-assert
-              (and (= (hash-table-count
+              (and (nth-value 1 (job-await parent :timeout-seconds 2))
+                   (= (hash-table-count
                        (cl-jobpond::job-pool--jobs (task-orchestrator-pool orchestrator)))
                       1)
                    (zerop (task-orchestrator-live-count orchestrator))
@@ -768,8 +752,6 @@ exactly that race."
                     (original-configuration
                       (symbol-function 'task-configuration-for-definition)))
                (task-orchestrator-set-hurry-up orchestrator t)
-               ;; Isolate the cumulative session allowance from the pool's live
-               ;; bound. Inline jobs remain live until test cleanup.
                (with-lock-held ((task-orchestrator-lock orchestrator))
                  (setf (job-pool-maximum-live-jobs pool)
                        *task-maximum-live-jobs*))
@@ -2107,9 +2089,6 @@ exactly that race."
            (test-assert
             (task-tests--wait-until (lambda () started-p) 2)
             "the delayed closing worker reaches its barrier")
-           ;; A real close first, so the pool's own workers and deadline monitor
-           ;; are genuinely gone and the only thread left alive is the one this
-           ;; test controls.
            (task-orchestrator-close orchestrator)
            (with-lock-held ((cl-jobpond::job-pool--lock (task-orchestrator-pool orchestrator)))
              (setf (cl-jobpond::job-pool--monitor-thread (task-orchestrator-pool orchestrator))
@@ -2202,13 +2181,15 @@ exactly that race."
               (and (null parent-accepted-p)
                    (equal descendants (list descendant-id)))
               "cancelling a terminal parent still cancels its live descendants"))
+           (test-assert (nth-value 1 (task-job-await descendant 5))
+                        "the cancelled descendant finishes terminal publication")
            (test-assert
             (and (eq (job-state parent) :completed)
                  (eq (job-state descendant) :aborted)
                  (eq (job-state unrelated) :queued)
                  (null (job-cancellation-reason unrelated)))
             "terminal-parent cancellation preserves parent and unrelated states")
-           (let ((event-count (length events))
+           (let ((event-count (with-lock-held (event-lock) (length events)))
                  (terminal-count
                    (length (cl-jobpond::job-pool--terminal-identifiers
                             (task-orchestrator-pool orchestrator)))))
@@ -2217,7 +2198,7 @@ exactly that race."
                (test-assert
                 (and (null parent-accepted-p)
                      (null descendants)
-                     (= (length events) event-count)
+                     (= (with-lock-held (event-lock) (length events)) event-count)
                      (= (length
                          (cl-jobpond::job-pool--terminal-identifiers (task-orchestrator-pool orchestrator)))
                         terminal-count))
@@ -2383,8 +2364,6 @@ exactly that race."
                                    :context nil
                                    :async   t)
                              :detached   t)))))
-             ;; Capacity is filled with children no worker will ever pick up, so
-             ;; the bound is measured rather than raced against jobs finishing.
              (dotimes (index *task-maximum-live-jobs*)
                (task-tests--register-job
                 orchestrator primary definition
@@ -2630,6 +2609,9 @@ exactly that race."
             :name         "usage-child"
             :description  "Exercise child usage accounting."
             :instructions "Report usage independently."
+            :models       (list (if (string= (config :model configuration) "gpt-5.6-luna")
+                                    "@slow"
+                                    "@smol"))
             :source       ':test))
          (primary       (task-tests--primary-agent configuration "usage-primary"))
          (direct        nil)
@@ -2668,6 +2650,39 @@ exactly that race."
              (let* ((expected
                       (usage :input 10 :output 6 :cached 3 :created 1))
                     (failed (task--failed-result direct ':failed "provider failed")))
+                (let ((model (config :model
+                                     (task-configuration-for-definition
+                                      configuration definition))))
+                  (test-assert
+                   (and (string/= model (config :model configuration))
+                        (string= model (getf failed :model))
+                        (string= (getf failed :id) (job-identifier direct))
+                        (string= (getf failed :assignment)
+                                 (getf (task-job-item direct) :task))
+                        (not (minusp (getf failed :duration-ms)))
+                        (= 2 (getf failed :request-count)))
+                   "failed results retain the attempted child's model, identity and accounting")
+                  (dolist (state '(:failed :aborted :cancelled))
+                    (let ((result (task--failed-result direct state "Stopped")))
+                      (test-assert
+                       (and (eq state (getf result :status))
+                            (string= model (getf result :model))
+                            (equal expected (getf result :usage))
+                            (null (getf result :yielded-p))
+                            (null (getf result :structured-output-present-p)))
+                       "failure and cancellation share execution metadata and accounting")))
+                  (let* ((empty      (task-tests--register-job
+                                      orchestrator primary definition :name "no-result"))
+                         (identifier (job-identifier empty))
+                         (assignment (getf (task-job-item empty) :task)))
+                    (task-tests--publish-terminal empty ':failed nil :report "No result")
+                    (let ((result (getf (task-job-snapshot empty) :result)))
+                      (test-assert
+                       (and (string= model (getf result :model))
+                            (string= identifier (getf result :id))
+                            (string= assignment (getf result :assignment))
+                            (eq ':failed (getf result :status)))
+                       "terminal publication attributes an absent result to the attempted child"))))
                (test-assert
                 (and (equal (getf (task-progress-snapshot direct) :usage)
                             expected)
@@ -3182,4 +3197,135 @@ exactly that race."
       (if previous-runtime
           (platform-setenv "AUTOLITH_TASK_MAX_RUNTIME_MS" previous-runtime)
           (platform-unsetenv "AUTOLITH_TASK_MAX_RUNTIME_MS"))))
+  nil)
+
+(-> test-task-cancellation-cleanup-ownership () null)
+(defun test-task-cancellation-cleanup-ownership ()
+  "Notify execution descendants before queued publication and retain slow cleanup."
+  (with-test-configuration (configuration)
+    (let* ((orchestrator             (task-tests--orchestrator))
+           (primary                  (task-tests--primary-agent configuration "cleanup-primary"))
+           (definition               (task-agent-definition-create
+                                      :name "cleanup" :description "Cleanup test."
+                                      :instructions "Wait." :source ':test))
+           (parent                   (task-tests--register-job orchestrator primary definition :name "cleanup-parent"))
+           (viewer                   (task-tests--child-viewer configuration parent))
+           (queued                   (task-tests--register-job orchestrator viewer definition :name "cleanup-queued"))
+           (lock                     (make-lock "native cleanup test"))
+           (release-p                nil)
+           (release-readers-p        nil)
+           (native-owner             (make-thread
+                                      (lambda ()
+                                        (loop until (with-lock-held (lock) release-p) do (sleep 0.01))
+                                        t)
+                                      :name "test native cleanup owner"))
+           (reader                   (make-thread
+                                      (lambda ()
+                                        (loop until (with-lock-held (lock) release-readers-p) do (sleep 0.01))
+                                        t)
+                                      :name "test capture cleanup owner"))
+           (execution                nil)
+           (publication-observations nil)
+           (publication-condition    (make-condition-variable))
+           (release-publication-p    nil)
+           (prune-count              0)
+           (retry-count              0)
+           (terminal-function        (symbol-function 'task-job--terminal-record)))
+      (unwind-protect
+           (progn
+             (setf execution
+                   (task-orchestrator-start-execution-job
+                    orchestrator viewer :tool-name "shell.run" :summary "cleanup test"
+                    :operation-function
+                    (lambda ()
+                      (tool-execution-job-await-native-cleanup
+                       *tool-execution-current-job*
+                       (make-condition
+                        'cl-exec-sandbox:sandbox-process-cleanup-error
+                        :message "Controlled cleanup deadline." :command '("test")
+                        :process nil :alive-p t :termination-timeout 0.01
+                        :cleanup-thread nil :cleanup-readers (list reader)
+                        :cleanup-retry (lambda ()
+                                         (incf retry-count)
+                                         (if (= retry-count 1)
+                                             (error "Controlled thread creation failure.")
+                                             native-owner))))
+                      (tool-failure "cleanup completed"))))
+             (test-assert
+              (task-tests--wait-until
+               (lambda () (getf (session-job-snapshot execution) :cleanup)) 2)
+              "native cleanup transfers to the visible execution")
+             (test-call-with-function-replacements
+              (list
+               (list 'task--prune-result-artifacts
+                     (lambda (&rest arguments)
+                       (declare (ignore arguments))
+                       (incf prune-count)))
+               (list 'task-job--terminal-record
+                     (lambda (job &rest arguments)
+                       (with-lock-held (lock)
+                         (push (job-cancellation-requested-p execution) publication-observations)
+                         (task--condition-broadcast publication-condition)
+                         (loop until release-publication-p
+                               do (condition-wait publication-condition lock)))
+                       (apply terminal-function job arguments))))
+              (lambda ()
+                (unwind-protect
+                     (progn
+                       (task-job-cancel parent ':test-cancel)
+                       (with-lock-held (lock)
+                         (loop until publication-observations
+                               unless (condition-wait publication-condition lock :timeout 2)
+                                 do (error "Timed out waiting for queued publication."))
+                         (test-assert
+                          (and (not (job-terminal-p parent))
+                               (not (job-terminal-p queued))
+                               (job-cancellation-requested-p parent)
+                               (job-cancellation-requested-p queued)
+                               (every #'identity publication-observations))
+                          "cancellation returns with both pools marked while publication is blocked")))
+                  (with-lock-held (lock)
+                    (setf release-publication-p t)
+                    (task--condition-broadcast publication-condition)))
+                (test-assert
+                 (and (nth-value 1 (job-await parent :timeout-seconds 2))
+                      (nth-value 1 (job-await queued :timeout-seconds 2))
+                      (= (length publication-observations) 2)
+                      (every #'identity publication-observations))
+                 "both pools receive cancellation before every queued task publication")))
+             (test-assert (zerop prune-count)
+                          "terminal artifact publication performs no retention sweep")
+             (let* ((*task-descendant-cleanup-timeout-seconds* 0.03)
+                    (started                                   (get-internal-real-time)))
+               (task-job-cancel-execution-descendants parent ':test-cancel)
+               (test-assert (< (/ (- (get-internal-real-time) started)
+                                  internal-time-units-per-second) 1)
+                            "one descendant cleanup budget bounds the parent wait"))
+             (test-assert
+              (and (eq (job-state execution) ':running)
+                   (equal (getf (session-job-native-record
+                                 parent (session-job-snapshot parent) primary)
+                                :cleanup-descendants)
+                          (list (session-job-identifier execution)))
+                   (equal (getf (getf (session-job-native-record
+                                       execution (session-job-snapshot execution) primary)
+                                      :cleanup)
+                                :owner)
+                          (session-job-identifier execution)))
+              "the terminal parent exposes its live execution cleanup owner")
+             (with-lock-held (lock) (setf release-p t))
+             (join-thread native-owner)
+             (test-assert (not (nth-value 1 (job-await execution :timeout-seconds 0.03)))
+                          "finishing process reaping does not abandon unfinished capture readers")
+             (with-lock-held (lock) (setf release-readers-p t))
+             (multiple-value-bind (snapshot terminal-p) (job-await execution :timeout-seconds 2)
+               (test-assert
+                (and terminal-p (eq (getf snapshot :state) ':aborted)
+                     (null (getf (session-job-snapshot execution) :cleanup))
+                     (>= retry-count 2))
+                "cleanup retries keep ownership until process and readers finish")))
+        (with-lock-held (lock) (setf release-p t release-readers-p t))
+        (join-thread native-owner)
+        (join-thread reader)
+        (task-orchestrator-close orchestrator))))
   nil)

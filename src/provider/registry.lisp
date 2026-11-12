@@ -2,14 +2,15 @@
 
 ;;;; -- Provider Registry --
 
-;;; Provider registrations, their source layers, model discovery and the model
-;;; cache live in cl-llm-provider-api/registry. Autolith owns one registry, the
-;;; extension source a load binds, the private cache file, the configuration
-;;; condition protocol, and the legacy model tables kept in step with it.
-
 (defparameter *provider-registration-sources*
   '(:builtin :site :user :runtime)
   "The provider registration sources ordered from lowest to highest precedence.")
+
+(defparameter *provider-cache-selection-hint-p* nil
+  "Allow the pre-0.68.0 OpenCode selection hint only while loading startup metadata.")
+
+(defvar *provider-cache-selection-hint-model* nil
+  "The transient discovered model to retire after catalog installation, until 0.68.0.")
 
 (defvar *provider-registry*
   (provider-registry-create
@@ -17,19 +18,21 @@
    :default-context-window    *default-context-window*
    :default-reasoning-efforts *supported-reasoning-efforts*
    :cache-read-function       (lambda (configuration)
-                                (provider--read-model-cache configuration))
+                                 (provider--cache-with-selection-hint
+                                  configuration (provider--read-model-cache configuration)))
    :cache-write-function      (lambda (configuration form)
                                 (provider--write-model-cache configuration form))
    :change-function           (lambda (registry)
                                 (declare (ignore registry))
                                 (provider--refresh-model-settings)))
-  "Every provider registration layer of this image and its model metadata.")
+  "This image's provider registry and model metadata.")
 
 (setf *provider-registry-error-class* 'provider-registry-configuration-error)
 
 (defparameter *provider-name-aliases*
   '(("codex" . "chatgpt")
-    ("openai" . "chatgpt"))
+    ("openai" . "chatgpt")
+    ("opencode" . "opencode-go"))
   "Legacy provider names mapped to registered provider names.")
 
 
@@ -61,10 +64,11 @@ return a MODEL-PROVIDER. MODEL-DISCOVERY, when supplied, receives CONFIGURATION
 and returns model strings or metadata property lists. The optional endpoint
 resolver returns the current model-discovery cache identity. AUTHENTICATOR, when
 supplied, receives the provider and the keyword arguments STREAM and
-OPEN-BROWSER-P. Site, user, and live runtime registrations replace only the
-same source and shadow lower-precedence registrations with the same name."
+OPEN-BROWSER-P. Site, user, and runtime registrations replace only registrations
+with the same name and source. Registrations with that name from lower-precedence
+sources are shadowed."
   (provider-registry-register
-   *provider-registry* name
+   *provider-registry* (provider--canonical-name name)
    :description                       description
    :family                            family
    :models                            models
@@ -80,7 +84,7 @@ same source and shadow lower-precedence registrations with the same name."
 (-> unregister-provider (string &key (:source (option keyword))) boolean)
 (defun unregister-provider (name &key (source (provider--current-registration-source)))
   "Remove NAME from one provider registration SOURCE layer."
-  (provider-registry-unregister *provider-registry* name :source source))
+  (provider-registry-unregister *provider-registry* (provider--canonical-name name) :source source))
 
 (-> provider--current-registration-source () keyword)
 (defun provider--current-registration-source ()
@@ -104,6 +108,9 @@ same source and shadow lower-precedence registrations with the same name."
   ;; The catalog structure is defined after this file, so its reader is not inlined.
   (declare (notinline model-catalog-providers))
   (provider-registry-load-model-cache *provider-registry* configuration)
+  (when (eq *provider-cache-selection-hint-p* ':generated)
+    (setf *provider-cache-selection-hint-model*
+          (provider-model-for (config :model configuration) :provider "opencode-go")))
   (let ((catalog (provider-catalog-load configuration)))
     (when (model-catalog-providers catalog)
       (dolist (registration (provider-registrations))
@@ -162,7 +169,8 @@ registrations use models.dev when mapped. Failures retain the last successful li
 When REFRESH-P is true, also perform the explicit synchronous discovery operation.
 The default startup path never performs remote model discovery. Launch overrides
 are normalized after executable init and cache loading establish their provider."
-  (provider-load-model-cache configuration)
+  (let ((*provider-cache-selection-hint-p* t))
+    (provider-load-model-cache configuration))
   (when refresh-p
     (provider-refresh-models configuration))
   (when (config :model-selection-override-p configuration)
@@ -171,22 +179,172 @@ are normalized after executable init and cache loading establish their provider.
                               :model                 (config :model configuration)
                               :model-provider        (config :model-provider configuration)
                               :provider-validation-p nil)))
-  (configuration-validate-deferred configuration))
+  (let ((saved-model     (config :model configuration))
+        (saved-provider  (config :model-provider configuration))
+        (model-source    (configuration-setting-source configuration :model))
+        (provider-source (configuration-setting-source configuration :model-provider)))
+    ;; Reconcile the whole saved pair before dropping a model to its default:
+    ;; a registered saved provider need not serve that default either.
+    (when (and (eq provider-source ':durable)
+               (member model-source '(nil :durable))
+               (non-empty-string-p saved-provider)
+               (configuration--model-problem saved-model configuration))
+      (configuration-unset configuration :model-provider))
+    (configuration-validate-deferred configuration)
+    ;; Dropping a durable model exposes its default without validating that
+    ;; default against an explicit provider. Reject an unusable final pair.
+    (setting-validate (configuration-setting configuration :model)
+                      (config :model configuration) configuration)
+    (when (or (and (eq model-source ':durable)
+                   (not (equal saved-model (config :model configuration))))
+              (and (eq provider-source ':durable)
+                   (not (equal saved-provider (config :model-provider configuration)))))
+      (setf (config :saved-model-selection-notice configuration)
+            (format nil "Saved model selection ~A~A is no longer available; using ~A."
+                    (if (non-empty-string-p saved-provider)
+                        (concatenate 'string saved-provider "/") "")
+                    saved-model (config :model configuration))))
+    configuration))
+
+(-> provider--cache-with-selection-hint (configuration t) t)
+(defun provider--cache-with-selection-hint (configuration form)
+  "Restore a saved OpenCode Go selection from the old mixed-tier cache at startup.
+
+Do not copy metadata or write the added entry to disk. The added model has no
+specified context window and is replaced after fresh discovery. Remove this
+compatibility path at 0.68.0."
+  (let* ((registration (provider-registration-find "opencode-go"))
+         (model        (config :model configuration))
+         (provider     (config :model-provider configuration)))
+    (if (and *provider-cache-selection-hint-p*
+             (not (config :model-selection-override-p configuration))
+             (eq (configuration-setting-source configuration :model) ':durable)
+             (member (configuration-setting-source configuration :model-provider) '(nil :durable))
+             (or (not (non-empty-string-p provider))
+                 (equal (provider--canonical-name provider) "opencode-go"))
+             (uiop:string-prefix-p "opencode/" model)
+             registration
+             (eq (provider-registration-source registration) ':builtin)
+             (null (provider-registration-models registration))
+             (consp form) (eq (first form) ':provider-model-cache)
+             (eql (getf (rest form) :version) 3)
+             (let* ((entries  (getf (rest form) :providers))
+                    (endpoint (funcall (provider-registration-model-discovery-endpoint-resolver
+                                        registration))))
+               (and (not (find-if (lambda (entry)
+                                    (and (equal (getf entry :provider-name) "opencode-go")
+                                         (equal (getf entry :discovery-endpoint) endpoint)))
+                                  entries))
+                    (some (lambda (entry)
+                            (and (equal (getf entry :provider-name) "opencode")
+                                 (find model (getf entry :models)
+                                       :key (lambda (spec) (getf spec :name)) :test #'equal)))
+                          entries))))
+        (progn
+          (setf *provider-cache-selection-hint-p* ':generated)
+          (list :provider-model-cache :version 3
+                :providers            (cons (list :provider-name "opencode-go"
+                                                  :discovery-endpoint
+                                                  (funcall (provider-registration-model-discovery-endpoint-resolver
+                                                            registration))
+                                                  :models        (list (list :name model)))
+                                            (getf (rest form) :providers))))
+        form)))
+
+(-> provider--model-cache-store (configuration) sexp-store:snapshot-store)
+(defun provider--model-cache-store (configuration)
+  "Return the transactional cache store shared by refresh and upgrade publication."
+  (let ((pathname (configuration-provider-model-cache-path configuration)))
+    (make-instance 'sexp-store:snapshot-store
+                   :pathname           pathname
+                   :lock-pathname      (make-pathname :type "lock" :defaults pathname)
+                   :initial-state      #'list
+                   :validator          #'listp
+                   :decoder            #'identity
+                   :encoder            #'identity
+                   :recover-read-error (constantly nil))))
 
 (-> provider--read-model-cache (configuration) t)
 (defun provider--read-model-cache (configuration)
-  "Return the model cache form in CONFIGURATION's private cache file, or NIL."
-  (let ((pathname (configuration-provider-model-cache-path configuration)))
-    (and (probe-file pathname)
-         (read-portable-form pathname))))
+  "Move legacy metadata once, then read only the cache-root copy.
+
+Delete the source only after atomic publication, while both writer locks are
+held. Use an existing target, even when retrying interrupted source cleanup.
+If publication fails, use legacy metadata offline. Remove this branch at 0.68.0."
+  (block nil
+    (let ((target (configuration-provider-model-cache-path configuration))
+          (legacy (merge-pathnames "provider-models.sexp" (config :state-root configuration))))
+      (flet ((target-present-p ()
+               (handler-case (probe-file target)
+                 (file-error () nil))))
+        (when (and (probe-file legacy)
+                   (not (or (uiop:pathname-equal target legacy)
+                            (handler-case
+                                (and (target-present-p)
+                                     (uiop:pathname-equal (platform-truename *platform* target)
+                                                          (platform-truename *platform* legacy)))
+                              (file-error () nil)))))
+          (handler-case
+              (progn
+                (configuration-ensure-root-directory configuration ':cache-root)
+                (call-with-file-lock
+                 (make-pathname :type "lock" :defaults legacy)
+                 (lambda ()
+                   (when (probe-file legacy)
+                     (sexp-store:store-transact
+                      (provider--model-cache-store configuration)
+                      (lambda (current)
+                        (if (target-present-p)
+                            (values current nil nil)
+                            (let ((form (read-portable-form legacy)))
+                              (values form nil t))))
+                      :publish (lambda (committed)
+                                 (declare (ignore committed))
+                                 (delete-file legacy)))))))
+            (error (cause)
+              (warn 'provider-model-cache-migration-warning :source legacy :target target :cause cause)
+              (unless (target-present-p)
+                (return
+                  (handler-case (read-portable-form legacy)
+                    ((or sexp-store:store-error file-error) (condition)
+                      ;; Publication may have consumed the source before it opened.
+                      (cond
+                        ((target-present-p)
+                         (read-portable-form target))
+                        ((probe-file legacy)
+                         (error condition))
+                        (t
+                         nil)))))))))
+        (when (target-present-p)
+          (read-portable-form target))))))
 
 (-> provider--write-model-cache (configuration list) null)
 (defun provider--write-model-cache (configuration form)
   "Atomically replace CONFIGURATION's private model cache file with FORM."
-  (let ((pathname (configuration-provider-model-cache-path configuration)))
-    (ensure-directories-exist pathname)
-    (snapshot-write pathname form :mode #o600))
+  (configuration-ensure-root-directory configuration ':cache-root)
+  (sexp-store:store-transact
+   (provider--model-cache-store configuration)
+   (lambda (current)
+     (declare (ignore current))
+     (values form nil t)))
   nil)
+
+(define-condition provider-model-cache-migration-warning (warning)
+  ((source :initarg       :source
+           :reader        provider-model-cache-migration-warning-source
+           :documentation "The legacy model cache pathname to remove after publication.")
+   (target :initarg       :target
+           :reader        provider-model-cache-migration-warning-target
+           :documentation "The desired XDG cache pathname.")
+   (cause  :initarg       :cause
+           :reader        provider-model-cache-migration-warning-cause
+           :documentation "The condition that prevented publication or source cleanup."))
+  (:documentation "Provider cache migration is incomplete and will be retried.")
+  (:report (lambda (condition stream)
+             (format stream "Could not finish migrating model cache from ~A to ~A: ~A. Migration will be retried."
+                     (provider-model-cache-migration-warning-source condition)
+                     (provider-model-cache-migration-warning-target condition)
+                     (provider-model-cache-migration-warning-cause condition)))))
 
 
 ;;;; -- Effective Registry Views --
@@ -199,7 +357,7 @@ are normalized after executable init and cache loading establish their provider.
 (-> provider-registration-find (string) (option provider-registration))
 (defun provider-registration-find (name)
   "Return the effective provider registration named NAME."
-  (provider-registry-find *provider-registry* name))
+  (provider-registry-find *provider-registry* (provider--canonical-name name)))
 
 (-> provider--selection-error
     (string (option string) &key (:reason keyword) (:message string)) nil)
@@ -367,13 +525,13 @@ contradictory provider prefixes still signal their selection errors."
 
 (-> provider-model-context-window-for (string &key (:provider (option string))) (option integer))
 (defun provider-model-context-window-for (model &key provider)
-  "Return MODEL's metadata from the selected provider."
+  "Return MODEL's context window from the selected provider."
   (let ((metadata (provider-model-for model :provider provider)))
     (and metadata (provider-model-context-window metadata))))
 
 (-> provider-model-reasoning-efforts-for (string &key (:provider (option string))) (option list))
 (defun provider-model-reasoning-efforts-for (model &key provider)
-  "Return MODEL's metadata from the selected provider."
+  "Return MODEL's reasoning efforts from the selected provider."
   (let ((metadata (provider-model-for model :provider provider)))
     (and metadata (copy-list (provider-model-reasoning-efforts metadata)))))
 

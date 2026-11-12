@@ -237,6 +237,19 @@ the terminal wraps the semantic spans for both inline and fullscreen tips."
               "Installed through Nix. Update the flake or profile that provides Autolith."
               "Choose whether to install it before continuing.")))))))
 
+(-> application-present-generation-health-warning (application) boolean)
+(defun application-present-generation-health-warning (application)
+  "Present a retained-generation health warning during ordinary startup."
+  (let* ((configuration (application-configuration application))
+         (warning       (generation-health-warning
+                         (generation-health-summary configuration))))
+    (when warning
+      (application-present
+       application
+       (list (terminal-span ':failure
+                            (format nil "· checkpoint warning: ~A~%" warning))))
+      t)))
+
 (-> application--update-choice-items () list)
 (defun application--update-choice-items ()
   "Return the explicit user choices for a packaged release update."
@@ -249,14 +262,18 @@ the terminal wraps the semantic spans for both inline and fullscreen tips."
 
 (-> application--offer-startup-update (application) null)
 (defun application--offer-startup-update (application)
-  "Offer an attended update for APPLICATION's validated packaged release."
-  (let ((availability (application-update-availability application)))
+  "Offer APPLICATION's cached release only through an interactive terminal."
+  ;; Startup offers precede installation of the input controller.
+  (let ((availability (application-update-availability application))
+        (ui           (application-ui application)))
     (when (and availability
-               (eq (update-availability-method availability) ':release))
+               (eq (update-availability-method availability) ':release)
+               ui
+               (terminal-interactive-p (terminal-ui-terminal ui)))
       (let* ((tag (update-availability-tag availability))
              (choice
                (terminal-ui-select
-                (application-ui application)
+                ui
                 :title           (format nil "Autolith ~A is available" (subseq tag 1))
                 :items           (application--update-choice-items)
                 :resize-callback #'application-pending-terminal-size)))
@@ -340,7 +357,7 @@ closes. Both carry the same styling, rendered for the terminal that shows it."
   "Return ordered controller work for command-line and recovery startup behavior."
   (cond
     (initial-command
-     (list (list (if (terminal-ui--lisp-draft-p initial-command)
+     (list (list (if (input-lisp-p initial-command)
                      ':lisp
                      ':command)
                  initial-command)))
@@ -477,6 +494,8 @@ closes. Both carry the same styling, rendered for the terminal that shows it."
                     (application-mission-schedules-recover application :startup-p t)
                     (application-peer-messages-recover application)
                     (application-recovery-input-vault-present-startup-warning
+                     application)
+                    (application-present-generation-health-warning
                      application)
                     (localgroup-start application)
                     (application-startup-presentation
@@ -1491,6 +1510,7 @@ autolith uninstall removes the installation and keeps user data."
                        (main--update-command)
                        (main--uninstall-command)
                        (main--data-command)
+                       (main--usage-command)
                        (main--run-job-command)
                        (main-localgroup-command))
    :handler

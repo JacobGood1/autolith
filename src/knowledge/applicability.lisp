@@ -2,12 +2,6 @@
 
 ;;;; -- Evidence Applicability --
 
-;;; Evidence is an immutable record of what was observed; whether it still
-;;; applies is decided now. File evidence requires the observed content digest,
-;;; including when it quotes a passage: surrounding edits may change its meaning.
-;;; Web pages and tool output expire without background retrieval. A user's
-;;; statement and a recorded run stay as they were.
-
 (defparameter *knowledge-url-lifetime* (* 7 86400)
   "Seconds a web observation supports claims before it expires.")
 
@@ -21,7 +15,7 @@ Replays and fixtures bind it to evaluate expiry deterministically.")
 
 (-> knowledge-now () timestamp)
 (defun knowledge-now ()
-  "Return the current time as knowledge sees it."
+  "Return the current time from *KNOWLEDGE-CLOCK*."
   (funcall *knowledge-clock*))
 
 (deftype knowledge-applicability ()
@@ -40,11 +34,12 @@ Replays and fixtures bind it to evaluate expiry deterministically.")
     :reader        evidence-check-memories
     :type          hash-table
     :documentation "Active prose memories by identifier, for memory evidence.")
-   (files
-    :initform      (make-hash-table :test #'equal)
-    :reader        evidence-check-files
-    :type          hash-table
-    :documentation "Each cited file's (TEXT FAILURE STATUS-KEY), read at most once per check.")
+   (sources
+    :initarg       :sources
+    :initform      (source-observation-context-create)
+    :reader        evidence-check-sources
+    :type          source-observation-context
+    :documentation "The bounded observations shared with prose assessment in this pass.")
    (results
     :initform      (make-hash-table :test #'equal)
     :reader        evidence-check-results
@@ -84,62 +79,43 @@ Replays and fixtures bind it to evaluate expiry deterministically.")
 
 ;;;; -- Checking --
 
-(-> evidence-check-create (&key (:now timestamp) (:memories list)) evidence-check)
-(defun evidence-check-create (&key (now (knowledge-now)) memories)
-  "Return a check at NOW that resolves memory evidence against MEMORIES."
+(-> evidence-check-create
+    (&key (:now timestamp) (:memories list) (:sources source-observation-context)) evidence-check)
+(defun evidence-check-create (&key (now (knowledge-now)) memories
+                                   (sources (source-observation-context-create)))
+  "Return a check at NOW resolving MEMORIES and sharing file observations in SOURCES."
   (let ((table (make-hash-table :test #'equal)))
     (dolist (memory memories)
       (setf (gethash (memory-identifier memory) table) memory))
-    (make-instance 'evidence-check :now now :memories table)))
+    (make-instance 'evidence-check :now now :memories table :sources sources)))
 
 (-> knowledge-file-status-key (pathname) t)
 (defun knowledge-file-status-key (pathname)
   "Return a value that changes whenever the file at PATHNAME changes, or :MISSING."
-  (let ((status (handler-case
-                    (platform-path-status *platform* pathname :follow-links-p t)
-                  (platform-error ()
-                    nil))))
-    (if status
-        (list (platform-file-status-identity status)
-              (platform-file-status-size status)
-              (platform-file-status-modification-time status)
-              (platform-file-status-change-time status))
-        ':missing)))
-
-(-> evidence-check--file (evidence-check pathname) (values (option string) (option keyword)))
-(defun evidence-check--file (check pathname)
-  "Return PATHNAME's text and read failure, reading it at most once per CHECK.
-
-The file's status is taken before reading, so a later change to the file is
-never mistaken for the content that was read."
-  (let* ((key   (namestring pathname))
-         (entry (or (gethash key (evidence-check-files check))
-                    (setf (gethash key (evidence-check-files check))
-                          (let ((status (knowledge-file-status-key pathname)))
-                            (multiple-value-bind (text failure) (memory-source-read-file pathname)
-                              (list text failure status)))))))
-    (values (first entry) (second entry))))
+  (source-observation-file-status pathname))
 
 (-> evidence-check--file-source
     (evidence-check list &key (:workspace (option string)) (:digest (option string)))
     (values keyword (option keyword)))
 (defun evidence-check--file-source (check source &key workspace digest)
   "Return whether file SOURCE still has the observed DIGEST and quoted passage."
-  (let ((pathname (memory-source-file-pathname source workspace)))
-    (multiple-value-bind (text failure) (evidence-check--file check pathname)
-      (let ((quote (getf (rest source) :quote)))
-        (cond
-          ((and text (null digest))
-           (values ':unverified ':missing-digest))
-          ((and text (equal (memory-source-text-digest text) digest)
-                (or (null quote) (memory-source-quote-found-p quote text)))
-           (values ':current nil))
-          (text
-           (values ':changed ':changed))
-          ((eq failure ':missing)
-           (values ':missing ':missing))
-          (t
-           (values ':unverified failure)))))))
+  (let* ((pathname (memory-source-file-pathname source workspace))
+         (entry    (source-observation-context-file (evidence-check-sources check) pathname))
+         (text     (source-observation-text entry))
+         (failure  (source-observation-failure entry)))
+    (let ((quote (getf (rest source) :quote)))
+      (cond
+        ((and text (null digest))
+         (values ':unverified ':missing-digest))
+        ((and text (equal (source-observation-digest entry) digest)
+              (or (null quote) (memory-source-quote-found-p quote text)))
+         (values ':current nil))
+        (text
+         (values ':changed ':changed))
+        ((eq failure ':missing)
+         (values ':missing ':missing))
+        (t
+         (values ':unverified failure))))))
 
 (-> evidence-check-evidence (evidence-check list) (values keyword (option keyword)))
 (defun evidence-check-evidence (check evidence)
@@ -201,10 +177,10 @@ the read failure of an unverified file."
     (pathname &key (:quote (option string)) (:workspace (option string)) (:time timestamp))
     list)
 (defun knowledge-observe-file (pathname &key quote workspace (time (knowledge-now)))
-  "Return evidence that file PATHNAME contains QUOTE, or its whole current text.
+  "Return evidence for file PATHNAME, requiring QUOTE when supplied.
 
-A file inside WORKSPACE is recorded relative to it. Signal MEMORY-ERROR
-correctively when the file cannot support anything."
+Record files inside WORKSPACE using relative paths. Signal MEMORY-ERROR with
+a corrective message if no evidence can be obtained."
   (let* ((observed (memory-source-observe-file pathname :quote quote :time time))
          (relative (and workspace
                         (uiop:subpathp pathname (uiop:ensure-directory-pathname workspace)))))

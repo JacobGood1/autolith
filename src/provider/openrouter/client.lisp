@@ -65,7 +65,7 @@
 
 (-> openrouter--fetch-models (configuration) list)
 (defun openrouter--fetch-models (configuration)
-  "Discover and namespace OpenRouter text models with tools and reasoning."
+  "Discover OpenRouter text models with tool support in the openrouter/ namespace."
   (mapcar (lambda (spec)
             (model-spec-rename
              spec
@@ -90,7 +90,11 @@
 
 (defmethod provider-prompt-cache-retention-estimate
     ((provider openrouter-chat-completions-provider))
-  "Estimate OpenRouter Claude cache lifetime from the requested TTL only."
+  "Return the OpenRouter Claude cache lifetime used to schedule idle compaction."
+  (provider-prompt-cache-lifetime provider))
+
+(defmethod provider-prompt-cache-lifetime ((provider openrouter-chat-completions-provider))
+  "Return the declared wire lifetime for OpenRouter Claude, or NIL for other routes."
   (let ((configuration (provider-configuration provider))
         (model         (config :model (provider-configuration provider))))
     (when (and (stringp model)

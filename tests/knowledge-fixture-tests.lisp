@@ -2,12 +2,6 @@
 
 ;;;; -- Structured Knowledge Fixture Families --
 
-;;; Each family runs ten scenarios in two variants through the same tool
-;;; operations a model uses, against local files and replayed observations,
-;;; with no provider. Expected values are computed independently here, so
-;;; the engine is checked against plain arithmetic, and every scenario
-;;; asserts that it made no provider request.
-
 (defparameter *knowledge-fixture-day* (encode-universal-time 0 0 0 22 10 2026 0)
   "Midnight UTC of the day the fixtures' events take place.")
 
@@ -863,7 +857,8 @@ bytes, heap bytes, and the machine measured on."
                    (/ (- (get-internal-real-time) start)
                       (float internal-time-units-per-second 1d0)))))
           (clrhash *knowledge-base-cache*)
-          (clrhash *knowledge-view-cache*)
+          (with-lock-held (*knowledge-view-cache-lock*)
+            (structlisp:fifo-cache-clear *knowledge-view-cache*))
           (let* ((cold       (seconds (lambda () (knowledge-base-read configuration))))
                  (view       nil)
                  (evaluate   (seconds (lambda () (setf view (knowledge-view-current configuration)))))
@@ -921,7 +916,8 @@ bytes, heap bytes, and the machine measured on."
                              (+ revision 2)))
                      "a write appends to the same log and the read folds only what it added"))
       (let ((*knowledge-match-limit* 100))
-        (clrhash *knowledge-view-cache*)
+        (with-lock-held (*knowledge-view-cache-lock*)
+          (structlisp:fifo-cache-clear *knowledge-view-cache*))
         (let ((view (knowledge-view-current configuration)))
           (test-assert (and (equal (knowledge-view-incomplete view) '("departure"))
                             (= 100 (length (knowledge-view-holds view '("event.departure" "?e" "?t")))))

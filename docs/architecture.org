@@ -2,7 +2,7 @@
 #+STARTUP: content
 
 Autolith is a terminal agent in a live Common Lisp image. The running
-system can be inspected and changed by both the agent, and the user.
+system can be inspected and changed by both the agent and the user.
 
 All application definitions live in the single =autolith= package,
 which may be considered non-standard or unwise by some Common Lisp
@@ -42,9 +42,9 @@ developers, but I consider correct for self-modifiability.
 - *Durable records* live under reasonable XDG folders. This roughly includes
   conversations, memories, agendas, images, and credentials
 - The *recovery image* is a separately built pristine core, which Autolith
-  will reboot into in case the current image is FUBAR. Autolith can work
-  using the recovery image to either fix figure out the issue with your
-  current image, or try to finish your task if that's a priority.
+  will reboot into in case the current image is FUBAR. Autolith can use the
+  recovery image to figure out or fix the issue with your current image, or
+  try to finish your task if that's a priority.
 
 * Configuration layers
 
@@ -85,8 +85,8 @@ terminal prompt          local Lisp result       finalized scrollback
 - =src/agent/runtime.lisp= runs one model turn at a time
 - User input is persisted first before we do anything else
 - Context pressure triggers inline durable compaction
-- Local operations that dont conflict with a turn can run immediately
-- Modal, terminal-owning, authorization-gated etc actions wait for a safe point
+- Local operations that don't conflict with a turn can run immediately
+- Modal, terminal-owning, authorization-gated, and similar actions wait for a safe point
 
 * Library boundaries
 
@@ -147,6 +147,24 @@ Use =sexp-store= transactions for locked read/modify/publish operations. Caller
 state is published after durable records. Conversation sidecar reconstruction
 holds the same file lock as source invalidation and writes.
 
+Regenerable provider metadata uses =CACHE/provider-models.sexp=. Conversation picker,
+search, and input-history payloads use
+=CACHE/conversation-picker/<SHA256 of absolute source directory>/=. Pathname-only
+readers share a narrow source-root/cache-root registration; separate source roots
+receive separate namespaces even when identifiers coincide. Durable context anchors,
+source locks, and source-invalidation revisions retain their DATA paths so old and
+new writers coordinate through the same lock and revision counters.
+
+Before 0.68.0, provider cache loading moves legacy state metadata into CACHE under
+both source and target locks. Existing target metadata wins. After successful
+atomic publication, the source is removed. If publication fails, legacy metadata
+is used offline. After interrupted source removal, cleanup is retried without
+reimporting metadata. At 0.68.0 remove this migration, the preferences migration,
+legacy POSIX root compatibility, configuration-local choice cache and constructor
+bypass, and old conversation payload cleanup helpers; then remove
+=test-legacy-xdg-migration-removal=. The test fails for that version and every
+later version.
+
 | State         | Components                                               |
 |---------------+----------------------------------------------------------|
 | Conversations | headers, messages, provider items, model choices         |
@@ -179,11 +197,13 @@ holds the same file lock as source invalidation and writes.
   repairs before publishing a self-contained checkpoint, then installs the
   replacement projection. =:cutoff-seq= identifies the request snapshot;
   =:through-seq= covers every record before checkpoint publication.
-- =src/conversation/input-history.lisp= maintains complete editable input recall in
-  =conversation-picker/<id>.inputs.sexp=. Missing or invalid indices rebuild from
-  authoritative records once. Each new input appends one indexed sequence;
-  compaction flushes the index before retiring the active segment. Checkpoints
-  carry the last input sequence, not the input strings.
+- =src/conversation/input-history.lisp= maintains complete editable input recall
+  in the CACHE namespace above. Missing or invalid indexes rebuild from
+  authoritative records, including retired segments. Each new input appends one
+  indexed sequence. If cache storage is unavailable, picker and search reads
+  return scans and input recall streams source records. Compaction retains
+  retired source segments without requiring cache publication. Checkpoints carry
+  the last input sequence, not the input strings.
 
 ** Configuration
 
@@ -206,9 +226,13 @@ change), =:session= (forgotten at exit), and =:derived= (computed on read).
 inference frames; listeners stay with the original.
 
 =preferences.lisp= reads and atomically writes version 8 records of durable
-settings, preserving unknown keys across rewrites. Unsupported or malformed
-records are reported through =preferences-load-warning= during configuration
-creation.
+setting choices under the config root, preserving unknown keys across rewrites.
+It moves state-root preferences once, removing the source only after atomic
+publication under both writer locks. Existing config preferences win. If
+publication fails, a warning is issued and the legacy file is used until migration
+succeeds. If source removal fails, cleanup is retried without reimporting old
+values. Remove this compatibility path at 0.68.0. Unsupported or malformed records
+are reported through =preferences-load-warning= during configuration creation.
 
 * Provider and tools
 
@@ -282,6 +306,9 @@ values retain source access state before ordered moves remove their source paths
   child-only temporary/cache environment paths. The release launcher selects the
   bundled native helper outside writable scopes. Both Windows authorization
   modes execute commands through native PowerShell.
+- Task-worktree Git commands request a read-only scope for the existing =git/=
+  subtree of a valid =XDG_CONFIG_HOME=. The platform adapter exposes that scope
+  for the command lifetime without granting access to sibling configuration.
 - Search is one supervised native helper per fff registry.
 - =lisp.*= operations run in named persistent SBCL subprocesses. A pristine
   worker, like the private replay probe, boots the installed active core when
@@ -390,7 +417,7 @@ preferences record; =--fullscreen= overrides it for one launch.
 - Autolith provides semantic styling, candidate policy, terminal mode, and
   emits OSC 133 prompt blocks
 - OSC 133: =A= and =B= precede input, =C= starts execution, =D;STATUS=
-  closes execution. This way you can rely on smarter terminals
+  closes execution.
 - OSC 0: the interactive window title is =autolith - PATH=. Autolith writes
   it at UI start, after localgroup attach, and after =(cwd "PATH")=.
 - OSC 7501: =protocol.lisp= encodes bounded root and job program-status reports;

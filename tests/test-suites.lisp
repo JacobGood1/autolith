@@ -4,6 +4,22 @@
 
 (setf *test-suites* nil)
 
+(define-test-suite usage
+  test-platform-usage
+  test-usage-storage-union
+  test-usage-storage-failures
+  test-usage-storage-root-link
+  test-usage-process-snapshot
+  test-usage-stored-counts
+  test-usage-task-counts
+  test-usage-display-visible-sections
+  test-usage-display-unavailable-is-not-zero
+  test-usage-display-sanitizes-controls-and-fits-width
+  test-usage-display-compact-columns
+  test-usage-display-root-comparisons
+  test-usage-display-styling-gate
+  test-usage-display-command)
+
 (define-test-suite context-admission
   test-context-admission-mission-large-budget
   test-context-admission-mission-wire-ceiling
@@ -14,8 +30,15 @@
   test-context-admission-mission-final-recheck
   test-context-admission-mission-reviewer
   test-context-admission-mission-refusal-settlement
+  test-context-admission-mission-refusal-proof
+  test-context-admission-mission-handoff-reasons
   test-context-admission-boundary
   test-context-admission-fresh-projection
+  test-context-admission-measured-reasoning
+  test-context-admission-measured-request-tails
+  test-context-admission-measured-invalidation
+  test-context-admission-measured-high-usage
+  test-context-admission-measured-resume
   test-context-admission-final-request
   test-context-admission-images
   test-context-admission-checkpoint-transaction)
@@ -25,6 +48,14 @@
   test-cache-review-final-wire)
 
 (define-test-suite compaction-acceptance
+  test-compaction-request-view-isolation
+  test-compaction-summary-mission-ownership
+  test-compaction-summary-mission-failures
+  test-compaction-native-view-mission-ownership
+  test-compaction-final-projection-gap
+  test-compaction-final-admission-trigger
+  test-compaction-mission-admission-trigger
+  test-compaction-admission-recovery-bounds
   test-compaction-summary-acceptance
   test-compaction-native-paid-rejection
   test-compaction-next-request-admission
@@ -236,12 +267,28 @@
   test-shell-log-command-gates)
 
 (define-test-suite mission-schedule
+  test-mission-schedule-paused-and-blocked-baseline
+  test-mission-schedule-suspension-resume
+  test-mission-schedule-suspension-execute-race
+  test-mission-schedule-stale-lifecycle
+  test-mission-schedule-suspension-events-and-recovery
+  test-mission-schedule-unrecognized-status
   test-mission-schedule-missed-and-dedup
   test-mission-schedule-version-and-cancel
   test-mission-schedule-recovery
   test-mission-schedule-events-and-authority
   test-mission-schedule-live-retry-exclusion
   test-mission-schedule-hosted-admission
+  test-mission-schedule-provider-failure-notice
+  test-mission-schedule-typed-outcomes
+  test-mission-schedule-terminal-classification
+  test-mission-schedule-notice-recovery-windows
+  test-mission-schedule-restored-failure-notices
+  test-mission-schedule-notice-conversation-switch
+  test-mission-schedule-non-error-controls
+  test-mission-schedule-pending-exits
+  test-mission-schedule-retry-failure-notices
+  test-mission-schedule-hosted-notice-resolution
   test-mission-schedule-native-wakeup-stale-claim-process
   test-mission-schedule-lisp-restart-policy
   test-vault-edit-accepts-native-lisp)
@@ -267,6 +314,7 @@
   test-lsp-semantic-preconditions
   test-lsp-semantic-stale-and-approval
   test-lsp-semantic-conversation-bounds
+  test-lsp-semantic-proposal-ownership
   test-lsp-semantic-tool-workflow
   test-lsp-semantic-authority-and-validation
   test-lsp-semantic-owned-snapshots
@@ -283,11 +331,13 @@
 
 (define-test-suite task-worktree
   test-task-worktree-options
+  test-task-worktree-xdg-git-configuration
   test-task-worktree-isolation
   test-task-worktree-sandboxed-authorization
   test-task-worktree-artifacts
   test-task-worktree-authority
   test-task-worktree-interruption
+  test-task-worktree-native-cleanup-ownership
   test-task-worktree-conflicts)
 
 (define-test-suite vault-edit
@@ -330,6 +380,7 @@
   test-terminal-style-tables-cover-every-name
   test-terminal-style-sequence-unthemed
   test-terminal-surface-row-background
+   test-terminal-control-z-decodes-as-detach
   test-terminal-pad-spans
   test-fullscreen-boot-geometry
   test-fullscreen-boot-sequence
@@ -374,6 +425,7 @@
   test-onboarding-source-text
   test-onboarding-operation
   test-onboarding-first-startup
+  test-startup-saved-model-selection-notice
   test-onboarding-startup-input
   test-onboarding-startup-exclusions
   test-onboarding-version-selection
@@ -399,6 +451,7 @@
   test-job-cancellation-selected-delivery-presentation
   test-job-cancellation-terminal-replay
   test-job-cancellation-rejected-root-descendants
+  test-job-completion-checkpoint-resume
   test-job-completion-durable-delivery
   test-job-completion-delivery-crash-points
   test-job-completion-terminal-truth-and-reconstruction
@@ -409,6 +462,17 @@
   test-job-completion-headless-owner)
 
 (define-test-suite job-completion-controller
+  test-job-completion-no-resume-reasons
+  test-job-completion-reservation-release
+  test-job-completion-terminal-visibility
+  test-job-completion-terminal-boundaries
+  test-job-completion-terminal-admission-control
+  test-job-completion-terminal-mixed-replay
+  test-job-completion-terminal-admission-race
+  test-job-completion-terminal-coalescing
+  test-job-completion-lightweight-goal-authority
+  test-job-completion-completed-lightweight-wake
+  test-job-completion-lightweight-limit-accounting
   test-job-completion-controller-coalescing
   test-job-completion-controller-continuation-notice
   test-job-completion-controller-ticket-delivery
@@ -534,6 +598,10 @@
 
 (define-test-suite diagnosis
   test-diagnosis-predictions
+  test-diagnosis-display-names
+  test-diagnosis-name-collisions
+  test-diagnosis-missing-probe-budget
+  test-diagnosis-single-fact-hypotheses
   test-diagnosis-remote-service
   test-diagnosis-setting
   test-diagnosis-commands)
@@ -572,7 +640,19 @@
   test-agenda-tools)
 
 (define-test-suite preferences
-  test-preferences)
+  test-preferences
+  test-preferences-unavailable-provider-selection
+  test-preferences-provider-selection-controls
+  test-preferences-mixed-provider-selection
+  test-preferences-provider-selection-restoration
+  test-preferences-provider-aliases
+  test-preferences-xdg-migration
+  test-preferences-xdg-migration-failure
+  test-preferences-xdg-migration-cleanup
+  test-xdg-file-migration-concurrent
+  test-preferences-xdg-fallback-handoff
+  test-preferences-xdg-malformed-legacy
+  test-legacy-xdg-migration-removal)
 
 (define-test-suite prompt-cache
   test-prompt-cache-miss-detection
@@ -681,6 +761,7 @@
   test-mcp-reload-transaction-boundary)
 
 (define-test-suite application-command
+  test-application-goal-continuation-setting
   test-application-grouped-settings
   test-application-command-defining-form
   test-application-command-semantic-calls
@@ -702,14 +783,30 @@
 (define-test-suite project-adaptation
   test-project-adaptations)
 
+(define-test-suite persistent-user-identifiers
+  test-agenda-identifier-references
+  test-papercut-identifier-references
+  test-persisted-user-identifier-collisions
+  test-generation-identifier-references
+  test-mutation-identifier-references)
+
 (define-test-suite conversation-identifier
   test-conversation-identifier-format
+  test-user-identifier-allocation
   test-conversation-identifier-allocation
   test-conversation-identifier-migration
   test-conversation-identifier-migration-validation
-  test-conversation-identifier-migration-resumption)
+  test-conversation-identifier-migration-resumption
+  test-conversation-cache-relocation
+  test-conversation-cache-namespaces
+  test-conversation-cache-old-writer
+  test-conversation-cache-unavailable
+  test-conversation-cache-write-failures)
 
 (define-test-suite precompaction
+  test-precompaction-estimate-alone-keeps-served-output
+  test-precompaction-known-lifetime-expiry
+  test-precompaction-unknown-lifetime-resume
   test-precompaction-retains-failed-exchanges
   test-precompaction-retention-policy
   test-precompaction-cold-requests
@@ -822,6 +919,8 @@
   test-provider-qualified-model-application)
 
 (define-test-suite provider
+  test-provider-exhaustion-boundaries
+  test-provider-transient-event-retries
   test-codex-context-request
   test-codex-reasoning-context
   test-codex-rendered-context-request
@@ -866,6 +965,9 @@
   test-openai-api-responses
   test-openai-compatible-provider-discovery-is-on-demand
   test-openai-compatible-provider-model-cache-boundary
+  test-provider-model-cache-xdg-migration
+  test-provider-model-cache-xdg-cleanup
+  test-provider-model-cache-xdg-fallback-handoff
   test-openai-compatible-provider-authentication-bootstrap
   test-openai-compatible-provider-discovery
   test-openai-compatible-provider-registration-identity
@@ -927,7 +1029,10 @@
   opencode-provider-test--request-model
   opencode-provider-test--session-header
   opencode-provider-test--discovery
-  opencode-provider-test--builtin-registration)
+  opencode-provider-test--startup-upgrade
+  opencode-provider-test--builtin-registration
+  opencode-provider-test--tiers
+  test-provider-catalog-opencode-tiers)
 
 (define-test-suite openrouter-provider
   test-openrouter-provider
@@ -1020,6 +1125,7 @@
   test-checkpoint-backend-selection
   test-checkpoint-source-check-diagnostics
   test-checkpoint-source-precheck-order
+  test-generation-health
   test-generation-manifest
   test-crash-capsule-correlation)
 
@@ -1118,6 +1224,8 @@
   test-agent-compaction
   test-agent-native-compaction
   test-agent-parallel-tool-wave
+  test-agent-tool-wave-cancellation
+  test-agent-tool-wave-retained-cleanup
   test-agent-tool-concurrency-key
   test-agent-exclusive-tool-waves
   test-agent-parallel-tool-failure
@@ -1236,6 +1344,7 @@
   test-task-job-list-pagination
   test-task-refresh-after-delayed-close
   test-task-terminal-cancellation-and-publication
+  test-task-cancellation-cleanup-ownership
   test-task-retention-and-admission
   test-task-evicted-identity-retention
   test-task-live-activity-snapshots
@@ -1348,6 +1457,7 @@
   test-localgroup-kill-exit-observation
   test-localgroup-kill-cli-outcomes
   test-localgroup-session-prefixes
+  test-localgroup-query-keeps-slow-endpoint
   test-localgroup-protocol
   test-localgroup-orphan-reconciliation
   test-localgroup-attachments)
@@ -1372,8 +1482,6 @@
   test-cli-detached-receipt-cleanup
   test-cli-detached-process)
 
-;;; The release scripts and the release server that drives them deploy to
-;;; POSIX hosts, so their suites exist only where the POSIX shell does.
 (when (test-fixture-available-p *platform* ':posix-shell)
   (define-test-suite release-script
     test-build-sandbox-packaged-helpers
@@ -1396,6 +1504,8 @@
     test-release-server))
 
 (define-test-suite application
+  test-provider-exhaustion-presentation
+  test-application-goal-continuation-limits
   test-presentation-configuration-isolation
   test-operation-request-turn
   test-application-transcript-actions
@@ -1416,6 +1526,7 @@
   test-forced-exit-without-durable-conversation
   test-graceful-shutdown-retains-interrupt-escape
   test-active-turn-interrupt-events
+   test-detach-control-event-dispatch
   test-active-turn-cancellation-side-effects
   test-idle-interrupt-exits-without-force-hint
   test-recalled-follow-up-interrupt
@@ -1457,6 +1568,9 @@
   test-streaming-presentation
   test-provider-retry-presentation
   test-turn-cursor-visibility
+  test-goal-interrupted-input-does-not-resume
+  test-goal-deferred-input-ownership
+  test-goal-explicit-resume-yields-to-input
   test-responsive-model-input
   test-responsive-goal-inspection
   test-responsive-command-scheduling
@@ -1483,6 +1597,10 @@
   test-effort-switch
   test-public-goal-actions
   test-session-goal
+  test-goal-queued-input-boundary
+  test-goal-queued-unlimited-clear
+  test-goal-queued-input-fifo-budget
+  test-goal-queued-form-resumes
   test-pending-publication-lock-boundaries
   test-pending-input-persistence)
 
@@ -1549,6 +1667,7 @@
   test-mission-wall-budget
   test-mission-command-and-compaction
   test-mission-queued-child-authority
+  test-mission-inline-parent-cancellation
   test-mission-native-compaction-budget)
 
 (define-test-suite lisp-machine
@@ -1653,7 +1772,12 @@
   test-environment-fixture-evaluation
   test-function-replacement-fixture-restoration
   test-long-symbolic-link-fixture
-  test-platform-copy-file-permissions)
+  test-platform-copy-file-permissions
+  test-xdg-native-directory-roots
+  test-xdg-legacy-backslash-roots
+  test-xdg-configuration-root-choices
+  test-xdg-explicit-roots-bypass-legacy
+  test-xdg-legacy-root-scan)
 
 (define-test-suite test-runner
   test-runner-selection
@@ -1681,6 +1805,7 @@
   test-acp-session-cancel-blocked-provider-and-reuse
   test-acp-session-cwd-mode-and-unsupported-content
   test-acp-session-disconnect-releases-lease
+  test-acp-observer-disconnected-updates
   test-acp-session-live-and-replayed-tool-identities
   test-acp-session-replay-metadata-and-tool-statuses
   test-acp-session-close-timeout-retains-ownership
@@ -1752,3 +1877,58 @@
 (define-test-suite async-lisp-presentation
   test-application-async-lisp-readable-results
   test-application-async-lisp-styled-reports)
+
+(define-test-suite unknown-usage-policy
+  test-mission-unknown-usage-policy-validation
+  test-mission-inference-unknown-usage-policy-settlement
+  test-mission-inference-unknown-usage-policy-limits
+  test-mission-inference-unknown-usage-policy-restore
+  test-mission-inference-unknown-usage-policy-fail-closed
+  test-mission-inference-unknown-usage-policy-review
+  test-job-completion-controller-unknown-usage-policy)
+
+(define-test-suite input-work
+  test-input-work-payload-codec)
+
+(define-test-suite compaction-recovery
+  test-compaction-recovery-image-projection
+  test-compaction-recovery-recent-images
+  test-compaction-recovery-image-text-controls
+  test-compaction-recovery-image-summary-transport
+  test-unsupported-native-permit-controls
+  test-unsupported-native-mission-fallback
+  test-unsupported-native-metadata-handoff
+  test-compaction-recovery-notice-counts
+  test-compaction-recovery-encrypted-history
+  test-compaction-recovery-publication-preserves-tail-families
+  test-compaction-recovery-metadata-permit
+  test-compaction-recovery-unrelated-failure
+  test-compaction-recovery-encrypted-eligibility
+  test-compaction-recovery-tools-and-transcript
+  test-compaction-recovery-mission-accounting
+  test-compaction-recovery-selected-route
+  test-compaction-recovery-exhaustion
+  test-expanded-native-unavailable-negative-controls
+  test-expanded-native-unavailable-representations
+  test-expanded-native-unavailable-ordinary
+  test-expanded-native-unavailable-manual
+  test-expanded-native-unavailable-reactive
+  test-expanded-native-unavailable-schedule
+  test-expanded-native-unavailable-terminal-idle
+  test-expanded-native-unavailable-acp-idle
+  test-expanded-native-no-fit-product-boundaries
+  test-expanded-native-no-fit-acp
+  test-expanded-native-no-fit-acp-prompt
+  test-expanded-native-no-fit-acp-queue
+  test-expanded-native-no-fit-acp-completion
+  test-expanded-native-stream-fixture
+  test-expanded-native-paid-arrival-fixture
+  test-expanded-native-paid-owner-refusals
+  test-expanded-native-terminal-message-owners
+  test-expanded-native-acp-owner-matrix
+  test-expanded-native-idle-owner-matrix
+  test-expanded-native-image-owner-and-reuse
+  test-expanded-native-owner-return-values
+  test-expanded-native-idle-cancellation-refusal
+  test-expanded-native-owner-finalization-errors
+  test-expanded-native-scheduled-controller)

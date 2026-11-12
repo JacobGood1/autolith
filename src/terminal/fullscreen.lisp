@@ -3,9 +3,9 @@
 ;;;; -- Fullscreen Viewport --
 
 (defparameter *fullscreen-transcript-character-limit* 4194304
-  "The most characters of transcript text, display and rows the fullscreen viewport keeps.
+  "The maximum characters of transcript text, display and rows kept in the viewport.
 
-Older output is evicted past it and stays loadable with (history).")
+When output exceeds the limit, older output is evicted and can be loaded with (history).")
 
 (defclass fullscreen-terminal-ui (terminal-ui)
   ((viewport :initform      nil
@@ -31,6 +31,9 @@ Older output is evicted past it and stays loadable with (history).")
    (presentation-records :initform      (make-hash-table :test #'equal)
                          :accessor      fullscreen-terminal-ui-presentation-records
                          :documentation "Resident call spans indexed by chunk, call and job identity.")
+   (pinned-actions :initform      nil
+                   :accessor      fullscreen-terminal-ui-pinned-actions
+                   :documentation "Last frame's pinned widget hit regions in screen cells.")
    (deferred-operations :initform      nil
                         :accessor      fullscreen-terminal-ui-deferred-operations
                         :documentation "Reverse-ordered output and record batches awaiting publication.")
@@ -133,8 +136,8 @@ Older output is evicted past it and stays loadable with (history).")
 (defun terminal-ui-fullscreen-leave (ui)
   "Leave only an owned alternate buffer and restore native state on every exit.
 
-Any epilogue set through TERMINAL-UI-SET-EPILOGUE follows the restore
-sequence, so it lands in the normal screen where it stays readable."
+An epilogue set through TERMINAL-UI-SET-EPILOGUE is written to the normal
+screen after leaving the alternate buffer."
   (unwind-protect
        (terminal-ui--leave-theme ui)
     (when (fullscreen-terminal-ui-active-p ui)
@@ -259,10 +262,9 @@ EVICTED-P adds how to load output older than the viewport keeps."
 (defun terminal-ui-fullscreen--legend-row (ui &key top total space width)
   "Render the legend separating the transcript from the composer.
 
-The position block wears the legend accent, keys the plain legend style, and
-their descriptions the dim legend style. These share the modeline's
-foregrounds without its background, so the legend stays distinct from the
-composer's dim placeholder without reading as a second modeline."
+The position uses the legend accent, keys use the plain style, and descriptions
+use the dim style. The modeline foregrounds are used without its background,
+distinguishing the legend from the placeholder and the modeline."
   (let* ((viewport    (fullscreen-terminal-ui-viewport ui))
          (following-p (clinedi:transcript-viewport-following-p viewport))
          (evicted-p   (and (not following-p)
@@ -289,12 +291,27 @@ composer's dim placeholder without reading as a second modeline."
     (fullscreen-terminal-ui &key (:width integer) (:limit (integer 0)) (:now (option real)))
     list)
 (defun terminal-ui-fullscreen--prompt-prefix (ui &key width limit now)
-  "Bound prompt-adjacent rows to LIMIT, omitting their leading transcript gap."
-  (let* ((rows    (terminal-ui-fullscreen--display-rows
-                   ui (terminal-ui--prompt-prefix-rows ui now) width))
-         (visible (member-if (lambda (row) (plusp (length row))) rows))
-         (count   (min limit (if visible (1+ (length visible)) 0))))
-    (subseq (append visible (when visible (list ""))) 0 count)))
+  "Bound prompt-adjacent rows to LIMIT and retain visible widget hit regions."
+  (let ((rows    nil)
+        (actions nil))
+    (dolist (row (terminal-ui--prompt-prefix-rows ui now))
+      (let ((display (terminal-ui-fullscreen--display-rows ui (list row) width)))
+        (when (and (listp row) (= (length display) 1))
+          (loop for span in row
+                for start = 1 then end
+                for end = (+ start (terminal--spans-width (list span)))
+                when (termdown:widget-p span)
+                  do (push (list (length rows) start end (termdown:widget-action span))
+                           actions)))
+        (setf rows (append rows display))))
+    (let* ((leading (position-if (lambda (row) (plusp (length row))) rows))
+           (visible (and leading (nthcdr leading rows)))
+           (count   (min limit (if visible (1+ (length visible)) 0))))
+      (setf (fullscreen-terminal-ui-pinned-actions ui)
+            (loop for (row start end action) in actions
+                  when (and leading (<= leading row) (< row (+ leading count)))
+                    collect (list (- row leading) start end action)))
+      (subseq (append visible (when visible (list ""))) 0 count))))
 
 (-> terminal-ui-fullscreen--frame (fullscreen-terminal-ui (option real))
     (values list integer integer))
@@ -332,6 +349,8 @@ composer's dim placeholder without reading as a second modeline."
                          collect (if (< index committed)
                                      (clinedi:transcript-viewport-row-display viewport index)
                                      (aref live (- index committed)))))))
+        (dolist (region (fullscreen-terminal-ui-pinned-actions ui))
+          (incf (first region) (+ space (if separator-p 1 0) 1)))
         (values
          (append visible (make-list (max 0 (- space (length visible))) :initial-element "")
                  (when separator-p
@@ -425,17 +444,16 @@ that direction the viewport does not move."
     (fullscreen-terminal-ui integer integer)
     list)
 (defun terminal-ui-fullscreen--click-action (ui column row)
-  "Return the transcript action under one-based screen COLUMN and ROW, or NIL.
-
-A widget region covering the clicked committed character wins, otherwise a
-web URL under it opens. Live rows, the separator, and the composer have no
-actions."
-  (multiple-value-bind (action text index)
-      (clinedi:transcript-viewport-hit (fullscreen-terminal-ui-viewport ui) column row)
-    (when index
-      (or action
-          (let ((url (url-at text index)))
-            (and url (list ':open-url url)))))))
+  "Return the pinned widget or transcript action at one-based COLUMN and ROW."
+  (or (loop for (action-row start end action) in (fullscreen-terminal-ui-pinned-actions ui)
+            when (and (= row action-row) (<= start column) (< column end))
+              return action)
+      (multiple-value-bind (action text index)
+          (clinedi:transcript-viewport-hit (fullscreen-terminal-ui-viewport ui) column row)
+        (when index
+          (or action
+              (let ((url (url-at text index)))
+                (and url (list ':open-url url))))))))
 
 (-> terminal-ui-fullscreen--click (fullscreen-terminal-ui integer integer) boolean)
 (defun terminal-ui-fullscreen--click (ui column row)
